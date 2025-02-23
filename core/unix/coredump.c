@@ -45,6 +45,9 @@
 #include "dr_tools.h"
 #include "elf_defines.h"
 #include "memquery.h"
+#if defined(AARCH64)
+#    include "tls.h"
+#endif
 
 /* Only X64 is supported. */
 #ifndef X64
@@ -65,13 +68,27 @@
  */
 #define NOTE_OWNER "CORE\0\0\0\0"
 #define NOTE_OWNER_LENGTH 8
+
+#if defined(AARCH64)
+/*
+ * Three notes, NT_PRSTATUS (prstatus structure), NT_FPREGSET (floating point registers)
+ * and NT_ARM_TLS (tpidr_el0) are written to the output file.
+ */
+#    define PROGRAM_HEADER_NOTE_LENGTH                                               \
+        (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH +                          \
+         sizeof(struct elf_prstatus) + sizeof(ELF_NOTE_HEADER_TYPE) +                \
+         NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t) + sizeof(ELF_NOTE_HEADER_TYPE) + \
+         NOTE_OWNER_LENGTH + sizeof(reg_t))
+#else
 /*
  * Two notes, NT_PRSTATUS (prstatus structure) and NT_FPREGSET (floating point registers),
  * are written to the output file.
  */
-#define PROGRAM_HEADER_NOTE_LENGTH                                                    \
-    (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(struct elf_prstatus) + \
-     sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t))
+#    define PROGRAM_HEADER_NOTE_LENGTH                                \
+        (sizeof(ELF_NOTE_HEADER_TYPE) + NOTE_OWNER_LENGTH +           \
+         sizeof(struct elf_prstatus) + sizeof(ELF_NOTE_HEADER_TYPE) + \
+         NOTE_OWNER_LENGTH + sizeof(elf_fpregset_t))
+#endif
 
 typedef struct _section_header_info_t {
     app_pc vm_start;
@@ -375,12 +392,37 @@ write_fpregset_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN priv_mcontext_
     return os_write(elf_file, &fpregset, sizeof(fpregset)) == sizeof(fpregset);
 }
 
+#if defined(AARCH64)
+/*
+ * Write aarch64 tpidr_el0 register to the file. This function is only
+ * applicable for aarch64. Returns true if the note is written to
+ * the file, false otherwise.
+ */
+static bool
+write_arm_tls_note(DR_PARAM_IN file_t elf_file)
+{
+    ELF_NOTE_HEADER_TYPE nhdr;
+    // Add one to include the terminating null character.
+    nhdr.n_namesz = strlen(NOTE_OWNER) + 1;
+    nhdr.n_descsz = sizeof(reg_t);
+    nhdr.n_type = NT_ARM_TLS;
+    if (os_write(elf_file, &nhdr, sizeof(nhdr)) != sizeof(nhdr)) {
+        return false;
+    }
+    if (os_write(elf_file, NOTE_OWNER, NOTE_OWNER_LENGTH) != NOTE_OWNER_LENGTH) {
+        return false;
+    }
+    const reg_t tpidr_el0 = read_thread_register(DR_REG_TPIDRURW);
+    return os_write(elf_file, &tpidr_el0, sizeof(tpidr_el0)) == sizeof(tpidr_el0);
+}
+#endif
+
 /*
  * Writes a memory dump file in ELF format. Returns true if a core dump file is written,
  * false otherwise.
  */
 static bool
-os_dump_core_internal(dcontext_t *dcontext)
+os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
 {
     priv_mcontext_t mc;
     if (!dr_get_mcontext_priv(dcontext, NULL, &mc))
@@ -477,6 +519,9 @@ os_dump_core_internal(dcontext_t *dcontext)
         SYSLOG_INTERNAL_ERROR("Unable to open the core dump file.");
         return false;
     }
+    if (path != NULL) {
+        d_r_strncpy(path, dump_core_file_name, path_sz);
+    }
     // We use two types of program headers. NOTE is used to store prstatus
     // structure and floating point registers. LOAD is used to specify loadable
     // segments. All but one section (shstrtab which stores section names)
@@ -561,6 +606,14 @@ os_dump_core_internal(dcontext_t *dcontext)
         os_close(elf_file);
         return false;
     }
+    // XXX: We need to add support for model specific registers like FS and GS for
+    // x86_64.
+#if defined(AARCH64)
+    if (!write_arm_tls_note(elf_file)) {
+        os_close(elf_file);
+        return false;
+    }
+#endif
     // Add padding to the core file such that loadable segments are aligned to
     // the page size in the core file.
     char buffer[MAX_BUFFER_SIZE];
@@ -650,7 +703,7 @@ os_dump_core_internal(dcontext_t *dcontext)
  * Returns true if a core dump file is written, false otherwise.
  */
 bool
-os_dump_core_live(dcontext_t *dcontext)
+os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
 {
 #ifdef DR_HOST_NOT_TARGET
     // Memory dump is supported only when the host and the target are the same.
@@ -671,7 +724,7 @@ os_dump_core_live(dcontext_t *dcontext)
     }
 
     // TODO i#7046: Add support to save register values for all threads.
-    const bool ret = os_dump_core_internal(dcontext);
+    const bool ret = os_dump_core_internal(dcontext, path, path_sz);
 
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);

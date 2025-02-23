@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,10 @@
 # DAMAGE.
 
 # Github Actions workflow for release packages.
+#
+# Each package build is a separate job. When adding a new package build job,
+# remember to add it to the send-failure-notification job to ensure failure
+# notifications are set up properly.
 
 name: ci-package
 on:
@@ -58,7 +62,7 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -103,7 +107,7 @@ jobs:
       # We only use a non-zero build # when making multiple manual builds in one day.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.2.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -133,37 +137,13 @@ jobs:
         name: linux-tarball
         path: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/linux-x86
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action package jobs
-
   ###########################################################################
   # Linux AArch64 tarball:
   linux-aarch64:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -196,7 +176,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.2.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -222,37 +202,13 @@ jobs:
         name: aarch64-tarball
         path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/linux-aarch64
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action package jobs
-
   ###########################################################################
   # Linux ARM tarball (package.cmake does not support same job as AArch64):
   linux-arm:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -285,7 +241,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.2.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -311,37 +267,13 @@ jobs:
         name: arm-tarball
         path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/linux-arm
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action package jobs
-
   ###########################################################################
   # Android ARM tarball:
   android-arm:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -374,7 +306,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.2.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -402,37 +334,13 @@ jobs:
         name: android-tarball
         path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/android-arm
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action package jobs
-
   ###########################################################################
   # Windows .zip with 32-bit and 64-bit x86 builds:
   windows:
     runs-on: windows-2019
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -457,7 +365,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.2.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -494,30 +402,6 @@ jobs:
         name: windows-zip
         path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/windows
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action package jobs
-
   ###########################################################################
   # Create release and populate with files.
   # We can't have each OS job create the release because only the first
@@ -532,7 +416,7 @@ jobs:
 
     steps:
       # We need a checkout to run git log for the version.
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -541,7 +425,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER="11.2.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+          export VERSION_NUMBER="11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))"
           export PREFIX="cronbuild-"
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
@@ -646,26 +530,21 @@ jobs:
         asset_name: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
         asset_content_type: application/zip
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
+
+  send-failure-notification:
+      uses: ./.github/workflows/failure-notification.yml
+      needs: [create_release, windows, android-arm, linux-arm, linux-aarch64, linux-x86]
+      # By default, a failure in a job skips the jobs that need it. The
+      # following expression ensures that failure-notification.yml is
+      # always invoked.
+      if: ${{ always() }}
       with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/create_release
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action package jobs
+        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7} | {8} {9} | {10} {11}',
+                                      'create_release', needs.create_release.result,
+                                      'windows', needs.windows.result,
+                                      'android-arm', needs.android-arm.result,
+                                      'linux-arm', needs.linux-arm.result,
+                                      'linux-aarch64', needs.linux-aarch64.result,
+                                      'linux-x86', needs.linux-x86.result) }}
+        test_suite_results_only: ${{ join(needs.*.result, ',') }}
+      secrets: inherit

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -555,8 +555,9 @@ protected:
         uint64_t input_count = 0;
     };
 
-    // We assume a 2GHz clock and IPC=1.
-    static constexpr uint64_t INSTRS_PER_US = 2000;
+    // We assume a 2GHz clock and IPC=0.5 to match
+    // scheduler_options_t.time_units_per_us.
+    static constexpr uint64_t INSTRS_PER_US = 1000;
 
     ///////////////////////////////////////////////////////////////////////////
     /// Protected virtual methods.

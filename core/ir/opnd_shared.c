@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -699,8 +700,10 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     CLIENT_ASSERT(
         seg == REG_NULL IF_X86(|| (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT)),
         "opnd_create_*base_disp*: invalid segment");
-    CLIENT_ASSERT(base_reg <= REG_LAST_ENUM, "opnd_create_*base_disp*: invalid base");
-    CLIENT_ASSERT(index_reg <= REG_LAST_ENUM, "opnd_create_*base_disp*: invalid index");
+    CLIENT_ASSERT(base_reg < DR_REG_AFTER_LAST_VALID_ENUM,
+                  "opnd_create_*base_disp*: invalid base");
+    CLIENT_ASSERT(index_reg < DR_REG_AFTER_LAST_VALID_ENUM,
+                  "opnd_create_*base_disp*: invalid index");
     CLIENT_ASSERT_BITFIELD_TRUNCATE(SCALE_SPECIFIER_BITS, scale,
                                     "opnd_create_*base_disp*: invalid scale");
     /* reg_id_t is now a ushort, but we can only accept low values */
@@ -771,8 +774,10 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
     opnd.size = size;
     CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
                   "opnd_create_base_disp_arm: cannot have both disp and index");
-    CLIENT_ASSERT(base_reg <= REG_LAST_ENUM, "opnd_create_base_disp_arm: invalid base");
-    CLIENT_ASSERT(index_reg <= REG_LAST_ENUM, "opnd_create_base_disp_arm: invalid index");
+    CLIENT_ASSERT(base_reg < DR_REG_AFTER_LAST_VALID_ENUM,
+                  "opnd_create_base_disp_arm: invalid base");
+    CLIENT_ASSERT(index_reg < DR_REG_AFTER_LAST_VALID_ENUM,
+                  "opnd_create_base_disp_arm: invalid index");
     /* reg_id_t is now a ushort, but we can only accept low values */
     CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, base_reg,
                                     "opnd_create_base_disp_arm: invalid base");
@@ -804,9 +809,9 @@ opnd_create_base_disp_aarch64_common(reg_id_t base_reg, reg_id_t index_reg,
     opnd.size = size;
     CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
                   "opnd_create_base_disp_aarch64: cannot have both disp and index");
-    CLIENT_ASSERT(base_reg <= REG_LAST_ENUM,
+    CLIENT_ASSERT(base_reg < DR_REG_AFTER_LAST_VALID_ENUM,
                   "opnd_create_base_disp_aarch64: invalid base");
-    CLIENT_ASSERT(index_reg <= REG_LAST_ENUM,
+    CLIENT_ASSERT(index_reg < DR_REG_AFTER_LAST_VALID_ENUM,
                   "opnd_create_base_disp_aarch64: invalid index");
     /* reg_id_t is now a ushort, but we can only accept low values */
     CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, base_reg,
@@ -2775,16 +2780,14 @@ reg_get_size(reg_id_t reg)
         return OPSZ_8;
     if (reg == DR_REG_WZR)
         return OPSZ_4;
-    if (reg >= DR_REG_MDCCSR_EL0 && reg <= DR_REG_SPSR_FIQ)
+    if (reg >= DR_REG_NZCV && reg <= DR_REG_SPSR_FIQ)
         return OPSZ_8;
     if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
         return OPSZ_SVE_VECLEN_BYTES;
     }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
         return OPSZ_SVE_PREDLEN_BYTES;
-    if (reg >= DR_REG_CNTVCT_EL0 && reg <= DR_REG_FPMR)
-        return OPSZ_8;
-    if (reg >= DR_REG_NZCV && reg <= DR_REG_FPSR)
+    if (reg >= DR_REG_CNTVCT_EL0 && reg <= DR_REG_TPIDR_EL1)
         return OPSZ_8;
 #    endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
@@ -2796,7 +2799,7 @@ reg_get_size(reg_id_t reg)
         return OPSZ_RVV_VECLEN_BYTES;
 #endif
     LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
-        get_register_name(reg), DR_REG_LAST_ENUM);
+        get_register_name(reg), DR_REG_AFTER_LAST_VALID_ENUM - 1);
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
 }
@@ -2817,13 +2820,13 @@ reg_get_size_lmul(reg_id_t reg, lmul_t lmul)
         opnd_size_t opsz = opnd_size_from_bytes(dr_get_vector_length() >> (3 - lmul));
 
         LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
-            get_register_name(reg), DR_REG_LAST_ENUM);
+            get_register_name(reg), DR_REG_AFTER_LAST_VALID_ENUM - 1);
         CLIENT_ASSERT(opsz != OPSZ_NA, "reg_get_size_lmul: invalid register");
         return opsz;
     }
 
     LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
-        get_register_name(reg), DR_REG_LAST_ENUM);
+        get_register_name(reg), DR_REG_AFTER_LAST_VALID_ENUM - 1);
     CLIENT_ASSERT(false, "reg_get_size_lmul: invalid register");
     return OPSZ_NA;
 }
@@ -2896,14 +2899,16 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg, int 
             absolute ? REG_NULL : (basereg == REG_NULL ? REG_DCXT_PROT : basereg),
             REG_NULL, 0,
             ((int)(ptr_int_t)(absolute ? dcontext->upcontext.separate_upcontext : 0)) +
-                offs,
+                DCONTEXT_ACTUAL_TO_TLS_OFFSET(offs),
             size);
     } else {
         if (offs >= sizeof(unprotected_context_t))
             offs -= sizeof(unprotected_context_t);
         return opnd_create_base_disp(
             absolute ? REG_NULL : (basereg == REG_NULL ? REG_DCXT : basereg), REG_NULL, 0,
-            ((int)(ptr_int_t)(absolute ? dcontext : 0)) + offs, size);
+            ((int)(ptr_int_t)(absolute ? dcontext : 0)) +
+                DCONTEXT_ACTUAL_TO_TLS_OFFSET(offs),
+            size);
     }
 }
 
@@ -2948,7 +2953,8 @@ update_dcontext_address(opnd_t op, dcontext_t *old_dcontext, dcontext_t *new_dco
                       opnd_get_index(op) == REG_NULL,
                   "update_dcontext_address: invalid opnd");
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    offs = opnd_get_disp(op) - (uint)(ptr_uint_t)old_dcontext;
+    offs =
+        opnd_get_disp(op) - (uint)(ptr_uint_t)old_dcontext + DCONTEXT_TLS_MIDPTR_OFFSET;
     if (offs >= 0 && offs < sizeof(dcontext_t)) {
         /* don't pass raw offset, add in upcontext size */
         offs += sizeof(unprotected_context_t);

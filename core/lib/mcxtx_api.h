@@ -128,6 +128,7 @@
         uint apsr; /**< The application program status registers in AArch32. */
         uint cpsr; /**< The current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
+    byte padding[4]; /**< The padding to get simd field 8-byte aligned. */
 #    endif /* 64/32-bit */
 
 #    ifdef X64 /* 64-bit */

@@ -11,7 +11,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     size_t n;
     opnd_size_t res;
     const char *reg;
-    for (int i = DR_REG_NULL + 1; i <= DR_REG_LAST_VALID_ENUM; ++i) {
+    for (int i = DR_REG_NULL + 1; i < DR_REG_AFTER_LAST_VALID_ENUM; ++i) {
         if (i == DR_REG_INVALID)
             continue;
 #ifdef X86

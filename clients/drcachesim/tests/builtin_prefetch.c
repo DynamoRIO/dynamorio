@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,6 +55,6 @@ main(void)
     __builtin_prefetch(&d, 1, 2);
     // L3
     __builtin_prefetch(&d, 1, 1);
-    printf("Hello, world!\n");
+    fprintf(stderr, "Hello, world!\n");
     return 0;
 }

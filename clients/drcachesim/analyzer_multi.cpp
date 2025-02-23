@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -140,7 +140,7 @@ analyzer_multi_t::create_invariant_checker()
         // TODO i#5843: Share this code with scheduler_t or pass in for all
         // tools from here for fast skipping in serial and per-cpu modes.
         std::string tracedir =
-            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
+            raw2trace_directory_t::tracedir_from_rawdir(get_input_dir());
         if (directory_iterator_t::is_directory(tracedir)) {
             directory_iterator_t end;
             directory_iterator_t iter(tracedir);
@@ -246,7 +246,8 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
     } else if (tool == OPCODE_MIX) {
         std::string module_file_path = get_module_file_path();
         if (module_file_path.empty() && op_indir.get_value().empty() &&
-            op_infile.get_value().empty() && !op_instr_encodings.get_value()) {
+            op_multi_indir.get_value().empty() && op_infile.get_value().empty() &&
+            !op_instr_encodings.get_value()) {
             ERRMSG("Usage error: the opcode_mix tool requires offline traces, or "
                    "-instr_encodings for online traces.\n");
             return nullptr;
@@ -358,6 +359,11 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::set_input_limit(
     std::set<memref_tid_t> &only_threads, std::set<int> &only_shards)
 {
     bool valid_limit = true;
+    if (!op_multi_indir.get_value().empty() &&
+        (op_only_thread.get_value() != 0 || !op_only_threads.get_value().empty() ||
+         !op_only_shards.get_value().empty())) {
+        return "Input limits are not currently supported with -multi_indir";
+    }
     if (op_only_thread.get_value() != 0) {
         if (!op_only_threads.get_value().empty() || !op_only_shards.get_value().empty())
             valid_limit = false;
@@ -383,6 +389,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::set_input_limit(
 template <typename RecordType, typename ReaderType>
 analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 {
+    this->verbosity_ = op_verbose.get_value();
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
     this->skip_to_timestamp_ = op_skip_to_timestamp.get_value();
@@ -400,69 +407,91 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
     // we still keep the serial vs parallel split for 0.
     if (this->worker_count_ == 0)
         this->parallel_ = false;
-    if (!op_indir.get_value().empty() || !op_infile.get_value().empty())
+    int offline_requests = 0;
+    if (!op_indir.get_value().empty())
+        ++offline_requests;
+    if (!op_multi_indir.get_value().empty())
+        ++offline_requests;
+    if (!op_infile.get_value().empty())
+        ++offline_requests;
+    if (offline_requests > 1) {
+        this->error_string_ = "Usage error: only one of -indir, -multi_indir, or "
+                              "-infile can be set\n";
+        this->success_ = false;
+        return;
+    }
+    if (offline_requests > 0)
         op_offline.set_value(true); // Some tools check this on post-proc runs.
-    // XXX: add a "required" flag to droption to avoid needing this here
-    if (op_indir.get_value().empty() && op_infile.get_value().empty() &&
-        op_ipc_name.get_value().empty()) {
-        this->error_string_ =
-            "Usage error: -ipc_name or -indir or -infile is required\nUsage:\n" +
+    else if (op_ipc_name.get_value().empty()) {
+        this->error_string_ = "Usage error: -ipc_name or -indir or -multi_indir or "
+                              "-infile is required\nUsage:\n" +
             droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
         this->success_ = false;
         return;
     }
-    if (!op_indir.get_value().empty()) {
-        std::string tracedir =
-            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        // We support the trace dir being empty if we haven't post-processed
-        // the raw files yet.
-        bool needs_processing = false;
-        if (!directory_iterator_t::is_directory(tracedir))
-            needs_processing = true;
-        else {
-            directory_iterator_t end;
-            directory_iterator_t iter(tracedir);
-            if (!iter) {
-                needs_processing = true;
-            } else {
-                int count = 0;
-                for (; iter != end; ++iter) {
-                    if ((*iter) == "." || (*iter) == ".." ||
-                        starts_with(*iter, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
-                        *iter == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
-                        continue;
-                    ++count;
-                    // XXX: It would be nice to call file_reader_t::is_complete()
-                    // but we don't have support for that for compressed files.
-                    // Thus it's up to the user to delete incomplete processed files.
-                }
-                if (count == 0)
-                    needs_processing = true;
-            }
+    std::vector<std::string> indirs;
+    if (!op_indir.get_value().empty() || !op_multi_indir.get_value().empty()) {
+        if (!op_indir.get_value().empty()) {
+            indirs.push_back(op_indir.get_value());
+        } else {
+            std::stringstream stream(op_multi_indir.get_value());
+            std::string dir;
+            while (std::getline(stream, dir, ':'))
+                indirs.push_back(dir);
         }
-        if (needs_processing) {
-            raw2trace_directory_t dir(op_verbose.get_value());
-            std::string dir_err =
-                dir.initialize(op_indir.get_value(), "", op_trace_compress.get_value(),
-                               op_syscall_template_file.get_value());
-            if (!dir_err.empty()) {
-                this->success_ = false;
-                this->error_string_ = "Directory setup failed: " + dir_err;
-                return;
+        for (const std::string &indir : indirs) {
+            std::string tracedir = raw2trace_directory_t::tracedir_from_rawdir(indir);
+            // We support the trace dir being empty if we haven't post-processed
+            // the raw files yet.
+            bool needs_processing = false;
+            if (!directory_iterator_t::is_directory(tracedir))
+                needs_processing = true;
+            else {
+                directory_iterator_t end;
+                directory_iterator_t iter(tracedir);
+                if (!iter) {
+                    needs_processing = true;
+                } else {
+                    int count = 0;
+                    for (; iter != end; ++iter) {
+                        if ((*iter) == "." || (*iter) == ".." ||
+                            starts_with(*iter, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
+                            *iter == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
+                            continue;
+                        ++count;
+                        // XXX: It would be nice to call file_reader_t::is_complete()
+                        // but we don't have support for that for compressed files.
+                        // Thus it's up to the user to delete incomplete processed files.
+                    }
+                    if (count == 0)
+                        needs_processing = true;
+                }
             }
-            raw2trace_t raw2trace(
-                dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
-                dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_,
-                nullptr, op_verbose.get_value(), op_jobs.get_value(),
-                op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
-                dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
-                std::move(dir.syscall_template_file_reader_),
-                op_pt2ir_best_effort.get_value());
-            std::string error = raw2trace.do_conversion();
-            if (!error.empty()) {
-                this->success_ = false;
-                this->error_string_ = "raw2trace failed: " + error;
-                return;
+            if (needs_processing) {
+                VPRINT(this, 1, "Post-processing raw trace %s\n", indir.c_str());
+                raw2trace_directory_t dir(op_verbose.get_value());
+                std::string dir_err =
+                    dir.initialize(indir, "", op_trace_compress.get_value(),
+                                   op_syscall_template_file.get_value());
+                if (!dir_err.empty()) {
+                    this->success_ = false;
+                    this->error_string_ = "Directory setup failed: " + dir_err;
+                    return;
+                }
+                raw2trace_t raw2trace(
+                    dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
+                    dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_,
+                    nullptr, op_verbose.get_value(), op_jobs.get_value(),
+                    op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
+                    dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_,
+                    std::move(dir.syscall_template_file_reader_),
+                    op_pt2ir_best_effort.get_value());
+                std::string error = raw2trace.do_conversion();
+                if (!error.empty()) {
+                    this->success_ = false;
+                    this->error_string_ = "raw2trace failed: " + error;
+                    return;
+                }
             }
         }
     }
@@ -478,8 +507,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         // -cpu_scheduling implies thread-sharded.
         op_cpu_scheduling.get_value();
     // TODO i#7040: Add core-sharded support for online tools.
-    bool offline = !op_indir.get_value().empty() || !op_infile.get_value().empty();
-    if (offline && !sharding_specified) {
+    if (op_offline.get_value() && !sharding_specified) {
         bool all_prefer_thread_sharded = true;
         bool all_prefer_core_sharded = true;
         for (int i = 0; i < this->num_tools_; ++i) {
@@ -507,16 +535,23 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
                 op_core_serial.set_value(true);
             }
         } else if (!all_prefer_thread_sharded) {
+            // XXX: It would be better for this type of error to be raised prior
+            // to raw2trace: consider moving all this mode code up above that.
             this->success_ = false;
             this->error_string_ = "Selected tools differ in preferred sharding: please "
                                   "re-run with -[no_]core_sharded or -[no_]core_serial";
             return;
         }
     }
+    if (!op_multi_indir.get_value().empty() && !op_core_sharded.get_value()) {
+        this->success_ = false;
+        this->error_string_ = "-multi_indir is only supported in core-sharded mode";
+        return;
+    }
 
     typename sched_type_t::scheduler_options_t sched_ops;
     if (op_core_sharded.get_value() || op_core_serial.get_value()) {
-        if (!offline) {
+        if (!op_offline.get_value()) {
             // TODO i#7040: Add core-sharded support for online tools.
             this->success_ = false;
             this->error_string_ = "Core-sharded is not yet supported for online analysis";
@@ -536,10 +571,10 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 #endif
     }
 
-    if (!op_indir.get_value().empty()) {
-        std::string tracedir =
-            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-
+    if (!indirs.empty()) {
+        std::vector<std::string> tracedirs;
+        for (const std::string &indir : indirs)
+            tracedirs.push_back(raw2trace_directory_t::tracedir_from_rawdir(indir));
         std::set<memref_tid_t> only_threads;
         std::set<int> only_shards;
         std::string res = set_input_limit(only_threads, only_shards);
@@ -548,7 +583,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             this->error_string_ = res;
             return;
         }
-        if (!this->init_scheduler(tracedir, only_threads, only_shards,
+        if (!this->init_scheduler(tracedirs, only_threads, only_shards,
                                   op_sched_max_cores.get_value(), op_verbose.get_value(),
                                   std::move(sched_ops))) {
             this->success_ = false;
@@ -574,9 +609,10 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         }
     } else {
         // Legacy file.
-        if (!this->init_scheduler(op_infile.get_value(), {}, {},
-                                  op_sched_max_cores.get_value(), op_verbose.get_value(),
-                                  std::move(sched_ops))) {
+        std::vector<std::string> files;
+        files.push_back(op_infile.get_value());
+        if (!this->init_scheduler(files, {}, {}, op_sched_max_cores.get_value(),
+                                  op_verbose.get_value(), std::move(sched_ops))) {
             this->success_ = false;
             return;
         }
@@ -722,6 +758,31 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::destroy_analysis_tools()
     delete[] this->tools_;
 }
 
+template <typename RecordType, typename ReaderType>
+std::string
+analyzer_multi_tmpl_t<RecordType, ReaderType>::get_input_dir()
+{
+    // We support a post-processed trace being copied somewhere else from
+    // its initial trace/ subdir and so do not check for any particular
+    // structure here, unlike tracedir_from_rawdir.
+    if (!op_indir.get_value().empty())
+        return op_indir.get_value();
+    if (!op_multi_indir.get_value().empty()) {
+        // As documented, we only look in the first dir.
+        std::stringstream stream(op_multi_indir.get_value());
+        std::string trace_dir;
+        std::getline(stream, trace_dir, ':');
+        return trace_dir;
+    }
+    if (op_infile.get_value().empty()) {
+        return "";
+    }
+    size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
+    if (sep_index != std::string::npos)
+        return std::string(op_infile.get_value(), 0, sep_index);
+    return "";
+}
+
 /* Get the path to an auxiliary file by examining
  * 1. The corresponding command line option
  * 2. The trace directory
@@ -737,17 +798,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::get_aux_file_path(
     if (!option_val.empty())
         file_path = option_val;
     else {
-        std::string trace_dir;
-        if (!op_indir.get_value().empty())
-            trace_dir = op_indir.get_value();
-        else {
-            if (op_infile.get_value().empty()) {
-                return "";
-            }
-            size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
-            if (sep_index != std::string::npos)
-                trace_dir = std::string(op_infile.get_value(), 0, sep_index);
-        }
+        std::string trace_dir = get_input_dir();
         if (raw2trace_directory_t::is_window_subdir(trace_dir)) {
             // If we're operating on a specific window, point at the parent for the
             // modfile.

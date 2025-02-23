@@ -77,6 +77,11 @@ static sigjmp_buf env;
 #    define ITERS 500000
 #endif
 
+/* i#1973: __SIGRTMAX isn't available on musl libc. */
+#ifndef __SIGRTMAX
+#    define __SIGRTMAX SIGRTMAX
+#endif
+
 #ifdef AARCHXX
 /* i#4719: Work around QEMU bugs where QEMU can't handle signals 63 or 64. */
 #    undef SIGRTMAX
@@ -119,7 +124,7 @@ static void
     stack_t sigstack;
     sigstack.ss_sp = siginfo; /* will fail: just need sthg */
     sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
+    sigstack.ss_flags = 0;
     int rc = sigaltstack(&sigstack, NULL);
     assert(rc == -1 && errno == EPERM);
 #endif
@@ -151,25 +156,6 @@ static void
         break;
     }
 
-#ifdef LINUX
-    case __SIGRTMAX: {
-        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *)sc->SC_XIP;
-        /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
-         * sources. */
-#    ifndef AARCHXX /* i#4719: Work around QEMU bugs handling signals 63,64. */
-        assert(__SIGRTMAX == 64);
-#    endif
-        assert(__SIGRTMAX == SIGRTMAX);
-#    if VERBOSE
-        print("Got SIGRTMAX @ 0x%08x\n", pc);
-#    else
-        print("Got SIGRTMAX\n");
-#    endif
-        break;
-    }
-#endif
-
 #if USE_TIMER
     case SIGVTALRM: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -182,7 +168,28 @@ static void
     }
 #endif
 
-    default: assert(0);
+    default:
+        /* i#1973: SIGRTMAX is a macro over function call, rather than a constant on
+         * musl libc. We use an if branch in default block to handle this. */
+#ifdef LINUX
+        if (sig == __SIGRTMAX) {
+            sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+            void *pc = (void *)sc->SC_XIP;
+            /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
+             * sources. */
+#    ifndef AARCHXX /* i#4719: Work around QEMU bugs handling signals 63,64. */
+            assert(__SIGRTMAX == 64);
+#    endif
+            assert(__SIGRTMAX == SIGRTMAX);
+#    if VERBOSE
+            print("Got SIGRTMAX @ 0x%08x\n", pc);
+#    else
+            print("Got SIGRTMAX\n");
+#    endif
+            break;
+        }
+#endif
+        assert(0);
     }
 }
 
@@ -230,8 +237,10 @@ int
     sigemptyset(&mask);
     sigaddset(&mask, SIGURG);
     sigaddset(&mask, SIGALRM);
-    rc = sigprocmask(SIG_SETMASK, &mask, NULL);
-    ASSERT_NOERR(rc);
+    sigset_t returned_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    set_check_signal_mask(&mask, &returned_mask);
 
 #if USE_SIGSTACK
     sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
@@ -306,7 +315,7 @@ int
     };
     rc = sigprocmask(SIG_BLOCK, NULL, &check_mask);
     ASSERT_NOERR(rc);
-    assert(memcmp(&mask, &check_mask, sizeof(mask)) == 0);
+    assert(memcmp(&returned_mask, &check_mask, sizeof(returned_mask)) == 0);
 
 #if USE_TIMER
     memset(&t, 0, sizeof(t));

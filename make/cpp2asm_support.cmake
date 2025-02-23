@@ -178,6 +178,8 @@ if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # NASM support was added in 2.8.3.  It clears ASM_DIALECT for us.
     enable_language(ASM_NASM)
   else (APPLE AND NOT AARCH64)
+    # XXX i#6326: Avoid a cmake hang by setting this.
+    set(CMAKE_ASM_LINKER_DEPFILE_SUPPORTED TRUE)
     enable_language(ASM)
   endif ()
 endif ()

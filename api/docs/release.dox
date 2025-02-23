@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -124,20 +124,47 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 11.2.0 include the following compatibility
+The changes between version \DR_VERSION and 11.3.0 include the following compatibility
+changes:
+ - On 32-bit Arm the size of #dr_mcontext_t has been increased by 4 and the
+   struct is now required to be 8-byte aligned. The offset of the field "simd"
+   has changed.
+ - Added new fields elf_path and elf_path_size to dr_memory_dump_spec_t. When
+   dr_create_memory_dump() returns true and elf_path is not NULL, elf_path will be
+   written with the path to the memory dump file.
+
+Further non-compatibility-affecting changes include:
+ - Added support for reading a single drmemtrace trace file from stdin
+   via "-infile -".
+ - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
+   efficient for drmemtrace analysis tools to obtain decoded information about
+   instructions in the trace. This works for traces that have embedded instruction
+   encodings in them, and also for legacy traces without embedded encodings where the
+   encodings are obtained from the application binaries instead.
+
+**************************************************
+<hr>
+
+The changes between version 11.3.0 and 11.2.0 include the following compatibility
 changes:
  - No compatibility changes yet.
 
 Further non-compatibility-affecting changes include:
- - No changes yet.
+ - Added support for statically linking clients and the DynamoRIO library into
+   a pure-static application via a new configure_DynamoRIO_static_client() CMake
+   function and new "_drstatic" static library CMake targets for the provided
+   extension libraries.
+ - Allow v2p.textproto file in a trace directory. This file is present in public traces.
+ - Allow v2p.textproto file to have one missing virtual_address field, which indicates
+   virtual_address == 0x0. Necessary in case a trace accesses virtual address 0x0.
 
 **************************************************
 <hr>
 
 The changes between version 11.2.0 and 11.1.0 include the following compatibility
 changes:
- - Added #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY to increase the
-   trace version for drmemtraces with uncompleted instructions removed.
+ - Added #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_RETIRED_INSTRUCTIONS_ONLY to
+   increase the trace version for drmemtraces with uncompleted instructions removed.
 
 Further non-compatibility-affecting changes include:
  - Added instr_get_operation_size() and instr_set_operation_size() APIs for

@@ -3049,7 +3049,11 @@ mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
     if (TEST(DR_MC_CONTROL, flags)) {
         sc->SC_FIELD(arm_sp) = mc->r13;
         sc->SC_FIELD(arm_pc) = mc->r15;
-        sc->SC_FIELD(arm_cpsr) = mc->cpsr;
+        /* FIXME i#7207: The values of RES1 bits should probably be propagated
+         * throughout DynamoRIO but setting them here stops sigreturn from
+         * generating a SIGSEGV (i#7161).
+         */
+        sc->SC_FIELD(arm_cpsr) = mc->cpsr | EFLAGS_RES1;
     }
 #    ifdef X64
 #        error NYI on AArch64
@@ -5068,7 +5072,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 }
             }
         }
-    } else if (get_at_syscall(dcontext) && pc == vsyscall_sysenter_return_pc - syslen &&
+    } else if (get_at_syscall(dcontext) &&
+               (ptr_uint_t)pc == ((ptr_uint_t)vsyscall_sysenter_return_pc - syslen) &&
                /* See i#2995 comment above: rule out sigreturn */
                !is_sigreturn_syscall_number(sc->SC_SYSNUM_REG)) {
         LOG(THREAD, LOG_ASYNCH, 2,

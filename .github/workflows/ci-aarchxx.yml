@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
 # Copyright (c) 2023 Arm Limited        All rights reserved.
 # **********************************************************
 
@@ -30,6 +30,10 @@
 # DAMAGE.
 
 # Github Actions workflow for aarch64 Continuous Integration testing.
+#
+# Each test suite is a separate job. When adding a new test suite job,
+# remember to add it to the send-failure-notification job to ensure failure
+# notifications are set up properly.
 
 name: ci-aarchxx
 on:
@@ -51,19 +55,19 @@ jobs:
       matrix:
         # This job will run in parallel.
         include:
-          - os: ubuntu-20-arm64-pre-sve
+          - os: ah-ubuntu_20_04-c6g_4x-50
             sve: false
-          - os: ubuntu-20-arm64-sve
+          - os: ah-ubuntu_20_04-c7g_4x-50
             sve: true
             sve_length: 256
-          - os: ubuntu-20-arm64-sve
+          - os: ah-ubuntu_20_04-c7g_4x-50
             sve: true
             sve_length: 128
     runs-on: ${{ matrix.os }}
     name: aarch64-${{matrix.sve && 'sve-' || ''}}precommit${{matrix.sve_length && '-' || ''}}${{matrix.sve_length}}
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -85,6 +89,35 @@ jobs:
       - name: Create build directory
         run: mkdir build
 
+      - name: Create build environment
+        run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential \
+            doxygen \
+            git \
+            libunwind-dev \
+            libc6-dev \
+            openssh-client \
+            openssl \
+            python3 \
+            vera++ \
+            zlib1g-dev
+
+      - name: Set ptrace_scope to 0
+        run: |
+          echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+
+      - name: Check current ptrace_scope
+        run: |
+          cat /proc/sys/kernel/yama/ptrace_scope
+          if [[ `cat /proc/sys/kernel/yama/ptrace_scope` != "0" ]]; then echo "WARNING: ptrace_scope NOT SET TO 0"; fi
+
+      - name: Setup cmake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: '3.26.4'
+
       - name: Run Suite
         working-directory: build
         run: ../suite/runsuite_wrapper.pl travis
@@ -99,26 +132,15 @@ jobs:
           CI_BRANCH: ${{ github.ref }}
         if: ${{ matrix.sve == true && matrix.sve_length != ''}}
 
-      - name: Send failure mail to dynamorio-devs
-        if: failure() && github.ref == 'refs/heads/master'
-        uses: dawidd6/action-send-mail@v2
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-          password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-          subject: |
-            [${{github.repository}}] ${{github.workflow}} FAILED
-            on ${{github.event_name}} at ${{github.ref}}
-          body: |
-            Github Actions CI workflow run FAILED!
-            Workflow: ${{github.workflow}}/x86-32
-            Repository: ${{github.repository}}
-            Branch ref: ${{github.ref}}
-            SHA: ${{github.sha}}
-            Triggering actor: ${{github.actor}}
-            Triggering event: ${{github.event_name}}
-            Run Id: ${{github.run_id}}
-            See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-          to: dynamorio-devs@googlegroups.com
-          from: Github Action CI
+  send-failure-notification:
+      uses: ./.github/workflows/failure-notification.yml
+      needs: [aarch64-precommit]
+      # By default, a failure in a job skips the jobs that need it. The
+      # following expression ensures that failure-notification.yml is
+      # always invoked.
+      if: ${{ always() }}
+      with:
+        test_suite_status: ${{ format('{0} {1}',
+                                      'aarch64-precommit', needs.aarch64-precommit.result) }}
+        test_suite_results_only: ${{ join(needs.*.result, ',') }}
+      secrets: inherit

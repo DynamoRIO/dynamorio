@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -81,30 +81,31 @@ opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int ver
 {
 }
 
-std::string
-opcode_mix_t::initialize()
+bool
+opcode_mix_t::init_decode_cache(shard_data_t *shard, void *dcontext,
+                                offline_file_type_t filetype)
 {
-    serial_shard_.worker = &serial_worker_;
-    dcontext_.dcontext = dr_standalone_init();
-    // The module_file_path is optional and unused for traces with
-    // OFFLINE_FILE_TYPE_ENCODINGS.
-    if (module_file_path_.empty())
-        return "";
-    // Legacy trace support where binaries are needed.
-    // We do not support non-module code for such traces.
-    file_t modfile;
-    std::string error = read_module_file(module_file_path_, modfile, modfile_bytes_);
-    if (!error.empty()) {
-        return "Failed to read module file: " + error;
+    shard->decode_cache =
+        std::unique_ptr<decode_cache_t<opcode_data_t>>(new decode_cache_t<opcode_data_t>(
+            dcontext,
+            /*include_decoded_instr=*/true,
+            /*persist_decoded_instrs=*/false, knob_verbose_));
+    if (!TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype)) {
+        shard->error =
+            shard->decode_cache->init(filetype, module_file_path_, knob_alt_module_dir_);
+    } else {
+        shard->error = shard->decode_cache->init(filetype);
     }
-    module_mapper_ =
-        module_mapper_t::create(modfile_bytes_, nullptr, nullptr, nullptr, nullptr,
-                                knob_verbose_, knob_alt_module_dir_);
-    module_mapper_->get_loaded_modules();
-    dr_close_file(modfile);
-    error = module_mapper_->get_last_error();
-    if (!error.empty())
-        return "Failed to load binaries: " + error;
+    return shard->error.empty();
+}
+
+std::string
+opcode_mix_t::initialize_stream(dynamorio::drmemtrace::memtrace_stream_t *serial_stream)
+{
+    dcontext_.dcontext = dr_standalone_init();
+    if (serial_stream != nullptr) {
+        serial_shard_.stream = serial_stream;
+    }
     return "";
 }
 
@@ -112,9 +113,6 @@ opcode_mix_t::~opcode_mix_t()
 {
     for (auto &iter : shard_map_) {
         delete iter.second;
-    }
-    if (modfile_bytes_ != nullptr) {
-        delete[] modfile_bytes_;
     }
 }
 
@@ -125,25 +123,12 @@ opcode_mix_t::parallel_shard_supported()
 }
 
 void *
-opcode_mix_t::parallel_worker_init(int worker_index)
+opcode_mix_t::parallel_shard_init_stream(
+    int shard_index, void *worker_data,
+    dynamorio::drmemtrace::memtrace_stream_t *shard_stream)
 {
-    auto worker = new worker_data_t;
-    return reinterpret_cast<void *>(worker);
-}
-
-std::string
-opcode_mix_t::parallel_worker_exit(void *worker_data)
-{
-    worker_data_t *worker = reinterpret_cast<worker_data_t *>(worker_data);
-    delete worker;
-    return "";
-}
-
-void *
-opcode_mix_t::parallel_shard_init(int shard_index, void *worker_data)
-{
-    worker_data_t *worker = reinterpret_cast<worker_data_t *>(worker_data);
-    auto shard = new shard_data_t(worker);
+    auto shard = new shard_data_t();
+    shard->stream = shard_stream;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = shard;
     return reinterpret_cast<void *>(shard);
@@ -152,7 +137,10 @@ opcode_mix_t::parallel_shard_init(int shard_index, void *worker_data)
 bool
 opcode_mix_t::parallel_shard_exit(void *shard_data)
 {
-    // Nothing (we read the shard data in print_results).
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    if (shard->decode_cache != nullptr)
+        shard->decode_cache->clear_cache();
+    // We still need the remaining shard data in print_results.
     return true;
 }
 
@@ -161,35 +149,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
-        shard->filetype = static_cast<offline_file_type_t>(memref.marker.marker_value);
-        /* We remove OFFLINE_FILE_TYPE_ARCH_REGDEPS from this check since DR_ISA_REGDEPS
-         * is not a real ISA and can coexist with any real architecture.
-         */
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL & ~OFFLINE_FILE_TYPE_ARCH_REGDEPS,
-                    memref.marker.marker_value) &&
-            !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
-            shard->error = std::string("Architecture mismatch: trace recorded on ") +
-                trace_arch_string(static_cast<offline_file_type_t>(
-                    memref.marker.marker_value)) +
-                " but tool built for " + trace_arch_string(build_target_arch_type());
-            return false;
-        }
-        /* If we are dealing with a regdeps trace, we need to set the dcontext ISA mode
-         * to the correct synthetic ISA (i.e., DR_ISA_REGDEPS).
-         */
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, memref.marker.marker_value)) {
-            /* Because isa_mode in dcontext is a global resource, we guard its access to
-             * avoid data races (even though this is a benign data race, as all threads
-             * are writing the same isa_mode value).
-             */
-            std::lock_guard<std::mutex> guard(dcontext_mutex_);
-            dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext_.dcontext);
-            if (isa_mode != DR_ISA_REGDEPS)
-                dr_set_isa_mode(dcontext_.dcontext, DR_ISA_REGDEPS, nullptr);
-        }
-    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
-               memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_VECTOR_LENGTH) {
 #ifdef AARCH64
         const int new_vl_bits = memref.marker.marker_value * 8;
         if (dr_get_vector_length() != new_vl_bits) {
@@ -206,88 +166,38 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
 
     /* At this point we start processing memref instructions, so we're past the header of
-     * the trace, which contains the trace filetype. If we didn't encounter a
-     * TRACE_MARKER_TYPE_FILETYPE we return an error and stop processing the trace.
-     * We expected the value of TRACE_MARKER_TYPE_FILETYPE to contain at least one of the
+     * the trace, which contains the trace filetype. If -skip_instrs was used, we may not
+     * have seen TRACE_MARKER_TYPE_FILETYPE itself but the memtrace_stream_t should be
+     * able to provide it to us.
+     */
+    shard->filetype = static_cast<offline_file_type_t>(shard->stream->get_filetype());
+
+    /* We expected the value of TRACE_MARKER_TYPE_FILETYPE to contain at least one of the
      * enum values of offline_file_type_t (e.g., OFFLINE_FILE_TYPE_ARCH_), so
      * OFFLINE_FILE_TYPE_DEFAULT (== 0) should never be present alone and can be used as
      * uninitialized value of filetype for an error check.
      * XXX i#6812: we could allow traces that have some shards with no filetype, as long
      * as there is at least one shard with it, by caching the filetype from shards that
      * have it and using that one. We can do this using memtrace_stream_t::get_filetype(),
-     * which requires updating opcode_mix to use parallel_shard_init_stream() rather than
-     * the current (and deprecated) parallel_shard_init(). However, we should first decide
-     * whether we want to allow traces that have some shards without a filetype.
      */
     if (shard->filetype == OFFLINE_FILE_TYPE_DEFAULT) {
         shard->error = "No file type found in this shard";
         return false;
+    } else if (shard->decode_cache == nullptr &&
+               !init_decode_cache(shard, dcontext_.dcontext, shard->filetype)) {
+        return false;
     }
 
     ++shard->instr_count;
-
-    app_pc decode_pc;
-    const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
-    if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->filetype)) {
-        // The trace has instruction encodings inside it.
-        decode_pc = const_cast<app_pc>(memref.instr.encoding);
-        if (memref.instr.encoding_is_new) {
-            // The code may have changed: invalidate the cache.
-            shard->worker->opcode_data_cache.erase(trace_pc);
-        }
-    } else {
-        // Legacy trace support where we need the binaries.
-        if (!module_mapper_) {
-            shard->error =
-                "Module file path is missing and trace has no embedded encodings";
-            return false;
-        }
-        if (trace_pc >= shard->last_trace_module_start &&
-            static_cast<size_t>(trace_pc - shard->last_trace_module_start) <
-                shard->last_trace_module_size) {
-            decode_pc = shard->last_mapped_module_start +
-                (trace_pc - shard->last_trace_module_start);
-        } else {
-            std::lock_guard<std::mutex> guard(mapper_mutex_);
-            decode_pc = module_mapper_->find_mapped_trace_bounds(
-                trace_pc, &shard->last_mapped_module_start,
-                &shard->last_trace_module_size);
-            if (!module_mapper_->get_last_error().empty()) {
-                shard->last_trace_module_start = nullptr;
-                shard->last_trace_module_size = 0;
-                shard->error = "Failed to find mapped address for " +
-                    to_hex_string(memref.instr.addr) + ": " +
-                    module_mapper_->get_last_error();
-                return false;
-            }
-            shard->last_trace_module_start =
-                trace_pc - (decode_pc - shard->last_mapped_module_start);
-        }
+    opcode_data_t *opcode_data;
+    shard->error = shard->decode_cache->add_decode_info(memref.instr, opcode_data);
+    if (!shard->error.empty()) {
+        return false;
     }
-    int opcode;
-    uint category;
-    auto cached_opcode_category = shard->worker->opcode_data_cache.find(trace_pc);
-    if (cached_opcode_category != shard->worker->opcode_data_cache.end()) {
-        opcode = cached_opcode_category->second.opcode;
-        category = cached_opcode_category->second.category;
-    } else {
-        instr_t instr;
-        instr_init(dcontext_.dcontext, &instr);
-        app_pc next_pc =
-            decode_from_copy(dcontext_.dcontext, decode_pc, trace_pc, &instr);
-        if (next_pc == NULL || !instr_valid(&instr)) {
-            instr_free(dcontext_.dcontext, &instr);
-            shard->error =
-                "Failed to decode instruction " + to_hex_string(memref.instr.addr);
-            return false;
-        }
-        opcode = instr_get_opcode(&instr);
-        category = instr_get_category(&instr);
-        shard->worker->opcode_data_cache[trace_pc] = opcode_data_t(opcode, category);
-        instr_free(dcontext_.dcontext, &instr);
-    }
-    ++shard->opcode_counts[opcode];
-    ++shard->category_counts[category];
+    // The opcode_data here will never be nullptr since we return
+    // early if the prior add_decode_info returned an error.
+    ++shard->opcode_counts[opcode_data->opcode_];
+    ++shard->category_counts[opcode_data->category_];
     return true;
 }
 
@@ -347,34 +257,38 @@ opcode_mix_t::get_category_names(uint category)
 bool
 opcode_mix_t::print_results()
 {
-    shard_data_t total(0);
+    shard_data_t aggregated;
+    shard_data_t *total = &aggregated;
     if (shard_map_.empty()) {
-        total = serial_shard_;
+        // No default copy constructor for shard_data_t because of the
+        // std::unique_ptr, so we resort to keeping a pointer to it.
+        total = &serial_shard_;
     } else {
         for (const auto &shard : shard_map_) {
-            total.instr_count += shard.second->instr_count;
+            aggregated.instr_count += shard.second->instr_count;
             for (const auto &keyvals : shard.second->opcode_counts) {
-                total.opcode_counts[keyvals.first] += keyvals.second;
+                aggregated.opcode_counts[keyvals.first] += keyvals.second;
             }
             for (const auto &keyvals : shard.second->category_counts) {
-                total.category_counts[keyvals.first] += keyvals.second;
+                aggregated.category_counts[keyvals.first] += keyvals.second;
             }
         }
     }
     std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << std::setw(15) << total.instr_count << " : total executed instructions\n";
-    std::vector<std::pair<int, int64_t>> sorted(total.opcode_counts.begin(),
-                                                total.opcode_counts.end());
+    std::cerr << std::setw(15) << total->instr_count
+              << " : total executed instructions\n";
+    std::vector<std::pair<int, int64_t>> sorted(total->opcode_counts.begin(),
+                                                total->opcode_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_val);
     for (const auto &keyvals : sorted) {
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                   << decode_opcode_name(keyvals.first) << "\n";
     }
     std::cerr << "\n";
-    std::cerr << std::setw(15) << total.category_counts.size()
+    std::cerr << std::setw(15) << total->category_counts.size()
               << " : sets of categories\n";
     std::vector<std::pair<uint, int64_t>> sorted_category_counts(
-        total.category_counts.begin(), total.category_counts.end());
+        total->category_counts.begin(), total->category_counts.end());
     std::sort(sorted_category_counts.begin(), sorted_category_counts.end(), cmp_val);
     for (const auto &keyvals : sorted_category_counts) {
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
@@ -488,6 +402,16 @@ opcode_mix_t::release_interval_snapshot(interval_state_snapshot_t *interval_snap
 {
     delete interval_snapshot;
     return true;
+}
+
+std::string
+opcode_mix_t::opcode_data_t::set_decode_info_derived(
+    void *dcontext, const dynamorio::drmemtrace::_memref_instr_t &memref_instr,
+    instr_t *instr, app_pc decode_pc)
+{
+    opcode_ = instr_get_opcode(instr);
+    category_ = instr_get_category(instr);
+    return "";
 }
 
 } // namespace drmemtrace

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright () 2016-2024 Google, Inc.  All rights reserved.
+# Copyright () 2016-2025 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,10 @@ my $is_CI = 0;
 my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 my $is_x86_64 = $Config{archname} =~ /x86_64/;
 my $is_riscv64 = $Config{archname} =~ /riscv64/;
-my $is_long = $ENV{'CI_TRIGGER'} eq 'push' && $ENV{'CI_BRANCH'} eq 'refs/heads/master';
+# i#4800,i#5873: We'd like to run a long suite for merges to master (via
+# "$ENV{'CI_TRIGGER'} eq 'push' && $ENV{'CI_BRANCH'} eq 'refs/heads/master'")
+# but we need pre-and-post-commmit test parity.
+my $is_long = 0;
 
 # Forward args to runsuite.cmake:
 my $args = '';

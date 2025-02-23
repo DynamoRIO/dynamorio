@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2021-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -42,13 +42,18 @@ set(srcs drstatecmp.c)
 set(srcs_static ${srcs})
 
 add_library(drstatecmp SHARED ${srcs})
-configure_extension(drstatecmp OFF)
+configure_extension(drstatecmp OFF OFF)
 use_DynamoRIO_extension(drstatecmp drmgr)
 use_DynamoRIO_extension(drstatecmp drreg)
 
 add_library(drstatecmp_static STATIC ${srcs_static})
-configure_extension(drstatecmp_static ON)
+configure_extension(drstatecmp_static ON OFF)
 use_DynamoRIO_extension(drstatecmp_static drmgr_static)
 use_DynamoRIO_extension(drstatecmp_static drreg_static)
+
+add_library(drstatecmp_drstatic STATIC ${srcs_static})
+configure_extension(drstatecmp_drstatic ON ON)
+use_DynamoRIO_extension(drstatecmp_drstatic drmgr_drstatic)
+use_DynamoRIO_extension(drstatecmp_drstatic drreg_drstatic)
 
 install_ext_header(drstatecmp.h)

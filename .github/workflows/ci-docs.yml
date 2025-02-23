@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,9 @@
 # DAMAGE.
 
 # Github Actions workflow for building doxygen docs for the web site.
+#
+# When adding a new job, remember to add it to the send-failure-notification
+# job to ensure failure notifications are set up properly.
 
 name: ci-docs
 on:
@@ -62,7 +65,7 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -90,7 +93,7 @@ jobs:
       # We only use a non-zero build # when making multiple manual builds in one day.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=11.2.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=11.90.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -111,7 +114,7 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
 
     - name: Check Out Web
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: DynamoRIO/dynamorio.github.io
         token: ${{ secrets.DOCS_TOKEN }}
@@ -130,26 +133,15 @@ jobs:
         # We need a personal access token for write access to another repo.
         GITHUB_TOKEN: ${{ secrets.DOCS_TOKEN }}
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
+  send-failure-notification:
+      uses: ./.github/workflows/failure-notification.yml
+      needs: [docs]
+      # By default, a failure in a job skips the jobs that need it. The
+      # following expression ensures that failure-notification.yml is
+      # always invoked.
+      if: ${{ always() }}
       with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/docs
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action package jobs
+        test_suite_status: ${{ format('{0} {1}',
+                                      'docs', needs.docs.result) }}
+        test_suite_results_only: ${{ join(needs.*.result, ',') }}
+      secrets: inherit

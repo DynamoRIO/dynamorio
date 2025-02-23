@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,7 @@
 #include "../tracer/raw2trace.h"
 #include "../reader/file_reader.h"
 #include "../scheduler/scheduler.h"
+#include "decode_cache.h"
 #include "memref_gen.h"
 #include "trace_entry.h"
 
@@ -95,22 +96,30 @@ public:
     view_test_t(void *drcontext, instrlist_t &instrs, uint64_t skip_refs,
                 uint64_t sim_refs)
         : view_t("", skip_refs, sim_refs, "", 0)
+        , instrs_(&instrs)
     {
-        module_mapper_ = std::unique_ptr<module_mapper_t>(
-            new test_module_mapper_t(&instrs, drcontext));
+    }
+    bool
+    init_decode_cache() override
+    {
+        decode_cache_ = std::unique_ptr<decode_cache_t<disasm_info_t>>(
+            new test_decode_cache_t<disasm_info_t>(dcontext_.dcontext, false, false,
+                                                   instrs_));
+        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_)) {
+            error_string_ =
+                decode_cache_->init(static_cast<offline_file_type_t>(filetype_));
+        } else if (!module_file_path_.empty()) {
+            error_string_ =
+                decode_cache_->init(static_cast<offline_file_type_t>(filetype_),
+                                    module_file_path_, knob_alt_module_dir_);
+        } else {
+            decode_cache_.reset(nullptr);
+        }
+        return error_string_.empty();
     }
 
-    std::string
-    initialize() override
-    {
-        module_mapper_->get_loaded_modules();
-        dr_disasm_flags_t flags =
-            IF_X86_ELSE(DR_DISASM_ATT,
-                        IF_AARCH64_ELSE(DR_DISASM_DR,
-                                        IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
-        disassemble_set_syntax(flags);
-        return "";
-    }
+private:
+    instrlist_t *instrs_;
 };
 
 class view_nomod_test_t : public view_t {

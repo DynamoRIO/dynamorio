@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,10 @@
 # DAMAGE.
 
 # Github Actions workflow for RISCV64 Continuous Integration testing.
+#
+# Each test suite is a separate job. When adding a new test suite job,
+# remember to add it to the send-failure-notification job to ensure failure
+# notifications are set up properly.
 
 name: ci-riscv64
 on:
@@ -56,7 +60,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -101,26 +105,15 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
         QEMU_LD_PREFIX: /usr/riscv64-linux-gnu/
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
+  send-failure-notification:
+      uses: ./.github/workflows/failure-notification.yml
+      needs: [riscv64-cross-compile]
+      # By default, a failure in a job skips the jobs that need it. The
+      # following expression ensures that failure-notification.yml is
+      # always invoked.
+      if: ${{ always() }}
       with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/aarchxx-cross-compile
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
+        test_suite_status: ${{ format('{0} {1}',
+                                      'riscv64-cross-compile', needs.riscv64-cross-compile.result) }}
+        test_suite_results_only: ${{ join(needs.*.result, ',') }}
+      secrets: inherit

@@ -65,6 +65,7 @@
 /* Used a lot due to the different TLS.  We thus provide a convenience define. */
 # define MACOS64
 #endif
+#cmakedefine MUSL
 
 /* host, when different */
 #cmakedefine DR_HOST_X86

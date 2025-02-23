@@ -84,8 +84,10 @@ Core #3 \(1 thread\(s\)\)
     Local miss rate:                 90.48%
     Child hits:                     *33[,\.]?002
     Total miss rate:                  0.06%
+#elif  defined(ARM)
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.tlb_simulator_v2p.aarch64/raw/drmemtrace.threadsig..*.raw.gz: Architecture mismatch: trace recorded on aarch64 but tools built for arm
 #elif defined(X86) && defined(X64)
-ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.threadsig.aarch64/raw/drmemtrace.threadsig..*.raw.gz: Architecture mismatch: trace recorded on aarch64 but tools built for x86_64
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.tlb_simulator_v2p.aarch64/raw/drmemtrace.threadsig..*.raw.gz: Architecture mismatch: trace recorded on aarch64 but tools built for x86_64
 #else
 ERROR: failed to initialize analyzer: Failed to create analysis tool: Tool failed to initialize: Failed to load binaries: Failed to map module /tmp/nonexistent/threadsig
 #endif

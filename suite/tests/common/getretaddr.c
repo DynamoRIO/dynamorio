@@ -113,8 +113,11 @@ GLOBAL_LABEL(FUNCNAME:)
         ldr      x30, [sp], #16
         ret
 # elif defined(RISCV64)
-        /* TODO i#3544: Port tests to RISC-V 64 */
-        ret
+        mv       t0, ra
+        call     next_instr
+    next_instr:
+        mv       a0, ra
+        jr       t0
 # else
 #  error NYI
 # endif
@@ -134,7 +137,7 @@ GLOBAL_LABEL(FUNCNAME:)
         ldr      x0, [x29, #8]
         ret
 # elif defined(RISCV64)
-        /* TODO i#3544: Port tests to RISC-V 64 */
+        ld       a0, -8(fp)
         ret
 # else
 #  error NYI

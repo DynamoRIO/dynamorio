@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -261,7 +261,7 @@ TNAME(d_r_vsnprintf_float)(double val, const TCHAR *c,
     }
 
     if (is_g)
-        decimal--; /* g/G precision is number of signifigant digits */
+        decimal--; /* g/G precision is number of significant digits */
     if (is_g && exp >= -4 && exp <= decimal) {
         /* exp is small enough for f, print without exponent */
         str = TNAME(double_to_str)(val, decimal, buf, pound_flag, !pound_flag);
@@ -706,9 +706,7 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             c++;
         } else {
             const TCHAR *cstart = c;
-            int nbytes = 0;
             while (*c && *c != _T('%')) {
-                nbytes++;
                 c++;
             }
             while (cstart < c) {

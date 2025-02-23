@@ -41,7 +41,7 @@ _start:
 
         mov      rbx, 16          // loop counter
 loop:
-        mov      rdi, 1           // stdout
+        mov      rdi, 2           // stderr
         lea      rsi, hello
         mov      rdx, 13          // sizeof(hello)
         mov      eax, 1           // SYS_write

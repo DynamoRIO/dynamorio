@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2024 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,10 @@
 # DAMAGE.
 
 # Github Actions workflow for AArchXX Continuous Integration testing.
+#
+# Each test suite is a separate job. When adding a new test suite job,
+# remember to add it to the send-failure-notification job to ensure failure
+# notifications are set up properly.
 
 name: ci-aarchxx-cross
 on:
@@ -55,7 +59,7 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -73,7 +77,7 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake g++-aarch64-linux-gnu \
+        sudo apt-get -y install doxygen vera++ g++-aarch64-linux-gnu \
           qemu-user qemu-user-binfmt
         sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64 \
@@ -85,6 +89,11 @@ jobs:
         sudo rsync -av ../extract/usr/include/ /usr/aarch64-linux-gnu/include/
         sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
 
+    - name: Setup cmake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.26.4'
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
@@ -93,37 +102,13 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/aarchxx-cross-compile
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
-
   # ARM cross-compile with gcc, with some tests run under QEMU.
   # We use a more recent Ubuntu for a more recent QEMU.
   arm-cross-compile:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -141,7 +126,7 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake g++-arm-linux-gnueabihf \
+        sudo apt-get -y install doxygen vera++ g++-arm-linux-gnueabihf \
           qemu-user qemu-user-binfmt
         sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf \
@@ -153,6 +138,11 @@ jobs:
         sudo rsync -av ../extract/usr/include/ /usr/arm-linux-gnueabihf/include/
         sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
+    - name: Setup cmake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.26.4'
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
@@ -161,36 +151,12 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/aarchxx-cross-compile
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
-
   # Android ARM cross-compile with gcc, no tests:
   android-arm-cross-compile:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -202,11 +168,11 @@ jobs:
 
     - run: git fetch --no-tags --depth=1 origin master
 
-    # Fetch and install Android NDK for Andoid cross-compile build.
+    # Fetch and install Android NDK for Android cross-compile build.
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake
+        sudo apt-get -y install doxygen vera++
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
         unzip -q android-ndk-r10e-linux-x86_64.zip
@@ -219,6 +185,11 @@ jobs:
         ln -sf arm-linux-androideabi-ld.bfd \
           /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
 
+    - name: Setup cmake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.26.4'
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       env:
@@ -226,35 +197,11 @@ jobs:
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-      run: ./suite/runsuite_wrapper.pl automated_ci
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/android-arm-cross-compile
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
-
-  # AArch64 drdecode and drmemtrace on x86:
-  a64-on-x86:
-    runs-on: ubuntu-20.04
+  # Android AArch64 cross-compile with LLVM, no tests:
+  android-aarch64-cross-compile:
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -269,11 +216,58 @@ jobs:
 
     - run: git fetch --no-tags --depth=1 origin master
 
+    # Fetch the Android NDK for Android cross-compile build.
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+        sudo apt-get -y install doxygen vera++
+        cd /tmp
+        wget https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
+        unzip -q android-ndk-r27c-linux.zip
+        export ANDROID_NDK_ROOT=/tmp/android-ndk-r27c
+
+    - name: Setup cmake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.26.4'
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      env:
+        DYNAMORIO_CROSS_ANDROID_ONLY: yes
+        DYNAMORIO_ANDROID_NDK: /tmp/android-ndk-r27c
+        DYNAMORIO_ANDROID_API_LEVEL: 35
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
+
+  # AArch64 drdecode and drmemtrace on x86:
+  a64-on-x86:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    - name: Create Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           liblz4-dev
+
+    - name: Setup cmake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.26.4'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -283,26 +277,19 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Send failure mail to dynamorio-devs
-      if: failure() && github.ref == 'refs/heads/master'
-      uses: dawidd6/action-send-mail@v2
+  send-failure-notification:
+      uses: ./.github/workflows/failure-notification.yml
+      needs: [aarch64-cross-compile, arm-cross-compile, android-arm-cross-compile, android-aarch64-cross-compile, a64-on-x86]
+      # By default, a failure in a job skips the jobs that need it. The
+      # following expression ensures that failure-notification.yml is
+      # always invoked.
+      if: ${{ always() }}
       with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
-        subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED
-          on ${{github.event_name}} at ${{github.ref}}
-        body: |
-          Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/a64-on-x86
-          Repository: ${{github.repository}}
-          Branch ref: ${{github.ref}}
-          SHA: ${{github.sha}}
-          Triggering actor: ${{github.actor}}
-          Triggering event: ${{github.event_name}}
-          Run Id: ${{github.run_id}}
-          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
-        to: dynamorio-devs@googlegroups.com
-        from: Github Action CI
+        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7} | {8} {9}',
+                                      'aarch64-cross-compile', needs.aarch64-cross-compile.result,
+                                      'arm-cross-compile', needs.arm-cross-compile.result,
+                                      'android-arm-cross-compile', needs.android-arm-cross-compile.result,
+                                      'android-aarch64-cross-compile', needs.android-aarch64-cross-compile.result,
+                                      'a64-on-x86', needs.a64-on-x86.result) }}
+        test_suite_results_only: ${{ join(needs.*.result, ',') }}
+      secrets: inherit

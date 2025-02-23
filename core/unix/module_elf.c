@@ -41,13 +41,6 @@
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
 
-#ifndef ANDROID
-struct tlsdesc_t {
-    ptr_int_t (*entry)(struct tlsdesc_t *);
-    void *arg;
-};
-#endif
-
 #ifdef ANDROID
 /* The entries in the .hash table always have a size of 32 bits.  */
 typedef uint32_t Elf_Symndx;
@@ -193,7 +186,7 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t vi
     app_pc tgt = (app_pc)dyn->d_un.d_ptr;
     if (at_map || !dyn_reloc || tgt < base || tgt > base + size) {
         /* not relocated, adjust by load_delta */
-        tgt = (app_pc)dyn->d_un.d_ptr + load_delta;
+        tgt = (app_pc)(dyn->d_un.d_ptr + load_delta);
     }
 
     /* sanity check location */
@@ -227,7 +220,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
     bool res = true;
     ELF_DYNAMIC_ENTRY_TYPE *dyn =
         (ELF_DYNAMIC_ENTRY_TYPE *)(at_map ? base + prog_hdr->p_offset
-                                          : (app_pc)prog_hdr->p_vaddr + load_delta);
+                                          : (app_pc)(prog_hdr->p_vaddr + load_delta));
     ASSERT(prog_hdr->p_type == PT_DYNAMIC);
     dcontext_t *dcontext = get_thread_private_dcontext();
     /* i#489, DT_SONAME is optional, init soname to NULL first */
@@ -391,7 +384,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                     last_seg_align = prog_hdr->p_align;
                     module_add_segment_data(
                         out_data, elf_hdr->e_phnum,
-                        (app_pc)prog_hdr->p_vaddr + load_delta, prog_hdr->p_memsz,
+                        (app_pc)(prog_hdr->p_vaddr + load_delta), prog_hdr->p_memsz,
                         module_segment_prot_to_osprot(prog_hdr), prog_hdr->p_align,
                         false /*!shared*/, prog_hdr->p_offset);
                 }
@@ -406,10 +399,15 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                         LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
                             "%s " PFX ": %s dynamic info\n", __FUNCTION__, base,
                             out_data->have_dynamic_info ? "have" : "no");
-                        /* i#1860: on Android a later os_module_update_dynamic_info() will
-                         * fill in info once .dynamic is mapped in.
+                        /* i#1860: on 32-bit Android a later
+                         * os_module_update_dynamic_info() will fill in info
+                         * once .dynamic is mapped in.
+                         * i#7215: This is not needed on newer versions of 64-bit
+                         * Android, however we are not able to test with newer
+                         * versions of 32-bit Android, so this may still be
+                         * required.
                          */
-                        IF_NOT_ANDROID(ASSERT(out_data->have_dynamic_info));
+                        IF_NOT_ANDROID32(ASSERT(out_data->have_dynamic_info));
                     }
                 });
             }
@@ -572,7 +570,7 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
 {
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
     ASSERT(is_elf_so_header(base, 0));
-    return (app_pc)elf_hdr->e_entry + load_delta;
+    return (app_pc)(elf_hdr->e_entry + load_delta);
 }
 
 bool
@@ -837,8 +835,8 @@ module_has_text_relocs(app_pc base, bool at_map)
     for (i = 0; i < elf_hdr->e_phnum; i++) {
         if (prog_hdr->p_type == PT_DYNAMIC) {
             dyn = (ELF_DYNAMIC_ENTRY_TYPE *)(at_map ? (base + prog_hdr->p_offset)
-                                                    : ((app_pc)prog_hdr->p_vaddr +
-                                                       load_delta));
+                                                    : (app_pc)(prog_hdr->p_vaddr +
+                                                               load_delta));
             break;
         }
         prog_hdr++;
@@ -1035,7 +1033,7 @@ module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
             /* TLS (Thread Local Storage) relocation information */
             pd->tls_block_size = prog_hdr->p_memsz;
             pd->tls_align = prog_hdr->p_align;
-            pd->tls_image = (app_pc)prog_hdr->p_vaddr + load_delta;
+            pd->tls_image = (app_pc)(prog_hdr->p_vaddr + load_delta);
             pd->tls_image_size = prog_hdr->p_filesz;
             if (pd->tls_align == 0)
                 pd->tls_first_byte = 0;
@@ -1094,7 +1092,7 @@ module_get_relro(app_pc base, DR_PARAM_OUT app_pc *relro_base,
     mod_base =
         module_vaddr_from_prog_header(base + ehdr->e_phoff, ehdr->e_phnum, NULL, NULL);
     load_delta = base - mod_base;
-    *relro_base = (app_pc)phdr->p_vaddr + load_delta;
+    *relro_base = (app_pc)(phdr->p_vaddr + load_delta);
     *relro_size = phdr->p_memsz;
     return true;
 }

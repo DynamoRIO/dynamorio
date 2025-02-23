@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -175,19 +175,30 @@ else ()
   endif (TEST_SUITE)
 endif (CALLPROF AND TEST_SUITE)
 
-# i#4059: Reduce Appveyor time by reducing the # of tests run for 32-bit.
-# This assumes that 32-bit Windows is not as important these days.
-# We remove some of the less differentiated tests.
-# We still run the full set for merges to master.
-if (WIN32 AND NOT X64 AND "$ENV{CI_TRIGGER}" STREQUAL "pull_request")
-  set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+if (WIN32 AND NOT X64)
+  # i#4059: Reduce testing time by reducing the # of tests run for 32-bit.
+  # This assumes that 32-bit Windows is not as important these days.
+  # We remove some of the less differentiated tests.
+  if ("$ENV{CI_TRIGGER}" STREQUAL "pull_request")
+    set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+  else ()
+    # i#4800,i#5873: We'd like to run the full set for merges to master but we
+    # need pre-and-post-commmit test parity.
+    set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
+  endif ()
 else ()
   set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST OFF)
 endif ()
 
-# i#4800: Run long test suite on push-to-master events.
-if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
-                       "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master"))
+if ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
+    "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master")
+  # i#4800,i#5873: We'd like to run the long test suite on push-to-master events
+  # but we need parity with the pre-commit Pull Request (PR) suite for our
+  # workflow of not requiring pre-commit PR updates and re-runs.
+  # We just don't have the resources to keep the long suite green.
+endif ()
+
+if (RUN_LONG_SUITE)
   set(TEST_LONG ON)
 endif ()
 
@@ -257,6 +268,12 @@ endif (WIN32)
 # put libs in same dir for tests that need to load them
 set(MAIN_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+if (ANDROID AND DR_COPY_TO_DEVICE)
+    # Replace MAIN_LIBRARY_OUTPUT_DIRECTORY with the device path.
+    file(RELATIVE_PATH relpath ${PROJECT_BINARY_DIR} ${MAIN_LIBRARY_OUTPUT_DIRECTORY})
+    get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+    set(MAIN_LIBRARY_OUTPUT_DIRECTORY "${DR_DEVICE_BASEDIR}/${builddir}/${relpath}")
+endif ()
 string(REGEX REPLACE "/lib([36])" "/ext/lib\\1"
   EXT_LIBRARY_OUTPUT_DIRECTORY "${MAIN_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
@@ -425,6 +442,11 @@ function (set_cflags source)
   else ()
     set(cflags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
+  # Alpine Linux enables "-Wtrampolines" by default, breaking
+  # security-linux/trampoline.c.
+  if (MUSL)
+    set(cflags "${cflags} -Wno-trampolines")
+  endif ()
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     # configure_DynamoRIO_global removes unfavorable options for clients,
@@ -540,6 +562,28 @@ function(add_sve_flags target)
     endif()
   endif()
 endfunction(add_sve_flags)
+
+if (ANDROID)
+  # Copy a file from the source tree to the test device.
+  # Use this to copy test dependency file. To copy a target use copy_target_to_device()
+  # This is done automatically for test executable targets.
+  function(copy_file_to_device remote_filename_out test_target local_path)
+    if (DR_COPY_TO_DEVICE)
+      file(RELATIVE_PATH relpath ${PROJECT_SOURCE_DIR} ${local_path})
+      get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+      set(device_path "${DR_DEVICE_BASEDIR}/${builddir}/${relpath}")
+      add_custom_command(
+        TARGET ${test_target}
+        POST_BUILD
+        COMMAND ${ADB} push ${local_path} ${device_path}
+        VERBATIM)
+      set(${remote_filename_out} ${device_path} PARENT_SCOPE)
+    else ()
+      set(${remote_filename_out} ${local_path} PARENT_SCOPE)
+    endif ()
+  endfunction(copy_file_to_device)
+endif ()
+
 
 function(add_exe test source)
   get_filename_component(srcbase ${source} NAME_WE)
@@ -926,15 +970,19 @@ function(add_api_exe test source use_decoder use_static_DR)
         COMMAND ${CMAKE_COMMAND} ARGS
           -E touch "${drcopy_stamp}"
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
+          -E copy_if_different "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll"
         # libutil.drconfig_test needs drconfiglib.
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
+          # XXX i#5888: There is a race somewhere causing this copy to sometimes
+          # fail, presumably because another target already copied it.  We use
+          # copy_if_different to avoid failure if it exists, here and in the other
+          # copy commands above and below.
+          -E copy_if_different "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drconfiglib.dll"
         # We copy drsyms.dll too, for api.symtest
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
+          -E copy_if_different "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drsyms.dll"
         VERBATIM)
       add_custom_target(drcopy DEPENDS "${drcopy_stamp}")
@@ -1238,7 +1286,7 @@ else ()
   set(dr_os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
 endif ()
 set(dr_test_ops -stderr_mask 0xC ${dr_os_ops})
-if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
+if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH AND NOT DR_COPY_TO_DEVICE)
   set(dr_test_ops -xarch_root ${CMAKE_FIND_ROOT_PATH} ${dr_test_ops})
 endif ()
 
@@ -1421,8 +1469,13 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # To run the test we use a series of commands in runall.cmake.
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
-      # We always run infloop.
-      get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      # Execute an app specified by the user. If no specific app is provided, execute
+      # the default 'linux.infloop' app.
+      if (DEFINED ${key}_realtest)
+        get_target_path_for_execution(app_path "${exe}" "${location_suffix}")
+      else ()
+        get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      endif ()
       if ("${runall}" MATCHES "<attach>")
         # Add a starting message with -v, and avoid mprotect for now (i#38: mprotect
         # is failing).
@@ -2012,7 +2065,7 @@ elseif (RISCV64)
 else ()
   set(sfx "x86")
 endif ()
-if (NOT ANDROID)
+if (NOT ANDROID32)
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
   if (AARCH64 OR RISCV64)
@@ -2131,11 +2184,15 @@ if (BUILD_CLIENTS)
   endif ()
 endif ()
 
-if (AARCH64 AND UNIX AND ZLIB_FOUND)
+if (AARCH64 AND UNIX AND ZLIB_FOUND AND NOT ANDROID) # TODO i#1874: Add drcachesim support on Android
     # Test TLB simulator with a virtual to physical v2p.textproto mapping.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.tlb_simulator_v2p.aarch64)
+    # We are fine with a static config-time creation of the directory and the
+    # first test run creating the trace/ files with subsequent test runs re-using
+    # those files, as this test targets the tlb simulator.  If our srcdir had
+    # trace/ file we would just use those.
     file(REMOVE_RECURSE ${locdir})
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
@@ -2158,10 +2215,11 @@ if (DR_HOST_NOT_TARGET)
   # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
   if (BUILD_CLIENTS AND UNIX AND ZLIB_FOUND)
     # We make a writable copy so we can both write the final trace there and run our
-    # analyzer in a single command line.
+    # analyzer in a single command line.  Since we're testing postprocessing we
+    # need to dynamically clobber the directory.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.altbindir.aarch64)
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
     get_target_path_for_execution(drcachesim_path drmemtrace_launcher
@@ -2173,6 +2231,10 @@ if (DR_HOST_NOT_TARGET)
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(tool.drcacheoff.altbindir_precmd
+        "${CMAKE_COMMAND}@-E@remove_directory@${locdir}/trace")
+    set(tool.drcacheoff.altbindir_failok ON)
   endif ()
 
   # The tests are not ported to build with host!=target.  Most will never work there,
@@ -2667,6 +2729,11 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
       set(client.memory_dump_test_expectbase "memory_dump_test")
     endif ()
     tobuild_ci(client.memory_dump_test client-interface/memory_dump_test.c "" "" "")
+    if (LINUX)
+      add_exe(linux.fib_attach linux/fib_attach.c)
+      torunonly_ci(client.attach_memory_dump_test linux.fib_attach client.memory_dump_test.dll
+        client-interface/attach_memory_dump_test.runall "" "" "")
+    endif ()
   endif ()
 endif ()
 
@@ -2744,7 +2811,9 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
-if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
+# TODO i#5383: Port to Mac M1.
+# TODO i#1973: Port to musl libc.
+if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
@@ -3306,22 +3375,26 @@ if (ARM)
   endif ()
 elseif (AARCH64)
   add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
-  torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v82 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v82.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v83 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v84 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v84.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v85 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v85.txt" OFF OFF)
-  torunonly_api(api.dis-a64-v87 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v87.txt" OFF OFF)
-  torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve.txt" OFF OFF)
-  torunonly_api(api.dis-a64-sve2 api.dis-a64 api/dis-a64.c ""
-    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve2.txt" OFF OFF)
+
+  set(dis_tests
+    dis-a64
+    dis-a64-v82
+    dis-a64-v83
+    dis-a64-v84
+    dis-a64-v85
+    dis-a64-v87
+    dis-a64-sve
+    dis-a64-sve2
+  )
+  foreach (dis_test ${dis_tests})
+    set(dis_fname "${CMAKE_CURRENT_SOURCE_DIR}/api/${dis_test}.txt")
+    if (ANDROID)
+      copy_file_to_device(dis_fname api.dis-a64 ${dis_fname})
+    endif ()
+
+    torunonly_api(api.${dis_test} api.dis-a64 api/dis-a64.c "" "-q;${dis_fname}" OFF OFF)
+  endforeach ()
+
   add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
   tobuild_api(api.opnd api/opnd-a64.c "" "" OFF OFF OFF)
 elseif (X86)
@@ -3747,6 +3820,16 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.${testname}_rawtemp ON) # no preprocessor
       set(tool.drcachesim.${testname}_self_serial ON)
+      if (UNIX)
+        # Avoid stale pipe files on failure causing retries to time out.
+        # We delete the file before and after just to be safe.
+        set(tool.drcachesim.${testname}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(tool.drcachesim.${testname}_precmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+        set(tool.drcachesim.${testname}_postcmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+      endif ()
     endmacro (torunonly_drcachesim)
 
     set(config_files_dir ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
@@ -3912,6 +3995,16 @@ if (BUILD_CLIENTS)
         "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
       set(tool.${testname}_toolname "drmemtrace")
       set(tool.${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      if (UNIX)
+        # Avoid stale pipe files on failure causing retries to time out.
+        # We delete the file before and after just to be safe.
+        set(tool.${testname}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(tool.${testname}_precmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+        set(tool.${testname}_postcmd
+          "${CMAKE_COMMAND}@-E@remove@${IPC_PREFIX}drtestpipe_${testname}")
+      endif ()
     endmacro (torunonly_simtool)
 
     torunonly_simtool(histogram ${ci_shared_app}
@@ -3990,6 +4083,12 @@ if (BUILD_CLIENTS)
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
+        # Test -multi_indir with 3 copies of our sample dir.
+        torunonly_simtool(multi_indir ${ci_shared_app}
+          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} -tool schedule_stats -cores 3"
+          "")
+        set(tool.multi_indir_rawtemp ON) # no preprocessor
+
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
           "-indir ${thread_trace_dir} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
@@ -4013,6 +4112,28 @@ if (BUILD_CLIENTS)
           # Avoid the default core-sharded from re-scheduling the trace.
           "-indir ${core_sharded_dir} -tool schedule_stats -only_shards 2,3 -no_core_sharded" "")
         set(tool.core_on_disk_rawtemp ON) # no preprocessor
+
+        # Test reading a file over stdin.
+        # We rely on there being just one subfile in this zip file: gunzip only
+        # extracts the first one (bsdtar can extract all but is not likely installed).
+        # This is UNIX only so we rely on cat and gunzip being available.
+        find_program(CAT_EXE cat DOC "path to cat")
+        find_program(GUNZIP_EXE gunzip DOC "path to gunzip")
+        find_program(BASH_EXE bash DOC "path to bash")
+        if (CAT_EXE AND GUNZIP_EXE AND BASH_EXE)
+          # Easiest to make our pipeline in bash with a direct add_test()
+          # (although this bypasses the torun() features used by all other tests).
+          set(infile "${core_sharded_dir}/drmemtrace.core.0.trace.zip")
+          add_test(tool.drcacheoff.stdin
+            ${BASH_EXE} -c
+            "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
+          file(READ "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-stdin.expect"
+            stdin_expect)
+          set_tests_properties(tool.drcacheoff.stdin PROPERTIES
+            PASS_REGULAR_EXPRESSION "${stdin_expect}")
+        else ()
+          message("Failed to find cat, gunzip, and bash: not running stdin test")
+        endif ()
       endif ()
     endif ()
 
@@ -4388,6 +4509,7 @@ if (BUILD_CLIENTS)
       # TODO i#3544: Port tests to RISC-V 64
       torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
         "@-tool@opcode_mix" "")
+
       # Ensure the tool works without the raw/ subdir.
       set(tool.drcacheoff.opcode_mix_postcmd
         "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
@@ -4395,6 +4517,9 @@ if (BUILD_CLIENTS)
         "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
       set(tool.drcacheoff.opcode_mix_postcmd3
         "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-tool@opcode_mix")
+
+      torunonly_drcacheoff(skip_instrs_opcode_mix ${ci_shared_app} ""
+        "@-tool@opcode_mix@-skip_instrs@1" "")
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-tool@view@-sim_refs@16384" "")
@@ -4645,6 +4770,11 @@ if (BUILD_CLIENTS)
         # FIXME i#2099: the weak symbol is not supported not work on Windows
         set(tool.drcacheoff.burst_client_nodr ON)
         torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
+
+        if (TARGET tool.drcacheoff.purestatic)
+          set(tool.drcacheoff.purestatic_nodr ON)
+          torunonly_drcacheoff(purestatic tool.drcacheoff.purestatic "" "" "")
+        endif ()
       endif ()
     endif ()
 
@@ -5002,11 +5132,11 @@ if (BUILD_CLIENTS)
   # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
   if (UNIX AND ZLIB_FOUND)
     # We make a writable copy so we can both write the final trace there and run our
-    # analyzer in a single command line.
+    # analyzer in a single command line  Since we're testing postprocessing we
+    # need to dynamically clobber the directory.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
-    file(REMOVE_RECURSE ${locdir})
+    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.altbindir.aarch64)
     file(MAKE_DIRECTORY ${locdir})
     file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
     torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
@@ -5015,6 +5145,10 @@ if (BUILD_CLIENTS)
       OFF OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(tool.drcacheoff.altbindir_precmd
+        "${CMAKE_COMMAND}@-E@remove_directory@${locdir}/trace")
+    set(tool.drcacheoff.altbindir_failok ON)
 
     # Test the legacy trace versions OFFLINE_FILE_VERSION_KERNEL_INT_PC-1 and
     # TRACE_ENTRY_VERSION_NO_KERNEL_PC.  This requires a checked-in trace and thus
@@ -5662,13 +5796,11 @@ if (UNIX)
   # this app is used in nudge tests
   # XXX: should all these infloop tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
-  if (NOT ANDROID) # XXX i#1874: add support for running this on Android
-    add_exe(linux.infloop linux/infloop.c)
-    torunonly(linux.reset linux/infloop linux/reset.runall "-enable_reset" "-v")
-  endif ()
+  add_exe(linux.infloop linux/infloop.c)
+  torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
-    torunonly(linux.freeze_FLAKY linux/infloop linux/freeze.runall
+    torunonly(linux.freeze_FLAKY linux.infloop linux/freeze.runall
       "-coarse_units -coarse_enable_freeze" "-v")
   endif (NOT X64 AND NOT ARM)
 
@@ -5677,18 +5809,19 @@ if (UNIX)
   file(MAKE_DIRECTORY "${PCACHE_SHARED_DIR}")
   if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
-    torunonly(linux.persist_FLAKY linux/infloop linux/persist.runall
+    torunonly(linux.persist_FLAKY linux.infloop linux/persist.runall
       "-coarse_units -coarse_split_calls -coarse_enable_freeze -coarse_freeze_min_size 0 -no_persist_per_user -no_validate_owner_dir" "-v")
-    torunonly(linux.persist-use_FLAKY linux/infloop linux/persist-use.runall
+    torunonly(linux.persist-use_FLAKY linux.infloop linux/persist-use.runall
       "-use_persisted -coarse_units -coarse_split_calls -no_persist_per_user -no_validate_owner_dir" "-v")
   endif (NOT X64 AND NOT ARM)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
-  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64)
+  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
+    # TODO i#1874: Build drmemtrace on Android (RSEQ_TEST_ATTACH depends on drmemtrace).
     set(linux.rseq_no_reg_compat)
     tobuild(linux.rseq linux/rseq.cpp)
     # Test the other sections.  Unfortunately we need a separate binary for each.
@@ -5703,7 +5836,7 @@ if (UNIX)
     tobuild_api(api.rseq linux/rseq.cpp "" "" OFF ON OFF)
     link_with_pthread(api.rseq)
     append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
-    use_DynamoRIO_static_client(api.rseq drmemtrace_static)
+    use_DynamoRIO_static_client(api.rseq drmemtrace_nomain)
     use_DynamoRIO_drmemtrace_tracer(api.rseq)
     set(api.rseq_expectbase rseq_client)
     # Test non-compliant code with our workaround flag.
@@ -6401,7 +6534,8 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     code_api|tool.drcacheoff.simple
     PROPERTIES LABELS UBUNTU_22)
 endif ()
-if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID) # TODO i#3544: Port tests to RISC-V 64
+  # TODO i#1874: Build drmemtrace on Android (rseq tests depend on drmemtrace).
   set_tests_properties(
     code_api|api.rseq
     code_api|linux.rseq_disable
@@ -6411,6 +6545,12 @@ if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RI
     code_api|tool.drcacheoff.rseq
     PROPERTIES LABELS UBUNTU_22)
 endif ()
+if (TARGET tool.drcacheoff.purestatic)
+  # This target only easily builds on Ubuntu22+ so make sure we run it there.
+  set_tests_properties(
+    code_api|tool.drcacheoff.purestatic
+    PROPERTIES LABELS UBUNTU_22)
+endif()
 
 # XXX i#3544: Support for running RISC-V Linux tests under QEMU.
 # Currently about 1/6 of the compiled tests pass.
@@ -6435,14 +6575,19 @@ if (RISCV64)
     code_api|client.unregister
     code_api|common.broadfun
     code_api|common.hello
+    code_api|common.getretaddr
     code_api|libutil.drconfig_test
     code_api|libutil.frontend_test
     # TODO i#3544: code_api|linux.eintr failed under QEMU
     # but passed on real hardware.
     # code_api|linux.eintr
+    # TODO i#3544: code_api|linux.execve-null fails under QEMU but passes on
+    # real hardware.
+    # code_api|linux.execve-null
     code_api|linux.exit
     code_api|linux.infinite
     code_api|linux.longjmp
+    code_api|linux.mmap
     code_api|linux.prctl
     code_api|linux.signalfd
     code_api|pthreads.pthreads
@@ -6518,6 +6663,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.basic_counts
     code_api|tool.drcacheoff.altbindir
     code_api|tool.drcacheoff.burst_client
+    code_api|tool.drcacheoff.purestatic
     code_api|tool.drcacheoff.basic_counts
     code_api|tool.drcacheoff.burst_futex
     code_api|tool.drcacheoff.burst_malloc

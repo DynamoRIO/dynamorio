@@ -1,0 +1,5 @@
+fib\(32\)=3524578
+.*thank you for testing memory dump
+thread init
+nudge delivered 1
+.*done

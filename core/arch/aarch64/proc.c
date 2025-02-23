@@ -36,11 +36,43 @@
 #include "arch.h"
 #include "instr.h"
 
+#if defined(MACOS)
+#    include <sys/sysctl.h>
+#endif
+
 static int num_simd_saved;
 static int num_simd_registers;
 static int num_svep_registers;
 static int num_ffr_registers;
 static int num_opmask_registers;
+
+#define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x3F00) >> 8)
+#define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
+#define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
+#define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
+#define GET_FEAT_EXACT_MATCH(FEATURE) ((((ushort)FEATURE) & 0x4000) >> 14)
+
+void
+proc_set_feature(feature_bit_t feature_bit, bool enable)
+{
+    uint64 *freg_val = cpu_info.features.isa_features;
+    ushort feat_nibble = GET_FEAT_NIBPOS(feature_bit);
+    bool feat_nsflag = GET_FEAT_NSFLAG(feature_bit);
+    uint64 feat_val = GET_FEAT_VAL(feature_bit);
+
+    feature_reg_idx_t feat_reg = GET_FEAT_REG(feature_bit);
+    freg_val += feat_reg;
+
+    /* Clear the current feature state. */
+    *freg_val &= ~(0xFULL << (feat_nibble * 4));
+    if (enable) {
+        /* Write the feature value into the feature nibble. */
+        *freg_val |= feat_val << (feat_nibble * 4);
+    } else if (feat_nsflag) {
+        /* If the not-set flag is 0xF, then that needs manually setting. */
+        *freg_val |= 0xF << (feat_nibble * 4);
+    }
+}
 
 #ifndef DR_HOST_NOT_TARGET
 
@@ -86,7 +118,7 @@ read_feature_regs(uint64 isa_features[])
         : "x0");
 }
 
-#    if !defined(MACOS) // TODO i#5383: Get this working on Mac. */
+#    if !defined(MACOS)
 static void
 get_processor_specific_info(void)
 {
@@ -146,6 +178,32 @@ get_processor_specific_info(void)
     dr_set_vector_length(256);
 #        endif
 }
+#    else /* defined(MACOS) */
+
+/* On macOS, MRS appears to be restricted. We'll use sysctl's instead.
+ * XXX i#5383: Add remaining features from other sysctls.
+ */
+static void
+get_processor_specific_info(void)
+{
+    memset(&cpu_info.features, 0, sizeof(cpu_info.features));
+
+#        define SET_FEAT_IF_SYSCTL_EQ(FEATURE, SYSCTL, TY, VAL)                         \
+            TY FEATURE##_tmp;                                                           \
+            size_t FEATURE##_tmp_buflen = sizeof(FEATURE##_tmp);                        \
+            if (sysctlbyname(SYSCTL, &FEATURE##_tmp, &FEATURE##_tmp_buflen, NULL, 0) == \
+                -1) {                                                                   \
+                ASSERT_CURIOSITY(false && SYSCTL " sysctl failed");                     \
+                SYSLOG_INTERNAL_WARNING("Failed to read " SYSCTL " sysctl");            \
+            } else if (FEATURE##_tmp_buflen == sizeof(FEATURE##_tmp)) {                 \
+                if (FEATURE##_tmp == VAL) {                                             \
+                    proc_set_feature(FEATURE, true);                                    \
+                }                                                                       \
+            }
+
+    SET_FEAT_IF_SYSCTL_EQ(FEATURE_PAUTH, "hw.optional.arm.FEAT_PAuth", uint32_t, 1);
+    SET_FEAT_IF_SYSCTL_EQ(FEATURE_FPAC, "hw.optional.arm.FEAT_FPAC", uint32_t, 1);
+}
 #    endif
 
 #    define LOG_FEATURE(feature)       \
@@ -172,7 +230,6 @@ proc_init_arch(void)
     }
 
 #ifndef DR_HOST_NOT_TARGET
-#    if !defined(MACOS) // TODO i#5383: Get this working on Mac. */
     get_processor_specific_info();
 
     DOLOG(1, LOG_TOP, {
@@ -247,36 +304,7 @@ proc_init_arch(void)
             cpu_info.features.isa_features[AA64MMFR2]);
         LOG_FEATURE(FEATURE_LSE2);
     });
-#    endif
 #endif
-}
-
-#define GET_FEAT_REG(FEATURE) (feature_reg_idx_t)((((ushort)FEATURE) & 0x3F00) >> 8)
-#define GET_FEAT_NIBPOS(FEATURE) ((((ushort)FEATURE) & 0x00F0) >> 4)
-#define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
-#define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
-#define GET_FEAT_EXACT_MATCH(FEATURE) ((((ushort)FEATURE) & 0x4000) >> 14)
-
-void
-proc_set_feature(feature_bit_t feature_bit, bool enable)
-{
-    uint64 *freg_val = cpu_info.features.isa_features;
-    ushort feat_nibble = GET_FEAT_NIBPOS(feature_bit);
-    bool feat_nsflag = GET_FEAT_NSFLAG(feature_bit);
-    uint64 feat_val = GET_FEAT_VAL(feature_bit);
-
-    feature_reg_idx_t feat_reg = GET_FEAT_REG(feature_bit);
-    freg_val += feat_reg;
-
-    /* Clear the current feature state. */
-    *freg_val &= ~(0xFULL << (feat_nibble * 4));
-    if (enable) {
-        /* Write the feature value into the feature nibble. */
-        *freg_val |= feat_val << (feat_nibble * 4);
-    } else if (feat_nsflag) {
-        /* If the not-set flag is 0xF, then that needs manually setting. */
-        *freg_val |= 0xF << (feat_nibble * 4);
-    }
 }
 
 void

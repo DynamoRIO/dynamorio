@@ -168,7 +168,7 @@ _start:
         prfum    pstl3strm, [x1]
 
         // Exit.
-        mov      w0, #1            // stdout
+        mov      w0, #2            // stderr
 #ifdef __APPLE__
         adrp     x1, helloworld@PAGE
         add      x1, x1, helloworld@PAGEOFF

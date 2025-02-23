@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -47,6 +47,8 @@
 
 # Visual Studio 2017 requires 3.7.
 cmake_minimum_required(VERSION 3.7)
+
+message(STATUS "CMake version ${CMAKE_VERSION}")
 
 include(make/policies.cmake NO_POLICY_SCOPE)
 
@@ -187,6 +189,27 @@ if (APPLE)
   set(OLDEST_OSX_SUPPPORTED "11.7")
 elseif (UNIX)
   set(LINUX 1)
+
+  # Identify whether building with (and targeting) musl libc with ldd. This
+  # assumes a native build. For cross compiling, a musl build could be forced
+  # by DR_TARGET_MUSL.
+  find_program(LDD ldd DOC "util for examing shared object dependency")
+  if (NOT LDD)
+    message(STATUS "Unable to find ldd: assume glibc")
+  else ()
+    execute_process(COMMAND ${LDD}
+      RESULT_VARIABLE ldd_result
+      ERROR_VARIABLE ldd_err
+      OUTPUT_VARIABLE ldd_out)
+      if (ldd_err MATCHES "^musl libc")
+        set(MUSL 1)
+      endif ()
+  endif ()
+
+  option(DR_TARGET_MUSL "Target musl libc" OFF)
+  if (DR_TARGET_MUSL)
+    set(MUSL 1)
+  endif ()
 endif (APPLE)
 if (WIN32)
   set(WINDOWS 1)
@@ -581,7 +604,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: When updating this, update all the default versions in ci-package.yml
 # and ci-docs.yml.  We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "11.2.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "11.90.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -1868,6 +1891,13 @@ if (WIN32 AND NOT DISABLE_ZLIB)
   set(ZLIB_FOUND OFF)
 else ()
   find_package(ZLIB)
+  # FindZLIB doesn't give us any library split so we manually
+  # convert to static.
+  set(ZLIB_STATIC_LIBRARIES "")
+  foreach (lib ${ZLIB_LIBRARIES})
+    string(REGEX REPLACE "\\.so$" ".a" newlib "${lib}")
+    list(APPEND ZLIB_STATIC_LIBRARIES ${newlib})
+  endforeach ()
 endif ()
 # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
 if (UNIX AND X64)
@@ -1884,6 +1914,10 @@ if (UNIX AND X64)
     if (APPLE)
       mac_add_inc_and_lib(lz4.h liblz4.a)
     endif ()
+  endif ()
+  find_library(libxxhash xxhash)
+  if (libxxhash)
+    message(STATUS "Found libxxhash: ${libxxhash}")
   endif ()
 endif ()
 

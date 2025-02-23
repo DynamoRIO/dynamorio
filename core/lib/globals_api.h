@@ -523,6 +523,12 @@ typedef struct _instr_t instr_t;
 #    define IF_NOT_ANDROID(x) x
 #endif
 
+#ifdef ANDROID32
+#    define IF_NOT_ANDROID32(x)
+#else
+#    define IF_NOT_ANDROID32(x) x
+#endif
+
 #ifdef X64
 #    define IF_X64(x) x
 #    define IF_X64_ELSE(x, y) x
@@ -744,7 +750,7 @@ typedef union _dr_svep_t {
  */
 typedef dr_svep_t dr_ffr_t;
 #    else
-typedef union _dr_simd_t {
+typedef union ALIGN_VAR(8) _dr_simd_t {
     uint s[4];   /**< Representation as 4 32-bit Sn elements. */
     uint d[4];   /**< Representation as 2 64-bit Dn elements: d[3]:d[2]; d[1]:d[0]. */
     uint u32[4]; /**< The full 128-bit register. */
