@@ -283,6 +283,9 @@ tlb_simulator_t::print_results()
 tlb_t *
 tlb_simulator_t::create_tlb(std::string policy)
 {
+    // XXX: i#7287: Eventually we want to decouple the replacement policies from the cache
+    // classes. Once this happens, we will need to build the policies here and pass them
+    // to the TLB class. We have implemented this as a temporary solution.
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LFU
         policy == REPLACE_POLICY_LFU)             // set to LFU
         return new tlb_lfu_t;

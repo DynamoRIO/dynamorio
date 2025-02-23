@@ -71,8 +71,8 @@ tlb_t::request(const memref_t &memref_in)
     // it might also not be a good way to write a lot of helper functions
     // to isolate them.
     // TODO i#4816: This tag,pid pair lookup needs to be imposed on the parent
-    // methods invalidate(), contains_tag(), and propagate_eviction() by
-    // overriding them.
+    // methods invalidate(), contains_tag(), and propagate_eviction() by overriding
+    // them.
 
     // Unfortunately we need to make a copy for our loop so we can pass
     // the right data struct to the parent and stats collectors.
