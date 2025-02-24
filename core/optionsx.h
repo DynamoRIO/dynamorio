@@ -1611,9 +1611,8 @@ OPTION_DEFAULT(uint_size, vm_size,
                /* TODO i#3570: Add support for private loading inside the vm_size
                 * region so Windows can support a 2G size.
                 */
-               IF_X64_ELSE(IF_WINDOWS_ELSE(512, IF_MACOS(IF_AARCH64_ELSE(512, 1024UL))),
-                           128) *
-                   1024 * 1024,
+               IF_X64_ELSE(IF_WINDOWS_ELSE(512, IF_MACOS_ELSE(IF_AARCH64_ELSE(512,
+                   1024), 1024)), 128) * 1024 * 1024,
                "capacity of virtual memory region reserved (maximum supported is "
                "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
 OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(8192ULL, 128) * 1024 * 1024,
