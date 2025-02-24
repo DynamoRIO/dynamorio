@@ -4019,11 +4019,11 @@ if (BUILD_CLIENTS)
       torunonly_simtool(reuse_offline ${ci_shared_app}
         "-infile ${small_trace_file} -tool reuse_distance -reuse_distance_histogram" "")
 
-      # The schedule_stats tool triggers the scheduler, to which we add the
-      # noise_generator. We test with a single-thread trace plus the noise_generator
-      # for a total of 2 threads, which we check for in the tool's output.
+      # The schedule_stats tool triggers the scheduler, to which we add 3
+      # noise generators. We test with a single-thread trace plus the 3 noise generators
+      # for a total of 4 threads, which we check for in the tool's output.
       torunonly_simtool(schedule_stats_noise_generator ${ci_shared_app}
-          "-infile ${small_trace_file} -tool schedule_stats -noise_generator_add 1 -noise_generator_num_records 10000" "")
+          "-infile ${small_trace_file} -tool schedule_stats -noise_generator_add 3 -noise_generator_num_records 1000" "")
 
       # Our multi-threaded sample trace is larger so we require gzip.
       if (ZLIB_FOUND)
