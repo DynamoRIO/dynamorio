@@ -137,7 +137,7 @@ static size_t client_tls_size = 2 * 4096;
  * expansion.
  */
 /* On A32, the pthread is put before tcbhead instead tcbhead being part of pthread */
-static size_t tcb_size = IF_X64_ELSE(0x1000, 0x490);
+static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x490);
 
 /* thread contol block header type from
  * - sysdeps/x86_64/nptl/tls.h
@@ -442,7 +442,8 @@ privload_tls_init(void *app_tp)
         app_tp);
     dr_tp = heap_mmap(client_tls_alloc_size, MEMPROT_READ | MEMPROT_WRITE,
                       VMM_SPECIAL_MMAP | VMM_PER_THREAD);
-    ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= client_tls_alloc_size);
+    ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate <=
+           client_tls_alloc_size);
 #if defined(AARCHXX) || defined(RISCV64)
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
      * the size and member locations match to avoid gdb crash.
@@ -456,7 +457,7 @@ privload_tls_init(void *app_tp)
     dr_tp = dr_tp + TLS_PRE_TCB_SIZE + sizeof(tcb_head_t);
     dr_tcb = (tcb_head_t *)(dr_tp - sizeof(tcb_head_t));
 #else
-    dr_tp = dr_tp + client_tls_alloc_size - tcb_size;
+    dr_tp = dr_tp + client_tls_alloc_size - tcb_size_estimate;
     dr_tcb = (tcb_head_t *)dr_tp;
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to " PFX "\n", __FUNCTION__,
@@ -467,13 +468,13 @@ privload_tls_init(void *app_tp)
     if (app_tp != NULL &&
         !safe_read_ex(
             app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)),
-            APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size,
+            APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate,
             dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)),
             &tls_bytes_read)) {
         LOG(GLOBAL, LOG_LOADER, 2,
             "%s: read failed, tcb was 0x%lx bytes "
             "instead of 0x%lx\n",
-            __FUNCTION__, tls_bytes_read - APP_LIBC_TLS_SIZE, tcb_size);
+            __FUNCTION__, tls_bytes_read - APP_LIBC_TLS_SIZE, tcb_size_estimate);
 #if defined(AARCHXX) || defined(RISCV64)
     } else {
         dr_pthread_t *dp =
@@ -487,7 +488,8 @@ privload_tls_init(void *app_tp)
      * + our over-estimate crosses a page boundary (our estimate is for latest
      * libc and is larger than on older libc versions): i#855.
      */
-    ASSERT(tls_info.offset <= client_tls_alloc_size - TLS_PRE_TCB_SIZE - tcb_size);
+    ASSERT(tls_info.offset <=
+           client_tls_alloc_size - TLS_PRE_TCB_SIZE - tcb_size_estimate);
 #ifdef X86
     /* Update two self pointers. */
     dr_tcb->tcb = dr_tcb;
@@ -521,7 +523,7 @@ privload_tls_exit(void *dr_tp)
 #ifdef RISCV64
     dr_tp = dr_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
 #else
-    dr_tp = dr_tp + tcb_size - client_tls_alloc_size;
+    dr_tp = dr_tp + tcb_size_estimate - client_tls_alloc_size;
 #endif
     heap_munmap(dr_tp, client_tls_alloc_size, VMM_SPECIAL_MMAP | VMM_PER_THREAD);
 }
