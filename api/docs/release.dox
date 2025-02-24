@@ -141,6 +141,12 @@ Further non-compatibility-affecting changes include:
    instructions in the trace. This works for traces that have embedded instruction
    encodings in them, and also for legacy traces without embedded encodings where the
    encodings are obtained from the application binaries instead.
+ - Added noise_generator_t scaffolding as a reader_t to produce synthetic trace records
+   in the drmemtrace framework.
+ - Added -noise_generator_add and -noise_generator_num_records as flags and scheduler
+   options in the drmemtrace framework. -noise_generator_add determines how many noise
+   generators to add to a target trace(s), while -noise_generator_num_records determines
+   how many synthetic records each noise generator will produce.
 
 **************************************************
 <hr>
@@ -157,9 +163,6 @@ Further non-compatibility-affecting changes include:
  - Allow v2p.textproto file in a trace directory. This file is present in public traces.
  - Allow v2p.textproto file to have one missing virtual_address field, which indicates
    virtual_address == 0x0. Necessary in case a trace accesses virtual address 0x0.
- - Added noise_generator_t scaffolding as a reader_t to produce synthetic trace records.
- - Added -enable_noise_generator and -noise_generator_num_records as flags and scheduler
-   options.
 
 **************************************************
 <hr>
