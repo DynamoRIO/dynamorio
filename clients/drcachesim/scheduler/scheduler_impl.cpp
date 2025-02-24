@@ -759,7 +759,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                                  std::move(noise_generator_end),
                                  /* tid = */ INVALID_THREAD_ID);
             workload_inputs.emplace_back(std::move(readers));
-            std::cerr << "NG\n";
         }
     }
 
@@ -878,7 +877,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
         }
     }
 
-    // Legacy field support.
+    //  Legacy field support.
     scheduler_status_t res = legacy_field_support();
     if (res != sched_type_t::STATUS_SUCCESS)
         return res;

@@ -31,7 +31,6 @@
  */
 
 #include <assert.h>
-#include <iostream>
 #include "noise_generator.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -58,7 +57,6 @@ noise_generator_t::~noise_generator_t()
 bool
 noise_generator_t::init()
 {
-    std::cerr << "init\n";
     at_eof_ = false;
     ++*this;
     return true;
@@ -82,7 +80,6 @@ noise_generator_t::generate_trace_entry()
 trace_entry_t *
 noise_generator_t::read_next_entry()
 {
-    std::cerr << "next_entry\n";
     if (num_records_to_generate_ == 0) {
         at_eof_ = true;
         return nullptr;
@@ -91,16 +88,12 @@ noise_generator_t::read_next_entry()
     // Do not change the order for generating TRACE_TYPE_THREAD and TRACE_TYPE_PID.
     // The scheduler expects a tid first and then a pid.
     if (!marker_tid_generated_) {
-        entry_ = { TRACE_TYPE_THREAD,
-                   sizeof(int),
-                   { static_cast<addr_t>(IDLE_THREAD_ID) } };
+        entry_ = { TRACE_TYPE_THREAD, sizeof(int), { tid_ } };
         marker_tid_generated_ = true;
         return &entry_;
     }
     if (!marker_pid_generated_) {
-        entry_ = { TRACE_TYPE_PID,
-                   sizeof(int),
-                   { static_cast<addr_t>(INVALID_CPU_MARKER_VALUE) } };
+        entry_ = { TRACE_TYPE_PID, sizeof(int), { pid_ } };
         marker_pid_generated_ = true;
         return &entry_;
     }
@@ -108,9 +101,7 @@ noise_generator_t::read_next_entry()
     entry_ = generate_trace_entry();
 
     if (num_records_to_generate_ == 1) {
-        entry_ = { TRACE_TYPE_THREAD_EXIT,
-                   sizeof(int),
-                   { static_cast<addr_t>(IDLE_THREAD_ID) } };
+        entry_ = { TRACE_TYPE_THREAD_EXIT, sizeof(int), { tid_ } };
     }
     --num_records_to_generate_;
 
