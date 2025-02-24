@@ -159,8 +159,8 @@ public:
 protected:
     typedef speculator_tmpl_t<RecordType> spec_type_t;
 
-    struct next_record_t {
-        next_record_t(RecordType record, bool is_real)
+    struct cached_record_t {
+        cached_record_t(RecordType record, bool is_real)
             : record(record)
             , is_real(is_real)
         {
@@ -205,10 +205,10 @@ protected:
         // This is used for read-ahead and inserting synthetic records.
         // We use a deque so we can iterate over it.
 
-        std::deque<next_record_t> queue;
+        std::deque<cached_record_t> queue;
         uint64_t real_records_in_queue = 0;
         bool cur_from_queue;
-        bool cur_real_record;
+        bool is_cur_record_real;
         std::set<output_ordinal_t> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
@@ -435,7 +435,7 @@ protected:
         output_info_t(scheduler_impl_tmpl_t<RecordType, ReaderType> *scheduler_impl,
                       output_ordinal_t ordinal,
                       typename spec_type_t::speculator_flags_t speculator_flags,
-                      int rand_seed, next_record_t last_record_init, int verbosity = 0)
+                      int rand_seed, cached_record_t last_record_init, int verbosity = 0)
             : self_stream(scheduler_impl, ordinal, verbosity)
             , stream(&self_stream)
             , ready_queue(rand_seed)
@@ -479,7 +479,7 @@ protected:
         // while this field holds the instruction's start PC.  The use case is for
         // queueing a read-ahead instruction record for start_speculation().
         addr_t prev_speculate_pc = 0;
-        next_record_t last_record; // Set to TRACE_TYPE_INVALID in constructor.
+        cached_record_t last_record; // Set to TRACE_TYPE_INVALID in constructor.
         // A list of schedule segments. During replay, this is read by other threads,
         // but it is only written at init time.
         std::vector<schedule_record_t> record;
@@ -699,7 +699,7 @@ protected:
     // If STATUS_SKIPPED or STATUS_STOLE is returned, a new next record needs to be read.
     stream_status_t
     advance_region_of_interest(output_ordinal_t output, RecordType &record,
-                               input_info_t &input, bool &real_record);
+                               input_info_t &input, bool &is_record_real);
 
     // Discards the contents of the input queue.  Meant to be used when skipping
     // input records.

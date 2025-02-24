@@ -95,6 +95,9 @@ typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
     default_record_file_reader_t;
 #endif
 
+static constexpr bool IS_REAL = true;
+static constexpr bool IS_SYNTHETIC = false;
+
 std::string
 replay_file_checker_t::check(archive_istream_t *infile)
 {
@@ -564,8 +567,8 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
     tid.size = 0;
     tid.addr = static_cast<addr_t>(input.tid);
 
-    input.queue.emplace_front(pid, false);
-    input.queue.emplace_front(tid, false);
+    input.queue.emplace_front(pid, IS_SYNTHETIC);
+    input.queue.emplace_front(tid, IS_SYNTHETIC);
 }
 
 /***************************************************************************
@@ -851,7 +854,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 // TODO i#5843: Add more flags for other options.
                 : spec_type_t::LAST_FROM_TRACE,
             static_cast<int>(get_time_micros()),
-            next_record_t(create_invalid_record(), false), verbosity_);
+            cached_record_t(create_invalid_record(), false), verbosity_);
         if (options_.single_lockstep_output)
             outputs_.back().stream = global_stream_.get();
         if (options_.schedule_record_ostream != nullptr) {
@@ -1524,9 +1527,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
             // Maybe we should disallow it so we don't need checks like this?
             options_.mapping != sched_type_t::MAP_AS_PREVIOUSLY) {
             RecordType record = create_invalid_record();
-            bool real_record = false;
+            bool is_record_real = false;
             stream_status_t res =
-                advance_region_of_interest(/*output=*/-1, record, input, real_record);
+                advance_region_of_interest(/*output=*/-1, record, input, is_record_real);
             if (res == sched_type_t::STATUS_SKIPPED) {
                 input.next_timestamp =
                     static_cast<uintptr_t>(input.reader->get_last_timestamp());
@@ -1594,7 +1597,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 // we skip (see skip_instructions()).  Thus, we abort with an error.
                 if (record_type_is_instr(record))
                     break;
-                input.queue.emplace_back(record, true);
+                input.queue.emplace_back(record, IS_REAL);
                 ++input.real_records_in_queue;
                 ++(*input.reader);
             }
@@ -1635,7 +1638,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
         RecordType record = **reader;
         if (record_type_has_tid(record, tid))
             break;
-        input.queue.emplace_back(record, true);
+        input.queue.emplace_back(record, IS_REAL);
         ++input.real_records_in_queue;
         ++(*reader);
     }
@@ -1826,7 +1829,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_record_ordinal(
     uint64_t ord = inputs_[index].reader->get_record_ordinal();
     if (get_instr_ordinal(inputs_[index]) == 0) {
         uint64_t adjust =
-            inputs_[index].cur_from_queue && inputs_[index].cur_real_record ? 1 : 0;
+            inputs_[index].cur_from_queue && inputs_[index].is_cur_record_real ? 1 : 0;
         adjust += inputs_[index].real_records_in_queue;
         assert(ord >= adjust);
         // Account for get_initial_input_content() readahead for filetype/timestamp.
@@ -1861,7 +1864,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_first_timestamp(
     uint64_t res = inputs_[index].reader->get_first_timestamp();
     if (get_instr_ordinal(inputs_[index]) == 0 &&
         (inputs_[index].real_records_in_queue > 0 ||
-         (inputs_[index].cur_from_queue && inputs_[index].cur_real_record))) {
+         (inputs_[index].cur_from_queue && inputs_[index].is_cur_record_real))) {
         // Account for get_initial_input_content() readahead for filetype/timestamp.
         res = 0;
     }
@@ -1881,7 +1884,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_last_timestamp(
     uint64_t res = inputs_[index].reader->get_last_timestamp();
     if (get_instr_ordinal(inputs_[index]) == 0 &&
         (inputs_[index].real_records_in_queue > 0 ||
-         (inputs_[index].cur_from_queue && inputs_[index].cur_real_record))) {
+         (inputs_[index].cur_from_queue && inputs_[index].is_cur_record_real))) {
         // Account for get_initial_input_content() readahead for filetype/timestamp.
         res = 0;
     }
@@ -1891,7 +1894,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_last_timestamp(
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
-    output_ordinal_t output, RecordType &record, input_info_t &input, bool &real_record)
+    output_ordinal_t output, RecordType &record, input_info_t &input,
+    bool &is_record_real)
 {
     assert(input.lock->owned_by_cur_thread());
     uint64_t cur_instr = get_instr_ordinal(input);
@@ -1942,9 +1946,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
         if (input.cur_region > 0) {
             VPRINT(this, 3, "skip_instructions input=%d: inserting separator marker\n",
                    input.index);
-            input.queue.emplace_back(record, real_record);
+            input.queue.emplace_back(record, is_record_real);
             record = create_region_separator_marker(input.tid, input.cur_region);
-            real_record = false;
+            is_record_real = false;
         }
         return sched_type_t::STATUS_OK;
     }
@@ -2324,7 +2328,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
                      i >= 0; --i) {
                     RecordType record = switch_sequence_[switch_type][i];
                     record_type_set_tid(record, inputs_[input].tid);
-                    inputs_[input].queue.emplace_front(record, false);
+                    inputs_[input].queue.emplace_front(record, IS_SYNTHETIC);
                 }
                 VPRINT(this, 3,
                        "Inserted %zu switch records for type %d from %d.%d to %d.%d\n",
@@ -2530,7 +2534,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     }
     while (true) {
         input->cur_from_queue = false;
-        input->cur_real_record = false;
+        input->is_cur_record_real = false;
         if (input->needs_init) {
             // We pay the cost of this conditional to support ipc_reader_t::init() which
             // blocks and must be called right before reading its first record.
@@ -2544,9 +2548,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         if (!input->queue.empty()) {
             record = input->queue.front().record;
             input->cur_from_queue = true;
-            input->cur_real_record = input->queue.front().is_real;
+            input->is_cur_record_real = input->queue.front().is_real;
             input->queue.pop_front();
-            if (input->cur_real_record) {
+            if (input->is_cur_record_real) {
                 --input->real_records_in_queue;
             }
         } else {
@@ -2581,13 +2585,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 continue;
             } else {
                 record = **input->reader;
-                input->cur_real_record = true;
+                input->is_cur_record_real = true;
             }
         }
         VPRINT(this, 5,
                "next_record[%d]: candidate record from %d (@%" PRId64 "): ", output,
                input->index, get_instr_ordinal(*input));
-        if (input->instrs_pre_read > 0 && input->cur_real_record &&
+        if (input->instrs_pre_read > 0 && input->is_cur_record_real &&
             record_type_is_instr(record))
             --input->instrs_pre_read;
         VDO(this, 5, print_record(record););
@@ -2606,7 +2610,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             // We have to put the candidate record in the queue before we release
             // the lock since another output may grab this input.
             VPRINT(this, 5, "next_record[%d]: queuing candidate record\n", output);
-            input->queue.emplace_back(record, input->cur_real_record);
+            input->queue.emplace_back(record, input->is_cur_record_real);
             lock.unlock();
             res = pick_next_input(output, blocked_time);
             if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_WAIT &&
@@ -2651,7 +2655,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 if (res != sched_type_t::STATUS_SKIPPED) {
                     // Get our candidate record back.
                     record = input->queue.back().record;
-                    input->cur_real_record = input->queue.back().is_real;
+                    input->is_cur_record_real = input->queue.back().is_real;
                     input->queue.pop_back();
                 }
             }
@@ -2665,7 +2669,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             !input->regions_of_interest.empty()) {
             input_ordinal_t prev_input = input->index;
             res = advance_region_of_interest(output, record, *input,
-                                             input->cur_real_record);
+                                             input->is_cur_record_real);
             if (res == sched_type_t::STATUS_SKIPPED) {
                 // We need either the queue or to re-de-ref the reader so we loop,
                 // but we do not want to come back here.
@@ -2692,7 +2696,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     update_next_record(output, record);
     VDO(this, 4, print_record(record););
 
-    outputs_[output].last_record = { record, input->cur_real_record };
+    outputs_[output].last_record = { record, input->is_cur_record_real };
     record_type_has_tid(record, input->last_record_tid);
     record_type_has_pid(record, input->pid);
     return sched_type_t::STATUS_OK;

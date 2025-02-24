@@ -5916,6 +5916,7 @@ test_kernel_switch_sequences(bool use_input_ordinals)
                        now_switch);
                 if (use_input_ordinals) {
                     assert(outputs[i]->get_record_ordinal() == prev_out_ord[i] ||
+                           // Won't match if we just switched inputs.
                            now_switch);
                 } else {
                     assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
@@ -6715,6 +6716,7 @@ test_main(int argc, const char *argv[])
     assert(argc == 2);
     // Avoid races with lazy drdecode init (b/279350357).
     dr_standalone_init();
+
     test_serial();
     test_parallel();
     test_param_checks();
