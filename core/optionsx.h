@@ -1603,18 +1603,20 @@ OPTION_DEFAULT_INTERNAL(
     bool, skip_out_of_vm_reserve_curiosity, false,
     "skip the assert curiosity on out of vm_reserve (for regression tests)")
 OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory")
-OPTION_DEFAULT(uint_size, vm_size,
-               /* The 64-bit default is 1G instead of the full 32-bit-reachable
-                * 2G to allow for -vm_base_near_app to reduce overheads.
-                * If this is set to 2G, -vm_base_near_app will always fail.
-                */
-               /* TODO i#3570: Add support for private loading inside the vm_size
-                * region so Windows can support a 2G size.
-                */
-               IF_X64_ELSE(IF_WINDOWS_ELSE(512, IF_MACOS_ELSE(IF_AARCH64_ELSE(512,
-                   1024), 1024)), 128) * 1024 * 1024,
-               "capacity of virtual memory region reserved (maximum supported is "
-               "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
+OPTION_DEFAULT(
+    uint_size, vm_size,
+    /* The 64-bit default is 1G instead of the full 32-bit-reachable
+     * 2G to allow for -vm_base_near_app to reduce overheads.
+     * If this is set to 2G, -vm_base_near_app will always fail.
+     */
+    /* TODO i#3570: Add support for private loading inside the vm_size
+     * region so Windows can support a 2G size.
+     */
+    IF_X64_ELSE(IF_WINDOWS_ELSE(512, IF_MACOS_ELSE(IF_AARCH64_ELSE(512, 1024), 1024)),
+                128) *
+        1024 * 1024,
+    "capacity of virtual memory region reserved (maximum supported is "
+    "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
 OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(8192ULL, 128) * 1024 * 1024,
                /* XXX: default value is currently not good enough for 32-bit sqlserver,
                 * for which we need more than 256MB.
