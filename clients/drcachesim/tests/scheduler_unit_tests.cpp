@@ -5770,7 +5770,7 @@ test_unscheduled()
 }
 
 static void
-test_kernel_switch_sequences()
+test_kernel_switch_sequences(bool use_input_ordinals)
 {
     std::cerr << "\n----------------\nTesting kernel switch sequences\n";
     static constexpr memref_tid_t TID_IN_SWITCHES = 1;
@@ -5838,9 +5838,18 @@ test_kernel_switch_sequences()
         }
         sched_inputs.emplace_back(std::move(readers));
     }
+    dynamorio::drmemtrace::scheduler_tmpl_t<
+        dynamorio::drmemtrace::_memref_t,
+        dynamorio::drmemtrace::reader_t>::scheduler_flags_t flags =
+        scheduler_t::SCHEDULER_DEFAULTS;
+    if (use_input_ordinals) {
+        flags = static_cast<dynamorio::drmemtrace::scheduler_tmpl_t<
+            dynamorio::drmemtrace::_memref_t,
+            dynamorio::drmemtrace::reader_t>::scheduler_flags_t>(
+            flags | scheduler_t::SCHEDULER_USE_INPUT_ORDINALS);
+    }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS, flags,
                                                /*verbosity=*/3);
     sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
     sched_ops.kernel_switch_reader = std::move(switch_reader);
@@ -5888,9 +5897,12 @@ test_kernel_switch_sequences()
                 sched_as_string[i] +=
                     'A' + static_cast<char>(memref.instr.tid - TID_BASE);
             }
+            bool now_switch = false;
             if (memref.marker.type == TRACE_TYPE_MARKER &&
-                memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)
+                memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
+                now_switch = true;
                 in_switch[i] = true;
+            }
             if (in_switch[i]) {
                 // Test that switch code is marked synthetic.
                 assert(outputs[i]->is_record_synthetic());
@@ -5899,10 +5911,13 @@ test_kernel_switch_sequences()
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
                            prev_in_ord[i] ||
                        // Won't match if we just switched inputs.
-                       (memref.marker.type == TRACE_TYPE_MARKER &&
-                        memref.marker.marker_type ==
-                            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START));
-                assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
+                       now_switch);
+                if (use_input_ordinals) {
+                    assert(outputs[i]->get_record_ordinal() == prev_out_ord[i] ||
+                           now_switch);
+                } else {
+                    assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
+                }
             } else
                 assert(!outputs[i]->is_record_synthetic());
             if (type_is_instr(memref.instr.type))
@@ -6698,7 +6713,6 @@ test_main(int argc, const char *argv[])
     assert(argc == 2);
     // Avoid races with lazy drdecode init (b/279350357).
     dr_standalone_init();
-
     test_serial();
     test_parallel();
     test_param_checks();
@@ -6730,7 +6744,8 @@ test_main(int argc, const char *argv[])
     test_inactive();
     test_direct_switch();
     test_unscheduled();
-    test_kernel_switch_sequences();
+    test_kernel_switch_sequences(/*use_input_ordinals=*/true);
+    test_kernel_switch_sequences(/*use_input_ordinals=*/false);
     test_random_schedule();
     test_record_scheduler();
     test_rebalancing();

@@ -458,7 +458,8 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
         // boundaries so we live with those being before the switch.
         // XXX: Once we insert kernel traces, we may have to try harder
         // to stop before the post-syscall records.
-        if (this->record_type_is_instr_boundary(record, outputs_[output].last_record) &&
+        if (this->record_type_is_instr_boundary(record,
+                                                outputs_[output].last_record.record) &&
             // We want to delay the context switch until after the injected syscall trace.
             !outputs_[output].in_syscall_code) {
             if (input->switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
@@ -507,7 +508,8 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
         this->process_marker(*input, output, marker_type, marker_value);
     }
     if (options_.quantum_unit == sched_type_t::QUANTUM_INSTRUCTIONS &&
-        this->record_type_is_instr_boundary(record, outputs_[output].last_record) &&
+        this->record_type_is_instr_boundary(record,
+                                            outputs_[output].last_record.record) &&
         !outputs_[output].in_context_switch_code) {
         ++input->instrs_in_quantum;
         if (input->instrs_in_quantum > options_.quantum_duration_instrs) {
@@ -546,7 +548,8 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
             // We only switch on instruction boundaries.  We could possibly switch
             // in between (e.g., scatter/gather long sequence of reads/writes) by
             // setting input->switching_pre_instruction.
-            this->record_type_is_instr_boundary(record, outputs_[output].last_record)) {
+            this->record_type_is_instr_boundary(record,
+                                                outputs_[output].last_record.record)) {
             if (outputs_[output].in_syscall_code) {
                 // XXX: Maybe this should be printed only once per-syscall-instance to
                 // reduce log spam.
