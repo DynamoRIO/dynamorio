@@ -5772,7 +5772,9 @@ test_unscheduled()
 static void
 test_kernel_switch_sequences(bool use_input_ordinals)
 {
-    std::cerr << "\n----------------\nTesting kernel switch sequences\n";
+    std::cerr
+        << "\n----------------\nTesting kernel switch sequences for use_input_ordinals: "
+        << use_input_ordinals << "\n";
     static constexpr memref_tid_t TID_IN_SWITCHES = 1;
     static constexpr addr_t PROCESS_SWITCH_PC_START = 0xfeed101;
     static constexpr addr_t THREAD_SWITCH_PC_START = 0xcafe101;

@@ -2304,8 +2304,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
         if (inputs_[input].pid != INVALID_PID) {
             insert_switch_tid_pid(inputs_[input]);
         }
-        if (!switch_sequence_.empty() &&
-            outputs_[output].stream->get_instruction_ordinal() > 0) {
+        if (!switch_sequence_.empty()) {
             switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
             if (prev_workload != inputs_[input].workload)
                 switch_type = sched_type_t::SWITCH_PROCESS;
@@ -2731,6 +2730,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
             VPRINT(this, 2, "output %d base timestamp = %zu\n", output,
                    outputs_[output].base_timestamp);
         }
+        // FIXME: When USE_INPUT_ORDINALS is enabled, this returns the input-local
+        // instruction ordinal (which not only is not global, but it may also include
+        // the read-ahead instructions).
         uint64_t instr_ord = outputs_[output].stream->get_instruction_ordinal();
         uint64_t idle_count = outputs_[output].idle_count;
         uintptr_t new_time = static_cast<uintptr_t>(
