@@ -2308,42 +2308,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
         stream->page_size_ = inputs_[input].reader->get_page_size();
     }
 
-    if (prev_workload >= 0) {
-        if (inputs_[input].pid != INVALID_PID) {
-            insert_switch_tid_pid(inputs_[input]);
-        }
-        if (!switch_sequence_.empty()) {
-            switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
-            if (prev_workload != inputs_[input].workload)
-                switch_type = sched_type_t::SWITCH_PROCESS;
-            else
-                switch_type = sched_type_t::SWITCH_THREAD;
-            // Inject kernel context switch code.  Since the injected records belong to
-            // this input (the kernel is acting on behalf of this input) we insert them
-            // into the input's queue, but ahead of any prior queued items.  This is why
-            // we walk in reverse, for the push_front calls to the deque.  We update the
-            // tid of the records here to match.  They are considered as
-            // is_record_synthetic() and do not affect input stream ordinals.
-            // XXX: These will appear before the top headers of a new thread which is
-            // slightly odd to have regular records with the new tid before the top
-            // headers.
-            if (!switch_sequence_[switch_type].empty()) {
-                ++outputs_[output]
-                      .stats[memtrace_stream_t::SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS];
-                for (int i = static_cast<int>(switch_sequence_[switch_type].size()) - 1;
-                     i >= 0; --i) {
-                    RecordType record = switch_sequence_[switch_type][i];
-                    record_type_set_tid(record, inputs_[input].tid);
-                    inputs_[input].queue.emplace_front(record, IS_SYNTHETIC);
-                }
-                VPRINT(this, 3,
-                       "Inserted %zu switch records for type %d from %d.%d to %d.%d\n",
-                       switch_sequence_[switch_type].size(), switch_type, prev_workload,
-                       outputs_[output].prev_input, inputs_[input].workload, input);
-            }
-        }
-    }
-
     inputs_[input].prev_time_in_quantum =
         outputs_[output].cur_time->load(std::memory_order_acquire);
 
@@ -2436,27 +2400,77 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t 
     }
     // We can't easily place these stats inside set_cur_input() as we call that to
     // temporarily give up our input.
-    update_switch_stats(output, prev_index, index);
+    on_context_switch(output, prev_index, index);
     set_cur_input(output, index);
     return res;
 }
 
 template <typename RecordType, typename ReaderType>
 void
-scheduler_impl_tmpl_t<RecordType, ReaderType>::update_switch_stats(
+scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     output_ordinal_t output, input_ordinal_t prev_input, input_ordinal_t new_input)
 {
+    bool do_inject_switch_seq = false;
     if (prev_input == new_input)
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_NOP];
     else if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL &&
-             new_input != sched_type_t::INVALID_INPUT_ORDINAL)
+             new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT];
-    else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL)
+        do_inject_switch_seq = true;
+    } else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL)
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
     else {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
         // Reset the flag so we'll try to steal if we go idle again.
         outputs_[output].tried_to_steal_on_idle = false;
+        do_inject_switch_seq = true;
+    }
+
+    // We want to insert the context switch sequence on input-to-input and
+    // idle-to-input cases. This is a better control point to do that than
+    // set_cur_input. Here we get the stolen input events too, and we don't have
+    // to filter out the init-time set_cur_input cases.
+    // RFC: Was there any other benefit to doing this in set_cur_input before?
+    // It is harder to differentiate idle-to-input events from start of output when
+    // USE_INPUT_ORDINALS is set, since get_instruction_ordinal() does not return the
+    // intended global value in that case.
+    if (do_inject_switch_seq) {
+        if (inputs_[new_input].pid != INVALID_PID) {
+            insert_switch_tid_pid(inputs_[new_input]);
+        }
+        if (!switch_sequence_.empty()) {
+            switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
+            if (prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
+                inputs_[prev_input].workload != inputs_[new_input].workload)
+                switch_type = sched_type_t::SWITCH_PROCESS;
+            else
+                switch_type = sched_type_t::SWITCH_THREAD;
+            // Inject kernel context switch code.  Since the injected records belong to
+            // this input (the kernel is acting on behalf of this input) we insert them
+            // into the input's queue, but ahead of any prior queued items.  This is why
+            // we walk in reverse, for the push_front calls to the deque.  We update the
+            // tid of the records here to match.  They are considered as
+            // is_record_synthetic() and do not affect input stream ordinals.
+            // XXX: These will appear before the top headers of a new thread which is
+            // slightly odd to have regular records with the new tid before the top
+            // headers.
+            if (!switch_sequence_[switch_type].empty()) {
+                ++outputs_[output]
+                      .stats[memtrace_stream_t::SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS];
+                for (int i = static_cast<int>(switch_sequence_[switch_type].size()) - 1;
+                     i >= 0; --i) {
+                    RecordType record = switch_sequence_[switch_type][i];
+                    record_type_set_tid(record, inputs_[new_input].tid);
+                    inputs_[new_input].queue.emplace_front(record, IS_SYNTHETIC);
+                }
+                VPRINT(this, 3, "Inserted %zu switch for type %d from %d.%d to %d.%d\n",
+                       switch_sequence_[switch_type].size(), switch_type,
+                       prev_input != sched_type_t::INVALID_INPUT_ORDINAL
+                           ? inputs_[prev_input].workload
+                           : -1,
+                       prev_input, inputs_[new_input].workload, new_input);
+            }
+        }
     }
 }
 
@@ -2688,7 +2702,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             } else if (res == sched_type_t::STATUS_STOLE) {
                 // We need to loop to get the new record.
                 input = &inputs_[outputs_[output].cur_input];
-                update_switch_stats(output, prev_input, input->index);
+                on_context_switch(output, prev_input, input->index);
                 lock.unlock();
                 lock = std::unique_lock<mutex_dbg_owned>(*input->lock);
                 lock.lock();

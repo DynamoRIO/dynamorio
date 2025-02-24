@@ -418,8 +418,8 @@ protected:
     scale_blocked_time(uint64_t initial_time) const;
 
     void
-    update_switch_stats(output_ordinal_t output, input_ordinal_t prev_input,
-                        input_ordinal_t new_input);
+    on_context_switch(output_ordinal_t output, input_ordinal_t prev_input,
+                      input_ordinal_t new_input);
 
     ///
     ///////////////////////////////////////////////////////////////////////////
