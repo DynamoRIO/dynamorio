@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -112,6 +112,10 @@ public:
          * inputs from being scheduled onto an output.
          */
         SCHED_STAT_HIT_OUTPUT_LIMIT,
+        /**
+         * Counts the instances when the context switch sequence was injected.
+         */
+        SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS,
         /** Count of statistic types. */
         SCHED_STAT_TYPE_COUNT,
     };

@@ -5876,6 +5876,7 @@ test_kernel_switch_sequences(bool use_input_ordinals)
     std::vector<bool> in_switch(NUM_OUTPUTS, false);
     std::vector<uint64> prev_in_ord(NUM_OUTPUTS, 0);
     std::vector<uint64> prev_out_ord(NUM_OUTPUTS, 0);
+    std::vector<uint64> switch_seq_count(NUM_OUTPUTS, 0);
     while (num_eof < NUM_OUTPUTS) {
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             if (eof[i])
@@ -5930,7 +5931,9 @@ test_kernel_switch_sequences(bool use_input_ordinals)
                 case TRACE_MARKER_TYPE_VERSION: sched_as_string[i] += 'v'; break;
                 case TRACE_MARKER_TYPE_TIMESTAMP: sched_as_string[i] += '0'; break;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+                    assert(in_switch[i]);
                     in_switch[i] = false;
+                    ++switch_seq_count[i];
                     ANNOTATE_FALLTHROUGH;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
                     if (memref.marker.marker_value == scheduler_t::SWITCH_PROCESS)
@@ -5947,6 +5950,12 @@ test_kernel_switch_sequences(bool use_input_ordinals)
             prev_in_ord[i] = outputs[i]->get_input_interface()->get_record_ordinal();
             prev_out_ord[i] = outputs[i]->get_record_ordinal();
         }
+    }
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        assert(switch_seq_count[i] > 0);
+        assert(switch_seq_count[i] ==
+               static_cast<uint64>(outputs[i]->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS)));
     }
     // Check the high-level strings.
     for (int i = 0; i < NUM_OUTPUTS; i++) {

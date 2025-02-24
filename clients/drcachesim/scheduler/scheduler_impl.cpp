@@ -659,7 +659,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::~scheduler_impl_tmpl_t()
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS]);
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue rebalances",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_REBALANCES]);
-        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Ouput limits hit",
+        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Output limits hit",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT]);
 #ifndef NDEBUG
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue lock acquired",
@@ -667,6 +667,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::~scheduler_impl_tmpl_t()
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue lock contended",
                outputs_[i].ready_queue.lock->get_count_contended());
 #endif
+        VPRINT(
+            this, 1, "  %-35s: %9" PRId64 "\n", "Switch sequence injections",
+            outputs_[i].stats[memtrace_stream_t::SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS]);
     }
 }
 
@@ -2325,6 +2328,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
             // slightly odd to have regular records with the new tid before the top
             // headers.
             if (!switch_sequence_[switch_type].empty()) {
+                ++outputs_[output]
+                      .stats[memtrace_stream_t::SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS];
                 for (int i = static_cast<int>(switch_sequence_[switch_type].size()) - 1;
                      i >= 0; --i) {
                     RecordType record = switch_sequence_[switch_type][i];
