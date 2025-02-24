@@ -6698,8 +6698,9 @@ class mock_noise_generator_t : public noise_generator_t {
 public:
     mock_noise_generator_t() {};
 
-    mock_noise_generator_t(uint64_t num_records_to_generate, addr_t addr_to_generate)
-        : noise_generator_t(num_records_to_generate)
+    mock_noise_generator_t(addr_t pid, addr_t tid, uint64_t num_records_to_generate,
+                           addr_t addr_to_generate)
+        : noise_generator_t(pid, tid, num_records_to_generate)
         , addr_to_generate_(addr_to_generate) {};
 
 protected:
@@ -6756,7 +6757,7 @@ test_noise_generator()
                          std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
     readers.emplace_back(
         std::unique_ptr<mock_noise_generator_t>(
-            new mock_noise_generator_t(10, noise_generator_addr_to_generate)),
+            new mock_noise_generator_t(1, 1, 10, noise_generator_addr_to_generate)),
         std::unique_ptr<mock_noise_generator_t>(new mock_noise_generator_t()),
         INVALID_THREAD_ID);
     scheduler_t scheduler;

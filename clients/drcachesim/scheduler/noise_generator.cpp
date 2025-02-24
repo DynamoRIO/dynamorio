@@ -31,6 +31,7 @@
  */
 
 #include <assert.h>
+#include <iostream>
 #include "noise_generator.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -42,8 +43,11 @@ noise_generator_t::noise_generator_t()
 {
 }
 
-noise_generator_t::noise_generator_t(uint64_t num_records_to_generate)
+noise_generator_t::noise_generator_t(addr_t pid, addr_t tid,
+                                     uint64_t num_records_to_generate)
     : num_records_to_generate_(num_records_to_generate)
+    , pid_(pid)
+    , tid_(tid)
 {
 }
 
@@ -54,6 +58,7 @@ noise_generator_t::~noise_generator_t()
 bool
 noise_generator_t::init()
 {
+    std::cerr << "init\n";
     at_eof_ = false;
     ++*this;
     return true;
@@ -77,6 +82,7 @@ noise_generator_t::generate_trace_entry()
 trace_entry_t *
 noise_generator_t::read_next_entry()
 {
+    std::cerr << "next_entry\n";
     if (num_records_to_generate_ == 0) {
         at_eof_ = true;
         return nullptr;

@@ -714,11 +714,11 @@ droption_t<std::string>
                    "Cache hierarchy configuration file",
                    "The full path to the cache hierarchy configuration file.");
 
-droption_t<bool>
-    op_enable_noise_generator(DROPTION_SCOPE_FRONTEND, "enable_noise_generator", false,
-                              "Enables the noise generator.",
-                              "Enables the scheduler to interleave trace records "
-                              "with synthetic records.");
+droption_t<bool> op_noise_generator_add(
+    DROPTION_SCOPE_FRONTEND, "noise_generator_add", false, "Enables noise generators.",
+    "Adds the specified number of noise generators, which enables the scheduler to "
+    "interleave trace records with synthetic records. Each noise generator behaves like "
+    "a thread in its own process.");
 
 droption_t<uint64_t> op_noise_generator_num_records(
     DROPTION_SCOPE_FRONTEND, "noise_generator_num_records", 0,

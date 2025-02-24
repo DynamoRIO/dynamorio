@@ -573,7 +573,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 
     // Add the noise generator before init_scheduler(), where we eventually add
     // the noise generator as another input workload.
-    sched_ops.enable_noise_generator = op_enable_noise_generator.get_value();
+    sched_ops.noise_generator_add = op_noise_generator_add.get_value();
     sched_ops.noise_generator_num_records = op_noise_generator_num_records.get_value();
 
     if (!indirs.empty()) {
