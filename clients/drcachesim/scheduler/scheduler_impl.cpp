@@ -2591,6 +2591,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         VPRINT(this, 5,
                "next_record[%d]: candidate record from %d (@%" PRId64 "): ", output,
                input->index, get_instr_ordinal(*input));
+        // FIXME: This is likely too premature; we should either move it to later,
+        // or undo the decrement for cases we don't actually end up returning the
+        // pre-read instruction to the caller.
         if (input->instrs_pre_read > 0 && input->is_cur_record_real &&
             record_type_is_instr(record))
             --input->instrs_pre_read;
