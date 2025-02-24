@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2021-2025 Google, Inc.   All rights reserved.
  * Copyright (c) 2018 ARM Limited. All rights reserved.
  * **********************************************************
  *
@@ -129,7 +129,11 @@ should_fully_emulate_instr(instr_t *instr)
 #elif defined(X86_64)
     opnd_t dst = instr_get_dst(instr, 0);
     opnd_t src1 = instr_get_src(instr, 1);
-    if (!opnd_same(src1, dst) || !opnd_is_reg(src0) || opnd_get_size(src0) != OPSZ_8)
+    /* As noted, we limit to register operands, partly because TEST cannot
+     * take two memory operands.
+     */
+    if (!opnd_same(src1, dst) || !opnd_is_reg(src0) || !opnd_is_reg(dst) ||
+        opnd_get_size(src0) != OPSZ_8)
         return false;
 #else
 #    error Architecture not supported.
