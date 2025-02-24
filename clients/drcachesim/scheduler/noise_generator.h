@@ -71,8 +71,8 @@ protected:
     // The idea is that when we want to generate at least 1 record, tid and pid have to be
     // there as well, otherwise the scheduler will report an error.
     uint64_t num_records_to_generate_ = 0;
-    addr_t pid_;
-    addr_t tid_;
+    addr_t pid_ = 0;
+    addr_t tid_ = 0;
 
 private:
     trace_entry_t entry_ = {};
