@@ -219,7 +219,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                 opnd_create_reg(DR_REG_A0)));
     }
 
-    dstack_offs += 2 * XSP_SZ;
+    dstack_offs += XSP_SZ;
 
     /* Push vector registers. */
     if (proc_has_feature(FEATURE_VECTOR)) {
