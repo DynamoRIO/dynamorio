@@ -1927,7 +1927,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
                     if (status != sched_type_t::STATUS_OK)
                         return status;
                 }
-                input.queue.push_back({ create_thread_exit(input.tid), false });
+                input.queue.push_back({ create_thread_exit(input.tid), IS_SYNTHETIC });
                 stream_status_t status = mark_input_eof(input);
                 // For early EOF we still need our synthetic exit so do not return it yet.
                 if (status != sched_type_t::STATUS_OK &&
@@ -2088,7 +2088,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::skip_instructions(input_info_t &i
         VPRINT(this, 3, "skip_instructions input=%d: inserting separator marker\n",
                input.index);
         input.queue.push_back(
-            { create_region_separator_marker(input.tid, input.cur_region), false });
+            { create_region_separator_marker(input.tid, input.cur_region),
+              IS_SYNTHETIC });
     }
     return sched_type_t::STATUS_SKIPPED;
 }
@@ -2738,7 +2739,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
                    outputs_[output].base_timestamp);
         }
         // FIXME: When USE_INPUT_ORDINALS is enabled, this returns the input-local
-        // instruction ordinal (which not only is not global, but it may also include
+        // instruction ordinal (which not only is not global, but it would also count
         // the read-ahead instructions).
         uint64_t instr_ord = outputs_[output].stream->get_instruction_ordinal();
         uint64_t idle_count = outputs_[output].idle_count;
@@ -2785,7 +2786,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal
     if (options_.quantum_unit == sched_type_t::QUANTUM_INSTRUCTIONS &&
         record_type_is_instr(record))
         --input->instrs_in_quantum;
-    outinfo.last_record = { create_invalid_record(), false };
+    outinfo.last_record = { create_invalid_record(), IS_SYNTHETIC };
     return sched_type_t::STATUS_OK;
 }
 
