@@ -250,7 +250,7 @@ protected:
 
     int associativity_;
     int64_t block_size_; // Also known as line length.
-    int num_blocks_;      // Total number of lines in cache = size / block_size.
+    int num_blocks_;     // Total number of lines in cache = size / block_size.
     bool coherent_cache_;
     // This is an index into snoop filter's array of caches.
     int id_;
