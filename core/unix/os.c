@@ -4136,7 +4136,6 @@ thread_id_t
 dynamorio_clone_macos(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
                       void (*func)(void))
 {
-    /* NYI */
     ASSERT(ptid == NULL);
     ASSERT(tls == NULL);
     ASSERT(ctid == NULL);
@@ -4148,7 +4147,6 @@ dynamorio_clone_macos(uint flags, byte *newsp, void *ptid, void *tls, void *ctid
     thread_state_flavor_t state_flavor = ARM_THREAD_STATE64;
     arm_thread_state64_t state = { .__sp = (uint64_t)newsp, .__pc = (uint64_t)func };
     mach_msg_type_number_t state_count = ARM_THREAD_STATE64_COUNT;
-#    endif
     thread_act_t new_thread;
 
     kern_return_t res = thread_create_running(
@@ -4157,6 +4155,10 @@ dynamorio_clone_macos(uint flags, byte *newsp, void *ptid, void *tls, void *ctid
         return -1;
 
     return new_thread;
+#    else
+    /* NYI */
+    return -1;
+#    endif
 }
 #endif
 
