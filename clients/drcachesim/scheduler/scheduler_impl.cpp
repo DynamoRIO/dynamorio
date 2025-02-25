@@ -2397,9 +2397,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
              new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT];
         do_inject_switch_seq = true;
-    } else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL)
+    } else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL) {
+        // XXX: For now, we do not inject a kernel context switch sequence on
+        // input-to-idle transitions (note that we do so on idle-to-input though).
+        // However, we may want to inject some other suitable sequence, but we're not
+        // sure yet.
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
-    else {
+    } else {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
         // Reset the flag so we'll try to steal if we go idle again.
         outputs_[output].tried_to_steal_on_idle = false;
@@ -2410,50 +2414,45 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     // idle-to-input cases. This is a better control point to do that than
     // set_cur_input. Here we get the stolen input events too, and we don't have
     // to filter out the init-time set_cur_input cases.
-    // RFC: Was there any other benefit to doing this in set_cur_input before?
-    // If this logic is kept a part of set_cur_input, when USE_INPUT_ORDINALS is
-    // set, it is harder to differentiate between idle-to-input events and start
-    // of output; this is because get_instruction_ordinal() does not return the
-    // intended global value in that case (it returns the input-local value
-    // which is also not adjusted for the scheduler read-ahead, so is non-zero).
-    if (do_inject_switch_seq) {
-        if (inputs_[new_input].pid != INVALID_PID) {
-            insert_switch_tid_pid(inputs_[new_input]);
-        }
-        if (!switch_sequence_.empty()) {
-            switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
-            if (prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
-                inputs_[prev_input].workload != inputs_[new_input].workload)
-                switch_type = sched_type_t::SWITCH_PROCESS;
-            else
-                switch_type = sched_type_t::SWITCH_THREAD;
-            // Inject kernel context switch code.  Since the injected records belong to
-            // this input (the kernel is acting on behalf of this input) we insert them
-            // into the input's queue, but ahead of any prior queued items.  This is why
-            // we walk in reverse, for the push_front calls to the deque.  We update the
-            // tid of the records here to match.  They are considered as
-            // is_record_synthetic() and do not affect input stream ordinals.
-            // XXX: These will appear before the top headers of a new thread which is
-            // slightly odd to have regular records with the new tid before the top
-            // headers.
-            if (!switch_sequence_[switch_type].empty()) {
-                ++outputs_[output].stats
-                      [memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
-                for (int i = static_cast<int>(switch_sequence_[switch_type].size()) - 1;
-                     i >= 0; --i) {
-                    RecordType record = switch_sequence_[switch_type][i];
-                    record_type_set_tid(record, inputs_[new_input].tid);
-                    inputs_[new_input].queue.emplace_front(record);
-                }
-                VPRINT(this, 3, "Inserted %zu switch for type %d from %d.%d to %d.%d\n",
-                       switch_sequence_[switch_type].size(), switch_type,
-                       prev_input != sched_type_t::INVALID_INPUT_ORDINAL
-                           ? inputs_[prev_input].workload
-                           : -1,
-                       prev_input, inputs_[new_input].workload, new_input);
-            }
-        }
+    if (!do_inject_switch_seq)
+        return;
+    if (inputs_[new_input].pid != INVALID_PID) {
+        insert_switch_tid_pid(inputs_[new_input]);
     }
+    if (switch_sequence_.empty())
+        return;
+    switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
+    if ( // idle-to-input transitions are assumed to be process switches.
+        prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
+        inputs_[prev_input].workload != inputs_[new_input].workload)
+        switch_type = sched_type_t::SWITCH_PROCESS;
+    else
+        switch_type = sched_type_t::SWITCH_THREAD;
+    if (switch_sequence_[switch_type].empty())
+        return;
+    // Inject kernel context switch code.  Since the injected records belong to
+    // this input (the kernel is acting on behalf of this input) we insert them
+    // into the input's queue, but ahead of any prior queued items.  This is why
+    // we walk in reverse, for the push_front calls to the deque.  We update the
+    // tid of the records here to match.  They are considered as
+    // is_record_synthetic() and do not affect input stream ordinals.
+    // XXX: These will appear before the top headers of a new thread which is
+    // slightly odd to have regular records with the new tid before the top
+    // headers.
+    ++outputs_[output]
+          .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
+    for (int i = static_cast<int>(switch_sequence_[switch_type].size()) - 1; i >= 0;
+         --i) {
+        RecordType record = switch_sequence_[switch_type][i];
+        record_type_set_tid(record, inputs_[new_input].tid);
+        inputs_[new_input].queue.emplace_front(record);
+    }
+    VPRINT(this, 3, "Inserted %zu switch for type %d from %d.%d to %d.%d\n",
+           switch_sequence_[switch_type].size(), switch_type,
+           prev_input != sched_type_t::INVALID_INPUT_ORDINAL
+               ? inputs_[prev_input].workload
+               : -1,
+           prev_input, inputs_[new_input].workload, new_input);
 }
 
 template <typename RecordType, typename ReaderType>
