@@ -2431,9 +2431,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     // set_cur_input. Here we get the stolen input events too, and we don't have
     // to filter out the init-time set_cur_input cases.
     // RFC: Was there any other benefit to doing this in set_cur_input before?
-    // It is harder to differentiate idle-to-input events from start of output when
-    // USE_INPUT_ORDINALS is set, since get_instruction_ordinal() does not return the
-    // intended global value in that case.
+    // If this logic is kept a part of set_cur_input, when USE_INPUT_ORDINALS is
+    // set, it is harder to differentiate between idle-to-input events and start
+    // of output; this is because get_instruction_ordinal() does not return the
+    // intended global value in that case (it returns the input-local value
+    // which is also not adjusted for the scheduler read-ahead, so is non-zero).
     if (do_inject_switch_seq) {
         if (inputs_[new_input].pid != INVALID_PID) {
             insert_switch_tid_pid(inputs_[new_input]);
@@ -2758,8 +2760,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
                    outputs_[output].base_timestamp);
         }
         // FIXME: When USE_INPUT_ORDINALS is enabled, this returns the input-local
-        // instruction ordinal (which not only is not global, but it would also count
-        // the read-ahead instructions).
+        // instruction ordinal (which not only is not global, but also counts the
+        // read-ahead instructions).
         uint64_t instr_ord = outputs_[output].stream->get_instruction_ordinal();
         uint64_t idle_count = outputs_[output].idle_count;
         uintptr_t new_time = static_cast<uintptr_t>(
