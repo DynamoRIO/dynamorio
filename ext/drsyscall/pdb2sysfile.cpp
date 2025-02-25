@@ -34,7 +34,7 @@
 /* Copyright (c) 2003-2007 Determina Corp. */
 
 /* Some of this is based on the winsysnums.c client in DR */
-
+/* clang-format off */
 #ifdef WINDOWS
 # define UNICODE
 # define _UNICODE

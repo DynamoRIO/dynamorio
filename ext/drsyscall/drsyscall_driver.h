@@ -21,7 +21,7 @@
 
 #ifndef _SYSCALL_DRIVER_H_
 #define _SYSCALL_DRIVER_H_ 1
-
+/* clang-format off */
 void
 driver_init(void);
 

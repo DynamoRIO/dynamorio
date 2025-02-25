@@ -80,7 +80,7 @@
  *
  * Note that some of these are exported without the NtUser or NtGdi prefix.
  */
-
+/* clang-format off */
 /* Spot-check syscalls: duplicates of entries below.
  * The number of these must match NUM_SPOT_CHECKS in drsyscall_windows.c.
  */

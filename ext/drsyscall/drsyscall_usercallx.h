@@ -60,7 +60,7 @@
 /* FIXME i#1153: figure out UNKNOWN names below for win8 */
 /* FIXME i#1360: figure out UNKNOWN names below for win8.1 */
 /* FIXME i#1750: figure out UNKNOWN names below for win10 */
-
+/* clang-format off */
 /* N.B.: this list must contain the same number of entries as syscall_usercall_info[]
  * in table_windows_ntusercall.c.
  */

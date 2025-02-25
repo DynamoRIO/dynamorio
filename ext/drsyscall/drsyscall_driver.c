@@ -22,7 +22,7 @@
 #ifndef WINDOWS
 # error Windows-only
 #endif
-
+/* clang-format off */
 #include "dr_api.h"
 #include "utils.h"
 #include "drsyscall_driver.h"

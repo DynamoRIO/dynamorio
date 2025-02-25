@@ -18,7 +18,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
+/* clang-format off */
 /* Need this defined and to the latest to get the latest defines and types */
 #define _WIN32_WINNT 0x0601 /* == _WIN32_WINNT_WIN7 */
 #define WINVER _WIN32_WINNT
