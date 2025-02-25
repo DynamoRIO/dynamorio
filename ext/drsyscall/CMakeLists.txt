@@ -62,6 +62,24 @@ endif ()
 add_asm_target(${asm_file} asm_utils_src asm_utils_tgt ""
   "${asm_flags}" "${asm_deps}")
 
+# Versioning: we use separate versioning for DRMF from the tool versioning.
+# This is major*100 + minor.
+set(DRMF_VERSION_DEFAULT "1.0.${VERSION_NUMBER_PATCHLEVEL}")
+set(DRMF_VERSION "" CACHE STRING "DRMF version number: leave empty for default")
+if ("${DRMF_VERSION}" STREQUAL "")
+  set(DRMF_VERSION ${DRMF_VERSION_DEFAULT})
+endif()
+message(STATUS "DRMF version number: ${DRMF_VERSION}")
+string(REGEX REPLACE "^([0-9]+)\\..*" "\\1" DRMF_VERSION_MAJOR "${DRMF_VERSION}")
+string(REGEX REPLACE "^[0-9]+\\.([0-9]+)\\..*" "\\1" DRMF_VERSION_MINOR "${DRMF_VERSION}")
+# We use just major.minor for .so versioning (and no, SOVERSION is not sufficient
+# here: we have to set VERSION to control the file name and import dependence).
+string(REGEX REPLACE "^([0-9]+\\.[0-9]+)\\..*" "\\1"
+  DRMF_VERSION_MAJOR_MINOR "${DRMF_VERSION}")
+math(EXPR DRMF_VERSION_INTEGER "${DRMF_VERSION_MAJOR}*100 + ${DRMF_VERSION_MINOR}")
+set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
+set(DRMF_VERSION_CUR ${DRMF_VERSION_INTEGER}) # Current version
+
 set(framework_incdir "${PROJECT_BINARY_DIR}/ext/include")
 configure_file(../framework/public.h ${framework_incdir}/drmemory_framework.h)
 
@@ -155,18 +173,17 @@ use_DynamoRIO_extension(drsyscall drmgr)
 use_DynamoRIO_extension(drsyscall drcontainers)
 use_DynamoRIO_extension(drsyscall drsyms)
 
-# macro(set_library_version target number)
-#   # We only set the version/soversion on Windows to avoid many
-#   # negatives (DRi#1374, DRi#2127, Android "adb push" not supporting
-#   # symlinks, etc.) and very few positives on UNIX platforms.  DR's
-#   # loader and the DRMF init code perform their own version checks for
-#   # client compatibility.
-#   if (WINDOWS)
-#     set_target_properties(${target} PROPERTIES VERSION ${number})
-#   endif ()
-# endmacro()
-
-# set_library_version(drsyscall ${DRMF_VERSION_MAJOR_MINOR})
+macro(set_library_version target number)
+  # We only set the version/soversion on Windows to avoid many
+  # negatives (DRi#1374, DRi#2127, Android "adb push" not supporting
+  # symlinks, etc.) and very few positives on UNIX platforms.  DR's
+  # loader and the DRMF init code perform their own version checks for
+  # client compatibility.
+  if (WINDOWS)
+    set_target_properties(${target} PROPERTIES VERSION ${number})
+  endif ()
+endmacro()
+set_library_version(drsyscall ${DRMF_VERSION_MAJOR_MINOR})
 configure_drsyscall_target(drsyscall)
 export_drsyscall_target(drsyscall "drmgr" "drsyms")
 # Make a build-dir copy for the drmf_proj test.
