@@ -22,7 +22,6 @@
 #define _DRMEMORY_FRAMEWORK_H_ 1
 
 /* Dr. Memory Framework shared header */
-/* clang-format off */
 
 #include "dr_api.h"
 

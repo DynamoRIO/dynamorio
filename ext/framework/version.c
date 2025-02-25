@@ -20,7 +20,7 @@
  */
 
 /* Dr. Memory Framework shared code */
-/* clang-format off */
+
 #include "dr_api.h"
 #include "drmemory_framework.h"
 #include "utils.h"

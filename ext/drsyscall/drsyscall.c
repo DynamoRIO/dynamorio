@@ -21,7 +21,7 @@
  */
 
 /* Dr. Syscall top-level code */
-/* clang-format off */
+
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drsyscall.h"

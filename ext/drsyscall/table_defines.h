@@ -23,7 +23,7 @@
 /* This is meant to be included into a file that only contains a system
  * call table.  Thus it has no mechanism for undefining.
  */
-/* clang-format off */
+
 #ifndef _TABLE_DEFINES_H
 #define _TABLE_DEFINES_H 1
 
