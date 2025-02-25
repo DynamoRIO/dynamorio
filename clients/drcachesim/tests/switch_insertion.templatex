@@ -1,8 +1,28 @@
-Basic counts tool results:
+Schedule stats tool results:
 Total counts:
-      [1-9][0-9][0-9][0-9][0-9][0-9] total \(fetched\) instructions
-        5971 total unique \(fetched\) instructions
-      [1-9][0-9][0-9][0-9][0-9][0-9] total userspace instructions
-         [1-9][0-9][0-9] total kernel instructions
-      [1-9][0-9][0-9][0-9][0-9][0-9] total non-fetched instructions
+           4 cores
+.*
+      639664 instructions
+          11 total context switches
+.*
+           6 voluntary context switches
+           0 direct context switches
+         363 context switch sequence injections
+.*
+           9 switches input-to-input
+           5 switches input-to-idle
+           2 switches idle-to-input
+.*
+Core #0 counts:
+.*
+      117223 instructions
+           8 total context switches
+.*
+           3 voluntary context switches
+           0 direct context switches
+         104 context switch sequence injections
+.*
+           6 switches input-to-input
+           3 switches input-to-idle
+           2 switches idle-to-input
 .*
