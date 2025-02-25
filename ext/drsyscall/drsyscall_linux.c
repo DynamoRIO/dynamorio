@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -24,7 +24,6 @@
 #include "drsyscall.h"
 #include "drsyscall_os.h"
 #include "../../core/unix/include/syscall.h"
-// kyluk #include "heap.h"
 #include "../common/asm_utils.h"
 #include <string.h> /* for strcmp */
 #include <stddef.h> /* for offsetof */

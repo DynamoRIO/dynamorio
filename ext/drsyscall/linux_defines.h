@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -135,17 +135,6 @@
 # define EXT2_IOC_SETFLAGS               FS_IOC_SETFLAGS
 # define EXT2_IOC_GETVERSION             FS_IOC_GETVERSION
 # define EXT2_IOC_SETVERSION             FS_IOC_SETVERSION
-#endif
-
-#ifndef ANDROID /* Android headers already have this. */
-/* Including linux/resource.h leads to conflicts with other types so we define
- * this struct ourselves:
- */
-// kyluk
-//struct rlimit64 {
-//    __u64 rlim_cur;
-//    __u64 rlim_max;
-//};
 #endif
 
 #include <linux/fd.h>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -24,7 +24,6 @@
 #define _DRSYSCALL_OS_H_ 1
 
 #include "../common/utils.h"
-// kyluk #include "hashtable.h"
 
 #ifdef WINDOWS
 /* We need extra room for dup entries for diff in vs out size to writes. */

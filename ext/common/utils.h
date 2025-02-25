@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,7 +51,6 @@ extern "C" {
 # define IF_WINDOWS(x) x
 # define IF_WINDOWS_(x) x,
 # define _IF_WINDOWS(x) , x
-// kyluk # define IF_WINDOWS_ELSE(x,y) x
 # define IF_UNIX(x)
 # define IF_UNIX_ELSE(x,y) y
 # define IF_LINUX(x)
@@ -61,7 +60,6 @@ extern "C" {
 # define IF_WINDOWS(x)
 # define IF_WINDOWS_(x)
 # define _IF_WINDOWS(x)
-// kyluk # define IF_WINDOWS_ELSE(x,y) y
 # define IF_UNIX(x) x
 # define IF_UNIX_ELSE(x,y) x
 # define IF_UNIX_(x) x,

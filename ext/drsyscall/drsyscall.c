@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -27,7 +27,6 @@
 #include "drsyscall.h"
 #include "drsyscall_os.h"
 #include "drmemory_framework.h"
-// kyluk #include "../ext_utils.h"
 #include "../framework/drmf.h"
 #include "../common/utils.h"
 #include <string.h>
