@@ -5955,7 +5955,7 @@ test_kernel_switch_sequences(bool use_input_ordinals)
         assert(switch_seq_count[i] > 0);
         assert(switch_seq_count[i] ==
                static_cast<uint64>(outputs[i]->get_schedule_statistic(
-                   memtrace_stream_t::SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS)));
+                   memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS)));
     }
     // Check the high-level strings.
     for (int i = 0; i < NUM_OUTPUTS; i++) {

@@ -168,7 +168,7 @@ schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &cou
         stream->get_schedule_statistic(memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT));
     counters.switch_sequence_injections =
         static_cast<int64_t>(stream->get_schedule_statistic(
-            memtrace_stream_t::SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS));
+            memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS));
 
     // XXX: Currently, schedule_stats is measuring swap-ins to a real input.  If we
     // want to match what "perf" targeting this app would record, which is swap-outs,
