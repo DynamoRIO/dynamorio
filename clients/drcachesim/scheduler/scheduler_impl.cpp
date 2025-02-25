@@ -2437,8 +2437,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
             // slightly odd to have regular records with the new tid before the top
             // headers.
             if (!switch_sequence_[switch_type].empty()) {
-                ++outputs_[output]
-                      .stats[memtrace_stream_t::SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS];
+                ++outputs_[output].stats
+                      [memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
                 for (int i = static_cast<int>(switch_sequence_[switch_type].size()) - 1;
                      i >= 0; --i) {
                     RecordType record = switch_sequence_[switch_type][i];
