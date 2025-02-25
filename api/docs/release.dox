@@ -126,8 +126,8 @@ clients.
 
 The changes between version \DR_VERSION and 11.3.0 include the following compatibility
 changes:
- - Changed the type of `block_size` to `int64_t` in `caching_device_t` and it's
-   deriving classes.
+ - Changed the type of `block_size` to `int64_t` in
+   #dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - On 32-bit Arm the size of #dr_mcontext_t has been increased by 4 and the
    struct is now required to be 8-byte aligned. The offset of the field "simd"
    has changed.
