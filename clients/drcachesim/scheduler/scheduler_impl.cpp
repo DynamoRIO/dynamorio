@@ -2422,7 +2422,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     if (switch_sequence_.empty())
         return;
     switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
-    if ( // idle-to-input transitions are assumed to be process switches.
+    if ( // XXX: idle-to-input transitions are assumed to be process switches
+         // for now. But we may want to improve this heuristic.
         prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
         inputs_[prev_input].workload != inputs_[new_input].workload)
         switch_type = sched_type_t::SWITCH_PROCESS;
