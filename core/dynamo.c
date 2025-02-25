@@ -2261,6 +2261,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
 #if defined(MACOS) && defined(AARCH64)
     void *tmp_tls = NULL;
     if (!read_thread_register(TLS_REG_LIB)) {
+        /* We use the mach vm_allocate API here since heap is not init yet */
         IF_DEBUG(kern_return_t res =)
         vm_allocate(mach_task_self(), (vm_address_t *)&tmp_tls, PAGE_SIZE,
                     true /* anywhere */);

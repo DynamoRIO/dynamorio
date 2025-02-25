@@ -63,13 +63,15 @@
 #define ERRNO_OFFSET (PAGE_SIZE - 8)
 #define PTHREAD_TLS_OFFSET 0xe0
 
+#ifdef AARCH64
 static uintptr_t pthread_ptr_munge_token;
+#endif
 
 void
 privload_mod_tls_init(privmod_t *mod)
 {
     /* XXX i#1285: implement MacOS private loader */
-    ASSERT_NOT_REACHED();
+    ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void *
@@ -83,6 +85,10 @@ privload_tls_init(void *app_tls)
 
     /* XXX i#1285: implement MacOS private loader */
     byte *pthread = NULL;
+
+    /* We use the mach vm_allocate API here since client threads may need
+     * a valid TLS even after the heap has been cleaned up.
+     */
     IF_DEBUG(kern_return_t res =)
     vm_allocate(mach_task_self(), (vm_address_t *)&pthread, PAGE_SIZE,
                 true /* anywhere */);
@@ -121,14 +127,12 @@ void
 privload_tls_exit(void *dr_tp)
 {
 #if defined(AARCH64)
-    /* nothing to do */
     ASSERT(ALIGNED(dr_tp - PTHREAD_TLS_OFFSET, PAGE_SIZE));
-    /* XXX i#5383: We should probably deallocate the TLS page here, but it currently
-     * causes crashes at exit
-     */
+
     IF_DEBUG(kern_return_t res =)
     vm_deallocate(mach_task_self(), (vm_address_t)(dr_tp - PTHREAD_TLS_OFFSET),
                   PAGE_SIZE);
+
     ASSERT(res == KERN_SUCCESS);
     if (read_thread_register(TLS_REG_LIB) == (uint64_t)dr_tp) {
         write_thread_register(NULL);

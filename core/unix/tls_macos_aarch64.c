@@ -102,10 +102,5 @@ tls_thread_free(tls_type_t tls_type, int index)
         *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
     }
 
-    /* FIXME i#1578: support detach on ARM.  We need some way to
-     * determine whether a thread has exited (for deadlock_avoidance_unlock,
-     * e.g.) after dcontext and os_tls are freed.  For now we store -1 in this
-     * slot and assume the app will never use that value (we check in
-     * os_enter_dynamorio()).
-     */
+    /* FIXME i#5383: support detach on macOS AARCH64 */
 }
