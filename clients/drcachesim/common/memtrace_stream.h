@@ -115,7 +115,7 @@ public:
         /**
          * Counts the instances when the context switch sequence was injected.
          */
-        SCHED_STAT_SWITCH_SEQUENCE_INJECTIONS,
+        SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS,
         /** Count of statistic types. */
         SCHED_STAT_TYPE_COUNT,
     };
