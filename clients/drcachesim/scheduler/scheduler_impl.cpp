@@ -858,7 +858,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 // TODO i#5843: Add more flags for other options.
                 : spec_type_t::LAST_FROM_TRACE,
             static_cast<int>(get_time_micros()),
-            cached_record_t(create_invalid_record(), false), verbosity_);
+            cached_record_t(create_invalid_record(), IS_SYNTHETIC), verbosity_);
         if (options_.single_lockstep_output)
             outputs_.back().stream = global_stream_.get();
         if (options_.schedule_record_ostream != nullptr) {
@@ -2573,9 +2573,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             input->cur_from_queue = true;
             input->is_cur_record_real = input->queue.front().is_real;
             input->queue.pop_front();
-            if (input->is_cur_record_real) {
+            if (input->is_cur_record_real)
                 --input->real_records_in_queue;
-            }
         } else {
             // We again have a flag check because reader_t::init() does an initial ++
             // and so we want to skip that on the first record but perform a ++ prior
@@ -2637,6 +2636,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             // the lock since another output may grab this input.
             VPRINT(this, 5, "next_record[%d]: queuing candidate record\n", output);
             input->queue.emplace_back(record, input->is_cur_record_real);
+            if (input->is_cur_record_real)
+                ++input->real_records_in_queue;
             lock.unlock();
             res = pick_next_input(output, blocked_time);
             if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_WAIT &&
@@ -2682,6 +2683,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                     // Get our candidate record back.
                     record = input->queue.back().record;
                     input->is_cur_record_real = input->queue.back().is_real;
+                    if (input->is_cur_record_real)
+                        --input->real_records_in_queue;
                     input->queue.pop_back();
                 }
             }

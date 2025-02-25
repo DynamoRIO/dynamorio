@@ -204,7 +204,7 @@ protected:
         // If non-empty these records should be returned before incrementing the reader.
         // This is used for read-ahead and inserting synthetic records.
         // We use a deque so we can iterate over it.
-
+        // Remember to adjust real_records_in_queue when adding or removing from this.
         std::deque<cached_record_t> queue;
         uint64_t real_records_in_queue = 0;
         bool cur_from_queue;
