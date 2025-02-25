@@ -668,7 +668,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::~scheduler_impl_tmpl_t()
                outputs_[i].ready_queue.lock->get_count_contended());
 #endif
         VPRINT(
-            this, 1, "  %-35s: %9" PRId64 "\n", "Switch sequence injections",
+            this, 1, "  %-35s: %9" PRId64 "\n", "Kernel switch sequence injections",
             outputs_[i]
                 .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS]);
     }
