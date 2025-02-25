@@ -153,16 +153,14 @@ public:
     }
 };
 
-template <class T>
-class seeded_tlb_policy_test_t : public caching_device_policy_test_t<T> {
+template <class T> class tlb_policy_test_t : public caching_device_policy_test_t<T> {
     int entries_;
 
 public:
-    seeded_tlb_policy_test_t(int associativity, int line_size, int entries)
+    tlb_policy_test_t(int associativity, int line_size, int entries)
         : caching_device_policy_test_t<T>(associativity, line_size)
         , entries_(entries)
     {
-        this->gen_ = std::mt19937(0);
     }
 
     void
@@ -176,6 +174,15 @@ public:
             std::cerr << this->get_replace_policy() << " tlb failed to initialize\n";
             exit(1);
         }
+    }
+};
+
+template <class T> class seeded_tlb_policy_test_t : public tlb_policy_test_t<T> {
+public:
+    seeded_tlb_policy_test_t(int associativity, int line_size, int entries)
+        : tlb_policy_test_t<T>(associativity, line_size, entries)
+    {
+        this->gen_ = std::mt19937(0);
     }
 };
 
@@ -456,6 +463,27 @@ unit_test_tlb_plru_four_way()
 }
 
 void
+unit_test_tlb_lfu_four_way()
+{
+    tlb_policy_test_t<tlb_lfu_t> tlb_lfu_test(/*associativity=*/4,
+                                              /*line_size=*/64,
+                                              /*entries=*/4);
+    tlb_lfu_test.initialize_cache();
+    assert(tlb_lfu_test.get_replace_policy() == "LFU");
+    assert(tlb_lfu_test.block_indices_are_identical(addr_vec));
+    assert(tlb_lfu_test.tags_are_different(addr_vec));
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_A], 1); //     A1 x  x  x
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_B], 2); //     A1 B1 x  x
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_C], 3); //     A1 B1 C1 x
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_D], 0); //     A1 B1 C1 D1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_A], 1); //     A2 B1 C1 D1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_C], 1); //     A2 B1 C2 D1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_B], 3); //     A2 B2 C2 D1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_E], 3); //     A2 B2 C2 E1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_D], 3); //     A2 B2 C2 D1
+}
+
+void
 unit_test_cache_replacement_policy()
 {
     unit_test_cache_lru_four_way();
@@ -465,6 +493,7 @@ unit_test_cache_replacement_policy()
     unit_test_cache_lfu_four_way();
     unit_test_cache_lfu_eight_way();
     unit_test_tlb_plru_four_way();
+    unit_test_tlb_lfu_four_way();
     // XXX i#4842: Add more test sequences.
 }
 
