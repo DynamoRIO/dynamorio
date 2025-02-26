@@ -454,7 +454,7 @@ extern int tls_idx_util;
                 "Ensure that you have enough space and permissions.\n")); \
         } \
     } \
-} while(0)
+} while (0)
 
 /* PR 427074: asserts should go to the log and not just stderr.
  * Since we don't have a vsnprintf() (i#168) we can't make this an
