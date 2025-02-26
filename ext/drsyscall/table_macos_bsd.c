@@ -1271,12 +1271,14 @@ syscall_info_t syscall_info_bsd[] = {
          {3, sizeof(u_int), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT},
      }
     },
-    {{SYS_nfsclnt /*247*/}, "nfsclnt", OK, RLONG, 2,
-     {
-         {0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {1, sizeof(caddr_t), W|HT, DRSYS_TYPE_CSTRING},
-     }
-    },
+    //TODO(https://github.com/DynamoRIO/drmemory/issues/2483): macOS 13.5.x
+    //support
+    //{{SYS_nfsclnt /*247*/}, "nfsclnt", OK, RLONG, 2,
+    // {
+    //     {0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {1, sizeof(caddr_t), W|HT, DRSYS_TYPE_CSTRING},
+    // }
+    //},
     {{SYS_fhopen /*248*/}, "fhopen", OK, RLONG, 2,
      {
          {0, sizeof(struct fhandle), W|HT, DRSYS_TYPE_STRUCT},
@@ -2102,24 +2104,26 @@ syscall_info_t syscall_info_bsd[] = {
 #endif
      }
     },
-    {{SYS___old_semwait_signal /*370*/}, "__old_semwait_signal", OK, RLONG, 5,
-     {
-         {0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {1, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {2, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {3, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {4, sizeof(struct timespec), W|HT, DRSYS_TYPE_STRUCT},
-     }
-    },
-    {{SYS___old_semwait_signal_nocancel /*371*/}, "__old_semwait_signal_nocancel", OK, RLONG, 5,
-     {
-         {0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {1, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {2, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {3, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {4, sizeof(struct timespec), W|HT, DRSYS_TYPE_STRUCT},
-     }
-    },
+    //TODO(https://github.com/DynamoRIO/drmemory/issues/2483): macOS 13.5.x
+    //support
+    //{{SYS___old_semwait_signal /*370*/}, "__old_semwait_signal", OK, RLONG, 5,
+    // {
+    //     {0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {1, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {2, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {3, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {4, sizeof(struct timespec), W|HT, DRSYS_TYPE_STRUCT},
+    // }
+    //},
+    //{{SYS___old_semwait_signal_nocancel /*371*/}, "__old_semwait_signal_nocancel", OK, RLONG, 5,
+    // {
+    //     {0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {1, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {2, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {3, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {4, sizeof(struct timespec), W|HT, DRSYS_TYPE_STRUCT},
+    // }
+    //},
     {{SYS_thread_selfid /*372*/}, "thread_selfid", OK|SYSINFO_RET_64BIT, DRSYS_TYPE_UNSIGNED_INT, 0, },
     {{SYS___mac_execve /*380*/}, "__mac_execve", OK, RLONG, 4,
      {
@@ -2497,16 +2501,18 @@ syscall_info_t syscall_info_bsd[] = {
          {1, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
      }
     },
-    {{SYS_shared_region_map_and_slide_np /*438*/}, "shared_region_map_and_slide_np", OK, RLONG, 6,
-     {
-         {0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
-         {1, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT},
-         {2, sizeof(struct shared_file_mapping_np), W|HT, DRSYS_TYPE_STRUCT},
-         {3, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT},
-         {4, sizeof(uint64_t), W|HT, DRSYS_TYPE_UNSIGNED_INT},
-         {5, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT},
-     }
-    },
+    //TODO(https://github.com/DynamoRIO/drmemory/issues/2483): macOS 13.5.x
+    //support
+    //{{SYS_shared_region_map_and_slide_np /*438*/}, "shared_region_map_and_slide_np", OK, RLONG, 6,
+    // {
+    //     {0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT},
+    //     {1, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT},
+    //     {2, sizeof(struct shared_file_mapping_np), W|HT, DRSYS_TYPE_STRUCT},
+    //     {3, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT},
+    //     {4, sizeof(uint64_t), W|HT, DRSYS_TYPE_UNSIGNED_INT},
+    //     {5, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT},
+    // }
+    //},
 };
 
 size_t count_syscall_info_bsd = sizeof(syscall_info_bsd)/sizeof(syscall_info_bsd[0]);
