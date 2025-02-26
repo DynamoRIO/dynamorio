@@ -485,7 +485,9 @@ protected:
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<bool>> active;
         // XXX: in_syscall_code and hit_syscall_code_end arguably are tied to an input
-        // stream and must be a part of input_info_t instead.
+        // stream and must be a part of input_info_t instead. Today we do not context
+        // switch in the middle of injected kernel syscall code, but if we did, this
+        // state would be incorrect or lost.
         bool in_syscall_code = false;
         bool hit_syscall_code_end = false;
         bool in_context_switch_code = false;

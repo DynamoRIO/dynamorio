@@ -2543,15 +2543,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
         switch_type = sched_type_t::SWITCH_PROCESS;
     else
         switch_type = sched_type_t::SWITCH_THREAD;
-    if (switch_sequence_.find(switch_type) == switch_sequence_.end() ||
-        switch_sequence_[switch_type].empty())
+    if (switch_sequence_.find(switch_type) == switch_sequence_.end())
         return stream_status_t::STATUS_OK;
     stream_status_t res =
         inject_kernel_sequence(switch_sequence_[switch_type], &inputs_[new_input]);
     if (res == stream_status_t::STATUS_OK) {
         ++outputs_[output]
               .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
-        VPRINT(this, 3, "Inserted %zu switch for type %d from %d.%d to %d.%d\n",
+        VPRINT(this, 3, "Inserted %zu switch records for type %d from %d.%d to %d.%d\n",
                switch_sequence_[switch_type].size(), switch_type,
                prev_input != sched_type_t::INVALID_INPUT_ORDINAL
                    ? inputs_[prev_input].workload
