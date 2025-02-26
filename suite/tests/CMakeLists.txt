@@ -1290,13 +1290,6 @@ if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH AND NOT DR_COPY_TO_DEV
   set(dr_test_ops -xarch_root ${CMAKE_FIND_ROOT_PATH} ${dr_test_ops})
 endif ()
 
-if (APPLE AND AARCH64)
-  # On macOS + arm64 tests will randomly fail depending on
-  # whether mmap returns a region satisfying 32-bit reachability constraints.
-  # Reducing the vm_size appears to eliminate this issue.
-  set(dr_test_ops -vm_size 500M ${dr_test_ops})
-endif ()
-
 function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
   set(dr_ops ${dr_test_ops} ${dr_ops_aux} ${TEST_OPTIONS})
@@ -6188,7 +6181,7 @@ if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
 
   tobuild(security-common.selfmod security-common/selfmod.c)
   tochcon(security-common.selfmod textrel_shlib_t)
-endif (X86 OR AARCH64)
+endif (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   if (NOT APPLE) # XXX i#58: port test to MacOS
