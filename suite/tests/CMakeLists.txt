@@ -6513,6 +6513,8 @@ endif (NOT ANDROID AND AARCHXX)
 # workarounds so far break over time.
 set_tests_properties(
   code_api|common.broadfun
+  code_api|client.memory_dump_test
+  code_api|client.attach_memory_dump_test
   PROPERTIES LABELS UBUNTU_22)
 if (BUILD_SAMPLES AND NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   set_tests_properties(
