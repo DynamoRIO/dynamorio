@@ -2264,7 +2264,7 @@ reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value)
 bool
 reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf)
 {
-#ifdef X86
+#if defined(X86)
     CLIENT_ASSERT(reg != REG_NULL, "REG_NULL was passed.");
 
     dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
@@ -2284,6 +2284,18 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf)
         return false;
     }
 
+    return true;
+#elif defined(AARCH64)
+    if (reg >= DR_REG_START_Z && reg <= DR_REG_STOP_Z) {
+        memcpy(&mc->simd[reg - DR_REG_START_Z], val_buf,
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else if (reg >= DR_REG_START_P && reg <= DR_REG_STOP_P) {
+        memcpy(&mc->svep[reg - DR_REG_START_P], val_buf,
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else {
+        reg_t regval = *(reg_t *)val_buf;
+        reg_set_value_priv(reg, mc, regval);
+    }
     return true;
 #else
     CLIENT_ASSERT(false, "NYI  i#1551, i#3504");
