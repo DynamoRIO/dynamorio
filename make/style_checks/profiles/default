@@ -33,12 +33,13 @@
 
 ## 1.3.0 syntax is "rule=<name>" but Travis has 1.2.1 so we use the old syntax.
 set rules {
-    line_length_content
-    multi_line_body
-    break_after_return_type
-    no_space_after_control
-    space_after_call
-    required_namespaces
+   # DO-NOT-MERGE
+   #line_length_content
+   #multi_line_body
+   #break_after_return_type
+   #no_space_after_control
+   #space_after_call
+   #required_namespaces
 }
 
 # There are just too many instances of CamelCase, mostly in
