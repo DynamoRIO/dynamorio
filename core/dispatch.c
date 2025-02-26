@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -569,7 +570,8 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
      * paths were missed?
      */
     PTHREAD_JIT_READ();
-    (*entry)(dcontext);
+
+    (*entry)(DCONTEXT_ACTUAL_TO_TLS_PTR(dcontext));
     IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
 

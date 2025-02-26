@@ -2,6 +2,7 @@
  * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * *******************************************************************************/
 
 /*
@@ -2378,6 +2379,15 @@ os_tls_init(void)
         if (last_thread_tls_exited) /* re-attach */
             last_thread_tls_exited = false;
     }
+
+    /* We need to make sure that get_thread_private_dcontext() returns NULL until we
+     * set it to something else. If DCONTEXT_TLS_MIDPTR_OFFSET is non-zero we have to
+     * call set_thread_private_dcontext(NULL) expilcitly, or otherwise
+     * get_thread_private_dcontext() will return NULL - DCONTEXT_TLS_MIDPTR_OFFSET.
+     */
+#if (DCONTEXT_TLS_MIDPTR_OFFSET != 0)
+    set_thread_private_dcontext(NULL);
+#endif
     ASSERT(is_thread_tls_initialized());
 }
 
@@ -3134,7 +3144,7 @@ get_thread_private_dcontext(void)
                pid_cached != get_process_id());
     });
     READ_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
-    return dcontext;
+    return DCONTEXT_TLS_TO_ACTUAL_PTR(dcontext);
 #else
     /* Assumption: no lock needed on a read => no race conditions between
      * reading and writing same tid!  Since both get and set are only for
@@ -3146,7 +3156,7 @@ get_thread_private_dcontext(void)
     if (tls_table != NULL) {
         for (i = 0; i < MAX_THREADS; i++) {
             if (tls_table[i].tid == tid) {
-                return tls_table[i].dcontext;
+                return DCONTEXT_TLS_TO_ACTUAL_PTR(tls_table[i].dcontext);
             }
         }
     }
@@ -3158,6 +3168,7 @@ get_thread_private_dcontext(void)
 void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
+    dcontext = DCONTEXT_ACTUAL_TO_TLS_PTR(dcontext);
 #ifdef HAVE_TLS
     ASSERT(is_thread_tls_allocated());
     WRITE_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
