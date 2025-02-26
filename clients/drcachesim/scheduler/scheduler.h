@@ -833,12 +833,12 @@ public:
          * Input file containing template sequences of kernel system call code.
          * Each sequence must start with a #TRACE_MARKER_TYPE_SYSCALL_TRACE_START
          * marker and end with #TRACE_MARKER_TYPE_SYSCALL_TRACE_END.
-         * The values of each marker must hold the system call number value
-         * indicating the system call it corresponds to. Sequences for
-         * multiple system calls are concatenated into a single file.
-         * Each sequence should be in the regular offline drmemtrace format.
-         * Each sequence is inserted into the output stream after all
-         * #TRACE_MARKER_TYPE_SYSCALL markers with the same value.
+         * The value of each marker must hold the system call number for the system call
+         * it corresponds to. Sequences for multiple system calls are concatenated into a
+         * single file. Each sequence should be in the regular offline drmemtrace format.
+         * Whenever a #TRACE_MARKER_TYPE_SYSCALL marker is encountered in a trace, if a
+         * corresponding sequence with the same marker value exists it is inserted into
+         * the output stream after the #TRACE_MARKER_TYPE_SYSCALL marker.
          * The same file (or reader) must be passed when replaying as this kernel
          * code is not stored when recording.
          * An alternative to passing the file path is to pass #kernel_syscall_reader

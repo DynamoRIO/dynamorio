@@ -197,6 +197,7 @@ protected:
         // We use a deque so we can iterate over it.
         std::deque<RecordType> queue;
         bool cur_from_queue;
+
         std::set<output_ordinal_t> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
@@ -483,6 +484,8 @@ protected:
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<bool>> active;
+        // XXX: in_syscall_code and hit_syscall_code_end arguably are tied to an input
+        // stream and must be a part of input_info_t instead.
         bool in_syscall_code = false;
         bool hit_syscall_code_end = false;
         bool in_context_switch_code = false;
@@ -751,7 +754,7 @@ protected:
 
     template <typename SequenceKey>
     SequenceKey
-    default_kernel_sequence_key();
+    invalid_kernel_sequence_key();
 
     template <typename SequenceKey>
     scheduler_status_t

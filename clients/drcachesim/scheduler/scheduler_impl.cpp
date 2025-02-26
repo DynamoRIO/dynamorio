@@ -351,7 +351,7 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &i
 template <>
 template <>
 typename scheduler_tmpl_t<memref_t, reader_t>::switch_type_t
-scheduler_impl_tmpl_t<memref_t, reader_t>::default_kernel_sequence_key()
+scheduler_impl_tmpl_t<memref_t, reader_t>::invalid_kernel_sequence_key()
 {
     return switch_type_t::SWITCH_INVALID;
 }
@@ -359,7 +359,7 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::default_kernel_sequence_key()
 template <>
 template <>
 int
-scheduler_impl_tmpl_t<memref_t, reader_t>::default_kernel_sequence_key()
+scheduler_impl_tmpl_t<memref_t, reader_t>::invalid_kernel_sequence_key()
 {
     // System numbers are small non-negative integers.
     return -1;
@@ -588,7 +588,7 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
 template <>
 template <>
 typename scheduler_tmpl_t<trace_entry_t, record_reader_t>::switch_type_t
-scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::default_kernel_sequence_key()
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::invalid_kernel_sequence_key()
 {
     return switch_type_t::SWITCH_INVALID;
 }
@@ -596,7 +596,7 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::default_kernel_sequence_k
 template <>
 template <>
 int
-scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::default_kernel_sequence_key()
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::invalid_kernel_sequence_key()
 {
     // System numbers are small non-negative integers.
     return -1;
@@ -1484,8 +1484,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
     // memory and don't need to stream them on every use.
     // We read a single stream, even if underneath these are split into subfiles
     // in an archive.
-    SequenceKey sequence_key = default_kernel_sequence_key<SequenceKey>();
-    const SequenceKey DEFAULT_SEQ_KEY = default_kernel_sequence_key<SequenceKey>();
+    SequenceKey sequence_key = invalid_kernel_sequence_key<SequenceKey>();
+    const SequenceKey INVALID_SEQ_KEY = invalid_kernel_sequence_key<SequenceKey>();
     bool in_sequence = false;
     while (*reader != *reader_end) {
         RecordType record = **reader;
@@ -1501,7 +1501,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
             }
             sequence_key = static_cast<SequenceKey>(marker_value);
             in_sequence = true;
-            if (sequence_key == DEFAULT_SEQ_KEY) {
+            if (sequence_key == INVALID_SEQ_KEY) {
                 error_string_ +=
                     "Invalid " + sequence_type + " sequence found with default key";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
@@ -1523,10 +1523,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
                 error_string_ += sequence_type + " marker values mismatched";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
-            sequence_key = DEFAULT_SEQ_KEY;
-            in_sequence = false;
             VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
                    sequence[sequence_key].size(), sequence_type.c_str(), sequence_key);
+            sequence_key = INVALID_SEQ_KEY;
+            in_sequence = false;
         }
         ++(*reader);
     }
