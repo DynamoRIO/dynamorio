@@ -147,18 +147,18 @@ tlb_simulator_t::~tlb_simulator_t()
 {
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         // Try to handle failure during construction.
-        if (itlbs_[i] == NULL)
-            return;
-        delete itlbs_[i]->get_stats();
-        delete itlbs_[i];
-        if (dtlbs_[i] == NULL)
-            return;
-        delete dtlbs_[i]->get_stats();
-        delete dtlbs_[i];
-        if (lltlbs_[i] == NULL)
-            return;
-        delete lltlbs_[i]->get_stats();
-        delete lltlbs_[i];
+        if (itlbs_[i] != NULL) {
+            delete itlbs_[i]->get_stats();
+            delete itlbs_[i];
+        }
+        if (dtlbs_[i] != NULL) {
+            delete dtlbs_[i]->get_stats();
+            delete dtlbs_[i];
+        }
+        if (lltlbs_[i] != NULL) {
+            delete lltlbs_[i]->get_stats();
+            delete lltlbs_[i];
+        }
     }
     delete[] itlbs_;
     delete[] dtlbs_;
