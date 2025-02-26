@@ -2354,7 +2354,6 @@ os_tls_init(void)
         os_tls_app_seg_init(os_tls, segment);
 
     tls_thread_init(os_tls, segment);
-
     ASSERT(os_tls->tls_type != TLS_TYPE_NONE);
     /* store type in global var for convenience: should be same for all threads */
     tls_global_type = os_tls->tls_type;
@@ -4108,7 +4107,6 @@ client_thread_run(void)
      */
     wait_for_event(dr_app_started, 0);
     IF_DEBUG(int rc =)
-
     dynamo_thread_init(get_clone_record_dstack(crec), NULL, crec, true);
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
@@ -4190,7 +4188,6 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
             /* CLONE_THREAD required.  Signals and itimers are private anyway. */
             IF_VMX86(| (os_in_vmkernel_userworld() ? CLONE_THREAD : 0));
     pre_second_thread();
-
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
     ATOMIC_INC(int, uninit_thread_count);
