@@ -2491,13 +2491,16 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t 
     }
     // We can't easily place these stats inside set_cur_input() as we call that to
     // temporarily give up our input.
-    on_context_switch(output, prev_index, index);
+    stream_status_t on_switch_res = on_context_switch(output, prev_index, index);
+    if (on_switch_res != stream_status_t::STATUS_OK) {
+        return on_switch_res;
+    }
     set_cur_input(output, index);
     return res;
 }
 
 template <typename RecordType, typename ReaderType>
-void
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     output_ordinal_t output, input_ordinal_t prev_input, input_ordinal_t new_input)
 {
@@ -2526,12 +2529,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     // set_cur_input. Here we get the stolen input events too, and we don't have
     // to filter out the init-time set_cur_input cases.
     if (!do_inject_switch_seq)
-        return;
+        return stream_status_t::STATUS_OK;
     if (inputs_[new_input].pid != INVALID_PID) {
         insert_switch_tid_pid(inputs_[new_input]);
     }
     if (switch_sequence_.empty())
-        return;
+        return stream_status_t::STATUS_OK;
     switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
     if ( // XXX: idle-to-input transitions are assumed to be process switches
          // for now. But we may want to improve this heuristic.
@@ -2540,31 +2543,24 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
         switch_type = sched_type_t::SWITCH_PROCESS;
     else
         switch_type = sched_type_t::SWITCH_THREAD;
-    if (switch_sequence_[switch_type].empty())
-        return;
-    // Inject kernel context switch code.  Since the injected records belong to
-    // this input (the kernel is acting on behalf of this input) we insert them
-    // into the input's queue, but ahead of any prior queued items.  This is why
-    // we walk in reverse, for the push_front calls to the deque.  We update the
-    // tid of the records here to match.  They are considered as
-    // is_record_synthetic() and do not affect input stream ordinals.
-    // XXX: These will appear before the top headers of a new thread which is
-    // slightly odd to have regular records with the new tid before the top
-    // headers.
-    ++outputs_[output]
-          .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
-    for (int i = static_cast<int>(switch_sequence_[switch_type].size()) - 1; i >= 0;
-         --i) {
-        RecordType record = switch_sequence_[switch_type][i];
-        record_type_set_tid(record, inputs_[new_input].tid);
-        inputs_[new_input].queue.emplace_front(record);
+    if (switch_sequence_.find(switch_type) == switch_sequence_.end() ||
+        switch_sequence_[switch_type].empty())
+        return stream_status_t::STATUS_OK;
+    stream_status_t res =
+        inject_kernel_sequence(switch_sequence_[switch_type], &inputs_[new_input]);
+    if (res == stream_status_t::STATUS_OK) {
+        ++outputs_[output]
+              .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
+        VPRINT(this, 3, "Inserted %zu switch for type %d from %d.%d to %d.%d\n",
+               switch_sequence_[switch_type].size(), switch_type,
+               prev_input != sched_type_t::INVALID_INPUT_ORDINAL
+                   ? inputs_[prev_input].workload
+                   : -1,
+               prev_input, inputs_[new_input].workload, new_input);
+    } else if (res != stream_status_t::STATUS_EOF) {
+        return res;
     }
-    VPRINT(this, 3, "Inserted %zu switch for type %d from %d.%d to %d.%d\n",
-           switch_sequence_[switch_type].size(), switch_type,
-           prev_input != sched_type_t::INVALID_INPUT_ORDINAL
-               ? inputs_[prev_input].workload
-               : -1,
-           prev_input, inputs_[new_input].workload, new_input);
+    return stream_status_t::STATUS_OK;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2815,7 +2811,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             } else if (res == sched_type_t::STATUS_STOLE) {
                 // We need to loop to get the new record.
                 input = &inputs_[outputs_[output].cur_input];
-                on_context_switch(output, prev_input, input->index);
+                stream_status_t on_switch_res =
+                    on_context_switch(output, prev_input, input->index);
+                if (on_switch_res != stream_status_t::STATUS_OK) {
+                    return on_switch_res;
+                }
                 lock.unlock();
                 lock = std::unique_lock<mutex_dbg_owned>(*input->lock);
                 lock.lock();
@@ -2862,7 +2862,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
             return res;
         }
     }
-    return sched_type_t::STATUS_OK;
+    return stream_status_t::STATUS_OK;
 }
 
 template <typename RecordType, typename ReaderType>

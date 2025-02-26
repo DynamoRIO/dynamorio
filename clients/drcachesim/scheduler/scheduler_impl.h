@@ -406,7 +406,7 @@ protected:
     uint64_t
     scale_blocked_time(uint64_t initial_time) const;
 
-    void
+    stream_status_t
     on_context_switch(output_ordinal_t output, input_ordinal_t prev_input,
                       input_ordinal_t new_input);
 
