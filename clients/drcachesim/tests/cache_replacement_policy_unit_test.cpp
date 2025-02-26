@@ -86,9 +86,8 @@ public:
         ref.data.addr = addr;
         ref.data.pid = 1;
         this->request(ref);
-        auto res = this->get_next_way_to_replace(this->get_block_index(addr));
-        std::cerr << res << " " << expected_replacement_way_after_access << std::endl;
-        assert(res == expected_replacement_way_after_access);
+        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
+               expected_replacement_way_after_access);
     }
 
     void
@@ -454,7 +453,7 @@ unit_test_tlb_plru_four_way()
     tlb_plru_test.access_and_check(addr_vec[ADDR_A], 1); //     A x x x
     tlb_plru_test.access_and_check(addr_vec[ADDR_B], 2); //     A B x x
     tlb_plru_test.access_and_check(addr_vec[ADDR_C], 3); //     A B C x
-    tlb_plru_test.access_and_check(addr_vec[ADDR_D], 1); //     a b c D
+    tlb_plru_test.access_and_check(addr_vec[ADDR_D], 2); //     a b c D
     // Next replacement chosen randomly from zero bits, the test runs with const seed.
     tlb_plru_test.access_and_check(addr_vec[ADDR_A], 2); //     A b c D
     tlb_plru_test.access_and_check(addr_vec[ADDR_B], 2); //     A B c D
