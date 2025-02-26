@@ -6542,6 +6542,12 @@ if (TARGET tool.drcacheoff.purestatic)
     code_api|tool.drcacheoff.purestatic
     PROPERTIES LABELS UBUNTU_22)
 endif()
+if (LINUX AND X64 AND NOT RISCV64 AND NOT ANDROID)
+set_tests_properties(
+  code_api|client.memory_dump_test
+  code_api|client.attach_memory_dump_test
+  PROPERTIES LABELS UBUNTU_22)
+endif()
 
 # XXX i#3544: Support for running RISC-V Linux tests under QEMU.
 # Currently about 1/6 of the compiled tests pass.
