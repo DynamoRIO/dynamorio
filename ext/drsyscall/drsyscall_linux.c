@@ -24,7 +24,7 @@
 #include "drsyscall.h"
 #include "drsyscall_os.h"
 #include "../../core/unix/include/syscall.h"
-#include "../common/asm_utils.h"
+#include "../drmf/common/asm_utils.h"
 #include <string.h> /* for strcmp */
 #include <stddef.h> /* for offsetof */
 #include "linux_defines.h"

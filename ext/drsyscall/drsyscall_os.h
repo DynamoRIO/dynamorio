@@ -23,7 +23,7 @@
 #ifndef _DRSYSCALL_OS_H_
 #define _DRSYSCALL_OS_H_ 1
 
-#include "../common/utils.h"
+#include "../drmf/common/utils.h"
 
 #ifdef WINDOWS
 /* We need extra room for dup entries for diff in vs out size to writes. */

@@ -55,9 +55,9 @@ string(REPLACE " " ";" DR_DEFINES "${DR_DEFINES}")
 set(asm_flags ${asm_defs} ${DR_DEFINES} -I "${DynamoRIO_DIR}")
 set(asm_deps "${DynamoRIO_DIR}/cpp2asm_defines.h")
 if (DR_HOST_X86)
-  set(asm_file "../common/asm_utils_x86.asm")
+  set(asm_file "../drmf/common/asm_utils_x86.asm")
 else ()
-  set(asm_file "../common/asm_utils_arm.asm")
+  set(asm_file "../drmf/common/asm_utils_arm.asm")
 endif ()
 add_asm_target(${asm_file} asm_utils_src asm_utils_tgt ""
   "${asm_flags}" "${asm_deps}")
@@ -81,9 +81,9 @@ set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
 set(DRMF_VERSION_CUR ${DRMF_VERSION_INTEGER}) # Current version
 
 set(framework_incdir "${PROJECT_BINARY_DIR}/ext/include")
-configure_file(../framework/public.h ${framework_incdir}/drmemory_framework.h)
+configure_file(../drmf/framework/public.h ${framework_incdir}/drmemory_framework.h)
 
-set(external_srcs ../framework/drmf_utils.c ../common/utils_shared.c)
+set(external_srcs ../dmrf/framework/drmf_utils.c ../drmf/common/utils_shared.c)
 
 set(srcs
   drsyscall.c
