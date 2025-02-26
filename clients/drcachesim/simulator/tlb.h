@@ -113,7 +113,7 @@ protected:
     access_update(int block_idx, int way) override;
     int
     get_next_way_to_replace(int block_idx) const override;
-    mutable std::mt19937 gen_;
+    mutable std::minstd_rand gen_;
 };
 
 } // namespace drmemtrace

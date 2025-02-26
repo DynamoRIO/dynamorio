@@ -86,8 +86,8 @@ public:
         ref.data.addr = addr;
         ref.data.pid = 1;
         this->request(ref);
-        auto res = this->get_next_way_to_replace(this->get_block_index(addr));
-        assert(res == expected_replacement_way_after_access);
+        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
+               expected_replacement_way_after_access);
     }
 
     void
@@ -182,7 +182,7 @@ public:
     seeded_tlb_policy_test_t(int associativity, int line_size, int entries)
         : tlb_policy_test_t<T>(associativity, line_size, entries)
     {
-        this->gen_ = std::mt19937(0);
+        this->gen_ = std::minstd_rand(0);
     }
 };
 
@@ -453,12 +453,12 @@ unit_test_tlb_plru_four_way()
     tlb_plru_test.access_and_check(addr_vec[ADDR_A], 1); //     A x x x
     tlb_plru_test.access_and_check(addr_vec[ADDR_B], 2); //     A B x x
     tlb_plru_test.access_and_check(addr_vec[ADDR_C], 3); //     A B C x
-    tlb_plru_test.access_and_check(addr_vec[ADDR_D], 1); //     a b c D
+    tlb_plru_test.access_and_check(addr_vec[ADDR_D], 0); //     a b c D
     // Next replacement chosen randomly from zero bits, the test runs with const seed.
-    tlb_plru_test.access_and_check(addr_vec[ADDR_A], 2); //     A b c D
+    tlb_plru_test.access_and_check(addr_vec[ADDR_A], 1); //     A b c D
     tlb_plru_test.access_and_check(addr_vec[ADDR_B], 2); //     A B c D
-    tlb_plru_test.access_and_check(addr_vec[ADDR_E], 1); //     a b E d
-    tlb_plru_test.access_and_check(addr_vec[ADDR_A], 3); //     A b E d
+    tlb_plru_test.access_and_check(addr_vec[ADDR_E], 3); //     a b E d
+    tlb_plru_test.access_and_check(addr_vec[ADDR_A], 1); //     A b E d
     tlb_plru_test.access_and_check(addr_vec[ADDR_B], 3); //     A B E d
 }
 
