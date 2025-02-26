@@ -38,7 +38,7 @@ set rules {
    #multi_line_body
    #break_after_return_type
    #no_space_after_control
-   #space_after_call
+   space_after_call
    #required_namespaces
 }
 
