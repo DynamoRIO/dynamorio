@@ -27,20 +27,20 @@
 #include <string.h> /* for strcmp */
 #include <stddef.h> /* offsetof */
 
-#include "../wininc/ndk_extypes.h"
-#include "../wininc/ndk_psfuncs.h"
-#include "../wininc/ndk_mmtypes.h"
-#include "../wininc/afd_shared.h"
-#include "../wininc/msafdlib.h"
-#include "../wininc/winioctl.h"
-#include "../wininc/tcpioctl.h"
-#include "../wininc/iptypes_undocumented.h"
-#include "../wininc/ntalpctyp.h"
-#include "../wininc/wdm.h"
-#include "../wininc/ntddk.h"
-#include "../wininc/ntifs.h"
-#include "../wininc/tls.h"
-#include "../wininc/ntpsapi.h"
+#include "../drmf/wininc/ndk_extypes.h"
+#include "../drmf/wininc/ndk_psfuncs.h"
+#include "../drmf/wininc/ndk_mmtypes.h"
+#include "../drmf/wininc/afd_shared.h"
+#include "../drmf/wininc/msafdlib.h"
+#include "../drmf/wininc/winioctl.h"
+#include "../drmf/wininc/tcpioctl.h"
+#include "../drmf/wininc/iptypes_undocumented.h"
+#include "../drmf/wininc/ntalpctyp.h"
+#include "../drmf/wininc/wdm.h"
+#include "../drmf/wininc/ntddk.h"
+#include "../drmf/wininc/ntifs.h"
+#include "../drmf/wininc/tls.h"
+#include "../drmf/wininc/ntpsapi.h"
 
 static app_pc ntdll_base;
 dr_os_version_info_t win_ver = {sizeof(win_ver),};

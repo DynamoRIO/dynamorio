@@ -49,7 +49,7 @@
 #  include <linux/netlink.h>
 # endif
 #else
-# include "../wininc/afd_shared.h"
+# include "../drmf/wininc/afd_shared.h"
 #endif
 
 #ifdef SYSCALL_DRIVER
