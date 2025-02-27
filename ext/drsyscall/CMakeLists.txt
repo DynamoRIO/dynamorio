@@ -18,9 +18,9 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-#FIXME drsyscall does not support RISCV.
+#FIXME Add support for RISCV64, ANDROID and MUSL
 #TODO(i#7303): Add common/asm_utils_aarch64.asm for AARCH64 support.
-if (RISCV64 OR AARCH64 OR ANDROID)
+if (RISCV64 OR AARCH64 OR ANDROID OR MUSL)
   return()
 endif ()
 
@@ -57,7 +57,6 @@ get_DynamoRIO_defines(DR_DEFINES OFF)
 # We need defines to be a list to pass as separate args to custom command.
 # We assume none have spaces inside them which seems reasonable.
 string(REPLACE " " ";" DR_DEFINES "${DR_DEFINES}")
-#set(asm_defs ${DR_DEFINES} asm_defs -I "${DynamoRIO_DIR}")
 set(asm_flags ${asm_defs} ${DR_DEFINES} -I "${DynamoRIO_DIR}")
 set(asm_deps "${DynamoRIO_DIR}/cpp2asm_defines.h")
 if (DR_HOST_X86)
@@ -138,7 +137,15 @@ macro(configure_drsyscall_target target)
   if (UNIX)
     # Avoid relocations which tend to violate security policies
     append_property_string(TARGET ${target} COMPILE_FLAGS "-fPIC")
+    # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
+    # for non-VS generators
+    string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
+    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # ensure race-free parallel builds
+    add_dependencies(${target} ${asm_utils_tgt})
+  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to
   # create a final static library, for DR_EXT_DRSYSCALL_STATIC: and that's
@@ -149,11 +156,6 @@ macro(configure_drsyscall_target target)
   if (NOT USER_SPECIFIED_DynamoRIO_DIR AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${target} ntdll_imports)
   endif ()
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # ensure race-free parallel builds
-    add_dependencies(${target} ${asm_utils_tgt})
-  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-
   copy_target_to_device(${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
 endmacro(configure_drsyscall_target)
 
