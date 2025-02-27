@@ -138,10 +138,6 @@ macro(configure_drsyscall_target target)
   if (UNIX)
     # Avoid relocations which tend to violate security policies
     append_property_string(TARGET ${target} COMPILE_FLAGS "-fPIC")
-    # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
-    # for non-VS generators
-    string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
-    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to
@@ -153,6 +149,11 @@ macro(configure_drsyscall_target target)
   if (NOT USER_SPECIFIED_DynamoRIO_DIR AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${target} ntdll_imports)
   endif ()
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # ensure race-free parallel builds
+    add_dependencies(${target} ${asm_utils_tgt})
+  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+
   copy_target_to_device(${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
 endmacro(configure_drsyscall_target)
 
