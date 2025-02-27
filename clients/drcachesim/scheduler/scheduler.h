@@ -65,6 +65,7 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "mutex_dbg_owned.h"
+#include "noise_generator.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "speculator.h"
