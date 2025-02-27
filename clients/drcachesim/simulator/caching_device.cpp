@@ -41,9 +41,9 @@
 #include <utility>
 #include <vector>
 
-#include "memref.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
+#include "memref.h"
 #include "prefetcher.h"
 #include "snoop_filter.h"
 #include "trace_entry.h"

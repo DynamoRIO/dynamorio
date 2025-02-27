@@ -4067,7 +4067,7 @@ if (BUILD_CLIENTS)
         set(switch_file
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
         torunonly_simtool(switch_insertion ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool basic_counts -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
+          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
           "")
         set(tool.switch_insertion_rawtemp ON) # no preprocessor
 
@@ -4075,6 +4075,24 @@ if (BUILD_CLIENTS)
           "-infile ${switch_file} -tool invariant_checker"
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
+
+        set(syscall_file
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
+
+        torunonly_simtool(syscall_insertion ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool basic_counts -sched_syscall_file ${syscall_file}"
+          "")
+        set(tool.syscall_insertion_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool basic_counts -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
+          "")
+        set(tool.syscall_insertion_core_sharded_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(syscall_file_invariants ${ci_shared_app}
+          "-infile ${syscall_file} -tool invariant_checker"
+          "")
+        set(tool.syscall_file_invariants_rawtemp ON) # no preprocessor
 
         # Test -multi_indir with 3 copies of our sample dir.
         torunonly_simtool(multi_indir ${ci_shared_app}
@@ -6541,6 +6559,12 @@ if (TARGET tool.drcacheoff.purestatic)
   set_tests_properties(
     code_api|tool.drcacheoff.purestatic
     PROPERTIES LABELS UBUNTU_22)
+endif()
+if (LINUX AND X64 AND NOT RISCV64 AND NOT ANDROID)
+set_tests_properties(
+  code_api|client.memory_dump_test
+  code_api|client.attach_memory_dump_test
+  PROPERTIES LABELS UBUNTU_22)
 endif()
 
 # XXX i#3544: Support for running RISC-V Linux tests under QEMU.

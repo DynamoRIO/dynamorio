@@ -143,6 +143,10 @@ write_header_entries(std::unique_ptr<std::ostream> &writer)
     }
     write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64));
     write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
+    // Some header read-ahead logic uses the timestamp marker to know when
+    // to stop. It is important to not read-ahead any kernel syscall trace
+    // content, as then is_record_kernel() starts returning true on the stream.
+    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 0));
 }
 
 static void
