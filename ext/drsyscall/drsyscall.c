@@ -1093,7 +1093,7 @@ safe_strnlen(const char *str, size_t max)
     /* FIXME PR 408539: use safe_read(), in a general routine that can be used
      * for SYSARG_SIZE_CSTRING in process_syscall_reads_and_writes()
      */
-    while ((s - str) < max && *s != '\0')
+    while ((size_t)(s - str) < max && *s != '\0')
         s++;
     return (s - str);
 }

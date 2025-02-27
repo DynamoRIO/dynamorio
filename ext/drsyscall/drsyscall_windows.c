@@ -433,7 +433,7 @@ name2num_entry_add(const char *name, drsys_sysnum_t num, bool dup_Zw, bool dup_n
         e->name_allocated = false;
     }
     e->num = num;
-    LOG(SYSCALL_VERBOSE + 1, "name2num: adding %s => "SYSNUM_FMT"."SYSNUM_FMT"\n",
+    LOG(drcontext, SYSCALL_VERBOSE + 1, "name2num: adding %s => "SYSNUM_FMT"."SYSNUM_FMT"\n",
         e->name, num.number, num.secondary);
     ok = hashtable_add(&name2num_table, (void *)e->name, (void *)e);
     if (!ok) {
@@ -643,7 +643,7 @@ get_primary_syscall_num(void *drcontext, const module_data_t *info,
      */
     ok = os_syscall_get_num(syslist->name, &syslist->num);
     if (!ok && info != NULL) {
-        LOG(SYSCALL_VERBOSE, "looking at wrapper b/c %s not in name2num_table\n",
+        LOG(drcontext, SYSCALL_VERBOSE, "looking at wrapper b/c %s not in name2num_table\n",
             syslist->name);
         ok = syscall_num_from_name(drcontext, info, syslist->name,
                                    optional_prefix,
@@ -658,7 +658,7 @@ get_primary_syscall_num(void *drcontext, const module_data_t *info,
     }
     DOLOG(SYSCALL_VERBOSE, {
         if (!ok) {
-            LOG(SYSCALL_VERBOSE, "WARNING: could not find system call %s\n",
+            LOG(drcontext, SYSCALL_VERBOSE, "WARNING: could not find system call %s\n",
                 syslist->name);
         }
     });
@@ -686,7 +686,7 @@ add_syscall_entry(void *drcontext, const module_data_t *info, syscall_info_t *sy
             hashtable_add(&systable, (void *) &syslist->num, (void *) syslist);
     }
     dr_recurlock_unlock(systable_lock);
-    LOG((info != NULL && info->start == ntdll_base) ? 2 : SYSCALL_VERBOSE,
+    LOG(drcontext, (info != NULL && info->start == ntdll_base) ? 2 : SYSCALL_VERBOSE,
         "system call %-35s = %3d.%d (0x%04x.%x)\n", syslist->name, syslist->num.number,
         syslist->num.secondary, syslist->num.number, syslist->num.secondary);
     /* We do have a dup with GetThreadDesktop on many platforms */
@@ -737,7 +737,7 @@ secondary_syscall_setup(void *drcontext, const module_data_t *info,
             second_entry_num =
                 cb(syscall_info_second[entry_index].name, syslist->num.number);
             if (second_entry_num == -1) {
-                LOG(SYSCALL_VERBOSE, "can't resolve secondary number for %s syscall\n",
+                LOG(drcontext, SYSCALL_VERBOSE, "can't resolve secondary number for %s syscall\n",
                     syscall_info_second[entry_index].name);
                 continue;
             }
@@ -877,7 +877,7 @@ drsyscall_os_init(void *drcontext)
             bool ok = syscall_num_from_name(drcontext, data, sysnum_names[i], NULL,
                                             false/*exported*/, &num_from_wrapper);
             if (ok && num_from_wrapper.number != sysnums[i]) {
-                LOG(1, "Syscall mismatch for %s: wrapper %d vs table %d\n",
+                LOG(drcontext, 1, "Syscall mismatch for %s: wrapper %d vs table %d\n",
                      sysnum_names[i], num_from_wrapper.number, sysnums[i]);
                 ELOG(0, "Syscall mismatch detected.  "
                      "Running on unknown kernel version!\n");
@@ -1299,7 +1299,7 @@ handle_port_message_access(sysarg_iter_info_t *ii,
          * filled with 0's
          */
         ASSERT(size == 0 || (ssize_t)size >= sizeof(pm), "PORT_MESSAGE size too small");
-        LOG(2, "total size of PORT_MESSAGE arg %d is %d\n", arg_info->param, size);
+        LOG(drcontext, 2, "total size of PORT_MESSAGE arg %d is %d\n", arg_info->param, size);
     } else {
         /* can't read real size, so report presumed-unaddr w/ struct size */
         ASSERT(size == sizeof(PORT_MESSAGE), "invalid PORT_MESSAGE sysarg size");
@@ -1588,7 +1588,7 @@ handle_unicode_string_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_in
             return true;
     }
     if (safe_read((void*)start, sizeof(us), &us)) {
-        LOG(SYSCALL_VERBOSE,
+        LOG(drcontext, SYSCALL_VERBOSE,
             "UNICODE_STRING Buffer="PFX" Length=%d MaximumLength=%d\n",
             (byte *)us.Buffer, us.Length, us.MaximumLength);
         if (ii->arg->pre) {
@@ -2782,7 +2782,7 @@ handle_AFD_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
                 if (ii->arg->pre)
                     CHECK_ADDR(ii, buf.buf, buf.len, "AFD_RECV_INFO.BufferArray[i].buf");
                 else {
-                    LOG(SYSCALL_VERBOSE, "\tAFD_RECV_INFO buf %d: "PFX"-"PFX"\n",
+                    LOG(drcontext, SYSCALL_VERBOSE, "\tAFD_RECV_INFO buf %d: "PFX"-"PFX"\n",
                         i, buf.buf, buf.len);
                     MARK_WRITE(ii, buf.buf, buf.len, "AFD_RECV_INFO.BufferArray[i].buf");
                 }
@@ -2828,7 +2828,7 @@ handle_AFD_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
                 if (ii->arg->pre)
                     CHECK_ADDR(ii, buf.buf, buf.len, "AFD_RECV_INFO_UDP.BufferArray[i].buf");
                 else {
-                    LOG(SYSCALL_VERBOSE, "\tAFD_RECV_INFO_UDP buf %d: "PFX"-"PFX"\n",
+                    LOG(drcontext, SYSCALL_VERBOSE, "\tAFD_RECV_INFO_UDP buf %d: "PFX"-"PFX"\n",
                         i, buf.buf, buf.len);
                     MARK_WRITE(ii, buf.buf, buf.len, "AFD_RECV_INFO_UDP.BufferArray[i].buf");
                 }
@@ -3197,7 +3197,7 @@ handle_NET_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
          */
         net_ioctl_003_inout_t data;
         ip_adapter_info_t *adapter_info;
-        LOG(SYSCALL_VERBOSE, "IOCTL_NET_0x003\n");
+        LOG(drcontext, SYSCALL_VERBOSE, "IOCTL_NET_0x003\n");
         if (inbuf == NULL || inbuf != outbuf ||
             insz != sizeof(data) || insz != outsz) {
             WARN("WARNING: expected same in/out param of size %d for ioctl "
@@ -3257,7 +3257,7 @@ handle_NET_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
          */
         net_ioctl_006_inout_t data;
         uint buf1sz, buf2sz, buf3sz, buf4sz;
-        LOG(SYSCALL_VERBOSE, "IOCTL_NET_0x006\n");
+        LOG(drcontext, SYSCALL_VERBOSE, "IOCTL_NET_0x006\n");
         if (inbuf == NULL || inbuf != outbuf ||
             sizeof(data) != insz || insz != outsz) {
             WARN("WARNING: expected same in/out param of size %d for ioctl "
@@ -3435,7 +3435,7 @@ syscall_diagnostics(void *drcontext, cls_syscall_t *pt)
     if (strcmp(sysinfo->name, "NtQueryValueKey") == 0) {
         UNICODE_STRING *us = (UNICODE_STRING *) pt->sysarg[1];
         DR_TRY_EXCEPT(drcontext, {
-            LOG(2, "NtQueryValueKey %S => ", (us == NULL || us->Buffer == NULL) ?
+            LOG(drcontext, 2, "NtQueryValueKey %S => ", (us == NULL || us->Buffer == NULL) ?
                 L"" : us->Buffer);
         }, { /* EXCEPT */
         });
@@ -3444,27 +3444,27 @@ syscall_diagnostics(void *drcontext, cls_syscall_t *pt)
                 pt->sysarg[3];
             if (info->Type == REG_SZ || info->Type == REG_EXPAND_SZ ||
                 info->Type == REG_MULTI_SZ/*just showing first*/)
-                LOG(2, "%.*S", info->DataLength, (wchar_t *)info->Data);
+                LOG(drcontext, 2, "%.*S", info->DataLength, (wchar_t *)info->Data);
             else
-                LOG(2, PFX, *(ptr_int_t *)info->Data);
+                LOG(drcontext, 2, PFX, *(ptr_int_t *)info->Data);
         } else if (pt->sysarg[2] == KeyValueFullInformation) {
             KEY_VALUE_FULL_INFORMATION *info = (KEY_VALUE_FULL_INFORMATION *)
                 pt->sysarg[3];
-            LOG(2, "%.*S = ", info->NameLength, info->Name);
+            LOG(drcontext, 2, "%.*S = ", info->NameLength, info->Name);
             if (info->Type == REG_SZ || info->Type == REG_EXPAND_SZ ||
                 info->Type == REG_MULTI_SZ/*just showing first*/) {
-                LOG(2, "%.*S",
+                LOG(drcontext, 2, "%.*S",
                     info->DataLength, (wchar_t *)(((byte*)info)+info->DataOffset));
             } else
-                LOG(2, PFX, *(ptr_int_t *)(((byte*)info)+info->DataOffset));
+                LOG(drcontext, 2, PFX, *(ptr_int_t *)(((byte*)info)+info->DataOffset));
         }
-        LOG(2, "\n");
+        LOG(drcontext, 2, "\n");
     } else if (strcmp(sysinfo->name, "NtOpenFile") == 0 ||
                strcmp(sysinfo->name, "NtCreateFile") == 0) {
         OBJECT_ATTRIBUTES *obj = (OBJECT_ATTRIBUTES *) pt->sysarg[2];
         DR_TRY_EXCEPT(drcontext, {
             if (obj != NULL && obj->ObjectName != NULL)
-                LOG(2, "%s %S\n", sysinfo->name, obj->ObjectName->Buffer);
+                LOG(drcontext, 2, "%s %S\n", sysinfo->name, obj->ObjectName->Buffer);
         }, { /* EXCEPT */
         });
     }
