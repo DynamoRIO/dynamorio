@@ -131,6 +131,8 @@ set(srcs_static ${srcs})
 if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
   set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
+  string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DASSEMBLE_WITH_MASM")
 endif ()
 
 macro(configure_drsyscall_target target)
