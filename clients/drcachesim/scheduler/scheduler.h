@@ -864,7 +864,7 @@ public:
         /**
          * Contains metadata information to drive the noise generation.
          */
-        noise_generator_info_t noise_generator_info;
+        std::unique_ptr<noise_generator_info_t> noise_generator_info;
         // When adding new options, also add to print_configuration().
     };
 

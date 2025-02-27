@@ -327,9 +327,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     std::vector<typename sched_type_t::input_workload_t> &workloads,
     typename sched_type_t::scheduler_options_t options)
 {
+    // TODO i#7216: temporary default metadata info for the noise generator.
+    // We plan to set these by analyzing the workloads.
+    options.noise_generator_info =
+        std::unique_ptr<noise_generator_info_t>(new noise_generator_info_t);
     // Add noise generator to workload_inputs.
-    if (options.noise_generator_enable)
-        add_noise_generator_to_workloads(workloads, options.noise_generator_info);
+    if (options.noise_generator_enable) {
+        add_noise_generator_to_workloads(workloads,
+                                         std::move(options.noise_generator_info));
+    }
 
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
@@ -413,19 +419,23 @@ template <typename RecordType, typename ReaderType>
 void
 analyzer_tmpl_t<RecordType, ReaderType>::add_noise_generator_to_workloads(
     std::vector<typename sched_type_t::input_workload_t> &workloads,
-    noise_generator_info_t info)
+    std::unique_ptr<noise_generator_info_t> info)
 {
     // Add noise generator reader to workloads.
-    for (uint64_t pid_idx = 0; pid_idx < info.num_processes; ++pid_idx) {
+    for (uint64_t pid_idx = 0; pid_idx < info->num_processes; ++pid_idx) {
+        // Assumptions in the scheduler disallow pid to be 0.
+        uint64_t pid = pid_idx + 1;
         std::vector<typename sched_type_t::input_reader_t> readers;
-        for (uint64_t tid_idx = 0; tid_idx < info.num_threads_per_process; ++tid_idx) {
-            auto noise_generator = get_noise_generator(static_cast<addr_t>(pid_idx + 1),
-                                                       static_cast<addr_t>(tid_idx + 1),
-                                                       info.num_records_to_generate);
+        for (uint64_t tid_idx = 0; tid_idx < info->num_threads_per_process; ++tid_idx) {
+            // Assumptions in the scheduler disallow tid to be 0.
+            uint64_t tid = tid_idx + 1;
+            auto noise_generator =
+                get_noise_generator(static_cast<addr_t>(pid), static_cast<addr_t>(tid),
+                                    info->num_records_to_generate);
             auto noise_generator_end = get_noise_generator_end();
             readers.emplace_back(std::move(noise_generator),
                                  std::move(noise_generator_end),
-                                 static_cast<memref_tid_t>(tid_idx + 1));
+                                 static_cast<memref_tid_t>(tid));
         }
         workloads.emplace_back(std::move(readers));
     }

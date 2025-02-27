@@ -672,6 +672,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.kernel_syscall_reader_end.get());
     VPRINT(this, 1, "  %-25s : %d\n", "noise_generator_enable",
            options_.noise_generator_enable);
+    VPRINT(this, 1, "  %-25s : %p\n", "noise_generator_info",
+           options_.noise_generator_info.get());
 }
 
 template <typename RecordType, typename ReaderType>

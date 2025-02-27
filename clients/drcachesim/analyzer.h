@@ -439,7 +439,7 @@ protected:
     void
     add_noise_generator_to_workloads(
         std::vector<typename sched_type_t::input_workload_t> &workloads,
-        noise_generator_info_t info);
+        std::unique_ptr<noise_generator_info_t> info);
 
     bool parallel_;
     int worker_count_;
