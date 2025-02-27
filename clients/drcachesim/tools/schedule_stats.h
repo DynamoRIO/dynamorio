@@ -217,6 +217,7 @@ public:
             maybe_blocking_syscalls += rhs.maybe_blocking_syscalls;
             direct_switch_requests += rhs.direct_switch_requests;
             switch_sequence_injections += rhs.switch_sequence_injections;
+            syscall_sequence_injections += rhs.syscall_sequence_injections;
             observed_migrations += rhs.observed_migrations;
             waits += rhs.waits;
             idles += rhs.idles;
@@ -254,6 +255,7 @@ public:
         int64_t maybe_blocking_syscalls = 0;
         int64_t direct_switch_requests = 0;
         int64_t switch_sequence_injections = 0;
+        int64_t syscall_sequence_injections = 0;
         // Our observed migrations will be <= the scheduler's reported migrations
         // for a dynamic schedule as we don't know the initial runqueue allocation
         // and so can't see the migration of an input that didn't execute in the
