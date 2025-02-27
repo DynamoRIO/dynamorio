@@ -120,22 +120,6 @@ replay_file_checker_t::check(archive_istream_t *infile)
 
 template <>
 std::unique_ptr<reader_t>
-scheduler_impl_tmpl_t<memref_t, reader_t>::get_noise_generator(addr_t pid, addr_t tid,
-                                                               uint64_t num_records)
-{
-    return std::unique_ptr<noise_generator_t>(
-        new noise_generator_t(pid, tid, num_records));
-}
-
-template <>
-std::unique_ptr<reader_t>
-scheduler_impl_tmpl_t<memref_t, reader_t>::get_noise_generator_end()
-{
-    return std::unique_ptr<noise_generator_t>(new noise_generator_t());
-}
-
-template <>
-std::unique_ptr<reader_t>
 scheduler_impl_tmpl_t<memref_t, reader_t>::get_default_reader()
 {
     return std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
@@ -369,23 +353,6 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &i
  * Specializations for scheduler_impl_tmpl_t<record_reader_t>, aka
  * record_scheduler_impl_t.
  */
-
-template <>
-std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
-scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_noise_generator(
-    addr_t pid, addr_t tid, uint64_t num_records)
-{
-    error_string_ = "Noise generator is not suppported for record_reader_t";
-    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
-}
-
-template <>
-std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
-scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::get_noise_generator_end()
-{
-    error_string_ = "Noise generator is not suppported for record_reader_t";
-    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
-}
 
 template <>
 std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
@@ -663,10 +630,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.honor_infinite_timeouts);
     VPRINT(this, 1, "  %-25s : %f\n", "exit_if_fraction_inputs_left",
            options_.exit_if_fraction_inputs_left);
-    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "noise_generator_add",
-           options_.noise_generator_add);
-    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "noise_generator_num_records",
-           options_.noise_generator_num_records);
+    VPRINT(this, 1, "  %-25s : %d\n", "noise_generator_enable",
+           options_.noise_generator_enable);
 }
 
 template <typename RecordType, typename ReaderType>
@@ -743,25 +708,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
 {
     options_ = std::move(options);
     verbosity_ = options_.verbosity;
-
-    // Add noise generator reader to workload_inputs.
-    if (options_.noise_generator_add > 0) {
-        for (uint64_t noise_generator_idx = 0;
-             noise_generator_idx < options_.noise_generator_add; ++noise_generator_idx) {
-            auto noise_generator =
-                get_noise_generator(static_cast<addr_t>(noise_generator_idx + 1),
-                                    static_cast<addr_t>(noise_generator_idx + 1),
-                                    options_.noise_generator_num_records);
-            auto noise_generator_end = get_noise_generator_end();
-            std::vector<typename sched_type_t::input_reader_t> readers;
-            // Use a sentinel for the tid so the scheduler will use the memref record tid.
-            readers.emplace_back(std::move(noise_generator),
-                                 std::move(noise_generator_end),
-                                 /* tid = */ INVALID_THREAD_ID);
-            workload_inputs.emplace_back(std::move(readers));
-        }
-    }
-
     // workload_inputs is not const so we can std::move readers out of it.
     for (int workload_idx = 0; workload_idx < static_cast<int>(workload_inputs.size());
          ++workload_idx) {
@@ -877,7 +823,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
         }
     }
 
-    //  Legacy field support.
+    // Legacy field support.
     scheduler_status_t res = legacy_field_support();
     if (res != sched_type_t::STATUS_SUCCESS)
         return res;

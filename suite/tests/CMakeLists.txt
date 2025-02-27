@@ -4023,7 +4023,7 @@ if (BUILD_CLIENTS)
       # noise generators. We test with a single-thread trace plus the 3 noise generators
       # for a total of 4 threads, which we check for in the tool's output.
       torunonly_simtool(schedule_stats_noise_generator ${ci_shared_app}
-          "-infile ${small_trace_file} -tool schedule_stats -noise_generator_add 3 -noise_generator_num_records 1000" "")
+          "-infile ${small_trace_file} -tool schedule_stats -noise_generator_enable" "")
 
       # Our multi-threaded sample trace is larger so we require gzip.
       if (ZLIB_FOUND)

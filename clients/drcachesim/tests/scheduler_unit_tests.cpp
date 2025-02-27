@@ -6769,6 +6769,7 @@ test_noise_generator()
         assert(false);
     auto *stream = scheduler.get_stream(0);
     memref_t memref;
+    bool found_at_least_one_read = false;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
@@ -6779,8 +6780,10 @@ test_noise_generator()
         if (memref.data.type == TRACE_TYPE_READ) {
             assert(memref.data.addr ==
                    static_cast<addr_t>(noise_generator_addr_to_generate));
+            found_at_least_one_read = true;
         }
     }
+    assert(found_at_least_one_read);
 }
 
 int

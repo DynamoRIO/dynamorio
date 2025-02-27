@@ -831,14 +831,10 @@ public:
         double exit_if_fraction_inputs_left = 0.1;
         /**
          * Adds noise generators to the scheduler. A noise generator creates synthetic
-         * trace records that will be scheduled alongside records of one or more real
-         * traces. Each noise generator behaves like a thread in its own process.
+         * trace records that can be scheduled alongside records of one or more real
+         * traces.
          */
-        uint64_t noise_generator_add = 0;
-        /**
-         * Number of synthetic trace records produced by the noise generator.
-         */
-        uint64_t noise_generator_num_records = 0;
+        bool noise_generator_enable = false;
         // When adding new options, also add to print_configuration().
     };
 

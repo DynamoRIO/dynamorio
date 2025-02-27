@@ -423,6 +423,19 @@ protected:
                        key_tool_shard_hash_t>
         per_shard_interval_snapshots_;
 
+    // Creates a noise generator as a reader_t iterator.
+    std::unique_ptr<ReaderType>
+    get_noise_generator(addr_t pid, addr_t tid, uint64_t num_records);
+
+    // Creates a noise generator end-iterator.
+    std::unique_ptr<ReaderType>
+    get_noise_generator_end();
+
+    // Adds noise generator to workloads.
+    void
+    add_noise_generator_workload_default(
+        std::vector<typename sched_type_t::input_workload_t> &workloads);
+
     bool parallel_;
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";

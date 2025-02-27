@@ -56,6 +56,7 @@
 #endif
 #include "reader.h"
 #include "record_file_reader.h"
+#include "noise_generator.h"
 #include "trace_entry.h"
 #ifdef HAS_ZIP
 #    include "reader/zipfile_file_reader.h"
@@ -144,6 +145,21 @@ analyzer_t::create_idle_marker()
     return record;
 }
 
+template <>
+std::unique_ptr<reader_t>
+analyzer_t::get_noise_generator(addr_t pid, addr_t tid, uint64_t num_records)
+{
+    return std::unique_ptr<noise_generator_t>(
+        new noise_generator_t(pid, tid, num_records));
+}
+
+template <>
+std::unique_ptr<reader_t>
+analyzer_t::get_noise_generator_end()
+{
+    return std::unique_ptr<noise_generator_t>(new noise_generator_t());
+}
+
 /******************************************************************************
  * Specializations for analyzer_tmpl_t<record_reader_t>, aka record_analyzer_t.
  */
@@ -209,6 +225,22 @@ record_analyzer_t::create_idle_marker()
     record.size = TRACE_MARKER_TYPE_CORE_IDLE;
     record.addr = 0; // Marker value has no meaning so we zero it.
     return record;
+}
+
+template <>
+std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
+record_analyzer_t::get_noise_generator(addr_t pid, addr_t tid, uint64_t num_records)
+{
+    error_string_ = "Noise generator is not suppported for record_reader_t";
+    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
+}
+
+template <>
+std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
+record_analyzer_t::get_noise_generator_end()
+{
+    error_string_ = "Noise generator is not suppported for record_reader_t";
+    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
 }
 
 /********************************************************************
@@ -295,6 +327,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     std::vector<typename sched_type_t::input_workload_t> &workloads,
     typename sched_type_t::scheduler_options_t options)
 {
+    // Add noise generator to workload_inputs.
+    if (options.noise_generator_enable)
+        add_noise_generator_workload_default(workloads);
+
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
             parallel_ = false;
@@ -368,6 +404,29 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     }
 
     return true;
+}
+
+template <typename RecordType, typename ReaderType>
+void
+analyzer_tmpl_t<RecordType, ReaderType>::add_noise_generator_workload_default(
+    std::vector<typename sched_type_t::input_workload_t> &workloads)
+{
+    // Add noise generator reader to workloads.
+    for (uint64_t noise_generator_pid_idx = 0; noise_generator_pid_idx < 10;
+         ++noise_generator_pid_idx) {
+        std::vector<typename sched_type_t::input_reader_t> readers;
+        for (uint64_t noise_generator_tid_idx = 0; noise_generator_tid_idx < 10;
+             ++noise_generator_tid_idx) {
+            auto noise_generator = get_noise_generator(
+                static_cast<addr_t>(noise_generator_pid_idx + 1),
+                static_cast<addr_t>(noise_generator_tid_idx + 1), 1000);
+            auto noise_generator_end = get_noise_generator_end();
+            readers.emplace_back(std::move(noise_generator),
+                                 std::move(noise_generator_end),
+                                 static_cast<memref_tid_t>(noise_generator_tid_idx + 1));
+        }
+        workloads.emplace_back(std::move(readers));
+    }
 }
 
 template <typename RecordType, typename ReaderType>

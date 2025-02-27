@@ -714,17 +714,11 @@ droption_t<std::string>
                    "Cache hierarchy configuration file",
                    "The full path to the cache hierarchy configuration file.");
 
-droption_t<uint64_t> op_noise_generator_add(
-    DROPTION_SCOPE_FRONTEND, "noise_generator_add", false, "Enables noise generators.",
-    "Adds the specified number of noise generators, which enables the scheduler to "
-    "interleave trace records with synthetic records. Each noise generator behaves like "
-    "a thread in its own process.");
-
-droption_t<uint64_t> op_noise_generator_num_records(
-    DROPTION_SCOPE_FRONTEND, "noise_generator_num_records", 0,
-    "Number of synthetic reords the noise generator produces.",
-    "Determines the number of synthetic records produced by the noise generator "
-    "excluding TRACE_TYPE_THREAD and TRACE_TYPE_PID.");
+droption_t<bool>
+    op_noise_generator_enable(DROPTION_SCOPE_FRONTEND, "noise_generator_enable", false,
+                              "Enables noise generators.",
+                              "Enables the scheduler to interleave trace records with "
+                              "synthetic records produced by a noise generator.");
 
 // XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int>
