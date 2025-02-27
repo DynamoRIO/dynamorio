@@ -117,8 +117,8 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
                              knobs_.TLB_L1I_entries, lltlbs_[i],
                              new tlb_stats_t((int)knobs_.page_size))) {
             error_string_ =
-                "Usage error: failed to initialize itlbs_. Ensure entry number, "
-                "page size and associativity are powers of 2.";
+                "Usage error: failed to initialize itlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
             success_ = false;
             return;
         }
@@ -126,8 +126,8 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
                              knobs_.TLB_L1D_entries, lltlbs_[i],
                              new tlb_stats_t((int)knobs_.page_size))) {
             error_string_ =
-                "Usage error: failed to initialize dtlbs_. Ensure entry number, "
-                "page size and associativity are powers of 2.";
+                "Usage error: failed to initialize dtlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
             success_ = false;
             return;
         }
@@ -135,8 +135,8 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
                               knobs_.TLB_L2_entries, NULL,
                               new tlb_stats_t((int)knobs_.page_size))) {
             error_string_ =
-                "Usage error: failed to initialize lltlbs_. Ensure entry number, "
-                "page size and associativity are powers of 2.";
+                "Usage error: failed to initialize lltlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
             success_ = false;
             return;
         }
