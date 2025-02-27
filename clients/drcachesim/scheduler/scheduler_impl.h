@@ -197,6 +197,7 @@ protected:
         // We use a deque so we can iterate over it.
         std::deque<RecordType> queue;
         bool cur_from_queue;
+
         std::set<output_ordinal_t> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
