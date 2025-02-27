@@ -2834,13 +2834,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     outputs_[output].last_record = record;
     record_type_has_tid(record, input->last_record_tid);
     record_type_has_pid(record, input->pid);
-    return finalize_next_record(record, input);
+    return finalize_next_record(record, input, output);
 }
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
-    const RecordType &record, input_info_t *input)
+    const RecordType &record, input_info_t *input, output_ordinal_t output)
 {
     trace_marker_type_t marker_type;
     uintptr_t marker_value;
@@ -2854,6 +2854,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         stream_status_t res =
             inject_kernel_sequence(syscall_sequence_[syscall_num], input);
         if (res == stream_status_t::STATUS_OK) {
+            ++outputs_[output].stats
+                  [memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS];
             VPRINT(this, 3, "Inserted %zu syscall records for syscall %d to %d.%d\n",
                    syscall_sequence_[syscall_num].size(), syscall_num, input->workload,
                    input->index);

@@ -197,7 +197,6 @@ protected:
         // We use a deque so we can iterate over it.
         std::deque<RecordType> queue;
         bool cur_from_queue;
-
         std::set<output_ordinal_t> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
@@ -882,7 +881,8 @@ protected:
     // Actions that must be taken only when we know for sure that the given record
     // is going to be the next record for some output stream.
     stream_status_t
-    finalize_next_record(const RecordType &record, input_info_t *input);
+    finalize_next_record(const RecordType &record, input_info_t *input,
+                         output_ordinal_t output);
 
     // Used for diagnostics: prints record fields to stderr.
     void
