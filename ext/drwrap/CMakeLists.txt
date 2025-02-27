@@ -78,8 +78,6 @@ set(srcs_static ${srcs})
 
 if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
-  # FIXME: fix warnings and up to /W4
-  string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 endif ()
 
 add_library(drwrap SHARED ${srcs})

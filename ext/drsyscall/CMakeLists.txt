@@ -145,6 +145,9 @@ macro(configure_drsyscall_target target)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # ensure race-free parallel builds
     add_dependencies(${target} ${asm_utils_tgt})
+    # FIXME: fix warnings and up to /W4
+    string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DASSEMBLE_WITH_MASM")
   endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to
