@@ -4076,6 +4076,24 @@ if (BUILD_CLIENTS)
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
+        set(syscall_file
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
+
+        torunonly_simtool(syscall_insertion ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool basic_counts -sched_syscall_file ${syscall_file}"
+          "")
+        set(tool.syscall_insertion_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
+          "-indir ${thread_trace_dir} -tool basic_counts -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
+          "")
+        set(tool.syscall_insertion_core_sharded_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(syscall_file_invariants ${ci_shared_app}
+          "-infile ${syscall_file} -tool invariant_checker"
+          "")
+        set(tool.syscall_file_invariants_rawtemp ON) # no preprocessor
+
         # Test -multi_indir with 3 copies of our sample dir.
         torunonly_simtool(multi_indir ${ci_shared_app}
           "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} -tool schedule_stats -cores 3"
