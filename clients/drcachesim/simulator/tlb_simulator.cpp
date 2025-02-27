@@ -295,17 +295,17 @@ tlb_simulator_t::print_results()
 tlb_t *
 tlb_simulator_t::create_tlb(std::string policy)
 {
-    // XXX: how to implement different replacement policies?
-    // Should we extend tlb_t to tlb_XXX_t so as to avoid multiple inheritance?
-    // Or should we adopt multiple inheritance to have caching_device_XXX_t as one base
-    // and tlb_t as another base class?
+    // XXX: i#7287: Eventually we want to decouple the replacement policies from the cache
+    // classes. Once this happens, we will need to build the policies here and pass them
+    // to the TLB class. We have implemented this as a temporary solution.
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LFU
         policy == REPLACE_POLICY_LFU)             // set to LFU
-        return new tlb_t;
-
+        return new tlb_lfu_t;
+    else if (policy == REPLACE_POLICY_BIT_PLRU)
+        return new tlb_bit_plru_t;
     // undefined replacement policy
     ERRMSG("Usage error: undefined replacement policy. "
-           "Please choose " REPLACE_POLICY_LFU ".\n");
+           "Please choose " REPLACE_POLICY_LFU " or " REPLACE_POLICY_BIT_PLRU ".\n");
     return NULL;
 }
 
