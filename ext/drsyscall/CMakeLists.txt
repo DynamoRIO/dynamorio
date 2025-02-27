@@ -20,7 +20,7 @@
 
 #FIXME drsyscall does not support RISCV.
 #TODO(i#7303): Add common/asm_utils_aarch64.asm for AARCH64 support.
-if (RISCV64 OR AARCH64)
+if (RISCV64 OR AARCH64 OR ANDROID)
   return()
 endif ()
 
