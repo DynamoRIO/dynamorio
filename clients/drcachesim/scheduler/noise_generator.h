@@ -80,6 +80,16 @@ private:
     bool marker_tid_generated_ = false;
 };
 
+/**
+ * Contains metadata information to drive the noise generation.
+ */
+struct noise_generator_info_t {
+    // TODO i#7216: temporary default values.
+    uint64_t num_processes = 1;
+    uint64_t num_threads_per_process = 1;
+    uint64_t num_records_to_generate = 1000;
+};
+
 } // namespace drmemtrace
 } // namespace dynamorio
 

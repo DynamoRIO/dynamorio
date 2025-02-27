@@ -329,7 +329,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
 {
     // Add noise generator to workload_inputs.
     if (options.noise_generator_enable)
-        add_noise_generator_workload_default(workloads);
+        add_noise_generator_to_workloads(workloads, options.noise_generator_info);
 
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
@@ -408,22 +408,21 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
 
 template <typename RecordType, typename ReaderType>
 void
-analyzer_tmpl_t<RecordType, ReaderType>::add_noise_generator_workload_default(
-    std::vector<typename sched_type_t::input_workload_t> &workloads)
+analyzer_tmpl_t<RecordType, ReaderType>::add_noise_generator_to_workloads(
+    std::vector<typename sched_type_t::input_workload_t> &workloads,
+    noise_generator_info_t info)
 {
     // Add noise generator reader to workloads.
-    for (uint64_t noise_generator_pid_idx = 0; noise_generator_pid_idx < 10;
-         ++noise_generator_pid_idx) {
+    for (uint64_t pid_idx = 0; pid_idx < info.num_processes; ++pid_idx) {
         std::vector<typename sched_type_t::input_reader_t> readers;
-        for (uint64_t noise_generator_tid_idx = 0; noise_generator_tid_idx < 10;
-             ++noise_generator_tid_idx) {
-            auto noise_generator = get_noise_generator(
-                static_cast<addr_t>(noise_generator_pid_idx + 1),
-                static_cast<addr_t>(noise_generator_tid_idx + 1), 1000);
+        for (uint64_t tid_idx = 0; tid_idx < info.num_threads_per_process; ++tid_idx) {
+            auto noise_generator = get_noise_generator(static_cast<addr_t>(pid_idx + 1),
+                                                       static_cast<addr_t>(tid_idx + 1),
+                                                       info.num_records_to_generate);
             auto noise_generator_end = get_noise_generator_end();
             readers.emplace_back(std::move(noise_generator),
                                  std::move(noise_generator_end),
-                                 static_cast<memref_tid_t>(noise_generator_tid_idx + 1));
+                                 static_cast<memref_tid_t>(tid_idx + 1));
         }
         workloads.emplace_back(std::move(readers));
     }

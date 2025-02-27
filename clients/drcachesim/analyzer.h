@@ -55,6 +55,7 @@
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include "noise_generator.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "scheduler.h"
@@ -433,8 +434,9 @@ protected:
 
     // Adds noise generator to workloads.
     void
-    add_noise_generator_workload_default(
-        std::vector<typename sched_type_t::input_workload_t> &workloads);
+    add_noise_generator_to_workloads(
+        std::vector<typename sched_type_t::input_workload_t> &workloads,
+        noise_generator_info_t info);
 
     bool parallel_;
     int worker_count_;

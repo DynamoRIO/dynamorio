@@ -141,12 +141,13 @@ Further non-compatibility-affecting changes include:
    instructions in the trace. This works for traces that have embedded instruction
    encodings in them, and also for legacy traces without embedded encodings where the
    encodings are obtained from the application binaries instead.
- - Added noise_generator_t scaffolding as a reader_t to produce synthetic trace records
-   in the drmemtrace framework.
- - Added -noise_generator_add and -noise_generator_num_records as flags and scheduler
-   options in the drmemtrace framework. -noise_generator_add determines how many noise
-   generators to add to a target trace(s), while -noise_generator_num_records determines
-   how many synthetic records each noise generator will produce.
+ - Added #dynamorio::drmemtrace::noise_generator_t scaffolding as a
+   #dynamorio::drmemtrace::reader_t to produce synthetic trace records in the drmemtrace
+   framework.
+ - Added #dynamorio::drmemtrace::noise_generator_info_t, which contains the metadata
+   information to drive the noise generation in the drmemtrace framework.
+ - Added -noise_generator_enable as global flag and scheduler option in the drmemtrace
+   framework.
 
 **************************************************
 <hr>

@@ -4019,9 +4019,10 @@ if (BUILD_CLIENTS)
       torunonly_simtool(reuse_offline ${ci_shared_app}
         "-infile ${small_trace_file} -tool reuse_distance -reuse_distance_histogram" "")
 
-      # The schedule_stats tool triggers the scheduler, to which we add 3
-      # noise generators. We test with a single-thread trace plus the 3 noise generators
-      # for a total of 4 threads, which we check for in the tool's output.
+      # The schedule_stats tool triggers the scheduler, to which we add one noise
+      # generator process with a single thread (current default configuration).
+      # We test with a single-threaded trace plus for a total of 2 threads,
+      # which we check for in the tool's output.
       torunonly_simtool(schedule_stats_noise_generator ${ci_shared_app}
           "-infile ${small_trace_file} -tool schedule_stats -noise_generator_enable" "")
 

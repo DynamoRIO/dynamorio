@@ -1,5 +1,5 @@
 Schedule stats tool results:
 Total counts:
            4 cores
-           4 threads:.*
+           2 threads:.*
 .*
