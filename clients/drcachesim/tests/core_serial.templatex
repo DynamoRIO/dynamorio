@@ -8,6 +8,7 @@ Total counts:
       106490 instructions per context switch
            6 voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
       100.00% voluntary switches
         0.00% direct switches
            4 switches input-to-input

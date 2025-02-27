@@ -217,6 +217,7 @@ extern dynamorio::droption::droption_t<std::string> op_replay_file;
 extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 #endif
 extern dynamorio::droption::droption_t<std::string> op_sched_switch_file;
+extern dynamorio::droption::droption_t<std::string> op_sched_syscall_file;
 extern dynamorio::droption::droption_t<bool> op_sched_randomize;
 extern dynamorio::droption::droption_t<bool> op_sched_disable_direct_switches;
 extern dynamorio::droption::droption_t<bool> op_sched_infinite_timeouts;

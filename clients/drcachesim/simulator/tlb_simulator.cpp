@@ -115,16 +115,28 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
 
         if (!itlbs_[i]->init(knobs_.TLB_L1I_assoc, (int)knobs_.page_size,
                              knobs_.TLB_L1I_entries, lltlbs_[i],
-                             new tlb_stats_t((int)knobs_.page_size)) ||
-            !dtlbs_[i]->init(knobs_.TLB_L1D_assoc, (int)knobs_.page_size,
+                             new tlb_stats_t((int)knobs_.page_size))) {
+            error_string_ =
+                "Usage error: failed to initialize itlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
+            success_ = false;
+            return;
+        }
+        if (!dtlbs_[i]->init(knobs_.TLB_L1D_assoc, (int)knobs_.page_size,
                              knobs_.TLB_L1D_entries, lltlbs_[i],
-                             new tlb_stats_t((int)knobs_.page_size)) ||
-            !lltlbs_[i]->init(knobs_.TLB_L2_assoc, (int)knobs_.page_size,
+                             new tlb_stats_t((int)knobs_.page_size))) {
+            error_string_ =
+                "Usage error: failed to initialize dtlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
+            success_ = false;
+            return;
+        }
+        if (!lltlbs_[i]->init(knobs_.TLB_L2_assoc, (int)knobs_.page_size,
                               knobs_.TLB_L2_entries, NULL,
                               new tlb_stats_t((int)knobs_.page_size))) {
             error_string_ =
-                "Usage error: failed to initialize TLbs_. Ensure entry number, "
-                "page size and associativity are powers of 2.";
+                "Usage error: failed to initialize lltlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
             success_ = false;
             return;
         }
@@ -135,18 +147,18 @@ tlb_simulator_t::~tlb_simulator_t()
 {
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         // Try to handle failure during construction.
-        if (itlbs_[i] == NULL)
-            return;
-        delete itlbs_[i]->get_stats();
-        delete itlbs_[i];
-        if (dtlbs_[i] == NULL)
-            return;
-        delete dtlbs_[i]->get_stats();
-        delete dtlbs_[i];
-        if (lltlbs_[i] == NULL)
-            return;
-        delete lltlbs_[i]->get_stats();
-        delete lltlbs_[i];
+        if (itlbs_[i] != NULL) {
+            delete itlbs_[i]->get_stats();
+            delete itlbs_[i];
+        }
+        if (dtlbs_[i] != NULL) {
+            delete dtlbs_[i]->get_stats();
+            delete dtlbs_[i];
+        }
+        if (lltlbs_[i] != NULL) {
+            delete lltlbs_[i]->get_stats();
+            delete lltlbs_[i];
+        }
     }
     delete[] itlbs_;
     delete[] dtlbs_;
