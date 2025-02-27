@@ -4021,8 +4021,8 @@ if (BUILD_CLIENTS)
 
       # The schedule_stats tool triggers the scheduler, to which we add one noise
       # generator process with a single thread (current default configuration).
-      # We test with a single-threaded trace plus for a total of 2 threads,
-      # which we check for in the tool's output.
+      # We test with a single-threaded trace for a total of 2 threads, which we check
+      # for in the tool's output.
       torunonly_simtool(schedule_stats_noise_generator ${ci_shared_app}
           "-infile ${small_trace_file} -tool schedule_stats -noise_generator_enable" "")
 
