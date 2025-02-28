@@ -46,7 +46,7 @@
 #include "dr_frontend.h"
 #include "droption.h"
 #include "drsyms.h"
-#include "../common/utils.h" /* only for BUFFER*, DIRSEP */
+#include "../drmf/common/utils.h" /* only for BUFFER*, DIRSEP */
 #include "../drsyscall/drsyscall.h"
 
 #include <assert.h>

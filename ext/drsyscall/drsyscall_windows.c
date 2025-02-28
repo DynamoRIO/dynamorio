@@ -449,7 +449,7 @@ name2num_entry_add(const char *name, drsys_sysnum_t num, bool dup_Zw, bool dup_n
 }
 
 void
-name2num_record(void drcontext, const char *name, int num, bool dup_name)
+name2num_record(void *drcontext, const char *name, int num, bool dup_name)
 {
     const char *skip_prefix = NULL;
     drsys_sysnum_t sysnum = {num, 0};
@@ -735,7 +735,7 @@ secondary_syscall_setup(void *drcontext, const module_data_t *info,
             continue;
         if (cb != NULL) {
             second_entry_num =
-                cb(syscall_info_second[drcontext, entry_index].name, syslist->num.number);
+                cb(drcontext, syscall_info_second[entry_index].name, syslist->num.number);
             if (second_entry_num == -1) {
                 LOG(drcontext, SYSCALL_VERBOSE, "can't resolve secondary number for %s syscall\n",
                     syscall_info_second[entry_index].name);
