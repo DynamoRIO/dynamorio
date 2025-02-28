@@ -37,14 +37,9 @@
 # support regular expressions.  Thus we use the older syntax here for the files
 # that are easy to list, but for excluding whole dirs we use regex checks
 # inside our own third_party/vera++/use_vera++.cmake.
-
+# DO-NOT_MERGE
 set rules {
-    line_length_content
-    multi_line_body
-    break_after_return_type
-    no_space_after_control
     space_after_call
-    required_namespaces
 }
 
 foreach rule $rules {
