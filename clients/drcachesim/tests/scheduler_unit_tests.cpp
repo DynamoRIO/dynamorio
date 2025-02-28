@@ -5613,6 +5613,114 @@ test_unscheduled_initially_roi()
 }
 
 static void
+test_unscheduled_initially_rebalance()
+{
+    // Tests i#7318 where on a rebalance a too-large runqueue has nothing
+    // but blocked inputs. That's easiest to make happen at the init-time
+    // rebalance where we create a bunch of starts-unscheduled (but not infinite)
+    // inputs.
+    std::cerr << "\n----------------\nTesting initially-unscheduled init rebalance\n";
+    static constexpr int NUM_OUTPUTS = 3;
+    static constexpr int NUM_INPUTS = 5;
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
+    static constexpr uint64_t BLOCK_TIME_MAX = 500;
+    static constexpr int MIGRATION_THRESHOLD = 0;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> refs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; ++i) {
+        if (i == NUM_OUTPUTS - 1) {
+            // Just one input is runnable.
+            refs[i] = {
+                make_thread(TID_BASE + i),
+                make_pid(1),
+                make_version(TRACE_ENTRY_VERSION),
+                // Runs last by timestamp.
+                make_timestamp(3001),
+                make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+                make_instr(/*pc=*/200),
+                make_timestamp(3002),
+                make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+                // Makes a long-latency blocking syscall, testing whether
+                // the other threads are really unscheduled.
+                make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+                make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+                make_timestamp(7002),
+                make_instr(/*pc=*/201),
+                make_exit(TID_BASE + i),
+            };
+        } else {
+            // The rest start unscheduled.
+            refs[i] = {
+                make_thread(TID_BASE + i),
+                make_pid(1),
+                make_version(TRACE_ENTRY_VERSION),
+                // These have the earliest timestamp and would start.
+                make_timestamp(1001 + i),
+                make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+                // They start out unscheduled though.
+                make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+                make_timestamp(4202),
+                make_instr(/*pc=*/102),
+                make_exit(TID_BASE + i),
+            };
+        }
+    }
+    std::vector<scheduler_t::input_reader_t> readers;
+    for (int i = 0; i < NUM_INPUTS; ++i) {
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
+                             TID_BASE + i);
+    }
+    // We need the initial runqueue assignment to be unbalanced.
+    // We achieve that by using input bindings.
+    // This relies on knowing the scheduler takes the 1st binding if there
+    // are any: so we can set to all cores and these will all pile up on output #0
+    // prior to the init-time rebalance, except the live input, which we made sure
+    // does not go on output #0 in round-robin order. That makes output #0 big enough
+    // for a rebalance attempt, which causes scheduler init to fail without the
+    // i#7318 fix.
+    std::set<scheduler_t::output_ordinal_t> cores;
+    cores.insert({ 0, 1, 2 });
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    sched_inputs.back().thread_modifiers.emplace_back(cores);
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+    sched_ops.time_units_per_us = 1.;
+    sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+    sched_ops.block_time_multiplier = BLOCK_SCALE;
+    sched_ops.block_time_max_us = BLOCK_TIME_MAX;
+    sched_ops.honor_infinite_timeouts = false;
+    sched_ops.migration_threshold_us = MIGRATION_THRESHOLD;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    // Our live thread C blocks and then the others become unblocked.
+    // Because they were blocked, the init-time rebalance couldn't steal
+    // any of them, and the duration here is too short for another rebalance,
+    // so the other cores remain idle.
+    static const char *const CORE0_SCHED_STRING =
+        "...C.....__.....A......B......D......E.C.";
+    static const char *const CORE1_SCHED_STRING =
+        "_________________________________________";
+    static const char *const CORE2_SCHED_STRING =
+        "_________________________________________";
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    assert(sched_as_string[1] == CORE1_SCHED_STRING);
+    assert(sched_as_string[2] == CORE2_SCHED_STRING);
+}
+
+static void
 test_unscheduled_small_timeout()
 {
     // Test that a small timeout scaled to 0 does not turn into an infinite timeout.
@@ -5765,6 +5873,7 @@ test_unscheduled()
     test_unscheduled_fallback();
     test_unscheduled_initially();
     test_unscheduled_initially_roi();
+    test_unscheduled_initially_rebalance();
     test_unscheduled_small_timeout();
     test_unscheduled_no_alternative();
 }

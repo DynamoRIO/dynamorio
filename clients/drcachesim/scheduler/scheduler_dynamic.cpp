@@ -879,8 +879,15 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::rebalance_queues(
                            "Rebalance iteration %d: output %d giving up input %d\n",
                            iteration, i, queue_next->index);
                     inputs_to_add.push_back(queue_next->index);
-                } else
+                } else {
+                    if (status == sched_type_t::STATUS_IDLE) {
+                        // An IDLE result is not an error: it just means there were no
+                        // unblocked inputs available.  We do not want to propagate it to
+                        // the caller.
+                        status = sched_type_t::STATUS_OK;
+                    }
                     break;
+                }
             }
             std::vector<input_ordinal_t> incompatible_inputs;
             // If we reach the 3rd iteration, we have fussy inputs with bindings.
