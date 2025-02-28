@@ -131,11 +131,15 @@ set(srcs_static ${srcs})
 if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
   set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
-  message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+  # ensure race-free parallel builds
+  add_dependencies(${target} ${asm_utils_tgt})
+  # FIXME: fix warnings and up to /W4
   string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-  message(STATUS "CMAKE_C_FLAGS after replace: ${CMAKE_C_FLAGS}")
-  add_definitions(-DASSEMBLE_WITH_MASM)
+  add_definitions(${asm_defs})
   message(STATUS "add_definitions(-DASSEMBLE_WITH_MASM)")
+  # We can't include directly from DDK b/c the DDK include dir and VS include
+  # dirs are incompatible, so we have our own copies of the headers we need.
+  include_directories(wininc/psdk wininc/dxsdk)
 endif ()
 
 macro(configure_drsyscall_target target)
@@ -147,12 +151,6 @@ macro(configure_drsyscall_target target)
     string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # ensure race-free parallel builds
-    add_dependencies(${target} ${asm_utils_tgt})
-    # FIXME: fix warnings and up to /W4
-    string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DASSEMBLE_WITH_MASM")
   endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to
