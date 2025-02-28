@@ -449,14 +449,14 @@ name2num_entry_add(const char *name, drsys_sysnum_t num, bool dup_Zw, bool dup_n
 }
 
 void
-name2num_record(const char *name, int num, bool dup_name)
+name2num_record(void drcontext, const char *name, int num, bool dup_name)
 {
     const char *skip_prefix = NULL;
     drsys_sysnum_t sysnum = {num, 0};
 
     /* Support adding usercalls from a sysnum file. */
     if (strstr(name, "NtUserCall") == name && strchr(name, '.') != NULL) {
-        wingdi_add_usercall(name, num);
+        wingdi_add_usercall(drcontext, name, num);
         return;
     }
 
@@ -735,7 +735,7 @@ secondary_syscall_setup(void *drcontext, const module_data_t *info,
             continue;
         if (cb != NULL) {
             second_entry_num =
-                cb(syscall_info_second[entry_index].name, syslist->num.number);
+                cb(syscall_info_second[drcontext, entry_index].name, syslist->num.number);
             if (second_entry_num == -1) {
                 LOG(drcontext, SYSCALL_VERBOSE, "can't resolve secondary number for %s syscall\n",
                     syscall_info_second[entry_index].name);
@@ -891,7 +891,7 @@ drsyscall_os_init(void *drcontext)
     if (sysnums != NULL) {
         for (i = NUM_SPOT_CHECKS; i < NUM_SYSNUM_NAMES; i++) {
             if (sysnums[i] != NONE)
-                name2num_record(sysnum_names[i], sysnums[i], false);
+                name2num_record(drcontext, sysnum_names[i], sysnums[i], false);
         }
     }
 

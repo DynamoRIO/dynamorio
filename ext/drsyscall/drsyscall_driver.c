@@ -116,9 +116,9 @@ driver_thread_init(void *drcontext)
                                 NULL, 0);
     if (!NT_SUCCESS(res)) {
         DO_ONCE({ WARN("WARNING: failed to register w/ syscall driver: "PFX"\n", res); });
-        LOG(1, "Failed to register w/ syscall driver: "PFX"\n", res);
+        LOG(drcontext, 1, "Failed to register w/ syscall driver: "PFX"\n", res);
     } else {
-        LOG(1, "Syscall driver reg for thread "TIDFMT" succeeded: buffer "PFX"-"PFX"\n",
+        LOG(drcontext, 1, "Syscall driver reg for thread "TIDFMT" succeeded: buffer "PFX"-"PFX"\n",
             dr_get_thread_id(drcontext), pt->driver_buffer,
             (byte*)pt->driver_buffer + registration.buffer_size);
         ASSERT(iob.Information == 0, "we didn't ask for prior reg");
@@ -140,7 +140,7 @@ driver_thread_exit(void *drcontext)
                                 IOCTL_DRMEMORY_REGISTER_THREAD_BUFFER,
                                 NULL, 0, NULL, 0);
     if (!NT_SUCCESS(res))
-        LOG(1, "Failed to unregister thread buffer: "PFX"\n", res);
+        LOG(drcontext, 1, "Failed to unregister thread buffer: "PFX"\n", res);
     thread_free(drcontext, pt->driver_buffer, sz, HEAPSTAT_MISC);
     drmgr_set_tls_field(drcontext, tls_idx_driver, NULL);
     thread_free(drcontext, pt, sizeof(*pt), HEAPSTAT_MISC);
@@ -196,7 +196,7 @@ driver_freeze_writes(void *drcontext)
     ASSERT(writes->num_writes == MAX_WRITES_TO_RECORD, "num_writes tampered with");
     if (writes->num_used == -1) {
         num = writes->num_writes;
-        LOG(2, "driver writes buffer is full\n");
+        LOG(drcontext, 2, "driver writes buffer is full\n");
     } else
         num = writes->num_used;
     pt->frozen_num_writes = num;
@@ -214,7 +214,7 @@ driver_process_writes(void *drcontext, drsys_sysnum_t sysnum)
     if (writes == NULL)
         return false;
     for (i = 0; i < pt->frozen_num_writes; i++) {
-        LOG(2, "driver info: syscall #0x%x write %d: "PFX"-"PFX"\n",
+        LOG(drcontext, 2, "driver info: syscall #0x%x write %d: "PFX"-"PFX"\n",
             sysnum, i, writes->writes[i].start,
             (byte*)writes->writes[i].start + writes->writes[i].length);
         shadow_set_range(writes->writes[i].start,

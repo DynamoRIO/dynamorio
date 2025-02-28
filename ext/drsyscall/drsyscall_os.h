@@ -351,7 +351,7 @@ typedef struct _sysarg_iter_info_t {
 } sysarg_iter_info_t;
 
 /* Type of callback for routine which returns secondary number. */
-typedef uint (*drsys_get_secnum_cb_t)(const char *name, uint primary_number);
+typedef uint (*drsys_get_secnum_cb_t)(void *drcontext, const char *name, uint primary_number);
 
 /* Hashtable maintained in os-specific code that maps drsys_sysnum_t to
  * syscall_info_t*.

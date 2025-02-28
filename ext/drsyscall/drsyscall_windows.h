@@ -27,7 +27,7 @@
 extern dr_os_version_info_t win_ver;
 
 void
-name2num_record(const char *name, int num, bool dup_name);
+name2num_record(void *drcontext, const char *name, int num, bool dup_name);
 
 void
 name2num_entry_add(const char *name, drsys_sysnum_t num, bool dup_Zw, bool dup_name);
@@ -53,7 +53,7 @@ handle_cwstring(sysarg_iter_info_t *ii, const char *id,
 /* drsyscall_wingdi.c */
 
 void
-wingdi_add_usercall(const char *name, int num);
+wingdi_add_usercall(void *drcontext, const char *name, int num);
 
 uint
 wingdi_get_secondary_syscall_num(const char *secondary_syscall, uint primary_num);
