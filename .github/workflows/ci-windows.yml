@@ -141,6 +141,10 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
+
   ###########################################################################
   # 32-bit and 64-bit VS2019 release builds:
   vs2019-builds:
@@ -183,6 +187,10 @@ jobs:
       env:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
