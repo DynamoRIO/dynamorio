@@ -151,7 +151,6 @@ macro(configure_drsyscall_target target)
     string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
-  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to
   # create a final static library, for DR_EXT_DRSYSCALL_STATIC: and that's
