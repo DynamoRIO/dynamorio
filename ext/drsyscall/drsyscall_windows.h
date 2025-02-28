@@ -56,7 +56,7 @@ void
 wingdi_add_usercall(void *drcontext, const char *name, int num);
 
 uint
-wingdi_get_secondary_syscall_num(const char *secondary_syscall, uint primary_num);
+wingdi_get_secondary_syscall_num(void *drcontext, const char *secondary_syscall, uint primary_num);
 
 drmf_status_t
 drsyscall_wingdi_init(void *drcontext, app_pc ntdll_base, dr_os_version_info_t *ver,
