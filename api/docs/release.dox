@@ -146,6 +146,13 @@ Further non-compatibility-affecting changes include:
    templates. Added similar options for the drmemtrace scheduler: #dynamorio::drmemtrace::
    scheduler_tmpl_t::scheduler_options_t::kernel_syscall_trace_path, and #dynamorio::
    drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
+ - Added #dynamorio::drmemtrace::noise_generator_t scaffolding as a
+   #dynamorio::drmemtrace::reader_t to produce synthetic trace records in the drmemtrace
+   framework.
+ - Added #dynamorio::drmemtrace::noise_generator_info_t, which contains the metadata
+   information to drive the noise generation in the drmemtrace framework.
+ - Added -noise_generator_enable as global flag and scheduler option in the drmemtrace
+   framework.
 
 **************************************************
 <hr>

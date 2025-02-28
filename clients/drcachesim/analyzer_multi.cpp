@@ -573,6 +573,10 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 
     sched_ops.kernel_syscall_trace_path = op_sched_syscall_file.get_value();
 
+    // Signal the presence of a noise generator to the scheduler before init_scheduler(),
+    // where we eventually add the noise generator as another input workload.
+    sched_ops.noise_generator_enable = op_noise_generator_enable.get_value();
+
     if (!indirs.empty()) {
         std::vector<std::string> tracedirs;
         for (const std::string &indir : indirs)
