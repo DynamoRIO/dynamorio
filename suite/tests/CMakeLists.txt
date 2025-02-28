@@ -6191,13 +6191,15 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   endif ()
 endif (NOT ARM)
 
-if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+# FIXME i#1551: port asm to ARM
+# FIXME i#5383: selfmod tests fail to build on macOS + ARM64
+if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
 
   tobuild(security-common.selfmod security-common/selfmod.c)
   tochcon(security-common.selfmod textrel_shlib_t)
-endif (X86 OR AARCH64)
+endif (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   if (NOT APPLE) # XXX i#58: port test to MacOS

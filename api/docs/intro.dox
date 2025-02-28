@@ -470,7 +470,9 @@ preferred client library base in the low 4GB.  The \ref op_reachable_client
 "-reachable_client runtime option" can be used to remove this guarantee.
 The option is automatically turned off when DynamoRIO and clients are
 statically linked with the application: for such static usage, 32-bit
-reachability to the code cache by clients is not guaranteed.
+reachability to the code cache by clients is not guaranteed. It is also
+disabled on macOS, where the lack of a private loader means we cannot
+control where the client library gets loaded.
 
 The net result is that any static data or code in a client library, or any
 data allocated using DynamoRIO's API routines (except dr_raw_mem_alloc() or
