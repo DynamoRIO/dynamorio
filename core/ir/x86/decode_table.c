@@ -1231,8 +1231,8 @@ const instr_info_t * const op_instr[] =
     /* OP_invpcid       */   &third_byte_38[103],
 
     /* Intel TSX */
-    /* OP_xabort        */   &base_extensions[17][7],
-    /* OP_xbegin        */   &base_extensions[18][7],
+    /* OP_xabort        */   &rm_extensions[6][0],
+    /* OP_xbegin        */   &rm_extensions[7][0],
     /* OP_xend          */   &rm_extensions[4][5],
     /* OP_xtest         */   &rm_extensions[4][6],
 
@@ -3038,8 +3038,7 @@ const instr_info_t base_extensions[][8] = {
     {INVALID, 0xc60024, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc60025, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc60026, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#1314: this also sets eip */
-    {OP_xabort, 0xf8c60067, catUncategorized, "xabort", eax, xx, Ib, xx, xx, mrm, x, END_LIST},
+    {MOD_EXT, 0xc60027, catUncategorized, "(mod ext 124)", xx, xx, xx, xx, xx, mrm, x, 124},
   },
   /* group 11b (first byte c7) */
   { /* extensions[18] */
@@ -3051,7 +3050,7 @@ const instr_info_t base_extensions[][8] = {
     {INVALID, 0xc70024, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc70025, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc70026, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_xbegin, 0xf8c70067, catUncategorized, "xbegin", xx, xx, Jz, xx, xx, mrm, x, END_LIST},
+    {MOD_EXT, 0xc70027, catUncategorized, "(mod ext 125)", xx, xx, xx, xx, xx, mrm, x, 125},
   },
   /* group 12 (first bytes 0f 71): all assumed to have Ib */
   { /* extensions[19] */
@@ -7172,6 +7171,14 @@ const instr_info_t mod_extensions[][2] = {
     {OP_clwb,    0x660fae36, catOther, "clwb", xx, xx, Mb, xx, xx, mrm, no, END_LIST},
     {INVALID,    0x660fae36, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
+  { /* mod extension 124 */
+    {INVALID,    0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {RM_EXT,     0xc60067, catUncategorized, "(group 7 mod + rm ext 6)", xx, xx, xx, xx, xx, mrm, x, 6},
+  },
+  { /* mod extension 125 */
+    {INVALID,    0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {RM_EXT,     0xc70067, catUncategorized, "(group 7 mod + rm ext 7)", xx, xx, xx, xx, xx, mrm, x, 7},
+  },
 };
 
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
@@ -7240,6 +7247,27 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_rdpkru, 0xee0f0171, catUncategorized, "rdpkru", eax, edx, ecx, xx, xx, mrm, x, END_LIST},
     {OP_wrpkru, 0xef0f0171, catUncategorized, "wrpkru", xx, xx, ecx, edx, eax, mrm, x, END_LIST},
+  },
+  { /* rm extension 6 */
+    /* XXX i#1314: this also sets eip */
+    {OP_xabort, 0xf8c60067, catUncategorized, "xabort", eax, xx, Ib, xx, xx, mrm, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+  },
+  { /* rm extension 7 */
+    {OP_xbegin, 0xf8c70067, catUncategorized, "xbegin", xx, xx, Jz, xx, xx, mrm, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
 };
 
