@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -111,11 +111,25 @@ read_feature_regs(uint64 isa_features[])
         :
         : "x0");
 
-    asm(".inst 0xd5380740\n" /* mrs x0, ID_AA64MMFR2_EL1 */
-        "mov %0, x0"
-        : "=r"(isa_features[AA64MMFR2])
-        :
-        : "x0");
+    if (IF_LINUX_ELSE(!IS_STRING_OPTION_EMPTY(xarch_root), false)) {
+        /* We assume we're under QEMU, where this causes a fatal SIGILL (i#7315).
+         * XXX i#7315: We'd prefer to use TRY_EXCEPT_ALLOW_NO_DCONTEXT here and
+         * remove this xarch_root check, but proc_init() is called prior to
+         * init-time signal handling being set up: and we'd need to add SIGILL
+         * to the ones caught at init time, which complicates later uses of
+         * SIGILL for NUDGESIG_SIGNUM and suspend_signum (and on x86
+         * XSTATE_QUERY_SIG): so we'd want SIGILL to only work for try-except
+         * at init time. This is all a little too involved to implement right now.
+         */
+        LOG(GLOBAL, LOG_TOP | LOG_ASYNCH, 1,
+            "Skipping MRS of ID_AA64ISAR2_EL1 under QEMU\n");
+    } else {
+        asm(".inst 0xd5380740\n" /* mrs x0, ID_AA64MMFR2_EL1 */
+            "mov %0, x0"
+            : "=r"(isa_features[AA64MMFR2])
+            :
+            : "x0");
+    }
 }
 
 #    if !defined(MACOS)
