@@ -38,6 +38,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -47,6 +48,7 @@
 #include "caching_device_stats.h"
 #include "memref.h"
 #include "trace_entry.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -69,7 +71,9 @@ public:
     explicit caching_device_t(const std::string &name = "caching_device");
     virtual bool
     init(int associativity, int64_t block_size, int num_blocks, caching_device_t *parent,
-         caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
+         caching_device_stats_t *stats,
+         std::unique_ptr<cache_replacement_policy_t> replacement_policy,
+         prefetcher_t *prefetcher = nullptr,
          cache_inclusion_policy_t inclusion_policy =
              cache_inclusion_policy_t::NON_INC_NON_EXC,
          bool coherent_cache = false, int id_ = -1,
@@ -176,7 +180,7 @@ public:
     virtual std::string
     get_replace_policy() const
     {
-        return "LFU";
+        return replacement_policy_->get_name();
     }
     virtual const std::string &
     get_name() const
@@ -290,6 +294,8 @@ protected:
                        std::function<unsigned long(addr_t)>>
         tag2block;
     bool use_tag2block_table_ = false;
+
+    mutable std::unique_ptr<cache_replacement_policy_t> replacement_policy_;
 
     // Name for this cache.
     const std::string name_;
