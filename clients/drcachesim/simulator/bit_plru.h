@@ -66,4 +66,4 @@ private:
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif // _BIT_PLRU_H_
+#endif /* _BIT_PLRU_H_ */

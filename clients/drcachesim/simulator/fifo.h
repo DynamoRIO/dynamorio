@@ -64,4 +64,4 @@ private:
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif // _FIFO_H_
+#endif /* _FIFO_H_ */

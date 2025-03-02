@@ -90,7 +90,8 @@ public:
         ref.data.addr = addr;
         ref.data.pid = 1;
         this->request(ref);
-        assert(this->get_next_way_to_replace(this->get_block_index(addr)) == expected_replacement_way_after_access);
+        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
+               expected_replacement_way_after_access);
     }
 
     void
