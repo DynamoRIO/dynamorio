@@ -79,10 +79,12 @@ cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream,
                                     bool partial_trace_filter)
 {
     per_shard_t *per_shard = new per_shard_t;
-    if (!(per_shard->cache.init(cache_associativity_, cache_line_size_, cache_size_,
-                                nullptr, new cache_filter_stats_t(cache_line_size_),
-                                std::unique_ptr<lru_t>(new lru_t(cache_size_ / cache_associativity_, cache_associativity_)),
-                                nullptr))) {
+    if (!(per_shard->cache.init(
+            cache_associativity_, cache_line_size_, cache_size_, nullptr,
+            new cache_filter_stats_t(cache_line_size_),
+            std::unique_ptr<lru_t>(
+                new lru_t(cache_size_ / cache_associativity_, cache_associativity_)),
+            nullptr))) {
         error_string_ = "Failed to initialize cache.";
         return nullptr;
     }
