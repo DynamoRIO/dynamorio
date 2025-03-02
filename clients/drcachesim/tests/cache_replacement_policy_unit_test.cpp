@@ -415,7 +415,7 @@ unit_test_tlb_plru_four_way()
                                                       /*line_size=*/64);
     tlb_plru_test.initialize_cache(
         std::unique_ptr<bit_plru_t>(
-            new bit_plru_t(4 /*num_blocks*/, 4 /*associativity*/, 0 /*seed*/)),
+            new bit_plru_t(1 /*num_blocks*/, 4 /*associativity*/, 0 /*seed*/)),
         4);
     assert(tlb_plru_test.get_replace_policy() == "BIT_PLRU");
     assert(tlb_plru_test.block_indices_are_identical(addr_vec));
@@ -438,7 +438,7 @@ unit_test_tlb_lfu_four_way()
     caching_device_policy_test_t<tlb_t> tlb_lfu_test(/*associativity=*/4,
                                                      /*line_size=*/64);
     tlb_lfu_test.initialize_cache(
-        std::unique_ptr<lfu_t>(new lfu_t(4 /*num_blocks*/, 4 /*associativity*/)), 4);
+        std::unique_ptr<lfu_t>(new lfu_t(1 /*num_blocks*/, 4 /*associativity*/)), 4);
     assert(tlb_lfu_test.get_replace_policy() == "LFU");
     assert(tlb_lfu_test.block_indices_are_identical(addr_vec));
     assert(tlb_lfu_test.tags_are_different(addr_vec));

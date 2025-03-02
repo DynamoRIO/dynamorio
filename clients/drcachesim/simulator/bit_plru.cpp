@@ -83,7 +83,7 @@ bit_plru_t::get_next_way_to_replace(int block_idx)
     block_idx = get_block_index(block_idx);
     std::vector<int> unset_bits;
     for (int i = 0; i < associativity_; ++i) {
-        if (block_bits_[block_idx][i] == 0) {
+        if (!block_bits_[block_idx][i]) {
             unset_bits.push_back(i);
         }
     }

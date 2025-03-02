@@ -210,8 +210,7 @@ caching_device_t::request(const memref_t &memref_in)
                     snoop_filter_->snoop(tag, id_,
                                          (memref.data.type == TRACE_TYPE_WRITE));
                 } else if (parent_ != NULL) {
-                    // On a miss, the parent access will inherently propagate the
-                    // write.
+                    // On a miss, the parent access will inherently propagate the write.
                     parent_->propagate_write(tag, this);
                 }
             }

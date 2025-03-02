@@ -51,13 +51,13 @@ void
 lru_t::access_update(int block_idx, int way)
 {
     block_idx = get_block_index(block_idx);
-    int cnt = lru_counters_[block_idx][way];
+    int count = lru_counters_[block_idx][way];
     // Optimization: return early if it is a repeated access.
-    if (cnt == 0)
+    if (count == 0)
         return;
     // We inc all the counters that are not larger than cnt for LRU.
     for (int i = 0; i < associativity_; ++i) {
-        if (i != way && lru_counters_[block_idx][i] <= cnt)
+        if (i != way && lru_counters_[block_idx][i] <= count)
             lru_counters_[block_idx][i]++;
     }
     // Clear the counter for LRU.

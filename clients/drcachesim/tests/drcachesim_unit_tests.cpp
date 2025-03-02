@@ -970,7 +970,6 @@ test_main(int argc, const char *argv[])
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
 
-    unit_test_cache_replacement_policy();
     unit_test_exclusive_cache();
     unit_test_cache_accessors();
     unit_test_config_reader(std::string(argv[1]));
@@ -986,6 +985,7 @@ test_main(int argc, const char *argv[])
     unit_test_warmup_refs();
     unit_test_sim_refs();
     unit_test_child_hits();
+    unit_test_cache_replacement_policy();
     unit_test_core_sharded();
     unit_test_nextline_prefetcher();
     unit_test_custom_prefetcher();
