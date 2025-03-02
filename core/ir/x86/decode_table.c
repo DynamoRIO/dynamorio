@@ -7250,7 +7250,7 @@ const instr_info_t rm_extensions[][8] = {
   },
   { /* rm extension 6 */
     /* XXX i#1314: this also sets eip */
-    {OP_xabort, 0xf8c60067, catUncategorized, "xabort", eax, xx, Ib, xx, xx, mrm, x, END_LIST},
+    {OP_xabort, 0xf8c60067, catOther, "xabort", eax, xx, Ib, xx, xx, mrm, x, END_LIST},
     {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -7260,7 +7260,7 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
   { /* rm extension 7 */
-    {OP_xbegin, 0xf8c70067, catUncategorized, "xbegin", xx, xx, Jz, xx, xx, mrm, x, END_LIST},
+    {OP_xbegin, 0xf8c70067, catOther, "xbegin", xx, xx, Jz, xx, xx, mrm, x, END_LIST},
     {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
