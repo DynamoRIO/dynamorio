@@ -193,8 +193,6 @@ configure_DynamoRIO_standalone(drmemtrace_invariant_checker)
 add_exported_library(drmemtrace_simulator STATIC
   simulator/simulator.cpp
   simulator/cache.cpp
-  simulator/cache_lru.cpp
-  simulator/cache_fifo.cpp
   simulator/cache_miss_analyzer.cpp
   simulator/caching_device.cpp
   simulator/caching_device_stats.cpp
@@ -204,6 +202,11 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/snoop_filter.cpp
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
+  simulator/bit_plru.cpp
+  simulator/create_cache_replacement_policy.cpp
+  simulator/fifo.cpp
+  simulator/lfu.cpp
+  simulator/lru.cpp
   )
 
 add_exported_library(drmemtrace_record_filter STATIC

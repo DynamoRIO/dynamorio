@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,51 +30,35 @@
  * DAMAGE.
  */
 
-/* cache_lru: represents a single hardware cache with LRU algo.
- */
+#include "create_cache_replacement_policy.h"
 
-#ifndef _CACHE_LRU_H_
-#define _CACHE_LRU_H_ 1
-
+#include <memory>
 #include <string>
-#include <vector>
 
-#include "cache.h"
-#include "prefetcher.h"
-#include "snoop_filter.h"
+#include "bit_plru.h"
+#include "fifo.h"
+#include "lfu.h"
+#include "lru.h"
+#include "options.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class cache_lru_t : public cache_t {
-public:
-    explicit cache_lru_t(const std::string &name = "cache_lru")
-        : cache_t(name)
-    {
-    }
-    bool
-    init(int associativity, int block_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id = -1, snoop_filter_t *snoop_filter = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
-    std::string
-    get_replace_policy() const override
-    {
-        return "LRU";
-    }
-
-protected:
-    void
-    access_update(int block_idx, int way) override;
-    int
-    replace_which_way(int block_idx) override;
-    int
-    get_next_way_to_replace(const int block_idx) const override;
-};
+std::unique_ptr<cache_replacement_policy_t>
+create_cache_replacement_policy(const std::string &policy, int num_blocks,
+                                int associativity)
+{
+    if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
+        policy == REPLACE_POLICY_LRU)             // set to LRU
+        return std::unique_ptr<lru_t>(new lru_t(num_blocks, associativity));
+    if (policy == REPLACE_POLICY_LFU)
+        return std::unique_ptr<lfu_t>(new lfu_t(num_blocks, associativity));
+    if (policy == REPLACE_POLICY_FIFO)
+        return std::unique_ptr<fifo_t>(new fifo_t(num_blocks, associativity));
+    if (policy == REPLACE_POLICY_BIT_PLRU)
+        return std::unique_ptr<bit_plru_t>(new bit_plru_t(num_blocks, associativity));
+    return nullptr;
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _CACHE_LRU_H_ */

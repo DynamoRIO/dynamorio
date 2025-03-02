@@ -30,59 +30,76 @@
  * DAMAGE.
  */
 
-/* cache: represents a single hardware cache.
- */
+#include "bit_plru.h"
 
-#ifndef _CACHE_H_
-#define _CACHE_H_ 1
-
-#include <string>
+#include <random>
 #include <vector>
-#include <memory>
-
-#include "cache_line.h"
-#include "cache_replacement_policy.h"
-#include "cache_stats.h"
-#include "caching_device.h"
-#include "memref.h"
-#include "prefetcher.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class snoop_filter_t;
-
-class cache_t : public caching_device_t {
-public:
-    explicit cache_t(const std::string &name = "cache")
-        : caching_device_t(name)
-    {
+bit_plru_t::bit_plru_t(int num_blocks, int associativity, int seed)
+    : cache_replacement_policy_t(num_blocks, associativity)
+    , block_set_counts_(num_blocks, 0)
+    , gen_(seed == -1 ? std::random_device()() : seed)
+{
+    // Initialize the bit vector for each block.
+    block_bits_.reserve(num_blocks);
+    for (int i = 0; i < num_blocks; ++i) {
+        block_bits_.emplace_back(associativity, false);
     }
-    // Size, line size and associativity are generally used
-    // to describe a CPU cache.
-    // The id is an index into the snoop filter's array of caches for coherent caches.
-    // If this is a coherent cache, id should be in the range [0,num_snooped_caches).
-    bool
-    init(int associativity, int64_t line_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats,
-         std::unique_ptr<cache_replacement_policy_t> replacement_policy,
-         prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id_ = -1,
-         snoop_filter_t *snoop_filter_ = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
-    void
-    request(const memref_t &memref) override;
-    virtual void
-    flush(const memref_t &memref);
+}
 
-protected:
-    void
-    init_blocks() override;
-};
+void
+bit_plru_t::access_update(int block_idx, int way)
+{
+    block_idx = get_block_index(block_idx);
+    // Set the bit for the accessed way.
+    if (!block_bits_[block_idx][way]) {
+        block_bits_[block_idx][way] = true;
+        block_set_counts_[block_idx]++;
+    }
+    if (block_set_counts_[block_idx] < associativity_) {
+        // Finished.
+        return;
+    }
+    // If all bits are set, reset them.
+    for (int i = 0; i < associativity_; ++i) {
+        block_bits_[block_idx][i] = false;
+    }
+    block_set_counts_[block_idx] = 1;
+    block_bits_[block_idx][way] = true;
+}
+
+void
+bit_plru_t::eviction_update(int block_idx, int way)
+{
+    // Nothing to update, when the way is accessed we will update it.
+}
+
+int
+bit_plru_t::get_next_way_to_replace(int block_idx)
+{
+    block_idx = get_block_index(block_idx);
+    std::vector<int> unset_bits;
+    for (int i = 0; i < associativity_; ++i) {
+        if (block_bits_[block_idx][i] == 0) {
+            unset_bits.push_back(i);
+        }
+    }
+
+    if (unset_bits.empty()) {
+        // Should not reach here.
+        return -1;
+    }
+    return unset_bits[gen_() % unset_bits.size()];
+}
+
+std::string
+bit_plru_t::get_name() const
+{
+    return "BIT_PLRU";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _CACHE_H_ */

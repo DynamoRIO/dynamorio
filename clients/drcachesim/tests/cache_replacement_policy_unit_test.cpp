@@ -34,10 +34,14 @@
 #include <iostream>
 #undef NDEBUG
 #include <assert.h>
+#include <memory>
 #include <random>
 #include "cache_replacement_policy_unit_test.h"
-#include "simulator/cache_fifo.h"
-#include "simulator/cache_lru.h"
+#include "simulator/bit_plru.h"
+#include "simulator/cache.h"
+#include "simulator/fifo.h"
+#include "simulator/lfu.h"
+#include "simulator/lru.h"
 #include "simulator/tlb.h"
 
 namespace dynamorio {
@@ -86,8 +90,7 @@ public:
         ref.data.addr = addr;
         ref.data.pid = 1;
         this->request(ref);
-        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
-               expected_replacement_way_after_access);
+        assert(this->get_next_way_to_replace(this->get_block_index(addr)) == expected_replacement_way_after_access);
     }
 
     void
@@ -127,72 +130,32 @@ public:
         }
         return true;
     }
-};
 
-template <class T> class cache_policy_test_t : public caching_device_policy_test_t<T> {
-    int total_size_;
-
-public:
-    cache_policy_test_t(int associativity, int line_size, int total_size)
-        : caching_device_policy_test_t<T>(associativity, line_size)
-        , total_size_(total_size)
-    {
-    }
-
+    // Note that caches expect size as total size, while TLBs expect size as
+    // number of entries.
     void
-    initialize_cache()
+    initialize_cache(std::unique_ptr<cache_replacement_policy_t> replacement_policy,
+                     int size)
     {
         caching_device_stats_t *stats =
             new cache_stats_t(this->line_size_, /*miss_file=*/"",
                               /*warmup_enabled=*/true);
-        if (!this->init(this->associativity_, this->line_size_, total_size_, nullptr,
-                        stats, nullptr)) {
+        if (!this->init(this->associativity_, this->line_size_, size, nullptr, stats,
+                        std::move(replacement_policy), nullptr)) {
             std::cerr << this->get_replace_policy() << " cache failed to initialize\n";
             exit(1);
         }
     }
 };
 
-template <class T> class tlb_policy_test_t : public caching_device_policy_test_t<T> {
-    int entries_;
-
-public:
-    tlb_policy_test_t(int associativity, int line_size, int entries)
-        : caching_device_policy_test_t<T>(associativity, line_size)
-        , entries_(entries)
-    {
-    }
-
-    void
-    initialize_cache()
-    {
-        caching_device_stats_t *stats =
-            new cache_stats_t(this->line_size_, /*miss_file=*/"",
-                              /*warmup_enabled=*/true);
-        if (!this->init(this->associativity_, this->line_size_, entries_, nullptr,
-                        stats)) {
-            std::cerr << this->get_replace_policy() << " tlb failed to initialize\n";
-            exit(1);
-        }
-    }
-};
-
-template <class T> class seeded_tlb_policy_test_t : public tlb_policy_test_t<T> {
-public:
-    seeded_tlb_policy_test_t(int associativity, int line_size, int entries)
-        : tlb_policy_test_t<T>(associativity, line_size, entries)
-    {
-        this->gen_ = std::mt19937(0);
-    }
-};
-
 void
 unit_test_cache_lru_four_way()
 {
-    cache_policy_test_t<cache_lru_t> cache_lru_test(/*associativity=*/4,
-                                                    /*line_size=*/32,
-                                                    /*total_size=*/256);
-    cache_lru_test.initialize_cache();
+    caching_device_policy_test_t<cache_t> cache_lru_test(/*associativity=*/4,
+                                                         /*line_size=*/32);
+    cache_lru_test.initialize_cache(
+        std::unique_ptr<lru_t>(new lru_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
+        256);
 
     assert(cache_lru_test.get_replace_policy() == "LRU");
     assert(cache_lru_test.block_indices_are_identical(addr_vec));
@@ -228,10 +191,11 @@ unit_test_cache_lru_four_way()
 void
 unit_test_cache_lru_eight_way()
 {
-    cache_policy_test_t<cache_lru_t> cache_lru_test(/*associativity=*/8,
-                                                    /*line_size=*/64,
-                                                    /*total_size=*/1024);
-    cache_lru_test.initialize_cache();
+    caching_device_policy_test_t<cache_t> cache_lru_test(/*associativity=*/8,
+                                                         /*line_size=*/64);
+    cache_lru_test.initialize_cache(
+        std::unique_ptr<lru_t>(new lru_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
+        1024);
 
     assert(cache_lru_test.get_replace_policy() == "LRU");
     assert(cache_lru_test.block_indices_are_identical(addr_vec));
@@ -274,10 +238,11 @@ unit_test_cache_lru_eight_way()
 void
 unit_test_cache_fifo_four_way()
 {
-    cache_policy_test_t<cache_fifo_t> cache_fifo_test(/*associativity=*/4,
-                                                      /*line_size=*/32,
-                                                      /*total_size=*/256);
-    cache_fifo_test.initialize_cache();
+    caching_device_policy_test_t<cache_t> cache_fifo_test(/*associativity=*/4,
+                                                          /*line_size=*/32);
+    cache_fifo_test.initialize_cache(
+        std::unique_ptr<fifo_t>(new fifo_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
+        256);
 
     assert(cache_fifo_test.get_replace_policy() == "FIFO");
     assert(cache_fifo_test.block_indices_are_identical(addr_vec));
@@ -299,27 +264,28 @@ unit_test_cache_fifo_four_way()
     cache_fifo_test.access_and_check(addr_vec[ADDR_H], 0); //     e F G H
     cache_fifo_test.access_and_check(addr_vec[ADDR_A], 1); //     A f G H
 
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_G], 1); // A f X H
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_G], 2); // A F x H
 
-    cache_fifo_test.access_and_check(addr_vec[ADDR_G], 2); //     A G x H
-    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 3); //     A G B h
+    cache_fifo_test.access_and_check(addr_vec[ADDR_G], 1); //     A f G H
+    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 3); //     A B G h
 
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_H], 3); // A G B x
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_A], 3); // X G B x
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_H], 3); // A B G x
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_A], 0); // x B G X
 
-    cache_fifo_test.access_and_check(addr_vec[ADDR_A], 0); //     x G B A
-    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 0); //     x G B A
-    cache_fifo_test.access_and_check(addr_vec[ADDR_C], 1); //     C g B A
-    cache_fifo_test.access_and_check(addr_vec[ADDR_D], 2); //     C D B A
+    cache_fifo_test.access_and_check(addr_vec[ADDR_A], 3); //     A B G x
+    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 3); //     A B G x
+    cache_fifo_test.access_and_check(addr_vec[ADDR_C], 2); //     A B g C
+    cache_fifo_test.access_and_check(addr_vec[ADDR_D], 1); //     A b D C
 }
 
 void
 unit_test_cache_fifo_eight_way()
 {
-    cache_policy_test_t<cache_fifo_t> cache_fifo_test(/*associativity=*/8,
-                                                      /*line_size=*/64,
-                                                      /*total_size=*/1024);
-    cache_fifo_test.initialize_cache();
+    caching_device_policy_test_t<cache_t> cache_fifo_test(/*associativity=*/8,
+                                                          /*line_size=*/64);
+    cache_fifo_test.initialize_cache(
+        std::unique_ptr<fifo_t>(new fifo_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
+        1024);
 
     assert(cache_fifo_test.get_replace_policy() == "FIFO");
     assert(cache_fifo_test.block_indices_are_identical(addr_vec));
@@ -344,22 +310,23 @@ unit_test_cache_fifo_eight_way()
     cache_fifo_test.access_and_check(addr_vec[ADDR_L], 4); //     I  J  K  L  e  F  G  H
     cache_fifo_test.access_and_check(addr_vec[ADDR_L], 4); //     I  J  K  L  e  F  G  H
 
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_G], 4); // I  J  K  L  e  F  X  H
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_K], 4); // I  J  X  L  e  F  X  H
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_G], 6); // I  J  K  L  R  F  x  H
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_K], 2); // I  J  x  L  E  F  X  H
 
-    cache_fifo_test.access_and_check(addr_vec[ADDR_A], 5); //     I  J  K  L  A  f  G  H
-    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 6); //     I  J  K  L  A  B  g  H
-    cache_fifo_test.access_and_check(addr_vec[ADDR_C], 7); //     I  J  K  L  A  B  C  h
-    cache_fifo_test.access_and_check(addr_vec[ADDR_D], 0); //     i  J  K  L  A  B  C  D
+    cache_fifo_test.access_and_check(addr_vec[ADDR_A], 6); //     I  J  A  L  E  F  x  H
+    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 4); //     I  J  K  L  e  F  B  H
+    cache_fifo_test.access_and_check(addr_vec[ADDR_C], 5); //     i  J  K  L  C  f  B  H
+    cache_fifo_test.access_and_check(addr_vec[ADDR_D], 7); //     I  j  K  L  C  D  b  H
 }
 
 void
 unit_test_cache_lfu_four_way()
 {
-    cache_policy_test_t<cache_t> cache_lfu_test(/*associativity=*/4,
-                                                /*line_size=*/32,
-                                                /*total_size=*/256);
-    cache_lfu_test.initialize_cache();
+    caching_device_policy_test_t<cache_t> cache_lfu_test(/*associativity=*/4,
+                                                         /*line_size=*/32);
+    cache_lfu_test.initialize_cache(
+        std::unique_ptr<lfu_t>(new lfu_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
+        256);
 
     assert(cache_lfu_test.get_replace_policy() == "LFU");
     assert(cache_lfu_test.block_indices_are_identical(addr_vec));
@@ -396,10 +363,11 @@ unit_test_cache_lfu_four_way()
 void
 unit_test_cache_lfu_eight_way()
 {
-    cache_policy_test_t<cache_t> cache_lfu_test(/*associativity=*/8,
-                                                /*line_size=*/64,
-                                                /*total_size=*/1024);
-    cache_lfu_test.initialize_cache();
+    caching_device_policy_test_t<cache_t> cache_lfu_test(/*associativity=*/8,
+                                                         /*line_size=*/64);
+    cache_lfu_test.initialize_cache(
+        std::unique_ptr<lfu_t>(new lfu_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
+        1024);
 
     assert(cache_lfu_test.get_replace_policy() == "LFU");
     assert(cache_lfu_test.block_indices_are_identical(addr_vec));
@@ -443,10 +411,12 @@ unit_test_cache_lfu_eight_way()
 void
 unit_test_tlb_plru_four_way()
 {
-    seeded_tlb_policy_test_t<tlb_bit_plru_t> tlb_plru_test(/*associativity=*/4,
-                                                           /*line_size=*/64,
-                                                           /*entries=*/4);
-    tlb_plru_test.initialize_cache();
+    caching_device_policy_test_t<tlb_t> tlb_plru_test(/*associativity=*/4,
+                                                      /*line_size=*/64);
+    tlb_plru_test.initialize_cache(
+        std::unique_ptr<bit_plru_t>(
+            new bit_plru_t(4 /*num_blocks*/, 4 /*associativity*/, 0 /*seed*/)),
+        4);
     assert(tlb_plru_test.get_replace_policy() == "BIT_PLRU");
     assert(tlb_plru_test.block_indices_are_identical(addr_vec));
     assert(tlb_plru_test.tags_are_different(addr_vec));
@@ -465,10 +435,10 @@ unit_test_tlb_plru_four_way()
 void
 unit_test_tlb_lfu_four_way()
 {
-    tlb_policy_test_t<tlb_lfu_t> tlb_lfu_test(/*associativity=*/4,
-                                              /*line_size=*/64,
-                                              /*entries=*/4);
-    tlb_lfu_test.initialize_cache();
+    caching_device_policy_test_t<tlb_t> tlb_lfu_test(/*associativity=*/4,
+                                                     /*line_size=*/64);
+    tlb_lfu_test.initialize_cache(
+        std::unique_ptr<lfu_t>(new lfu_t(4 /*num_blocks*/, 4 /*associativity*/)), 4);
     assert(tlb_lfu_test.get_replace_policy() == "LFU");
     assert(tlb_lfu_test.block_indices_are_identical(addr_vec));
     assert(tlb_lfu_test.tags_are_different(addr_vec));

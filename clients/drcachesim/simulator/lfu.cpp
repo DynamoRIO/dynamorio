@@ -30,59 +30,59 @@
  * DAMAGE.
  */
 
-/* cache: represents a single hardware cache.
- */
+#include "lfu.h"
 
-#ifndef _CACHE_H_
-#define _CACHE_H_ 1
-
-#include <string>
+#include <algorithm>
 #include <vector>
-#include <memory>
-
-#include "cache_line.h"
-#include "cache_replacement_policy.h"
-#include "cache_stats.h"
-#include "caching_device.h"
-#include "memref.h"
-#include "prefetcher.h"
+#include <iostream>
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class snoop_filter_t;
-
-class cache_t : public caching_device_t {
-public:
-    explicit cache_t(const std::string &name = "cache")
-        : caching_device_t(name)
-    {
+lfu_t::lfu_t(int num_blocks, int associativity)
+    : cache_replacement_policy_t(num_blocks, associativity)
+{
+    access_counts_.reserve(num_blocks);
+    for (int i = 0; i < num_blocks; ++i) {
+        access_counts_.emplace_back(associativity, 0);
     }
-    // Size, line size and associativity are generally used
-    // to describe a CPU cache.
-    // The id is an index into the snoop filter's array of caches for coherent caches.
-    // If this is a coherent cache, id should be in the range [0,num_snooped_caches).
-    bool
-    init(int associativity, int64_t line_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats,
-         std::unique_ptr<cache_replacement_policy_t> replacement_policy,
-         prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id_ = -1,
-         snoop_filter_t *snoop_filter_ = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
-    void
-    request(const memref_t &memref) override;
-    virtual void
-    flush(const memref_t &memref);
+}
 
-protected:
-    void
-    init_blocks() override;
-};
+void
+lfu_t::access_update(int block_idx, int way)
+{
+    block_idx = get_block_index(block_idx);
+    access_counts_[block_idx][way]++;
+}
+
+void
+lfu_t::eviction_update(int block_idx, int way)
+{
+    block_idx = get_block_index(block_idx);
+    access_counts_[block_idx][way] = 0;
+}
+
+int
+lfu_t::get_next_way_to_replace(int block_idx)
+{
+    // Find the way with the minimum frequency counter.
+    block_idx = get_block_index(block_idx);
+    int min_freq = access_counts_[block_idx][0];
+    int min_way = 0;
+    for (int i = 1; i < associativity_; ++i) {
+        if (access_counts_[block_idx][i] < min_freq) {
+            min_freq = access_counts_[block_idx][i];
+            min_way = i;
+        }
+    }
+    return min_way;
+}
+
+std::string
+lfu_t::get_name() const
+{
+    return "LFU";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _CACHE_H_ */

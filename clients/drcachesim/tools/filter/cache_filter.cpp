@@ -34,12 +34,13 @@
 
 #include <string>
 
-#include "cache_lru.h"
-#include "memref.h"
-#include "memtrace_stream.h"
+#include "cache.h"
 #include "cache_stats.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
+#include "lru.h"
+#include "memref.h"
+#include "memtrace_stream.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -70,7 +71,7 @@ private:
 };
 
 struct per_shard_t {
-    cache_lru_t cache;
+    cache_t cache;
 };
 
 void *
@@ -80,6 +81,7 @@ cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream,
     per_shard_t *per_shard = new per_shard_t;
     if (!(per_shard->cache.init(cache_associativity_, cache_line_size_, cache_size_,
                                 nullptr, new cache_filter_stats_t(cache_line_size_),
+                                std::unique_ptr<lru_t>(new lru_t(cache_size_ / cache_associativity_, cache_associativity_)),
                                 nullptr))) {
         error_string_ = "Failed to initialize cache.";
         return nullptr;

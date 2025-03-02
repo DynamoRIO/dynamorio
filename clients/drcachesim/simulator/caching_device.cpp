@@ -74,23 +74,30 @@ caching_device_t::~caching_device_t()
 }
 
 bool
-caching_device_t::init(int associativity, int block_size, int num_blocks,
+caching_device_t::init(int associativity, int64_t block_size, int num_blocks,
                        caching_device_t *parent, caching_device_stats_t *stats,
+                       std::unique_ptr<cache_replacement_policy_t> replacement_policy,
                        prefetcher_t *prefetcher,
                        cache_inclusion_policy_t inclusion_policy, bool coherent_cache,
                        int id, snoop_filter_t *snoop_filter,
                        const std::vector<caching_device_t *> &children)
 {
     // Assume cache has nonzero capacity.
-    if (associativity < 1 || num_blocks < 1)
+    if (associativity < 1 || num_blocks < 1) {
         return false;
+    }
     // Assume caching device block size is at least 4 bytes.
-    if (!IS_POWER_OF_2(block_size) || block_size < 4)
+    if (!IS_POWER_OF_2(block_size) || block_size < 4) {
         return false;
-    if (stats == NULL)
+    }
+    if (stats == NULL) {
         return false; // A stats must be provided for perf: avoid conditional code
-    else if (!*stats)
+    } else if (!*stats) {
         return false;
+    }
+    if (replacement_policy == NULL) {
+        return false;
+    }
     associativity_ = associativity;
     block_size_ = block_size;
     num_blocks_ = num_blocks;
@@ -119,6 +126,8 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
 
     inclusion_policy_ = inclusion_policy;
     children_ = children;
+
+    replacement_policy_ = std::move(replacement_policy);
 
     return true;
 }
@@ -201,7 +210,8 @@ caching_device_t::request(const memref_t &memref_in)
                     snoop_filter_->snoop(tag, id_,
                                          (memref.data.type == TRACE_TYPE_WRITE));
                 } else if (parent_ != NULL) {
-                    // On a miss, the parent access will inherently propagate the write.
+                    // On a miss, the parent access will inherently propagate the
+                    // write.
                     parent_->propagate_write(tag, this);
                 }
             }
@@ -259,38 +269,25 @@ caching_device_t::request(const memref_t &memref_in)
 void
 caching_device_t::access_update(int block_idx, int way)
 {
-    // We just inc the counter for LFU.  We live with any blip on overflow.
-    get_caching_device_block(block_idx, way).counter_++;
+    replacement_policy_->access_update(block_idx, way);
 }
 
 int
 caching_device_t::replace_which_way(int block_idx)
 {
-    int min_way = get_next_way_to_replace(block_idx);
-    // Clear the counter for LFU.
-    get_caching_device_block(block_idx, min_way).counter_ = 0;
-    return min_way;
+    int way_to_replace = get_next_way_to_replace(block_idx);
+    replacement_policy_->eviction_update(block_idx, way_to_replace);
+    return way_to_replace;
 }
 
 int
 caching_device_t::get_next_way_to_replace(const int block_idx) const
 {
-    // The base caching device class only implements LFU.
-    // A subclass can override this and access_update() to implement
-    // some other scheme.
-    int min_counter = 0; /* avoid "may be used uninitialized" with GCC 4.4.7 */
-    int min_way = 0;
     for (int way = 0; way < associativity_; ++way) {
-        if (get_caching_device_block(block_idx, way).tag_ == TAG_INVALID) {
-            min_way = way;
-            break;
-        }
-        if (way == 0 || get_caching_device_block(block_idx, way).counter_ < min_counter) {
-            min_counter = get_caching_device_block(block_idx, way).counter_;
-            min_way = way;
-        }
+        if (get_caching_device_block(block_idx, way).tag_ == TAG_INVALID)
+            return way;
     }
-    return min_way;
+    return replacement_policy_->get_next_way_to_replace(block_idx);
 }
 
 void

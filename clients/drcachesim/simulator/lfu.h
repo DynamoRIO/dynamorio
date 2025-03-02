@@ -30,59 +30,36 @@
  * DAMAGE.
  */
 
-/* cache: represents a single hardware cache.
- */
+#ifndef _LFU_H_
+#define _LFU_H_
 
-#ifndef _CACHE_H_
-#define _CACHE_H_ 1
-
-#include <string>
 #include <vector>
-#include <memory>
 
-#include "cache_line.h"
 #include "cache_replacement_policy.h"
-#include "cache_stats.h"
-#include "caching_device.h"
-#include "memref.h"
-#include "prefetcher.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class snoop_filter_t;
-
-class cache_t : public caching_device_t {
+class lfu_t : public cache_replacement_policy_t {
 public:
-    explicit cache_t(const std::string &name = "cache")
-        : caching_device_t(name)
-    {
-    }
-    // Size, line size and associativity are generally used
-    // to describe a CPU cache.
-    // The id is an index into the snoop filter's array of caches for coherent caches.
-    // If this is a coherent cache, id should be in the range [0,num_snooped_caches).
-    bool
-    init(int associativity, int64_t line_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats,
-         std::unique_ptr<cache_replacement_policy_t> replacement_policy,
-         prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id_ = -1,
-         snoop_filter_t *snoop_filter_ = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
+    lfu_t(int num_blocks, int associativity);
     void
-    request(const memref_t &memref) override;
-    virtual void
-    flush(const memref_t &memref);
+    access_update(int block_idx, int way) override;
+    void
+    eviction_update(int block_idx, int way) override;
+    int
+    get_next_way_to_replace(int block_idx) override;
+    std::string
+    get_name() const override;
 
-protected:
-    void
-    init_blocks() override;
+    ~lfu_t() override = default;
+
+private:
+    // Frequency counters for each way in each block.
+    std::vector<std::vector<int>> access_counts_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _CACHE_H_ */
+#endif // _LFU_H_

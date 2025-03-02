@@ -30,53 +30,57 @@
  * DAMAGE.
  */
 
-/* cache_fifo: represents a single hardware cache with FIFO algo.
- */
-
-#ifndef _CACHE_FIFO_H_
-#define _CACHE_FIFO_H_ 1
+#ifndef _CACHE_REPLACEMENT_POLICY_H_
+#define _CACHE_REPLACEMENT_POLICY_H_ 1
 
 #include <string>
-#include <vector>
-
-#include "cache.h"
-#include "prefetcher.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class snoop_filter_t;
-
-class cache_fifo_t : public cache_t {
+/**
+ * An interface for cache replacement policies.
+ *
+ * Holds the necassary information to implement a cache replacement policy,
+ * And provides an interface for caching_device_t find which way to replace
+ * in a block upon eviction.
+ */
+class cache_replacement_policy_t {
 public:
-    explicit cache_fifo_t(const std::string &name = "cache_fifo")
-        : cache_t(name)
+    cache_replacement_policy_t(int num_blocks, int associativity)
+        : associativity_(associativity)
+        , num_blocks_(num_blocks)
     {
     }
-    bool
-    init(int associativity, int block_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id = -1, snoop_filter_t *snoop_filter = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
+    /// Informs the replacement policy that an access has occurred.
+    virtual void
+    access_update(int block_idx, int way) = 0;
+    /// Informs the replacement policy that an eviction has occurred.
+    virtual void
+    eviction_update(int block_idx, int way) = 0;
+    /// Returns the next way to replace in the block.
+    virtual int
+    get_next_way_to_replace(int block_idx) = 0;
+    /// Returns the name of the replacement policy.
+    virtual std::string
+    get_name() const = 0;
 
-    std::string
-    get_replace_policy() const override
-    {
-        return "FIFO";
-    }
+    virtual ~cache_replacement_policy_t() = default;
 
 protected:
-    void
-    access_update(int block_idx, int way) override;
-    int
-    replace_which_way(int block_idx) override;
-    int
-    get_next_way_to_replace(const int block_idx) const override;
+    virtual int
+    get_block_index(int block_idx)
+    {
+        // The block index points to the first way in the block, and the ways are stored
+        // in a contiguous array, so we divide by the associativity to get the block
+        // index.
+        return block_idx / associativity_;
+    }
+    int associativity_;
+    int num_blocks_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _CACHE_FIFO_H_ */
+#endif /* _CACHE_REPLACEMENT_POLICY_H_ */
