@@ -36,6 +36,7 @@
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
@@ -171,7 +172,7 @@ public:
     {
         return coherent_cache_;
     }
-    virtual int
+    virtual int64_t
     get_size_bytes() const
     {
         return num_blocks_ * block_size_;
