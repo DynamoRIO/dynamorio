@@ -109,8 +109,10 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
          * We need to strip the PAC from from the fault address to canonicalize it and
          * compare it to the expected branch target address.
          */
-        const uintptr_t fault_pc = strip_pac(ucxt->uc_mcontext.pc);
-        LOG("    ucxt->uc_mcontext.pc = " PFX "\n", ucxt->uc_mcontext.pc);
+        const uintptr_t pc =
+            IF_MACOS_ELSE(ucxt->uc_mcontext->__ss.__pc, ucxt->uc_mcontext.pc);
+        const uintptr_t fault_pc = strip_pac(pc);
+        LOG("    ucxt->uc_mcontext.pc = " PFX "\n", pc);
         LOG("    fault_pc =             " PFX "\n", fault_pc);
         LOG("    branch_target_addr =   " PFX "\n", branch_target_addr);
         if (fault_pc == branch_target_addr)
@@ -123,7 +125,8 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         /* CPU has FEAT_FPACCOMBINE so the branch instruction generated an authentication
          * failure exception and the fault PC should match the branch instruction address.
          */
-        const uintptr_t fault_pc = ucxt->uc_mcontext.pc;
+        const uintptr_t fault_pc =
+            IF_MACOS_ELSE(ucxt->uc_mcontext->__ss.__pc, ucxt->uc_mcontext.pc);
         LOG("    fault_pc =          " PFX "\n", fault_pc);
         LOG("    branch_instr_addr = " PFX "\n", branch_instr_addr);
         if (fault_pc == branch_instr_addr)

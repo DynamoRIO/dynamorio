@@ -8,6 +8,8 @@ Total counts:
       106490 instructions per context switch
            6 voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
            5 switches input-to-input
@@ -45,6 +47,8 @@ Core #0 counts:
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
 .*
@@ -56,6 +60,8 @@ Core #1 counts:
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
 .*
@@ -67,6 +73,8 @@ Core #2 counts:
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
 .*
@@ -78,6 +86,8 @@ Core #3 counts:
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
 .*

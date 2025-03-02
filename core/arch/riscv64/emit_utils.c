@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2022 Rivos, Inc.  All rights reserved.
- * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
+ * Copyright (c) 2024-2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -691,6 +691,13 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     }
 
     if (proc_has_feature(FEATURE_VECTOR)) {
+        APP(ilist,
+            INSTR_CREATE_addi(
+                dcontext, opnd_create_reg(DR_REG_A1), opnd_create_reg(REG_DCXT),
+                opnd_create_immed_int(
+                    DCONTEXT_ACTUAL_TO_TLS_OFFSET(VREG_OFFSET(DR_REG_VR0)), OPSZ_12b)));
+        memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0,
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
         /* ma:   mask agnostic
          * ta:   tail agnostic
          * sew:  selected element width
@@ -698,12 +705,6 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
          *
          *           ma            ta         sew=8       lmul=8 */
         vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        memopnd = opnd_create_dcontext_field_via_reg_sz(
-            dcontext, DR_REG_A1, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
-        APP(ilist,
-            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A1),
-                              opnd_create_reg(REG_DCXT),
-                              opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0), OPSZ_12b)));
         /* For the following vector instructions, set the element width to 8b, and use 8
          * registers as a group (lmul=8).
          */
@@ -828,6 +829,13 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     }
 
     if (proc_has_feature(FEATURE_VECTOR)) {
+        APP(ilist,
+            INSTR_CREATE_addi(
+                dcontext, opnd_create_reg(DR_REG_A1), opnd_create_reg(REG_DCXT),
+                opnd_create_immed_int(
+                    DCONTEXT_ACTUAL_TO_TLS_OFFSET(VREG_OFFSET(DR_REG_VR0)), OPSZ_12b)));
+        memopnd = opnd_create_base_disp(DR_REG_A1, REG_NULL, 0, 0,
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
         /* ma:   mask agnostic
          * ta:   tail agnostic
          * sew:  selected element width
@@ -835,12 +843,6 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
          *
          *           ma            ta         sew=8       lmul=8 */
         vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        memopnd = opnd_create_dcontext_field_via_reg_sz(
-            dcontext, DR_REG_A1, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
-        APP(ilist,
-            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A1),
-                              opnd_create_reg(REG_DCXT),
-                              opnd_create_immed_int(VREG_OFFSET(DR_REG_VR0), OPSZ_12b)));
         /* For the following vector instructions, set the element width to 8b, and use 8
          * registers as a group (lmul=8).
          */

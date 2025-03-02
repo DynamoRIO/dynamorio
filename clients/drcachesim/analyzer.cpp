@@ -320,19 +320,22 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
             sched_ops.single_lockstep_output = true;
             worker_count_ = 1;
         }
-    } else if (parallel_) {
-        sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
-        sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
-        sched_ops.read_inputs_in_init = options.read_inputs_in_init;
-        if (worker_count_ <= 0)
-            worker_count_ = std::thread::hardware_concurrency();
-        output_count = worker_count_;
     } else {
-        sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
+        if (parallel_) {
+            sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
+            if (worker_count_ <= 0)
+                worker_count_ = std::thread::hardware_concurrency();
+            output_count = worker_count_;
+        } else {
+            sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
+            worker_count_ = 1;
+            output_count = 1;
+        }
+        // As noted in the init_scheduler_common() header comment, we preserve only
+        // some select fields.
         sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
         sched_ops.read_inputs_in_init = options.read_inputs_in_init;
-        worker_count_ = 1;
-        output_count = 1;
+        sched_ops.kernel_syscall_trace_path = options.kernel_syscall_trace_path;
     }
     sched_mapping_ = options.mapping;
     if (scheduler_.init(workloads, output_count, std::move(sched_ops)) !=

@@ -117,8 +117,8 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
                              knobs_.TLB_L1I_entries, lltlbs_[i],
                              new tlb_stats_t((int)knobs_.page_size))) {
             error_string_ =
-                "Usage error: failed to initialize itlbs_. Ensure entry number, "
-                "page size and associativity are powers of 2.";
+                "Usage error: failed to initialize itlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
             success_ = false;
             return;
         }
@@ -126,8 +126,8 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
                              knobs_.TLB_L1D_entries, lltlbs_[i],
                              new tlb_stats_t((int)knobs_.page_size))) {
             error_string_ =
-                "Usage error: failed to initialize dtlbs_. Ensure entry number, "
-                "page size and associativity are powers of 2.";
+                "Usage error: failed to initialize dtlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
             success_ = false;
             return;
         }
@@ -135,8 +135,8 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
                               knobs_.TLB_L2_entries, NULL,
                               new tlb_stats_t((int)knobs_.page_size))) {
             error_string_ =
-                "Usage error: failed to initialize lltlbs_. Ensure entry number, "
-                "page size and associativity are powers of 2.";
+                "Usage error: failed to initialize lltlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
             success_ = false;
             return;
         }
@@ -147,18 +147,18 @@ tlb_simulator_t::~tlb_simulator_t()
 {
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         // Try to handle failure during construction.
-        if (itlbs_[i] == NULL)
-            return;
-        delete itlbs_[i]->get_stats();
-        delete itlbs_[i];
-        if (dtlbs_[i] == NULL)
-            return;
-        delete dtlbs_[i]->get_stats();
-        delete dtlbs_[i];
-        if (lltlbs_[i] == NULL)
-            return;
-        delete lltlbs_[i]->get_stats();
-        delete lltlbs_[i];
+        if (itlbs_[i] != NULL) {
+            delete itlbs_[i]->get_stats();
+            delete itlbs_[i];
+        }
+        if (dtlbs_[i] != NULL) {
+            delete dtlbs_[i]->get_stats();
+            delete dtlbs_[i];
+        }
+        if (lltlbs_[i] != NULL) {
+            delete lltlbs_[i]->get_stats();
+            delete lltlbs_[i];
+        }
     }
     delete[] itlbs_;
     delete[] dtlbs_;
@@ -295,17 +295,17 @@ tlb_simulator_t::print_results()
 tlb_t *
 tlb_simulator_t::create_tlb(std::string policy)
 {
-    // XXX: how to implement different replacement policies?
-    // Should we extend tlb_t to tlb_XXX_t so as to avoid multiple inheritance?
-    // Or should we adopt multiple inheritance to have caching_device_XXX_t as one base
-    // and tlb_t as another base class?
+    // XXX: i#7287: Eventually we want to decouple the replacement policies from the cache
+    // classes. Once this happens, we will need to build the policies here and pass them
+    // to the TLB class. We have implemented this as a temporary solution.
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LFU
         policy == REPLACE_POLICY_LFU)             // set to LFU
-        return new tlb_t;
-
+        return new tlb_lfu_t;
+    else if (policy == REPLACE_POLICY_BIT_PLRU)
+        return new tlb_bit_plru_t;
     // undefined replacement policy
     ERRMSG("Usage error: undefined replacement policy. "
-           "Please choose " REPLACE_POLICY_LFU ".\n");
+           "Please choose " REPLACE_POLICY_LFU " or " REPLACE_POLICY_BIT_PLRU ".\n");
     return NULL;
 }
 

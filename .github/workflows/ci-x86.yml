@@ -264,29 +264,29 @@ jobs:
     # Create an Alpine Linux 3.21.2 chroot environment for building
     - name: Create Build Environment
       run: |
-        curl -L https://dl-cdn.alpinelinux.org/v3.21/main/x86_64/apk-tools-static-2.14.6-r2.apk | \
-        tar xzv sbin/apk.static
-
-        sudo mkdir -p alpine-root/etc/apk
-        echo "https://dl-cdn.alpinelinux.org/v3.21/main/" | \
-        sudo tee alpine-root/etc/apk/repositories
-        # Meta-package build-base simplifies dependencies, but it pulls in
-        # fortify-headers. Alpine ships an out-of-date version whose headers
-        # contain unnecessary includes, causing naming conflicts.
-        # TODO i#1973: simplify dependency with build-base after fixing
-        # the compatibility problem.
-        # Supply --allow-untrusted since we're creating a rootfs from scratch
-        # thus don't have any public key available.
-        sudo sbin/apk.static -p alpine-root -U --initdb --allow-untrusted add \
-          alpine-base binutils bash cmake doxygen file g++ git libunwind-dev \
-          lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
-          patch xz-dev zlib-dev zlib-static
+        sudo mkdir alpine-root
+        curl -L https://dl-cdn.alpinelinux.org/v3.21/releases/x86_64/alpine-minirootfs-3.21.3-x86_64.tar.gz | \
+        sudo tar xzv -C alpine-root
 
         cd alpine-root
         sudo mount -o bind /dev/ dev
         sudo mount -t proc proc proc
         sudo mount -t sysfs sys sys
         sudo mount -o bind ${{ github.workspace }}/DynamoRIO root
+        # Use host DNS configuration in the chroot environment
+        sudo cp /etc/resolv.conf etc/
+
+        sudo chroot . sbin/apk upgrade
+
+        # Meta-package build-base simplifies dependencies, but it pulls in
+        # fortify-headers. Alpine ships an out-of-date version whose headers
+        # contain unnecessary includes, causing naming conflicts.
+        # TODO i#1973: simplify dependency with build-base after fixing
+        # the compatibility problem.
+        sudo chroot . sbin/apk add \
+          alpine-base binutils bash cmake doxygen file g++ git libunwind-dev \
+          lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
+          patch xz-dev zlib-dev zlib-static
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

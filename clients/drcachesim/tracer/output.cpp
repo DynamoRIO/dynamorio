@@ -831,8 +831,10 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
     if (mode != BBDUP_MODE_L0_FILTER)
         data->bytes_written += buf_ptr - pipe_start;
     bool is_v2p = false;
-    if (buf_base >= data->v2p_buf && buf_base < data->v2p_buf + get_v2p_buffer_size())
+    if (buf_base >= data->v2p_buf &&
+        static_cast<size_t>(buf_base - data->v2p_buf) < get_v2p_buffer_size()) {
         is_v2p = true;
+    }
     if (is_v2p)
         ++data->num_v2p_writeouts;
     else
