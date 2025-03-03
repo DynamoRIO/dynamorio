@@ -99,7 +99,10 @@ caching_device_t::init(int associativity, int64_t block_size, int64_t num_blocks
     // Make sure num_blocks_ is evenly divisible by associativity
     if (blocks_per_way_ * associativity_ != num_blocks_)
         return false;
-    blocks_per_way_mask_ = blocks_per_way_ - 1;
+    // Make sure blocks_per_way_ fits in the mask and can be used as an index.
+    if (blocks_per_way_ > std::numeric_limits<int>::max())
+        return false;
+    blocks_per_way_mask_ = static_cast<int>(blocks_per_way_ - 1);
     block_size_bits_ = compute_log2(block_size);
     // Non-power-of-two associativities and total cache sizes are allowed, so
     // long as the number blocks per cache way is a power of two.
@@ -145,7 +148,7 @@ caching_device_t::find_caching_device_block(addr_t tag)
         assert(it->second.first->tag_ == tag);
         return it->second;
     }
-    int64_t block_idx = compute_block_idx(tag);
+    int block_idx = compute_block_idx(tag);
     for (int way = 0; way < associativity_; ++way) {
         caching_device_block_t &block = get_caching_device_block(block_idx, way);
         if (block.tag_ == tag)
