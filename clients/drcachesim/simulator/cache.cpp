@@ -34,6 +34,7 @@
 
 #include <stddef.h>
 
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -52,17 +53,17 @@ namespace drmemtrace {
 class snoop_filter_t;
 
 bool
-cache_t::init(int associativity, int line_size, int total_size, caching_device_t *parent,
-              caching_device_stats_t *stats, prefetcher_t *prefetcher,
-              cache_inclusion_policy_t inclusion_policy, bool coherent_cache, int id,
-              snoop_filter_t *snoop_filter,
+cache_t::init(int associativity, int64_t line_size, int64_t total_size,
+              caching_device_t *parent, caching_device_stats_t *stats,
+              prefetcher_t *prefetcher, cache_inclusion_policy_t inclusion_policy,
+              bool coherent_cache, int id, snoop_filter_t *snoop_filter,
               const std::vector<caching_device_t *> &children)
 {
     // Check line_size to avoid divide-by-0.
     if (line_size < 1)
         return false;
     // convert total_size to num_blocks to fit for caching_device_t::init
-    int num_lines = total_size / line_size;
+    int64_t num_lines = total_size / line_size;
 
     return caching_device_t::init(associativity, line_size, num_lines, parent, stats,
                                   prefetcher, inclusion_policy, coherent_cache, id,
