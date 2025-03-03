@@ -130,7 +130,7 @@ public:
         }
         use_tag2block_table_ = use_hashtable;
     }
-    int
+    int64_t
     get_block_index(const addr_t addr) const
     {
         addr_t tag = compute_tag(addr);
