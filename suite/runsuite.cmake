@@ -92,7 +92,7 @@ if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
   elseif (ldd_out MATCHES "GLIBC 2.3[5-9]")
     # XXX i#5437, i#5431: While we work through Ubuntu22 issues we run
     # just a few tests.
-    set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
+#    set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
     set(arg_debug_only ON)
   elseif (arg_32_only AND NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
