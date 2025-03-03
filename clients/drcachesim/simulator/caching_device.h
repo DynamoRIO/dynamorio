@@ -211,9 +211,10 @@ protected:
         return (tag & blocks_per_way_mask_) * associativity_;
     }
     inline caching_device_block_t &
-    get_caching_device_block(int block_idx, int way) const
+    get_caching_device_block(int64_t block_idx, int way) const
     {
-        return *(blocks_[block_idx + way]);
+        size_t block_idx_offset = static_cast<size_t>(block_idx + way);
+        return *(blocks_[block_idx_offset]);
     }
 
     inline void

@@ -111,8 +111,7 @@ caching_device_t::init(int associativity, int64_t block_size, int64_t num_blocks
     id_ = id;
     snoop_filter_ = snoop_filter;
     coherent_cache_ = coherent_cache;
-
-    blocks_ = new caching_device_block_t *[num_blocks_];
+    blocks_ = new caching_device_block_t *[static_cast<size_t>(num_blocks_)];
     init_blocks();
 
     last_tag_ = TAG_INVALID; // sentinel
@@ -146,7 +145,7 @@ caching_device_t::find_caching_device_block(addr_t tag)
         assert(it->second.first->tag_ == tag);
         return it->second;
     }
-    int block_idx = compute_block_idx(tag);
+    int64_t block_idx = compute_block_idx(tag);
     for (int way = 0; way < associativity_; ++way) {
         caching_device_block_t &block = get_caching_device_block(block_idx, way);
         if (block.tag_ == tag)
