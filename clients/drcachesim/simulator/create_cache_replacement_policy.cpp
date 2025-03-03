@@ -49,16 +49,20 @@ create_cache_replacement_policy(const std::string &policy, int num_blocks,
                                 int associativity)
 {
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
-        policy == REPLACE_POLICY_LRU)             // set to LRU
+        policy == REPLACE_POLICY_LRU) {           // set to LRU
         return std::unique_ptr<policy_lru_t>(new policy_lru_t(num_blocks, associativity));
-    if (policy == REPLACE_POLICY_LFU)
+    }
+    if (policy == REPLACE_POLICY_LFU) {
         return std::unique_ptr<policy_lfu_t>(new policy_lfu_t(num_blocks, associativity));
-    if (policy == REPLACE_POLICY_FIFO)
+    }
+    if (policy == REPLACE_POLICY_FIFO) {
         return std::unique_ptr<policy_fifo_t>(
             new policy_fifo_t(num_blocks, associativity));
-    if (policy == REPLACE_POLICY_BIT_PLRU)
+    }
+    if (policy == REPLACE_POLICY_BIT_PLRU) {
         return std::unique_ptr<policy_bit_plru_t>(
             new policy_bit_plru_t(num_blocks, associativity));
+    }
     return nullptr;
 }
 
