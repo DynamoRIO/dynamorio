@@ -50,7 +50,7 @@ namespace drmemtrace {
 // highest counter value will be picked for replacement in replace_which_way.
 
 bool
-cache_lru_t::init(int associativity, int64_t block_size, int total_size,
+cache_lru_t::init(int associativity, int64_t block_size, int64_t total_size,
                   caching_device_t *parent, caching_device_stats_t *stats,
                   prefetcher_t *prefetcher, cache_inclusion_policy_t inclusion_policy,
                   bool coherent_cache, int id, snoop_filter_t *snoop_filter,

@@ -52,7 +52,7 @@ namespace drmemtrace {
 class snoop_filter_t;
 
 bool
-cache_t::init(int associativity, int64_t line_size, int total_size,
+cache_t::init(int associativity, int64_t line_size, int64_t total_size,
               caching_device_t *parent, caching_device_stats_t *stats,
               prefetcher_t *prefetcher, cache_inclusion_policy_t inclusion_policy,
               bool coherent_cache, int id, snoop_filter_t *snoop_filter,
@@ -61,13 +61,8 @@ cache_t::init(int associativity, int64_t line_size, int total_size,
     // Check line_size to avoid divide-by-0.
     if (line_size < 1)
         return false;
-    // Check that line_size fits in int - we don't expect actual huge line sizes in
-    // cache. Support for 64-bit line/block size exists for pages in TLBs, which
-    // don't actually hold the pages, just reference them.
-    if (line_size > std::numeric_limits<int>::max())
-        return false;
     // convert total_size to num_blocks to fit for caching_device_t::init
-    int num_lines = total_size / static_cast<int>(line_size);
+    int64_t num_lines = total_size / line_size;
 
     return caching_device_t::init(associativity, line_size, num_lines, parent, stats,
                                   prefetcher, inclusion_policy, coherent_cache, id,

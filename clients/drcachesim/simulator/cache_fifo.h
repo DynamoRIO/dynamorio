@@ -54,8 +54,9 @@ public:
     {
     }
     bool
-    init(int associativity, int64_t block_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
+    init(int associativity, int64_t block_size, int64_t total_size,
+         caching_device_t *parent, caching_device_stats_t *stats,
+         prefetcher_t *prefetcher = nullptr,
          cache_inclusion_policy_t inclusion_policy =
              cache_inclusion_policy_t::NON_INC_NON_EXC,
          bool coherent_cache = false, int id = -1, snoop_filter_t *snoop_filter = nullptr,
