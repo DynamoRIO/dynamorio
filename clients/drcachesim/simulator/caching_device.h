@@ -134,8 +134,7 @@ public:
     get_block_index(const addr_t addr) const
     {
         addr_t tag = compute_tag(addr);
-        int block_idx = compute_block_idx(tag);
-        return block_idx;
+        return compute_block_idx(tag);
     }
 
     // Accessors for cache parameters.
