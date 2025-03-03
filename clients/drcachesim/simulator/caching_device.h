@@ -180,6 +180,11 @@ public:
     {
         return replacement_policy_->get_name();
     }
+    virtual void
+    set_replace_policy(std::unique_ptr<cache_replacement_policy_t> replacement_policy)
+    {
+        replacement_policy_ = std::move(replacement_policy);
+    }
     virtual const std::string &
     get_name() const
     {
