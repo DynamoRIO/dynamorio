@@ -114,12 +114,6 @@ public:
     {
         return parent_;
     }
-    void
-    set_parent(caching_device_t *parent)
-    {
-        parent_ = parent;
-        parent_->children_.push_back(this);
-    }
     inline double
     get_loaded_fraction() const
     {
