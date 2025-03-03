@@ -202,11 +202,11 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/snoop_filter.cpp
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
-  simulator/bit_plru.cpp
   simulator/create_cache_replacement_policy.cpp
-  simulator/fifo.cpp
-  simulator/lfu.cpp
-  simulator/lru.cpp
+  simulator/policy_bit_plru.cpp
+  simulator/policy_fifo.cpp
+  simulator/policy_lfu.cpp
+  simulator/policy_lru.cpp
   )
 
 add_exported_library(drmemtrace_record_filter STATIC

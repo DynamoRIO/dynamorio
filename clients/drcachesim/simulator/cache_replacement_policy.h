@@ -41,9 +41,9 @@ namespace drmemtrace {
 /**
  * An interface for cache replacement policies.
  *
- * Holds the necassary information to implement a cache replacement policy,
- * And provides an interface for caching_device_t find which way to replace
- * in a block upon eviction.
+ * Holds the necessary information to implement a cache replacement policy,
+ * and provides a replacement-specific get_next_way_to_replace() method for
+ * `caching_device_t`.
  */
 class cache_replacement_policy_t {
 public:

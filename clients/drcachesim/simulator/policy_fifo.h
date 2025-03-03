@@ -30,10 +30,10 @@
  * DAMAGE.
  */
 
-#ifndef _BIT_PLRU_H_
-#define _BIT_PLRU_H_
+#ifndef _FIFO_H_
+#define _FIFO_H_
 
-#include <random>
+#include <list>
 #include <string>
 #include <vector>
 
@@ -42,10 +42,14 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-class bit_plru_t : public cache_replacement_policy_t {
+/**
+ * A FIFO cache replacement policy.
+ *
+ * The way wich was added (not accessed) first is replaced first.
+ */
+class policy_fifo_t : public cache_replacement_policy_t {
 public:
-    /// If seed is -1, a random seed will be used.
-    bit_plru_t(int num_blocks, int associativity, int seed = -1);
+    policy_fifo_t(int num_blocks, int associativity);
     void
     access_update(int block_idx, int way) override;
     void
@@ -55,15 +59,14 @@ public:
     std::string
     get_name() const override;
 
-    ~bit_plru_t() override = default;
+    ~policy_fifo_t() override = default;
 
 private:
-    std::vector<std::vector<bool>> block_bits_;
-    std::vector<int> block_set_counts_;
-    std::mt19937 gen_;
+    // FIFO queue for each block.
+    std::vector<std::list<int>> queues_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _BIT_PLRU_H_ */
+#endif // _FIFO_H_

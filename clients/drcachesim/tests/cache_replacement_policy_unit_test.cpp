@@ -37,11 +37,11 @@
 #include <memory>
 #include <random>
 #include "cache_replacement_policy_unit_test.h"
-#include "simulator/bit_plru.h"
+#include "simulator/policy_bit_plru.h"
 #include "simulator/cache.h"
-#include "simulator/fifo.h"
-#include "simulator/lfu.h"
-#include "simulator/lru.h"
+#include "simulator/policy_fifo.h"
+#include "simulator/policy_lfu.h"
+#include "simulator/policy_lru.h"
 #include "simulator/tlb.h"
 
 namespace dynamorio {
@@ -90,8 +90,7 @@ public:
         ref.data.addr = addr;
         ref.data.pid = 1;
         this->request(ref);
-        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
-               expected_replacement_way_after_access);
+        assert(this->get_next_way_to_replace(this->get_block_index(addr)) == expected_replacement_way_after_access);
     }
 
     void
@@ -155,7 +154,7 @@ unit_test_cache_lru_four_way()
     caching_device_policy_test_t<cache_t> cache_lru_test(/*associativity=*/4,
                                                          /*line_size=*/32);
     cache_lru_test.initialize_cache(
-        std::unique_ptr<lru_t>(new lru_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
+        std::unique_ptr<policy_lru_t>(new policy_lru_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
         256);
 
     assert(cache_lru_test.get_replace_policy() == "LRU");
@@ -195,7 +194,7 @@ unit_test_cache_lru_eight_way()
     caching_device_policy_test_t<cache_t> cache_lru_test(/*associativity=*/8,
                                                          /*line_size=*/64);
     cache_lru_test.initialize_cache(
-        std::unique_ptr<lru_t>(new lru_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
+        std::unique_ptr<policy_lru_t>(new policy_lru_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
         1024);
 
     assert(cache_lru_test.get_replace_policy() == "LRU");
@@ -242,7 +241,7 @@ unit_test_cache_fifo_four_way()
     caching_device_policy_test_t<cache_t> cache_fifo_test(/*associativity=*/4,
                                                           /*line_size=*/32);
     cache_fifo_test.initialize_cache(
-        std::unique_ptr<fifo_t>(new fifo_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
+        std::unique_ptr<policy_fifo_t>(new policy_fifo_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
         256);
 
     assert(cache_fifo_test.get_replace_policy() == "FIFO");
@@ -285,7 +284,7 @@ unit_test_cache_fifo_eight_way()
     caching_device_policy_test_t<cache_t> cache_fifo_test(/*associativity=*/8,
                                                           /*line_size=*/64);
     cache_fifo_test.initialize_cache(
-        std::unique_ptr<fifo_t>(new fifo_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
+        std::unique_ptr<policy_fifo_t>(new policy_fifo_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
         1024);
 
     assert(cache_fifo_test.get_replace_policy() == "FIFO");
@@ -326,7 +325,7 @@ unit_test_cache_lfu_four_way()
     caching_device_policy_test_t<cache_t> cache_lfu_test(/*associativity=*/4,
                                                          /*line_size=*/32);
     cache_lfu_test.initialize_cache(
-        std::unique_ptr<lfu_t>(new lfu_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
+        std::unique_ptr<policy_lfu_t>(new policy_lfu_t(/*num_blocks=*/256 / 4, /*associativity=*/4)),
         256);
 
     assert(cache_lfu_test.get_replace_policy() == "LFU");
@@ -367,7 +366,7 @@ unit_test_cache_lfu_eight_way()
     caching_device_policy_test_t<cache_t> cache_lfu_test(/*associativity=*/8,
                                                          /*line_size=*/64);
     cache_lfu_test.initialize_cache(
-        std::unique_ptr<lfu_t>(new lfu_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
+        std::unique_ptr<policy_lfu_t>(new policy_lfu_t(/*num_blocks=*/1024 / 8, /*associativity=*/8)),
         1024);
 
     assert(cache_lfu_test.get_replace_policy() == "LFU");
@@ -415,8 +414,8 @@ unit_test_tlb_plru_four_way()
     caching_device_policy_test_t<tlb_t> tlb_plru_test(/*associativity=*/4,
                                                       /*line_size=*/64);
     tlb_plru_test.initialize_cache(
-        std::unique_ptr<bit_plru_t>(
-            new bit_plru_t(1 /*num_blocks*/, 4 /*associativity*/, 0 /*seed*/)),
+        std::unique_ptr<policy_bit_plru_t>(
+            new policy_bit_plru_t(1 /*num_blocks*/, 4 /*associativity*/, 0 /*seed*/)),
         4);
     assert(tlb_plru_test.get_replace_policy() == "BIT_PLRU");
     assert(tlb_plru_test.block_indices_are_identical(addr_vec));
@@ -439,7 +438,7 @@ unit_test_tlb_lfu_four_way()
     caching_device_policy_test_t<tlb_t> tlb_lfu_test(/*associativity=*/4,
                                                      /*line_size=*/64);
     tlb_lfu_test.initialize_cache(
-        std::unique_ptr<lfu_t>(new lfu_t(1 /*num_blocks*/, 4 /*associativity*/)), 4);
+        std::unique_ptr<policy_lfu_t>(new policy_lfu_t(1 /*num_blocks*/, 4 /*associativity*/)), 4);
     assert(tlb_lfu_test.get_replace_policy() == "LFU");
     assert(tlb_lfu_test.block_indices_are_identical(addr_vec));
     assert(tlb_lfu_test.tags_are_different(addr_vec));

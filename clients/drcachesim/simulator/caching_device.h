@@ -33,10 +33,10 @@
 /* caching_device: represents a hardware caching device.
  */
 
+#include <cstdint>
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
-#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
@@ -70,8 +70,8 @@ class caching_device_t {
 public:
     explicit caching_device_t(const std::string &name = "caching_device");
     virtual bool
-    init(int associativity, int64_t block_size, int num_blocks, caching_device_t *parent,
-         caching_device_stats_t *stats,
+    init(int associativity, int64_t block_size, int64_t num_blocks,
+         caching_device_t *parent, caching_device_stats_t *stats,
          std::unique_ptr<cache_replacement_policy_t> replacement_policy,
          prefetcher_t *prefetcher = nullptr,
          cache_inclusion_policy_t inclusion_policy =
@@ -114,6 +114,12 @@ public:
     {
         return parent_;
     }
+    void
+    set_parent(caching_device_t *parent)
+    {
+        parent_ = parent;
+        parent_->children_.push_back(this);
+    }
     inline double
     get_loaded_fraction() const
     {
@@ -133,12 +139,11 @@ public:
         }
         use_tag2block_table_ = use_hashtable;
     }
-    int
+    int64_t
     get_block_index(const addr_t addr) const
     {
         addr_t tag = compute_tag(addr);
-        int block_idx = compute_block_idx(tag);
-        return block_idx;
+        return compute_block_idx(tag);
     }
 
     // Accessors for cache parameters.
@@ -152,7 +157,7 @@ public:
     {
         return block_size_;
     }
-    virtual int
+    virtual int64_t
     get_num_blocks() const
     {
         return num_blocks_;
@@ -209,7 +214,7 @@ protected:
     {
         return addr >> block_size_bits_;
     }
-    inline int
+    inline int64_t
     compute_block_idx(addr_t tag) const
     {
         return (tag & blocks_per_way_mask_) * associativity_;
@@ -250,7 +255,7 @@ protected:
 
     int associativity_;
     int64_t block_size_; // Also known as line length.
-    int num_blocks_;     // Total number of lines in cache = size / block_size.
+    int64_t num_blocks_; // Total number of lines in cache = size / block_size.
     bool coherent_cache_;
     // This is an index into snoop filter's array of caches.
     int id_;
@@ -271,9 +276,9 @@ protected:
     // an extended block class which has its own member variables cannot be indexed
     // correctly by base class pointers.
     caching_device_block_t **blocks_;
-    int blocks_per_way_;
+    int64_t blocks_per_way_;
     // Optimization fields for fast bit operations
-    int blocks_per_way_mask_;
+    int64_t blocks_per_way_mask_;
     int block_size_bits_;
 
     caching_device_stats_t *stats_;

@@ -74,7 +74,7 @@ caching_device_t::~caching_device_t()
 }
 
 bool
-caching_device_t::init(int associativity, int64_t block_size, int num_blocks,
+caching_device_t::init(int associativity, int64_t block_size, int64_t num_blocks,
                        caching_device_t *parent, caching_device_stats_t *stats,
                        std::unique_ptr<cache_replacement_policy_t> replacement_policy,
                        prefetcher_t *prefetcher,

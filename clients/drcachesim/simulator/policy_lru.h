@@ -30,59 +30,43 @@
  * DAMAGE.
  */
 
-#include "lfu.h"
+#ifndef _LRU_H_
+#define _LRU_H_
 
-#include <algorithm>
+#include <list>
+#include <string>
 #include <vector>
-#include <iostream>
+
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-lfu_t::lfu_t(int num_blocks, int associativity)
-    : cache_replacement_policy_t(num_blocks, associativity)
-{
-    access_counts_.reserve(num_blocks);
-    for (int i = 0; i < num_blocks; ++i) {
-        access_counts_.emplace_back(associativity, 0);
-    }
-}
+/**
+ * An LRU cache replacement policy.
+ *
+ * The way which was accessed the longest time ago is evicted.
+ */
+class policy_lru_t : public cache_replacement_policy_t {
+public:
+    policy_lru_t(int num_blocks, int associativity);
+    void
+    access_update(int block_idx, int way) override;
+    void
+    eviction_update(int block_idx, int way) override;
+    int
+    get_next_way_to_replace(int block_idx) override;
+    std::string
+    get_name() const override;
 
-void
-lfu_t::access_update(int block_idx, int way)
-{
-    block_idx = get_block_index(block_idx);
-    access_counts_[block_idx][way]++;
-}
+    ~policy_lru_t() override = default;
 
-void
-lfu_t::eviction_update(int block_idx, int way)
-{
-    block_idx = get_block_index(block_idx);
-    access_counts_[block_idx][way] = 0;
-}
-
-int
-lfu_t::get_next_way_to_replace(int block_idx)
-{
-    // Find the way with the minimum frequency counter.
-    block_idx = get_block_index(block_idx);
-    int min_freq = access_counts_[block_idx][0];
-    int min_way = 0;
-    for (int i = 1; i < associativity_; ++i) {
-        if (access_counts_[block_idx][i] < min_freq) {
-            min_freq = access_counts_[block_idx][i];
-            min_way = i;
-        }
-    }
-    return min_way;
-}
-
-std::string
-lfu_t::get_name() const
-{
-    return "LFU";
-}
+private:
+    // LRU list for each block.
+    std::vector<std::vector<int>> lru_counters_;
+};
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
+#endif // _LRU_H_

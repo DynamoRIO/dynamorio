@@ -1,4 +1,4 @@
-#/* **********************************************************
+/* **********************************************************
  * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,54 +30,58 @@
  * DAMAGE.
  */
 
-#include "fifo.h"
+#include "policy_lfu.h"
 
-#include <list>
+#include <algorithm>
+#include <vector>
+#include <iostream>
 
 namespace dynamorio {
 namespace drmemtrace {
 
-fifo_t::fifo_t(int num_blocks, int associativity)
+policy_lfu_t::policy_lfu_t(int num_blocks, int associativity)
     : cache_replacement_policy_t(num_blocks, associativity)
 {
-    // Initialize the FIFO list for each block.
-    queues_.reserve(num_blocks);
+    access_counts_.reserve(num_blocks);
     for (int i = 0; i < num_blocks; ++i) {
-        queues_.push_back(std::list<int>());
-        for (int j = 0; j < associativity; ++j) {
-            queues_[i].push_back(j);
-        }
+        access_counts_.emplace_back(associativity, 0);
     }
 }
 
 void
-fifo_t::access_update(int block_idx, int way)
+policy_lfu_t::access_update(int block_idx, int way)
 {
-    // Nothing to update, FIFO does not change on access.
+    block_idx = get_block_index(block_idx);
+    access_counts_[block_idx][way]++;
 }
 
 void
-fifo_t::eviction_update(int block_idx, int way)
+policy_lfu_t::eviction_update(int block_idx, int way)
 {
     block_idx = get_block_index(block_idx);
-    // Move the evicted way to the back of the queue.
-    auto &fifo_block = queues_[block_idx];
-    fifo_block.remove(way);
-    fifo_block.push_back(way);
+    access_counts_[block_idx][way] = 0;
 }
 
 int
-fifo_t::get_next_way_to_replace(int block_idx)
+policy_lfu_t::get_next_way_to_replace(int block_idx)
 {
+    // Find the way with the minimum frequency counter.
     block_idx = get_block_index(block_idx);
-    // The next way to replace is at the front of the FIFO list.
-    return queues_[block_idx].front();
+    int min_freq = access_counts_[block_idx][0];
+    int min_way = 0;
+    for (int i = 1; i < associativity_; ++i) {
+        if (access_counts_[block_idx][i] < min_freq) {
+            min_freq = access_counts_[block_idx][i];
+            min_way = i;
+        }
+    }
+    return min_way;
 }
 
 std::string
-fifo_t::get_name() const
+policy_lfu_t::get_name() const
 {
-    return "FIFO";
+    return "LFU";
 }
 
 } // namespace drmemtrace

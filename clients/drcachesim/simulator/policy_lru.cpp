@@ -30,38 +30,67 @@
  * DAMAGE.
  */
 
-#ifndef _FIFO_H_
-#define _FIFO_H_
+#include "policy_lru.h"
 
 #include <list>
-#include <string>
-#include <vector>
-
-#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class fifo_t : public cache_replacement_policy_t {
-public:
-    fifo_t(int num_blocks, int associativity);
-    void
-    access_update(int block_idx, int way) override;
-    void
-    eviction_update(int block_idx, int way) override;
-    int
-    get_next_way_to_replace(int block_idx) override;
-    std::string
-    get_name() const override;
+policy_lru_t::policy_lru_t(int num_blocks, int associativity)
+    : cache_replacement_policy_t(num_blocks, associativity)
+{
+    // Initialize the LRU list for each block.
+    lru_counters_.reserve(num_blocks);
+    for (int i = 0; i < num_blocks; ++i) {
+        lru_counters_.emplace_back(associativity, 1);
+    }
+}
 
-    ~fifo_t() override = default;
+void
+policy_lru_t::access_update(int block_idx, int way)
+{
+    block_idx = get_block_index(block_idx);
+    int count = lru_counters_[block_idx][way];
+    // Optimization: return early if it is a repeated access.
+    if (count == 0)
+        return;
+    // We inc all the counters that are not larger than cnt for LRU.
+    for (int i = 0; i < associativity_; ++i) {
+        if (i != way && lru_counters_[block_idx][i] <= count)
+            lru_counters_[block_idx][i]++;
+    }
+    // Clear the counter for LRU.
+    lru_counters_[block_idx][way] = 0;
+}
 
-private:
-    // FIFO queue for each block.
-    std::vector<std::list<int>> queues_;
-};
+void
+policy_lru_t::eviction_update(int block_idx, int way)
+{
+    // Nothing to update, when the way is accessed we will update it.
+}
+
+int
+policy_lru_t::get_next_way_to_replace(int block_idx)
+{
+    block_idx = get_block_index(block_idx);
+    // We implement LRU by picking the slot with the largest counter value.
+    int max_counter = 0;
+    int max_way = 0;
+    for (int way = 0; way < associativity_; ++way) {
+        if (lru_counters_[block_idx][way] > max_counter) {
+            max_counter = lru_counters_[block_idx][way];
+            max_way = way;
+        }
+    }
+    return max_way;
+}
+
+std::string
+policy_lru_t::get_name() const
+{
+    return "LRU";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _FIFO_H_ */

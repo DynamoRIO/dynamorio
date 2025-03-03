@@ -1,4 +1,4 @@
-/* **********************************************************
+#/* **********************************************************
  * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,36 +30,55 @@
  * DAMAGE.
  */
 
-#ifndef _LFU_H_
-#define _LFU_H_
+#include "policy_fifo.h"
 
-#include <vector>
-
-#include "cache_replacement_policy.h"
+#include <list>
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class lfu_t : public cache_replacement_policy_t {
-public:
-    lfu_t(int num_blocks, int associativity);
-    void
-    access_update(int block_idx, int way) override;
-    void
-    eviction_update(int block_idx, int way) override;
-    int
-    get_next_way_to_replace(int block_idx) override;
-    std::string
-    get_name() const override;
+policy_fifo_t::policy_fifo_t(int num_blocks, int associativity)
+    : cache_replacement_policy_t(num_blocks, associativity)
+{
+    // Initialize the FIFO list for each block.
+    queues_.reserve(num_blocks);
+    for (int i = 0; i < num_blocks; ++i) {
+        queues_.push_back(std::list<int>());
+        for (int j = 0; j < associativity; ++j) {
+            queues_[i].push_back(j);
+        }
+    }
+}
 
-    ~lfu_t() override = default;
+void
+policy_fifo_t::access_update(int block_idx, int way)
+{
+    // Nothing to update, FIFO does not change on access.
+}
 
-private:
-    // Frequency counters for each way in each block.
-    std::vector<std::vector<int>> access_counts_;
-};
+void
+policy_fifo_t::eviction_update(int block_idx, int way)
+{
+    block_idx = get_block_index(block_idx);
+    // Move the evicted way to the back of the queue.
+    auto &fifo_block = queues_[block_idx];
+    fifo_block.remove(way);
+    fifo_block.push_back(way);
+}
+
+int
+policy_fifo_t::get_next_way_to_replace(int block_idx)
+{
+    block_idx = get_block_index(block_idx);
+    // The next way to replace is at the front of the FIFO list.
+    return queues_[block_idx].front();
+}
+
+std::string
+policy_fifo_t::get_name() const
+{
+    return "FIFO";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _LFU_H_ */

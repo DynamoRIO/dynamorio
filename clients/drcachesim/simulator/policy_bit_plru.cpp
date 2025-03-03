@@ -30,38 +30,76 @@
  * DAMAGE.
  */
 
-#ifndef _LRU_H_
-#define _LRU_H_
+#include "policy_bit_plru.h"
 
-#include <list>
-#include <string>
+#include <random>
 #include <vector>
-
-#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class lru_t : public cache_replacement_policy_t {
-public:
-    lru_t(int num_blocks, int associativity);
-    void
-    access_update(int block_idx, int way) override;
-    void
-    eviction_update(int block_idx, int way) override;
-    int
-    get_next_way_to_replace(int block_idx) override;
-    std::string
-    get_name() const override;
+policy_bit_plru_t::policy_bit_plru_t(int num_blocks, int associativity, int seed)
+    : cache_replacement_policy_t(num_blocks, associativity)
+    , block_set_counts_(num_blocks, 0)
+    , gen_(seed == -1 ? std::random_device()() : seed)
+{
+    // Initialize the bit vector for each block.
+    block_bits_.reserve(num_blocks);
+    for (int i = 0; i < num_blocks; ++i) {
+        block_bits_.emplace_back(associativity, false);
+    }
+}
 
-    ~lru_t() override = default;
+void
+policy_bit_plru_t::access_update(int block_idx, int way)
+{
+    block_idx = get_block_index(block_idx);
+    // Set the bit for the accessed way.
+    if (!block_bits_[block_idx][way]) {
+        block_bits_[block_idx][way] = true;
+        block_set_counts_[block_idx]++;
+    }
+    if (block_set_counts_[block_idx] < associativity_) {
+        // Finished.
+        return;
+    }
+    // If all bits are set, reset them.
+    for (int i = 0; i < associativity_; ++i) {
+        block_bits_[block_idx][i] = false;
+    }
+    block_set_counts_[block_idx] = 1;
+    block_bits_[block_idx][way] = true;
+}
 
-private:
-    // LRU list for each block.
-    std::vector<std::vector<int>> lru_counters_;
-};
+void
+policy_bit_plru_t::eviction_update(int block_idx, int way)
+{
+    // Nothing to update, when the way is accessed we will update it.
+}
+
+int
+policy_bit_plru_t::get_next_way_to_replace(int block_idx)
+{
+    block_idx = get_block_index(block_idx);
+    std::vector<int> unset_bits;
+    for (int i = 0; i < associativity_; ++i) {
+        if (!block_bits_[block_idx][i]) {
+            unset_bits.push_back(i);
+        }
+    }
+
+    if (unset_bits.empty()) {
+        // Should not reach here.
+        return -1;
+    }
+    return unset_bits[gen_() % unset_bits.size()];
+}
+
+std::string
+policy_bit_plru_t::get_name() const
+{
+    return "BIT_PLRU";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _LRU_H_ */

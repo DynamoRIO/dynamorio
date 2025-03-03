@@ -35,10 +35,10 @@
 #include <memory>
 #include <string>
 
-#include "bit_plru.h"
-#include "fifo.h"
-#include "lfu.h"
-#include "lru.h"
+#include "policy_bit_plru.h"
+#include "policy_fifo.h"
+#include "policy_lfu.h"
+#include "policy_lru.h"
 #include "options.h"
 
 namespace dynamorio {
@@ -50,13 +50,13 @@ create_cache_replacement_policy(const std::string &policy, int num_blocks,
 {
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
         policy == REPLACE_POLICY_LRU)             // set to LRU
-        return std::unique_ptr<lru_t>(new lru_t(num_blocks, associativity));
+        return std::unique_ptr<policy_lru_t>(new policy_lru_t(num_blocks, associativity));
     if (policy == REPLACE_POLICY_LFU)
-        return std::unique_ptr<lfu_t>(new lfu_t(num_blocks, associativity));
+        return std::unique_ptr<policy_lfu_t>(new policy_lfu_t(num_blocks, associativity));
     if (policy == REPLACE_POLICY_FIFO)
-        return std::unique_ptr<fifo_t>(new fifo_t(num_blocks, associativity));
+        return std::unique_ptr<policy_fifo_t>(new policy_fifo_t(num_blocks, associativity));
     if (policy == REPLACE_POLICY_BIT_PLRU)
-        return std::unique_ptr<bit_plru_t>(new bit_plru_t(num_blocks, associativity));
+        return std::unique_ptr<policy_bit_plru_t>(new policy_bit_plru_t(num_blocks, associativity));
     return nullptr;
 }
 

@@ -30,76 +30,46 @@
  * DAMAGE.
  */
 
-#include "bit_plru.h"
+#ifndef _BIT_PLRU_H_
+#define _BIT_PLRU_H_
 
 #include <random>
+#include <string>
 #include <vector>
+
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-bit_plru_t::bit_plru_t(int num_blocks, int associativity, int seed)
-    : cache_replacement_policy_t(num_blocks, associativity)
-    , block_set_counts_(num_blocks, 0)
-    , gen_(seed == -1 ? std::random_device()() : seed)
-{
-    // Initialize the bit vector for each block.
-    block_bits_.reserve(num_blocks);
-    for (int i = 0; i < num_blocks; ++i) {
-        block_bits_.emplace_back(associativity, false);
-    }
-}
+/**
+ * A replacement policy that uses a bit per wat to track access frequency.
+ *
+ * On access, a way's bit is set to 1. Once all bits are set, the whole block's bits
+ * are set to 0. A random way with a 0 bit is chosen for replacement.
+ */
+class policy_bit_plru_t : public cache_replacement_policy_t {
+public:
+    /// If seed is -1, a random seed will be used.
+    policy_bit_plru_t(int num_blocks, int associativity, int seed = -1);
+    void
+    access_update(int block_idx, int way) override;
+    void
+    eviction_update(int block_idx, int way) override;
+    int
+    get_next_way_to_replace(int block_idx) override;
+    std::string
+    get_name() const override;
 
-void
-bit_plru_t::access_update(int block_idx, int way)
-{
-    block_idx = get_block_index(block_idx);
-    // Set the bit for the accessed way.
-    if (!block_bits_[block_idx][way]) {
-        block_bits_[block_idx][way] = true;
-        block_set_counts_[block_idx]++;
-    }
-    if (block_set_counts_[block_idx] < associativity_) {
-        // Finished.
-        return;
-    }
-    // If all bits are set, reset them.
-    for (int i = 0; i < associativity_; ++i) {
-        block_bits_[block_idx][i] = false;
-    }
-    block_set_counts_[block_idx] = 1;
-    block_bits_[block_idx][way] = true;
-}
+    ~policy_bit_plru_t() override = default;
 
-void
-bit_plru_t::eviction_update(int block_idx, int way)
-{
-    // Nothing to update, when the way is accessed we will update it.
-}
-
-int
-bit_plru_t::get_next_way_to_replace(int block_idx)
-{
-    block_idx = get_block_index(block_idx);
-    std::vector<int> unset_bits;
-    for (int i = 0; i < associativity_; ++i) {
-        if (!block_bits_[block_idx][i]) {
-            unset_bits.push_back(i);
-        }
-    }
-
-    if (unset_bits.empty()) {
-        // Should not reach here.
-        return -1;
-    }
-    return unset_bits[gen_() % unset_bits.size()];
-}
-
-std::string
-bit_plru_t::get_name() const
-{
-    return "BIT_PLRU";
-}
+private:
+    std::vector<std::vector<bool>> block_bits_;
+    std::vector<int> block_set_counts_;
+    std::mt19937 gen_;
+};
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
+#endif // _BIT_PLRU_H_
