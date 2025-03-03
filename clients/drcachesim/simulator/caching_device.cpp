@@ -35,7 +35,9 @@
 #include <assert.h>
 #include <stddef.h>
 
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <utility>

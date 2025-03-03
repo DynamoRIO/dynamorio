@@ -32,6 +32,7 @@
 
 #include "cache_lru.h"
 
+#include <cstdint>
 #include <vector>
 
 #include "cache.h"

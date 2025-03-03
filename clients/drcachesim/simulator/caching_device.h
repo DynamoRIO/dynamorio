@@ -37,6 +37,7 @@
 #define _CACHING_DEVICE_H_ 1
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <unordered_map>

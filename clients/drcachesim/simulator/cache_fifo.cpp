@@ -34,6 +34,7 @@
 
 #include <assert.h>
 
+#include <cstdint>
 #include <vector>
 
 #include "cache.h"

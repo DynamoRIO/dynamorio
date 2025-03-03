@@ -34,6 +34,7 @@
 
 #include <stddef.h>
 
+#include <cstdint>
 #include <utility>
 #include <vector>
 
