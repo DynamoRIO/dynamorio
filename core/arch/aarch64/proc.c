@@ -122,7 +122,7 @@ read_feature_regs(uint64 isa_features[])
          * at init time. This is all a little too involved to implement right now.
          */
         LOG(GLOBAL, LOG_TOP | LOG_ASYNCH, 1,
-            "Skipping MRS of ID_AA64ISAR2_EL1 under QEMU\n");
+            "Skipping MRS of ID_AA64MMFR2_EL1 under QEMU\n");
     } else {
         asm(".inst 0xd5380740\n" /* mrs x0, ID_AA64MMFR2_EL1 */
             "mov %0, x0"
