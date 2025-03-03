@@ -33,10 +33,10 @@
 /* caching_device: represents a hardware caching device.
  */
 
-#include <cstdint>
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
