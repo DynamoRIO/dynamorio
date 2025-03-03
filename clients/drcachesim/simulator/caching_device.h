@@ -130,7 +130,7 @@ public:
         }
         use_tag2block_table_ = use_hashtable;
     }
-    int64_t
+    int
     get_block_index(const addr_t addr) const
     {
         addr_t tag = compute_tag(addr);
@@ -205,16 +205,15 @@ protected:
     {
         return addr >> block_size_bits_;
     }
-    inline int64_t
+    inline int
     compute_block_idx(addr_t tag) const
     {
         return (tag & blocks_per_way_mask_) * associativity_;
     }
     inline caching_device_block_t &
-    get_caching_device_block(int64_t block_idx, int way) const
+    get_caching_device_block(int block_idx, int way) const
     {
-        size_t block_idx_offset = static_cast<size_t>(block_idx + way);
-        return *(blocks_[block_idx_offset]);
+        return *(blocks_[block_idx + way]);
     }
 
     inline void
@@ -270,7 +269,7 @@ protected:
     caching_device_block_t **blocks_;
     int64_t blocks_per_way_;
     // Optimization fields for fast bit operations
-    int64_t blocks_per_way_mask_;
+    int blocks_per_way_mask_;
     int block_size_bits_;
 
     caching_device_stats_t *stats_;
