@@ -656,7 +656,8 @@ unit_test_cache_associativity()
             caching_device_stats_t stats(/*miss_file=*/"", LINE_SIZE);
             bool initialized =
                 cache.init(assoc, LINE_SIZE, total_size, /*parent=*/nullptr, &stats,
-                           std::unique_ptr<policy_lru_t>(new policy_lru_t(total_size / assoc, assoc)));
+                           std::unique_ptr<policy_lru_t>(
+                               new policy_lru_t(total_size / assoc, assoc)));
             assert(initialized);
             assert(cache.get_associativity() == assoc);
             // Test start address is arbitrary.
@@ -707,8 +708,8 @@ unit_test_cache_size()
             bool initialized =
                 cache.init(associativity, LINE_SIZE, cache_size,
                            /*parent=*/nullptr, &stats,
-                           std::unique_ptr<policy_lru_t>(
-                               new policy_lru_t(cache_size / associativity, associativity)));
+                           std::unique_ptr<policy_lru_t>(new policy_lru_t(
+                               cache_size / associativity, associativity)));
             assert(initialized);
             assert(cache.get_size_bytes() == cache_size);
             static constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
@@ -802,32 +803,32 @@ unit_test_cache_bad_configs()
     // 0 values are bad for any of these parameters.
     std::cerr << "Testing 0 parameters.\n";
 
-    assert(!cache.init(
-        0, SAFE_LINE_SIZE, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
-        std::unique_ptr<policy_lru_t>(new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
-    assert(!cache.init(
-        SAFE_ASSOC, 0, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
-        std::unique_ptr<policy_lru_t>(new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
-    assert(!cache.init(
-        SAFE_ASSOC, SAFE_LINE_SIZE, 0, /*parent=*/nullptr, &stats,
-        std::unique_ptr<policy_lru_t>(new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(0, SAFE_LINE_SIZE, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 0, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, SAFE_LINE_SIZE, 0, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
     assert(!cache.init(SAFE_ASSOC, SAFE_LINE_SIZE, SAFE_CACHE_SIZE, /*parent=*/nullptr,
                        &stats, nullptr));
 
     // Test other bad line sizes: <4 and/or non-power-of-two.
     std::cerr << "Testing bad line size parameters.\n";
-    assert(!cache.init(
-        SAFE_ASSOC, 1, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
-        std::unique_ptr<policy_lru_t>(new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
-    assert(!cache.init(
-        SAFE_ASSOC, 2, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
-        std::unique_ptr<policy_lru_t>(new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
-    assert(!cache.init(
-        SAFE_ASSOC, 7, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
-        std::unique_ptr<policy_lru_t>(new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
-    assert(!cache.init(
-        SAFE_ASSOC, 65, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
-        std::unique_ptr<policy_lru_t>(new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 1, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 2, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 7, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 65, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
 
     // Size, associativity, and line_size are related.  The requirement is that
     // size/associativity is a power-of-two, and >= line_size, so try some
@@ -840,9 +841,10 @@ unit_test_cache_bad_configs()
         { 3, 1024 }, { 4, 768 }, { 64, 64 }, { 16, 8 * SAFE_LINE_SIZE }
     };
     for (const auto &combo : bad_combinations) {
-        assert(!cache.init(
-            combo.assoc, SAFE_LINE_SIZE, combo.size, /*parent=*/nullptr, &stats,
-            std::unique_ptr<policy_lru_t>(new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+        assert(!cache.init(combo.assoc, SAFE_LINE_SIZE, combo.size, /*parent=*/nullptr,
+                           &stats,
+                           std::unique_ptr<policy_lru_t>(new policy_lru_t(
+                               SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
     }
 }
 
@@ -878,8 +880,8 @@ unit_test_cache_accessors()
                     cache.init(associativity, line_size, total_size,
                                /*parent=*/nullptr, &stats,
                                /*replacement_policy=*/
-                               std::unique_ptr<policy_lru_t>(
-                                   new policy_lru_t(total_size / associativity, associativity)),
+                               std::unique_ptr<policy_lru_t>(new policy_lru_t(
+                                   total_size / associativity, associativity)),
                                /*prefetcher=*/nullptr, policy, coherent);
                 assert(initialized);
                 assert(cache.get_stats() == &stats);

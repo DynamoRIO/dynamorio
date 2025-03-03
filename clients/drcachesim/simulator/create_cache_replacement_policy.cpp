@@ -54,9 +54,11 @@ create_cache_replacement_policy(const std::string &policy, int num_blocks,
     if (policy == REPLACE_POLICY_LFU)
         return std::unique_ptr<policy_lfu_t>(new policy_lfu_t(num_blocks, associativity));
     if (policy == REPLACE_POLICY_FIFO)
-        return std::unique_ptr<policy_fifo_t>(new policy_fifo_t(num_blocks, associativity));
+        return std::unique_ptr<policy_fifo_t>(
+            new policy_fifo_t(num_blocks, associativity));
     if (policy == REPLACE_POLICY_BIT_PLRU)
-        return std::unique_ptr<policy_bit_plru_t>(new policy_bit_plru_t(num_blocks, associativity));
+        return std::unique_ptr<policy_bit_plru_t>(
+            new policy_bit_plru_t(num_blocks, associativity));
     return nullptr;
 }
 
