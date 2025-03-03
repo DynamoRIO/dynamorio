@@ -36,7 +36,6 @@
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
-#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
@@ -133,7 +132,7 @@ public:
         }
         use_tag2block_table_ = use_hashtable;
     }
-    int64_t
+    int
     get_block_index(const addr_t addr) const
     {
         addr_t tag = compute_tag(addr);
@@ -208,7 +207,7 @@ protected:
     {
         return addr >> block_size_bits_;
     }
-    inline int64_t
+    inline int
     compute_block_idx(addr_t tag) const
     {
         return (tag & blocks_per_way_mask_) * associativity_;
@@ -272,7 +271,7 @@ protected:
     caching_device_block_t **blocks_;
     int64_t blocks_per_way_;
     // Optimization fields for fast bit operations
-    int64_t blocks_per_way_mask_;
+    int blocks_per_way_mask_;
     int block_size_bits_;
 
     caching_device_stats_t *stats_;

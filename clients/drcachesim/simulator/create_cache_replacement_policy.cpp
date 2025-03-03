@@ -48,8 +48,8 @@ std::unique_ptr<cache_replacement_policy_t>
 create_cache_replacement_policy(const std::string &policy, int num_blocks,
                                 int associativity)
 {
-    if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
-        policy == REPLACE_POLICY_LRU) {           // set to LRU
+    // default LRU
+    if (policy == REPLACE_POLICY_NON_SPECIFIED || policy == REPLACE_POLICY_LRU) {
         return std::unique_ptr<policy_lru_t>(new policy_lru_t(num_blocks, associativity));
     }
     if (policy == REPLACE_POLICY_LFU) {
