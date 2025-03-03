@@ -30,52 +30,57 @@
  * DAMAGE.
  */
 
-/* cache_lru: represents a single hardware cache with LRU algo.
- */
-
-#ifndef _CACHE_LRU_H_
-#define _CACHE_LRU_H_ 1
+#ifndef _CACHE_REPLACEMENT_POLICY_H_
+#define _CACHE_REPLACEMENT_POLICY_H_ 1
 
 #include <string>
-#include <vector>
-
-#include "cache.h"
-#include "prefetcher.h"
-#include "snoop_filter.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class cache_lru_t : public cache_t {
+/**
+ * An interface for cache replacement policies.
+ *
+ * Holds the necessary information to implement a cache replacement policy,
+ * and provides a replacement-specific get_next_way_to_replace() method for
+ * `caching_device_t`.
+ */
+class cache_replacement_policy_t {
 public:
-    explicit cache_lru_t(const std::string &name = "cache_lru")
-        : cache_t(name)
+    cache_replacement_policy_t(int num_blocks, int associativity)
+        : associativity_(associativity)
+        , num_blocks_(num_blocks)
     {
     }
-    bool
-    init(int associativity, int64_t block_size, int64_t total_size,
-         caching_device_t *parent, caching_device_stats_t *stats,
-         prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id = -1, snoop_filter_t *snoop_filter = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
-    std::string
-    get_replace_policy() const override
-    {
-        return "LRU";
-    }
+    /// Informs the replacement policy that an access has occurred.
+    virtual void
+    access_update(int block_idx, int way) = 0;
+    /// Informs the replacement policy that an eviction has occurred.
+    virtual void
+    eviction_update(int block_idx, int way) = 0;
+    /// Returns the next way to replace in the block.
+    virtual int
+    get_next_way_to_replace(int block_idx) = 0;
+    /// Returns the name of the replacement policy.
+    virtual std::string
+    get_name() const = 0;
+
+    virtual ~cache_replacement_policy_t() = default;
 
 protected:
-    void
-    access_update(int block_idx, int way) override;
-    int
-    replace_which_way(int block_idx) override;
-    int
-    get_next_way_to_replace(const int block_idx) const override;
+    virtual int
+    get_block_index(int block_idx)
+    {
+        // The block index points to the first way in the block, and the ways are stored
+        // in a contiguous array, so we divide by the associativity to get the block
+        // index.
+        return block_idx / associativity_;
+    }
+    int associativity_;
+    int num_blocks_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _CACHE_LRU_H_ */
+#endif /* _CACHE_REPLACEMENT_POLICY_H_ */
