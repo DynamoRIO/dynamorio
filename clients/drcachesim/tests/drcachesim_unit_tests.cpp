@@ -447,9 +447,9 @@ LLC {
 class test_cache_simulator_t : public cache_simulator_t {
 public:
     test_cache_simulator_t(const cache_simulator_knobs_t &knobs)
-        : cache_simulator_t(knobs) { };
+        : cache_simulator_t(knobs) {};
     test_cache_simulator_t(std::istream *config_file)
-        : cache_simulator_t(config_file) { };
+        : cache_simulator_t(config_file) {};
     // Returns cache_t* for named cache if it exists, else faults.
     cache_t *
     get_named_cache(std::string name)
