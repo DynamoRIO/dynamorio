@@ -56,7 +56,7 @@ jobs:
   # AArch64 cross-compile with gcc, with some tests run under QEMU.
   # We use a more recent Ubuntu for a more recent QEMU.
   aarch64-cross-compile:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v4
