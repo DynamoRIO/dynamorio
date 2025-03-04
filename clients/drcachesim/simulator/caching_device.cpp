@@ -123,7 +123,6 @@ caching_device_t::init(int associativity, int64_t block_size, int64_t num_blocks
     id_ = id;
     snoop_filter_ = snoop_filter;
     coherent_cache_ = coherent_cache;
-
     blocks_ = new caching_device_block_t *[static_cast<size_t>(num_blocks_)];
     init_blocks();
 
