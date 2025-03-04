@@ -82,6 +82,7 @@ string(REGEX REPLACE "^[0-9]+\\.([0-9]+)\\..*" "\\1" DRMF_VERSION_MINOR "${DRMF_
 string(REGEX REPLACE "^([0-9]+\\.[0-9]+)\\..*" "\\1"
   DRMF_VERSION_MAJOR_MINOR "${DRMF_VERSION}")
 math(EXPR DRMF_VERSION_INTEGER "${DRMF_VERSION_MAJOR}*100 + ${DRMF_VERSION_MINOR}")
+string(REGEX REPLACE "\\." "," DMRF_VERSION_COMMAS "${DRMF_VERSION_INTEGER}")
 set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
 set(DRMF_VERSION_CUR ${DRMF_VERSION_INTEGER}) # Current version
 
@@ -138,6 +139,8 @@ if (WIN32)
   string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   add_definitions(${asm_defs})
   message(STATUS "add_definitions(-DASSEMBLE_WITH_MASM)")
+  add_definitions(-DVERSION_COMMAS=${DRMF_VERSION_COMMAS})
+  add_definitions(-DVERSION_NUMBER=${DRMF_VERSION_INTEGER})
   add_definitions(-DVERSION_NUMBER_INTEGER=${VERSION_NUMBER_MAJOR}.${VERSION_NUMBER_MINOR})
   # We can't include directly from DDK b/c the DDK include dir and VS include
   # dirs are incompatible, so we have our own copies of the headers we need.
