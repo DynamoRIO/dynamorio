@@ -141,7 +141,7 @@ if (WIN32)
   message(STATUS "add_definitions(-DASSEMBLE_WITH_MASM)")
   # We can't include directly from DDK b/c the DDK include dir and VS include
   # dirs are incompatible, so we have our own copies of the headers we need.
-  include_directories(wininc/psdk wininc/dxsdk)
+  include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
 endif ()
 
 macro(configure_drsyscall_target target)
