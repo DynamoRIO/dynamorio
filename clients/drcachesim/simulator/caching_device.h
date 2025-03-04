@@ -65,6 +65,7 @@ class prefetcher_t;
 
 // NON_INC_NON_EXC = Non-Inclusive Non-Exclusive, aka NINE.
 enum class cache_inclusion_policy_t { NON_INC_NON_EXC, INCLUSIVE, EXCLUSIVE };
+
 class caching_device_t {
 public:
     explicit caching_device_t(const std::string &name = "caching_device");
