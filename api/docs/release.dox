@@ -134,6 +134,8 @@ changes:
    written with the path to the memory dump file.
 
 Further non-compatibility-affecting changes include:
+ - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
+   in dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - Added support for reading a single drmemtrace trace file from stdin
    via "-infile -".
  - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
