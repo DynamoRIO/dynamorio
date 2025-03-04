@@ -36,6 +36,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -95,24 +96,15 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
         lltlbs_[i] = NULL;
     }
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
-        itlbs_[i] = new tlb_t("itlb");
-        if (itlbs_[i] == NULL) {
-            error_string_ = "Failed to create itlbs_";
-            success_ = false;
-            return;
-        }
-        dtlbs_[i] = new tlb_t("dtlb");
-        if (dtlbs_[i] == NULL) {
-            error_string_ = "Failed to create dtlbs_";
-            success_ = false;
-            return;
-        }
-        lltlbs_[i] = new tlb_t("lltlb");
-        if (lltlbs_[i] == NULL) {
-            error_string_ = "Failed to create lltlbs_";
-            success_ = false;
-            return;
-        }
+        std::stringstream ss_itlb;
+        ss_itlb << "itlb " << i;
+        itlbs_[i] = new tlb_t(ss_itlb.str());
+        std::stringstream ss_dtlb;
+        ss_dtlb << "dtlb " << i;
+        dtlbs_[i] = new tlb_t(ss_dtlb.str());
+        std::stringstream ss_lltlb;
+        ss_lltlb << "lltlb " << i;
+        lltlbs_[i] = new tlb_t(ss_lltlb.str());
         auto replace_policy = create_cache_replacement_policy(
             knobs_.TLB_replace_policy, knobs_.TLB_L1I_entries / knobs_.TLB_L1I_assoc,
             knobs_.TLB_L1I_assoc);

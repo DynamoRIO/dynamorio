@@ -45,11 +45,11 @@
 #include <utility>
 #include <vector>
 
+#include "cache_replacement_policy.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "memref.h"
 #include "trace_entry.h"
-#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {

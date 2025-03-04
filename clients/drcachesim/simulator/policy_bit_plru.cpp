@@ -40,7 +40,7 @@ namespace drmemtrace {
 
 policy_bit_plru_t::policy_bit_plru_t(int num_blocks, int associativity, int seed)
     : cache_replacement_policy_t(num_blocks, associativity)
-    , block_set_counts_(num_blocks, 0)
+    , block_num_ones_(num_blocks, 0)
     , gen_(seed == -1 ? std::random_device()() : seed)
 {
     // Initialize the bit vector for each block.
@@ -57,9 +57,9 @@ policy_bit_plru_t::access_update(int block_idx, int way)
     // Set the bit for the accessed way.
     if (!block_bits_[block_idx][way]) {
         block_bits_[block_idx][way] = true;
-        block_set_counts_[block_idx]++;
+        block_num_ones_[block_idx]++;
     }
-    if (block_set_counts_[block_idx] < associativity_) {
+    if (block_num_ones_[block_idx] < associativity_) {
         // Finished.
         return;
     }
@@ -67,7 +67,7 @@ policy_bit_plru_t::access_update(int block_idx, int way)
     for (int i = 0; i < associativity_; ++i) {
         block_bits_[block_idx][i] = false;
     }
-    block_set_counts_[block_idx] = 1;
+    block_num_ones_[block_idx] = 1;
     block_bits_[block_idx][way] = true;
 }
 

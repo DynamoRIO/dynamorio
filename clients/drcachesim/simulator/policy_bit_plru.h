@@ -43,7 +43,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 /**
- * A replacement policy that uses a bit per wat to track access frequency.
+ * A replacement policy that uses a bit per way to track access frequency.
  *
  * On access, a way's bit is set to 1. Once all bits are set, the whole block's bits
  * are set to 0. A random way with a 0 bit is chosen for replacement.
@@ -64,8 +64,10 @@ public:
     ~policy_bit_plru_t() override = default;
 
 private:
+    // A bit per way for each block.
     std::vector<std::vector<bool>> block_bits_;
-    std::vector<int> block_set_counts_;
+    // The amount of bits set to 1 for each block.
+    std::vector<int> block_num_ones_;
     std::mt19937 gen_;
 };
 

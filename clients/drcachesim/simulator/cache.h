@@ -37,8 +37,8 @@
 #define _CACHE_H_ 1
 
 #include <string>
-#include <vector>
 #include <memory>
+#include <vector>
 
 #include "cache_line.h"
 #include "cache_replacement_policy.h"

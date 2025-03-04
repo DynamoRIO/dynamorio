@@ -53,7 +53,7 @@ policy_lru_t::access_update(int block_idx, int way)
     // Optimization: return early if it is a repeated access.
     if (count == 0)
         return;
-    // We inc all the counters that are not larger than cnt for LRU.
+    // We inc all the counters that are not larger than count for LRU.
     for (int i = 0; i < associativity_; ++i) {
         if (i != way && lru_counters_[block_idx][i] <= count)
             lru_counters_[block_idx][i]++;
