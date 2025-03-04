@@ -4690,6 +4690,8 @@ if (BUILD_CLIENTS)
         torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
           "@-tool@invariant_checker@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
           "")
+        set(tool.drcacheoff.burst_syscall_inject_postcmd2
+          "firstglob@${drcachesim_path}@-infile@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template@-tool@view")
       endif ()
 
       set(tool.drcacheoff.burst_traceopts_nodr ON)
