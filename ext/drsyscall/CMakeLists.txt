@@ -134,14 +134,13 @@ if (WIN32)
   # For version info we need global_shared.h included in resources.rc.
   # The extension must add core/win32/resources.rc as a source.
   include_directories(${PROJECT_SOURCE_DIR}/core/lib)
-  append_property_list(TARGET drsyscall COMPILE_DEFINITIONS "RC_IS_DRSYSCALL")
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
   set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
   # FIXME: fix warnings and up to /W4
   string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   add_definitions(${asm_defs})
   message(STATUS "add_definitions(-DASSEMBLE_WITH_MASM)")
-  add_definitions(-DVERSION_NUMBER_INTEGER=11900)
+  add_definitions(-DVERSION_NUMBER_INTEGER=12345)
   # We can't include directly from DDK b/c the DDK include dir and VS include
   # dirs are incompatible, so we have our own copies of the headers we need.
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
@@ -149,7 +148,7 @@ endif ()
 
 macro(configure_drsyscall_target target)
   # ensure we rebuild if includes change
-  add_dependencies(${target} api_headers
+  add_dependencies(${target} api_headers)
 
   if (UNIX)
     # Avoid relocations which tend to violate security policies
