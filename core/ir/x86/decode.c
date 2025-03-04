@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -965,8 +965,9 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
  * Returns NULL on an invalid instruction
  */
 static byte *
-read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
-                 decode_info_t *di, bool just_opcode _IF_DEBUG(bool report_invalid))
+read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
+                 const instr_info_t **ret_info, decode_info_t *di,
+                 bool just_opcode _IF_DEBUG(bool report_invalid))
 {
     DEBUG_DECLARE(byte *post_suffix_pc = NULL;)
     byte instr_byte;
@@ -1307,7 +1308,6 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
                         di->start_pc, info->opcode);
                 } else {
                     int i;
-                    dcontext_t *dcontext = get_thread_private_dcontext();
                     IF_X64(bool old_mode = set_x86_mode(dcontext, di->x86_mode);)
                     int sz = decode_sizeof(dcontext, di->start_pc, NULL _IF_X64(NULL));
                     IF_X64(set_x86_mode(dcontext, old_mode));
@@ -1351,7 +1351,6 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
               if (spurious) {
                   char bytes[17 * 3];
                   int i;
-                  dcontext_t *dcontext = get_thread_private_dcontext();
                   IF_X64(bool old_mode = set_x86_mode(dcontext, di->x86_mode);)
                   int sz = decode_sizeof(dcontext, di->start_pc, NULL _IF_X64(NULL));
                   IF_X64(set_x86_mode(dcontext, old_mode));
@@ -2509,7 +2508,8 @@ decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_
     IF_X64(di.x86_mode = get_x86_mode(dcontext));
 
     /* don't decode immeds, instead use decode_next_pc, it's faster */
-    read_instruction(pc, pc, &info, &di, true /* just opcode */ _IF_DEBUG(true));
+    read_instruction(dcontext, pc, pc, &info, &di,
+                     true /* just opcode */ _IF_DEBUG(true));
 
     *usage = instr_eflags_conditionally(
         info->eflags, decode_predicate_from_instr_info(info->type, info), flags);
@@ -2544,7 +2544,7 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
      * so have to call decode_next_pc, but that ends up being faster
      * than decoding immeds!
      */
-    read_instruction(pc, pc, &info, &di,
+    read_instruction(dcontext, pc, pc, &info, &di,
                      true /* just opcode */
                      _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
     sz = decode_sizeof_ex(dcontext, pc, NULL, &rip_rel_pos);
@@ -2616,7 +2616,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
                   "decode: instr is already decoded, may need to call instr_reset()");
 
     IF_X64(di.x86_mode = get_x86_mode(dcontext));
-    next_pc = read_instruction(pc, orig_pc, &info, &di,
+    next_pc = read_instruction(dcontext, pc, orig_pc, &info, &di,
                                false /* not just opcode,
                                         decode operands too */
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
