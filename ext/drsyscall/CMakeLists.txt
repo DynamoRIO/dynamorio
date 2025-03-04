@@ -139,8 +139,8 @@ if (WIN32)
   string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   add_definitions(${asm_defs})
   message(STATUS "add_definitions(-DASSEMBLE_WITH_MASM)")
-  add_definitions(-DVERSION_COMMAS=${DRMF_VERSION_COMMAS})
-  add_definitions(-DVERSION_NUMBER=${DRMF_VERSION_INTEGER})
+  add_definitions(-DVERSION_COMMAS=${VERSION_NUMBER_MAJOR},${VERSION_NUMBER_MINOR})
+  add_definitions(-DVERSION_NUMBER=${VERSION_NUMBER_MAJOR}.${VERSION_NUMBER_MINOR})
   add_definitions(-DVERSION_NUMBER_INTEGER=${VERSION_NUMBER_MAJOR}.${VERSION_NUMBER_MINOR})
   # We can't include directly from DDK b/c the DDK include dir and VS include
   # dirs are incompatible, so we have our own copies of the headers we need.
