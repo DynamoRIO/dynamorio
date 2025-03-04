@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -596,15 +596,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::process_marker(
     case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
         outputs_[output].in_context_switch_code = true;
         break;
-    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-        outputs_[output].in_syscall_code = true;
-        break;
     case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
         // We have to delay until the next record.
         outputs_[output].hit_switch_code_end = true;
-        break;
-    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-        outputs_[output].in_syscall_code = false;
         break;
     case TRACE_MARKER_TYPE_TIMESTAMP:
         // Syscall sequences are not expected to have a timestamp.
@@ -885,9 +879,19 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::rebalance_queues(
                            "Rebalance iteration %d: output %d giving up input %d\n",
                            iteration, i, queue_next->index);
                     inputs_to_add.push_back(queue_next->index);
-                } else
+                } else {
+                    if (status == sched_type_t::STATUS_IDLE) {
+                        // An IDLE result is not an error: it just means there were no
+                        // unblocked inputs available.  We do not want to propagate it to
+                        // the caller.
+                        status = sched_type_t::STATUS_OK;
+                    }
                     break;
+                }
             }
+            // If we hit some fatal error, bail and propagate the error.
+            if (status != sched_type_t::STATUS_OK)
+                break;
             std::vector<input_ordinal_t> incompatible_inputs;
             // If we reach the 3rd iteration, we have fussy inputs with bindings.
             // Try to add them to every output.
