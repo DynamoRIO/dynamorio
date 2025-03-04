@@ -889,6 +889,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::rebalance_queues(
                     break;
                 }
             }
+            // If we hit some fatal error, bail and propagate the error.
+            if (status != sched_type_t::STATUS_OK)
+                break;
             std::vector<input_ordinal_t> incompatible_inputs;
             // If we reach the 3rd iteration, we have fussy inputs with bindings.
             // Try to add them to every output.

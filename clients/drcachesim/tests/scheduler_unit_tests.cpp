@@ -5615,7 +5615,7 @@ test_unscheduled_initially_roi()
 static void
 test_unscheduled_initially_rebalance()
 {
-    // Tests i#7318 where on a rebalance a too-large runqueue has nothing
+    // Tests i#7318 where on a rebalance attempt a too-large runqueue has nothing
     // but blocked inputs. That's easiest to make happen at the init-time
     // rebalance where we create a bunch of starts-unscheduled (but not infinite)
     // inputs.
@@ -5629,7 +5629,7 @@ test_unscheduled_initially_rebalance()
     static constexpr memref_tid_t TID_BASE = 100;
     std::vector<trace_entry_t> refs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; ++i) {
-        if (i == NUM_OUTPUTS - 1) {
+        if (i == 0) {
             // Just one input is runnable.
             refs[i] = {
                 make_thread(TID_BASE + i),
@@ -5658,7 +5658,8 @@ test_unscheduled_initially_rebalance()
                 // These have the earliest timestamp and would start.
                 make_timestamp(1001 + i),
                 make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
-                // They start out unscheduled though.
+                // They start out unscheduled though.  We don't set
+                // honor_infinite_timeouts so this will eventually run.
                 make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
                 make_timestamp(4202),
                 make_instr(/*pc=*/102),
@@ -5676,10 +5677,10 @@ test_unscheduled_initially_rebalance()
     // We achieve that by using input bindings.
     // This relies on knowing the scheduler takes the 1st binding if there
     // are any: so we can set to all cores and these will all pile up on output #0
-    // prior to the init-time rebalance, except the live input, which we made sure
-    // does not go on output #0 in round-robin order. That makes output #0 big enough
-    // for a rebalance attempt, which causes scheduler init to fail without the
-    // i#7318 fix.
+    // prior to the init-time rebalance.  That makes output
+    // #0 big enough for a rebalance attempt, which causes scheduler init to fail
+    // without the i#7318 fix as it can only move one of those blocked inputs and
+    // so it hits an IDLE status on a later move attempt.
     std::set<scheduler_t::output_ordinal_t> cores;
     cores.insert({ 0, 1, 2 });
     std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -5700,12 +5701,12 @@ test_unscheduled_initially_rebalance()
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
-    // Our live thread C blocks and then the others become unblocked.
+    // Our live thread A blocks and then the others become unblocked.
     // Because they were blocked, the init-time rebalance couldn't steal
     // any of them, and the duration here is too short for another rebalance,
     // so the other cores remain idle.
     static const char *const CORE0_SCHED_STRING =
-        "...C.....__.....A......B......D......E.C.";
+        "...A.....__.....B......C......D......E.A.";
     static const char *const CORE1_SCHED_STRING =
         "_________________________________________";
     static const char *const CORE2_SCHED_STRING =
