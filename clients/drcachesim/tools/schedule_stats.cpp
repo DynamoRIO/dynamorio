@@ -169,6 +169,9 @@ schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &cou
     counters.switch_sequence_injections =
         static_cast<int64_t>(stream->get_schedule_statistic(
             memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS));
+    counters.syscall_sequence_injections =
+        static_cast<int64_t>(stream->get_schedule_statistic(
+            memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS));
 
     // XXX: Currently, schedule_stats is measuring swap-ins to a real input.  If we
     // want to match what "perf" targeting this app would record, which is swap-outs,
@@ -425,6 +428,8 @@ schedule_stats_t::print_counters(const counters_t &counters)
               << " direct context switches\n";
     std::cerr << std::setw(12) << counters.switch_sequence_injections
               << " context switch sequence injections\n";
+    std::cerr << std::setw(12) << counters.syscall_sequence_injections
+              << " system call sequence injections\n";
     print_percentage(static_cast<double>(counters.voluntary_switches),
                      static_cast<double>(counters.total_switches),
                      "% voluntary switches\n");

@@ -8,6 +8,7 @@ Total counts:
            6 voluntary context switches
            0 direct context switches
           11 context switch sequence injections
+           0 system call sequence injections
 .*
            9 switches input-to-input
            5 switches input-to-idle
@@ -21,6 +22,7 @@ Core #0 counts:
            3 voluntary context switches
            0 direct context switches
            8 context switch sequence injections
+           0 system call sequence injections
 .*
            6 switches input-to-input
            3 switches input-to-idle

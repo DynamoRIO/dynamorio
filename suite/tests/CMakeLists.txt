@@ -4080,12 +4080,12 @@ if (BUILD_CLIENTS)
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
 
         torunonly_simtool(syscall_insertion ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool basic_counts -sched_syscall_file ${syscall_file}"
+          "-indir ${thread_trace_dir} -tool schedule_stats -sched_syscall_file ${syscall_file}"
           "")
         set(tool.syscall_insertion_rawtemp ON) # no preprocessor
 
         torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool basic_counts -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
+          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
           "")
         set(tool.syscall_insertion_core_sharded_rawtemp ON) # no preprocessor
 
@@ -6191,13 +6191,15 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   endif ()
 endif (NOT ARM)
 
-if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+# FIXME i#1551: port asm to ARM
+# FIXME i#5383: selfmod tests fail to build on macOS + ARM64
+if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
 
   tobuild(security-common.selfmod security-common/selfmod.c)
   tochcon(security-common.selfmod textrel_shlib_t)
-endif (X86 OR AARCH64)
+endif (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   if (NOT APPLE) # XXX i#58: port test to MacOS

@@ -57,6 +57,7 @@
 // Constants used by specific tools.
 #define REPLACE_POLICY_NON_SPECIFIED ""
 #define REPLACE_POLICY_LRU "LRU"
+#define REPLACE_POLICY_BIT_PLRU "BIT_PLRU"
 #define REPLACE_POLICY_LFU "LFU"
 #define REPLACE_POLICY_FIFO "FIFO"
 #define PREFETCH_POLICY_NEXTLINE "nextline"
