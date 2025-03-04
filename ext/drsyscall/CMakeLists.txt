@@ -178,7 +178,6 @@ endmacro(export_drsyscall_target)
 # For the exported version, we don't want to print to stderr or raise
 # msgboxes, so we link in globals to suppress notification in drmf_utils.c.
 add_library(drsyscall SHARED ${srcs})
-configure_extension(drsyscall OFF OFF)
 
 # Set a preferred base to avoid conflict if we can
 set(PREFERRED_BASE 0x77000000)
@@ -209,7 +208,6 @@ install_ext_header(drsyscall.h)
 # But, we also provide a static version with a different name for those
 # who want it, in the style of DR's side-by-side static extensions.
 add_library(drsyscall_static STATIC ${srcs_static})
-configure_extension(drsyscall_static ON OFF)
 configure_DynamoRIO_client(drsyscall_static)
 use_DynamoRIO_extension(drsyscall_static drmgr_static)
 use_DynamoRIO_extension(drsyscall_static drcontainers)
