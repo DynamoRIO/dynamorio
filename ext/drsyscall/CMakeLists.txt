@@ -89,7 +89,7 @@ set(DRMF_VERSION_CUR ${DRMF_VERSION_INTEGER}) # Current version
 set(framework_incdir "${PROJECT_BINARY_DIR}/ext/include")
 configure_file(../drmf/framework/public.h ${framework_incdir}/drmemory_framework.h)
 
-set(external_srcs ../dmrf/framework/drmf_utils.c ../drmf/common/utils_shared.c)
+set(external_srcs ../drmf/framework/drmf_utils.c ../drmf/common/utils_shared.c)
 
 set(srcs
   drsyscall.c
