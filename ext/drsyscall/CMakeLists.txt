@@ -134,7 +134,6 @@ if (WIN32)
   include_directories(${PROJECT_SOURCE_DIR}/core/lib)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
   set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
-  append_property_list(TARGET ${target} COMPILE_DEFINITIONS "RC_IS_DRSYSCALL")
   # FIXME: fix warnings and up to /W4
   string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   add_definitions(${asm_defs})
