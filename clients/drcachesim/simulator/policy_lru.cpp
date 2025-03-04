@@ -32,8 +32,6 @@
 
 #include "policy_lru.h"
 
-#include <list>
-
 namespace dynamorio {
 namespace drmemtrace {
 

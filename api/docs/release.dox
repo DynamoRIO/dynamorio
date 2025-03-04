@@ -126,8 +126,6 @@ clients.
 
 The changes between version \DR_VERSION and 11.3.0 include the following compatibility
 changes:
- - Changed the types of `block_size`, `num_lines`, `blocks_per_way_mask_` to `int64_t`
-   in dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - On 32-bit Arm the size of #dr_mcontext_t has been increased by 4 and the
    struct is now required to be 8-byte aligned. The offset of the field "simd"
    has changed.
@@ -136,6 +134,8 @@ changes:
    written with the path to the memory dump file.
 
 Further non-compatibility-affecting changes include:
+ - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
+   in dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - Added support for reading a single drmemtrace trace file from stdin
    via "-infile -".
  - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
