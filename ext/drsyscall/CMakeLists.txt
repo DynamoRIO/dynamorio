@@ -93,6 +93,7 @@ set(external_srcs ../dmrf/framework/drmf_utils.c ../drmf/common/utils_shared.c)
 
 set(srcs
   drsyscall.c
+  ../drmf/framework/version.c
   ${asm_utils_src}
   # add more here
   )
@@ -158,6 +159,10 @@ macro(configure_drsyscall_target target)
     string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # ensure race-free parallel builds
+    add_dependencies(${target} ${asm_utils_tgt})
+  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to
   # create a final static library, for DR_EXT_DRSYSCALL_STATIC: and that's
@@ -186,8 +191,7 @@ endmacro(export_drsyscall_target)
 
 # For the exported version, we don't want to print to stderr or raise
 # msgboxes, so we link in globals to suppress notification in drmf_utils.c.
-add_library(drsyscall SHARED ${srcs})
-
+add_library(drsyscall SHARED ${srcs} ${external_srcs})
 # Set a preferred base to avoid conflict if we can
 set(PREFERRED_BASE 0x77000000)
 configure_DynamoRIO_client(drsyscall)
@@ -216,7 +220,7 @@ install_ext_header(drsyscall.h)
 # use this same extension.
 # But, we also provide a static version with a different name for those
 # who want it, in the style of DR's side-by-side static extensions.
-add_library(drsyscall_static STATIC ${srcs_static})
+add_library(drsyscall_static STATIC ${srcs_static} ${external_srcs})
 configure_DynamoRIO_client(drsyscall_static)
 use_DynamoRIO_extension(drsyscall_static drmgr_static)
 use_DynamoRIO_extension(drsyscall_static drcontainers)
