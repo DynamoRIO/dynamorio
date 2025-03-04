@@ -141,7 +141,7 @@ if (WIN32)
   string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   add_definitions(${asm_defs})
   message(STATUS "add_definitions(-DASSEMBLE_WITH_MASM)")
-  add_definitions(-DVERSION_NUMBER_INTEGER=11900})
+  add_definitions(-DVERSION_NUMBER_INTEGER=11900)
   # We can't include directly from DDK b/c the DDK include dir and VS include
   # dirs are incompatible, so we have our own copies of the headers we need.
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
