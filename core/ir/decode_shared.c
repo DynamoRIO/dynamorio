@@ -255,6 +255,7 @@ dr_set_isa_mode(void *drcontext, dr_isa_mode_t new_mode,
     /* We would disallow but some early init routines need to use global heap */
     if (dcontext == GLOBAL_DCONTEXT) {
         dcontext = get_thread_private_dcontext();
+        /* If we're pre-thread-init, go back to GLOBAL_DCONTEXT. */
         if (dcontext == NULL)
             dcontext = GLOBAL_DCONTEXT;
     }
