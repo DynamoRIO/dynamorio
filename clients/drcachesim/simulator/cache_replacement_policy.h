@@ -30,42 +30,57 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
+#ifndef _CACHE_REPLACEMENT_POLICY_H_
+#define _CACHE_REPLACEMENT_POLICY_H_ 1
 
-#ifndef _TLB_H_
-#define _TLB_H_ 1
-
-#include <optional>
-#include <random>
-
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include <string>
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
+/**
+ * An interface for cache replacement policies.
+ *
+ * Holds the necessary information to implement a cache replacement policy,
+ * and provides a replacement-specific get_next_way_to_replace() method for
+ * `caching_device_t`.
+ */
+class cache_replacement_policy_t {
 public:
-    tlb_t(const std::string &name = "tlb");
+    cache_replacement_policy_t(int num_blocks, int associativity)
+        : associativity_(associativity)
+        , num_blocks_(num_blocks)
+    {
+    }
+    /// Informs the replacement policy that an access has occurred.
+    virtual void
+    access_update(int block_idx, int way) = 0;
+    /// Informs the replacement policy that an eviction has occurred.
+    virtual void
+    eviction_update(int block_idx, int way) = 0;
+    /// Returns the next way to replace in the block.
+    virtual int
+    get_next_way_to_replace(int block_idx) = 0;
+    /// Returns the name of the replacement policy.
+    virtual std::string
+    get_name() const = 0;
 
-    void
-    request(const memref_t &memref) override;
-
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
+    virtual ~cache_replacement_policy_t() = default;
 
 protected:
-    void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
+    virtual int
+    get_block_index(int block_idx)
+    {
+        // The block index points to the first way in the block, and the ways are stored
+        // in a contiguous array, so we divide by the associativity to get the block
+        // index.
+        return block_idx / associativity_;
+    }
+    int associativity_;
+    int num_blocks_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _TLB_H_ */
+#endif /* _CACHE_REPLACEMENT_POLICY_H_ */

@@ -39,6 +39,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "cache_replacement_policy.h"
 #include "memref.h"
 #include "simulator.h"
 #include "tlb.h"
@@ -60,10 +61,6 @@ public:
     create_v2p_from_file(std::istream &v2p_file) override;
 
 protected:
-    // Create a tlb_t object with a specific replacement policy.
-    virtual tlb_t *
-    create_tlb(std::string policy);
-
     tlb_simulator_knobs_t knobs_;
 
     // Each CPU core contains a L1 ITLB, L1 DTLB and L2 TLB.
