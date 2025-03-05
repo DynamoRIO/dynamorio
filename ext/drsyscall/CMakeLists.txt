@@ -150,6 +150,7 @@ macro(configure_drsyscall_target target)
     # dirs are incompatible, so we have our own copies of the headers we need.
     include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk
             ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
+    target_link_libraries(${target} ntdll_imports)
   endif ()
 endmacro(configure_drsyscall_target)
 
