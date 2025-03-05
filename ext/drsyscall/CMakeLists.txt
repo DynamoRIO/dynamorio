@@ -162,6 +162,7 @@ macro(configure_drsyscall_target target)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # ensure race-free parallel builds
     add_dependencies(${target} ${asm_utils_tgt})
+    target_link_libraries(${target} ntdll_imports)
   endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to

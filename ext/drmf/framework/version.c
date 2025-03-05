@@ -23,7 +23,7 @@
 
 #include "dr_api.h"
 #include "drmemory_framework.h"
-#include "utils.h"
+#include "../common/utils.h"
 
 drmf_status_t
 drmf_check_version(client_id_t client_id)
