@@ -418,7 +418,7 @@ drsys_find_sysnum_libs(OUT char **sysnum_lib_paths,
     /* Next, get the count of dlls that exist on this machine
      * (win32u.dll and kernelbase.dll do not exist on older Windows).
      */
-    int count = 0;
+    size_t count = 0;
     int dll_readable[NUM_SYSCALL_DLLS];
     char buf[MAXIMUM_PATH];
     for (int i = 0; i < NUM_SYSCALL_DLLS; ++i) {
