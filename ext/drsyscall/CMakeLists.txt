@@ -159,11 +159,12 @@ macro(configure_drsyscall_target target)
     string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  if (WIN32)
     # ensure race-free parallel builds
     add_dependencies(${target} ${asm_utils_tgt})
+    add_dependencies(${target} ntdll_imports)
     target_link_libraries(${target} ntdll_imports)
-  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  endif (WIN32)
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to
   # create a final static library, for DR_EXT_DRSYSCALL_STATIC: and that's
@@ -171,9 +172,6 @@ macro(configure_drsyscall_target target)
   # same flags and avoid compiling the same file differently.
   _DR_append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${DEFINES_NO_D}")
   target_link_libraries(${target} drfrontendlib ${ntimp_lib})
-  if (NOT USER_SPECIFIED_DynamoRIO_DIR AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    add_dependencies(${target} ntdll_imports)
-  endif ()
   copy_target_to_device(${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
 endmacro(configure_drsyscall_target)
 
