@@ -66,7 +66,6 @@ else ()
 endif ()
 add_asm_target(${asm_file} asm_utils_src asm_utils_tgt ""
   "${asm_flags}" "${asm_deps}")
-message(STATUS "add_asm_target asm_utils_tgt: ${asm_utils_tgt}")
 
 set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
 # Set DRMF_VERSION_CUR for DRMF_VERSION_USED_VAR in framework/public.h.
@@ -118,7 +117,7 @@ endif (UNIX)
 set(srcs_static ${srcs})
 
 if (WIN32)
-  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/make/resources.rc)
+  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
   set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
   # FIXME: fix warnings and up to /W4
   string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
