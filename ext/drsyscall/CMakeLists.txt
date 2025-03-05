@@ -68,13 +68,6 @@ add_asm_target(${asm_file} asm_utils_src asm_utils_tgt ""
   "${asm_flags}" "${asm_deps}")
 message(STATUS "add_asm_target asm_utils_tgt: ${asm_utils_tgt}")
 
-# We use just major.minor for .so versioning (and no, SOVERSION is not sufficient
-# here: we have to set VERSION to control the file name and import dependence).
-########string(REGEX REPLACE "^([0-9]+\\.[0-9]+)\\..*" "\\1"
-########  DRMF_VERSION_MAJOR_MINOR "${DRMF_VERSION}")
-########math(EXPR DRMF_VERSION_INTEGER "${DRMF_VERSION_MAJOR}*100 + ${DRMF_VERSION_MINOR}")
-########set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
-
 set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
 # Set DRMF_VERSION_CUR for DRMF_VERSION_USED_VAR in framework/public.h.
 math(EXPR DRMF_VERSION_CUR "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
@@ -124,45 +117,22 @@ endif (UNIX)
 # i#1594c#3: VS generators fail if static lib has resources
 set(srcs_static ${srcs})
 
-if (WIN32)
-  # For version info we need global_shared.h included in resources.rc.
-  # The extension must add core/win32/resources.rc as a source.
-  # kyluk include_directories(${PROJECT_SOURCE_DIR}/core/lib)
-  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
-  set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
-  # FIXME: fix warnings and up to /W4
-  string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-  add_definitions(${asm_defs})
-  message(STATUS "add_definitions(-DASSEMBLE_WITH_MASM)")
-  add_definitions(-DVERSION_NUMBER_INTEGER=12345)
-  # We can't include directly from DDK b/c the DDK include dir and VS include
-  # dirs are incompatible, so we have our own copies of the headers we need.
-  include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
-endif ()
-
 macro(configure_drsyscall_target target)
-  # ensure we rebuild if includes change
-  add_dependencies(${target} api_headers)
-
-  if (UNIX)
-    # Avoid relocations which tend to violate security policies
-    # kyluk append_property_string(TARGET ${target} COMPILE_FLAGS "-fPIC")
-    # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
-    # for non-VS generators
-    # kyluk string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
-    # kyluk append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
-  endif (UNIX)
   if (WIN32)
-# #   # ensure race-free parallel builds
-# #   message(STATUS "target: ${target}")
-# #   message(STATUS "asm_utils_tgt: ${asm_utils_tgt}")
-# #   add_dependencies(${target} ${asm_utils_tgt})
-# #   message(STATUS "add_dependencies ntdll_imports")
+    # For version info we need global_shared.h included in resources.rc.
+    # The extension must add core/win32/resources.rc as a source.
+    set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
+    set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
+    # FIXME: fix warnings and up to /W4
+    string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    add_definitions(${asm_defs})
+    # We can't include directly from DDK b/c the DDK include dir and VS include
+    # dirs are incompatible, so we have our own copies of the headers we need.
+    include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
     add_dependencies(${target} ntdll_imports)
-# #   message(STATUS "target_link_libraries")
     target_link_libraries(${target} drfrontendlib ntdll_imports)
-    #    target_link_libraries(${target} drfrontendlib ${ntimp_lib})
   endif (WIN32)
+
   if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
     # for non-VS generators
@@ -181,25 +151,7 @@ macro(configure_drsyscall_target target)
   # a pain to export w/ the proper link rules.  But we at least use the
   # same flags and avoid compiling the same file differently.
   _DR_append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${DEFINES_NO_D}")
-# target_link_libraries(${target} drfrontendlib ${ntimp_lib})
-# if (NOT USER_SPECIFIED_DynamoRIO_DIR AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-#   add_dependencies(${target} ntdll_imports)
-# endif ()
-  # kyluk copy_target_to_device(${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
 endmacro(configure_drsyscall_target)
-
-macro(export_drsyscall_target target drmgr drsyms)
- ## We need to clear the dependents that come from DR to avoid the prefix
- ## from affecting them too.
- #set_target_properties(${target} PROPERTIES INTERFACE_LINK_LIBRARIES "")
- #DR_export_target(${target})
- ## Now put in our imports (w/o any namespace)
- #set_target_properties(${target} PROPERTIES
- #  INTERFACE_LINK_LIBRARIES "dynamorio;${drmgr};${drsyms};drcontainers;drfrontendlib")
- #install(TARGETS ${target} EXPORT ${exported_targets_name}
- #  DESTINATION ${DRMF_INSTALL_BIN})
- ## Top-level installs .debug and .pdb files
-endmacro(export_drsyscall_target)
 
 # For the exported version, we don't want to print to stderr or raise
 # msgboxes, so we link in globals to suppress notification in drmf_utils.c.
@@ -213,19 +165,7 @@ use_DynamoRIO_extension(drsyscall drmgr)
 use_DynamoRIO_extension(drsyscall drcontainers)
 use_DynamoRIO_extension(drsyscall drsyms)
 
-########macro(set_library_version target number)
-########  # We only set the version/soversion on Windows to avoid many
-########  # negatives (DRi#1374, DRi#2127, Android "adb push" not supporting
-########  # symlinks, etc.) and very few positives on UNIX platforms.  DR's
-########  # loader and the DRMF init code perform their own version checks for
-########  # client compatibility.
-########  if (WINDOWS)
-########    set_target_properties(${target} PROPERTIES VERSION ${number})
-########  endif ()
-########endmacro()
-########set_library_version(drsyscall ${DRMF_VERSION_MAJOR_MINOR})
 configure_drsyscall_target(drsyscall)
-export_drsyscall_target(drsyscall "drmgr" "drsyms")
 # Make a build-dir copy for the drmf_proj test.
 install_ext_header(drsyscall.h)
 
@@ -236,19 +176,15 @@ install_ext_header(drsyscall.h)
 # who want it, in the style of DR's side-by-side static extensions.
 add_library(drsyscall_static STATIC ${srcs_static} ${external_srcs})
 configure_extension(drsyscall_static ON OFF)
-# kyluk configure_DynamoRIO_client(drsyscall_static)
 use_DynamoRIO_extension(drsyscall_static drmgr_static)
 use_DynamoRIO_extension(drsyscall_static drcontainers)
 use_DynamoRIO_extension(drsyscall_static drsyms_static)
 configure_drsyscall_target(drsyscall_static)
-# kyluk add_static_lib_debug_info(drsyscall_static ${INSTALL_EXT_LIB})
-export_drsyscall_target(drsyscall_static "drmgr_static" "drsyms_static")
 
 # We build a separate static target for internal use that has our
 # log/assert/notify infrastructure.
 add_library(drsyscall_int STATIC ${srcs_static})
 configure_extension(drsyscall_int ON ON)
-# kyluk configure_DynamoRIO_client(drsyscall_int)
 use_DynamoRIO_extension(drsyscall_int drmgr_static)
 use_DynamoRIO_extension(drsyscall_int drcontainers)
 if (STATIC_DRSYMS)
