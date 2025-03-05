@@ -52,6 +52,16 @@
 /* really open-ended would make this wrap around to 0 */
 #define UNIVERSAL_REGION_END ((app_pc)POINTER_MAX)
 
+#if defined(AARCH64) && defined(LINUX)
+/* Tagged pointers (whether based on TBI or MTE) use the top byte of the pointer as a
+ * memory tag. AArch64 has 48/52-bit VAs with the upper bits set to 0 for userspace
+ * addresses so we should just be able to mask the tag out to get an untagged address.
+ */
+#    define STRIP_MEMORY_TAG(pc) ((app_pc)((ptr_uint_t)pc & 0x00ffffffffffffff))
+#else
+#    define STRIP_MEMORY_TAG(pc) pc
+#endif
+
 /* opaque struct */
 struct vm_area_t;
 
