@@ -472,7 +472,7 @@ fetch_symbols(const char **sysnum_lib_paths, size_t num_sysnum_libs,
         drfront_set_symbol_search_path(symsrv_dir) != DRFRONT_SUCCESS)
         NOTIFY(0, "WARNING: Can't set symbol search path. Symbol lookup may fail." NL);
 
-    for (int i = 0; i < num_sysnum_libs; ++i) {
+    for (size_t i = 0; i < num_sysnum_libs; ++i) {
         char pdb_path[MAXIMUM_PATH];
         drfront_status_t sc = DRFRONT_SUCCESS;
         /* Sometimes there are transient errors on the symbol server side so we
