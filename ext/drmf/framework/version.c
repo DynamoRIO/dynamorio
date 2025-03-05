@@ -26,7 +26,7 @@
 #include "../common/utils.h"
 
 drmf_status_t
-drmf_check_version(client_id_t client_id)
+drmf_check_version(void *drcontext, client_id_t client_id)
 {
     byte *base;
     int *drmf_ver_used;
@@ -41,7 +41,7 @@ drmf_check_version(client_id_t client_id)
     base = dr_get_client_base(client_id);
     drmf_ver_used = (int *)
         dr_get_proc_address((module_handle_t) base, DRMF_VERSION_USED_NAME);
-    LOG(1, "%s: lib ver=%d-%d vs client version %d"NL, __FUNCTION__,
+    LOG(drcontext, 1, "%s: lib ver=%d-%d vs client version %d"NL, __FUNCTION__,
         DRMF_VERSION_COMPAT, DRMF_VERSION_CUR,
         (drmf_ver_used == NULL) ? -1 : *drmf_ver_used);
     if (drmf_ver_used == NULL ||

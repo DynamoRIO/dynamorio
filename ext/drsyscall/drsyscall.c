@@ -123,7 +123,6 @@ void *systable_lock;
 
 /* For debugging */
 uint verbose = 0;
-file_t f_global = INVALID_FILE;
 
 static drsys_param_type_t
 map_to_exported_type(uint sysarg_type, size_t *sz_out DR_PARAM_OUT);
@@ -2187,7 +2186,7 @@ drsys_init(client_id_t client_id, drsys_options_t *ops)
     if (count > 1)
         return DRMF_SUCCESS;
 
-    res = drmf_check_version(client_id);
+    res = drmf_check_version(drcontext, client_id);
     if (res != DRMF_SUCCESS)
         return res;
 
