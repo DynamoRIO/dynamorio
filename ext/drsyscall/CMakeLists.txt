@@ -161,8 +161,12 @@ macro(configure_drsyscall_target target)
   endif (UNIX)
   if (WIN32)
     # ensure race-free parallel builds
+    message(STATUS "target: ${target}")
+    message(STATUS "asm_utils_tgt: ${asm_utils_tgt}")
     add_dependencies(${target} ${asm_utils_tgt})
+    message(STATUS "add_dependencies ntdll_imports")
     add_dependencies(${target} ntdll_imports)
+    message(STATUS "target_link_libraries")
     target_link_libraries(${target} ntdll_imports)
   endif (WIN32)
   # We do not prevent duplicate builds of the same files as that would require
