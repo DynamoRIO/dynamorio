@@ -66,6 +66,7 @@ else ()
 endif ()
 add_asm_target(${asm_file} asm_utils_src asm_utils_tgt ""
   "${asm_flags}" "${asm_deps}")
+message(STATUS "add_asm_target asm_utils_tgt: ${asm_utils_tgt}")
 
 # Versioning: we use separate versioning for DRMF from the tool versioning.
 # This is major*100 + minor.
@@ -160,15 +161,27 @@ macro(configure_drsyscall_target target)
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
   if (WIN32)
-    # ensure race-free parallel builds
-    message(STATUS "target: ${target}")
-    message(STATUS "asm_utils_tgt: ${asm_utils_tgt}")
-    add_dependencies(${target} ${asm_utils_tgt})
-    message(STATUS "add_dependencies ntdll_imports")
+  #   # ensure race-free parallel builds
+  #   message(STATUS "target: ${target}")
+  #   message(STATUS "asm_utils_tgt: ${asm_utils_tgt}")
+  #   add_dependencies(${target} ${asm_utils_tgt})
+  #   message(STATUS "add_dependencies ntdll_imports")
     add_dependencies(${target} ntdll_imports)
-    message(STATUS "target_link_libraries")
+  #   message(STATUS "target_link_libraries")
     target_link_libraries(${target} ntdll_imports)
   endif (WIN32)
+  if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
+    # for non-VS generators
+    string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
+    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
+  endif ()
+
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # ensure race-free parallel builds
+    add_dependencies(${target} ${asm_utils_tgt})
+  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+
   # We do not prevent duplicate builds of the same files as that would require
   # building a static library that is then linked with drmf_utils.c to
   # create a final static library, for DR_EXT_DRSYSCALL_STATIC: and that's
