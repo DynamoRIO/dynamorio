@@ -146,11 +146,11 @@ macro(configure_drsyscall_target target)
 
   if (UNIX)
     # Avoid relocations which tend to violate security policies
-    append_property_string(TARGET ${target} COMPILE_FLAGS "-fPIC")
+    # kyluk append_property_string(TARGET ${target} COMPILE_FLAGS "-fPIC")
     # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
     # for non-VS generators
-    string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
-    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
+    # kyluk string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
+    # kyluk append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
 # if (WIN32)
 # #   # ensure race-free parallel builds
@@ -184,25 +184,27 @@ macro(configure_drsyscall_target target)
   if (NOT USER_SPECIFIED_DynamoRIO_DIR AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${target} ntdll_imports)
   endif ()
-  copy_target_to_device(${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
+  # kyluk copy_target_to_device(${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
 endmacro(configure_drsyscall_target)
 
 macro(export_drsyscall_target target drmgr drsyms)
-  # We need to clear the dependents that come from DR to avoid the prefix
-  # from affecting them too.
-  set_target_properties(${target} PROPERTIES INTERFACE_LINK_LIBRARIES "")
-  DR_export_target(${target})
-  # Now put in our imports (w/o any namespace)
-  set_target_properties(${target} PROPERTIES
-    INTERFACE_LINK_LIBRARIES "dynamorio;${drmgr};${drsyms};drcontainers;drfrontendlib")
-  install(TARGETS ${target} EXPORT ${exported_targets_name}
-    DESTINATION ${DRMF_INSTALL_BIN})
-  # Top-level installs .debug and .pdb files
+ ## We need to clear the dependents that come from DR to avoid the prefix
+ ## from affecting them too.
+ #set_target_properties(${target} PROPERTIES INTERFACE_LINK_LIBRARIES "")
+ #DR_export_target(${target})
+ ## Now put in our imports (w/o any namespace)
+ #set_target_properties(${target} PROPERTIES
+ #  INTERFACE_LINK_LIBRARIES "dynamorio;${drmgr};${drsyms};drcontainers;drfrontendlib")
+ #install(TARGETS ${target} EXPORT ${exported_targets_name}
+ #  DESTINATION ${DRMF_INSTALL_BIN})
+ ## Top-level installs .debug and .pdb files
 endmacro(export_drsyscall_target)
 
 # For the exported version, we don't want to print to stderr or raise
 # msgboxes, so we link in globals to suppress notification in drmf_utils.c.
 add_library(drsyscall SHARED ${srcs} ${external_srcs})
+configure_extension(drsyscall OFF OFF)
+
 # Set a preferred base to avoid conflict if we can
 set(PREFERRED_BASE 0x77000000)
 configure_DynamoRIO_client(drsyscall)
@@ -232,18 +234,20 @@ install_ext_header(drsyscall.h)
 # But, we also provide a static version with a different name for those
 # who want it, in the style of DR's side-by-side static extensions.
 add_library(drsyscall_static STATIC ${srcs_static} ${external_srcs})
-configure_DynamoRIO_client(drsyscall_static)
+configure_extension(drsyscall_static ON OFF)
+# kyluk configure_DynamoRIO_client(drsyscall_static)
 use_DynamoRIO_extension(drsyscall_static drmgr_static)
 use_DynamoRIO_extension(drsyscall_static drcontainers)
 use_DynamoRIO_extension(drsyscall_static drsyms_static)
 configure_drsyscall_target(drsyscall_static)
-add_static_lib_debug_info(drsyscall_static ${INSTALL_EXT_LIB})
+# kyluk add_static_lib_debug_info(drsyscall_static ${INSTALL_EXT_LIB})
 export_drsyscall_target(drsyscall_static "drmgr_static" "drsyms_static")
 
 # We build a separate static target for internal use that has our
 # log/assert/notify infrastructure.
 add_library(drsyscall_int STATIC ${srcs_static})
-configure_DynamoRIO_client(drsyscall_int)
+configure_extension(drsyscall_int ON ON)
+# kyluk configure_DynamoRIO_client(drsyscall_int)
 use_DynamoRIO_extension(drsyscall_int drmgr_static)
 use_DynamoRIO_extension(drsyscall_int drcontainers)
 if (STATIC_DRSYMS)
