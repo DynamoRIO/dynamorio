@@ -68,24 +68,16 @@ add_asm_target(${asm_file} asm_utils_src asm_utils_tgt ""
   "${asm_flags}" "${asm_deps}")
 message(STATUS "add_asm_target asm_utils_tgt: ${asm_utils_tgt}")
 
-# Versioning: we use separate versioning for DRMF from the tool versioning.
-# This is major*100 + minor.
-set(DRMF_VERSION_DEFAULT "1.0.${VERSION_NUMBER_PATCHLEVEL}")
-set(DRMF_VERSION "" CACHE STRING "DRMF version number: leave empty for default")
-if ("${DRMF_VERSION}" STREQUAL "")
-  set(DRMF_VERSION ${DRMF_VERSION_DEFAULT})
-endif()
-message(STATUS "DRMF version number: ${DRMF_VERSION}")
-string(REGEX REPLACE "^([0-9]+)\\..*" "\\1" DRMF_VERSION_MAJOR "${DRMF_VERSION}")
-string(REGEX REPLACE "^[0-9]+\\.([0-9]+)\\..*" "\\1" DRMF_VERSION_MINOR "${DRMF_VERSION}")
 # We use just major.minor for .so versioning (and no, SOVERSION is not sufficient
 # here: we have to set VERSION to control the file name and import dependence).
-string(REGEX REPLACE "^([0-9]+\\.[0-9]+)\\..*" "\\1"
-  DRMF_VERSION_MAJOR_MINOR "${DRMF_VERSION}")
-math(EXPR DRMF_VERSION_INTEGER "${DRMF_VERSION_MAJOR}*100 + ${DRMF_VERSION_MINOR}")
-string(REGEX REPLACE "\\." "," DMRF_VERSION_COMMAS "${DRMF_VERSION_INTEGER}")
+########string(REGEX REPLACE "^([0-9]+\\.[0-9]+)\\..*" "\\1"
+########  DRMF_VERSION_MAJOR_MINOR "${DRMF_VERSION}")
+########math(EXPR DRMF_VERSION_INTEGER "${DRMF_VERSION_MAJOR}*100 + ${DRMF_VERSION_MINOR}")
+########set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
+
 set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
-set(DRMF_VERSION_CUR ${DRMF_VERSION_INTEGER}) # Current version
+# Set DRMF_VERSION_CUR for DRMF_VERSION_USED_VAR in framework/public.h.
+math(EXPR DRMF_VERSION_CUR "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 set(framework_incdir "${PROJECT_BINARY_DIR}/ext/include")
 configure_file(../drmf/framework/public.h ${framework_incdir}/drmemory_framework.h)
@@ -135,7 +127,7 @@ set(srcs_static ${srcs})
 if (WIN32)
   # For version info we need global_shared.h included in resources.rc.
   # The extension must add core/win32/resources.rc as a source.
-  include_directories(${PROJECT_SOURCE_DIR}/core/lib)
+  # kyluk include_directories(${PROJECT_SOURCE_DIR}/core/lib)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
   set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
   # FIXME: fix warnings and up to /W4
@@ -160,16 +152,16 @@ macro(configure_drsyscall_target target)
     string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif (UNIX)
-  if (WIN32)
-  #   # ensure race-free parallel builds
-  #   message(STATUS "target: ${target}")
-  #   message(STATUS "asm_utils_tgt: ${asm_utils_tgt}")
-  #   add_dependencies(${target} ${asm_utils_tgt})
-  #   message(STATUS "add_dependencies ntdll_imports")
-    add_dependencies(${target} ntdll_imports)
-  #   message(STATUS "target_link_libraries")
-    target_link_libraries(${target} ntdll_imports)
-  endif (WIN32)
+# if (WIN32)
+# #   # ensure race-free parallel builds
+# #   message(STATUS "target: ${target}")
+# #   message(STATUS "asm_utils_tgt: ${asm_utils_tgt}")
+# #   add_dependencies(${target} ${asm_utils_tgt})
+# #   message(STATUS "add_dependencies ntdll_imports")
+#   add_dependencies(${target} ntdll_imports)
+# #   message(STATUS "target_link_libraries")
+#   target_link_libraries(${target} ntdll_imports)
+# endif (WIN32)
   if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
     # for non-VS generators
@@ -189,6 +181,9 @@ macro(configure_drsyscall_target target)
   # same flags and avoid compiling the same file differently.
   _DR_append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${DEFINES_NO_D}")
   target_link_libraries(${target} drfrontendlib ${ntimp_lib})
+  if (NOT USER_SPECIFIED_DynamoRIO_DIR AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    add_dependencies(${target} ntdll_imports)
+  endif ()
   copy_target_to_device(${target} ${DR_DEVICE_BASEDIR} "${loc_suffix}")
 endmacro(configure_drsyscall_target)
 
@@ -215,17 +210,17 @@ use_DynamoRIO_extension(drsyscall drmgr)
 use_DynamoRIO_extension(drsyscall drcontainers)
 use_DynamoRIO_extension(drsyscall drsyms)
 
-macro(set_library_version target number)
-  # We only set the version/soversion on Windows to avoid many
-  # negatives (DRi#1374, DRi#2127, Android "adb push" not supporting
-  # symlinks, etc.) and very few positives on UNIX platforms.  DR's
-  # loader and the DRMF init code perform their own version checks for
-  # client compatibility.
-  if (WINDOWS)
-    set_target_properties(${target} PROPERTIES VERSION ${number})
-  endif ()
-endmacro()
-set_library_version(drsyscall ${DRMF_VERSION_MAJOR_MINOR})
+########macro(set_library_version target number)
+########  # We only set the version/soversion on Windows to avoid many
+########  # negatives (DRi#1374, DRi#2127, Android "adb push" not supporting
+########  # symlinks, etc.) and very few positives on UNIX platforms.  DR's
+########  # loader and the DRMF init code perform their own version checks for
+########  # client compatibility.
+########  if (WINDOWS)
+########    set_target_properties(${target} PROPERTIES VERSION ${number})
+########  endif ()
+########endmacro()
+########set_library_version(drsyscall ${DRMF_VERSION_MAJOR_MINOR})
 configure_drsyscall_target(drsyscall)
 export_drsyscall_target(drsyscall "drmgr" "drsyms")
 # Make a build-dir copy for the drmf_proj test.
