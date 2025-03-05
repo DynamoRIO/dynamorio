@@ -121,6 +121,8 @@ public:
             parent_->children_.erase(
                 std::remove(parent_->children_.begin(), parent_->children_.end(), this),
                 parent_->children_.end());
+        }
+        if (parent != NULL) {
             parent->children_.push_back(this);
         }
         parent_ = parent;
