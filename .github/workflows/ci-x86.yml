@@ -60,7 +60,7 @@ defaults:
 jobs:
   # 32-bit Linux build with gcc and run tests:
   x86-32:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     # When checking out the repository that triggered a workflow, actions/checkout
     # defaults to the reference or SHA for that event. See documentation for ref at
@@ -116,9 +116,13 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
+
   # 64-bit Linux build with gcc and run tests.
   x86-64:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
       with:
@@ -298,6 +302,11 @@ jobs:
         DYNAMORIO_MUSL: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
+
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
