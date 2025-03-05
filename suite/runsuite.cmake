@@ -289,8 +289,8 @@ if (CLANG_FORMAT_DIFF AND Python3_FOUND)
     # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
     message(STATUS
       "Changes are not formatted properly:\n${format_out}")
-    # DO-NOT-MERGE message(FATAL_ERROR
-    # DO-NOT-MERGE   "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+    message(FATAL_ERROR
+      "FATAL ERROR: Changes are not formatted properly (see diff above)!")
   else ()
     message("clang-format check passed")
   endif ()
@@ -308,7 +308,7 @@ string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents
 string(REGEX MATCH "\t" match "${diff_notabs}")
 if (NOT "${match}" STREQUAL "")
   string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
-  # DO-NOT-MERGE message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+  message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
 endif ()
 
 # Check for NOCHECKIN
