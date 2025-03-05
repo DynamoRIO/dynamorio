@@ -117,22 +117,14 @@ endif (UNIX)
 # i#1594c#3: VS generators fail if static lib has resources
 set(srcs_static ${srcs})
 
-macro(configure_drsyscall_target target)
-  if (WIN32)
-    # For version info we need global_shared.h included in resources.rc.
-    # The extension must add core/win32/resources.rc as a source.
-    set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
-    set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
-    # FIXME: fix warnings and up to /W4
-    string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-    add_definitions(${asm_defs})
-    # We can't include directly from DDK b/c the DDK include dir and VS include
-    # dirs are incompatible, so we have our own copies of the headers we need.
-    include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
-    add_dependencies(${target} ntdll_imports)
-    target_link_libraries(${target} drfrontendlib ntdll_imports)
-  endif (WIN32)
+if (WIN32)
+  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/make/resources.rc)
+  set(DEFINES_NO_D ${DEFINES_NO_D} RC_IS_DRSYSCALL)
+  # FIXME: fix warnings and up to /W4
+  string(REGEX REPLACE "/W4" "/W2" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+endif ()
 
+macro(configure_drsyscall_target target)
   if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
     # for non-VS generators
@@ -151,6 +143,15 @@ macro(configure_drsyscall_target target)
   # a pain to export w/ the proper link rules.  But we at least use the
   # same flags and avoid compiling the same file differently.
   _DR_append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${DEFINES_NO_D}")
+  target_link_libraries(${target} drfrontendlib ${ntimp_lib})
+  IF (WIN32)
+    add_dependencies(${target} ntdll_imports)
+    add_definitions(${asm_defs})
+    # We can't include directly from DDK b/c the DDK include dir and VS include
+    # dirs are incompatible, so we have our own copies of the headers we need.
+    include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk
+            ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
+  endif ()
 endmacro(configure_drsyscall_target)
 
 # For the exported version, we don't want to print to stderr or raise
