@@ -520,7 +520,7 @@ expand_dr_root(const char *dr_root, bool debug, dr_platform_t dr_platform, bool 
         { "lib32/debug/libdynamorio.dylib", true, true, false, DR_PLATFORM_32BIT },
         { "lib32/release/libdrpreload.dylib", false, false, true, DR_PLATFORM_32BIT },
         { "lib32/release/libdynamorio.dylib", true, false, false, DR_PLATFORM_32BIT },
-        { "lib64/debug/libdrpreload.dylib", true, false, true, DR_PLATFORM_64BIT },
+        { "lib64/debug/libdrpreload.dylib", true, true, true, DR_PLATFORM_64BIT },
         { "lib64/debug/libdynamorio.dylib", true, true, false, DR_PLATFORM_64BIT },
         { "lib64/release/libdrpreload.dylib", false, false, true, DR_PLATFORM_64BIT },
         { "lib64/release/libdynamorio.dylib", true, false, false, DR_PLATFORM_64BIT },
