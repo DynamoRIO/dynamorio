@@ -1,0 +1,137 @@
+/* **********************************************************
+ * Copyright (c) 2012-2014 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drsyscall Dr. Syscall: System Call Monitoring Extension
+
+The \p drsyscall DynamoRIO Extension provides system call monitoring
+features beyond the basics in the DynamoRIO API itself.  \p drsyscall is
+part of the Dr. Memory Framework.
+
+ - \ref sec_drsyscall_setup
+ - \ref sec_drsyscall_events
+ - \ref sec_drsyscall_API
+ - \ref sec_drsyscall_nums
+
+\section sec_drsyscall_setup Setup
+
+To use \p drsyscall with your client, first locate the Dr. Memory
+Framework.  Then use the standard method of using an Extension with the
+name \p drsyscall.  The two steps will look like this in your client's
+\p CMakeLists.txt file:
+
+\code
+find_package(DrMemoryFramework)
+use_DynamoRIO_extension(clientname drsyscall)
+\endcode
+
+To point CMake at the framework, set the DrMemoryFramework_DIR variable to
+point at the \p drmf subdirectory of the Dr. Memory package that you are
+using.  For example:
+
+\code
+cmake -G"Ninja" -DDynamoRIO_DIR=c:/path/to/DynamoRIO-Windows-4.1.0-8/cmake -DDrMemoryFramework_DIR=c:/path/to/DrMemory-Windows-1.6.0-2/drmf ../mysrcs/
+\endcode
+
+That will automatically set up the include path and library dependence.
+
+Your client must call \p drsys_init() prior to accessing any API
+routines in \p drsyscall, and should call \p drsys_exit() at process exit
+time.
+
+\section sec_drsyscall_events Event Replacement
+
+\p drsyscall uses the \p drmgr Extension to ensure its events occur at the
+proper order.  A user of \p drsyscall must use the \p drmgr versions of the
+basic block and thread events.
+
+\section sec_drsyscall_API Dr. Syscall API
+
+\p drsyscall provides the following key features:
+
+ -# System call name to number querying
+ -# System call number to name querying
+ -# System call argument type iteration
+ -# System call argument value iteration
+ -# Query whether a system call return value indicates success
+ -# Iteration over every memory region read or written by a system call
+ -# Storage of system call argument values for access in post-syscall events
+
+Many features of \p drsyscall operate on the current in-progress system
+call.  The client should register for the pre- and post-syscall events
+through \p drmgr.  In those events, the client can then invoke \p drsyscall
+API routines to query the current system call.  The client should normally
+use a default priority for its system call events to ensure that \p
+drsyscall's per-system-call initialization is in place prior to invoking \p
+drsyscall functions.
+
+If the client wishes to modify the machine context, system call parameters,
+or system call return value, the client must use a separate system
+call event that is ordered prior to DRMGR_PRIORITY_PRESYS_DRSYS or
+DRMGR_PRIORITY_POSTSYS_DRSYS.
+
+The client can statically iterate over the types of the parameters to every
+system call in its dr_init() routine and decide which system calls it wants
+to monitor.  It should then request that \p drsyscall filter those system
+calls.  Only filtered system calls can be dynamically queried.
+
+When dealing with system call results and identifying whether a system call
+succeeded, drsys_cur_syscall_result() distinguishes itself from
+dr_syscall_get_result_ex() by providing accurate results for all system
+calls, in particular including Windows win32k.sys graphical (NtGdi) and
+user (NtUser) system calls.  It also knows which system calls return 64-bit
+results, elminating the need for the caller to specifically request the top
+32 bits in such cases.  For setting the result value of a system call,
+currently \p drsyscall does not provide its own routine and
+dr_syscall_set_result_ex() should be used.
+
+\section sec_drsyscall_nums System Call Numbers
+
+On Linux, the system call number is the standard number exported by the
+kernel.  For \p SYS_ioctl, a secondary number indicates the request code.
+\p drsyscall does not currently split the 32-bit SYS_socketcall or IPC
+system calls into secondary numbers.
+
+On Windows, \p drsyscall uses the raw number from the eax register.  This
+includes the WOW64 index stored in the upper 16 bits on Windows 8 and
+beyond.  Secondary numbers are used for \p NtUserCall* system calls.
+
+For MacOS, whether 32-bit or 64-bit, we normalize the system call number to
+a positive integer with the top 8 bits set to 0x1 for a Mach system call,
+0x3 for Machdep, and 0x0 for BSD (allowing the direct use of SYS_
+constants).  The user can access the raw eax register in the pre-syscall
+event to view the unmodified number, whose encoding varies depending on the
+bitwidth and interrupt vector used.
+
+*/
