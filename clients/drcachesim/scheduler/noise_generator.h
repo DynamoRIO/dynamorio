@@ -68,9 +68,10 @@ protected:
     virtual trace_entry_t
     generate_trace_entry();
 
-    // This counter does not count TRACE_TYPE_THREAD or TRACE_TYPE_PID.
-    // The idea is that when we want to generate at least 1 record, tid and pid have to be
-    // there as well, otherwise the scheduler will report an error.
+    // This counter does not count TRACE_TYPE_THREAD, TRACE_TYPE_PID, and
+    // TRACE_MARKER_TYPE_TIMESTAMP. The idea is that when the user wants to generate at
+    // at least one record, tid, pid, and timestamp always have to be there, otherwise
+    // the scheduler will report an error.
     uint64_t num_records_to_generate_ = 0;
     addr_t pid_ = 0;
     addr_t tid_ = 0;
