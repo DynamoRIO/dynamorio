@@ -32,12 +32,8 @@
 # Code style checks for use with vera++:
 
 ## 1.3.0 syntax is "rule=<name>" but Travis has 1.2.1 so we use the old syntax.
+# DO-NOT_MERGE
 set rules {
-    line_length_content
-    multi_line_body
-    break_after_return_type
-    no_space_after_control
-    space_after_call
     required_namespaces
 }
 

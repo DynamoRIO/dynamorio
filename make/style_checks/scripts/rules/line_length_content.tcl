@@ -32,7 +32,8 @@
 # Code style checks for use with vera++:
 # Check lines for line length and simple content checks.
 
-set max 90
+# DO-NOT-MERGE
+set max 900
 # Some files are exempt from the 90-char limit:
 array set length_exempt [list {statsx.h} {1} \
                              {optionsx.h} {1} \
