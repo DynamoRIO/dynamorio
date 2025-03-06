@@ -266,11 +266,32 @@ set(disable_clang_format_checks FALSE)
 if (GIT)
   # Disable clang-format checks if DISABLE_CLANG_FORMAT_CHECKS appears in a
   # commit message.
+  execute_process(COMMAND ${GIT} rev-parse --abbrev-ref HEAD
+    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+    RESULT_VARIABLE git_result2
+    ERROR_VARIABLE git_err2
+    OUTPUT_VARIABLE git_branch)
+  message(STATUS "git_branch: ${git_branch}")
+  execute_process(COMMAND ${GIT} log --grep "\\s*DISABLE_CLANG_FORMAT_CHECKS" origin/"${git_branch}"
+    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+    RESULT_VARIABLE git_result3
+    ERROR_VARIABLE git_err3
+    OUTPUT_VARIABLE git_out3)
+  message(STATUS "git_branch: ${git_out3}")
+
+  execute_process(COMMAND ${GIT} log --grep "\\s*DISABLE_CLANG_FORMAT_CHECKS" origin/"${arg_branch}"
+    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+    RESULT_VARIABLE git_result0
+    ERROR_VARIABLE git_err0
+    OUTPUT_VARIABLE git_out0)
+  message(STATUS "arg_branch: ${git_out0}")
+
   execute_process(COMMAND ${GIT} log --grep "\\s*DISABLE_CLANG_FORMAT_CHECKS"
     WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
     RESULT_VARIABLE git_result
     ERROR_VARIABLE git_err
     OUTPUT_VARIABLE git_out)
+  message(STATUS "git_out: ${git_out}")
   if (NOT ${git_out} STREQUAL "")
     set(disable_clang_format_checks TRUE)
   endif ()
@@ -320,13 +341,15 @@ else ()
    message("clang-format check disabled")
 endif ()
 
-# Check for tabs other than on the revision lines.
-# The clang-format check will now find these in C files, but not non-C files.
-string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
-string(REGEX MATCH "\t" match "${diff_notabs}")
-if (NOT "${match}" STREQUAL "")
-  string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
-  message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+if (NOT disable_clang_format_checks)
+  # Check for tabs other than on the revision lines.
+  # The clang-format check will now find these in C files, but not non-C files.
+  string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
+  string(REGEX MATCH "\t" match "${diff_notabs}")
+  if (NOT "${match}" STREQUAL "")
+    string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
+    message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+  endif ()
 endif ()
 
 # Check for NOCHECKIN
