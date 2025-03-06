@@ -264,13 +264,17 @@ endif ()
 # Prefer named version 14.0 from apt.llvm.org.
 ## kyluk
 set(disable_clang_format_checks FALSE)
-if (GIT)
-  execute_process(COMMAND ${GIT} log origin/${arg_branch}
-    RESULT_VARIABLE git_result
-    ERROR_VARIABLE git_err
-    OUTPUT_VARIABLE git_out)
-  string(REGEX MATCH "\nDISABLE_CLANG_FORMAT_CHECKS" disable_clang_format_checks "${git_out}")
-  message("git_out: ${git_out}")
+if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
+  find_program(GIT git DOC "git client")
+    if (GIT)
+      execute_process(COMMAND ${GIT} log origin/${arg_branch}
+        RESULT_VARIABLE git_result
+        ERROR_VARIABLE git_err
+        OUTPUT_VARIABLE git_out)
+      message("git_out: ${git_out}")
+      string(REGEX MATCH "\nDISABLE_CLANG_FORMAT_CHECKS" disable_clang_format_checks "${git_out}")
+    endif ()
+  endif ()
 endif ()
 message("disable_clang_format_checks: ${disable_clang_format_checks}")
 if (NOT disable_clang_format_checks)
