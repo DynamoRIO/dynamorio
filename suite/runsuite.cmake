@@ -279,6 +279,7 @@ if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
     message("git_out1: ${git_branch}")
     message("GIT after check: ${GIT}")
     execute_process(COMMAND ${GIT} log -a origin/${git_branch}
+      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
       RESULT_VARIABLE git_result1
       ERROR_VARIABLE git_err1
       OUTPUT_VARIABLE git_out1)
@@ -286,12 +287,21 @@ if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
     message("git_err1: ${git_err1}")
     message("git_out1: ${git_out1}")
     execute_process(COMMAND ${GIT} log --grep="DISABLE_CLANG_FORMAT_CHECKS" origin/${git_branch}
+      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
       RESULT_VARIABLE git_result
       ERROR_VARIABLE git_err
       OUTPUT_VARIABLE git_out)
     message("git_result: ${git_result}")
     message("git_err: ${git_err}")
     message("git_out: ${git_out}")
+    execute_process(COMMAND ${GIT} log -a origin/${arg_branch}
+      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+      RESULT_VARIABLE git_result2
+      ERROR_VARIABLE git_err2
+      OUTPUT_VARIABLE git_out2)
+    message("git_result1: ${git_result2}")
+    message("git_err1: ${git_err2}")
+    message("git_out1: ${git_out2}")
     # string(REGEX MATCH "\nDISABLE_CLANG_FORMAT_CHECKS" disable_clang_format_checks "${git_out}")
     if (${git_out})
       set(disable_clang_format_checks TRUE)
