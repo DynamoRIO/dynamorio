@@ -263,11 +263,13 @@ endif ()
 #
 # Prefer named version 14.0 from apt.llvm.org.
 ## kyluk
+message("GIT per check: ${GIT}")
 set(disable_clang_format_checks FALSE)
 if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
   find_program(GIT git DOC "git client")
   if (GIT)
-    execute_process(COMMAND ${GIT} log origin/${arg_branch}
+    message("GIT after check: ${GIT}")
+    execute_process(COMMAND ${GIT} log -a origin/${arg_branch}
       RESULT_VARIABLE git_result
       ERROR_VARIABLE git_err
       OUTPUT_VARIABLE git_out)
