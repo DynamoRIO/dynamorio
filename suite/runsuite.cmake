@@ -262,44 +262,59 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
-if (NOT CLANG_FORMAT_DIFF)
-  find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
+## kyluk
+set(disable_clang_format_checks FALSE)
+if (GIT)
+  execute_process(COMMAND ${GIT} log origin/${arg_branch}
+    RESULT_VARIABLE git_result
+    ERROR_VARIABLE git_err
+    OUTPUT_VARIABLE git_out)
+  string(REGEX MATCH "\nDISABLE_CLANG_FORMAT_CHECKS" disable_clang_format_checks "${git_out}")
+  message("git_out: ${git_out}")
 endif ()
-if (NOT CLANG_FORMAT_DIFF)
-  find_program(CLANG_FORMAT_DIFF clang-format-diff.py DOC "clang-format-diff")
-endif ()
-find_package(Python3)
-if (CLANG_FORMAT_DIFF AND Python3_FOUND)
-  get_filename_component(CUR_DIR "." ABSOLUTE)
-  set(diff_file "${CUR_DIR}/runsuite_diff.patch")
-  file(WRITE ${diff_file} "${diff_contents}")
-  execute_process(COMMAND ${Python3_EXECUTABLE} ${CLANG_FORMAT_DIFF} -p1
-    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-    INPUT_FILE ${diff_file}
-    RESULT_VARIABLE format_result
-    ERROR_VARIABLE format_err
-    OUTPUT_VARIABLE format_out)
-  if (format_result OR format_err)
-    message(FATAL_ERROR
-      "Error (${format_result}) running clang-format-diff: ${format_err}")
+message("disable_clang_format_checks: ${disable_clang_format_checks}")
+if (NOT disable_clang_format_checks)
+  find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
+  if (NOT CLANG_FORMAT_DIFF)
+    find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
   endif ()
-  if (format_out)
-    # The WARNING and FATAL_ERROR message types try to format the diff and it
-    # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
-    message(STATUS
-      "Changes are not formatted properly:\n${format_out}")
-    # DO-NOT-MERGE message(FATAL_ERROR
-    # DO-NOT-MERGE   "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+  if (NOT CLANG_FORMAT_DIFF)
+    find_program(CLANG_FORMAT_DIFF clang-format-diff.py DOC "clang-format-diff")
+  endif ()
+  find_package(Python3)
+  if (CLANG_FORMAT_DIFF AND Python3_FOUND)
+    get_filename_component(CUR_DIR "." ABSOLUTE)
+    set(diff_file "${CUR_DIR}/runsuite_diff.patch")
+    file(WRITE ${diff_file} "${diff_contents}")
+    execute_process(COMMAND ${Python3_EXECUTABLE} ${CLANG_FORMAT_DIFF} -p1
+      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+      INPUT_FILE ${diff_file}
+      RESULT_VARIABLE format_result
+      ERROR_VARIABLE format_err
+      OUTPUT_VARIABLE format_out)
+    if (format_result OR format_err)
+      message(FATAL_ERROR
+        "Error (${format_result}) running clang-format-diff: ${format_err}")
+    endif ()
+    if (format_out)
+      # The WARNING and FATAL_ERROR message types try to format the diff and it
+      # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
+      message(STATUS
+        "Changes are not formatted properly:\n${format_out}")
+      # DO-NOT-MERGE message(FATAL_ERROR
+      # DO-NOT-MERGE   "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+    else ()
+      message("clang-format check passed")
+    endif ()
   else ()
-    message("clang-format check passed")
+    if (arg_require_format)
+      message(FATAL_ERROR "FATAL ERROR: clang-format is required but not found!")
+    else ()
+      message("clang-format-diff not found: skipping format checks")
+    endif ()
   endif ()
 else ()
-  if (arg_require_format)
-    message(FATAL_ERROR "FATAL ERROR: clang-format is required but not found!")
-  else ()
-    message("clang-format-diff not found: skipping format checks")
-  endif ()
+   message("clang-format check disabled")
 endif ()
 
 # Check for tabs other than on the revision lines.
