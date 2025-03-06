@@ -270,12 +270,13 @@ if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
   message("arg_branch: ${arg_branch}")
   if (GIT)
     execute_process(COMMAND ${GIT} rev-parse --abbrev-ref HEAD
+      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
       RESULT_VARIABLE git_result0
       ERROR_VARIABLE git_err0
       OUTPUT_VARIABLE git_branch)
     message("git_result1: ${git_result0}")
     message("git_err1: ${git_err0}")
-    message("git_out1: ${git_out0}")
+    message("git_out1: ${git_branch}")
     message("GIT after check: ${GIT}")
     execute_process(COMMAND ${GIT} log -a origin/${git_branch}
       RESULT_VARIABLE git_result1
