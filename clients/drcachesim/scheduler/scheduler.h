@@ -65,7 +65,6 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "mutex_dbg_owned.h"
-#include "noise_generator.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "speculator.h"
@@ -855,16 +854,6 @@ public:
         std::unique_ptr<ReaderType> kernel_syscall_reader;
         /** The end reader for #kernel_syscall_reader. */
         std::unique_ptr<ReaderType> kernel_syscall_reader_end;
-        /**
-         * Adds noise generators to the scheduler. A noise generator creates synthetic
-         * trace records that can be scheduled alongside records of one or more real
-         * traces.
-         */
-        bool noise_generator_enable = false;
-        /**
-         * Contains metadata information to drive the noise generation.
-         */
-        std::unique_ptr<noise_generator_info_t> noise_generator_info;
         // When adding new options, also add to print_configuration().
     };
 

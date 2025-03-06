@@ -34,6 +34,7 @@
 #define _NOISE_GENERATOR_H_ 1
 
 #include "reader.h"
+#include "scheduler.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -76,8 +77,9 @@ protected:
 
 private:
     trace_entry_t entry_ = {};
-    bool marker_pid_generated_ = false;
-    bool marker_tid_generated_ = false;
+    bool pid_generated_ = false;
+    bool tid_generated_ = false;
+    bool marker_timestamp_generated_ = false;
 };
 
 /**
@@ -88,6 +90,38 @@ struct noise_generator_info_t {
     uint64_t num_processes = 1;
     uint64_t num_threads_per_process = 1;
     uint64_t num_records_to_generate = 1000;
+};
+
+/**
+ * Factory to create noise_generator_t.
+ */
+template <typename RecordType, typename ReaderType> class noise_generator_factory_t {
+public:
+    typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
+
+    void
+    init();
+
+    bool
+    is_enabled();
+
+    std::string
+    get_error_string();
+
+    void
+    add_noise_generator_to_workloads(
+        std::vector<typename sched_type_t::input_workload_t> &workloads);
+
+protected:
+    std::unique_ptr<ReaderType>
+    create_noise_generator(addr_t pid, addr_t tid, uint64_t num_records);
+
+    std::unique_ptr<ReaderType>
+    create_noise_generator_end();
+
+    noise_generator_info_t info_;
+    bool enabled_ = false;
+    std::string error_string_;
 };
 
 } // namespace drmemtrace

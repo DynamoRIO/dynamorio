@@ -62,7 +62,6 @@
 #include "mutex_dbg_owned.h"
 #include "reader.h"
 #include "record_file_reader.h"
-#include "noise_generator.h"
 #include "trace_entry.h"
 #ifdef HAS_LZ4
 #    include "lz4_file_reader.h"
@@ -670,10 +669,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.kernel_syscall_reader.get());
     VPRINT(this, 1, "  %-25s : %p\n", "kernel_syscall_reader_end",
            options_.kernel_syscall_reader_end.get());
-    VPRINT(this, 1, "  %-25s : %d\n", "noise_generator_enable",
-           options_.noise_generator_enable);
-    VPRINT(this, 1, "  %-25s : %p\n", "noise_generator_info",
-           options_.noise_generator_info.get());
 }
 
 template <typename RecordType, typename ReaderType>
@@ -1608,11 +1603,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
     // output stream(s).
     for (size_t i = 0; i < inputs_.size(); ++i) {
         input_info_t &input = inputs_[i];
-        // If the input is a noise generator, we don't want to read ahead to find
-        // timestamp records, since we don't have any.
-        if (dynamic_cast<noise_generator_t *>(input.reader.get()) != nullptr)
-            continue;
-
         std::lock_guard<mutex_dbg_owned> lock(*input.lock);
 
         // If the input jumps to the middle immediately, do that now so we'll have

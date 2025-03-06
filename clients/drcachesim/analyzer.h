@@ -427,20 +427,6 @@ protected:
                        key_tool_shard_hash_t>
         per_shard_interval_snapshots_;
 
-    // Creates a noise generator as a reader_t iterator.
-    std::unique_ptr<ReaderType>
-    get_noise_generator(addr_t pid, addr_t tid, uint64_t num_records);
-
-    // Creates a noise generator end-iterator.
-    std::unique_ptr<ReaderType>
-    get_noise_generator_end();
-
-    // Adds noise generator to workloads.
-    void
-    add_noise_generator_to_workloads(
-        std::vector<typename sched_type_t::input_workload_t> &workloads,
-        std::unique_ptr<noise_generator_info_t> info);
-
     bool parallel_;
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";
@@ -452,6 +438,9 @@ protected:
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     bool sched_by_time_ = false;
     typename sched_type_t::mapping_t sched_mapping_ = sched_type_t::MAP_TO_ANY_OUTPUT;
+
+    // Factory to create noise generators and add them to the scheduler workloads.
+    noise_generator_factory_t<RecordType, ReaderType> noise_generator_factory_;
 
 private:
     bool

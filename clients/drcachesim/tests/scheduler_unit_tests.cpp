@@ -6972,6 +6972,7 @@ test_noise_generator()
                          std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
     readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
                          std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    // Add noise.
     readers.emplace_back(
         std::unique_ptr<mock_noise_generator_t>(
             new mock_noise_generator_t(1, 1, 10, noise_generator_addr_to_generate)),

@@ -31,9 +31,10 @@
  */
 
 #include <assert.h>
+#include <climits>
 #include "noise_generator.h"
+#include "memref.h"
 #include "trace_entry.h"
-#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -87,14 +88,21 @@ noise_generator_t::read_next_entry()
 
     // Do not change the order for generating TRACE_TYPE_THREAD and TRACE_TYPE_PID.
     // The scheduler expects a tid first and then a pid.
-    if (!marker_tid_generated_) {
+    if (!tid_generated_) {
         entry_ = { TRACE_TYPE_THREAD, sizeof(int), { tid_ } };
-        marker_tid_generated_ = true;
+        tid_generated_ = true;
         return &entry_;
     }
-    if (!marker_pid_generated_) {
+    if (!pid_generated_) {
         entry_ = { TRACE_TYPE_PID, sizeof(int), { pid_ } };
-        marker_pid_generated_ = true;
+        pid_generated_ = true;
+        return &entry_;
+    }
+    if (!marker_timestamp_generated_) {
+        entry_ = { TRACE_TYPE_MARKER,
+                   TRACE_MARKER_TYPE_TIMESTAMP,
+                   { static_cast<addr_t>(ULONG_MAX - 1) } };
+        marker_timestamp_generated_ = true;
         return &entry_;
     }
 
@@ -107,6 +115,88 @@ noise_generator_t::read_next_entry()
 
     return &entry_;
 }
+
+template <typename RecordType, typename ReaderType>
+void
+noise_generator_factory_t<RecordType, ReaderType>::init()
+{
+    enabled_ = true;
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+noise_generator_factory_t<RecordType, ReaderType>::is_enabled()
+{
+    return enabled_;
+}
+
+template <typename RecordType, typename ReaderType>
+std::string
+noise_generator_factory_t<RecordType, ReaderType>::get_error_string()
+{
+    return error_string_;
+}
+
+template <typename RecordType, typename ReaderType>
+void
+noise_generator_factory_t<RecordType, ReaderType>::add_noise_generator_to_workloads(
+    std::vector<typename sched_type_t::input_workload_t> &workloads)
+{
+    // Add noise generator reader to workloads.
+    for (uint64_t pid_idx = 0; pid_idx < info_.num_processes; ++pid_idx) {
+        // Assumptions in the scheduler disallow pid to be 0.
+        uint64_t pid = pid_idx + 1;
+        std::vector<typename sched_type_t::input_reader_t> readers;
+        for (uint64_t tid_idx = 0; tid_idx < info_.num_threads_per_process; ++tid_idx) {
+            // Assumptions in the scheduler disallow tid to be 0.
+            uint64_t tid = tid_idx + 1;
+            auto noise_generator =
+                create_noise_generator(static_cast<addr_t>(pid), static_cast<addr_t>(tid),
+                                       info_.num_records_to_generate);
+            auto noise_generator_end = create_noise_generator_end();
+            readers.emplace_back(std::move(noise_generator),
+                                 std::move(noise_generator_end),
+                                 static_cast<memref_tid_t>(tid));
+        }
+        workloads.emplace_back(std::move(readers));
+    }
+}
+
+template <>
+std::unique_ptr<reader_t>
+noise_generator_factory_t<memref_t, reader_t>::create_noise_generator(
+    addr_t pid, addr_t tid, uint64_t num_records)
+{
+    return std::unique_ptr<noise_generator_t>(
+        new noise_generator_t(pid, tid, num_records));
+}
+
+template <>
+std::unique_ptr<reader_t>
+noise_generator_factory_t<memref_t, reader_t>::create_noise_generator_end()
+{
+    return std::unique_ptr<noise_generator_t>(new noise_generator_t());
+}
+
+template <>
+std::unique_ptr<record_reader_t>
+noise_generator_factory_t<trace_entry_t, record_reader_t>::create_noise_generator(
+    addr_t pid, addr_t tid, uint64_t num_records)
+{
+    error_string_ = "Noise generator is not suppported for record_reader_t";
+    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
+}
+
+template <>
+std::unique_ptr<record_reader_t>
+noise_generator_factory_t<trace_entry_t, record_reader_t>::create_noise_generator_end()
+{
+    error_string_ = "Noise generator is not suppported for record_reader_t";
+    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
+}
+
+template class noise_generator_factory_t<memref_t, reader_t>;
+template class noise_generator_factory_t<trace_entry_t, record_reader_t>;
 
 } // namespace drmemtrace
 } // namespace dynamorio

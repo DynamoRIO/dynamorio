@@ -151,8 +151,11 @@ Further non-compatibility-affecting changes include:
    framework.
  - Added #dynamorio::drmemtrace::noise_generator_info_t, which contains the metadata
    information to drive the noise generation in the drmemtrace framework.
- - Added -noise_generator_enable as global flag and scheduler option in the drmemtrace
-   framework.
+ - Added #dynamorio::drmemtrace::noise_generator_factory_t, which creates one or more
+   #dynamorio::drmemtrace::noise_generator_t and adds them to the workloads of
+   #dynamorio::drmemtrace::scheduler_tmpl_t.
+ - Added -noise_generator_enable as global option in the drmemtrace framework to enable
+   noise generation alongside the scheduled traces.
 
 **************************************************
 <hr>
