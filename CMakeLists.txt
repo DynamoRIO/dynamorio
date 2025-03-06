@@ -1677,9 +1677,7 @@ if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)
 
-if (BUILD_TOOLS OR BUILD_DRSTATS OR BUILD_CLIENTS)
-  add_subdirectory(libutil)
-endif (BUILD_TOOLS OR BUILD_DRSTATS OR BUILD_CLIENTS)
+add_subdirectory(libutil)
 
 if (BUILD_TOOLS)
   add_subdirectory(tools)
