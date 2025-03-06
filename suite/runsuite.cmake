@@ -277,8 +277,9 @@ if (GIT)
     RESULT_VARIABLE git_result3
     ERROR_VARIABLE git_err3
     OUTPUT_VARIABLE git_out3)
-  message(STATUS "git_branch: ${git_out3}")
+  message(STATUS "git_branch output: ${git_out3}")
 
+  message(STATUS "arg_branch: ${arg_branch}")
   execute_process(COMMAND ${GIT} log --grep "\\s*DISABLE_CLANG_FORMAT_CHECKS" origin/"${arg_branch}"
     WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
     RESULT_VARIABLE git_result0
