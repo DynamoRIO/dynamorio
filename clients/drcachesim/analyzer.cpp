@@ -302,6 +302,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         // tweak  noise_generator_info_t parameters. We'd also need a method to replace
         // noise_generator_info_t in noise_generator_factory_t.
         noise_generator_factory_.add_noise_generator_to_workloads(workloads);
+        // Check for errors (e.g., a record_file_reader_t noise generator).
+        std::string noise_generator_factory_error_string =
+            noise_generator_factory_.get_error_string();
+        if (!noise_generator_factory_error_string.empty()) {
+            error_string_ = noise_generator_factory_error_string;
+            return false;
+        }
     }
 
     for (int i = 0; i < num_tools_; ++i) {
