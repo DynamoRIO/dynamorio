@@ -262,54 +262,19 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-## kyluk
-message("GIT per check: ${GIT}")
 set(disable_clang_format_checks FALSE)
-if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
-  find_program(GIT git DOC "git client")
-  message("arg_branch: ${arg_branch}")
-  if (GIT)
-    execute_process(COMMAND ${GIT} rev-parse --abbrev-ref HEAD
-      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-      RESULT_VARIABLE git_result0
-      ERROR_VARIABLE git_err0
-      OUTPUT_VARIABLE git_branch)
-    message("git_result1: ${git_result0}")
-    message("git_err1: ${git_err0}")
-    message("git_out1: ${git_branch}")
-    message("GIT after check: ${GIT}")
-    execute_process(COMMAND ${GIT} log -a origin/${git_branch}
-      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-      RESULT_VARIABLE git_result1
-      ERROR_VARIABLE git_err1
-      OUTPUT_VARIABLE git_out1)
-    message("git_result1: ${git_result1}")
-    message("git_err1: ${git_err1}")
-    message("git_out1: ${git_out1}")
-    execute_process(COMMAND ${GIT} log --grep="DISABLE_CLANG_FORMAT_CHECKS" origin/${git_branch}
-      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-      RESULT_VARIABLE git_result
-      ERROR_VARIABLE git_err
-      OUTPUT_VARIABLE git_out)
-    message("git_result: ${git_result}")
-    message("git_err: ${git_err}")
-    message("git_out: ${git_out}")
-    execute_process(COMMAND ${GIT} log -a origin/${arg_branch}
-      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-      RESULT_VARIABLE git_result2
-      ERROR_VARIABLE git_err2
-      OUTPUT_VARIABLE git_out2)
-    message("git_result1: ${git_result2}")
-    message("git_err1: ${git_err2}")
-    message("git_out1: ${git_out2}")
-    # string(REGEX MATCH "\nDISABLE_CLANG_FORMAT_CHECKS" disable_clang_format_checks "${git_out}")
-    if (${git_out})
-      set(disable_clang_format_checks TRUE)
-      message("set disable_clang_format_checks to TRUE")
-    endif ()
+if (GIT)
+  # Disable clang-format checks if DISABLE_CLANG_FORMAT_CHECKS appears in a
+  # commit message.
+  execute_process(COMMAND ${GIT} log --grep "\\s*DISABLE_CLANG_FORMAT_CHECKS"
+    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+    RESULT_VARIABLE git_result
+    ERROR_VARIABLE git_err
+    OUTPUT_VARIABLE git_out)
+  if (NOT ${git_out} STREQUAL "")
+    set(disable_clang_format_checks TRUE)
   endif ()
 endif ()
-message("disable_clang_format_checks: ${disable_clang_format_checks}")
 if (NOT disable_clang_format_checks)
   find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
   if (NOT CLANG_FORMAT_DIFF)
