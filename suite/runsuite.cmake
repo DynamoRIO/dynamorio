@@ -275,6 +275,7 @@ if (GIT)
     set(disable_clang_format_checks TRUE)
   endif ()
 endif ()
+message(STATUS "disable_clang_format_checks: ${disable_clang_format_checks}")
 if (NOT disable_clang_format_checks)
   find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
   if (NOT CLANG_FORMAT_DIFF)
@@ -303,8 +304,8 @@ if (NOT disable_clang_format_checks)
       # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
       message(STATUS
         "Changes are not formatted properly:\n${format_out}")
-      # DO-NOT-MERGE message(FATAL_ERROR
-      # DO-NOT-MERGE   "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+      message(FATAL_ERROR
+        "FATAL ERROR: Changes are not formatted properly (see diff above)!")
     else ()
       message("clang-format check passed")
     endif ()
@@ -325,7 +326,7 @@ string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents
 string(REGEX MATCH "\t" match "${diff_notabs}")
 if (NOT "${match}" STREQUAL "")
   string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
-  # DO-NOT-MERGE message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+  message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
 endif ()
 
 # Check for NOCHECKIN
