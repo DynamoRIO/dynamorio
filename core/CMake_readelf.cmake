@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -119,7 +119,7 @@ endif ()
 
 if (check_libc)
   execute_process(COMMAND
-    ${READELF_EXECUTABLE} -s ${${lib_file}}
+    ${READELF_EXECUTABLE} -s --wide ${${lib_file}}
     RESULT_VARIABLE readelf_result
     ERROR_VARIABLE readelf_error
     OUTPUT_VARIABLE string
