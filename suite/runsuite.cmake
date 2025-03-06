@@ -267,6 +267,7 @@ message("GIT per check: ${GIT}")
 set(disable_clang_format_checks FALSE)
 if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
   find_program(GIT git DOC "git client")
+  message("arg_branch: ${arg_branch}")
   if (GIT)
     message("GIT after check: ${GIT}")
     execute_process(COMMAND ${GIT} log -a origin/${arg_branch}
