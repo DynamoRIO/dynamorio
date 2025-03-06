@@ -269,12 +269,16 @@ if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
   find_program(GIT git DOC "git client")
   if (GIT)
     message("GIT after check: ${GIT}")
-    execute_process(COMMAND ${GIT} log -a origin/${arg_branch}
+    execute_process(COMMAND ${GIT} log --grep="DISABLE_CLANG_FORMAT_CHECKS" origin/${arg_branch}
       RESULT_VARIABLE git_result
       ERROR_VARIABLE git_err
       OUTPUT_VARIABLE git_out)
     message("git_out: ${git_out}")
-    string(REGEX MATCH "\nDISABLE_CLANG_FORMAT_CHECKS" disable_clang_format_checks "${git_out}")
+    # string(REGEX MATCH "\nDISABLE_CLANG_FORMAT_CHECKS" disable_clang_format_checks "${git_out}")
+    if (${git_put})
+      set(disable_clang_format_checks TRUE)
+      message("set disable_clang_format_checks to TRUE")
+    endif ()
   endif ()
 endif ()
 message("disable_clang_format_checks: ${disable_clang_format_checks}")
