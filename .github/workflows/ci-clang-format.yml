@@ -61,6 +61,10 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
+    - name: Logging
+      run: |
+        echo "${{toJSON(github.event)}}"
+        echo "${{toJSON(github.event.commits)}}"
     - uses: actions/checkout@v4
       with:
         submodules: true
