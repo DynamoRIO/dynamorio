@@ -269,15 +269,22 @@ if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
   find_program(GIT git DOC "git client")
   message("arg_branch: ${arg_branch}")
   if (GIT)
+    execute_process(COMMAND ${GIT} rev-parse --abbrev-ref HEAD
+      RESULT_VARIABLE git_result0
+      ERROR_VARIABLE git_err0
+      OUTPUT_VARIABLE git_branch)
+    message("git_result1: ${git_result0}")
+    message("git_err1: ${git_err0}")
+    message("git_out1: ${git_out0}")
     message("GIT after check: ${GIT}")
-    execute_process(COMMAND ${GIT} log -a origin/${arg_branch}
+    execute_process(COMMAND ${GIT} log -a origin/${git_branch}
       RESULT_VARIABLE git_result1
       ERROR_VARIABLE git_err1
       OUTPUT_VARIABLE git_out1)
     message("git_result1: ${git_result1}")
     message("git_err1: ${git_err1}")
     message("git_out1: ${git_out1}")
-    execute_process(COMMAND ${GIT} log --grep="DISABLE_CLANG_FORMAT_CHECKS" origin/${arg_branch}
+    execute_process(COMMAND ${GIT} log --grep="DISABLE_CLANG_FORMAT_CHECKS" origin/${git_branch}
       RESULT_VARIABLE git_result
       ERROR_VARIABLE git_err
       OUTPUT_VARIABLE git_out)
