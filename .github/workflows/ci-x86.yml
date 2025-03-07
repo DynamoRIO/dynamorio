@@ -76,9 +76,12 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        MESSAGES=$(gh api "repos/$GITHUB_REPOSITORY/commits \
-          --jq '.[].commit.message' -f sha=$PR_BRANCH")
-        echo "Commit messages: $MESSAGES"
+        # MESSAGES=$(gh api "repos/$GITHUB_REPOSITORY/commits \
+        #   --jq '.[].commit.message' -f sha=$PR_BRANCH")
+        echo "url: ${{ github.event.pull_request._links.commits.href }}"
+        MESSAGES="$(gh api '${{ github.event.pull_request._links.commits.href }}' --jq .message)"
+        echo "Commit messages: ${MESSAGES}"
+
 
     # Cancel any prior runs for a PR (but do not cancel master branch runs).
     - uses: n1hility/cancel-previous-runs@v2
