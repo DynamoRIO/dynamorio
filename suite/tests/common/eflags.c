@@ -71,10 +71,11 @@ main()
     uint i;
     INIT();
 
-    /* We use this test binary with our libcallstack sample library to track malloc in
-     * sample.callstack test. So, we make sure we have at least one malloc call at the
-     * beginning of this test binary. Since this is technically dead code, we use
-     * volatile to prevent the compiler removing this call to malloc.
+    /* We use this test binary suite/tests/bin/common.eflags with our libcallstack sample
+     * library to track malloc in the sample.callstack test. So, we make sure we have at
+     * least one malloc call at the beginning of this test binary. Since this is
+     * technically dead code, we use volatile to prevent the compiler removing this call
+     * to malloc.
      */
     volatile int *call_to_malloc_array = (int *)malloc(sizeof(int));
     free((int *)call_to_malloc_array);
