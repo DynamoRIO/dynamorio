@@ -66,9 +66,18 @@ jobs:
         GIT_BRANCH: ${{ github.event.pull_request.head.ref }}
         GH_TOKEN: ${{ github.token }}
         REPOSITORY: ${{ github.repository }}
-      run: |
-        messages=$(toJSON(${{ github.event.commits.*.message }}))
-        echo "commit messages=${messages}"
+
+    - uses: actions/github-script@v6
+      with:
+        script: |
+           const commits = ${{ toJSON(github.event.commits) }}
+           for (const commit of commits) {
+             echo "commit message=${commit}";
+           }
+
+      # run: |
+      #   messages=$(toJSON(${{ github.event.commits.*.message }}))
+      #   echo "commit messages=${messages}"
 
     - uses: actions/checkout@v4
       with:
