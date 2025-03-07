@@ -67,7 +67,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
         REPOSITORY: ${{ github.repository }}
       run: |
-        messages=$(toJSON(github.event.commits.*.message))
+        messages=$(toJSON(${{ github.event.commits.*.message }}))
         echo "commit messages=${messages}"
 
     - uses: actions/checkout@v4
