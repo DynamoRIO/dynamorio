@@ -63,7 +63,7 @@ jobs:
     steps:
     - name: Logging
       env:
-        GIT_BRANCH: ${{ github.head.ref }}
+        GIT_BRANCH: ${{ github.event.pull_request.head.ref }}
         GH_TOKEN: ${{ github.token }}
         REPOSITORY: ${{ github.repository }}
       run: |
