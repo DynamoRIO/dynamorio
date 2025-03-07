@@ -76,6 +76,12 @@ main()
     uint i;
     INIT();
 
+    /* We use this test with our libcallstack sample library to track malloc.
+     * So we make sure we have one call at the beginning of this test binary.
+     */
+    int *call_to_malloc_array = (int *)malloc(sizeof(int));
+    free(call_to_malloc_array);
+
     for (i = 0; i < NUM_FLAGS; i++) {
         test_nzcv_pos(nzcv_pos[i]);
     }
