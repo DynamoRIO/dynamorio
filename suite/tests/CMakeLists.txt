@@ -675,6 +675,7 @@ function(tobuild test source)
   add_exe(${test} ${source})
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
+  copy_target_to_device(${test} "${location_suffix}")
 endfunction(tobuild)
 
 # normal app w/ options
@@ -690,6 +691,7 @@ function(tobuild_ops test source dr_ops exe_ops)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
+  copy_target_to_device(${test} "${location_suffix}")
 endfunction(tobuild_ops)
 
 # normal app that has a dll and an executable
@@ -4690,6 +4692,8 @@ if (BUILD_CLIENTS)
         torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
           "@-tool@invariant_checker@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
           "")
+        set(tool.drcacheoff.burst_syscall_inject_postcmd2
+          "firstglob@${drcachesim_path}@-infile@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template@-tool@view")
       endif ()
 
       set(tool.drcacheoff.burst_traceopts_nodr ON)
