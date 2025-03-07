@@ -69,13 +69,13 @@ jobs:
         run: |
           echo '${{ toJSON(github.event.commits) }}'
 
-      - uses: actions/github-script@v6
-        with:
-          script: |
-             const commits = ${{ toJSON(github.event.commits) }}
-             for (const commit of commits) {
-               echo "commit message=${commit}";
-             }
+    - uses: actions/github-script@v6
+      with:
+        script: |
+           const commits = ${{ toJSON(github.event.commits) }}
+           for (const commit of commits) {
+             echo "commit message=${commit}";
+           }
 
     - uses: actions/checkout@v4
       with:
