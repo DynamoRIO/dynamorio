@@ -79,8 +79,9 @@ jobs:
         # MESSAGES=$(gh api "repos/$GITHUB_REPOSITORY/commits \
         #   --jq '.[].commit.message' -f sha=$PR_BRANCH")
         echo "url: ${{ github.event.pull_request._links.commits.href }}"
-        MESSAGES="$(gh api '${{ github.event.pull_request._links.commits.href }}' --jq .message)"
-        echo "Commit messages: ${MESSAGES}"
+        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --jq .message)"
+        commit_messages_json=${{ toJson(${commit_messages}) }}
+        echo "Commit messages: ${commit_messages_json}"
 
 
     # Cancel any prior runs for a PR (but do not cancel master branch runs).
