@@ -130,13 +130,6 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Upload Artifacts
-      # This points to the latest upload-artifact v4.x.x.
-      uses: actions/upload-artifact@v4
-      with:
-        name: linux-tarball
-        path: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
-
   ###########################################################################
   # Linux AArch64 tarball:
   linux-aarch64:
@@ -195,13 +188,6 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
-    - name: Upload AArch64
-      # This points to the latest upload-artifact v4.x.x.
-      uses: actions/upload-artifact@v4
-      with:
-        name: aarch64-tarball
-        path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
-
   ###########################################################################
   # Linux ARM tarball (package.cmake does not support same job as AArch64):
   linux-arm:
@@ -259,13 +245,6 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
-    - name: Upload ARM
-      # This points to the latest upload-artifact v4.x.x.
-      uses: actions/upload-artifact@v4
-      with:
-        name: arm-tarball
-        path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
 
   ###########################################################################
   # Android ARM tarball:
@@ -326,10 +305,3 @@ jobs:
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
-    - name: Upload Artifacts
-      # This points to the latest upload-artifact v4.x.x.
-      uses: actions/upload-artifact@v4
-      with:
-        name: android-tarball
-        path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
