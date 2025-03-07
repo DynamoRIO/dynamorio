@@ -66,15 +66,17 @@ jobs:
         GIT_BRANCH: ${{ github.event.pull_request.head.ref }}
         GH_TOKEN: ${{ github.token }}
         REPOSITORY: ${{ github.repository }}
-      run: echo '${{ toJSON(github.event.commits) }}'
+      run: |
+        echo '${{ toJSON(github.event.commits) }}'
+        echo '${{ toJSON(github.event) }}'
 
-    # - uses: actions/github-script@v6
-    #   with:
-    #     script: |
-    #        const commits = ${{ toJSON(github.event.commits) }}
-    #        for (const commit of commits) {
-    #          echo "commit message=${commit}";
-    #        }
+    - uses: actions/github-script@v6
+      with:
+        script: |
+           const commits = ${{ toJSON(github.event.commits) }}
+           for (const commit of commits) {
+             echo "commit message=${commit}"
+           }
 
     - uses: actions/checkout@v4
       with:
@@ -103,6 +105,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         DYNAMORIO_CLANG: yes
         COMMIT_MESSAGES: ${{ github.event.commits }}
+        CI_EVENT: ${{ github.event }}
         COMMIT_MESSAGES_JSON: ${{ toJSON(github.event.commits) }}
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
