@@ -62,9 +62,12 @@ jobs:
 
     steps:
     - name: Logging
+      env:
+        GIT_BRANCH: ${{ github.head.ref }}
       run: |
-        echo "${{toJSON(github.event)}}"
-        echo "${{toJSON(github.event.commits)}}"
+        messages=$(gh api repos/DynamoRIO/dynamorio/commits --jq '.[].commit.message' -f sha=${GIT_BRANCH})
+        echo "commit messages=${messages}"
+
     - uses: actions/checkout@v4
       with:
         submodules: true
