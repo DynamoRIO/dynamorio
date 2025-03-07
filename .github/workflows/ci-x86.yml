@@ -73,7 +73,7 @@ jobs:
     - name: Fetch commit messages"
       env:
         PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         MESSAGES=$(gh api "repos/${GITHUB_REPOSITORY}/commits \

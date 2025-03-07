@@ -262,11 +262,6 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-message(STATUS "ENV(COMMIT_MESSAGES): $ENV{COMMIT_MESSAGES}")
-message(STATUS "ENV(CI_BRANCH): $ENV{CI_BRANCH}")
-message(STATUS "ENV(CI_EVENT): $ENV{CI_EVENT}")
-message(STATUS "ENV(DYNAMORIO_CLANG): $ENV{DYNAMORIO_CLANG}")
-message(STATUS "ENV(DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY): $ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY}")
 set(disable_clang_format_checks FALSE)
 if (GIT)
   # Disable clang-format checks if DISABLE_CLANG_FORMAT_CHECKS appears in a

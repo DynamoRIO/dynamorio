@@ -104,9 +104,6 @@ jobs:
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         DYNAMORIO_CLANG: yes
-        COMMIT_MESSAGES: ${{ github.event.commits }}
-        CI_EVENT: ${{ github.event }}
-        COMMIT_MESSAGES_JSON: ${{ toJSON(github.event.commits) }}
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
