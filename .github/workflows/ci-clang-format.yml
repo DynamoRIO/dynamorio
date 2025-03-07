@@ -64,8 +64,10 @@ jobs:
     - name: Logging
       env:
         GIT_BRANCH: ${{ github.head.ref }}
+        GH_TOKEN: ${{ github.token }}
+        REPOSITORY: ${{ github.repository }}
       run: |
-        messages=$(gh api repos/DynamoRIO/dynamorio/commits --jq '.[].commit.message' -f sha=${GIT_BRANCH})
+        messages=$(gh api repos/${REPOSITORY}/commits --jq '.[].commit.message' -f sha=${GIT_BRANCH})
         echo "commit messages=${messages}"
 
     - uses: actions/checkout@v4
