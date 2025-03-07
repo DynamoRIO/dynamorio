@@ -71,6 +71,12 @@ main()
     uint i;
     INIT();
 
+    /* We use this test with our libcallstack sample library to track malloc.
+     * So we make sure we have one call at the beginning of this test binary.
+     */
+    int *array = (int *)malloc(sizeof(int));
+    free(array);
+
     for (i = 0; i < NUM_FLAGS; i++) {
         test_eflags_pos(eflag_pos[i]);
     }
