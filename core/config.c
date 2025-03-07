@@ -392,17 +392,17 @@ read_config_file(file_t f, config_info_t *cfg, bool app_specific, bool overwrite
  * troubleshooting purposes. config_read() below can try
  * up to five different paths.
  */
- #    define MAX_CONFIG_PATHS_TRIED 5
- #    define MAX_CONFIG_PATHS (MAXIMUM_PATH * MAX_CONFIG_PATHS_TRIED)
- static char config_paths[MAX_CONFIG_PATHS];
- const char *
- get_config_paths(void)
- {
-     if (config_initialized)
-         return config_paths;
-     else
-         return NULL;
- }
+#    define MAX_CONFIG_PATHS_TRIED 5
+#    define MAX_CONFIG_PATHS (MAXIMUM_PATH * MAX_CONFIG_PATHS_TRIED)
+static char config_paths[MAX_CONFIG_PATHS];
+const char *
+get_config_paths(void)
+{
+    if (config_initialized)
+        return config_paths;
+    else
+        return NULL;
+}
 
 static file_t
 log_path_and_open(const char *fname, int os_open_flags)
