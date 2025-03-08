@@ -90,11 +90,14 @@ jobs:
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
         if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
           echo "Skip clang-format checks."
-          exit 0
+          disable_clang_format_checks="yes"
+        else
+          disable_clang_format_checks="no"
         fi
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
+      if: ${{ ${disable_clang_format_checks} == "no" }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only require_format
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no

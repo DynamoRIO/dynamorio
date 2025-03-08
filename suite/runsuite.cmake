@@ -306,7 +306,7 @@ else ()
    message("clang-format check disabled")
 endif ()
 
-if (NOT disable_clang_format_checks)
+IF($ENV{DISABLE_CLANG_FORMAT_CHECKS} MATCHES "no")
   # Check for tabs other than on the revision lines.
   # The clang-format check will now find these in C files, but not non-C files.
   string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
