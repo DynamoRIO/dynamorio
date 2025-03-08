@@ -78,8 +78,11 @@ jobs:
       run: |
         echo "url: ${{ github.event.pull_request._links.commits.href }}"
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-        disable_clang_format_checks=${{ contains("$commit_messages", 'DISABLE_CLANG_FORMAT_CHECKS') }}ww
-        echo "disable_clang_format_checks: ${disable_clang_format_checks}"
+        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
+          echo "DISABLE_CLANG_FORMAT_CHECKS found"
+        else
+          echo "DISABLE_CLANG_FORMAT_CHECKS not found"
+        fi
 
     # Cancel any prior runs for a PR (but do not cancel master branch runs).
     - uses: n1hility/cancel-previous-runs@v2
