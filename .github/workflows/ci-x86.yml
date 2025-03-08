@@ -79,7 +79,7 @@ jobs:
         # MESSAGES=$(gh api "repos/$GITHUB_REPOSITORY/commits \
         #   --jq '.[].commit.message' -f sha=$PR_BRANCH")
         echo "url: ${{ github.event.pull_request._links.commits.href }}"
-        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate  --slurp --jq .[].commit.message)"
+        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
         echo "Commit messages: ${commit_messages}"
         echo "Commit messages: $commit_messages"
 
