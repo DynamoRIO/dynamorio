@@ -32,6 +32,7 @@
 
 #include <assert.h>
 #include <climits>
+
 #include "noise_generator.h"
 #include "memref.h"
 #include "trace_entry.h"
@@ -43,11 +44,10 @@ noise_generator_t::noise_generator_t()
 {
 }
 
-noise_generator_t::noise_generator_t(addr_t pid, addr_t tid,
-                                     uint64_t num_records_to_generate)
-    : num_records_to_generate_(num_records_to_generate)
-    , pid_(pid)
-    , tid_(tid)
+noise_generator_t::noise_generator_t(noise_generator_info_t &info)
+    : num_records_to_generate_(info.num_records_to_generate)
+    , pid_(info.pid)
+    , tid_(info.tid)
 {
 }
 
@@ -117,20 +117,6 @@ noise_generator_t::read_next_entry()
 }
 
 template <typename RecordType, typename ReaderType>
-void
-noise_generator_factory_t<RecordType, ReaderType>::init()
-{
-    enabled_ = true;
-}
-
-template <typename RecordType, typename ReaderType>
-bool
-noise_generator_factory_t<RecordType, ReaderType>::is_enabled()
-{
-    return enabled_;
-}
-
-template <typename RecordType, typename ReaderType>
 std::string
 noise_generator_factory_t<RecordType, ReaderType>::get_error_string()
 {
@@ -138,37 +124,24 @@ noise_generator_factory_t<RecordType, ReaderType>::get_error_string()
 }
 
 template <typename RecordType, typename ReaderType>
-void
-noise_generator_factory_t<RecordType, ReaderType>::add_noise_generator_to_workloads(
-    std::vector<typename sched_type_t::input_workload_t> &workloads)
+typename scheduler_tmpl_t<RecordType, ReaderType>::input_reader_t
+noise_generator_factory_t<RecordType, ReaderType>::create_noise_generator(
+    noise_generator_info_t &info)
 {
-    // Add noise generator reader to workloads.
-    for (uint64_t pid_idx = 0; pid_idx < info_.num_processes; ++pid_idx) {
-        // Assumptions in the scheduler disallow pid to be 0.
-        uint64_t pid = pid_idx + 1;
-        std::vector<typename sched_type_t::input_reader_t> readers;
-        for (uint64_t tid_idx = 0; tid_idx < info_.num_threads_per_process; ++tid_idx) {
-            // Assumptions in the scheduler disallow tid to be 0.
-            uint64_t tid = tid_idx + 1;
-            auto noise_generator =
-                create_noise_generator(static_cast<addr_t>(pid), static_cast<addr_t>(tid),
-                                       info_.num_records_to_generate);
-            auto noise_generator_end = create_noise_generator_end();
-            readers.emplace_back(std::move(noise_generator),
-                                 std::move(noise_generator_end),
-                                 static_cast<memref_tid_t>(tid));
-        }
-        workloads.emplace_back(std::move(readers));
-    }
+    std::unique_ptr<ReaderType> noise_generator_begin =
+        create_noise_generator_begin(info);
+    std::unique_ptr<ReaderType> noise_generator_end = create_noise_generator_end();
+    typename sched_type_t::input_reader_t reader(
+        std::move(noise_generator_begin), std::move(noise_generator_end), info.tid);
+    return reader;
 }
 
 template <>
 std::unique_ptr<reader_t>
-noise_generator_factory_t<memref_t, reader_t>::create_noise_generator(
-    addr_t pid, addr_t tid, uint64_t num_records)
+noise_generator_factory_t<memref_t, reader_t>::create_noise_generator_begin(
+    noise_generator_info_t &info)
 {
-    return std::unique_ptr<noise_generator_t>(
-        new noise_generator_t(pid, tid, num_records));
+    return std::unique_ptr<noise_generator_t>(new noise_generator_t(info));
 }
 
 template <>
@@ -180,9 +153,11 @@ noise_generator_factory_t<memref_t, reader_t>::create_noise_generator_end()
 
 template <>
 std::unique_ptr<record_reader_t>
-noise_generator_factory_t<trace_entry_t, record_reader_t>::create_noise_generator(
-    addr_t pid, addr_t tid, uint64_t num_records)
+noise_generator_factory_t<trace_entry_t, record_reader_t>::create_noise_generator_begin(
+    noise_generator_info_t &info)
 {
+    // TODO i#7216: we'll need a record_reader_t noise generator to create core sharded
+    // traces via record_filter_t.
     error_string_ = "Noise generator is not suppported for record_reader_t";
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
 }
@@ -191,6 +166,8 @@ template <>
 std::unique_ptr<record_reader_t>
 noise_generator_factory_t<trace_entry_t, record_reader_t>::create_noise_generator_end()
 {
+    // TODO i#7216: we'll need a record_reader_t noise generator to create core sharded
+    // traces via record_filter_t.
     error_string_ = "Noise generator is not suppported for record_reader_t";
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>();
 }

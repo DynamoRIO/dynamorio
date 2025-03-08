@@ -297,18 +297,24 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     typename sched_type_t::scheduler_options_t options)
 {
     // Add noise generator to workload_inputs.
-    if (noise_generator_factory_.is_enabled()) {
+    if (noise_generator_enabled_) {
         // TODO i#7216: here can be a good place to analyze the workloads in order to
-        // tweak  noise_generator_info_t parameters. We'd also need a method to replace
-        // noise_generator_info_t in noise_generator_factory_t.
-        noise_generator_factory_.add_noise_generator_to_workloads(workloads);
+        // tweak noise_generator_info_t parameters. For now we use noise_generator_info_t
+        // default values.
+        noise_generator_info_t noise_generator_info;
+        typename sched_type_t::input_reader_t noise_generator_reader =
+            noise_generator_factory_.create_noise_generator(noise_generator_info);
         // Check for errors (e.g., a record_file_reader_t noise generator).
-        std::string noise_generator_factory_error_string =
-            noise_generator_factory_.get_error_string();
-        if (!noise_generator_factory_error_string.empty()) {
-            error_string_ = noise_generator_factory_error_string;
+        error_string_ = error_string_ + noise_generator_factory_.get_error_string();
+        if (!error_string_.empty()) {
             return false;
         }
+        // input_workload_t needs a vector of input_reader_t, so we create a vector with
+        // a single input_reader_t (the noise generator).
+        std::vector<typename sched_type_t::input_reader_t> readers;
+        readers.emplace_back(std::move(noise_generator_reader));
+        // Add noise generator to the scheduler's input workloads.
+        workloads.emplace_back(std::move(readers));
     }
 
     for (int i = 0; i < num_tools_; ++i) {

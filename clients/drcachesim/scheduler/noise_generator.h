@@ -41,6 +41,16 @@ namespace dynamorio {
 namespace drmemtrace {
 
 /**
+ * Contains metadata information to drive the noise generation.
+ */
+struct noise_generator_info_t {
+    // TODO i#7216: temporary default values.
+    uint64_t num_records_to_generate = 1000;
+    addr_t pid = 1;
+    addr_t tid = 1;
+};
+
+/**
  * Generates synthetic #dynamorio::drmemtrace::memref_t trace entries in a single thread
  * and presents them via an iterator interface to the scheduler.
  */
@@ -48,7 +58,7 @@ class noise_generator_t : public reader_t {
 public:
     noise_generator_t();
 
-    noise_generator_t(addr_t pid, addr_t tid, uint64_t num_records_to_generate);
+    noise_generator_t(noise_generator_info_t &info);
 
     virtual ~noise_generator_t();
 
@@ -85,44 +95,25 @@ private:
 };
 
 /**
- * Contains metadata information to drive the noise generation.
- */
-struct noise_generator_info_t {
-    // TODO i#7216: temporary default values.
-    uint64_t num_processes = 1;
-    uint64_t num_threads_per_process = 1;
-    uint64_t num_records_to_generate = 1000;
-};
-
-/**
  * Factory to create noise_generator_t.
  */
 template <typename RecordType, typename ReaderType> class noise_generator_factory_t {
 public:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
 
-    void
-    init();
-
-    bool
-    is_enabled();
-
     std::string
     get_error_string();
 
-    void
-    add_noise_generator_to_workloads(
-        std::vector<typename sched_type_t::input_workload_t> &workloads);
+    typename sched_type_t::input_reader_t
+    create_noise_generator(noise_generator_info_t &info);
 
 protected:
     std::unique_ptr<ReaderType>
-    create_noise_generator(addr_t pid, addr_t tid, uint64_t num_records);
+    create_noise_generator_begin(noise_generator_info_t &info);
 
     std::unique_ptr<ReaderType>
     create_noise_generator_end();
 
-    noise_generator_info_t info_;
-    bool enabled_ = false;
     std::string error_string_;
 };
 

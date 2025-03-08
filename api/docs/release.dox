@@ -146,16 +146,18 @@ Further non-compatibility-affecting changes include:
    templates. Added similar options for the drmemtrace scheduler: #dynamorio::drmemtrace::
    scheduler_tmpl_t::scheduler_options_t::kernel_syscall_trace_path, and #dynamorio::
    drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
- - Added #dynamorio::drmemtrace::noise_generator_t scaffolding as a
-   #dynamorio::drmemtrace::reader_t to produce synthetic trace records in the drmemtrace
-   framework.
- - Added #dynamorio::drmemtrace::noise_generator_info_t, which contains the metadata
-   information to drive the noise generation in the drmemtrace framework.
- - Added #dynamorio::drmemtrace::noise_generator_factory_t, which creates one or more
-   #dynamorio::drmemtrace::noise_generator_t and adds them to the workloads of
-   #dynamorio::drmemtrace::scheduler_tmpl_t.
- - Added -noise_generator_enable as global option in the drmemtrace framework to enable
-   noise generation alongside the scheduled traces.
+ - Added initial implementation of a noise generator in the drmemtrace framework. The
+   noise generator produces synthetic records to schedule with one or more target traces.
+   The noise generator is comprised of:
+    - #dynamorio::drmemtrace::noise_generator_t scaffolding as a
+      #dynamorio::drmemtrace::reader_t to produce synthetic trace records.
+    - #dynamorio::drmemtrace::noise_generator_info_t, which contains the metadata
+      information to drive the generation of synthetic records.
+    - #dynamorio::drmemtrace::noise_generator_factory_t that creates one or more
+      #dynamorio::drmemtrace::noise_generator_t, which can then be added to the input
+      workloads of #dynamorio::drmemtrace::scheduler_tmpl_t.
+    - the flag -noise_generator_enable as a global option to enable noise generation
+      alongside the scheduled traces.
 
 **************************************************
 <hr>
