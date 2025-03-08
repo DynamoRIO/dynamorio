@@ -61,23 +61,6 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-    - name: Logging
-      env:
-        GIT_BRANCH: ${{ github.event.pull_request.head.ref }}
-        GH_TOKEN: ${{ github.token }}
-        REPOSITORY: ${{ github.repository }}
-      run: |
-        echo '${{ toJSON(github.event.commits) }}'
-        echo '${{ toJSON(github.event) }}'
-
-    - uses: actions/github-script@v6
-      with:
-        script: |
-           const commits = ${{ toJSON(github.event.commits) }}
-           for (const commit of commits) {
-             echo "commit message=${commit}"
-           }
-
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -97,6 +80,18 @@ jobs:
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           liblz4-dev clang-format-14 libunwind-dev
+
+    - name: Check Whether To Skip clang-format
+      env:
+        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
+          echo "Skip clang-format checks."
+          exit 0
+        fi
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

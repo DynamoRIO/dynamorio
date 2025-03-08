@@ -262,43 +262,7 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-set(disable_clang_format_checks FALSE)
-if (GIT)
-  # Disable clang-format checks if DISABLE_CLANG_FORMAT_CHECKS appears in a
-  # commit message.
-  execute_process(COMMAND ${GIT} rev-parse --abbrev-ref HEAD
-    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-    RESULT_VARIABLE git_result2
-    ERROR_VARIABLE git_err2
-    OUTPUT_VARIABLE git_branch)
-  message(STATUS "git_branch: ${git_branch}")
-  execute_process(COMMAND ${GIT} log --grep "\\s*DISABLE_CLANG_FORMAT_CHECKS" origin/"${git_branch}"
-    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-    RESULT_VARIABLE git_result3
-    ERROR_VARIABLE git_err3
-    OUTPUT_VARIABLE git_out3)
-  message(STATUS "git_branch output: ${git_out3}")
-
-  message(STATUS "arg_branch: ${arg_branch}")
-  execute_process(COMMAND ${GIT} log --grep "\\s*DISABLE_CLANG_FORMAT_CHECKS" origin/"${arg_branch}"
-    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-    RESULT_VARIABLE git_result0
-    ERROR_VARIABLE git_err0
-    OUTPUT_VARIABLE git_out0)
-  message(STATUS "arg_branch: ${git_out0}")
-
-  execute_process(COMMAND ${GIT} log --grep "\\s*DISABLE_CLANG_FORMAT_CHECKS"
-    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-    RESULT_VARIABLE git_result
-    ERROR_VARIABLE git_err
-    OUTPUT_VARIABLE git_out)
-  message(STATUS "git_out: ${git_out}")
-  if (NOT ${git_out} STREQUAL "")
-    set(disable_clang_format_checks TRUE)
-  endif ()
-endif ()
-message(STATUS "disable_clang_format_checks: ${disable_clang_format_checks}")
-if (NOT disable_clang_format_checks)
+IF($ENV{DISABLE_CLANG_FORMAT_CHECKS} MATCHES "yes")
   find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
   if (NOT CLANG_FORMAT_DIFF)
     find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
