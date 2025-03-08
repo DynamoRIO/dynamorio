@@ -81,6 +81,7 @@ jobs:
         echo "url: ${{ github.event.pull_request._links.commits.href }}"
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --jq .[].commit.message)"
         echo "Commit messages: ${commit_messages}"
+        echo "Commit messages: $commit_messages"
 
     # Cancel any prior runs for a PR (but do not cancel master branch runs).
     - uses: n1hility/cancel-previous-runs@v2
