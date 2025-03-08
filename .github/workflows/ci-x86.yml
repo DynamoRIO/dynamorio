@@ -78,7 +78,7 @@ jobs:
       run: |
         echo "url: ${{ github.event.pull_request._links.commits.href }}"
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
+        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS_BLAH"; then
           echo "DISABLE_CLANG_FORMAT_CHECKS found"
         else
           echo "DISABLE_CLANG_FORMAT_CHECKS not found"
