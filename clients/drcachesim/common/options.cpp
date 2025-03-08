@@ -716,6 +716,12 @@ droption_t<std::string>
                    "Cache hierarchy configuration file",
                    "The full path to the cache hierarchy configuration file.");
 
+droption_t<bool>
+    op_noise_generator_enable(DROPTION_SCOPE_FRONTEND, "noise_generator_enable", false,
+                              "Enables noise generators.",
+                              "Enables the scheduler to interleave trace records with "
+                              "synthetic records produced by a noise generator.");
+
 // XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int>
     op_report_top(DROPTION_SCOPE_FRONTEND, "report_top", 10,
