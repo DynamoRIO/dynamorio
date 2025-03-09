@@ -304,7 +304,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         noise_generator_info_t noise_generator_info;
         typename sched_type_t::input_reader_t noise_generator_reader =
             noise_generator_factory_.create_noise_generator(noise_generator_info);
-        // Check for errors (e.g., a record_file_reader_t noise generator).
+        // Check for errors.
         error_string_ = error_string_ + noise_generator_factory_.get_error_string();
         if (!error_string_.empty()) {
             return false;
@@ -313,7 +313,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         // a single input_reader_t (the noise generator).
         std::vector<typename sched_type_t::input_reader_t> readers;
         readers.emplace_back(std::move(noise_generator_reader));
-        // Add noise generator to the scheduler's input workloads.
+        // Add the noise generator to the scheduler's input workloads.
         workloads.emplace_back(std::move(readers));
     }
 

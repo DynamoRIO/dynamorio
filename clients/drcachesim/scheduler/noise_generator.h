@@ -30,13 +30,12 @@
  * DAMAGE.
  */
 
-#include <cstdint>
 #ifndef _NOISE_GENERATOR_H_
-#    define _NOISE_GENERATOR_H_ 1
+#define _NOISE_GENERATOR_H_ 1
 
-#    include "reader.h"
-#    include "scheduler.h"
-#    include "trace_entry.h"
+#include "reader.h"
+#include "scheduler.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
