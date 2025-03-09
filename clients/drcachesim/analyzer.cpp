@@ -296,7 +296,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     std::vector<typename sched_type_t::input_workload_t> &workloads,
     typename sched_type_t::scheduler_options_t options)
 {
-    // Add noise generator to workload_inputs.
+    // Add noise generator to input workloads.
     if (noise_generator_enabled_) {
         // TODO i#7216: here can be a good place to analyze the workloads in order to
         // tweak noise_generator_info_t parameters. For now we use noise_generator_info_t
