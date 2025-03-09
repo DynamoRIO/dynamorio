@@ -469,13 +469,13 @@ unit_test_set_parent()
     // Test setting parent.
     child_1.set_parent(&parent);
     assert(child_1.get_parent() == &parent);
-    assert(parent.get_parent() == NULL);
+    assert(parent.get_parent() == nullptr);
     assert(parent.get_children() == std::vector<caching_device_t *> { &child_1 });
     assert(child_1.get_children().empty());
     // Test removing parent.
-    child_1.set_parent(NULL);
-    assert(parent.get_parent() == NULL);
-    assert(child_1.get_parent() == NULL);
+    child_1.set_parent(nullptr);
+    assert(parent.get_parent() == nullptr);
+    assert(child_1.get_parent() == nullptr);
     assert(parent.get_children().empty());
     assert(child_1.get_children().empty());
     // Test multiple children.
