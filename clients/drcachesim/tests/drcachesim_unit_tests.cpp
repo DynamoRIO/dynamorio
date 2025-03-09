@@ -464,9 +464,12 @@ unit_test_set_parent()
     cache_t child_1;
     cache_t child_2;
     cache_t parent;
-    assert(child_1.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false)));
-    assert(child_2.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false)));
-    assert(parent.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false)));
+    assert(child_1.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false),
+                        std::unique_ptr<policy_lru_t>(new policy_lru_t(1024, 1))));
+    assert(child_2.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false),
+                        std::unique_ptr<policy_lru_t>(new policy_lru_t(1024, 1))));
+    assert(parent.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false),
+                       std::unique_ptr<policy_lru_t>(new policy_lru_t(1024, 1))));
     // Test setting parent.
     child_1.set_parent(&parent);
     assert(child_1.get_parent() == &parent);
