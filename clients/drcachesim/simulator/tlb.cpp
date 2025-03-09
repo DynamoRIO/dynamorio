@@ -35,7 +35,6 @@
 #include <assert.h>
 #include <stddef.h>
 
-#include "memref.h"
 #include "caching_device.h"
 #include "caching_device_block.h"
 #include "memref.h"

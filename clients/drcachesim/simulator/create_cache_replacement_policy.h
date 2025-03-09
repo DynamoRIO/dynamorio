@@ -33,8 +33,8 @@
 #ifndef _CREATE_CACHE_REPLACEMENT_POLICY_H_
 #define _CREATE_CACHE_REPLACEMENT_POLICY_H_ 1
 
-#include <string>
 #include <memory>
+#include <string>
 
 #include "cache_replacement_policy.h"
 

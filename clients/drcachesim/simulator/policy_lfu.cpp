@@ -34,7 +34,6 @@
 
 #include <algorithm>
 #include <vector>
-#include <iostream>
 
 namespace dynamorio {
 namespace drmemtrace {
