@@ -574,8 +574,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 
     sched_ops.kernel_syscall_trace_path = op_sched_syscall_file.get_value();
 
-    // Enable the noise generator before init_scheduler(), where we eventually add noise
-    // generators as another input workload.
+    // Enable the noise generator before init_scheduler(), where we eventually add a
+    // noise generator as another input workload.
     if (op_noise_generator_enable.get_value())
         this->noise_generator_enabled_ = true;
 

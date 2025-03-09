@@ -148,16 +148,16 @@ Further non-compatibility-affecting changes include:
    drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
  - Added initial implementation of a noise generator in the drmemtrace framework. The
    noise generator produces synthetic records to schedule with one or more target traces.
-   The noise generator is comprised of:
+   For noise generation we implemented:
     - #dynamorio::drmemtrace::noise_generator_t scaffolding as a
       #dynamorio::drmemtrace::reader_t to produce synthetic trace records.
     - #dynamorio::drmemtrace::noise_generator_info_t, which contains the metadata
       information to drive the generation of synthetic records.
-    - #dynamorio::drmemtrace::noise_generator_factory_t that creates one or more
+    - #dynamorio::drmemtrace::noise_generator_factory_t that creates
       #dynamorio::drmemtrace::noise_generator_t, which can then be added to the input
       workloads of #dynamorio::drmemtrace::scheduler_tmpl_t.
-    - the flag -noise_generator_enable as a global option to enable noise generation
-      alongside the scheduled traces.
+    - the flag -noise_generator_enable as an analyzer (global) option to enable noise
+      generation alongside the scheduled traces.
 
 **************************************************
 <hr>

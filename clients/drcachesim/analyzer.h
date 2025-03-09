@@ -439,7 +439,8 @@ protected:
     bool sched_by_time_ = false;
     typename sched_type_t::mapping_t sched_mapping_ = sched_type_t::MAP_TO_ANY_OUTPUT;
 
-    // Factory to create noise generators and add them to the scheduler workloads.
+    // Factory to create noise generators that can then be added to the scheduler's
+    // input workloads.
     noise_generator_factory_t<RecordType, ReaderType> noise_generator_factory_;
     bool noise_generator_enabled_ = false;
 
