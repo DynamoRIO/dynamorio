@@ -45,7 +45,8 @@ namespace drmemtrace {
 /**
  * A FIFO cache replacement policy.
  *
- * The way wich was added (not accessed) first is replaced first.
+ * It is initialized with the ways in ascending order of their index, and ignores which
+ * ways are valid.
  */
 class policy_fifo_t : public cache_replacement_policy_t {
 public:
@@ -55,7 +56,8 @@ public:
     void
     eviction_update(int block_idx, int way) override;
     int
-    get_next_way_to_replace(int block_idx) override;
+    get_next_way_to_replace(int block_idx,
+                            const std::vector<bool> &valid_ways) const override;
     std::string
     get_name() const override;
 

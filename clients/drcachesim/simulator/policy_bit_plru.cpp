@@ -78,8 +78,13 @@ policy_bit_plru_t::eviction_update(int block_idx, int way)
 }
 
 int
-policy_bit_plru_t::get_next_way_to_replace(int block_idx)
+policy_bit_plru_t::get_next_way_to_replace(int block_idx,
+                                           const std::vector<bool> &valid_ways) const
 {
+    int first_invalid_way = get_first_invalid_way(valid_ways);
+    if (first_invalid_way != -1) {
+        return first_invalid_way;
+    }
     block_idx = get_block_index(block_idx);
     std::vector<int> unset_bits;
     for (int i = 0; i < associativity_; ++i) {

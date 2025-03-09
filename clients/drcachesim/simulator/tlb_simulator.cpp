@@ -96,15 +96,10 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
         lltlbs_[i] = NULL;
     }
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
-        std::stringstream ss_itlb;
-        ss_itlb << "itlb " << i;
-        itlbs_[i] = new tlb_t(ss_itlb.str());
-        std::stringstream ss_dtlb;
-        ss_dtlb << "dtlb " << i;
-        dtlbs_[i] = new tlb_t(ss_dtlb.str());
-        std::stringstream ss_lltlb;
-        ss_lltlb << "lltlb " << i;
-        lltlbs_[i] = new tlb_t(ss_lltlb.str());
+        std::string core_str = std::to_string(i);
+        itlbs_[i] = new tlb_t("itlb " + core_str);
+        dtlbs_[i] = new tlb_t("dtlb " + core_str);
+        lltlbs_[i] = new tlb_t("lltlb " + core_str);
         auto replace_policy = create_cache_replacement_policy(
             knobs_.TLB_replace_policy, knobs_.TLB_L1I_entries / knobs_.TLB_L1I_assoc,
             knobs_.TLB_L1I_assoc);

@@ -63,8 +63,13 @@ policy_lfu_t::eviction_update(int block_idx, int way)
 }
 
 int
-policy_lfu_t::get_next_way_to_replace(int block_idx)
+policy_lfu_t::get_next_way_to_replace(int block_idx,
+                                      const std::vector<bool> &valid_ways) const
 {
+    int first_invalid_way = get_first_invalid_way(valid_ways);
+    if (first_invalid_way != -1) {
+        return first_invalid_way;
+    }
     // Find the way with the minimum frequency counter.
     block_idx = get_block_index(block_idx);
     int min_freq = access_counts_[block_idx][0];

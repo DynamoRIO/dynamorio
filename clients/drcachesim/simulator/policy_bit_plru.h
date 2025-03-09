@@ -57,7 +57,8 @@ public:
     void
     eviction_update(int block_idx, int way) override;
     int
-    get_next_way_to_replace(int block_idx) override;
+    get_next_way_to_replace(int block_idx,
+                            const std::vector<bool> &valid_ways) const override;
     std::string
     get_name() const override;
 
@@ -68,7 +69,7 @@ private:
     std::vector<std::vector<bool>> block_bits_;
     // The amount of bits set to 1 for each block.
     std::vector<int> block_num_ones_;
-    std::mt19937 gen_;
+    mutable std::mt19937 gen_;
 };
 
 } // namespace drmemtrace

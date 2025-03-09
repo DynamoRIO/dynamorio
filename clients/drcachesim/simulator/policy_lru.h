@@ -55,7 +55,8 @@ public:
     void
     eviction_update(int block_idx, int way) override;
     int
-    get_next_way_to_replace(int block_idx) override;
+    get_next_way_to_replace(int block_idx,
+                            const std::vector<bool> &valid_ways) const override;
     std::string
     get_name() const override;
 

@@ -69,8 +69,13 @@ policy_lru_t::eviction_update(int block_idx, int way)
 }
 
 int
-policy_lru_t::get_next_way_to_replace(int block_idx)
+policy_lru_t::get_next_way_to_replace(int block_idx,
+                                      const std::vector<bool> &valid_ways) const
 {
+    int first_invalid_way = get_first_invalid_way(valid_ways);
+    if (first_invalid_way != -1) {
+        return first_invalid_way;
+    }
     block_idx = get_block_index(block_idx);
     // We implement LRU by picking the slot with the largest counter value.
     int max_counter = 0;

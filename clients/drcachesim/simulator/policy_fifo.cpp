@@ -67,7 +67,8 @@ policy_fifo_t::eviction_update(int block_idx, int way)
 }
 
 int
-policy_fifo_t::get_next_way_to_replace(int block_idx)
+policy_fifo_t::get_next_way_to_replace(int block_idx,
+                                       const std::vector<bool> &valid_ways) const
 {
     block_idx = get_block_index(block_idx);
     // The next way to replace is at the front of the FIFO list.

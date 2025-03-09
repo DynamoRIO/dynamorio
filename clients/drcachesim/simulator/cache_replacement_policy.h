@@ -34,6 +34,7 @@
 #define _CACHE_REPLACEMENT_POLICY_H_ 1
 
 #include <string>
+#include <vector>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -44,6 +45,17 @@ namespace drmemtrace {
  * Holds the necessary information to implement a cache replacement policy,
  * and provides a replacement-specific get_next_way_to_replace() method for
  * `caching_device_t`.
+ *
+ * The policy recieves the following updates:
+ *  - When an existing way is accessed, `access_update()` is called.
+ *  - When a way is evicted, `eviction_update()` is called on the evicted way, and
+ * `access_update()` is called on the new way immediately after.
+ *  - When a way is invalidated, nothing is done - caching_device_t should keep track of
+ * which ways are valid.
+ *
+ * The policy also provides a `get_next_way_to_replace()` method that returns
+ * the next way to replace in the block. `valid_ways` is a vector of booleans,
+ * where `valid_ways[way]` is true if the way is currently valid.
  */
 class cache_replacement_policy_t {
 public:
@@ -58,9 +70,13 @@ public:
     /// Informs the replacement policy that an eviction has occurred.
     virtual void
     eviction_update(int block_idx, int way) = 0;
-    /// Returns the next way to replace in the block.
+    /*
+     * Returns the next way to replace in the block.
+     * valid_ways is a vector of booleans, where valid_ways[way] is true if the way
+     * is currently valid.
+     */
     virtual int
-    get_next_way_to_replace(int block_idx) = 0;
+    get_next_way_to_replace(int block_idx, const std::vector<bool> &valid_ways) const = 0;
     /// Returns the name of the replacement policy.
     virtual std::string
     get_name() const = 0;
@@ -69,12 +85,23 @@ public:
 
 protected:
     virtual int
-    get_block_index(int block_idx)
+    get_block_index(int block_idx) const
     {
         // The block index points to the first way in the block, and the ways are stored
         // in a contiguous array, so we divide by the associativity to get the block
         // index.
         return block_idx / associativity_;
+    }
+    /// Returns the first invalid way in the block, or -1 if all ways are valid.
+    virtual int
+    get_first_invalid_way(const std::vector<bool> &valid_ways) const
+    {
+        for (int way = 0; way < associativity_; ++way) {
+            if (!valid_ways[way]) {
+                return way;
+            }
+        }
+        return -1;
     }
     int associativity_;
     int num_blocks_;
