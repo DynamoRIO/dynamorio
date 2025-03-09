@@ -98,6 +98,9 @@ noise_generator_t::read_next_entry()
         pid_generated_ = true;
         return &entry_;
     }
+    // The scheduler expects a TRACE_MARKER_TYPE_TIMESTAMP for relative threads order.
+    // We provide one with a high value to indicate that noise generator threads have
+    // no dependencies with other threads. The scheduler will re-write these values.
     if (!marker_timestamp_generated_) {
         entry_ = { TRACE_TYPE_MARKER,
                    TRACE_MARKER_TYPE_TIMESTAMP,
