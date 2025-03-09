@@ -30,12 +30,13 @@
  * DAMAGE.
  */
 
+#include <cstdint>
 #ifndef _NOISE_GENERATOR_H_
-#define _NOISE_GENERATOR_H_ 1
+#    define _NOISE_GENERATOR_H_ 1
 
-#include "reader.h"
-#include "scheduler.h"
-#include "trace_entry.h"
+#    include "reader.h"
+#    include "scheduler.h"
+#    include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -44,10 +45,17 @@ namespace drmemtrace {
  * Contains metadata information to drive the noise generation.
  */
 struct noise_generator_info_t {
+    noise_generator_info_t() {};
+    noise_generator_info_t(addr_t pid, addr_t tid, uint64_t num_records_to_generate)
+        : pid(pid)
+        , tid(tid)
+        , num_records_to_generate(num_records_to_generate)
+    {
+    }
     // TODO i#7216: temporary default values.
-    uint64_t num_records_to_generate = 1000;
     addr_t pid = 1;
     addr_t tid = 1;
+    uint64_t num_records_to_generate = 1000;
 };
 
 /**
