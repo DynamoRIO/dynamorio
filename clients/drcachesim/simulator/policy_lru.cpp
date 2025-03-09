@@ -30,42 +30,70 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
-
-#ifndef _TLB_H_
-#define _TLB_H_ 1
-
-#include <optional>
-#include <random>
-
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include "policy_lru.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
-public:
-    tlb_t(const std::string &name = "tlb");
+policy_lru_t::policy_lru_t(int num_blocks, int associativity)
+    : cache_replacement_policy_t(num_blocks, associativity)
+{
+    // Initialize the LRU list for each block.
+    lru_counters_.reserve(num_blocks);
+    for (int i = 0; i < num_blocks; ++i) {
+        lru_counters_.emplace_back(associativity, 1);
+    }
+}
 
-    void
-    request(const memref_t &memref) override;
+void
+policy_lru_t::access_update(int block_idx, int way)
+{
+    block_idx = get_block_index(block_idx);
+    int count = lru_counters_[block_idx][way];
+    // Optimization: return early if it is a repeated access.
+    if (count == 0)
+        return;
+    // We inc all the counters that are not larger than count for LRU.
+    for (int i = 0; i < associativity_; ++i) {
+        if (i != way && lru_counters_[block_idx][i] <= count)
+            lru_counters_[block_idx][i]++;
+    }
+    // Clear the counter for LRU.
+    lru_counters_[block_idx][way] = 0;
+}
 
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
+void
+policy_lru_t::eviction_update(int block_idx, int way)
+{
+    // Nothing to update, when the way is accessed we will update it.
+}
 
-protected:
-    void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
-};
+int
+policy_lru_t::get_next_way_to_replace(int block_idx,
+                                      const std::vector<bool> &valid_ways) const
+{
+    int first_invalid_way = get_first_invalid_way(valid_ways);
+    if (first_invalid_way != -1) {
+        return first_invalid_way;
+    }
+    block_idx = get_block_index(block_idx);
+    // We implement LRU by picking the slot with the largest counter value.
+    int max_counter = 0;
+    int max_way = 0;
+    for (int way = 0; way < associativity_; ++way) {
+        if (lru_counters_[block_idx][way] > max_counter) {
+            max_counter = lru_counters_[block_idx][way];
+            max_way = way;
+        }
+    }
+    return max_way;
+}
+
+std::string
+policy_lru_t::get_name() const
+{
+    return "LRU";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _TLB_H_ */

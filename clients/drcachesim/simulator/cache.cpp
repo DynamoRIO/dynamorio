@@ -55,6 +55,7 @@ class snoop_filter_t;
 bool
 cache_t::init(int associativity, int64_t line_size, int64_t total_size,
               caching_device_t *parent, caching_device_stats_t *stats,
+              std::unique_ptr<cache_replacement_policy_t> replacement_policy,
               prefetcher_t *prefetcher, cache_inclusion_policy_t inclusion_policy,
               bool coherent_cache, int id, snoop_filter_t *snoop_filter,
               const std::vector<caching_device_t *> &children)
@@ -65,9 +66,9 @@ cache_t::init(int associativity, int64_t line_size, int64_t total_size,
     // convert total_size to num_blocks to fit for caching_device_t::init
     int64_t num_lines = total_size / line_size;
 
-    return caching_device_t::init(associativity, line_size, num_lines, parent, stats,
-                                  prefetcher, inclusion_policy, coherent_cache, id,
-                                  snoop_filter, children);
+    return caching_device_t::init(
+        associativity, line_size, num_lines, parent, stats, std::move(replacement_policy),
+        prefetcher, inclusion_policy, coherent_cache, id, snoop_filter, children);
 }
 
 void

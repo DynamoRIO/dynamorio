@@ -1,4 +1,4 @@
-/* **********************************************************
+#/* **********************************************************
  * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,42 +30,56 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
+#include "policy_fifo.h"
 
-#ifndef _TLB_H_
-#define _TLB_H_ 1
-
-#include <optional>
-#include <random>
-
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include <list>
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
-public:
-    tlb_t(const std::string &name = "tlb");
+policy_fifo_t::policy_fifo_t(int num_blocks, int associativity)
+    : cache_replacement_policy_t(num_blocks, associativity)
+{
+    // Initialize the FIFO list for each block.
+    queues_.reserve(num_blocks);
+    for (int i = 0; i < num_blocks; ++i) {
+        queues_.push_back(std::list<int>());
+        for (int j = 0; j < associativity; ++j) {
+            queues_[i].push_back(j);
+        }
+    }
+}
 
-    void
-    request(const memref_t &memref) override;
+void
+policy_fifo_t::access_update(int block_idx, int way)
+{
+    // Nothing to update, FIFO does not change on access.
+}
 
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
+void
+policy_fifo_t::eviction_update(int block_idx, int way)
+{
+    block_idx = get_block_index(block_idx);
+    // Move the evicted way to the back of the queue.
+    auto &fifo_block = queues_[block_idx];
+    fifo_block.remove(way);
+    fifo_block.push_back(way);
+}
 
-protected:
-    void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
-};
+int
+policy_fifo_t::get_next_way_to_replace(int block_idx,
+                                       const std::vector<bool> &valid_ways) const
+{
+    block_idx = get_block_index(block_idx);
+    // The next way to replace is at the front of the FIFO list.
+    return queues_[block_idx].front();
+}
+
+std::string
+policy_fifo_t::get_name() const
+{
+    return "FIFO";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _TLB_H_ */

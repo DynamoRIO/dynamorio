@@ -30,52 +30,49 @@
  * DAMAGE.
  */
 
-/* cache_lru: represents a single hardware cache with LRU algo.
- */
+#ifndef _BIT_PLRU_H_
+#define _BIT_PLRU_H_
 
-#ifndef _CACHE_LRU_H_
-#define _CACHE_LRU_H_ 1
-
+#include <random>
 #include <string>
 #include <vector>
 
-#include "cache.h"
-#include "prefetcher.h"
-#include "snoop_filter.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class cache_lru_t : public cache_t {
+/**
+ * A replacement policy that uses a bit per way to track access frequency.
+ *
+ * On access, a way's bit is set to 1. Once all bits are set, the whole block's bits
+ * are set to 0. A random way with a 0 bit is chosen for replacement.
+ */
+class policy_bit_plru_t : public cache_replacement_policy_t {
 public:
-    explicit cache_lru_t(const std::string &name = "cache_lru")
-        : cache_t(name)
-    {
-    }
-    bool
-    init(int associativity, int64_t block_size, int64_t total_size,
-         caching_device_t *parent, caching_device_stats_t *stats,
-         prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id = -1, snoop_filter_t *snoop_filter = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
-    std::string
-    get_replace_policy() const override
-    {
-        return "LRU";
-    }
-
-protected:
+    /// If seed is -1, a random seed will be used.
+    policy_bit_plru_t(int num_blocks, int associativity, int seed = -1);
     void
     access_update(int block_idx, int way) override;
+    void
+    eviction_update(int block_idx, int way) override;
     int
-    replace_which_way(int block_idx) override;
-    int
-    get_next_way_to_replace(const int block_idx) const override;
+    get_next_way_to_replace(int block_idx,
+                            const std::vector<bool> &valid_ways) const override;
+    std::string
+    get_name() const override;
+
+    ~policy_bit_plru_t() override = default;
+
+private:
+    // A bit per way for each block.
+    std::vector<std::vector<bool>> block_bits_;
+    // The amount of bits set to 1 for each block.
+    std::vector<int> block_num_ones_;
+    mutable std::mt19937 gen_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _CACHE_LRU_H_ */
+#endif // _BIT_PLRU_H_
