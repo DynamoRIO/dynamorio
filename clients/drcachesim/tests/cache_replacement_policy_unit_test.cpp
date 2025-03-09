@@ -270,7 +270,7 @@ unit_test_cache_fifo_four_way()
     cache_fifo_test.access_and_check(addr_vec[ADDR_G], 2); //     A G x H
     cache_fifo_test.access_and_check(addr_vec[ADDR_B], 3); //     A G B h
 
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_H], 3); //n A G B x
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_H], 3); // A G B x
     cache_fifo_test.invalidate_and_check(addr_vec[ADDR_A], 3); // X G B x
 
     cache_fifo_test.access_and_check(addr_vec[ADDR_A], 0); //     x G B A
