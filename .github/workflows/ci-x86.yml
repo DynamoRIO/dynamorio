@@ -83,6 +83,9 @@ jobs:
     # workaround here and from every job in other Github Actions CI workflows.
     - run: git fetch --no-tags --depth=1 origin master
 
+    - name: Check If clang-format checks are disabled
+      uses: ./.github/actions/is-clang-format-checks-disabled
+
     # Install multilib for non-cross-compiling Linux build.
     # GA CI uses packages.microsoft.com which is missing i386 packages, and
     # attempts at using apt with us.archive-ubuntu.com hit dep issues:
@@ -120,12 +123,12 @@ jobs:
     #     else
     #       disable_clang_format_checks="no"
     #     fi
-    - name: Check If clang-format Checks are disabled
-      if: ${{ always() }}
-      uses: ./.github/workflows/is-clang-format-checks-disabled.yml
+    - name: Check If clang-format checks are disabled again
+      uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
+      needs: [is_clang_format_checks_disabled]
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
