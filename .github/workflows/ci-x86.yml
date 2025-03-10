@@ -108,18 +108,21 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
-    - name: Check Whether To Disable clang-format Checks
-      env:
-        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-      run: |
-        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS_BLAH"; then
-          disable_clang_format_checks="yes"
-        else
-          disable_clang_format_checks="no"
-        fi
+    # - name: Check Whether To Disable clang-format Checks
+    #   env:
+    #     PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+    #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #     GITHUB_REPOSITORY: ${{ github.repository }}
+    #   run: |
+    #     commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+    #     if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS_BLAH"; then
+    #       disable_clang_format_checs="yes"
+    #     else
+    #       disable_clang_format_checks="no"
+    #     fi
+    - name: Check If clang-format Checks are disabled
+      uses: ./.github/workflows/is-clang-format-checks-disabled.yml
+      secrets: inherit
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -129,7 +132,8 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         GITHUB_COMMIT_AUTHOR_EMAIL: ${{ github.event.commits[0].author.email }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${disable_clang_format_checks}
+        # DISABLE_CLANG_FORMAT_CHECKS: ${disable_clang_format_checks}
+        DISABLE_CLANG_FORMAT_CHECKS: ${steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}
 
     - name: Setup tmate session
       if: ${{ failure() }}
