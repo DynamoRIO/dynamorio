@@ -512,6 +512,13 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             }
             $issue_no = "#2941";
         }
+        if ($^O ne 'cygwin' && $^O ne 'MSWin32' && $^O ne 'darwin') {
+            # Linux private loader on glibc 2.34+ fails to support C++ exceptions.
+            # XXX i#7297: We should either officially drop such support and
+            # remove this test, or add support (probably via i#7312).
+            $ignore_failures_64{'code_api|client.exception'} = 1; # i#7297
+            $ignore_failures_32{'code_api|client.exception'} = 1; # i#7297
+        }
 
         # Read ahead to examine the test failures:
         $fail = 0;
