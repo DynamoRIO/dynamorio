@@ -125,6 +125,8 @@ jobs:
     #     fi
     - name: Check If clang-format checks are disabled again
       uses: ./.github/actions/is-clang-format-checks-disabled
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
