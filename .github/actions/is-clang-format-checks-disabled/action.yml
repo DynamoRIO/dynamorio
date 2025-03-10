@@ -40,11 +40,12 @@ name: Check if clang-format checks are disabled
 description: Check if clang-format checks are disabled
 inputs:
   github_token:
-    description: 'The valie of secrets.GITHUB_TOKEN.'
+    description: 'The value of secrets.GITHUB_TOKEN.'
     required: true
 outputs:
   disable_clang_format_checks:
-    description: 'disable_clang_format_checks is set to yes if clang format checks are disabled.'
+    description: |
+      'disable_clang_format_checks is set to yes if clang format checks are disabled.'
     value: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}}
 
 runs:
@@ -54,7 +55,7 @@ runs:
     - id: is_clang_format_checks_disabled
       name: Check if clang formats checks are disabled.
       env:
-        GH_TOKEN: ${{ inputs.github_token }}
+        GH_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         PR_BRANCH: ${{ github.event.pull_request.head.ref }}
       run: |
