@@ -1960,25 +1960,24 @@ endif (BUILD_DOCS)
 ###########################################################################
 # Style checks:
 if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} AND "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "yes")
-  option(VERA_ERROR "Turn vera++ checks into error (default)" OFF)
-  message(STATUS "Turn vera++ checks into error is OFF")
+  message(STATUS "vera++ code style checks are disabled")
 else ()
   option(VERA_ERROR "Turn vera++ checks into error (default)" ON)
-endif()
 
-find_package(vera++ QUIET)
-if (vera++_FOUND)
-  message(STATUS "Using vera++ for code style checks")
-  include(${VERA++_USE_FILE})
-  # We use our own modified copy in order to pass --error and for
-  # regex exclusions with vera++ 1.2.1.
-  include(third_party/vera++/use_vera++.cmake)
-  add_vera_targets_for_dynamorio(*.h *.c *.cpp
-    RECURSE
-    EXCLUSION "${PROJECT_SOURCE_DIR}/make/style_checks/exclude"
-    ROOT "${PROJECT_SOURCE_DIR}/make/style_checks")
-else ()
-  message(STATUS "WARNING: vera++ not found: disabling code style checks")
+  find_package(vera++ QUIET)
+  if (vera++_FOUND)
+    message(STATUS "Using vera++ for code style checks")
+    include(${VERA++_USE_FILE})
+    # We use our own modified copy in order to pass --error and for
+    # regex exclusions with vera++ 1.2.1.
+    include(third_party/vera++/use_vera++.cmake)
+    add_vera_targets_for_dynamorio(*.h *.c *.cpp
+      RECURSE
+      EXCLUSION "${PROJECT_SOURCE_DIR}/make/style_checks/exclude"
+      ROOT "${PROJECT_SOURCE_DIR}/make/style_checks")
+  else ()
+    message(STATUS "WARNING: vera++ not found: disabling code style checks")
+  endif ()
 endif ()
 
 ###########################################################################
