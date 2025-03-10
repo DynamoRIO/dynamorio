@@ -34,16 +34,23 @@
 # remember to add it to the send-failure-notification job to ensure failure
 # notifications are set up properly.
 
-name: is-clang-format-checks-disabled.yml
-run: |
-  commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-  if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS_BLAH"; then
-    echo "disable_clang_format_checks='yes'" >> $GITHUB_OUTPUT
-  else
-    echo "disable_clang_format_checks='no'" >> $GITHUB_OUTPUT
-  fi
-id: is_clang_format_checks_disabled
-env:
-  PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  GITHUB_REPOSITORY: ${{ github.repository }}
+jobs:
+  is-clang-format-checks-disabled.yml:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Check if clang-format checks are disabled.
+      id: is_clang_format_checks_disabled
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+      run: |
+        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS_BLAH"; then
+          echo "disable_clang_format_checks='yes'" >> $GITHUB_OUTPUT
+        else
+          echo "disable_clang_format_checks='no'" >> $GITHUB_OUTPUT
+        fi
