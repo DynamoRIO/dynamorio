@@ -619,13 +619,13 @@ dynamorio_app_init_part_two_finalize(void)
             char initial_options[MAX_OPTIONS_STRING];
             get_dynamo_options_string(&dynamo_options, initial_options,
                                       sizeof(initial_options), true);
-            if (initial_options[0])
+            if (initial_options[0] != '\0')
                 SYSLOG_INTERNAL_INFO("Initial options = %s", initial_options);
             else {
-                SYSLOG_INTERNAL_INFO("No options found. Config paths used: %s",
-                                     get_config_paths());
                 SYSLOG_INTERNAL_INFO(
-                    "Config files either missing or no permission to read them.");
+                    "No options found. Config paths used: %s\n"
+                    "Config files either missing or no permission to read them.",
+                    get_config_paths());
             }
             DOLOG(1, LOG_TOP, {
                 get_pcache_dynamo_options_string(&dynamo_options, initial_options,
