@@ -48,6 +48,7 @@ outputs:
     value: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}}
 
 runs:
+  using: composite
   steps:
     - uses: actions/checkout@v4
     - id: is_clang_format_checks_disabled
