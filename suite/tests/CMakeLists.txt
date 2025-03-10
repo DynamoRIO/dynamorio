@@ -6711,6 +6711,9 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcacheoff.warmup-pthreads-max-refs
     code_api|tool.drcacheoff.warmup-pthreads-max-trace-size
     code_api|tool.drcacheoff.warmup-pthreads-windows-split
+    # TODO i#7340: syscall vs sysenter on AMD-32 causes a
+    # PC discontinuity.
+    code_api|tool.drcacheoff.windows-invar
     code_api|tool.drcacheoff.windows-split
     code_api|tool.drcacheoff.windows-timestamps
     code_api|tool.drcacheoff.delay-ts

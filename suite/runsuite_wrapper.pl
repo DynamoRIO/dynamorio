@@ -463,14 +463,13 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|sample.signal' => 1); # i#3127
         } elsif ($is_riscv64) {
             %ignore_failures_64 = ();
-        } else { # x86
+        } else { # Linux x86
             %ignore_failures_32 = (
                 'code_api|pthreads.ptsig' => 1, # i#2921
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
                 'code_api|linux.thread-reset' => 1, # i#4604
                 'code_api|linux.clone-reset' => 1, # i#4604
                 'code_api|client.detach_test' => 1, # i#6764
-                'code_api|tool.drcacheoff.windows-invar' => 1, # i#7340
                 # These are from the long suite.
                 'common.decode-stress' => 1, # i#1807 Ignored for all options.
                 'code_api,opt_speed|common.fib' => 1, # i#1807: Undiagnosed timeout.
