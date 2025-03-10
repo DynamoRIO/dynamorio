@@ -118,11 +118,15 @@ jobs:
         with:
           cmakeVersion: '3.26.4'
 
+      - name: Check if clang-format checks are disabled
+        uses: ./.github/actions/is-clang-format-checks-disabled
+
       - name: Run Suite
         working-directory: build
         run: ../suite/runsuite_wrapper.pl travis
         env:
           CI_BRANCH: ${{ github.ref }}
+          DISABLE_CLANG_FORMAT_CHECKS: ${steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}
         if: ${{ matrix.sve == false || matrix.sve_length == '' }}
 
       - name: Run Suite with sve vector length ${{ matrix.sve_length }}

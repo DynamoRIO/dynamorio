@@ -34,14 +34,8 @@
 # remember to add it to the send-failure-notification job to ensure failure
 # notifications are set up properly.
 
-# Check if DISABLE_CLANG_FORMAT_CHECKS_BLAH appears in the PR commit messages.
+# Check if DISABLE_CLANG_FORMAT_CHECKS appears in the PR commit messages.
 # Set disable_clang_format_checks to "yes" if it does, "no" otherwise.
-name: Check if clang-format checks are disabled
-description: Check if clang-format checks are disabled
-inputs:
-  github_token:
-    description: 'The value of secrets.GITHUB_TOKEN.'
-    required: true
 outputs:
   disable_clang_format_checks:
     description: |
@@ -60,9 +54,11 @@ runs:
         PR_BRANCH: ${{ github.event.pull_request.head.ref }}
       run: |
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS_BLAH"; then
+        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
           echo "disable_clang_format_checks='yes'" >> $GITHUB_OUTPUT
+          echo "clang-format checks are disabled."
         else
           echo "disable_clang_format_checks='no'" >> $GITHUB_OUTPUT
+          echo "clang-format checks are enabled."
         fi
       shell: bash
