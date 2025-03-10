@@ -86,6 +86,25 @@ jobs:
       - name: Fetch master
         run: git fetch --no-tags --depth=1 origin master
 
+      - name: Install dependencies
+        run: |
+          sudo apt update >& /dev/null && \
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            doxygen \
+            git \
+            libunwind-dev \
+            openssh-client \
+            python3 \
+            zlib1g-dev \
+            >& /dev/null
+
+      - name: Configure ptrace
+        run: |
+          sudo sed -i s/1/0/g /etc/sysctl.d/10-ptrace.conf
+          sudo sysctl --system -a -p
+
       - name: Create build directory
         run: mkdir build
 
