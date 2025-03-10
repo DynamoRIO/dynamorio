@@ -121,8 +121,8 @@ jobs:
     #       disable_clang_format_checks="no"
     #     fi
     - name: Check If clang-format Checks are disabled
+      if: ${{ always() }}
       uses: ./.github/workflows/is-clang-format-checks-disabled.yml
-      secrets: inherit
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
