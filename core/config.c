@@ -411,9 +411,11 @@ log_path_and_open(const char *fname, int os_open_flags)
 
     INFO(2, "trying config file %s", fname);
     if (!config_initialized)
+    {
         config_paths_offset +=
             snprintf(config_paths + config_paths_offset,
                      MAX_CONFIG_PATHS - config_paths_offset, "%s, ", fname);
+    }
 
     return os_open(fname, OS_OPEN_READ);
 }

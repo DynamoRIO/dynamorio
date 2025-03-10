@@ -623,7 +623,7 @@ dynamorio_app_init_part_two_finalize(void)
                 SYSLOG_INTERNAL_INFO("Initial options = %s", initial_options);
             else {
                 SYSLOG_INTERNAL_INFO(
-                    "No options found. Config paths used: %s\n"
+                    "No options found. Initial config paths used: %s\n"
                     "Config files either missing or no permission to read them.",
                     get_config_paths());
             }
