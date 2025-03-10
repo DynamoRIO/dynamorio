@@ -463,7 +463,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|sample.signal' => 1); # i#3127
         } elsif ($is_riscv64) {
             %ignore_failures_64 = ();
-        } else {
+        } else { # x86
             %ignore_failures_32 = (
                 'code_api|pthreads.ptsig' => 1, # i#2921
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
