@@ -1959,8 +1959,12 @@ endif (BUILD_DOCS)
 
 ###########################################################################
 # Style checks:
-
-option(VERA_ERROR "Turn vera++ checks into error (default)" ON)
+if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} AND "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "yes")
+  option(VERA_ERROR "Turn vera++ checks into error (default)" OFF)
+  message(STATUS "Turn vera++ checks into error is OFF")
+else ()
+  option(VERA_ERROR "Turn vera++ checks into error (default)" ON)
+endif()
 
 find_package(vera++ QUIET)
 if (vera++_FOUND)
