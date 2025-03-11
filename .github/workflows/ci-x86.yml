@@ -310,7 +310,17 @@ jobs:
           patch xz-dev zlib-dev zlib-static
 
     - name: Check if clang-format checks are disabled
-      uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+      run: |
+        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
+          disable_clang_format_checks="yes"
+        else
+          disable_clang_format_checks="no"
+        fi
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -322,7 +332,7 @@ jobs:
         DYNAMORIO_MUSL: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}
+        DISABLE_CLANG_FORMAT_CHECKS: ${disable_clang_format_checks}
 
     - name: Setup tmate session
       if: ${{ failure() }}
