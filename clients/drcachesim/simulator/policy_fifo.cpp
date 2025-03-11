@@ -37,12 +37,12 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-policy_fifo_t::policy_fifo_t(int num_blocks, int associativity)
-    : cache_replacement_policy_t(num_blocks, associativity)
+policy_fifo_t::policy_fifo_t(int num_lines, int associativity)
+    : cache_replacement_policy_t(num_lines, associativity)
 {
     // Initialize the FIFO list for each block.
-    queues_.reserve(num_blocks);
-    for (int i = 0; i < num_blocks; ++i) {
+    queues_.reserve(num_lines);
+    for (int i = 0; i < num_lines; ++i) {
         queues_.push_back(std::list<int>());
         for (int j = 0; j < associativity; ++j) {
             queues_[i].push_back(j);
@@ -59,20 +59,32 @@ policy_fifo_t::access_update(int block_idx, int way)
 void
 policy_fifo_t::eviction_update(int block_idx, int way)
 {
-    block_idx = get_block_index(block_idx);
+    int line_idx = get_line_index(block_idx);
     // Move the evicted way to the back of the queue.
-    auto &fifo_block = queues_[block_idx];
+    auto &fifo_block = queues_[line_idx];
     fifo_block.remove(way);
     fifo_block.push_back(way);
 }
 
-int
-policy_fifo_t::get_next_way_to_replace(int block_idx,
-                                       const std::vector<bool> &valid_ways) const
+void
+policy_fifo_t::invalidation_update(int block_idx, int way)
 {
-    block_idx = get_block_index(block_idx);
+    // Nothing to update, FIFO does not change on invalidation.
+}
+
+
+void
+policy_fifo_t::validation_update(int block_idx, int way)
+{
+    // Nothing to update, FIFO does not change on validation.
+}
+
+int
+policy_fifo_t::get_next_way_to_replace(int block_idx) const
+{
+    int line_idx = get_line_index(block_idx);
     // The next way to replace is at the front of the FIFO list.
-    return queues_[block_idx].front();
+    return queues_[line_idx].front();
 }
 
 std::string

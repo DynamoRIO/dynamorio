@@ -127,7 +127,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs,
                    new cache_stats_t((int)knobs_.line_size, knobs_.LL_miss_file,
                                      warmup_enabled_),
                    create_cache_replacement_policy(
-                       knobs_.replace_policy, (int)knobs_.LL_size / (int)knobs_.LL_assoc,
+                       knobs_.replace_policy, (int)knobs_.LL_size / (int)knobs_.line_size,
                        (int)knobs_.LL_assoc))) {
         error_string_ =
             "Usage error: failed to initialize LL cache.  Ensure size divided by "
@@ -158,7 +158,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs,
                 new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
                                   knobs_.model_coherence),
                 create_cache_replacement_policy(
-                    knobs_.replace_policy, (int)knobs_.L1I_size / (int)knobs_.L1I_assoc,
+                    knobs_.replace_policy, (int)knobs_.L1I_size / (int)knobs_.line_size,
                     (int)knobs_.L1I_assoc) /*replacement_policy*/,
                 nullptr /*prefetcher*/, cache_inclusion_policy_t::NON_INC_NON_EXC,
                 knobs_.model_coherence, 2 * i, snoop_filter_) ||
@@ -167,7 +167,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs,
                 new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
                                   knobs_.model_coherence),
                 create_cache_replacement_policy(
-                    knobs_.replace_policy, (int)knobs_.L1D_size / (int)knobs_.L1D_assoc,
+                    knobs_.replace_policy, (int)knobs_.L1D_size / (int)knobs_.line_size,
                     (int)knobs_.L1D_assoc) /*replacement_policy*/,
                 get_prefetcher(knobs_.data_prefetcher),
                 cache_inclusion_policy_t::NON_INC_NON_EXC, knobs_.model_coherence,
@@ -346,7 +346,7 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file,
                                            warmup_enabled_, is_coherent_),
                          create_cache_replacement_policy(cache_config.replace_policy,
                                                          (int)cache_config.size /
-                                                             (int)cache_config.assoc,
+                                                             (int)knobs_.line_size,
                                                          (int)cache_config.assoc),
                          get_prefetcher(cache_config.prefetcher), inclusion_policy,
                          is_coherent_, is_snooped ? snoop_id : -1,

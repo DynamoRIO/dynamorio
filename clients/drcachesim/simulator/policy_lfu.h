@@ -47,22 +47,27 @@ namespace drmemtrace {
  */
 class policy_lfu_t : public cache_replacement_policy_t {
 public:
-    policy_lfu_t(int num_blocks, int associativity);
+    policy_lfu_t(int num_lines, int associativity);
     void
     access_update(int block_idx, int way) override;
     void
     eviction_update(int block_idx, int way) override;
+    void
+    invalidation_update(int block_idx, int way) override;
+    void
+    validation_update(int block_idx, int way) override;
     int
-    get_next_way_to_replace(int block_idx,
-                            const std::vector<bool> &valid_ways) const override;
+    get_next_way_to_replace(int block_idx) const override;
     std::string
     get_name() const override;
 
     ~policy_lfu_t() override = default;
 
 private:
-    // Frequency counters for each way in each block.
+    // Frequency counters for each way in each line.
     std::vector<std::vector<int>> access_counts_;
+    // Which ways are valid per line.
+    std::vector<std::vector<bool>> valid_ways_;
 };
 
 } // namespace drmemtrace

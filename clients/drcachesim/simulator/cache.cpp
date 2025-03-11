@@ -96,6 +96,8 @@ cache_t::flush(const memref_t &memref)
         auto block_way = find_caching_device_block(tag);
         if (block_way.first == nullptr)
             continue;
+        replacement_policy_->invalidation_update(compute_block_idx(tag),
+                                                 block_way.second);
         invalidate_caching_device_block(block_way.first);
     }
     // We flush parent_'s code cache here.

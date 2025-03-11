@@ -286,11 +286,7 @@ caching_device_t::replace_which_way(int block_idx)
 int
 caching_device_t::get_next_way_to_replace(const int block_idx) const
 {
-    std::vector<bool> valid_ways(associativity_, false);
-    for (int way = 0; way < associativity_; ++way) {
-        valid_ways[way] = get_caching_device_block(block_idx, way).tag_ != TAG_INVALID;
-    }
-    return replacement_policy_->get_next_way_to_replace(block_idx, valid_ways);
+    return replacement_policy_->get_next_way_to_replace(block_idx);
 }
 
 void
@@ -302,6 +298,8 @@ caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type)
         loaded_blocks_--;
         stats_->invalidate(invalidation_type);
         // Invalidate last_tag_ if it was this tag.
+        replacement_policy_->invalidation_update(compute_block_idx(tag),
+                                                 block_way.second);
         if (last_tag_ == tag) {
             last_tag_ = TAG_INVALID;
         }

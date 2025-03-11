@@ -50,18 +50,18 @@ namespace drmemtrace {
  *  - When an existing way is accessed, `access_update()` is called.
  *  - When a way is evicted, `eviction_update()` is called on the evicted way, and
  * `access_update()` is called on the new way immediately after.
- *  - When a way is invalidated, nothing is done - caching_device_t should keep track of
- * which ways are valid.
+ *  - When a way is invalidated, `invalidation_update()` is called.
+ *  - When a way is made valid, `validation_update()` is called. this can happen
+ * when a snooping is used.
  *
  * The policy also provides a `get_next_way_to_replace()` method that returns
- * the next way to replace in the block. `valid_ways` is a vector of booleans,
- * where `valid_ways[way]` is true if the way is currently valid.
+ * the next way to replace in the block.
  */
 class cache_replacement_policy_t {
 public:
-    cache_replacement_policy_t(int num_blocks, int associativity)
+    cache_replacement_policy_t(int num_lines, int associativity)
         : associativity_(associativity)
-        , num_blocks_(num_blocks)
+        , num_lines_(num_lines)
     {
     }
     /// Informs the replacement policy that an access has occurred.
@@ -70,13 +70,19 @@ public:
     /// Informs the replacement policy that an eviction has occurred.
     virtual void
     eviction_update(int block_idx, int way) = 0;
+    /// Informs the replacement policy that an invalidation has occurred.
+    virtual void
+    invalidation_update(int block_idx, int way) = 0;
+    /// Informs the replacement policy that a way is now valid.
+    virtual void
+    validation_update(int block_idx, int way) = 0;
     /*
      * Returns the next way to replace in the block.
      * valid_ways is a vector of booleans, where valid_ways[way] is true if the way
      * is currently valid.
      */
     virtual int
-    get_next_way_to_replace(int block_idx, const std::vector<bool> &valid_ways) const = 0;
+    get_next_way_to_replace(int block_idx) const = 0;
     /// Returns the name of the replacement policy.
     virtual std::string
     get_name() const = 0;
@@ -85,7 +91,7 @@ public:
 
 protected:
     virtual int
-    get_block_index(int block_idx) const
+    get_line_index(int block_idx) const
     {
         // The block index points to the first way in the block, and the ways are stored
         // in a contiguous array, so we divide by the associativity to get the block
@@ -104,7 +110,7 @@ protected:
         return -1;
     }
     int associativity_;
-    int num_blocks_;
+    int num_lines_;
 };
 
 } // namespace drmemtrace

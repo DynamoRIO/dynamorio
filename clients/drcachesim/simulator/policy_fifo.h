@@ -50,21 +50,24 @@ namespace drmemtrace {
  */
 class policy_fifo_t : public cache_replacement_policy_t {
 public:
-    policy_fifo_t(int num_blocks, int associativity);
+    policy_fifo_t(int num_lines, int associativity);
     void
     access_update(int block_idx, int way) override;
     void
     eviction_update(int block_idx, int way) override;
+    void
+    invalidation_update(int block_idx, int way) override;
+    void
+    validation_update(int block_idx, int way) override;
     int
-    get_next_way_to_replace(int block_idx,
-                            const std::vector<bool> &valid_ways) const override;
+    get_next_way_to_replace(int block_idx) const override;
     std::string
     get_name() const override;
 
     ~policy_fifo_t() override = default;
 
 private:
-    // FIFO queue for each block.
+    // FIFO queue for each line.
     std::vector<std::list<int>> queues_;
 };
 

@@ -262,6 +262,7 @@ protected:
             tag2block[new_tag] = std::make_pair(block, way);
         }
         block->tag_ = new_tag;
+        replacement_policy_->validation_update(compute_block_idx(new_tag), way);
     }
 
     // Returns the block (and its way) whose tag equals `tag`.
