@@ -407,13 +407,17 @@ get_config_paths(void)
 static file_t
 log_path_and_open(const char *fname, int os_open_flags)
 {
-    static int config_paths_offset = 0;
+    static size_t config_paths_offset = 0;
 
     INFO(2, "trying config file %s", fname);
+
+    /* Store the config path that is being read, but only if config
+     * is being initialized, as otherwise access to the global config_paths
+     * buffer may not be thread safe.
+     */
     if (!config_initialized) {
-        config_paths_offset +=
-            snprintf(config_paths + config_paths_offset,
-                     MAX_CONFIG_PATHS - config_paths_offset, "%s, ", fname);
+        print_to_buffer(config_paths, BUFFER_SIZE_ELEMENTS(config_paths),
+                        &config_paths_offset, "%s, ", fname);
     }
 
     return os_open(fname, OS_OPEN_READ);
