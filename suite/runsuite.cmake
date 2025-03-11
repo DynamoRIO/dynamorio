@@ -262,24 +262,6 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS})
-  message("ENV{DISABLE_CLANG_FORMAT_CHECKS} is defined, value: %$ENV{DISABLE_CLANG_FORMAT_CHECKS}")
-else ()
-  message("ENV{DISABLE_CLANG_FORMAT_CHECKS} is not defined.")
-endif ()
-
-if (DEFINED DISABLE_CLANG_FORMAT_CHECKS)
-  message("DISABLE_CLANG_FORMAT_CHECKS is defined")
-else ()
-  message("DISABLE_CLANG_FORMAT_CHECKS is not defined")
-endif ()
-
-if (DEFINED $ENV{DISABLE_CLANG_FORMAT_CHECKS})
-  message("$ENV{DISABLE_CLANG_FORMAT_CHECKS} is defined, value: %$ENV{DISABLE_CLANG_FORMAT_CHECKS}")
-else ()
-  message("$ENV{DISABLE_CLANG_FORMAT_CHECKS} is not defined.")
-endif ()
-
 if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} AND "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "yes")
   # ENV{DISABLE_CLANG_FORMAT_CHECKS} is set to
   # ${steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}

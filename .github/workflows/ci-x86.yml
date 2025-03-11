@@ -114,9 +114,7 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: |
-        echo "DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}"
-        ./suite/runsuite_wrapper.pl automated_ci 32_only
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
@@ -155,6 +153,7 @@ jobs:
         cmake-version: '3.19.7'
 
     - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
@@ -199,6 +198,7 @@ jobs:
         cmake-version: '3.19.7'
 
     - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
@@ -251,6 +251,7 @@ jobs:
         cmake-version: '3.19.7'
 
     - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
@@ -331,7 +332,7 @@ jobs:
         DYNAMORIO_MUSL: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${disable_clang_format_checks}
+        DISABLE_CLANG_FORMAT_CHECKS: ${{ disable_clang_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml

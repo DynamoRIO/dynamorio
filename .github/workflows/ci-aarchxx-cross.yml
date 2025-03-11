@@ -95,6 +95,7 @@ jobs:
         cmakeVersion: '3.26.4'
 
     - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
@@ -148,6 +149,7 @@ jobs:
         cmakeVersion: '3.26.4'
 
     - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
@@ -199,6 +201,7 @@ jobs:
         cmakeVersion: '3.26.4'
 
     - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
@@ -244,6 +247,7 @@ jobs:
         cmakeVersion: '3.26.4'
 
     - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
@@ -286,6 +290,7 @@ jobs:
         cmakeVersion: '3.26.4'
 
     - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
