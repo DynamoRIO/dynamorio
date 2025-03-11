@@ -107,7 +107,7 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         QEMU_LD_PREFIX: /usr/riscv64-linux-gnu/
-        DISABLE_CLANG_FORMAT_CHECKS: ${steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}
+        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
