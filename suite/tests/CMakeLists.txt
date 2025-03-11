@@ -6249,11 +6249,13 @@ if (NOT ANDROID)
   mark_execstack("${TestMemProtChg}")
 endif ()
 
-if (vera++_FOUND)
-  file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
-  add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
-    --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
-  set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
+if (NOT DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} OR "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "no")
+  if (vera++_FOUND)
+    file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
+    add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
+      --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
+    set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
+  endif ()
 endif ()
 
 ###########################################################################
