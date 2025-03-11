@@ -95,6 +95,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential \
             doxygen \
+            gh \
             git \
             libunwind-dev \
             libc6-dev \
@@ -135,6 +136,10 @@ jobs:
         env:
           CI_BRANCH: ${{ github.ref }}
         if: ${{ matrix.sve == true && matrix.sve_length != ''}}
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml

@@ -315,7 +315,7 @@ jobs:
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: |
-        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL \
+        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL,DISABLE_CLANG_FORMAT_CHECKS \
           chroot alpine-root sh -c 'cd &&
                                     ./suite/runsuite_wrapper.pl automated_ci 64_only'
       env:
@@ -323,6 +323,10 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         DISABLE_CLANG_FORMAT_CHECKS: ${steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}
+
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
