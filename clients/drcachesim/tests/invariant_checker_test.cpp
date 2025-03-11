@@ -1612,9 +1612,11 @@ bool
 check_duplicate_syscall_with_same_pc()
 {
     std::cerr << "Testing duplicate syscall\n";
-    // Incorrect: syscalls with the same PC.
-#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     constexpr addr_t ADDR = 0x7fcf3b9d;
+    // Skip test on x86-32 because PC discontinuity checks for 32-bit are disabled
+    // at syscall instrs.
+#if defined(X86_64) || defined(ARM_64)
+    // Incorrect: syscalls with the same PC.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
@@ -1644,7 +1646,9 @@ check_duplicate_syscall_with_same_pc()
                          "Failed to catch duplicate syscall instrs with the same PC"))
             return false;
     }
+#endif
 
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     // Correct: syscalls with different PCs.
     {
         std::vector<memref_t> memrefs = {
@@ -3472,6 +3476,9 @@ check_kernel_syscall_trace(void)
             if (!run_checker(memrefs, false))
                 return false;
         }
+        // Skip test on x86-32 because PC discontinuity checks for 32-bit are disabled
+        // at syscall instrs.
+#        ifndef X86_32
         {
             std::vector<memref_with_IR_t> memref_instr_vec = {
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
@@ -3499,6 +3506,7 @@ check_kernel_syscall_trace(void)
                              "Failed to catch discontinuity on return from syscall"))
                 res = false;
         }
+#        endif
         std::vector<memref_with_IR_t> memref_instr_vec = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
                          OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
