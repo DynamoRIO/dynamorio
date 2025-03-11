@@ -55,10 +55,10 @@ runs:
       run: |
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
         if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
-          echo "disable_clang_format_checks='yes'" >> $GITHUB_OUTPUT
+          echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
           echo "clang-format checks are disabled."
         else
-          echo "disable_clang_format_checks='no'" >> $GITHUB_OUTPUT
+          echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
           echo "clang-format checks are enabled."
         fi
       shell: bash
