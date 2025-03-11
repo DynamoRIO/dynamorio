@@ -40,7 +40,7 @@ outputs:
   disable_clang_format_checks:
     description: |
       'disable_clang_format_checks is set to yes if clang format checks are disabled.'
-    value: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}}
+    value: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
 
 runs:
   using: composite
