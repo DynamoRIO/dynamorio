@@ -60,6 +60,27 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+namespace {
+bool
+is_x86_32_syscall(int opcode)
+{
+#ifdef X86_32
+    // i#7340: On x86-32, we assume that an OP_syscall may be present only in the
+    // vdso __kernel_vsyscall on AMD machines. See notes in the Linux implementation:
+    // https://github.com/torvalds/linux/blob/4d872d51bc9d7b899c1f61534e3dbde72613f627/arch/x86/entry/entry_64_compat.S#L142
+    // Also, as noted in PR #5037, this 32-bit AMD OP_syscall does _not_ return
+    // to the subsequent PC; the kernel sends control to a hardcoded address in
+    // the __kernel_vsyscall sequence, making it act like an OP_sysenter; hence,
+    // the expected PC discontinuity.
+    // We chose to not add a separate trace type for this special 32-bit syscall
+    // because the opcode is enough to differentiate it on x86-32.
+    return opcode == OP_syscall;
+#else
+    return false;
+#endif
+}
+} // namespace
+
 // We don't expose the alignment requirement for DR_ISA_REGDEPS instructions (4 bytes),
 // so we duplicate it here.
 #define REGDEPS_ALIGN_BYTES 4
@@ -918,16 +939,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // resumption point.
                 shard->last_signal_context_.pre_signal_instr.memref.instr.type ==
                     TRACE_TYPE_INSTR_SYSENTER // clang-format off
-#ifdef X86_32
-                // i#7340: On x86-32, we assume that an OP_syscall may be present only in the
-                // vdso __kernel_vsyscall on AMD machines. See notes in the Linux implementation:
-                // https://github.com/torvalds/linux/blob/4d872d51bc9d7b899c1f61534e3dbde72613f627/arch/x86/entry/entry_64_compat.S#L142
-                // Also, as noted in PR #5037, this 32-bit AMD OP_syscall does _not_ return
-                // to the subsequent PC; the kernel sends control to a hardcoded address in
-                // the vsyscall sequence, making it act like an OP_sysenter; hence, the
-                // expected PC discontinuity.
-                || shard->last_signal_context_.pre_signal_instr.decoding.opcode_ == OP_syscall
-#endif
+                || is_x86_32_syscall(
+                    shard->last_signal_context_.pre_signal_instr.decoding.opcode_)
                 // The AArch64 scatter/gather expansion test skips faulting
                 // instructions in the signal handler by incrementing the PC.
                 IF_AARCH64(||
@@ -1474,16 +1487,7 @@ invariant_checker_t::check_for_pc_discontinuity(
 #endif
         // We expect a gap on a window transition.
         shard->window_transition_ ||
-#ifdef X86_32
-        // i#7340: On x86-32, we assume that an OP_syscall may be present only in the
-        // vdso __kernel_vsyscall on AMD machines. See notes in the Linux implementation:
-        // https://github.com/torvalds/linux/blob/4d872d51bc9d7b899c1f61534e3dbde72613f627/arch/x86/entry/entry_64_compat.S#L142
-        // Also, as noted in PR #5037, this 32-bit AMD OP_syscall does _not_ return
-        // to the subsequent PC; the kernel sends control to a hardcoded address in
-        // the vsyscall sequence, making it act like an OP_sysenter; hence, the
-        // expected PC discontinuity.
-        prev_instr_info.decoding.opcode_ == OP_syscall ||
-#endif
+        is_x86_32_syscall(prev_instr_info.decoding.opcode_) ||
         prev_instr.instr.type ==
             TRACE_TYPE_INSTR_SYSENTER IF_X86(
                 ||
