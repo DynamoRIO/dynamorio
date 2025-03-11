@@ -311,6 +311,8 @@ jobs:
 
     - name: Check if clang-format checks are disabled
       uses: ./.github/actions/is-clang-format-checks-disabled
+      with:
+        working-directory: ${{ github.workspace }}/DynamoRIO
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

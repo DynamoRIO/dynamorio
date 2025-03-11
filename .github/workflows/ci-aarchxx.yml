@@ -95,8 +95,8 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential \
             doxygen \
-            gh \
             git \
+            gitsome \
             libunwind-dev \
             libc6-dev \
             openssh-client \
