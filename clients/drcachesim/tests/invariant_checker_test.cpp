@@ -1612,31 +1612,32 @@ bool
 check_duplicate_syscall_with_same_pc()
 {
     std::cerr << "Testing duplicate syscall\n";
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     constexpr addr_t ADDR = 0x7fcf3b9d;
     // Skip test on x86-32 because PC discontinuity checks for 32-bit are disabled
     // at syscall instrs.
-#if defined(X86_64) || defined(ARM_64)
+#    ifndef X86_32
     // Incorrect: syscalls with the same PC.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#    if defined(X86_64) || defined(X86_32)
+#        if defined(X86_64) || defined(X86_32)
             gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
             gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 6),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
-#    elif defined(ARM_64)
+#        elif defined(ARM_64)
             gen_instr_encoded(ADDR,
                               0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
             gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 6),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR,
                               0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
-#    else
+#        else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
-#    endif
+#        endif
             gen_exit(TID_A)
         };
         if (!run_checker(memrefs, true,
@@ -1646,6 +1647,7 @@ check_duplicate_syscall_with_same_pc()
                          "Failed to catch duplicate syscall instrs with the same PC"))
             return false;
     }
+#    endif
 #endif
 
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
