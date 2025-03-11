@@ -332,7 +332,7 @@ jobs:
         DYNAMORIO_MUSL: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ disable_clang_format_checks }}
+        DISABLE_CLANG_FORMAT_CHECKS: ${ disable_clang_format_checks }
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
