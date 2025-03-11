@@ -96,7 +96,6 @@ jobs:
             build-essential \
             doxygen \
             git \
-            gitsome \
             libunwind-dev \
             libc6-dev \
             openssh-client \
@@ -119,15 +118,11 @@ jobs:
         with:
           cmakeVersion: '3.26.4'
 
-      - name: Check if clang-format checks are disabled
-        uses: ./.github/actions/is-clang-format-checks-disabled
-
       - name: Run Suite
         working-directory: build
         run: ../suite/runsuite_wrapper.pl travis
         env:
           CI_BRANCH: ${{ github.ref }}
-          DISABLE_CLANG_FORMAT_CHECKS: ${steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}
         if: ${{ matrix.sve == false || matrix.sve_length == '' }}
 
       - name: Run Suite with sve vector length ${{ matrix.sve_length }}
@@ -136,10 +131,6 @@ jobs:
         env:
           CI_BRANCH: ${{ github.ref }}
         if: ${{ matrix.sve == true && matrix.sve_length != ''}}
-
-      - name: Setup tmate session
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
