@@ -46,7 +46,7 @@ namespace drmemtrace {
  * and provides a replacement-specific get_next_way_to_replace() method for
  * `caching_device_t`.
  *
- * The policy recieves the following updates:
+ * The policy receives the following updates:
  *  - When an existing way is accessed, `access_update()` is called.
  *  - When a way is evicted, `eviction_update()` is called on the evicted way, and
  * `access_update()` is called on the new way immediately after.
