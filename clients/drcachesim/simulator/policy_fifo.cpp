@@ -72,7 +72,6 @@ policy_fifo_t::invalidation_update(int block_idx, int way)
     // Nothing to update, FIFO does not change on invalidation.
 }
 
-
 void
 policy_fifo_t::validation_update(int block_idx, int way)
 {
