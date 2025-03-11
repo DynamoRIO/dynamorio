@@ -310,9 +310,7 @@ jobs:
           patch xz-dev zlib-dev zlib-static
 
     - name: Check if clang-format checks are disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
-      with:
-        working-directory: ${{ github.workspace }}/DynamoRIO
+      uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
