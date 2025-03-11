@@ -262,7 +262,8 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-IF($ENV{DISABLE_CLANG_FORMAT_CHECKS} MATCHES "yes")
+IF($ENV{DISABLE_CLANG_FORMAT_CHECKS} MATCHES "no")
+  set(ENV{DISABLE_CLANG_FORMAT_CHECKS} "no")
   find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
   if (NOT CLANG_FORMAT_DIFF)
     find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
@@ -302,11 +303,7 @@ IF($ENV{DISABLE_CLANG_FORMAT_CHECKS} MATCHES "yes")
       message("clang-format-diff not found: skipping format checks")
     endif ()
   endif ()
-else ()
-   message("clang-format check disabled")
-endif ()
 
-IF($ENV{DISABLE_CLANG_FORMAT_CHECKS} MATCHES "no")
   # Check for tabs other than on the revision lines.
   # The clang-format check will now find these in C files, but not non-C files.
   string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
@@ -315,6 +312,13 @@ IF($ENV{DISABLE_CLANG_FORMAT_CHECKS} MATCHES "no")
     string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
     message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
   endif ()
+else ()
+   # ENV{DISABLE_CLANG_FORMAT_CHECKS} is set to
+   # ${steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks}
+   # in yml files. We need to reset it to "yes" here since the other variable
+   # is not visible to CMakeLists.txt files.
+   set(ENV{DISABLE_CLANG_FORMAT_CHECKS} "yes")
+   message("clang-format check disabled")
 endif ()
 
 # Check for NOCHECKIN

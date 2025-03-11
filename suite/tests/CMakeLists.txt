@@ -6249,21 +6249,6 @@ if (NOT ANDROID)
   mark_execstack("${TestMemProtChg}")
 endif ()
 
-message(STATUS "@@@ ENV{DISABLE_CLANG_FORMAT_CHECKS} $ENV{DISABLE_CLANG_FORMAT_CHECKS}")
-if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS})
-  message(STATUS "ENV{DISABLE_CLANG_FORMAT_CHECKS} is defined")
-else ()
-  message(STATUS "ENV{DISABLE_CLANG_FORMAT_CHECKS} is not defined")
-endif ()
-
-if (DEFINED DISABLE_CLANG_FORMAT_CHECKS)
-  message(STATUS "DISABLE_CLANG_FORMAT_CHECKS is defined")
-else ()
-  message(STATUS "DISABLE_CLANG_FORMAT_CHECKS is not defined")
-endif ()
-
-
-
 if (NOT DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} OR "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "no")
   if (vera++_FOUND)
     file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
@@ -6271,6 +6256,8 @@ if (NOT DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} OR "$ENV{DISABLE_CLANG_FORMAT_C
       --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
     set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
   endif ()
+else ()
+  message(STATUS "Style checks are disabled")
 endif ()
 
 ###########################################################################
