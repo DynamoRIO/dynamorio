@@ -416,8 +416,9 @@ log_path_and_open(const char *fname, int os_open_flags)
      * buffer may not be thread safe.
      */
     if (!config_initialized) {
-        print_to_buffer(config_paths, BUFFER_SIZE_ELEMENTS(config_paths),
-                        &config_paths_offset, "%s, ", fname);
+        config_paths_offset += snprintf(
+            config_paths + config_paths_offset,
+            BUFFER_SIZE_ELEMENTS(config_paths) - config_paths_offset, "%s, ", fname);
     }
 
     return os_open(fname, OS_OPEN_READ);
