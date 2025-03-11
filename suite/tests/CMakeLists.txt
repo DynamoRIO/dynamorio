@@ -6249,6 +6249,18 @@ if (NOT ANDROID)
   mark_execstack("${TestMemProtChg}")
 endif ()
 
+if (DEFINED DISABLE_CLANG_FORMAT_CHECKS)
+  message("DISABLE_CLANG_FORMAT_CHECKS is defined")
+else ()
+  message("DISABLE_CLANG_FORMAT_CHECKS is not defined")
+endif ()
+
+if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS})
+  message("ENV{DISABLE_CLANG_FORMAT_CHECKS} is defined, value: %$ENV{DISABLE_CLANG_FORMAT_CHECKS}")
+else ()
+  message("ENV{DISABLE_CLANG_FORMAT_CHECKS} is not defined.")
+endif ()
+
 if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} AND "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "yes")
   message(STATUS "Style checks are disabled")
 else ()
