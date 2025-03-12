@@ -282,10 +282,6 @@ jobs:
     - run: git fetch --no-tags --depth=1 origin master
       working-directory: ${{ github.workspace }}/DynamoRIO
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
-
     # Create an Alpine Linux 3.21.2 chroot environment for building
     - name: Create Build Environment
       run: |
@@ -313,6 +309,9 @@ jobs:
           lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
           patch xz-dev zlib-dev zlib-static
 
+    - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
+      uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
       # - name: Check if clang-format checks are disabled
       #   id: is_clang_format_checks_disabled
       #   uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
@@ -341,6 +340,11 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
+
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
