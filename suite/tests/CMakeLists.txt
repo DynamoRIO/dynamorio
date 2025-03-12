@@ -6273,7 +6273,7 @@ if (NOT ANDROID)
   mark_execstack("${TestMemProtChg}")
 endif ()
 
-if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} AND "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "yes")
+if ("${CMAKE_DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
   message(STATUS "Style checks are disabled")
 else ()
   if (vera++_FOUND)

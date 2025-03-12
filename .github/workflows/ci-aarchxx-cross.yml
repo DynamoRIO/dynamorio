@@ -94,9 +94,9 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -105,7 +105,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # ARM cross-compile with gcc, with some tests run under QEMU.
   # We use a more recent Ubuntu for a more recent QEMU.
@@ -148,9 +148,9 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -159,7 +159,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # Android ARM cross-compile with gcc, no tests:
   android-arm-cross-compile:
@@ -200,9 +200,9 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -211,7 +211,7 @@ jobs:
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
 
   # Android AArch64 cross-compile with LLVM, no tests:
@@ -246,9 +246,9 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -258,7 +258,7 @@ jobs:
         DYNAMORIO_ANDROID_API_LEVEL: 35
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
 
   # AArch64 drdecode and drmemtrace on x86:
@@ -289,9 +289,9 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -300,7 +300,7 @@ jobs:
         DYNAMORIO_A64_ON_X86_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml

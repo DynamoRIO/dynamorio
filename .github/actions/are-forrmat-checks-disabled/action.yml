@@ -28,37 +28,31 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Github Actions workflow for x86 Continuous Integration testing.
-#
-# Each test suite is a separate job. When adding a new test suite job,
-# remember to add it to the send-failure-notification job to ensure failure
-# notifications are set up properly.
-
-# Check if DISABLE_CLANG_FORMAT_CHECKS appears in the PR commit messages.
-# Set disable_clang_format_checks to "yes" if it does, "no" otherwise.
+# Check if DISABLE_FORMAT_CHECKS appears in the PR commit messages.
+# Set disable_format_checks to "yes" if it does, "no" otherwise.
 outputs:
-  disable_clang_format_checks:
+  disable_format_checks:
     description: |
-      'disable_clang_format_checks is set to yes if clang format checks are disabled.'
-    value: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+      'disable_format_checks is set to yes if format checks are disabled.'
+    value: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
 runs:
   using: composite
   steps:
     - uses: actions/checkout@v4
-    - id: is_clang_format_checks_disabled
-      name: Check if clang formats checks are disabled.
+    - id: are_format_checks_disabled
+      name: Check if formats checks are disabled.
       env:
         GH_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         PR_BRANCH: ${{ github.event.pull_request.head.ref }}
       run: |
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
-          echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
-          echo "clang-format checks are disabled."
+        if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
+          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
+          echo "format checks are disabled."
         else
-          echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
-          echo "clang-format checks are enabled."
+          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
+          echo "format checks are enabled."
         fi
       shell: bash

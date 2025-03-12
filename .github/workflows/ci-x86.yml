@@ -108,9 +108,9 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -120,7 +120,7 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         GITHUB_COMMIT_AUTHOR_EMAIL: ${{ github.event.commits[0].author.email }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # 64-bit Linux build with gcc and run tests.
   x86-64:
@@ -152,9 +152,9 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -163,7 +163,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # Ubuntu22 64-bit Linux build with gcc and run tests.
   # XXX: A matrix could combine this with the 20.04 but our auto-cancel
@@ -197,9 +197,9 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -208,7 +208,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # Ubuntu22 64-bit Linux build with gcc and run tests.
   # XXX: A matrix could combine this with the 20.04 but our auto-cancel
@@ -250,9 +250,9 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./.github/actions/is-clang-format-checks-disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -261,7 +261,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # 64-bit Linux build with gcc and musl.
   # TODO i#1973: Fix failing cases and enable tests in CI.
@@ -309,33 +309,33 @@ jobs:
           lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
           patch xz-dev zlib-dev zlib-static
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         PR_BRANCH: ${{ github.event.pull_request.head.ref }}
       run: |
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
-          echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
-          echo "clang-format checks are disabled."
+        if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
+          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
+          echo "format checks are disabled."
         else
-          echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
-          echo "clang-format checks are enabled."
+          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
+          echo "format checks are enabled."
         fi
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: |
-        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL,DISABLE_CLANG_FORMAT_CHECKS \
+        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL,DISABLE_FORMAT_CHECKS \
           chroot alpine-root sh -c 'cd &&
                                     ./suite/runsuite_wrapper.pl automated_ci 64_only'
       env:
         DYNAMORIO_MUSL: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-        DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml

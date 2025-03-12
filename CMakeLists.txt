@@ -120,6 +120,13 @@ else ()
   set(CMAKE_BUILD_TYPE "${specified_build_type}")
 endif ()
 
+# Disable clang-format, style, and vera test is DISABLE_FORMAT_CHECKS is "yes".
+if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
+  set(CMAKE_DISABLE_FORMAT_CHECKS "yes")
+else ()
+  set(CMAKE_DISABLE_FORMAT_CHECKS "no")
+endif ()
+
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 include(CheckIncludeFile)
@@ -1957,7 +1964,7 @@ endif (BUILD_DOCS)
 
 ###########################################################################
 # Style checks:
-if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} AND "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "yes")
+if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
   message(STATUS "vera++ code style checks are disabled")
 else ()
   option(VERA_ERROR "Turn vera++ checks into error (default)" ON)
