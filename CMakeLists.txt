@@ -120,7 +120,8 @@ else ()
   set(CMAKE_BUILD_TYPE "${specified_build_type}")
 endif ()
 
-# Disable clang-format, style, and vera test is DISABLE_FORMAT_CHECKS is "yes".
+# Set the default to disable clang-format, style, and vera test if
+# ENV{DISABLE_FORMAT_CHECKS} is "yes".
 if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
   set(DISABLE_FORMAT_CHECKS_DEFAULT ON)
 else ()
