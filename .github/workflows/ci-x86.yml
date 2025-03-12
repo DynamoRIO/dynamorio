@@ -282,6 +282,10 @@ jobs:
     - run: git fetch --no-tags --depth=1 origin master
       working-directory: ${{ github.workspace }}/DynamoRIO
 
+    - name: Check if clang-format checks are disabled
+      id: is_clang_format_checks_disabled
+      uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
+
     # Create an Alpine Linux 3.21.2 chroot environment for building
     - name: Create Build Environment
       run: |
@@ -309,21 +313,22 @@ jobs:
           lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
           patch xz-dev zlib-dev zlib-static
 
-    - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-      run: |
-        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-        if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
-          echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
-          echo "clang-format checks are disabled."
-        else
-          echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
-          echo "clang-format checks are enabled."
-        fi
+      # - name: Check if clang-format checks are disabled
+      #   id: is_clang_format_checks_disabled
+      #   uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
+      # env:
+      #   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   GITHUB_REPOSITORY: ${{ github.repository }}
+      #   PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+      # run: |
+      #   commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+      #   if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
+      #     echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
+      #     echo "clang-format checks are disabled."
+      #   else
+      #     echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
+      #     echo "clang-format checks are enabled."
+      #   fi
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
