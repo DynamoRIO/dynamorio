@@ -262,7 +262,7 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-if ("${CMAKE_DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
+if (DISABLE_FORMAT_CHECKS)
   message("clang-format check disabled")
 else ()
   find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
