@@ -120,6 +120,16 @@ else ()
   set(CMAKE_BUILD_TYPE "${specified_build_type}")
 endif ()
 
+# Set the default to disable clang-format, style, and vera test if
+# ENV{DISABLE_FORMAT_CHECKS} is "yes".
+if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
+  set(DISABLE_FORMAT_CHECKS_DEFAULT ON)
+else ()
+  set(DISABLE_FORMAT_CHECKS_DEFAULT OFF)
+endif ()
+set(DISABLE_FORMAT_CHECKS_DESCR "Disable clang-format, style, and vera test.")
+option(DISABLE_FORMAT_CHECKS ${DISABLE_FORMAT_CHECKS_DESCR} ${DISABLE_FORMAT_CHECKS_DEFAULT})
+
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 include(CheckIncludeFile)
@@ -1957,22 +1967,25 @@ endif (BUILD_DOCS)
 
 ###########################################################################
 # Style checks:
-
-option(VERA_ERROR "Turn vera++ checks into error (default)" ON)
-
-find_package(vera++ QUIET)
-if (vera++_FOUND)
-  message(STATUS "Using vera++ for code style checks")
-  include(${VERA++_USE_FILE})
-  # We use our own modified copy in order to pass --error and for
-  # regex exclusions with vera++ 1.2.1.
-  include(third_party/vera++/use_vera++.cmake)
-  add_vera_targets_for_dynamorio(*.h *.c *.cpp
-    RECURSE
-    EXCLUSION "${PROJECT_SOURCE_DIR}/make/style_checks/exclude"
-    ROOT "${PROJECT_SOURCE_DIR}/make/style_checks")
+if (DISABLE_FORMAT_CHECKS)
+  message(STATUS "vera++ code style checks are disabled")
 else ()
-  message(STATUS "WARNING: vera++ not found: disabling code style checks")
+  option(VERA_ERROR "Turn vera++ checks into error (default)" ON)
+
+  find_package(vera++ QUIET)
+  if (vera++_FOUND)
+    message(STATUS "Using vera++ for code style checks")
+    include(${VERA++_USE_FILE})
+    # We use our own modified copy in order to pass --error and for
+    # regex exclusions with vera++ 1.2.1.
+    include(third_party/vera++/use_vera++.cmake)
+    add_vera_targets_for_dynamorio(*.h *.c *.cpp
+      RECURSE
+      EXCLUSION "${PROJECT_SOURCE_DIR}/make/style_checks/exclude"
+      ROOT "${PROJECT_SOURCE_DIR}/make/style_checks")
+  else ()
+    message(STATUS "WARNING: vera++ not found: disabling code style checks")
+  endif ()
 endif ()
 
 ###########################################################################

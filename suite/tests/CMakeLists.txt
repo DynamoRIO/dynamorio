@@ -6273,11 +6273,15 @@ if (NOT ANDROID)
   mark_execstack("${TestMemProtChg}")
 endif ()
 
-if (vera++_FOUND)
-  file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
-  add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
-    --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
-  set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
+if (DISABLE_FORMAT_CHECKS)
+  message(STATUS "Style checks are disabled")
+else ()
+  if (vera++_FOUND)
+    file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
+    add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
+      --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
+    set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
+  endif ()
 endif ()
 
 ###########################################################################
