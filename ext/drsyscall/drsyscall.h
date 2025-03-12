@@ -489,7 +489,9 @@ DR_EXPORT
  * @param[in] client_id  The id of the client using drsys, as passed to dr_init().
  * @param[in] options    Allows changing the default behavior of Dr. Syscall.
  *
- * \return success code.  The warning code #DRMF_WARNING_UNSUPPORTED_KERNEL
+ * TODO i#7303: Add the link to DRMF_WARNING_UNSUPPORTED_KERNEL when we add
+ * drsyscall dox.
+ * \return success code.  The warning code DRMF_WARNING_UNSUPPORTED_KERNEL
  * indicates that initialization completed but that false positives are a risk
  * due to missing information.
  */
