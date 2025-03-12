@@ -1637,12 +1637,19 @@ check_duplicate_syscall_with_same_pc()
 #    endif
             gen_exit(TID_A)
         };
+#    ifdef X86_32
+        // PC discontinuity checks for x86-32 are disabled at syscall instrs.
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+#    else
         if (!run_checker(memrefs, true,
                          { "Duplicate syscall instrs with the same PC", /*tid=*/1,
                            /*ref_ordinal=*/7, /*last_timestamp=*/6,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch duplicate syscall instrs with the same PC"))
             return false;
+#    endif
     }
 
     // Correct: syscalls with different PCs.
@@ -3491,6 +3498,11 @@ check_kernel_syscall_trace(void)
                 { gen_exit(TID_A), nullptr }
             };
             auto memrefs = add_encodings_to_memrefs(ilist2, memref_instr_vec, BASE_ADDR);
+#        ifdef X86_32
+            // PC discontinuity checks for x86-32 are disabled at syscall instrs.
+            if (!run_checker(memrefs, false))
+                return false;
+#        else
             if (!run_checker(memrefs, true,
                              { "Non-explicit control flow has no marker",
                                /*tid=*/TID_A,
@@ -3498,6 +3510,7 @@ check_kernel_syscall_trace(void)
                                /*instrs_since_last_timestamp=*/3 },
                              "Failed to catch discontinuity on return from syscall"))
                 res = false;
+#        endif
         }
         std::vector<memref_with_IR_t> memref_instr_vec = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
