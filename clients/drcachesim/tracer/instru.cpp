@@ -77,8 +77,8 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
 #    ifdef X86_32
         // i#7340: On x86-32, we assume that an OP_syscall may be present only
         // in the vdso __kernel_vsyscall on AMD machines. See notes in the
-        // Linux implementation:
-        // https://github.com/torvalds/linux/blob/4d872d51bc9d7b899c1f61534e3dbde72613f627/arch/x86/entry/entry_64_compat.S#L142
+        // Linux implementation: https://github.com/torvalds/linux/blob/v6.13/
+        // arch/x86/entry/entry_64_compat.S#L142
         // Also, as noted in PR #5037, this 32-bit AMD OP_syscall does _not_
         // return to the subsequent PC; the kernel sends control to a
         // hardcoded address in the __kernel_vsyscall sequence, thus acting
