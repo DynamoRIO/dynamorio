@@ -309,6 +309,10 @@ jobs:
           lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
           patch xz-dev zlib-dev zlib-static
 
+    # XXX: Using actions/are-format-checks-disabled here results in EACCES:
+    # permission denied,
+    # rmdir '/home/runner/work/dynamorio/dynamorio/alpine-root/bin' after
+    # actions/checkout@v4 and before gh api is called. So we call gh api here.
     - name: Check if format checks are disabled
       id: are_format_checks_disabled
       env:
