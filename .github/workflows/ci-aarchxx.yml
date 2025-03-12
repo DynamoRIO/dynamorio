@@ -118,6 +118,7 @@ jobs:
         with:
           cmakeVersion: '3.26.4'
 
+      # TODO i#7344: Check if we should skip clang format checks and vera tests after gh api is installed.
       - name: Run Suite
         working-directory: build
         run: ../suite/runsuite_wrapper.pl travis
