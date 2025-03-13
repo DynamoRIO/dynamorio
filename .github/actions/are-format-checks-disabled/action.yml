@@ -56,18 +56,17 @@ runs:
           fi
         elif ${{ github.event_name == 'push' }}; then
           for commit_message in $(jq -r '.commits[] | .message' <<< "${{ toJson(github.event.commits) }}"); do
-            # TODO i#7344 Remove echo after verifying this check works.
-            echo "commit message: $commit_message"
             if echo "$commit_message" | grep -q "DISABLE_FORMAT_CHECKS"; then
+              echo "Set found to yes"
               found=yes
             fi
           done
         fi
         if [[ "$found" == "yes" ]]; then
-          echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
-          echo "clang-format checks are disabled."
+          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
+          echo "format checks are disabled."
         else
-          echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
-          echo "clang-format checks are enabled."
+          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
+          echo "format checks are enabled."
         fi
       shell: bash

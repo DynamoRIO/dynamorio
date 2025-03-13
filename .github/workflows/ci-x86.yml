@@ -335,11 +335,11 @@ jobs:
           done
         fi
         if [[ "$found" == "yes" ]]; then
-          echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
-          echo "clang-format checks are disabled."
+          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
+          echo "format checks are disabled."
         else
-          echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
-          echo "clang-format checks are enabled."
+          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
+          echo "format checks are enabled."
         fi
 
     - name: Run Suite
