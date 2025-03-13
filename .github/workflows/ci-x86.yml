@@ -103,6 +103,23 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+      run: |
+        commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+        echo "github.event: ${{ github.event }}"
+        if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
+          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
+          echo "format checks are disabled."
+        else
+          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
+          echo "format checks are enabled."
+        fi
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
