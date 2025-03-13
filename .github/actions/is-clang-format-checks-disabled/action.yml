@@ -54,13 +54,13 @@ runs:
       run: |
         found=no
         echo "Set found to no"
-        if ${{ github.event_name == 'pull_request' }}
+        if ${{ github.event_name == 'pull_request' }}; then
           commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
           if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
             echo "Set found to yes"
             found=yes
           fi
-        elif ${{ github.event_name == 'push' }}
+        elif ${{ github.event_name == 'push' }}; then
           for commit_message in $(jq -r '.commits[] | .message' <<< "${{ toJson(github.event.commits) }}"); do
             # TODO i#7344 Remove echo after verifying this check works.
             echo "commit message: $commit_messag"
@@ -68,7 +68,7 @@ runs:
               found=yes
             fi
         fi
-        if ${found} = 'yes'
+        if ${found} = 'yes'; then
           echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
           echo "clang-format checks are disabled."
         else
