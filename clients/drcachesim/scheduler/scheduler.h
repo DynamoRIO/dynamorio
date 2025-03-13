@@ -144,10 +144,10 @@ public:
         STATUS_STOLE, /**< Used for internal scheduler purposes. */
     };
 
-    /** Identifies an input stream by its index. */
+    /** Identifies an input stream by its index (0-based). */
     typedef int input_ordinal_t;
 
-    /** Identifies an output stream by its index. */
+    /** Identifies an output stream by its index (0-based). */
     typedef int output_ordinal_t;
 
     /** Sentinel value indicating that no input stream is specified. */
@@ -241,8 +241,9 @@ public:
          */
         std::vector<memref_tid_t> tids;
         /**
-         * Limits these threads to this set of output streams.  They will not
-         * be scheduled on any other output streams.
+         * Limits these threads to this set of output streams, which are specified by
+         * ordinal 0 through the output count minus oner.  They will not be scheduled
+         * on any other output streams.
          */
         std::set<output_ordinal_t> output_binding;
         /**

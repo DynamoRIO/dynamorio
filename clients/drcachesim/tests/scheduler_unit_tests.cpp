@@ -2093,6 +2093,12 @@ test_synthetic_with_bindings_more_out()
             cores.insert(0);
             scheduler_t::input_thread_info_t info(tid, cores);
             sched_inputs.back().thread_modifiers.emplace_back(info);
+        } else {
+            // Specify all outputs for the 3rd to ensure that works.
+            std::set<scheduler_t::output_ordinal_t> cores;
+            cores.insert({ 0, 1, 2, 3 });
+            scheduler_t::input_thread_info_t info(tid, cores);
+            sched_inputs.back().thread_modifiers.emplace_back(info);
         }
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
@@ -2230,7 +2236,7 @@ test_synthetic_with_bindings_invalid()
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(std::move(readers));
         std::set<scheduler_t::output_ordinal_t> cores;
-        cores.insert({ 1, 3 });
+        cores.insert({ 1, 2 });
         sched_inputs.back().thread_modifiers.emplace_back(cores);
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
@@ -7083,11 +7089,6 @@ test_main(int argc, const char *argv[])
     // Avoid races with lazy drdecode init (b/279350357).
     dr_standalone_init();
 
-    if (argc < 20) {
-        test_synthetic_with_bindings_invalid();
-        test_unscheduled_initially_rebalance();
-        return 0;
-    }
     test_serial();
     test_parallel();
     test_param_checks();

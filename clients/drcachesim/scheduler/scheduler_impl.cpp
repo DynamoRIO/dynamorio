@@ -839,7 +839,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 input.has_modifier = true;
                 // Check for valid bindings.
                 for (output_ordinal_t bind : modifiers.output_binding) {
-                    if (bind < 0 || bind > output_count) {
+                    if (bind < 0 || bind >= output_count) {
                         error_string_ =
                             "output_binding " + std::to_string(bind) + " out of bounds";
                         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
