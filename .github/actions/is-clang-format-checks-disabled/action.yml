@@ -53,7 +53,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GH_EVENT_NUMBER: ${{ github.event.number }}
       run: |
-        commit_messages="$(gh api 'https://api.github.com/repos/DynamoRIO/dynamorio/pulls/${GH_EVENT_NUMBER}/commits' --paginate --jq .[].commit.message)"
+        commit_messages="$(gh api 'https://api.github.com/repos/DynamoRIO/dynamorio/pulls/$GH_EVENT_NUMBER/commits' --paginate --jq .[].commit.message)"
         if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
           echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
           echo "clang-format checks are disabled."
