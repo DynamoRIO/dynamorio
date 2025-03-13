@@ -964,6 +964,11 @@ test_duplicate_syscalls(void *drcontext)
 #else
 #    error Unsupported architecture.
 #endif
+#ifdef X86_32
+    unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR_SYSENTER;
+#else
+    unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR;
+#endif
     instr_t *move2 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
     instrlist_append(ilist, nop);
@@ -1023,7 +1028,7 @@ test_duplicate_syscalls(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // The sys instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, expected_syscall_instr_type, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
                     SYSCALL_NUM) &&
         // Prev block ends.
@@ -1065,6 +1070,11 @@ test_false_syscalls(void *drcontext)
     instr_t *sys = INSTR_CREATE_ecall(drcontext);
 #    else
 #        error Unsupported architecture.
+#    endif
+#    ifdef X86_32
+    unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR_SYSENTER;
+#    else
+    unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR;
 #    endif
     instr_t *move2 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
@@ -1129,13 +1139,13 @@ test_false_syscalls(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // A sys instr that was not removed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, expected_syscall_instr_type, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
                     SYSCALL_NUM) &&
         // The move1 instr, with no encoding (2nd occurrence).
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // A sys instr that was not removed, with no encoding (2nd occurrence).
-        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, expected_syscall_instr_type, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 3) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
