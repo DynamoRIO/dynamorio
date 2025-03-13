@@ -315,7 +315,6 @@ jobs:
 
     - name: Check if clang-format checks are disabled
        id: is_clang_format_checks_disabled
-       uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
        env:
          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
          GITHUB_REPOSITORY: ${{ github.repository }}
@@ -342,10 +341,6 @@ jobs:
            echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
            echo "clang-format checks are enabled."
          fi
-
-    - name: Setup tmate session
-      if: failure()
-      uses: mxschmitt/action-tmate@v3
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
