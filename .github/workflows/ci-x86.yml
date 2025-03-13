@@ -122,6 +122,10 @@ jobs:
         GITHUB_COMMIT_AUTHOR_EMAIL: ${{ github.event.commits[0].author.email }}
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
+
   # 64-bit Linux build with gcc and run tests.
   x86-64:
     runs-on: ubuntu-20.04
@@ -353,6 +357,10 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
+
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
