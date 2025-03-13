@@ -111,7 +111,8 @@ jobs:
         PR_BRANCH: ${{ github.event.pull_request.head.ref }}
       run: |
         commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-        echo "github.event: ${{ github.event }}"
+        echo "github.event: ${{toJSON(github.event)}}"
+        echo "github: ${{toJSON(github)}}"
         if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
           echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
           echo "format checks are disabled."
