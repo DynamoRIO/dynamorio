@@ -43,7 +43,7 @@ namespace drmemtrace {
 
 /// Initializes and returns a specific replacement policy.
 std::unique_ptr<cache_replacement_policy_t>
-create_cache_replacement_policy(const std::string &policy, int num_blocks,
+create_cache_replacement_policy(const std::string &policy, int num_sets,
                                 int associativity);
 
 } // namespace drmemtrace

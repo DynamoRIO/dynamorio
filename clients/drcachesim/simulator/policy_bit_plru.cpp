@@ -38,73 +38,58 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-policy_bit_plru_t::policy_bit_plru_t(int num_lines, int associativity, int seed)
-    : cache_replacement_policy_t(num_lines, associativity)
-    , num_ones_(num_lines, 0)
+policy_bit_plru_t::policy_bit_plru_t(int num_sets, int associativity, int seed)
+    : cache_replacement_policy_t(num_sets, associativity)
+    , num_ones_(num_sets, 0)
     , gen_(seed == -1 ? std::random_device()() : seed)
 {
-    // Initialize the bit vector for each block.
-    plru_bits_.reserve(num_lines);
-    valid_ways_.reserve(num_lines);
-    for (int i = 0; i < num_lines; ++i) {
+    // Initialize the bit vector for each set.
+    plru_bits_.reserve(num_sets);
+    for (int i = 0; i < num_sets; ++i) {
         plru_bits_.emplace_back(associativity, false);
-        valid_ways_.emplace_back(associativity, false);
     }
 }
 
 void
 policy_bit_plru_t::access_update(int block_idx, int way)
 {
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = true;
+    int set_idx = get_set_index(block_idx);
     // Set the bit for the accessed way.
-    if (!plru_bits_[line_idx][way]) {
-        plru_bits_[line_idx][way] = true;
-        num_ones_[line_idx]++;
+    if (!plru_bits_[set_idx][way]) {
+        plru_bits_[set_idx][way] = true;
+        num_ones_[set_idx]++;
     }
-    if (num_ones_[line_idx] < associativity_) {
+    if (num_ones_[set_idx] < associativity_) {
         // Finished.
         return;
     }
     // If all bits are set, reset them.
     for (int i = 0; i < associativity_; ++i) {
-        plru_bits_[line_idx][i] = false;
+        plru_bits_[set_idx][i] = false;
     }
-    num_ones_[line_idx] = 1;
-    plru_bits_[line_idx][way] = true;
+    num_ones_[set_idx] = 1;
+    plru_bits_[set_idx][way] = true;
 }
 
 void
-policy_bit_plru_t::eviction_update(int block_idx, int way)
+policy_bit_plru_t::eviction_update(int set_idx, int way)
 {
     // Nothing to update, when the way is accessed we will update it.
 }
 
 void
-policy_bit_plru_t::invalidation_update(int block_idx, int way)
+policy_bit_plru_t::invalidation_update(int set_idx, int way)
 {
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = false;
-}
-
-void
-policy_bit_plru_t::validation_update(int block_idx, int way)
-{
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = true;
+    // Nothing to update, when the way is accessed we will update it.
 }
 
 int
 policy_bit_plru_t::get_next_way_to_replace(int block_idx) const
 {
-    int line_idx = get_line_index(block_idx);
-    int first_invalid_way = get_first_invalid_way(valid_ways_[line_idx]);
-    if (first_invalid_way != -1) {
-        return first_invalid_way;
-    }
+    int set_idx = get_set_index(block_idx);
     std::vector<int> unset_bits;
     for (int i = 0; i < associativity_; ++i) {
-        if (!plru_bits_[line_idx][i]) {
+        if (!plru_bits_[set_idx][i]) {
             unset_bits.push_back(i);
         }
     }

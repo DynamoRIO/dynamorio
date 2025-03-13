@@ -56,12 +56,19 @@ namespace drmemtrace {
  *
  * The policy also provides a `get_next_way_to_replace()` method that returns
  * the next way to replace in the block.
+ *
+ * Currently, the policy recieves the block index as it is in `caching_device_t`,
+ * which is the index of the first way in the set when all ways are stored in a
+ * contiguous array. Most policies however only need the set index, which is the
+ * index of the set in the cache. This can be obtained with `get_set_index()` - In the
+ * future, we may want to change the interface to receive the set index directly, saving
+ * the need for the division by the associativity.
  */
 class cache_replacement_policy_t {
 public:
-    cache_replacement_policy_t(int num_lines, int associativity)
+    cache_replacement_policy_t(int num_sets, int associativity)
         : associativity_(associativity)
-        , num_lines_(num_lines)
+        , num_sets_(num_sets)
     {
     }
     /// Informs the replacement policy that an access has occurred.
@@ -73,11 +80,8 @@ public:
     /// Informs the replacement policy that an invalidation has occurred.
     virtual void
     invalidation_update(int block_idx, int way) = 0;
-    /// Informs the replacement policy that a way is now valid.
-    virtual void
-    validation_update(int block_idx, int way) = 0;
     /*
-     * Returns the next way to replace in the block.
+     * Returns the next way to replace in the set.
      * valid_ways is a vector of booleans, where valid_ways[way] is true if the way
      * is currently valid.
      */
@@ -91,26 +95,15 @@ public:
 
 protected:
     virtual int
-    get_line_index(int block_idx) const
+    get_set_index(int block_idx) const
     {
-        // The block index points to the first way in the block, and the ways are stored
+        // The block index points to the first way in the set, and the ways are stored
         // in a contiguous array, so we divide by the associativity to get the block
         // index.
         return block_idx / associativity_;
     }
-    /// Returns the first invalid way in the block, or -1 if all ways are valid.
-    virtual int
-    get_first_invalid_way(const std::vector<bool> &valid_ways) const
-    {
-        for (int way = 0; way < associativity_; ++way) {
-            if (!valid_ways[way]) {
-                return way;
-            }
-        }
-        return -1;
-    }
     int associativity_;
-    int num_lines_;
+    int num_sets_;
 };
 
 } // namespace drmemtrace

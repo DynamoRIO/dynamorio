@@ -39,61 +39,46 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-policy_lfu_t::policy_lfu_t(int num_lines, int associativity)
-    : cache_replacement_policy_t(num_lines, associativity)
+policy_lfu_t::policy_lfu_t(int num_sets, int associativity)
+    : cache_replacement_policy_t(num_sets, associativity)
 {
-    access_counts_.reserve(num_lines);
-    valid_ways_.reserve(num_lines);
-    for (int i = 0; i < num_lines; ++i) {
+    access_counts_.reserve(num_sets);
+    for (int i = 0; i < num_sets; ++i) {
         access_counts_.emplace_back(associativity, 0);
-        valid_ways_.emplace_back(associativity, false);
     }
 }
 
 void
 policy_lfu_t::access_update(int block_idx, int way)
 {
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = true;
-    access_counts_[line_idx][way]++;
+    int set_idx = get_set_index(block_idx);
+    access_counts_[set_idx][way]++;
 }
 
 void
 policy_lfu_t::eviction_update(int block_idx, int way)
 {
-    int line_idx = get_line_index(block_idx);
-    access_counts_[line_idx][way] = 0;
+    int set_idx = get_set_index(block_idx);
+    access_counts_[set_idx][way] = 0;
 }
 
 void
 policy_lfu_t::invalidation_update(int block_idx, int way)
 {
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = false;
-    access_counts_[line_idx][way] = 0;
-}
-
-void
-policy_lfu_t::validation_update(int block_idx, int way)
-{
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = true;
+    int set_idx = get_set_index(block_idx);
+    access_counts_[set_idx][way] = 0;
 }
 
 int
 policy_lfu_t::get_next_way_to_replace(int block_idx) const
 {
-    int line_idx = get_line_index(block_idx);
-    int first_invalid_way = get_first_invalid_way(valid_ways_[line_idx]);
-    if (first_invalid_way != -1) {
-        return first_invalid_way;
-    }
+    int set_idx = get_set_index(block_idx);
     // Find the way with the minimum frequency counter.
-    int min_freq = access_counts_[line_idx][0];
+    int min_freq = access_counts_[set_idx][0];
     int min_way = 0;
     for (int i = 1; i < associativity_; ++i) {
-        if (access_counts_[line_idx][i] < min_freq) {
-            min_freq = access_counts_[line_idx][i];
+        if (access_counts_[set_idx][i] < min_freq) {
+            min_freq = access_counts_[set_idx][i];
             min_way = i;
         }
     }

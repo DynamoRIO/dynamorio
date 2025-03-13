@@ -265,18 +265,18 @@ unit_test_cache_fifo_four_way()
     cache_fifo_test.access_and_check(addr_vec[ADDR_H], 0); //     e F G H
     cache_fifo_test.access_and_check(addr_vec[ADDR_A], 1); //     A f G H
 
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_G], 1); // A f X H
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_G], 2); // A F x H
 
-    cache_fifo_test.access_and_check(addr_vec[ADDR_G], 2); //     A G x H
-    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 3); //     A G B h
+    cache_fifo_test.access_and_check(addr_vec[ADDR_G], 1); //     A f G H
+    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 3); //     A B G h
 
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_H], 3); // A G B x
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_A], 3); // X G B x
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_H], 3); // A B G x
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_A], 0); // x B G X
 
-    cache_fifo_test.access_and_check(addr_vec[ADDR_A], 0); //     x G B A
-    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 0); //     x G B A
-    cache_fifo_test.access_and_check(addr_vec[ADDR_C], 1); //     C g B A
-    cache_fifo_test.access_and_check(addr_vec[ADDR_D], 2); //     C D B A
+    cache_fifo_test.access_and_check(addr_vec[ADDR_A], 3); //     A B G x
+    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 3); //     A B G x
+    cache_fifo_test.access_and_check(addr_vec[ADDR_C], 2); //     A B g C
+    cache_fifo_test.access_and_check(addr_vec[ADDR_D], 1); //     A b D C
 }
 
 void
@@ -311,13 +311,13 @@ unit_test_cache_fifo_eight_way()
     cache_fifo_test.access_and_check(addr_vec[ADDR_L], 4); //     I  J  K  L  e  F  G  H
     cache_fifo_test.access_and_check(addr_vec[ADDR_L], 4); //     I  J  K  L  e  F  G  H
 
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_G], 4); // I  J  K  L  e  F  X  H
-    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_K], 4); // I  J  X  L  e  F  X  H
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_G], 6); // I  J  K  L  R  F  x  H
+    cache_fifo_test.invalidate_and_check(addr_vec[ADDR_K], 2); // I  J  x  L  E  F  X  H
 
-    cache_fifo_test.access_and_check(addr_vec[ADDR_A], 5); //     I  J  K  L  A  f  G  H
-    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 6); //     I  J  K  L  A  B  g  H
-    cache_fifo_test.access_and_check(addr_vec[ADDR_C], 7); //     I  J  K  L  A  B  C  h
-    cache_fifo_test.access_and_check(addr_vec[ADDR_D], 0); //     i  J  K  L  A  B  C  D
+    cache_fifo_test.access_and_check(addr_vec[ADDR_A], 6); //     I  J  A  L  E  F  x  H
+    cache_fifo_test.access_and_check(addr_vec[ADDR_B], 4); //     I  J  K  L  e  F  B  H
+    cache_fifo_test.access_and_check(addr_vec[ADDR_C], 5); //     i  J  K  L  C  f  B  H
+    cache_fifo_test.access_and_check(addr_vec[ADDR_D], 7); //     I  j  K  L  C  D  b  H
 }
 
 void

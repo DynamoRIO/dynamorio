@@ -45,23 +45,22 @@ namespace dynamorio {
 namespace drmemtrace {
 
 std::unique_ptr<cache_replacement_policy_t>
-create_cache_replacement_policy(const std::string &policy, int num_blocks,
+create_cache_replacement_policy(const std::string &policy, int num_sets,
                                 int associativity)
 {
     // default LRU
     if (policy == REPLACE_POLICY_NON_SPECIFIED || policy == REPLACE_POLICY_LRU) {
-        return std::unique_ptr<policy_lru_t>(new policy_lru_t(num_blocks, associativity));
+        return std::unique_ptr<policy_lru_t>(new policy_lru_t(num_sets, associativity));
     }
     if (policy == REPLACE_POLICY_LFU) {
-        return std::unique_ptr<policy_lfu_t>(new policy_lfu_t(num_blocks, associativity));
+        return std::unique_ptr<policy_lfu_t>(new policy_lfu_t(num_sets, associativity));
     }
     if (policy == REPLACE_POLICY_FIFO) {
-        return std::unique_ptr<policy_fifo_t>(
-            new policy_fifo_t(num_blocks, associativity));
+        return std::unique_ptr<policy_fifo_t>(new policy_fifo_t(num_sets, associativity));
     }
     if (policy == REPLACE_POLICY_BIT_PLRU) {
         return std::unique_ptr<policy_bit_plru_t>(
-            new policy_bit_plru_t(num_blocks, associativity));
+            new policy_bit_plru_t(num_sets, associativity));
     }
     return nullptr;
 }

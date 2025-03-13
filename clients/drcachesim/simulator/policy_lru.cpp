@@ -32,37 +32,36 @@
 
 #include "policy_lru.h"
 
+#include <algorithm>
+
 namespace dynamorio {
 namespace drmemtrace {
 
-policy_lru_t::policy_lru_t(int num_lines, int associativity)
-    : cache_replacement_policy_t(num_lines, associativity)
+policy_lru_t::policy_lru_t(int num_sets, int associativity)
+    : cache_replacement_policy_t(num_sets, associativity)
 {
     // Initialize the LRU list for each block.
-    lru_counters_.reserve(num_lines);
-    valid_ways_.reserve(num_lines);
-    for (int i = 0; i < num_lines; ++i) {
+    lru_counters_.reserve(num_sets);
+    for (int i = 0; i < num_sets; ++i) {
         lru_counters_.emplace_back(associativity, 1);
-        valid_ways_.emplace_back(associativity, false);
     }
 }
 
 void
 policy_lru_t::access_update(int block_idx, int way)
 {
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = true;
-    int count = lru_counters_[line_idx][way];
+    int set_idx = get_set_index(block_idx);
+    int count = lru_counters_[set_idx][way];
     // Optimization: return early if it is a repeated access.
     if (count == 0)
         return;
     // We inc all the counters that are not larger than count for LRU.
     for (int i = 0; i < associativity_; ++i) {
-        if (i != way && lru_counters_[line_idx][i] <= count)
-            lru_counters_[line_idx][i]++;
+        if (i != way && lru_counters_[set_idx][i] <= count)
+            lru_counters_[set_idx][i]++;
     }
     // Clear the counter for LRU.
-    lru_counters_[line_idx][way] = 0;
+    lru_counters_[set_idx][way] = 0;
 }
 
 void
@@ -74,31 +73,22 @@ policy_lru_t::eviction_update(int block_idx, int way)
 void
 policy_lru_t::invalidation_update(int block_idx, int way)
 {
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = false;
-}
-
-void
-policy_lru_t::validation_update(int block_idx, int way)
-{
-    int line_idx = get_line_index(block_idx);
-    valid_ways_[line_idx][way] = true;
+    int set_idx = get_set_index(block_idx);
+    int max_counter =
+        *std::max_element(lru_counters_[set_idx].begin(), lru_counters_[set_idx].end());
+    lru_counters_[set_idx][way] = max_counter + 1;
 }
 
 int
 policy_lru_t::get_next_way_to_replace(int block_idx) const
 {
-    int line_idx = get_line_index(block_idx);
-    int first_invalid_way = get_first_invalid_way(valid_ways_[line_idx]);
-    if (first_invalid_way != -1) {
-        return first_invalid_way;
-    }
+    int set_idx = get_set_index(block_idx);
     // We implement LRU by picking the slot with the largest counter value.
     int max_counter = 0;
     int max_way = 0;
     for (int way = 0; way < associativity_; ++way) {
-        if (lru_counters_[line_idx][way] > max_counter) {
-            max_counter = lru_counters_[line_idx][way];
+        if (lru_counters_[set_idx][way] > max_counter) {
+            max_counter = lru_counters_[set_idx][way];
             max_way = way;
         }
     }

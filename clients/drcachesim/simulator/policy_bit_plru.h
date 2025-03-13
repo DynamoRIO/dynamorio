@@ -45,13 +45,13 @@ namespace drmemtrace {
 /**
  * A replacement policy that uses a bit per way to track access frequency.
  *
- * On access, a way's bit is set to 1. Once all bits are set, the whole block's bits
+ * On access, a way's bit is set to 1. Once all bits are set, the whole set's bits
  * are set to 0. A random way with a 0 bit is chosen for replacement.
  */
 class policy_bit_plru_t : public cache_replacement_policy_t {
 public:
     /// If seed is -1, a random seed will be used.
-    policy_bit_plru_t(int num_lines, int associativity, int seed = -1);
+    policy_bit_plru_t(int num_sets, int associativity, int seed = -1);
     void
     access_update(int block_idx, int way) override;
     void
@@ -60,8 +60,6 @@ public:
     get_next_way_to_replace(int block_idx) const override;
     void
     invalidation_update(int block_idx, int way) override;
-    void
-    validation_update(int block_idx, int way) override;
     std::string
     get_name() const override;
 
@@ -72,8 +70,6 @@ private:
     std::vector<std::vector<bool>> plru_bits_;
     // The amount of bits set to 1 for each line.
     std::vector<int> num_ones_;
-    // Which ways are valid per line.
-    std::vector<std::vector<bool>> valid_ways_;
     mutable std::mt19937 gen_;
 };
 

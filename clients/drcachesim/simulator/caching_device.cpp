@@ -286,6 +286,10 @@ caching_device_t::replace_which_way(int block_idx)
 int
 caching_device_t::get_next_way_to_replace(const int block_idx) const
 {
+    for (int way = 0; way < associativity_; ++way) {
+        if (get_caching_device_block(block_idx, way).tag_ == TAG_INVALID)
+            return way;
+    }
     return replacement_policy_->get_next_way_to_replace(block_idx);
 }
 
