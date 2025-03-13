@@ -335,7 +335,7 @@ jobs:
              fi
            done
          fi
-         if ${found} == 'yes'; then
+         if [[ "$found" == "yes" ]]; then
            echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
            echo "clang-format checks are disabled."
          else
