@@ -122,6 +122,10 @@ jobs:
         GITHUB_COMMIT_AUTHOR_EMAIL: ${{ github.event.commits[0].author.email }}
         DISABLE_CLANG_FORMAT_CHECKS: ${{ steps.is_clang_format_checks_disabled.outputs.disable_clang_format_checks }}
 
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
+
   # 64-bit Linux build with gcc and run tests.
   x86-64:
     runs-on: ubuntu-20.04
@@ -310,24 +314,33 @@ jobs:
           patch xz-dev zlib-dev zlib-static
 
     - name: Check if clang-format checks are disabled
-      id: is_clang_format_checks_disabled
-      uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
-      # - name: Check if clang-format checks are disabled
-      #   id: is_clang_format_checks_disabled
-      #   uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
-      # env:
-      #   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   GITHUB_REPOSITORY: ${{ github.repository }}
-      #   PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-      # run: |
-      #   commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-      #   if echo "$commit_messages" | grep -q "DISABLE_CLANG_FORMAT_CHECKS"; then
-      #     echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
-      #     echo "clang-format checks are disabled."
-      #   else
-      #     echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
-      #     echo "clang-format checks are enabled."
-      #   fi
+       id: is_clang_format_checks_disabled
+       uses: ./DynamoRIO/.github/actions/is-clang-format-checks-disabled
+       env:
+         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+         GITHUB_REPOSITORY: ${{ github.repository }}
+       run: |
+         found=no
+         if ${{ github.event_name == 'pull_request' }}
+           commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+           if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
+             found=yes
+           fi
+         elif ${{ github.event_name == 'push' }}
+           for commit_message in $(jq -r '.commits[] | .message' <<< "${{ toJson(github.event.commits) }}"); do
+             # TODO i#7344 Remove echo after verifying this check works.
+             echo "commit message: $commit_messag"
+             if echo "$commit_message" | grep -q "DISABLE_FORMAT_CHECKS"; then
+               found=yes
+             fi
+         fi
+         if ${found} = 'yes'
+           echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
+           echo "clang-format checks are disabled."
+         else
+           echo "disable_clang_format_checks=no" >> $GITHUB_OUTPUT
+           echo "clang-format checks are enabled."
+         fi
 
     - name: Setup tmate session
       if: failure()
