@@ -329,6 +329,10 @@ jobs:
       #     echo "clang-format checks are enabled."
       #   fi
 
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: |
