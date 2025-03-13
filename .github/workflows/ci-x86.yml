@@ -333,6 +333,7 @@ jobs:
              if echo "$commit_message" | grep -q "DISABLE_FORMAT_CHECKS"; then
                found=yes
              fi
+           done
          fi
          if ${found} = 'yes'; then
            echo "disable_clang_format_checks=yes" >> $GITHUB_OUTPUT
