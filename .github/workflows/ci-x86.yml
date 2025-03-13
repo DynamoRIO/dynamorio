@@ -330,7 +330,7 @@ jobs:
             found=yes
           fi
         elif ${{ github.event_name == 'push' }}; then
-          for commit_message in $(jq -r '.commits[] | .message' <<< "${{ toJson(github.event.commits) }}"); do
+          for commit_message in $(jq -r '.[] | .message' <<< "${{ toJson(github.event.commits) }}"); do
             # TODO i#7344 Remove echo after verifying this check works.
             echo "commit message: $commit_message"
             if echo "$commit_message" | grep -q "DISABLE_FORMAT_CHECKS"; then
