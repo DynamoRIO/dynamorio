@@ -696,7 +696,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::~scheduler_impl_tmpl_t()
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS]);
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue rebalances",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_REBALANCES]);
-        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Ouput limits hit",
+        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Output limits hit",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT]);
 #ifndef NDEBUG
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue lock acquired",
@@ -2063,7 +2063,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
         return sched_type_t::STATUS_OK;
     }
     // If we're within one and already skipped, just exit to avoid re-requesting a skip
-    // and making no progress (we're on the inserted timetamp + cpuid and our cur instr
+    // and making no progress (we're on the inserted timestamp + cpuid and our cur instr
     // count isn't yet the target).
     if (input.in_cur_region && cur_instr >= cur_range.start_instruction - 1)
         return sched_type_t::STATUS_OK;
