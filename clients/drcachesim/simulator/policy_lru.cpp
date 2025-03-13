@@ -67,7 +67,8 @@ policy_lru_t::access_update(int block_idx, int way)
 void
 policy_lru_t::eviction_update(int block_idx, int way)
 {
-    // Nothing to update, when the way is accessed we will update it.
+    // Nothing to update, when the way is accessed we will update it -
+    // If the way was evicted, it is already at the end of the list.
 }
 
 void
