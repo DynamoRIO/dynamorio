@@ -56,7 +56,6 @@ runs:
           fi
         elif ${{ github.event_name == 'push' }}; then
           commit_messages=$(jq -r '.[] | .message' <<< "${{ toJson(github.event.commits) }}")
-          echo "commit_message: $commit_messages"
           if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
             echo "Set found to yes"
             found=yes
