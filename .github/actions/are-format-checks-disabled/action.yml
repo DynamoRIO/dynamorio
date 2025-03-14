@@ -55,7 +55,8 @@ runs:
             found=yes
           fi
         elif ${{ github.event_name == 'push' }}; then
-          echo "github.event.commits: ${{ github.event.commits }}"
+          # github.event.commits: Array without toJson
+          echo "github.event.commits: ${{ toJson(github.event.commits) }}"
         fi
         if [[ "$found" == "yes" ]]; then
           echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
