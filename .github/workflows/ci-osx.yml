@@ -76,6 +76,10 @@ jobs:
       run: |
         brew install nasm zlib snappy lz4
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
@@ -89,6 +93,7 @@ jobs:
         DEVELOPER_DIR: /Applications/Xcode_14.1.app/Contents/Developer
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
