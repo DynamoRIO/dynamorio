@@ -335,6 +335,7 @@ bool
 memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
                  DR_PARAM_OUT bool *have_type)
 {
+    pc = STRIP_MEMORY_TAG(pc);
     memquery_iter_t iter;
     app_pc last_end = NULL;
     app_pc next_start = (app_pc)POINTER_MAX;
