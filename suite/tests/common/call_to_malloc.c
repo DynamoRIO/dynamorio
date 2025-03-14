@@ -32,6 +32,8 @@
 
 #include <stdlib.h>
 
+#include "tools.h"
+
 int
 main()
 {
@@ -41,6 +43,8 @@ main()
      */
     volatile int *call_to_malloc_array = (int *)malloc(sizeof(int));
     free((int *)call_to_malloc_array);
+
+    print("Hello world!");
 
     return 0;
 }

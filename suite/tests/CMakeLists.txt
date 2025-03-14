@@ -3731,6 +3731,7 @@ if (BUILD_SAMPLES)
             samples/${sample}_repstr "-log_to_stderr" "" "")
         endif ()
       elseif (sample STREQUAL "callstack")
+        set(sample.${sample}_expectbase "sample.callstack")
         torunonly_ci(sample.${sample} common.call_to_malloc
         ${sample} common/call_to_malloc.c "" "" "")
       endif()

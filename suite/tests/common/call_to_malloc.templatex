@@ -1,3 +1,1 @@
-wrapping .*malloc
-malloc called from:
-.*
+Hello world!
