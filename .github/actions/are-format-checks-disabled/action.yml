@@ -57,7 +57,7 @@ runs:
             found=yes
           fi
         fi
-        if ${found} = 'yes'; then
+        if [[ "$found" == "yes" ]]; then
           echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
           echo "format checks are disabled."
         else
