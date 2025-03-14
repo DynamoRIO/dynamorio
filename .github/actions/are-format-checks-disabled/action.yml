@@ -58,6 +58,11 @@ runs:
           # github.event.commits: Array without toJson
           # line 65: syntax error near unexpected token `}'
           # echo "github.event.commits: ${{ toJson(github.event.commits) }}"
+          # /home/runner/work/_temp/aaeb5d95-4763-4d08-9fda-3d9822aec8e6.sh: line 59: unexpected EOF while looking for matching `"'
+          # for commit in "${{ github.event.commits }}"; do
+          #   echo "- $commit"
+          # done
+          echo "github:  ${{ toJson(github }}"
           for commit in "${{ github.event.commits }}"; do
             echo "- $commit"
           done
