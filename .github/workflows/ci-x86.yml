@@ -108,6 +108,10 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
@@ -115,6 +119,8 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        GITHUB_COMMIT_AUTHOR_EMAIL: ${{ github.event.commits[0].author.email }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # 64-bit Linux build with gcc and run tests.
   x86-64:
@@ -146,6 +152,10 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
@@ -153,6 +163,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # Ubuntu22 64-bit Linux build with gcc and run tests.
   # XXX: A matrix could combine this with the 20.04 but our auto-cancel
@@ -186,6 +197,10 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
@@ -193,6 +208,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # Ubuntu22 64-bit Linux build with gcc and run tests.
   # XXX: A matrix could combine this with the 20.04 but our auto-cancel
@@ -234,6 +250,10 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
@@ -241,6 +261,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # 64-bit Linux build with gcc and musl.
   # TODO i#1973: Fix failing cases and enable tests in CI.
@@ -288,16 +309,46 @@ jobs:
           lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
           patch xz-dev zlib-dev zlib-static
 
+    # XXX: Using actions/are-format-checks-disabled here results in EACCES:
+    # permission denied,
+    # rmdir '/home/runner/work/dynamorio/dynamorio/alpine-root/bin' after
+    # actions/checkout@v4 and before gh api is called. So we call gh api here.
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        found=no
+        if ${{ github.event_name == 'pull_request' }}; then
+          commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+          if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
+            found=yes
+          fi
+        elif ${{ github.event_name == 'push' }}; then
+          if ${{ contains(toJSON(github.event.commits.*.message), 'DISABLE_FORMAT_CHECKS') }}; then
+            found=yes
+          fi
+        fi
+        if [[ "$found" == "yes" ]]; then
+          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
+          echo "format checks are disabled."
+        else
+          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
+          echo "format checks are enabled."
+        fi
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: |
-        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL \
+        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL,DISABLE_FORMAT_CHECKS \
           chroot alpine-root sh -c 'cd &&
                                     ./suite/runsuite_wrapper.pl automated_ci 64_only'
       env:
         DYNAMORIO_MUSL: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
