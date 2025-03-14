@@ -30,52 +30,43 @@
  * DAMAGE.
  */
 
-/* cache_lru: represents a single hardware cache with LRU algo.
- */
+#ifndef _LFU_H_
+#define _LFU_H_
 
-#ifndef _CACHE_LRU_H_
-#define _CACHE_LRU_H_ 1
-
-#include <string>
 #include <vector>
 
-#include "cache.h"
-#include "prefetcher.h"
-#include "snoop_filter.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class cache_lru_t : public cache_t {
+/**
+ * A Least-Frequently-Used (LFU) cache replacement policy.
+ *
+ * Count all access to each way, the way with the least accesses is evicted.
+ */
+class policy_lfu_t : public cache_replacement_policy_t {
 public:
-    explicit cache_lru_t(const std::string &name = "cache_lru")
-        : cache_t(name)
-    {
-    }
-    bool
-    init(int associativity, int64_t block_size, int64_t total_size,
-         caching_device_t *parent, caching_device_stats_t *stats,
-         prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id = -1, snoop_filter_t *snoop_filter = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
-    std::string
-    get_replace_policy() const override
-    {
-        return "LRU";
-    }
-
-protected:
+    policy_lfu_t(int num_sets, int associativity);
     void
     access_update(int block_idx, int way) override;
+    void
+    eviction_update(int block_idx, int way) override;
+    void
+    invalidation_update(int block_idx, int way) override;
     int
-    replace_which_way(int block_idx) override;
-    int
-    get_next_way_to_replace(const int block_idx) const override;
+    get_next_way_to_replace(int block_idx) const override;
+    std::string
+    get_name() const override;
+
+    ~policy_lfu_t() override = default;
+
+private:
+    // Frequency counters for each way in each line.
+    std::vector<std::vector<int>> access_counts_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _CACHE_LRU_H_ */
+#endif // _LFU_H_
