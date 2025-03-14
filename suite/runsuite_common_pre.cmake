@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -277,17 +277,6 @@ if (arg_ssh)
     GENERATE_PDBS:BOOL=OFF")
 endif (arg_ssh)
 
-# Make it clear that single-bitwidth packages only contain that bitwidth
-# (and provide unique names for CI deployment).
-if (NOT "${base_cache}" MATCHES "PACKAGE_PLATFORM")
-  if (arg_64_only)
-    set(base_cache "${base_cache}
-      PACKAGE_PLATFORM:STRING=x86_64-")
-  elseif (arg_32_only)
-    set(base_cache "${base_cache}
-      PACKAGE_PLATFORM:STRING=i386-")
-  endif ()
-endif ()
 if (arg_use_make)
   find_program(MAKE_COMMAND make DOC "make command")
   if (NOT MAKE_COMMAND)
@@ -456,6 +445,32 @@ if (NOT DEFINED KERNEL_IS_X64)  # Allow variable override.
 endif ()
 if (NOT KERNEL_IS_X64)
   message("WARNING: Kernel is not x64, skipping x64 builds")
+endif ()
+
+# Make it clear that single-bitwidth packages only contain that bitwidth
+# (and provide unique names for CI deployment).
+# Also set aarchxx names when not doing cross-compilation which sets
+# them ahead of time.
+if (NOT "${base_cache}" MATCHES "PACKAGE_PLATFORM:STRING=[A-Za-z]" AND
+    NOT "${base_cache}" MATCHES "PACKAGE_PLATFORM=[A-Za-z]")
+  if (arg_64_only)
+    if ("${machine}" MATCHES "aarch64|arm64")
+      set(base_cache "${base_cache}
+        PACKAGE_PLATFORM:STRING=AArch64-")
+    else ()
+      set(base_cache "${base_cache}
+        PACKAGE_PLATFORM:STRING=x86_64-")
+    endif ()
+  elseif (arg_32_only)
+    if ("${machine}" MATCHES "aarch32|arm")
+      set(base_cache "${base_cache}
+        PACKAGE_PLATFORM:STRING=ARM-
+        PACKAGE_SUBSYS:STRING=-EABIHF")
+    else ()
+      set(base_cache "${base_cache}
+        PACKAGE_PLATFORM:STRING=i386-")
+    endif ()
+  endif ()
 endif ()
 
 if (arg_use_ninja)

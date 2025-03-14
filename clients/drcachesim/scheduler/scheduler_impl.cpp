@@ -696,7 +696,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::~scheduler_impl_tmpl_t()
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS]);
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue rebalances",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_REBALANCES]);
-        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Ouput limits hit",
+        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Output limits hit",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT]);
 #ifndef NDEBUG
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue lock acquired",
@@ -837,7 +837,21 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 int index = reader_info.tid2input[tid];
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;
-                input.binding = modifiers.output_binding;
+                // Check for valid bindings.
+                for (output_ordinal_t bind : modifiers.output_binding) {
+                    if (bind < 0 || bind >= output_count) {
+                        error_string_ =
+                            "output_binding " + std::to_string(bind) + " out of bounds";
+                        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                    }
+                }
+                // It is common enough for every output to be passed (as part of general
+                // code with a full set as a default value) that it is worth
+                // detecting and ignoring in order to avoid hitting binding-handling
+                // code and save time in initial placement and runqueue code.
+                if (modifiers.output_binding.size() < static_cast<size_t>(output_count)) {
+                    input.binding = modifiers.output_binding;
+                }
                 input.priority = modifiers.priority;
                 for (size_t i = 0; i < modifiers.regions_of_interest.size(); ++i) {
                     const auto &range = modifiers.regions_of_interest[i];
@@ -2049,7 +2063,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
         return sched_type_t::STATUS_OK;
     }
     // If we're within one and already skipped, just exit to avoid re-requesting a skip
-    // and making no progress (we're on the inserted timetamp + cpuid and our cur instr
+    // and making no progress (we're on the inserted timestamp + cpuid and our cur instr
     // count isn't yet the target).
     if (input.in_cur_region && cur_instr >= cur_range.start_instruction - 1)
         return sched_type_t::STATUS_OK;

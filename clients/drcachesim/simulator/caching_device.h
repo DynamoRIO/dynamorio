@@ -36,6 +36,7 @@
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -112,6 +113,24 @@ public:
     get_parent() const
     {
         return parent_;
+    }
+    void
+    set_parent(caching_device_t *parent)
+    {
+        if (parent_ != nullptr) {
+            parent_->children_.erase(
+                std::remove(parent_->children_.begin(), parent_->children_.end(), this),
+                parent_->children_.end());
+        }
+        if (parent != nullptr) {
+            parent->children_.push_back(this);
+        }
+        parent_ = parent;
+    }
+    const std::vector<caching_device_t *> &
+    get_children() const
+    {
+        return children_;
     }
     inline double
     get_loaded_fraction() const

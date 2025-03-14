@@ -63,6 +63,9 @@ const char *
 get_config_val(const char *var);
 
 const char *
+get_config_paths(void);
+
+const char *
 get_config_val_ex(const char *var, bool *app_specific, bool *from_env);
 
 bool

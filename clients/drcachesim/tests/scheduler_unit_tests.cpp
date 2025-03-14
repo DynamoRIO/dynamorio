@@ -2093,6 +2093,12 @@ test_synthetic_with_bindings_more_out()
             cores.insert(0);
             scheduler_t::input_thread_info_t info(tid, cores);
             sched_inputs.back().thread_modifiers.emplace_back(info);
+        } else {
+            // Specify all outputs for the 3rd to ensure that works.
+            std::set<scheduler_t::output_ordinal_t> cores;
+            cores.insert({ 0, 1, 2, 3 });
+            scheduler_t::input_thread_info_t info(tid, cores);
+            sched_inputs.back().thread_modifiers.emplace_back(info);
         }
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
@@ -2188,12 +2194,68 @@ test_synthetic_with_bindings_weighted()
 }
 
 static void
+test_synthetic_with_bindings_invalid()
+{
+    std::cerr << "\n----------------\nTesting synthetic with invalid bindings\n";
+    static constexpr memref_tid_t TID_A = 42;
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        make_thread(TID_A),
+        make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
+        make_timestamp(1),
+        make_instr(10),
+        make_exit(TID_A),
+        /* clang-format on */
+    };
+    {
+        // Test negative bindings.
+        static constexpr int NUM_OUTPUTS = 2;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        std::set<scheduler_t::output_ordinal_t> cores;
+        cores.insert({ 1, -1 });
+        sched_inputs.back().thread_modifiers.emplace_back(cores);
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        scheduler_t scheduler;
+        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
+               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+    {
+        // Test too-large bindings.
+        static constexpr int NUM_OUTPUTS = 2;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        std::set<scheduler_t::output_ordinal_t> cores;
+        cores.insert({ 1, 2 });
+        sched_inputs.back().thread_modifiers.emplace_back(cores);
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        scheduler_t scheduler;
+        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
+               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+}
+
+static void
 test_synthetic_with_bindings()
 {
     test_synthetic_with_bindings_time(/*time_deps=*/true);
     test_synthetic_with_bindings_time(/*time_deps=*/false);
     test_synthetic_with_bindings_more_out();
     test_synthetic_with_bindings_weighted();
+    test_synthetic_with_bindings_invalid();
 }
 
 static void
@@ -5676,13 +5738,14 @@ test_unscheduled_initially_rebalance()
     // We need the initial runqueue assignment to be unbalanced.
     // We achieve that by using input bindings.
     // This relies on knowing the scheduler takes the 1st binding if there
-    // are any: so we can set to all cores and these will all pile up on output #0
+    // are any if the bindings don't include all cores: so we can set to all-but-one
+    // core and these will all pile up on output #0
     // prior to the init-time rebalance.  That makes output
     // #0 big enough for a rebalance attempt, which causes scheduler init to fail
     // without the i#7318 fix as it can only move one of those blocked inputs and
     // so it hits an IDLE status on a later move attempt.
     std::set<scheduler_t::output_ordinal_t> cores;
-    cores.insert({ 0, 1, 2 });
+    cores.insert({ 0, 1 });
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs.back().thread_modifiers.emplace_back(cores);
