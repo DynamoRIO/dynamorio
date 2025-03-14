@@ -36,6 +36,9 @@
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -68,8 +71,9 @@ class caching_device_t {
 public:
     explicit caching_device_t(const std::string &name = "caching_device");
     virtual bool
-    init(int associativity, int block_size, int num_blocks, caching_device_t *parent,
-         caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
+    init(int associativity, int64_t block_size, int64_t num_blocks,
+         caching_device_t *parent, caching_device_stats_t *stats,
+         prefetcher_t *prefetcher = nullptr,
          cache_inclusion_policy_t inclusion_policy =
              cache_inclusion_policy_t::NON_INC_NON_EXC,
          bool coherent_cache = false, int id_ = -1,
@@ -110,6 +114,24 @@ public:
     {
         return parent_;
     }
+    void
+    set_parent(caching_device_t *parent)
+    {
+        if (parent_ != nullptr) {
+            parent_->children_.erase(
+                std::remove(parent_->children_.begin(), parent_->children_.end(), this),
+                parent_->children_.end());
+        }
+        if (parent != nullptr) {
+            parent->children_.push_back(this);
+        }
+        parent_ = parent;
+    }
+    const std::vector<caching_device_t *> &
+    get_children() const
+    {
+        return children_;
+    }
     inline double
     get_loaded_fraction() const
     {
@@ -133,8 +155,7 @@ public:
     get_block_index(const addr_t addr) const
     {
         addr_t tag = compute_tag(addr);
-        int block_idx = compute_block_idx(tag);
-        return block_idx;
+        return compute_block_idx(tag);
     }
 
     // Accessors for cache parameters.
@@ -143,12 +164,12 @@ public:
     {
         return associativity_;
     }
-    virtual int
+    virtual int64_t
     get_block_size() const
     {
         return block_size_;
     }
-    virtual int
+    virtual int64_t
     get_num_blocks() const
     {
         return num_blocks_;
@@ -168,7 +189,7 @@ public:
     {
         return coherent_cache_;
     }
-    virtual int
+    virtual int64_t
     get_size_bytes() const
     {
         return num_blocks_ * block_size_;
@@ -245,8 +266,8 @@ protected:
     init_blocks() = 0;
 
     int associativity_;
-    int block_size_; // Also known as line length.
-    int num_blocks_; // Total number of lines in cache = size / block_size.
+    int64_t block_size_; // Also known as line length.
+    int64_t num_blocks_; // Total number of lines in cache = size / block_size.
     bool coherent_cache_;
     // This is an index into snoop filter's array of caches.
     int id_;
@@ -267,7 +288,7 @@ protected:
     // an extended block class which has its own member variables cannot be indexed
     // correctly by base class pointers.
     caching_device_block_t **blocks_;
-    int blocks_per_way_;
+    int64_t blocks_per_way_;
     // Optimization fields for fast bit operations
     int blocks_per_way_mask_;
     int block_size_bits_;

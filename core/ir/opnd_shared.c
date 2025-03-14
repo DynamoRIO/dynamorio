@@ -1,6 +1,7 @@
 /* **********************************************************
  * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -2263,7 +2264,7 @@ reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value)
 bool
 reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf)
 {
-#ifdef X86
+#if defined(X86)
     CLIENT_ASSERT(reg != REG_NULL, "REG_NULL was passed.");
 
     dr_zmm_t *simd = (dr_zmm_t *)((byte *)mc + SIMD_OFFSET);
@@ -2283,6 +2284,18 @@ reg_set_value_ex_priv(reg_id_t reg, priv_mcontext_t *mc, byte *val_buf)
         return false;
     }
 
+    return true;
+#elif defined(AARCH64)
+    if (reg >= DR_REG_START_Z && reg <= DR_REG_STOP_Z) {
+        memcpy(&mc->simd[reg - DR_REG_START_Z], val_buf,
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else if (reg >= DR_REG_START_P && reg <= DR_REG_STOP_P) {
+        memcpy(&mc->svep[reg - DR_REG_START_P], val_buf,
+               opnd_size_in_bytes(reg_get_size(reg)));
+    } else {
+        reg_t regval = *(reg_t *)val_buf;
+        reg_set_value_priv(reg, mc, regval);
+    }
     return true;
 #else
     CLIENT_ASSERT(false, "NYI  i#1551, i#3504");
@@ -2898,14 +2911,16 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg, int 
             absolute ? REG_NULL : (basereg == REG_NULL ? REG_DCXT_PROT : basereg),
             REG_NULL, 0,
             ((int)(ptr_int_t)(absolute ? dcontext->upcontext.separate_upcontext : 0)) +
-                offs,
+                DCONTEXT_ACTUAL_TO_TLS_OFFSET(offs),
             size);
     } else {
         if (offs >= sizeof(unprotected_context_t))
             offs -= sizeof(unprotected_context_t);
         return opnd_create_base_disp(
             absolute ? REG_NULL : (basereg == REG_NULL ? REG_DCXT : basereg), REG_NULL, 0,
-            ((int)(ptr_int_t)(absolute ? dcontext : 0)) + offs, size);
+            ((int)(ptr_int_t)(absolute ? dcontext : 0)) +
+                DCONTEXT_ACTUAL_TO_TLS_OFFSET(offs),
+            size);
     }
 }
 
@@ -2950,7 +2965,8 @@ update_dcontext_address(opnd_t op, dcontext_t *old_dcontext, dcontext_t *new_dco
                       opnd_get_index(op) == REG_NULL,
                   "update_dcontext_address: invalid opnd");
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    offs = opnd_get_disp(op) - (uint)(ptr_uint_t)old_dcontext;
+    offs =
+        opnd_get_disp(op) - (uint)(ptr_uint_t)old_dcontext + DCONTEXT_TLS_MIDPTR_OFFSET;
     if (offs >= 0 && offs < sizeof(dcontext_t)) {
         /* don't pass raw offset, add in upcontext size */
         offs += sizeof(unprotected_context_t);

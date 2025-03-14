@@ -1674,7 +1674,9 @@ OPTION_DEFAULT(bool, reachable_heap, false,
                "guarantee that all heap memory is 32-bit-displacement "
                "reachable from the code cache.")
 /* i#3570: For static DR we do not guarantee reachability. */
-OPTION_DEFAULT(bool, reachable_client, IF_STATIC_LIBRARY_ELSE(false, true),
+/* i#7296: On macOS we have no private loader and cannot realiably alloc near client */
+OPTION_DEFAULT(bool, reachable_client,
+               IF_STATIC_LIBRARY_ELSE(false, IF_MACOS_ELSE(false, true)),
                "guarantee that clients are reachable from the code cache.")
 #endif
 /* XXX i#3566: Support for W^X has some current limitations:

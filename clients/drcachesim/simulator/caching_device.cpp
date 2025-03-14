@@ -35,15 +35,17 @@
 #include <assert.h>
 #include <stddef.h>
 
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "memref.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
+#include "memref.h"
 #include "prefetcher.h"
 #include "snoop_filter.h"
 #include "trace_entry.h"
@@ -74,7 +76,7 @@ caching_device_t::~caching_device_t()
 }
 
 bool
-caching_device_t::init(int associativity, int block_size, int num_blocks,
+caching_device_t::init(int associativity, int64_t block_size, int64_t num_blocks,
                        caching_device_t *parent, caching_device_stats_t *stats,
                        prefetcher_t *prefetcher,
                        cache_inclusion_policy_t inclusion_policy, bool coherent_cache,
@@ -99,7 +101,10 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
     // Make sure num_blocks_ is evenly divisible by associativity
     if (blocks_per_way_ * associativity_ != num_blocks_)
         return false;
-    blocks_per_way_mask_ = blocks_per_way_ - 1;
+    // Make sure blocks_per_way_ fits in the mask and can be used as an index.
+    if (blocks_per_way_ > std::numeric_limits<int>::max())
+        return false;
+    blocks_per_way_mask_ = static_cast<int>(blocks_per_way_ - 1);
     block_size_bits_ = compute_log2(block_size);
     // Non-power-of-two associativities and total cache sizes are allowed, so
     // long as the number blocks per cache way is a power of two.
@@ -111,8 +116,7 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
     id_ = id;
     snoop_filter_ = snoop_filter;
     coherent_cache_ = coherent_cache;
-
-    blocks_ = new caching_device_block_t *[num_blocks_];
+    blocks_ = new caching_device_block_t *[static_cast<size_t>(num_blocks_)];
     init_blocks();
 
     last_tag_ = TAG_INVALID; // sentinel

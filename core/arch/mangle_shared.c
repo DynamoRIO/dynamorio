@@ -2,6 +2,7 @@
  * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * ******************************************************************************/
 
 /*
@@ -81,6 +82,12 @@ get_clean_call_temp_stack_size(void)
 /* utility routines for inserting clean calls to an instrumentation routine
  * strategy is very similar to fcache_enter/return
  * FIXME: try to share code with fcache_enter/return?
+ * TODO i#3544: Return the correct mcontext base when DCONTEXT_TLS_MIDPTR_OFFSET is used.
+ * This will need calls like opnd_create_dcontext_field_via_reg_sz to be replaced
+ * with something else. Currently we work around that by assuming that we have the
+ * dcontext pointer (offseted) instead of the mcontext when DCONTEXT_TLS_MIDPTR_OFFSET is
+ * not zero. For that reason we substract DCONTEXT_TLS_MIDPTR_OFFSET in the offsets
+ * created at emit_fcache_enter_common().
  *
  * first swap stacks to DynamoRIO stack:
  *      SAVE_TO_UPCONTEXT %xsp,xsp_OFFSET
@@ -757,8 +764,9 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              * We save it to dcontext.mcontext.x0.
              */
             PRE(ilist, instr,
-                XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(link_reg, 0),
-                                   opnd_create_reg(SCRATCH_REG0)));
+                XINST_CREATE_store(
+                    dcontext, OPND_CREATE_MEMPTR(link_reg, -DCONTEXT_TLS_MIDPTR_OFFSET),
+                    opnd_create_reg(SCRATCH_REG0)));
             instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)DR_WHERE_CLEAN_CALLEE,
                                              opnd_create_reg(SCRATCH_REG0), ilist, instr,
                                              NULL, NULL);
@@ -769,8 +777,9 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     WHEREAMI_OFFSET));
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
-                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG0),
-                                  OPND_CREATE_MEMPTR(link_reg, 0)));
+                XINST_CREATE_load(
+                    dcontext, opnd_create_reg(SCRATCH_REG0),
+                    OPND_CREATE_MEMPTR(link_reg, -DCONTEXT_TLS_MIDPTR_OFFSET)));
 #else
             /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
              * which specifies that the caller must save xax (and xcx and xdx).
@@ -823,8 +832,10 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              * We save it to dcontext.mcontext.x0.
              */
             PRE(ilist, instr,
-                XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
-                                   opnd_create_reg(SCRATCH_REG1)));
+                XINST_CREATE_store(
+                    dcontext,
+                    OPND_CREATE_MEMPTR(SCRATCH_REG0, -DCONTEXT_TLS_MIDPTR_OFFSET),
+                    opnd_create_reg(SCRATCH_REG1)));
             instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)whereami,
                                              opnd_create_reg(SCRATCH_REG1), ilist, instr,
                                              NULL, NULL);
@@ -835,8 +846,9 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     WHEREAMI_OFFSET));
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
-                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
-                                  OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+                XINST_CREATE_load(
+                    dcontext, opnd_create_reg(SCRATCH_REG1),
+                    OPND_CREATE_MEMPTR(SCRATCH_REG0, -DCONTEXT_TLS_MIDPTR_OFFSET)));
 #else
             PRE(ilist, instr,
                 instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,

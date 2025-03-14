@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2022 Rivos, Inc.  All rights reserved.
- * Copyright (c) 2024 Foundation of Research and Technology, Hellas.
+ * Copyright (c) 2024-2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
 
 /*
@@ -218,11 +218,16 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             INSTR_CREATE_c_sdsp(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
                                 opnd_create_reg(DR_REG_A0)));
     }
-
-    dstack_offs += 2 * XSP_SZ;
+    dstack_offs += XSP_SZ; // Move past dr_mcontext.vtype
 
     /* Push vector registers. */
     if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
+                              opnd_create_reg(DR_REG_SP),
+                              opnd_create_immed_int(dstack_offs, OPSZ_12b)));
+        memopnd = opnd_create_base_disp(DR_REG_A0, REG_NULL, 0, 0,
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
         /* ma:   mask agnostic
          * ta:   tail agnostic
          * sew:  selected element width
@@ -230,12 +235,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          *
          *           ma            ta         sew=8       lmul=8 */
         vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        memopnd = opnd_create_dcontext_field_via_reg_sz(
-            dcontext, DR_REG_A0, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
-        PRE(ilist, instr,
-            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
-                              opnd_create_reg(DR_REG_SP),
-                              opnd_create_immed_int(dstack_offs, OPSZ_12b)));
         /* For the following vector instructions, set the element width to 8b, and use 8
          * registers as a group (lmul=8).
          */
@@ -294,6 +293,12 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     /* Pop vector registers. */
     current_offs -= proc_num_simd_registers() * sizeof(dr_simd_t);
     if (proc_has_feature(FEATURE_VECTOR)) {
+        PRE(ilist, instr,
+            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
+                              opnd_create_reg(DR_REG_SP),
+                              opnd_create_immed_int(current_offs, OPSZ_12b)));
+        memopnd = opnd_create_base_disp(DR_REG_A0, REG_NULL, 0, 0,
+                                        reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
         /* ma:   mask agnostic
          * ta:   tail agnostic
          * sew:  selected element width
@@ -301,12 +306,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
          *
          *           ma            ta         sew=8       lmul=8 */
         vtypei = (0b1 << 7) | (0b1 << 6) | (0b000 << 3) | 0b011;
-        memopnd = opnd_create_dcontext_field_via_reg_sz(
-            dcontext, DR_REG_A0, 0, reg_get_size_lmul(DR_REG_VR0, RV64_LMUL_8));
-        PRE(ilist, instr,
-            INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_A0),
-                              opnd_create_reg(DR_REG_SP),
-                              opnd_create_immed_int(current_offs, OPSZ_12b)));
         /* For the following vector instructions, set the element width to 8b, and use 8
          * registers as a group (lmul=8).
          */
