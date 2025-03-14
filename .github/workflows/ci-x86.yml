@@ -326,7 +326,9 @@ jobs:
             found=yes
           fi
         elif ${{ github.event_name == 'push' }}; then
-          echo "github.event.commits: ${{ github.event.commits }}"
+          if ${{ contains(toJSON(github.event.commits.*.message), 'DISABLE_FORMAT_CHECKS') }}; then
+            found=yes
+          fi
         fi
         if [[ "$found" == "yes" ]]; then
           echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
