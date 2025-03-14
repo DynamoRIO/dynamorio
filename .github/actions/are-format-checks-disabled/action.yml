@@ -41,7 +41,7 @@ runs:
   steps:
     - uses: actions/checkout@v4
     - id: are_format_checks_disabled
-      name: Check if formats checks are disabled.
+      name: Check if format checks are disabled.
       env:
         GH_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}

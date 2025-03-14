@@ -263,7 +263,7 @@ endif ()
 #
 # Prefer named version 14.0 from apt.llvm.org.
 if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
-  message("clang-format check disabled")
+  message("format check disabled")
 else ()
   find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
   if (NOT CLANG_FORMAT_DIFF)
