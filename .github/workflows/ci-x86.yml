@@ -330,11 +330,7 @@ jobs:
             found=yes
           fi
         elif ${{ github.event_name == 'push' }}; then
-          commit_messages=$(jq -r '.[] | .message' <<< "${{ toJson(github.event.commits) }}")
-          if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
-            echo "Set found to yes"
-            found=yes
-          fi
+          echo "github.event.commits: ${{ github.event.commits }}"
         fi
         if [[ "$found" == "yes" ]]; then
           echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
