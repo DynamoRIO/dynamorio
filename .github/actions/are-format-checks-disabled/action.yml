@@ -58,7 +58,7 @@ runs:
           # github.event.commits: Array without toJson
           # line 65: syntax error near unexpected token `}'
           # echo "github.event.commits: ${{ toJson(github.event.commits) }}"
-          for commit in "${{ github.event.commits }}"); do
+          for commit in "${{ github.event.commits }}"; do
             echo "- $commit"
           done
         fi
