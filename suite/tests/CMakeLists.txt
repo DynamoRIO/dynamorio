@@ -2275,6 +2275,9 @@ elseif (RISCV64)
 endif ()
 tobuild(common.${control_flags} common/${control_flags}.c)
 
+# Binary used for sample.callstack, which uses libcallstack to track malloc() calls.
+tobuild(common.call_to_malloc common/call_to_malloc.c)
+
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
@@ -3728,7 +3731,8 @@ if (BUILD_SAMPLES)
             samples/${sample}_repstr "-log_to_stderr" "" "")
         endif ()
       elseif (sample STREQUAL "callstack")
-        set(sample.${sample}_expectbase "sample.callstack")
+        torunonly_ci(sample.${sample} common.call_to_malloc
+        ${sample} common/call_to_malloc.c "" "" "")
       endif()
     endforeach ()
   endif (NOT ANDROID)
