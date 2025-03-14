@@ -56,7 +56,11 @@ runs:
           fi
         elif ${{ github.event_name == 'push' }}; then
           # github.event.commits: Array without toJson
-          echo "github.event.commits: ${{ toJson(github.event.commits) }}"
+          # line 65: syntax error near unexpected token `}'
+          # echo "github.event.commits: ${{ toJson(github.event.commits) }}"
+          for commit in "${{ github.event.commits }}"); do
+            echo "- $commit"
+          done
         fi
         if [[ "$found" == "yes" ]]; then
           echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
