@@ -62,7 +62,7 @@ runs:
           # for commit in "${{ github.event.commits }}"; do
           #   echo "- $commit"
           # done
-          echo "github:  ${{ toJson(github }}"
+          echo "github:  ${{ toJson(github) }}"
           for commit in "${{ github.event.commits }}"; do
             echo "- $commit"
           done
