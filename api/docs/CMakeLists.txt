@@ -58,7 +58,7 @@ function (gendox_to_dox gendox_in gendox_out path master_list)
   foreach (dox_file ${dox_glob})
     # FIXME i$7303: Fix missing link to DRMF_WARNING_UNSUPPORTED_KERNEL and
     # page_drmf.
-    if ("${dox_file}" MATCHES "drsyscall.dox")
+    if ("${dox_file}" MATCHES "drsyscall.dox" OR "${dox_file}" MATCHES "drmf.dox")
       continue()
     endif ()
     file(READ "${dox_file}" dox_string)
