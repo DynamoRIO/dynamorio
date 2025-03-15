@@ -4034,7 +4034,7 @@ if (BUILD_CLIENTS)
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
 
         torunonly_simtool(counts_only_thread ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 1257604"
+          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 872906"
           "")
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
 
@@ -4055,14 +4055,14 @@ if (BUILD_CLIENTS)
 
         set(cpu_sched_path "${thread_trace_dir}/cpu_schedule.bin.zip")
         torunonly_simtool(simulate_as_traced ${ci_shared_app}
-          "-indir ${thread_trace_dir} -core_serial -cpu_schedule_file ${cpu_sched_path} -cores 7"
+          "-indir ${thread_trace_dir} -core_serial -cpu_schedule_file ${cpu_sched_path} -cores 11"
           "")
         set(tool.simulate_as_traced_rawtemp ON) # no preprocessor
 
         torunonly_simtool(skip_to_timestamp ${ci_shared_app}
           # We pick a timestamp far enough in that only 2 threads remain
           # at that point, testing thread exclusion.
-          "-indir ${thread_trace_dir} -tool basic_counts -skip_to_timestamp 13331862029905366 -cpu_schedule_file ${cpu_sched_path}"
+          "-indir ${thread_trace_dir} -tool basic_counts -skip_to_timestamp 13386385969691570 -cpu_schedule_file ${cpu_sched_path}"
           "")
         set(tool.skip_to_timestamp_rawtemp ON) # no preprocessor
 
@@ -5057,7 +5057,7 @@ if (BUILD_CLIENTS)
         "" "-tool;schedule_stats;-no_core_sharded;-indir;${outdir}" OFF OFF)
       set(tool.record_filter_as_traced_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       set(tool.record_filter_as_traced_precmd
-        "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@7@-indir@${trace_dir}@-outdir@${outdir}")
+        "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@11@-indir@${trace_dir}@-outdir@${outdir}")
       set(tool.record_filter_as_traced_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.record_filter_as_traced_rawtemp ON) # no preprocessor

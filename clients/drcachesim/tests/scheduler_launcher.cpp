@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -100,10 +100,11 @@ droption_t<bool> op_honor_stamps(DROPTION_SCOPE_ALL, "honor_stamps", true,
                                  "Whether to honor recorded timestamps for ordering",
                                  "Whether to honor recorded timestamps for ordering");
 
-droption_t<double> op_block_time_scale(DROPTION_SCOPE_ALL, "block_time_scale", 1.,
-                                       "Input block time scale factor",
-                                       "A higher value here results in blocking syscalls "
-                                       "keeping inputs unscheduled for longer.");
+droption_t<double>
+    op_block_time_multiplier(DROPTION_SCOPE_ALL, "block_time_multiplier", 0.1,
+                             "Input block time scale factor",
+                             "A higher value here results in blocking syscalls "
+                             "keeping inputs unscheduled for longer.");
 
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
@@ -313,7 +314,7 @@ _tmain(int argc, const TCHAR *targv[])
     } else {
         sched_ops.quantum_duration_instrs = op_sched_quantum.get_value();
     }
-    sched_ops.block_time_multiplier = op_block_time_scale.get_value();
+    sched_ops.block_time_multiplier = op_block_time_multiplier.get_value();
 #ifdef HAS_ZIP
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;
