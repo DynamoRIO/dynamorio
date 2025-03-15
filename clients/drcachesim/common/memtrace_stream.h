@@ -346,10 +346,15 @@ public:
     {
         return "";
     }
+    void
+    set_last_timestamp(uint64_t timestamp)
+    {
+        last_timestamp_ = timestamp;
+    }
     uint64_t
     get_last_timestamp() const override
     {
-        return 0;
+        return last_timestamp_;
     }
     uint64_t
     get_first_timestamp() const override
@@ -438,6 +443,7 @@ private:
     int shard_ = 0;
     int64_t tid_ = 0;
     int64_t workload_id_ = 0;
+    int64_t last_timestamp_ = 0;
     // To let a test set just the tid and get a shard index for free.
     std::unordered_map<int64_t, int> tid2shard_;
 };

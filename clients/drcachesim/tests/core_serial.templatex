@@ -39,6 +39,10 @@ Total counts:
        50000..  100000     5
   Cores per thread:
            1..       2     9
+  Latencies for syscalls that incurred a switch:
+.*
+  Latencies for syscalls that did not incur a switch:
+.*
 Core #0 counts:
 .*
 Core #1 counts:
