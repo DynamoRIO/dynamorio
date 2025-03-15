@@ -111,7 +111,7 @@ typedef struct _ENG_EVENT *PEVENT;
 
 #    define HFF_INVALID ((HFF)0)
 #    define HFC_INVALID ((HFC)0)
-#    define HGLYPH_INVALID ((HGLYPH) - 1)
+#    define HGLYPH_INVALID ((HGLYPH)-1)
 
 #    define FP_ALTERNATEMODE 1
 #    define FP_WINDINGMODE 2
@@ -717,13 +717,13 @@ typedef struct _GAMMARAMP {
 #    define HT_FLAG_INVERT_8BPP_BITMASK_IDX 0x00000400
 #    define HT_FLAG_8BPP_CMY332_MASK 0xFF000000
 
-#    define MAKE_CMYMASK_BYTE(c, m, y)                                       \
-        ((BYTE)(((BYTE)(c) & 0x07) << 5) | (BYTE)(((BYTE)(m) & 0x07) << 2) | \
-         (BYTE)((BYTE)(y) & 0x03))
+#    define MAKE_CMYMASK_BYTE(c, m, y)                                   \
+        ((BYTE)(((BYTE)(c)&0x07) << 5) | (BYTE)(((BYTE)(m)&0x07) << 2) | \
+         (BYTE)((BYTE)(y)&0x03))
 
-#    define MAKE_CMY332_MASK(c, m, y)                                              \
-        ((DWORD)(((DWORD)(c) & 0x07) << 29) | (DWORD)(((DWORD)(m) & 0x07) << 26) | \
-         (DWORD)(((DWORD)(y) & 0x03) << 24))
+#    define MAKE_CMY332_MASK(c, m, y)                                          \
+        ((DWORD)(((DWORD)(c)&0x07) << 29) | (DWORD)(((DWORD)(m)&0x07) << 26) | \
+         (DWORD)(((DWORD)(y)&0x03) << 24))
 
 /* GDIINFO.flHTFlags constants */
 #    define HT_FLAG_INK_ABSORPTION_IDX0 0x00000000

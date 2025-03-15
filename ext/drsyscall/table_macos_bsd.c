@@ -51,8 +51,9 @@ struct mac {
 #include <mach/shared_region.h>
 
 #ifdef MACOS
-#    define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h \
-                               */
+#    define _XOPEN_SOURCE                                            \
+        700 /* required to get POSIX, etc. defines out of ucontext.h \
+             */
 #    define __need_struct_ucontext64 /* seems to be missing from Mac headers */
 #endif
 #include <signal.h>

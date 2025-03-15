@@ -404,7 +404,7 @@ typedef struct _KUSER_SHARED_DATA {
 typedef LONG NTSTATUS;
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
-#define NT_CURRENT_PROCESS ((HANDLE) - 1)
+#define NT_CURRENT_PROCESS ((HANDLE)-1)
 
 typedef struct _UNICODE_STRING {
     /* Length field is size in bytes not counting final 0 */
@@ -505,8 +505,8 @@ typedef struct _PEB {                 /* offset: 32bit / 64bit */
     DWORD                        SpareUlong;                      /* 0x034 / 0x064 */
 #else
     /* xpsp2 and earlier */
-    DWORD EvengLogSection; /* 0x030 / 0x060 */
-    DWORD EventLog;        /* 0x034 / 0x064 */
+    DWORD EvengLogSection;     /* 0x030 / 0x060 */
+    DWORD EventLog;            /* 0x034 / 0x064 */
 #endif
     PVOID /* PPEB_FREE_BLOCK */ FreeList;         /* 0x038 / 0x068 */
     DWORD TlsExpansionCounter;                    /* 0x03c / 0x070 */
@@ -629,7 +629,7 @@ typedef struct _TEB { /* offset: 32bit / 64bit */
 #ifdef X64
     byte SpareBytes1[28]; /* 0x1ac / 0x2d0 */
 #else
-    byte SpareBytes1[40]; /* 0x1ac / 0x2d0 */
+    byte SpareBytes1[40];      /* 0x1ac / 0x2d0 */
 #endif
     GDI_TEB_BATCH GdiTebBatch;            /* 0x1d4 / 0x2f0 */
     CLIENT_ID RealClientId;               /* 0x6b4 / 0x7d8 */
@@ -720,8 +720,8 @@ typedef struct _TEB { /* offset: 32bit / 64bit */
     PVOID ResourceRetValue;      /* 0xfe0 / 0x1810 */
     PVOID ReservedForWdf;        /* 0xfe4 / 0x1818 */
 #else                            /* pre-Vista: */
-    byte SafeThunkCall;   /* 0xfb8 / 0x17d0 */
-    byte BooleanSpare[3]; /* 0xfb9 / 0x17d1 */
+    byte SafeThunkCall;        /* 0xfb8 / 0x17d0 */
+    byte BooleanSpare[3];      /* 0xfb9 / 0x17d1 */
 #endif
 } TEB;
 

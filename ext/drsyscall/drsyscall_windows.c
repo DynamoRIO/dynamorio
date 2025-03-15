@@ -66,7 +66,7 @@ static const char *const sysnum_names[] = {
                w8x86, w8wow, w8x64, w81x86, w81wow, w81x64, w10x86, w10wow, w10x64,     \
                w11x86, w11wow, w11x64, w12x86, w12wow, w12x64, w13x86, w13wow, w13x64,  \
                w14x86, w14wow, w14x64, w15x86, w15wow, w15x64)                          \
-    #n,
+#    n,
 #include "drsyscall_numx.h"
 #undef USER32
 };

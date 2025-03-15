@@ -906,7 +906,7 @@ NtGdiExtEscape(__in_opt HDC hdc, __in_ecount_opt(nDriver) PWCHAR pDriver,
 
 __kernel_entry W32KAPI ULONG APIENTRY
 NtGdiGetFontData(__in HDC hdc, __in DWORD dwTable, __in DWORD dwOffset,
-                 __out_bcount_part_opt(cjBuf, return) PVOID pvBuf, __in ULONG cjBuf);
+                 __out_bcount_part_opt(cjBuf, return ) PVOID pvBuf, __in ULONG cjBuf);
 
 __kernel_entry W32KAPI DWORD APIENTRY
 NtGdiGetFontFileData(__in UINT uFileCollectionID, __in UINT uFileIndex,
@@ -933,7 +933,7 @@ __kernel_entry W32KAPI __success(return == 1) BOOL APIENTRY
 
 __kernel_entry W32KAPI ULONG APIENTRY
 NtGdiGetKerningPairs(__in HDC hdc, __in ULONG cPairs,
-                     __out_ecount_part_opt(cPairs, return) KERNINGPAIR *pkpDst);
+                     __out_ecount_part_opt(cPairs, return ) KERNINGPAIR *pkpDst);
 
 __kernel_entry W32KAPI BOOL APIENTRY
 NtGdiMonoBitmap(__in HBITMAP hbm);
@@ -1086,7 +1086,7 @@ NtGdiGetTextMetricsW(__in HDC hdc, __out_bcount(cj) TMW_INTERNAL *ptm, __in ULON
 
 __kernel_entry W32KAPI int APIENTRY
 NtGdiGetTextFaceW(__in HDC hdc, __in int cChar,
-                  __out_ecount_part_opt(cChar, return) LPWSTR pszOut,
+                  __out_ecount_part_opt(cChar, return ) LPWSTR pszOut,
                   __in BOOL bAliasName);
 
 __kernel_entry W32KAPI int APIENTRY
@@ -1216,7 +1216,7 @@ NtGdiSetSystemPaletteUse(__in HDC hdc, __in UINT ui);
 
 __kernel_entry W32KAPI DWORD APIENTRY
 NtGdiGetRegionData(__in HRGN hrgn, __in DWORD nCount,
-                   __out_bcount_part_opt(nCount, return) LPRGNDATA lpRgnData);
+                   __out_bcount_part_opt(nCount, return ) LPRGNDATA lpRgnData);
 
 __kernel_entry W32KAPI BOOL APIENTRY
 NtGdiInvertRgn(__in HDC hdc, __in HRGN hrgn);
@@ -1287,7 +1287,7 @@ NtGdiQueryFontAssocInfo(__in HDC hdc);
 
 #if (_WIN32_WINNT >= 0x0500)
 __kernel_entry W32KAPI DWORD
-NtGdiGetFontUnicodeRanges(__in HDC hdc, __out_post_bcount_opt(return) LPGLYPHSET pgs);
+NtGdiGetFontUnicodeRanges(__in HDC hdc, __out_post_bcount_opt(return ) LPGLYPHSET pgs);
 
 #endif
 
@@ -1482,7 +1482,7 @@ NtGdiFONTOBJ_pfdg(__in FONTOBJ *pfo);
 
 __kernel_entry W32KAPI ULONG APIENTRY
 NtGdiFONTOBJ_cGetAllGlyphHandles(__in FONTOBJ *pfo,
-                                 __out_post_ecount_opt(return) HGLYPH *phg);
+                                 __out_post_ecount_opt(return ) HGLYPH *phg);
 
 __kernel_entry W32KAPI PVOID APIENTRY
 NtGdiFONTOBJ_pvTrueTypeFontFile(__in FONTOBJ *pfo, __out ULONG *pcjFile);
@@ -1544,12 +1544,12 @@ __kernel_entry W32KAPI DHPDEV
 NtGdiGetDhpdev(__in HDEV hdev);
 
 __kernel_entry W32KAPI LONG APIENTRY
-NtGdiHT_Get8BPPFormatPalette(__out_post_ecount_opt(return) LPPALETTEENTRY pPaletteEntry,
+NtGdiHT_Get8BPPFormatPalette(__out_post_ecount_opt(return ) LPPALETTEENTRY pPaletteEntry,
                              __in USHORT RedGamma, __in USHORT GreenGamma,
                              __in USHORT BlueGamma);
 
 __kernel_entry W32KAPI LONG APIENTRY
-NtGdiHT_Get8BPPMaskPalette(__out_post_ecount_opt(return) LPPALETTEENTRY pPaletteEntry,
+NtGdiHT_Get8BPPMaskPalette(__out_post_ecount_opt(return ) LPPALETTEENTRY pPaletteEntry,
                            __in BOOL Use8BPPMaskPal, __in BYTE CMYMask,
                            __in USHORT RedGamma, __in USHORT GreenGamma,
                            __in USHORT BlueGamma);

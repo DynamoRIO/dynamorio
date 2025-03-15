@@ -178,14 +178,14 @@ extern "C" {
 #    define IF_DRMEM_ELSE(x, y) y
 #endif
 
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment) - 1)))
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
 #define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment) - 1)) & (~((alignment) - 1)))
+    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
 #define ALIGN_MOD(addr, size, alignment) \
-    ((((ptr_uint_t)addr) + (size) - 1) & ((alignment) - 1))
+    ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
 #define CROSSES_ALIGNMENT(addr, size, alignment) \
-    (ALIGN_MOD(addr, size, alignment) < (size) - 1)
+    (ALIGN_MOD(addr, size, alignment) < (size)-1)
 
 #ifndef TESTANY
 #    define TEST(mask, var) (((mask) & (var)) != 0)
@@ -194,7 +194,7 @@ extern "C" {
 #    define TESTONE(mask, var) test_one_bit_set((mask) & (var))
 #endif
 
-#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
+#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
@@ -204,7 +204,7 @@ extern "C" {
 #    define INLINE_FORCED __forceinline
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200 /* XXX: __pragma may work w/ vc6: then don't need #if */
-#        define ACTUAL_PRAGMA(p) _Pragma(#p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif
@@ -559,7 +559,7 @@ extern int tls_idx_util;
         len = dr_snprintf((buf) + (sofar), (bufsz) - (sofar), __VA_ARGS__);             \
         sofar += (len == -1 ? ((bufsz) - (sofar)) : (len < 0 ? 0 : len));               \
         /* be paranoid: though usually many calls in a row and could delay until end */ \
-        (buf)[(bufsz) - 1] = '\0';                                                      \
+        (buf)[(bufsz)-1] = '\0';                                                        \
     } while (0)
 
 #define BUFPRINT(buf, bufsz, sofar, len, ...)                    \

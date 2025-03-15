@@ -41,15 +41,14 @@ extern drsys_sysnum_t sysnum_SetInformationFile;
  *    hashtable using drsys_sysnum_t.
  */
 
-#define ENTRY_QueryKey(classname, typename)                                        \
-    {                                                                              \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                  \
-        { 1, sizeof(KEY_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                             \
-        { 2, -3, W, 0, typename },                                                 \
-        { 2, -4, WI },                                                             \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },             \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                     \
+#define ENTRY_QueryKey(classname, typename)                                            \
+    {                                                                                  \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                      \
+            { 1, sizeof(KEY_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                             \
+            { 2, -3, W, 0, typename }, { 2, -4, WI },                                  \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },             \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                     \
     }
 
 /* Since _ version of structure names stored in PDBs, we use the same names here. */
@@ -112,16 +111,15 @@ syscall_info_t syscall_QueryKey_info[] = {
       ENTRY_QueryKey(NULL, NULL) },
 };
 
-#define ENTRY_EnumerateKey(classname, typename)                                    \
-    {                                                                              \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                  \
-        { 1, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },             \
-        { 2, sizeof(KEY_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                             \
-        { 3, -4, W, 0, typename },                                                 \
-        { 3, -5, WI },                                                             \
-        { 4, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },             \
-        { 5, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                     \
+#define ENTRY_EnumerateKey(classname, typename)                                        \
+    {                                                                                  \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                      \
+            { 1, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },             \
+            { 2, sizeof(KEY_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                             \
+            { 3, -4, W, 0, typename }, { 3, -5, WI },                                  \
+            { 4, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },             \
+            { 5, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                     \
     }
 
 syscall_info_t syscall_EnumerateKey_info[] = {
@@ -179,16 +177,15 @@ syscall_info_t syscall_EnumerateKey_info[] = {
     { { 0, 0 }, "NtEnumerateKey.UNKNOWN", OK, RNTST, 6, ENTRY_EnumerateKey(NULL, NULL) },
 };
 
-#define ENTRY_EnumerateValueKey(classname, typename)                                     \
-    {                                                                                    \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                        \
-        { 1, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },                   \
-        { 2, sizeof(KEY_VALUE_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                                   \
-        { 3, -4, W, 0, typename },                                                       \
-        { 3, -5, WI },                                                                   \
-        { 4, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },                   \
-        { 5, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                           \
+#define ENTRY_EnumerateValueKey(classname, typename)                       \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+            { 2, sizeof(KEY_VALUE_INFORMATION_CLASS), SYSARG_INLINED,      \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 3, -4, W, 0, typename }, { 3, -5, WI },                      \
+            { 4, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+            { 5, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
     }
 
 syscall_info_t syscall_EnumerateValueKey_info[] = {
@@ -235,20 +232,20 @@ syscall_info_t syscall_EnumerateValueKey_info[] = {
       ENTRY_EnumerateValueKey(NULL, NULL) },
 };
 
-#define ENTRY_QueryDirectoryFile(classname, typename)                               \
-    {                                                                               \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                   \
-        { 1, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                   \
-        { 2, sizeof(PIO_APC_ROUTINE), SYSARG_INLINED, DRSYS_TYPE_FUNCTION },        \
-        { 3, sizeof(PVOID), SYSARG_INLINED, DRSYS_TYPE_VOID },                      \
-        { 4, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },         \
-        { 5, -6, W, 0, typename },                                                  \
-        { 6, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
-        { 7, sizeof(FILE_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                              \
-        { 8, sizeof(BOOLEAN), SYSARG_INLINED, DRSYS_TYPE_BOOL },                    \
-        { 9, sizeof(UNICODE_STRING), R | CT, SYSARG_TYPE_UNICODE_STRING },          \
-        { 10, sizeof(BOOLEAN), SYSARG_INLINED, DRSYS_TYPE_BOOL },                   \
+#define ENTRY_QueryDirectoryFile(classname, typename)                                   \
+    {                                                                                   \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                       \
+            { 1, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                   \
+            { 2, sizeof(PIO_APC_ROUTINE), SYSARG_INLINED, DRSYS_TYPE_FUNCTION },        \
+            { 3, sizeof(PVOID), SYSARG_INLINED, DRSYS_TYPE_VOID },                      \
+            { 4, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },         \
+            { 5, -6, W, 0, typename },                                                  \
+            { 6, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
+            { 7, sizeof(FILE_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                              \
+            { 8, sizeof(BOOLEAN), SYSARG_INLINED, DRSYS_TYPE_BOOL },                    \
+            { 9, sizeof(UNICODE_STRING), R | CT, SYSARG_TYPE_UNICODE_STRING },          \
+            { 10, sizeof(BOOLEAN), SYSARG_INLINED, DRSYS_TYPE_BOOL },                   \
     }
 
 syscall_info_t syscall_QueryDirectoryFile_info[] = {
@@ -656,15 +653,14 @@ syscall_info_t syscall_QueryDirectoryFile_info[] = {
       ENTRY_QueryDirectoryFile(NULL, NULL) },
 };
 
-#define ENTRY_QueryEvent(classname, typename)                                        \
-    {                                                                                \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                    \
-        { 1, sizeof(EVENT_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                               \
-        { 2, -3, W, 0, typename },                                                   \
-        { 2, -4, WI },                                                               \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },               \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                       \
+#define ENTRY_QueryEvent(classname, typename)                                            \
+    {                                                                                    \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                        \
+            { 1, sizeof(EVENT_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                               \
+            { 2, -3, W, 0, typename }, { 2, -4, WI },                                    \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },               \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                       \
     }
 
 syscall_info_t syscall_QueryEvent_info[] = {
@@ -683,15 +679,14 @@ syscall_info_t syscall_QueryEvent_info[] = {
       ENTRY_QueryEvent(NULL, NULL) },
 };
 
-#define ENTRY_QueryInformationAtom(classname, typename)                             \
-    {                                                                               \
-        { 0, sizeof(ATOM), SYSARG_INLINED, DRSYS_TYPE_ATOM },                       \
-        { 1, sizeof(ATOM_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                              \
-        { 2, -3, W, 0, typename },                                                  \
-        { 2, -4, WI },                                                              \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                      \
+#define ENTRY_QueryInformationAtom(classname, typename)                                 \
+    {                                                                                   \
+        { 0, sizeof(ATOM), SYSARG_INLINED, DRSYS_TYPE_ATOM },                           \
+            { 1, sizeof(ATOM_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                              \
+            { 2, -3, W, 0, typename }, { 2, -4, WI },                                   \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                      \
     }
 
 syscall_info_t syscall_QueryInformationAtom_info[] = {
@@ -716,14 +711,14 @@ syscall_info_t syscall_QueryInformationAtom_info[] = {
       ENTRY_QueryInformationAtom(NULL, NULL) },
 };
 
-#define ENTRY_QueryInformationFile(classname, typename)                             \
-    {                                                                               \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                   \
-        { 1, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },         \
-        { 2, -3, W, 0, typename },                                                  \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
-        { 4, sizeof(FILE_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                              \
+#define ENTRY_QueryInformationFile(classname, typename)                                 \
+    {                                                                                   \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                       \
+            { 1, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },         \
+            { 2, -3, W, 0, typename },                                                  \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
+            { 4, sizeof(FILE_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                              \
     }
 
 syscall_info_t syscall_QueryInformationFile_info[] = {
@@ -1114,15 +1109,14 @@ syscall_info_t syscall_QueryInformationFile_info[] = {
       ENTRY_QueryInformationFile(NULL, NULL) },
 };
 
-#define ENTRY_QueryInformationPort(classname, typename)                             \
-    {                                                                               \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                   \
-        { 1, sizeof(PORT_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                              \
-        { 2, -3, W, 0, typename },                                                  \
-        { 2, -4, WI },                                                              \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                      \
+#define ENTRY_QueryInformationPort(classname, typename)                                 \
+    {                                                                                   \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                       \
+            { 1, sizeof(PORT_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                              \
+            { 2, -3, W, 0, typename }, { 2, -4, WI },                                   \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                      \
     }
 
 syscall_info_t syscall_QueryInformationPort_info[] = {
@@ -1147,15 +1141,14 @@ syscall_info_t syscall_QueryInformationPort_info[] = {
       ENTRY_QueryInformationPort(NULL, NULL) },
 };
 
-#define ENTRY_QueryIoCompletion(classname, typename)                   \
-    {                                                                  \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },      \
-        { 1, sizeof(IO_COMPLETION_INFORMATION_CLASS), SYSARG_INLINED,  \
-          DRSYS_TYPE_SIGNED_INT, classname },                          \
-        { 2, -3, W, 0, typename },                                     \
-        { 2, -4, WI },                                                 \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
+#define ENTRY_QueryIoCompletion(classname, typename)                       \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(IO_COMPLETION_INFORMATION_CLASS), SYSARG_INLINED,  \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, W, 0, typename }, { 2, -4, WI },                      \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
     }
 
 syscall_info_t syscall_QueryIoCompletion_info[] = {
@@ -1174,15 +1167,14 @@ syscall_info_t syscall_QueryIoCompletion_info[] = {
       5,
       ENTRY_QueryIoCompletion(NULL, NULL) },
 };
-#define ENTRY_QueryMutant(classname, typename)                                        \
-    {                                                                                 \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                     \
-        { 1, sizeof(MUTANT_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                                \
-        { 2, -3, W, 0, typename },                                                    \
-        { 2, -4, WI },                                                                \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },                \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                        \
+#define ENTRY_QueryMutant(classname, typename)                             \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(MUTANT_INFORMATION_CLASS), SYSARG_INLINED,         \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, W, 0, typename }, { 2, -4, WI },                      \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
     }
 
 syscall_info_t syscall_QueryMutant_info[] = {
@@ -1207,14 +1199,14 @@ syscall_info_t syscall_QueryMutant_info[] = {
       ENTRY_QueryMutant(NULL, NULL) },
 };
 
-#define ENTRY_QueryVolumeInformationFile(classname, typename)                     \
-    {                                                                             \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                 \
-        { 1, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },       \
-        { 2, -3, W, 0, typename },                                                \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },            \
-        { 4, sizeof(FS_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                            \
+#define ENTRY_QueryVolumeInformationFile(classname, typename)                         \
+    {                                                                                 \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                     \
+            { 1, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },       \
+            { 2, -3, W, 0, typename },                                                \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },            \
+            { 4, sizeof(FS_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                            \
     }
 
 syscall_info_t syscall_QueryVolumeInformationFile_info[] = {
@@ -1304,14 +1296,14 @@ syscall_info_t syscall_QueryVolumeInformationFile_info[] = {
       5,
       ENTRY_QueryVolumeInformationFile(NULL, NULL) },
 };
-#define ENTRY_SetInformationFile(classname, typename)                               \
-    {                                                                               \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                   \
-        { 1, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },         \
-        { 2, -3, SYSARG_NON_MEMARG, 0, typename },                                  \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
-        { 4, sizeof(FILE_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                              \
+#define ENTRY_SetInformationFile(classname, typename)                                   \
+    {                                                                                   \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                       \
+            { 1, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },         \
+            { 2, -3, SYSARG_NON_MEMARG, 0, typename },                                  \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },              \
+            { 4, sizeof(FILE_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                              \
     }
 
 syscall_info_t syscall_SetInformationFile_info[] = {
@@ -1697,13 +1689,13 @@ syscall_info_t syscall_SetInformationFile_info[] = {
       ENTRY_SetInformationFile(NULL, NULL),
       &sysnum_SetInformationFile },
 };
-#define ENTRY_SetInformationKey(classname, typename)                                   \
-    {                                                                                  \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                      \
-        { 1, sizeof(KEY_SET_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                                 \
-        { 2, -3, R, 0, typename },                                                     \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },                 \
+#define ENTRY_SetInformationKey(classname, typename)                       \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(KEY_SET_INFORMATION_CLASS), SYSARG_INLINED,        \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, R, 0, typename },                                     \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
     }
 
 syscall_info_t syscall_SetInformationKey_info[] = {
@@ -1755,13 +1747,13 @@ syscall_info_t syscall_SetInformationKey_info[] = {
       ENTRY_SetInformationKey(NULL, NULL) },
 };
 
-#define ENTRY_SetInformationObject(classname, typename)                               \
-    {                                                                                 \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                     \
-        { 1, sizeof(OBJECT_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                                \
-        { 2, -3, R, 0, typename },                                                    \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },                \
+#define ENTRY_SetInformationObject(classname, typename)                    \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(OBJECT_INFORMATION_CLASS), SYSARG_INLINED,         \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, R, 0, typename },                                     \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
     }
 
 syscall_info_t syscall_SetInformationObject_info[] = {
@@ -1789,14 +1781,14 @@ syscall_info_t syscall_SetInformationObject_info[] = {
       ENTRY_SetInformationObject(NULL, NULL) },
 };
 
-#define ENTRY_SetVolumeInformationFile(classname, typename)                       \
-    {                                                                             \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                 \
-        { 1, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },       \
-        { 2, -3, R, DRSYS_TYPE_STRUCT, typename },                                \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },            \
-        { 4, sizeof(FS_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                            \
+#define ENTRY_SetVolumeInformationFile(classname, typename)                           \
+    {                                                                                 \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                     \
+            { 1, sizeof(IO_STATUS_BLOCK), W | HT, DRSYS_TYPE_IO_STATUS_BLOCK },       \
+            { 2, -3, R, DRSYS_TYPE_STRUCT, typename },                                \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },            \
+            { 4, sizeof(FS_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
+              classname },                                                            \
     }
 
 syscall_info_t syscall_SetVolumeInformationFile_info[] = {
@@ -1887,14 +1879,14 @@ syscall_info_t syscall_SetVolumeInformationFile_info[] = {
       ENTRY_SetVolumeInformationFile(NULL, NULL) },
 };
 
-#define ENTRY_AlpcQueryInformation(classname, typename)                                  \
-    {                                                                                    \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                        \
-        { 1, sizeof(ALPC_PORT_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                                   \
-        { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                                  \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },                   \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },                           \
+#define ENTRY_AlpcQueryInformation(classname, typename)                    \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(ALPC_PORT_INFORMATION_CLASS), SYSARG_INLINED,      \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
     }
 
 syscall_info_t syscall_AlpcQueryInformation_info[] = {
@@ -1974,13 +1966,13 @@ syscall_info_t syscall_AlpcQueryInformation_info[] = {
       ENTRY_AlpcQueryInformation(NULL, NULL) },
 };
 
-#define ENTRY_AlpcSetInformation(classname, typename)                                    \
-    {                                                                                    \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                        \
-        { 1, sizeof(ALPC_PORT_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                                   \
-        { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                                  \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },                   \
+#define ENTRY_AlpcSetInformation(classname, typename)                      \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(ALPC_PORT_INFORMATION_CLASS), SYSARG_INLINED,      \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
     }
 
 syscall_info_t syscall_AlpcSetInformation_info[] = {
@@ -2060,15 +2052,15 @@ syscall_info_t syscall_AlpcSetInformation_info[] = {
       ENTRY_AlpcSetInformation(NULL, NULL) },
 };
 
-#define ENTRY_AlpcQueryInformationMessage(classname, typename)         \
-    {                                                                  \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },      \
-        { 1, sizeof(PORT_MESSAGE), R | CT, SYSARG_TYPE_PORT_MESSAGE }, \
-        { 2, sizeof(ALPC_MESSAGE_INFORMATION_CLASS), SYSARG_INLINED,   \
-          DRSYS_TYPE_SIGNED_INT, classname },                          \
-        { 3, -4, W | HT, DRSYS_TYPE_STRUCT, typename },                \
-        { 4, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
-        { 5, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
+#define ENTRY_AlpcQueryInformationMessage(classname, typename)             \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(PORT_MESSAGE), R | CT, SYSARG_TYPE_PORT_MESSAGE }, \
+            { 2, sizeof(ALPC_MESSAGE_INFORMATION_CLASS), SYSARG_INLINED,   \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 3, -4, W | HT, DRSYS_TYPE_STRUCT, typename },                \
+            { 4, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+            { 5, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
     }
 
 syscall_info_t syscall_AlpcQueryInformationMessage_info[] = {
@@ -2093,15 +2085,15 @@ syscall_info_t syscall_AlpcQueryInformationMessage_info[] = {
       ENTRY_AlpcQueryInformationMessage(NULL, NULL) },
 };
 
-#define ENTRY_QueryInformationEnlistment(classname, typename)          \
-    {                                                                  \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },      \
-        { 1, sizeof(ENLISTMENT_INFORMATION_CLASS), SYSARG_INLINED,     \
-          DRSYS_TYPE_SIGNED_INT, classname },                          \
-        { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                \
-        { 2, -4, WI | HT, DRSYS_TYPE_STRUCT },                         \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
+#define ENTRY_QueryInformationEnlistment(classname, typename)              \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(ENLISTMENT_INFORMATION_CLASS), SYSARG_INLINED,     \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                \
+            { 2, -4, WI | HT, DRSYS_TYPE_STRUCT },                         \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
     }
 
 syscall_info_t syscall_QueryInformationEnlistment_info[] = {
@@ -2133,13 +2125,13 @@ syscall_info_t syscall_QueryInformationEnlistment_info[] = {
       ENTRY_QueryInformationEnlistment(NULL, NULL) },
 };
 
-#define ENTRY_SetInformationEnlistment(classname, typename)            \
-    {                                                                  \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },      \
-        { 1, sizeof(ENLISTMENT_INFORMATION_CLASS), SYSARG_INLINED,     \
-          DRSYS_TYPE_SIGNED_INT, classname },                          \
-        { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+#define ENTRY_SetInformationEnlistment(classname, typename)                \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(ENLISTMENT_INFORMATION_CLASS), SYSARG_INLINED,     \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
     }
 
 syscall_info_t syscall_SetInformationEnlistment_info[] = {
@@ -2171,15 +2163,15 @@ syscall_info_t syscall_SetInformationEnlistment_info[] = {
       ENTRY_SetInformationEnlistment(NULL, NULL) },
 };
 
-#define ENTRY_QueryInformationResourceManager(classname, typename)      \
-    {                                                                   \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },       \
-        { 1, sizeof(RESOURCEMANAGER_INFORMATION_CLASS), SYSARG_INLINED, \
-          DRSYS_TYPE_SIGNED_INT, classname },                           \
-        { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                 \
-        { 2, -4, WI | HT, DRSYS_TYPE_STRUCT },                          \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },  \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },          \
+#define ENTRY_QueryInformationResourceManager(classname, typename)          \
+    {                                                                       \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },           \
+            { 1, sizeof(RESOURCEMANAGER_INFORMATION_CLASS), SYSARG_INLINED, \
+              DRSYS_TYPE_SIGNED_INT, classname },                           \
+            { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                 \
+            { 2, -4, WI | HT, DRSYS_TYPE_STRUCT },                          \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },  \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },          \
     }
 
 syscall_info_t syscall_QueryInformationResourceManager_info[] = {
@@ -2206,13 +2198,13 @@ syscall_info_t syscall_QueryInformationResourceManager_info[] = {
       ENTRY_QueryInformationResourceManager(NULL, NULL) },
 };
 
-#define ENTRY_SetInformationResourceManager(classname, typename)        \
-    {                                                                   \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },       \
-        { 1, sizeof(RESOURCEMANAGER_INFORMATION_CLASS), SYSARG_INLINED, \
-          DRSYS_TYPE_SIGNED_INT, classname },                           \
-        { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                 \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },  \
+#define ENTRY_SetInformationResourceManager(classname, typename)            \
+    {                                                                       \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },           \
+            { 1, sizeof(RESOURCEMANAGER_INFORMATION_CLASS), SYSARG_INLINED, \
+              DRSYS_TYPE_SIGNED_INT, classname },                           \
+            { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                 \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },  \
     }
 
 syscall_info_t syscall_SetInformationResourceManager_info[] = {
@@ -2239,15 +2231,15 @@ syscall_info_t syscall_SetInformationResourceManager_info[] = {
       ENTRY_SetInformationResourceManager(NULL, NULL) },
 };
 
-#define ENTRY_QueryInformationTransaction(classname, typename)         \
-    {                                                                  \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },      \
-        { 1, sizeof(TRANSACTION_INFORMATION_CLASS), SYSARG_INLINED,    \
-          DRSYS_TYPE_SIGNED_INT, classname },                          \
-        { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                \
-        { 2, -4, WI | HT, DRSYS_TYPE_STRUCT },                         \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
+#define ENTRY_QueryInformationTransaction(classname, typename)             \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(TRANSACTION_INFORMATION_CLASS), SYSARG_INLINED,    \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                \
+            { 2, -4, WI | HT, DRSYS_TYPE_STRUCT },                         \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },         \
     }
 
 syscall_info_t syscall_QueryInformationTransaction_info[] = {
@@ -2300,13 +2292,13 @@ syscall_info_t syscall_QueryInformationTransaction_info[] = {
       ENTRY_QueryInformationTransaction(NULL, NULL) },
 };
 
-#define ENTRY_SetInformationTransaction(classname, typename)           \
-    {                                                                  \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },      \
-        { 1, sizeof(TRANSACTION_INFORMATION_CLASS), SYSARG_INLINED,    \
-          DRSYS_TYPE_SIGNED_INT, classname },                          \
-        { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
+#define ENTRY_SetInformationTransaction(classname, typename)               \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(TRANSACTION_INFORMATION_CLASS), SYSARG_INLINED,    \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
     }
 
 syscall_info_t syscall_SetInformationTransaction_info[] = {
@@ -2359,15 +2351,15 @@ syscall_info_t syscall_SetInformationTransaction_info[] = {
       ENTRY_SetInformationTransaction(NULL, NULL) },
 };
 
-#define ENTRY_QueryInformationTransactionManager(classname, typename)      \
-    {                                                                      \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
-        { 1, sizeof(TRANSACTIONMANAGER_INFORMATION_CLASS), SYSARG_INLINED, \
-          DRSYS_TYPE_SIGNED_INT, classname },                              \
-        { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                    \
-        { 2, -4, WI | HT, DRSYS_TYPE_STRUCT },                             \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },     \
-        { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },             \
+#define ENTRY_QueryInformationTransactionManager(classname, typename)          \
+    {                                                                          \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },              \
+            { 1, sizeof(TRANSACTIONMANAGER_INFORMATION_CLASS), SYSARG_INLINED, \
+              DRSYS_TYPE_SIGNED_INT, classname },                              \
+            { 2, -3, W | HT, DRSYS_TYPE_STRUCT, typename },                    \
+            { 2, -4, WI | HT, DRSYS_TYPE_STRUCT },                             \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },     \
+            { 4, sizeof(ULONG), W | HT, DRSYS_TYPE_UNSIGNED_INT },             \
     }
 
 syscall_info_t syscall_QueryInformationTransactionManager_info[] = {
@@ -2411,13 +2403,13 @@ syscall_info_t syscall_QueryInformationTransactionManager_info[] = {
       ENTRY_QueryInformationTransactionManager(NULL, NULL) },
 };
 
-#define ENTRY_SetInformationTransactionManager(classname, typename)        \
-    {                                                                      \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },    \
-        { 1, sizeof(TRANSACTIONMANAGER_INFORMATION_CLASS), SYSARG_INLINED, \
-          DRSYS_TYPE_SIGNED_INT, classname },                              \
-        { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                    \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },     \
+#define ENTRY_SetInformationTransactionManager(classname, typename)            \
+    {                                                                          \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },        \
+            { 1, sizeof(TRANSACTIONMANAGER_INFORMATION_CLASS), SYSARG_INLINED, \
+              DRSYS_TYPE_SIGNED_INT, classname },                              \
+            { 2, -3, R | HT, DRSYS_TYPE_STRUCT, typename },                    \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },     \
     }
 
 syscall_info_t syscall_SetInformationTransactionManager_info[] = {
@@ -2460,13 +2452,13 @@ syscall_info_t syscall_SetInformationTransactionManager_info[] = {
       ENTRY_SetInformationTransactionManager(NULL, NULL) },
 };
 
-#define ENTRY_SetTimerEx(classname, typename)                                            \
-    {                                                                                    \
-        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },                        \
-        { 1, sizeof(TIMER_SET_INFORMATION_CLASS), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT, \
-          classname },                                                                   \
-        { 2, -3, R | W | HT, DRSYS_TYPE_STRUCT, typename },                              \
-        { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },                   \
+#define ENTRY_SetTimerEx(classname, typename)                              \
+    {                                                                      \
+        { 0, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },          \
+            { 1, sizeof(TIMER_SET_INFORMATION_CLASS), SYSARG_INLINED,      \
+              DRSYS_TYPE_SIGNED_INT, classname },                          \
+            { 2, -3, R | W | HT, DRSYS_TYPE_STRUCT, typename },            \
+            { 3, sizeof(ULONG), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT }, \
     }
 
 syscall_info_t syscall_SetTimerEx_info[] = {

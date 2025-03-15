@@ -80,7 +80,7 @@ static hashtable_t usercall_table;
 static const char *const usercall_names[] = {
 #define USERCALL(type, name, w2k, xp, w2003, vistaSP01, vistaSP2, w7, w8, w81, w10, w11, \
                  w12, w13, w14, w15)                                                     \
-    #type "." #name,
+#    type "." #    name,
 #include "drsyscall_usercallx.h"
 #undef USERCALL
 };
@@ -89,7 +89,7 @@ static const char *const usercall_names[] = {
 static const char *const usercall_primary[] = {
 #define USERCALL(type, name, w2k, xp, w2003, vistaSP01, vistaSP2, w7, w8, w81, w10, w11, \
                  w12, w13, w14, w15)                                                     \
-    #type,
+#    type,
 #include "drsyscall_usercallx.h"
 #undef USERCALL
 };

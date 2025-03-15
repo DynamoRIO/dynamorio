@@ -71,7 +71,7 @@ union ioctl_data {
 /* the cast is for sign extension for -1 sentinel */
 #ifdef X86
 #    define UNPACK_X64(packed) ((int)(short)((packed) >> 16))
-#    define UNPACK_X86(packed) ((int)(short)((packed) & 0xffff))
+#    define UNPACK_X86(packed) ((int)(short)((packed)&0xffff))
 #    ifdef X64
 #        define UNPACK_NATIVE UNPACK_X64
 #    else

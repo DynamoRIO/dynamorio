@@ -56,8 +56,9 @@
  */
 /*@{*/
 #define GDI_OBJECT_TYPE_DC 0x00010000
-#define GDI_OBJECT_TYPE_DD_SURFACE 0x00030000 /* Should be moved away from gdi objects \
-                                               */
+#define GDI_OBJECT_TYPE_DD_SURFACE                      \
+    0x00030000 /* Should be moved away from gdi objects \
+                */
 #define GDI_OBJECT_TYPE_REGION 0x00040000
 #define GDI_OBJECT_TYPE_BITMAP 0x00050000
 #define GDI_OBJECT_TYPE_CLIOBJ 0x00060000
@@ -99,7 +100,7 @@
 
 /* Handle macros */
 #define GDI_HANDLE_CREATE(i, t) \
-    ((HANDLE)(((i) & GDI_HANDLE_INDEX_MASK) | ((t) & GDI_HANDLE_TYPE_MASK)))
+    ((HANDLE)(((i)&GDI_HANDLE_INDEX_MASK) | ((t)&GDI_HANDLE_TYPE_MASK)))
 
 #define GDI_HANDLE_GET_INDEX(h) (((ULONG_PTR)(h)) & GDI_HANDLE_INDEX_MASK)
 
