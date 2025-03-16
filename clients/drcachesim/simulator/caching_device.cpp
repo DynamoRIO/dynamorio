@@ -272,14 +272,14 @@ caching_device_t::request(const memref_t &memref_in)
 void
 caching_device_t::access_update(int block_idx, int way)
 {
-    replacement_policy_->access_update(block_idx, way);
+    replacement_policy_->access_update(compute_set_index(block_idx), way);
 }
 
 int
 caching_device_t::replace_which_way(int block_idx)
 {
     int way_to_replace = get_next_way_to_replace(block_idx);
-    replacement_policy_->eviction_update(block_idx, way_to_replace);
+    replacement_policy_->eviction_update(compute_set_index(block_idx), way_to_replace);
     return way_to_replace;
 }
 
@@ -290,7 +290,7 @@ caching_device_t::get_next_way_to_replace(const int block_idx) const
         if (get_caching_device_block(block_idx, way).tag_ == TAG_INVALID)
             return way;
     }
-    return replacement_policy_->get_next_way_to_replace(block_idx);
+    return replacement_policy_->get_next_way_to_replace(compute_set_index(block_idx));
 }
 
 void
@@ -302,8 +302,8 @@ caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type)
         loaded_blocks_--;
         stats_->invalidate(invalidation_type);
         // Invalidate last_tag_ if it was this tag.
-        replacement_policy_->invalidation_update(compute_block_idx(tag),
-                                                 block_way.second);
+        replacement_policy_->invalidation_update(
+            compute_set_index(compute_block_idx(tag)), block_way.second);
         if (last_tag_ == tag) {
             last_tag_ = TAG_INVALID;
         }

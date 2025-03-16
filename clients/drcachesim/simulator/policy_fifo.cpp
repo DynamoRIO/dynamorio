@@ -51,15 +51,14 @@ policy_fifo_t::policy_fifo_t(int num_sets, int associativity)
 }
 
 void
-policy_fifo_t::access_update(int block_idx, int way)
+policy_fifo_t::access_update(int set_idx, int way)
 {
     // Nothing to update, FIFO does not change on access.
 }
 
 void
-policy_fifo_t::eviction_update(int block_idx, int way)
+policy_fifo_t::eviction_update(int set_idx, int way)
 {
-    int set_idx = get_set_index(block_idx);
     // Move the evicted way to the back of the queue.
     auto &fifo_set = queues_[set_idx];
     fifo_set.remove(way);
@@ -67,15 +66,14 @@ policy_fifo_t::eviction_update(int block_idx, int way)
 }
 
 void
-policy_fifo_t::invalidation_update(int block_idx, int way)
+policy_fifo_t::invalidation_update(int set_idx, int way)
 {
     // Nothing to update, FIFO does not change on invalidation.
 }
 
 int
-policy_fifo_t::get_next_way_to_replace(int block_idx) const
+policy_fifo_t::get_next_way_to_replace(int set_idx) const
 {
-    int set_idx = get_set_index(block_idx);
     // The next way to replace is at the front of the FIFO list.
     return queues_[set_idx].front();
 }

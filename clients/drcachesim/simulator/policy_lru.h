@@ -51,20 +51,20 @@ class policy_lru_t : public cache_replacement_policy_t {
 public:
     policy_lru_t(int num_sets, int associativity);
     void
-    access_update(int block_idx, int way) override;
+    access_update(int set_idx, int way) override;
     void
-    eviction_update(int block_idx, int way) override;
+    eviction_update(int set_idx, int way) override;
     void
-    invalidation_update(int block_idx, int way) override;
+    invalidation_update(int set_idx, int way) override;
     int
-    get_next_way_to_replace(int block_idx) const override;
+    get_next_way_to_replace(int set_idx) const override;
     std::string
     get_name() const override;
 
     ~policy_lru_t() override = default;
 
 private:
-    // LRU list for each block.
+    // LRU list for each set.
     std::vector<std::vector<int>> lru_counters_;
 };
 

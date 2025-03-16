@@ -53,13 +53,13 @@ public:
     /// If seed is -1, a random seed will be used.
     policy_bit_plru_t(int num_sets, int associativity, int seed = -1);
     void
-    access_update(int block_idx, int way) override;
+    access_update(int set_idx, int way) override;
     void
-    eviction_update(int block_idx, int way) override;
+    eviction_update(int set_idx, int way) override;
     int
-    get_next_way_to_replace(int block_idx) const override;
+    get_next_way_to_replace(int set_idx) const override;
     void
-    invalidation_update(int block_idx, int way) override;
+    invalidation_update(int set_idx, int way) override;
     std::string
     get_name() const override;
 

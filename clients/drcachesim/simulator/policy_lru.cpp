@@ -40,7 +40,7 @@ namespace drmemtrace {
 policy_lru_t::policy_lru_t(int num_sets, int associativity)
     : cache_replacement_policy_t(num_sets, associativity)
 {
-    // Initialize the LRU list for each block.
+    // Initialize the LRU list for each set.
     lru_counters_.reserve(num_sets);
     for (int i = 0; i < num_sets; ++i) {
         lru_counters_.emplace_back(associativity, 1);
@@ -48,9 +48,8 @@ policy_lru_t::policy_lru_t(int num_sets, int associativity)
 }
 
 void
-policy_lru_t::access_update(int block_idx, int way)
+policy_lru_t::access_update(int set_idx, int way)
 {
-    int set_idx = get_set_index(block_idx);
     int count = lru_counters_[set_idx][way];
     // Optimization: return early if it is a repeated access.
     if (count == 0)
@@ -65,25 +64,23 @@ policy_lru_t::access_update(int block_idx, int way)
 }
 
 void
-policy_lru_t::eviction_update(int block_idx, int way)
+policy_lru_t::eviction_update(int set_idx, int way)
 {
     // Nothing to update, when the way is accessed we will update it -
     // If the way was evicted, it is already at the end of the list.
 }
 
 void
-policy_lru_t::invalidation_update(int block_idx, int way)
+policy_lru_t::invalidation_update(int set_idx, int way)
 {
-    int set_idx = get_set_index(block_idx);
     int max_counter =
         *std::max_element(lru_counters_[set_idx].begin(), lru_counters_[set_idx].end());
     lru_counters_[set_idx][way] = max_counter + 1;
 }
 
 int
-policy_lru_t::get_next_way_to_replace(int block_idx) const
+policy_lru_t::get_next_way_to_replace(int set_idx) const
 {
-    int set_idx = get_set_index(block_idx);
     // We implement LRU by picking the slot with the largest counter value.
     int max_counter = 0;
     int max_way = 0;

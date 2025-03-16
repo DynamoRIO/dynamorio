@@ -239,6 +239,14 @@ protected:
     {
         return (tag & blocks_per_way_mask_) * associativity_;
     }
+    virtual int
+    compute_set_index(int block_idx) const
+    {
+        // The block index points to the first way in the set, and the ways are stored
+        // in a contiguous array, so we divide by the associativity to get the block
+        // index.
+        return block_idx / associativity_;
+    }
     inline caching_device_block_t &
     get_caching_device_block(int block_idx, int way) const
     {

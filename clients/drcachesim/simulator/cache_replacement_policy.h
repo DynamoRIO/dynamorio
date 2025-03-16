@@ -49,14 +49,15 @@ namespace drmemtrace {
  * The policy receives the following updates:
  *  - When an existing way is accessed, `access_update()` is called.
  *  - When a way is evicted, `eviction_update()` is called on the evicted way, and
- * `access_update()` is called on the new way immediately after.
+ * `access_update()` is called on the new way immediately after. Can be called on invalid
+ * ways.
  *  - When a way is invalidated, `invalidation_update()` is called.
  *
  * The policy also provides a `get_next_way_to_replace()` method that returns
  * the next way to replace in the block. This function assumes that all ways are valid,
  * and is called by `caching_device_t` when it cannot just replace an invalid way.
  *
- * Currently, the policy recieves the block index as it is in `caching_device_t`,
+ * Currently, the policy receives the block index as it is in `caching_device_t`,
  * which is the index of the first way in the set when all ways are stored in a
  * contiguous array. Most policies however only need the set index, which is the
  * index of the set in the cache. This can be obtained with `get_set_index()` - In the
@@ -72,19 +73,19 @@ public:
     }
     /// Informs the replacement policy that an access has occurred.
     virtual void
-    access_update(int block_idx, int way) = 0;
+    access_update(int set_idx, int way) = 0;
     /// Informs the replacement policy that an eviction has occurred.
     virtual void
-    eviction_update(int block_idx, int way) = 0;
+    eviction_update(int set_idx, int way) = 0;
     /// Informs the replacement policy that an invalidation has occurred.
     virtual void
-    invalidation_update(int block_idx, int way) = 0;
+    invalidation_update(int set_idx, int way) = 0;
     /*
      * Returns the next way to replace in the set.
      * Assumes that all ways are valid.
      */
     virtual int
-    get_next_way_to_replace(int block_idx) const = 0;
+    get_next_way_to_replace(int set_idx) const = 0;
     /// Returns the name of the replacement policy.
     virtual std::string
     get_name() const = 0;
@@ -92,14 +93,6 @@ public:
     virtual ~cache_replacement_policy_t() = default;
 
 protected:
-    virtual int
-    get_set_index(int block_idx) const
-    {
-        // The block index points to the first way in the set, and the ways are stored
-        // in a contiguous array, so we divide by the associativity to get the block
-        // index.
-        return block_idx / associativity_;
-    }
     int associativity_;
     int num_sets_;
 };

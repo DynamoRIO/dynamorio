@@ -51,9 +51,8 @@ policy_bit_plru_t::policy_bit_plru_t(int num_sets, int associativity, int seed)
 }
 
 void
-policy_bit_plru_t::access_update(int block_idx, int way)
+policy_bit_plru_t::access_update(int set_idx, int way)
 {
-    int set_idx = get_set_index(block_idx);
     // Set the bit for the accessed way.
     if (!plru_bits_[set_idx][way]) {
         plru_bits_[set_idx][way] = true;
@@ -84,9 +83,8 @@ policy_bit_plru_t::invalidation_update(int set_idx, int way)
 }
 
 int
-policy_bit_plru_t::get_next_way_to_replace(int block_idx) const
+policy_bit_plru_t::get_next_way_to_replace(int set_idx) const
 {
-    int set_idx = get_set_index(block_idx);
     std::vector<int> unset_bits;
     for (int i = 0; i < associativity_; ++i) {
         if (!plru_bits_[set_idx][i]) {

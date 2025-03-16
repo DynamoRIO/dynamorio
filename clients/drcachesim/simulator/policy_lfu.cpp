@@ -49,30 +49,26 @@ policy_lfu_t::policy_lfu_t(int num_sets, int associativity)
 }
 
 void
-policy_lfu_t::access_update(int block_idx, int way)
+policy_lfu_t::access_update(int set_idx, int way)
 {
-    int set_idx = get_set_index(block_idx);
     access_counts_[set_idx][way]++;
 }
 
 void
-policy_lfu_t::eviction_update(int block_idx, int way)
+policy_lfu_t::eviction_update(int set_idx, int way)
 {
-    int set_idx = get_set_index(block_idx);
     access_counts_[set_idx][way] = 0;
 }
 
 void
-policy_lfu_t::invalidation_update(int block_idx, int way)
+policy_lfu_t::invalidation_update(int set_idx, int way)
 {
-    int set_idx = get_set_index(block_idx);
     access_counts_[set_idx][way] = 0;
 }
 
 int
-policy_lfu_t::get_next_way_to_replace(int block_idx) const
+policy_lfu_t::get_next_way_to_replace(int set_idx) const
 {
-    int set_idx = get_set_index(block_idx);
     // Find the way with the minimum frequency counter.
     int min_freq = access_counts_[set_idx][0];
     int min_way = 0;
