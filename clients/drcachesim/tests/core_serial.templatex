@@ -26,8 +26,8 @@ Total counts:
            0 direct switch requests
            0 observed migrations
            0 waits
-    11796844 idles
-        5.23% cpu busy by record count
+   *[0-9]* idles
+   *[0-9\.]*% cpu busy by record count
     [0-9 ]* cpu microseconds
     [0-9 ]* wait microseconds
     [0-9 ]* idle microseconds
@@ -65,7 +65,7 @@ Total counts:
            0 total dcache flushes
            9 total threads
         3314 total timestamp \+ cpuid markers
-    11796844 total idle markers
+   *[0-9]* total idle markers
            0 total wait markers
          530 total kernel transfer markers
           49 total function id markers

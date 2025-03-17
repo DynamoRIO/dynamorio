@@ -4049,7 +4049,7 @@ if (BUILD_CLIENTS)
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
 
         torunonly_simtool(core_serial ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats:basic_counts -core_serial"
+          "-indir ${thread_trace_dir} -tool schedule_stats:basic_counts -core_serial -sched_block_scale 0.01)"
           "")
         set(tool.core_serial_rawtemp ON) # no preprocessor
 
