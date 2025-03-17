@@ -2815,10 +2815,10 @@ handle_AFD_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
         for (i = 0; i < info.BufferCount; i++) {
             AFD_WSABUF buf;
             if (safe_read((char *)&info.BufferArray[i], sizeof(buf), &buf)) {
-                if (ii->arg->pre)
+                if (ii->arg->pre) {
                     CHECK_ADDR(ii, buf.buf, buf.len,
                                "AFD_RECV_INFO_UDP.BufferArray[i].buf");
-                else {
+                } else {
                     LOG(SYSCALL_VERBOSE, "\tAFD_RECV_INFO_UDP buf %d: " PFX "-" PFX "\n",
                         i, buf.buf, buf.len);
                     MARK_WRITE(ii, buf.buf, buf.len,
@@ -3089,10 +3089,10 @@ handle_AFD_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
                       "AFD_SEND_INFO_UDP.BufferArray");
             for (i = 0; i < info.BufferCount; i++) {
                 AFD_WSABUF buf;
-                if (safe_read((char *)&info.BufferArray[i], sizeof(buf), &buf))
+                if (safe_read((char *)&info.BufferArray[i], sizeof(buf), &buf)) {
                     CHECK_DEF(ii, buf.buf, buf.len,
                               "AFD_SEND_INFO_UDP.BufferArray[i].buf");
-                else
+                } else
                     WARN("WARNING: AFD_SEND_DATAGRAM: can't read param\n");
             }
         } else

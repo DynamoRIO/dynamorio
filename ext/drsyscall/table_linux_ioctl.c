@@ -156,8 +156,10 @@ syscall_info_t syscall_ioctl_info[] = {
     { IOCTL(SIOCAX25NOUID), OK, RLONG, 3, { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
 #if 0 /* FIXME: define not in my headers */
     {IOCTL(SIOCAX25DIGCTL), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
-    {IOCTL(SIOCAX25GETPARMS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ax25_parms_struct), R|W}}},
-    {IOCTL(SIOCAX25SETPARMS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ax25_parms_struct), R}}},
+    {IOCTL(SIOCAX25GETPARMS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ax25_parms_struct),
+                                                       R|W}}},
+    {IOCTL(SIOCAX25SETPARMS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ax25_parms_struct),
+                                                       R}}},
 #endif
 
     // <include/linux/cdk.h>
@@ -403,12 +405,18 @@ syscall_info_t syscall_ioctl_info[] = {
 
 #if 0 /* FIXME: having problems including header */
     // <include/linux/if_eql.h>
-    {IOCTL(EQL_ENSLAVE), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}}, /* FIXME: more */
-    {IOCTL(EQL_EMANCIPATE), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}}, /* FIXME: more */
-    {IOCTL(EQL_GETSLAVECFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}}, /* FIXME: more */
-    {IOCTL(EQL_SETSLAVECFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}}, /* FIXME: more */
-    {IOCTL(EQL_GETMASTRCFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}}, /* FIXME: more */
-    {IOCTL(EQL_SETMASTRCFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}}, /* FIXME: more */
+    {IOCTL(EQL_ENSLAVE), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
+      /* FIXME: more */},
+    {IOCTL(EQL_EMANCIPATE), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
+      /* FIXME: more */},
+    {IOCTL(EQL_GETSLAVECFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
+      /* FIXME: more */},
+    {IOCTL(EQL_SETSLAVECFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
+      /* FIXME: more */},
+    {IOCTL(EQL_GETMASTRCFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
+      /* FIXME: more */},
+    {IOCTL(EQL_SETMASTRCFG), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ifreq), R|W}}
+      /* FIXME: more */},
 #endif
 
     // <include/linux/if_plip.h>
@@ -426,8 +434,10 @@ syscall_info_t syscall_ioctl_info[] = {
     {IOCTL(PPPIOCGDEBUG), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), W, INT_TYPE}}},
     {IOCTL(PPPIOCGSTAT), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ppp_stats), W}}},
     {IOCTL(PPPIOCGTIME), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ppp_ddinfo), W}}},
-    {IOCTL(PPPIOCGXASYNCMAP), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct { int [8]; }), W}}},
-    {IOCTL(PPPIOCSXASYNCMAP), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct { int [8]; }), R}}},
+    {IOCTL(PPPIOCGXASYNCMAP), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct { int [8]; }), W}}},
+    {IOCTL(PPPIOCSXASYNCMAP), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct { int [8]; }), R}}},
     {IOCTL(PPPIOCSMRU), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
     {IOCTL(PPPIOCRASYNCMAP), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
     {IOCTL(PPPIOCSMAXCID), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
@@ -437,15 +447,18 @@ syscall_info_t syscall_ioctl_info[] = {
     // <include/linux/ipx.h>
     {IOCTL(SIOCAIPXITFCRT), OK, RLONG, 3, {FD_REQ, {2, sizeof(char), R, INT_TYPE}}},
     {IOCTL(SIOCAIPXPRISLT), OK, RLONG, 3, {FD_REQ, {2, sizeof(char), R, INT_TYPE}}},
-    {IOCTL(SIOCIPXCFGDATA), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct ipx_config_data), W}}},
+    {IOCTL(SIOCIPXCFGDATA), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct ipx_config_data), W}}},
 #endif
 
     // <include/linux/kd.h>
     { IOCTL(GIO_FONT), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char[8192]), W } } },
     { IOCTL(PIO_FONT), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char[8192]), R } } },
 #if 0 /* FIXME: struct not in my defines */
-    {IOCTL(GIO_FONTX), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct console_font_desc), R|W}}}, /* FIXME: more */
-    {IOCTL(PIO_FONTX), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct console_font_desc), R}}}, /* FIXME: more */
+    {IOCTL(GIO_FONTX), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct console_font_desc), R|W}}}, /* FIXME: more */
+    {IOCTL(PIO_FONTX), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct console_font_desc), R}}}, /* FIXME: more */
 #endif
     { IOCTL(GIO_CMAP), OK, RLONG, 3, { FD_REQ, { 2, sizeof(char[48]), W } } },
     { IOCTL(PIO_CMAP), OK, RLONG, 3, { FD_REQ, /* const struct { char [48]; } */ } },
@@ -564,10 +577,12 @@ syscall_info_t syscall_ioctl_info[] = {
 
 #if 0 /* FIXME: define not in my headers */
     // <include/linux/scsi.h>
-    {IOCTL(SCSI_IOCTL_GET_IDLUN), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct { int [2]; }), W}}},
+    {IOCTL(SCSI_IOCTL_GET_IDLUN), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct { int [2]; }), W}}},
     {IOCTL(SCSI_IOCTL_TAGGED_ENABLE), OK, RLONG, 3, {FD_REQ, /* void */}},
     {IOCTL(SCSI_IOCTL_TAGGED_DISABLE), OK, RLONG, 3, {FD_REQ, /* void */}},
-    {IOCTL(SCSI_IOCTL_PROBE_HOST), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}}, /* FIXME: more */
+    {IOCTL(SCSI_IOCTL_PROBE_HOST), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(int), R, INT_TYPE}}}, /* FIXME: more */
 #endif
 
     // <include/linux/smb_fs.h>
@@ -764,7 +779,8 @@ syscall_info_t syscall_ioctl_info[] = {
       3,
       { FD_REQ, { 2, sizeof(int), R | W, INT_TYPE } } },
 #if 0 /* FIXME: define not in my headers */
-    {IOCTL(SNDCTL_PMGR_IFACE), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct patmgr_info), R|W}}},
+    {IOCTL(SNDCTL_PMGR_IFACE), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct patmgr_info), R|W}}},
 #endif
     { IOCTL(SNDCTL_MIDI_PRETIME),
       OK,
@@ -777,7 +793,8 @@ syscall_info_t syscall_ioctl_info[] = {
       3,
       { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
 #if 0 /* FIXME: struct not in my headers */
-    {IOCTL(SNDCTL_MIDI_MPUCMD), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct mpu_command_rec), R|W}}},
+    {IOCTL(SNDCTL_MIDI_MPUCMD), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct mpu_command_rec), R|W}}},
 #endif
     { IOCTL(SNDCTL_DSP_RESET), OK, RLONG, 3, { FD_REQ, /* void */ } },
     { IOCTL(SNDCTL_DSP_SYNC), OK, RLONG, 3, { FD_REQ, /* void */ } },
@@ -995,7 +1012,8 @@ syscall_info_t syscall_ioctl_info[] = {
       3,
       { FD_REQ, { 2, sizeof(int), W, INT_TYPE } } },
 #if 0 /* FIXME: identical to SOUND_MIXER_READ_MUTE */
-    {IOCTL(SOUND_MIXER_READ_ENHANCE), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), W, INT_TYPE}}},
+    {IOCTL(SOUND_MIXER_READ_ENHANCE), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(int), W, INT_TYPE}}},
     {IOCTL(SOUND_MIXER_READ_LOUD), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), W, INT_TYPE}}},
 #endif
     { IOCTL(SOUND_MIXER_READ_RECSRC),
@@ -1114,8 +1132,10 @@ syscall_info_t syscall_ioctl_info[] = {
       3,
       { FD_REQ, { 2, sizeof(int), R | W, INT_TYPE } } },
 #if 0 /* FIXME: identical to SOUND_MIXER_WRITE_MUTE */
-    {IOCTL(SOUND_MIXER_WRITE_ENHANCE), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R|W, INT_TYPE}}},
-    {IOCTL(SOUND_MIXER_WRITE_LOUD), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R|W, INT_TYPE}}},
+    {IOCTL(SOUND_MIXER_WRITE_ENHANCE), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(int), R|W, INT_TYPE}}},
+    {IOCTL(SOUND_MIXER_WRITE_LOUD), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(int), R|W, INT_TYPE}}},
 #endif
     { IOCTL(SOUND_MIXER_WRITE_RECSRC),
       OK,
@@ -1125,17 +1145,27 @@ syscall_info_t syscall_ioctl_info[] = {
 
 #if 0 /* FIXME: define not in my headers */
     // <include/linux/umsdos_fs.h>
-    {IOCTL(UMSDOS_READDIR_DOS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R|W}}},
-    {IOCTL(UMSDOS_UNLINK_DOS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
-    {IOCTL(UMSDOS_RMDIR_DOS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
-    {IOCTL(UMSDOS_STAT_DOS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R|W}}},
-    {IOCTL(UMSDOS_CREAT_EMD), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
-    {IOCTL(UMSDOS_UNLINK_EMD), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
-    {IOCTL(UMSDOS_READDIR_EMD), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R|W}}},
-    {IOCTL(UMSDOS_GETVERSION), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), W}}},
+    {IOCTL(UMSDOS_READDIR_DOS), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R|W}}},
+    {IOCTL(UMSDOS_UNLINK_DOS), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
+    {IOCTL(UMSDOS_RMDIR_DOS), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
+    {IOCTL(UMSDOS_STAT_DOS), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R|W}}},
+    {IOCTL(UMSDOS_CREAT_EMD), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
+    {IOCTL(UMSDOS_UNLINK_EMD), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
+    {IOCTL(UMSDOS_READDIR_EMD), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R|W}}},
+    {IOCTL(UMSDOS_GETVERSION), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), W}}},
     {IOCTL(UMSDOS_INIT_EMD), OK, RLONG, 3, {FD_REQ, /* void */}},
-    {IOCTL(UMSDOS_DOS_SETUP), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
-    {IOCTL(UMSDOS_RENAME_DOS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
+    {IOCTL(UMSDOS_DOS_SETUP), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
+    {IOCTL(UMSDOS_RENAME_DOS), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct umsdos_ioctl), R}}},
 #endif
 
     // <include/linux/vt.h>

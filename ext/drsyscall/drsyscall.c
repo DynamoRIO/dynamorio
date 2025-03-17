@@ -676,10 +676,10 @@ get_syscall_result(syscall_info_t *sysinfo, cls_syscall_t *pt, DR_PARAM_OUT bool
         *value = mc->IF_X86_ELSE(rax, r0); /*r0 for AARCH64*/
 #else
         /* yes, reg_t is unsigned so we have no sign-extension here */
-        if (TEST(SYSINFO_RET_64BIT, sysinfo->flags))
+        if (TEST(SYSINFO_RET_64BIT, sysinfo->flags)) {
             *value = (uint64)mc->IF_ARM_ELSE(r0, eax) |
                 ((uint64)mc->IF_ARM_ELSE(r1, edx) << 32);
-        else
+        } else
             *value = (uint64)mc->IF_ARM_ELSE(r0, eax);
 #endif
     }

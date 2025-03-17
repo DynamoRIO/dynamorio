@@ -235,11 +235,13 @@ syscall_info_t syscall_info[] = {
          {1,}  /* ioctl request number */
      }, (drsys_sysnum_t*)syscall_ioctl_info
     },
-    {{PACKNUM(72,55,55,AARCH64_fcntl),0},"fcntl", OK, RLONG, 2,}, /*special-cased: 3rd arg not always required*/
+    {{PACKNUM(72,55,55,AARCH64_fcntl),0},"fcntl", OK, RLONG, 2,
+      /*special-cased: 3rd arg not always required*/},
     {{PACKNUM(-1,56,56,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
     {{PACKNUM(109,57,57,AARCH64_setpgid),0},"setpgid", OK, RLONG, 2,},
     {{PACKNUM(-1,58,58,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
-    {{PACKNUM(-1,59,59,AARCH64_ni),0},"olduname", OK, RLONG, 1, /* FIXME: ***Missing prototype*** */ },
+    {{PACKNUM(-1,59,59,AARCH64_ni),0},"olduname", OK, RLONG, 1,
+      /* FIXME: ***Missing prototype*** */ },
     {{PACKNUM(95,60,60,AARCH64_umask),0},"umask", OK, RLONG, 1,},
     {{PACKNUM(161,61,61,AARCH64_chroot),0},"chroot", OK, RLONG, 1,
      {
@@ -260,13 +262,17 @@ syscall_info_t syscall_info[] = {
     {{PACKNUM(110,64,64,AARCH64_getppid),0},"getppid", OK, RLONG, 0,},
     {{PACKNUM(111,65,65,AARCH64_getpgrp),0},"getpgrp", OK, RLONG, 0,},
     {{PACKNUM(112,66,66,AARCH64_setsid),0},"setsid", OK, RLONG, 0,},
-    {{PACKNUM(-1,67,67,AARCH64_ni),0},"sigaction", OK, RLONG, 3,/*FIXME type: {{1, sizeof(struct old_sigaction), W}, {2, sizeof(struct old_sigaction), R},}*/},
+    {{PACKNUM(-1,67,67,AARCH64_ni),0},"sigaction", OK, RLONG, 3,
+      /*FIXME type: {{1, sizeof(struct old_sigaction), W},
+       *             {2, sizeof(struct old_sigaction), R},}*/
+    },
     {{PACKNUM(-1,68,68,AARCH64_ni),0},"sgetmask", OK, RLONG, 0,},
     {{PACKNUM(-1,69,69,AARCH64_ni),0},"ssetmask", OK, RLONG, 1,},
     {{PACKNUM(-1,70,70,AARCH64_ni),0},"setreuid16", OK, RLONG, 2,},
     {{PACKNUM(-1,71,71,AARCH64_ni),0},"setregid16", OK, RLONG, 2,},
     {{PACKNUM(-1,72,72,AARCH64_ni),0},"sigsuspend", OK, RLONG, 3,},
-    {{PACKNUM(-1,73,73,AARCH64_ni),0},"sigpending", OK, RLONG, 1,/*FIXME type: {{0, sizeof(old_sigset_t), W},}*/},
+    {{PACKNUM(-1,73,73,AARCH64_ni),0},"sigpending", OK, RLONG, 1,
+      /*FIXME type: {{0, sizeof(old_sigset_t), W},}*/},
     {{PACKNUM(170,74,74,AARCH64_sethostname),0},"sethostname", OK, RLONG, 2,
      {
          {0, -1, R},
@@ -299,8 +305,14 @@ syscall_info_t syscall_info[] = {
          {1, sizeof(struct timezone), R},
      }
     },
-    {{PACKNUM(-1,80,80,AARCH64_ni),0},"getgroups16", OK, RLONG, 2,/* FIXME how encode these: {{1, ARG1 * sizeof(vki_old_gid_t), W}, {1, RES * sizeof(vki_old_gid_t), W},}*/},
-    {{PACKNUM(-1,81,81,AARCH64_ni),0},"setgroups16", OK, RLONG, 2,/* FIXME how encode these:{{1, ARG1 * sizeof(vki_old_gid_t), R},}*/},
+    {{PACKNUM(-1,80,80,AARCH64_ni),0},"getgroups16", OK, RLONG, 2,
+      /* FIXME how encode these: {{1, ARG1 * sizeof(vki_old_gid_t), W},
+       *                          {1, RES * sizeof(vki_old_gid_t), W},}
+       */
+    },
+    {{PACKNUM(-1,81,81,AARCH64_ni),0},"setgroups16", OK, RLONG, 2,
+      /* FIXME how encode these:{{1, ARG1 * sizeof(vki_old_gid_t), R},}*/
+    },
     {{PACKNUM(-1,82,82,AARCH64_ni),0},"old_select", OK, RLONG, /*FIXME*/},
     {{PACKNUM(88,83,83,AARCH64_symlink),0},"symlink", OK, RLONG, 2,
      {
@@ -339,8 +351,12 @@ syscall_info_t syscall_info[] = {
          {0,0, R|CT, CSTRING},
      }
     },
-    {{PACKNUM(169,88,88,AARCH64_reboot),0},"reboot", OK, RLONG, 4, /*FIXME: 3 is optional*/},
-    {{PACKNUM(-1,89,89,AARCH64_ni),0},"old_readdir", OK, RLONG, 3,/*FIXME type: {{1, sizeof(struct old_linux_dirent), W},}*/},
+    {{PACKNUM(169,88,88,AARCH64_reboot),0},"reboot", OK, RLONG, 4,
+      /*FIXME: 3 is optional*/
+    },
+    {{PACKNUM(-1,89,89,AARCH64_ni),0},"old_readdir", OK, RLONG, 3,
+      /*FIXME type: {{1, sizeof(struct old_linux_dirent), W},}*/
+    },
     {{PACKNUM(-1,90,90,AARCH64_ni),0},"mmap", OK, RLONG, /*FIXME*/},
     {{PACKNUM(11,91,91,AARCH64_munmap),0},"munmap", OK, RLONG, 2,},
     /* XXX i#822: for framework w/ inlined types we'll need separate x64 entries */
@@ -368,7 +384,9 @@ syscall_info_t syscall_info[] = {
      }
     },
     {{PACKNUM(173,101,101,AARCH64_ni),0},"ioperm", OK, RLONG, 3,},
-    {{PACKNUM(-1,102,102,AARCH64_ni),0},"socketcall", OK, RLONG, 2, /* special-cased below */},
+    {{PACKNUM(-1,102,102,AARCH64_ni),0},"socketcall", OK, RLONG, 2,
+      /* special-cased below */
+    },
     {{PACKNUM(103,103,103,AARCH64_syslog),0},"syslog", OK, RLONG, 3,
      {
          {1, -2, W},
@@ -402,11 +420,15 @@ syscall_info_t syscall_info[] = {
          {1, sizeof(struct stat), W},
      }
     },
-    {{PACKNUM(63,109,109,AARCH64_uname),0},"uname", OK, RLONG, 1, /* FIXME: ***Missing prototype*** */ },
+    {{PACKNUM(63,109,109,AARCH64_uname),0},"uname", OK, RLONG, 1,
+      /* FIXME: ***Missing prototype*** */
+    },
     {{PACKNUM(172,110,110,AARCH64_ni),0},"iopl", OK, RLONG, 1,},
     {{PACKNUM(153,111,111,AARCH64_vhangup),0},"vhangup", OK, RLONG, 0,},
     {{PACKNUM(-1,112,112,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
-    {{PACKNUM(-1,113,113,AARCH64_ni),0},"vm86old", OK, RLONG, 1, /* FIXME: ***Missing prototype*** */ },
+    {{PACKNUM(-1,113,113,AARCH64_ni),0},"vm86old", OK, RLONG, 1,
+      /* FIXME: ***Missing prototype*** */
+    },
     {{PACKNUM(61,114,114,AARCH64_wait4),0},"wait4", OK, RLONG, 4,
      {
          {1, sizeof(int), W},
@@ -426,7 +448,8 @@ syscall_info_t syscall_info[] = {
     {{PACKNUM(-1,117,117,AARCH64_ni),0},"ipc", OK, RLONG, 1, /* special-cased below */ },
     {{PACKNUM(74,118,118,AARCH64_fsync),0},"fsync", OK, RLONG, 1,},
     {{PACKNUM(-1,119,119,AARCH64_ni),0},"sigreturn", OK, RLONG, 0},
-    {{PACKNUM(56,120,120,AARCH64_clone),0},"clone", OK, RLONG, 2,}, /* 3 params added in later kernels special-cased */
+    {{PACKNUM(56,120,120,AARCH64_clone),0},"clone", OK, RLONG, 2,
+      /* 3 params added in later kernels special-cased */},
     {{PACKNUM(171,121,121,AARCH64_setdomainname),0},"setdomainname", OK, RLONG, 2,
      {
          {0, -1, R},
@@ -437,14 +460,18 @@ syscall_info_t syscall_info[] = {
          {0, sizeof(struct new_utsname), W},
      }
     },
-    {{PACKNUM(154,123,123,AARCH64_ni),0},"modify_ldt", OK, RLONG, 3, /* FIXME: ***Missing prototype*** */ },
+    {{PACKNUM(154,123,123,AARCH64_ni),0},"modify_ldt", OK, RLONG, 3,
+      /* FIXME: ***Missing prototype*** */
+    },
     {{PACKNUM(159,124,124,AARCH64_adjtimex),0},"adjtimex", OK, RLONG, 1,
      {
          {0, sizeof(struct timex), R},
      }
     },
     {{PACKNUM(10,125,125,AARCH64_mprotect),0},"mprotect", OK, RLONG, 3,},
-    {{PACKNUM(-1,126,126,AARCH64_ni),0},"sigprocmask", OK, RLONG, 3,/*FIXME type: {{1, sizeof(old_sigset_t), R}, {2, sizeof(old_sigset_t), W},}*/},
+    {{PACKNUM(-1,126,126,AARCH64_ni),0},"sigprocmask", OK, RLONG, 3,
+      /*FIXME type: {{1, sizeof(old_sigset_t), R}, {2, sizeof(old_sigset_t), W},}*/
+    },
     {{PACKNUM(-1,127,127,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
     {{PACKNUM(175,128,128,AARCH64_init_module),0},"init_module", OK, RLONG, 3,
      {
@@ -482,22 +509,32 @@ syscall_info_t syscall_info[] = {
          {1, RET, W},
      }
     },
-    {{PACKNUM(23,142,142,AARCH64_select),0},"select", OK, RLONG, 5,/* special-cased below */},
+    {{PACKNUM(23,142,142,AARCH64_select),0},"select", OK, RLONG, 5,
+      /* special-cased below */
+    },
     {{PACKNUM(73,143,143,AARCH64_flock),0},"flock", OK, RLONG, 2,},
     {{PACKNUM(26,144,144,AARCH64_msync),0},"msync", OK, RLONG, 3,
      {
          {0, -1, R},
      }
     },
-    {{PACKNUM(19,145,145,AARCH64_readv),0},"readv", OK, RLONG, 3, /* FIXME 1, ARG3 * sizeof(struct vki_iovec), R, 1,****** special-case:  (Addr)vec[i].iov_base, nReadThisBuf, R, */},
-    {{PACKNUM(20,146,146,AARCH64_writev),0},"writev", OK, RLONG, 3, /* FIXME 1, ARG3 * sizeof(struct vki_iovec), R, 1,****** special-case:  "writev(vector[...])", OK, RLONG, (Addr)vec[i].iov_base, vec[i].iov_len, R, */},
+    {{PACKNUM(19,145,145,AARCH64_readv),0},"readv", OK, RLONG, 3,
+      /* FIXME 1, ARG3 * sizeof(struct vki_iovec), R, 1,
+         ****** special-case:  (Addr)vec[i].iov_base, nReadThisBuf, R, */
+    },
+    {{PACKNUM(20,146,146,AARCH64_writev),0},"writev", OK, RLONG, 3,
+      /* FIXME 1, ARG3 * sizeof(struct vki_iovec), R, 1,
+       * ****** special-case:  "writev(vector[...])", OK, RLONG, (Addr)vec[i].iov_base,
+       * vec[i].iov_len, R,
+       */
+    },
     {{PACKNUM(124,147,147,AARCH64_getsid),0},"getsid", OK, RLONG, 1,},
     {{PACKNUM(75,148,148,AARCH64_fdatasync),0},"fdatasync", OK, RLONG, 1,},
     {{PACKNUM(156,149,149,AARCH64_ni),0},"_sysctl", OK, RLONG, 1,
      {
          {0, sizeof(struct __sysctl_args), R},
      }
-    },/*special-cased*/
+    }, /*special-cased*/
     {{PACKNUM(149,150,150,AARCH64_mlock),0},"mlock", OK, RLONG, 2,},
     {{PACKNUM(150,151,151,AARCH64_munlock),0},"munlock", OK, RLONG, 2,},
     {{PACKNUM(151,152,152,AARCH64_mlockall),0},"mlockall", OK, RLONG, 1,},
@@ -512,34 +549,50 @@ syscall_info_t syscall_info[] = {
          {1, sizeof(struct sched_param), W},
      }
     },
-    {{PACKNUM(144,156,156,AARCH64_sched_setscheduler),0},"sched_setscheduler", OK, RLONG, 3,
+    {{PACKNUM(144,156,156,AARCH64_sched_setscheduler),0},"sched_setscheduler", OK, RLONG,
+      3,
      {
          {2, sizeof(struct sched_param), R},
      }
     },
-    {{PACKNUM(145,157,157,AARCH64_sched_getscheduler),0},"sched_getscheduler", OK, RLONG, 1,},
+    {{PACKNUM(145,157,157,AARCH64_sched_getscheduler),0},"sched_getscheduler", OK, RLONG,
+      1,},
     {{PACKNUM(24,158,158,AARCH64_sched_yield),0},"sched_yield", OK, RLONG, 0,},
-    {{PACKNUM(146,159,159,AARCH64_sched_get_priority_max),0},"sched_get_priority_max", OK, RLONG, 1,},
-    {{PACKNUM(147,160,160,AARCH64_sched_get_priority_min),0},"sched_get_priority_min", OK, RLONG, 1,},
-    {{PACKNUM(148,161,161,AARCH64_sched_rr_get_interval),0},"sched_rr_get_interval", OK, RLONG, 2, /* FIXME  1, sizeof(struct timespec), U, */},
+    {{PACKNUM(146,159,159,AARCH64_sched_get_priority_max),0},"sched_get_priority_max", OK,
+      RLONG, 1,
+    },
+    {{PACKNUM(147,160,160,AARCH64_sched_get_priority_min),0},"sched_get_priority_min", OK,
+      RLONG, 1,},
+    {{PACKNUM(148,161,161,AARCH64_sched_rr_get_interval),0},"sched_rr_get_interval", OK,
+      RLONG, 2, /* FIXME  1, sizeof(struct timespec), U, */},
     {{PACKNUM(35,162,162,AARCH64_nanosleep),0},"nanosleep", OK, RLONG, 2,
      {
          {0, sizeof(struct timespec), R},
          {1, sizeof(struct timespec), W},
      }
     },
-    {{PACKNUM(25,163,163,AARCH64_mremap),0},"mremap", OK, RLONG, 4,}, /* 5th arg is conditional so special-cased below */
+    {{PACKNUM(25,163,163,AARCH64_mremap),0},"mremap", OK, RLONG, 4,
+      /* 5th arg is conditional so special-cased below */},
     {{PACKNUM(-1,164,164,AARCH64_ni),0},"setresuid16", OK, RLONG, 3,},
-    {{PACKNUM(-1,165,165,AARCH64_ni),0},"getresuid16", OK, RLONG, 3,/*FIXME type: {{0, sizeof(old_uid_t), W}, {1, sizeof(old_uid_t), W}, {2, sizeof(old_uid_t), W},}*/},
-    {{PACKNUM(-1,166,166,AARCH64_ni),0},"vm86", OK, RLONG, 2, /* FIXME: ***Missing prototype*** */ },
+    {{PACKNUM(-1,165,165,AARCH64_ni),0},"getresuid16", OK, RLONG, 3,
+      /*FIXME type: {{0, sizeof(old_uid_t), W}, {1, sizeof(old_uid_t), W},
+       *             {2, sizeof(old_uid_t), W},}*/
+    },
+    {{PACKNUM(-1,166,166,AARCH64_ni),0},"vm86", OK, RLONG, 2,
+      /* FIXME: ***Missing prototype*** */ },
     {{PACKNUM(-1,167,167,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
     {{PACKNUM(7,168,168,AARCH64_poll),0},"poll", OK, RLONG, 3, /* special-cased below */},
-    {{PACKNUM(180,169,169,AARCH64_nfsservctl),0},"nfsservctl", OK, RLONG, 3, /* FIXME 1, sizeof(struct nfsctl_arg), U, 2, sizeof(void), U, */},
+    {{PACKNUM(180,169,169,AARCH64_nfsservctl),0},"nfsservctl", OK, RLONG, 3,
+      /* FIXME 1, sizeof(struct nfsctl_arg), U, 2, sizeof(void), U, */},
     {{PACKNUM(-1,170,170,AARCH64_ni),0},"setresgid16", OK, RLONG, 3,},
-    {{PACKNUM(-1,171,171,AARCH64_ni),0},"getresgid16", OK, RLONG, 3,/*FIXME type: {{0, sizeof(old_gid_t), W}, {1, sizeof(old_gid_t), W}, {2, sizeof(old_gid_t), W},}*/},
-    {{PACKNUM(157,172,172,AARCH64_prctl),0},"prctl", OK, RLONG, 1, /* special-cased below */},
+    {{PACKNUM(-1,171,171,AARCH64_ni),0},"getresgid16", OK, RLONG, 3,
+      /*FIXME type: {{0, sizeof(old_gid_t), W}, {1, sizeof(old_gid_t), W},
+       * {2, sizeof(old_gid_t), W},}*/},
+    {{PACKNUM(157,172,172,AARCH64_prctl),0},"prctl", OK, RLONG, 1,
+      /* special-cased below */},
     {{PACKNUM(15,173,173,AARCH64_rt_sigreturn),0},"rt_sigreturn", OK, RLONG, 0},
-    {{PACKNUM(13,174,174,AARCH64_rt_sigaction),0},"rt_sigaction", OK, RLONG, 4,/*1 is special-cased below*/{{2, sizeof(kernel_sigaction_t), W},
+    {{PACKNUM(13,174,174,AARCH64_rt_sigaction),0},"rt_sigaction", OK, RLONG, 4,
+      /*1 is special-cased below*/{{2, sizeof(kernel_sigaction_t), W},
      }
     },
     {{PACKNUM(14,175,175,AARCH64_rt_sigprocmask),0},"rt_sigprocmask", OK, RLONG, 4,
@@ -565,7 +618,11 @@ syscall_info_t syscall_info[] = {
          {2, sizeof(siginfo_t), R},
      }
     },
-    {{PACKNUM(130,179,179,AARCH64_rt_sigsuspend),0},"rt_sigsuspend", OK, RLONG, 2, /* FIXME 0, sizeof(siginfo_t), R, 0,****** special-case:  arg2, sizeof(struct vki_msqid64_ds), R, */},
+    {{PACKNUM(130,179,179,AARCH64_rt_sigsuspend),0},"rt_sigsuspend", OK, RLONG, 2,
+      /* FIXME 0, sizeof(siginfo_t), R, 0,
+       * ****** special-case:  arg2, sizeof(struct vki_msqid64_ds), R,
+       */
+    },
     {{PACKNUM(17,180,180,AARCH64_pread64),0},"pread64", OK, RLONG, 4,
      {
          {1, -2, W},
@@ -600,7 +657,12 @@ syscall_info_t syscall_info[] = {
          {1, sizeof(cap_user_data_t), R},
      }
     },
-    {{PACKNUM(131,186,186,AARCH64_sigaltstack),0},"sigaltstack", OK, RLONG, 2, /* FIXME 0,****** special-case:  "sigaltstack(ss)", OK, RLONG, (Addr)&ss->ss_sp, sizeof(ss->ss_sp), R, 0,****** special-case:  "sigaltstack(ss)", OK, RLONG, (Addr)&ss->ss_size, sizeof(ss->ss_size), R, {1, sizeof(cap_user_data_t data), W}, */},
+    {{PACKNUM(131,186,186,AARCH64_sigaltstack),0},"sigaltstack", OK, RLONG, 2,
+      /* FIXME 0,****** special-case:  "sigaltstack(ss)", OK, RLONG, (Addr)&ss->ss_sp,
+       * sizeof(ss->ss_sp), R, 0,  ****** special-case:  "sigaltstack(ss)", OK, RLONG,
+       * (Addr)&ss->ss_size, sizeof(ss->ss_size), R, {1, sizeof(cap_user_data_t data), W},
+       */
+    },
     {{PACKNUM(40,187,187,AARCH64_sendfile),0},"sendfile", OK, RLONG, 4,
      {
          {2, sizeof(off_t), W},
@@ -653,8 +715,12 @@ syscall_info_t syscall_info[] = {
     {{PACKNUM(108,202,202,AARCH64_getegid),0},"getegid", OK, RLONG, 0,},
     {{PACKNUM(113,203,203,AARCH64_setreuid),0},"setreuid", OK, RLONG, 2,},
     {{PACKNUM(114,204,204,AARCH64_setregid),0},"setregid", OK, RLONG, 2,},
-    {{PACKNUM(115,205,205,AARCH64_getgroups),0},"getgroups", OK, RLONG, 2,/*FIXME{{1, ARG1 * sizeof(vki_gid_t), W}, {1, RES * sizeof(vki_gid_t), W},}*/},
-    {{PACKNUM(116,206,206,AARCH64_setgroups),0},"setgroups", OK, RLONG, 2,/*FIXME{{1, ARG1 * sizeof(vki_gid_t), R},}*/},
+    {{PACKNUM(115,205,205,AARCH64_getgroups),0},"getgroups", OK, RLONG, 2,
+      /*FIXME{{1, ARG1 * sizeof(vki_gid_t), W}, {1, RES * sizeof(vki_gid_t), W},}*/
+    },
+    {{PACKNUM(116,206,206,AARCH64_setgroups),0},"setgroups", OK, RLONG, 2,
+      /*FIXME{{1, ARG1 * sizeof(vki_gid_t), R},}*/
+    },
     {{PACKNUM(93,207,207,AARCH64_fchown),0},"fchown", OK, RLONG, 3,},
     {{PACKNUM(117,208,208,AARCH64_setresuid),0},"setresuid", OK, RLONG, 3,},
     {{PACKNUM(118,209,209,AARCH64_getresuid),0},"getresuid", OK, RLONG, 3,
@@ -683,7 +749,8 @@ syscall_info_t syscall_info[] = {
     {{PACKNUM(123,216,216,AARCH64_setfsgid),0},"setfsgid", OK, RLONG, 1,},
 
     /* Slight divergence in ARM vs x86 for these 4 */
-    {{PACKNUM(155,217,218,AARCH64_pivot_root),0},"pivot_root", OK, RLONG, 2, /* FIXME 0, sizeof(char), U, 1, sizeof(char), U, */},
+    {{PACKNUM(155,217,218,AARCH64_pivot_root),0},"pivot_root", OK, RLONG, 2,
+      /* FIXME 0, sizeof(char), U, 1, sizeof(char), U, */},
     {{PACKNUM(27,218,219,AARCH64_mincore),0},"mincore", OK, RLONG, 3,
      {
          {2,/*FIXME: round up to next page size*/-1, W},
@@ -697,7 +764,8 @@ syscall_info_t syscall_info[] = {
      }
     },
 
-    {{PACKNUM(-1,221,221,AARCH64_fcntl64),0},"fcntl64", OK, RLONG, 2,}, /*special-cased: 3rd arg not always required*/
+    /*special-cased: 3rd arg not always required*/
+    {{PACKNUM(-1,221,221,AARCH64_fcntl64),0},"fcntl64", OK, RLONG, 2,},
     {{PACKNUM(-1,222,222,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
     {{PACKNUM(-1,223,223,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
     {{PACKNUM(186,224,224,AARCH64_gettid),0},"gettid", OK, RLONG, 0,},
@@ -805,17 +873,32 @@ syscall_info_t syscall_info[] = {
     },
 
     /* ARM numbers are off after skipping these 2 x86-only syscalls */
-    {{PACKNUM(205,243,-1,AARCH64_ni),0},"set_thread_area", OK, RLONG, /* FIXME: ***Missing prototype*** */ },
-    {{PACKNUM(211,244,-1,AARCH64_ni),0},"get_thread_area", OK, RLONG, /* FIXME: ***Missing prototype*** */ },
-    {{PACKNUM(206,245,243,AARCH64_io_setup),0},"io_setup", OK, RLONG, 2,/*FIXME type: {{1, sizeof(aio_context_t), W},}*/},
+    {{PACKNUM(205,243,-1,AARCH64_ni),0},"set_thread_area", OK, RLONG,
+      /* FIXME: ***Missing prototype*** */ },
+    {{PACKNUM(211,244,-1,AARCH64_ni),0},"get_thread_area", OK, RLONG,
+      /* FIXME: ***Missing prototype*** */ },
+    {{PACKNUM(206,245,243,AARCH64_io_setup),0},"io_setup", OK, RLONG, 2,
+      /*FIXME type: {{1, sizeof(aio_context_t), W},}*/},
     {{PACKNUM(207,246,244,AARCH64_io_destroy),0},"io_destroy", OK, RLONG, 1,},
-    {{PACKNUM(208,247,245,AARCH64_io_getevents),0},"io_getevents", OK, RLONG, 5, /* FIXME 3, sizeof(struct io_event), W, 3,****** special-case:  cb->aio_buf, vev->result, W,{4, sizeof(struct timespec), R}, */},
-    {{PACKNUM(209,248,246,AARCH64_io_submit),0},"io_submit", OK, RLONG, 3, /* FIXME 2, ARG2*sizeof(struct vki_iocb *), R, 2,****** special-case:  "io_submit(PWRITE)", OK, RLONG, cb->aio_buf, cb->aio_nbytes, R, */},
-    {{PACKNUM(210,249,247,AARCH64_io_cancel),0},"io_cancel", OK, RLONG, 3,/* FIXME type: {{1, sizeof(struct iocb), R},{2, sizeof(struct io_event), W},}*/},
+    {{PACKNUM(208,247,245,AARCH64_io_getevents),0},"io_getevents", OK, RLONG, 5,
+      /* FIXME 3, sizeof(struct io_event), W, 3,****** special-case:  cb->aio_buf,
+       * vev->result, W,{4, sizeof(struct timespec), R},
+       */
+    },
+    {{PACKNUM(209,248,246,AARCH64_io_submit),0},"io_submit", OK, RLONG, 3,
+      /* FIXME 2, ARG2*sizeof(struct vki_iocb *), R, 2,****** special-case:
+       * "io_submit(PWRITE)", OK, RLONG, cb->aio_buf, cb->aio_nbytes, R,
+       */
+    },
+    {{PACKNUM(210,249,247,AARCH64_io_cancel),0},"io_cancel", OK, RLONG, 3,
+      /* FIXME type: {{1, sizeof(struct iocb), R},{2, sizeof(struct io_event), W},}
+       */
+    },
     {{PACKNUM(221,250,-1,AARCH64_fadvise64),0},"fadvise64", OK, RLONG, 4,},
     {{PACKNUM(-1,251,-1,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
     {{PACKNUM(231,252,248,AARCH64_exit_group),0},"exit_group", OK, RLONG, 1,},
-    {{PACKNUM(212,253,249,AARCH64_lookup_dcookie),0},"lookup_dcookie", OK, RLONG, 3, /* FIXME 1, sizeof(char), U,{2, -3, W},{2, RET, W}, */},
+    {{PACKNUM(212,253,249,AARCH64_lookup_dcookie),0},"lookup_dcookie", OK, RLONG, 3,
+      /* FIXME 1, sizeof(char), U,{2, -3, W},{2, RET, W}, */},
     {{PACKNUM(213,254,250,AARCH64_epoll_create),0},"epoll_create", OK, RLONG, 1,},
     {{PACKNUM(233,255,251,AARCH64_epoll_ctl),0},"epoll_ctl", OK, RLONG, 4,
      {
@@ -829,7 +912,8 @@ syscall_info_t syscall_info[] = {
      }
     },
     {{PACKNUM(216,257,253,AARCH64_remap_file_pages),0},"remap_file_pages", OK, RLONG, 5,},
-    {{PACKNUM(218,258,256,AARCH64_set_tid_address),0},"set_tid_address", OK, RLONG, 1, /* FIXME 0, sizeof(int), U, */},
+    {{PACKNUM(218,258,256,AARCH64_set_tid_address),0},"set_tid_address", OK, RLONG, 1,
+      /* FIXME 0, sizeof(int), U, */},
     {{PACKNUM(222,259,257,AARCH64_timer_create),0},"timer_create", OK, RLONG, 3,
      {
          {1, sizeof(struct sigevent), R},
@@ -890,10 +974,21 @@ syscall_info_t syscall_info[] = {
     },
     {{PACKNUM(-1,272,270,AARCH64_fadvise64_64),0},"fadvise64_64", OK, RLONG, 4,},
     {{PACKNUM(-1,273,-1,AARCH64_ni),0},"ni_syscall", OK, RLONG, 0,},
-    {{PACKNUM(237,274,319,AARCH64_mbind),0},"mbind", OK, RLONG, 6, /*FIXME {{3, VG_ROUNDUP(ARG5, sizeof(UWord))/sizeof(UWord), R,},}*/},
-    {{PACKNUM(239,275,320,AARCH64_get_mempolicy),0},"get_mempolicy", OK, RLONG, 5,/*FIXME {{0, sizeof(int), W}, {1, VG_ROUNDUP(ARG3, sizeof(UWord)*8)/sizeof(UWord), W},}*/},
-    {{PACKNUM(238,276,321,AARCH64_set_mempolicy),0},"set_mempolicy", OK, RLONG, 3, /*FIXME {{1, VG_ROUNDUP(ARG3, sizeof(UWord))/sizeof(UWord), R},}*/},
-    {{PACKNUM(240,277,274,AARCH64_mq_open),0},"mq_open", OK, RLONG, 4, /* FIXME 0, CSTRING, R, 0,****** special-case:  "mq_open(attr->mq_msgsize)", OK, RLONG, (Addr)&attr->mq_msgsize, sizeof(attr->mq_msgsize), R, 3, sizeof(struct mq_attr), U, */},
+    {{PACKNUM(237,274,319,AARCH64_mbind),0},"mbind", OK, RLONG, 6,
+      /*FIXME {{3, VG_ROUNDUP(ARG5, sizeof(UWord))/sizeof(UWord), R,},}*/},
+    {{PACKNUM(239,275,320,AARCH64_get_mempolicy),0},"get_mempolicy", OK, RLONG, 5,
+      /*FIXME {{0, sizeof(int), W}, {1, VG_ROUNDUP(ARG3,
+       * sizeof(UWord)*8)/sizeof(UWord), W},}
+       */
+    },
+    {{PACKNUM(238,276,321,AARCH64_set_mempolicy),0},"set_mempolicy", OK, RLONG, 3,
+      /*FIXME {{1, VG_ROUNDUP(ARG3, sizeof(UWord))/sizeof(UWord), R},}*/},
+    {{PACKNUM(240,277,274,AARCH64_mq_open),0},"mq_open", OK, RLONG, 4,
+      /* FIXME 0, CSTRING, R, 0,****** special-case:  "mq_open(attr->mq_msgsize)", OK,
+       * RLONG, (Addr)&attr->mq_msgsize, sizeof(attr->mq_msgsize), R, 3,
+       * sizeof(struct mq_attr), U,
+       */
+    },
     {{PACKNUM(241,278,275,AARCH64_mq_unlink),0},"mq_unlink", OK, RLONG, 1,
      {
          {0,0, R|CT, CSTRING},
@@ -917,8 +1012,13 @@ syscall_info_t syscall_info[] = {
          {1, sizeof(struct sigevent), R},
      }
     },
-    {{PACKNUM(245,282,279,AARCH64_mq_getsetattr),0},"mq_getsetattr", OK, RLONG, 3, /* FIXME 1,****** special-case:  "mq_getsetattr(mqstat->mq_flags)", OK, RLONG, (Addr)&attr->mq_flags, sizeof(attr->mq_flags), R,{2, sizeof(struct mq_attr), W}, */},
-    {{PACKNUM(246,283,347,AARCH64_kexec_load),0},"kexec_load", OK, RLONG, 4, /* FIXME 2, sizeof(struct kexec_segment), U, */},
+    {{PACKNUM(245,282,279,AARCH64_mq_getsetattr),0},"mq_getsetattr", OK, RLONG, 3,
+      /* FIXME 1,****** special-case:  "mq_getsetattr(mqstat->mq_flags)", OK, RLONG,
+       * (Addr)&attr->mq_flags, sizeof(attr->mq_flags), R,{2, sizeof(struct mq_attr), W},
+       */
+    },
+    {{PACKNUM(246,283,347,AARCH64_kexec_load),0},"kexec_load", OK, RLONG, 4,
+      /* FIXME 2, sizeof(struct kexec_segment), U, */},
     {{PACKNUM(247,284,280,AARCH64_waitid),0},"waitid", OK, RLONG, 5,
      {
          {2, sizeof(siginfo_t), W},
@@ -957,7 +1057,8 @@ syscall_info_t syscall_info[] = {
      }
     },
     {{PACKNUM(255,293,318,AARCH64_inotify_rm_watch),0},"inotify_rm_watch", OK, RLONG, 2,},
-    {{PACKNUM(256,294,-1,AARCH64_migrate_pages),0},"migrate_pages", OK, RLONG, 4, /* FIXME 2, sizeof(unsigned long), U, 3, sizeof(unsigned long), U, */},
+    {{PACKNUM(256,294,-1,AARCH64_migrate_pages),0},"migrate_pages", OK, RLONG, 4,
+      /* FIXME 2, sizeof(unsigned long), U, 3, sizeof(unsigned long), U, */},
     {{PACKNUM(257,295,322,AARCH64_openat),0},"openat", OK, RLONG, 4,
      {
          {1,0, R|CT, CSTRING},
@@ -1033,21 +1134,35 @@ syscall_info_t syscall_info[] = {
          {1,0, R|CT, CSTRING},
      }
     },
-    {{PACKNUM(270,308,335,AARCH64_pselect6),0},"pselect6", OK, RLONG, 6, /* special-cased below */},
-    {{PACKNUM(271,309,336,AARCH64_ppoll),0},"ppoll", OK, RLONG, 5, /* FIXME 0, sizeof(struct pollfd), U,{2, sizeof(struct timespec), R},{3, sizeof(kernel_sigset_t), R}, 3,****** special-case:  (Addr)(&ufds[i].revents), sizeof(ufds[i].revents), R, */},
+    {{PACKNUM(270,308,335,AARCH64_pselect6),0},"pselect6", OK, RLONG, 6,
+      /* special-cased below */},
+    {{PACKNUM(271,309,336,AARCH64_ppoll),0},"ppoll", OK, RLONG, 5,
+      /* FIXME 0, sizeof(struct pollfd), U,{2, sizeof(struct timespec), R},
+       * {3, sizeof(kernel_sigset_t), R}, 3,
+       * ****** special-case:  (Addr)(&ufds[i].revents), sizeof(ufds[i].revents), R,
+       */
+    },
     {{PACKNUM(272,310,337,AARCH64_unshare),0},"unshare", OK, RLONG, 1,},
     {{PACKNUM(273,311,338,AARCH64_set_robust_list),0},"set_robust_list", OK, RLONG, 2,
      {
          {0, -1, R},
      }
     },
-    {{PACKNUM(274,312,339,AARCH64_get_robust_list),0},"get_robust_list", OK, RLONG, 3,/*FIXME type: {{1, sizeof(struct robust_list_head), W},{2, sizeof(size_t), W},}*/},
-    {{PACKNUM(275,313,340,AARCH64_splice),0},"splice", OK, RLONG, 6, /* FIXME 1, sizeof(loff_t), U, 3, sizeof(loff_t), U, */},
+    {{PACKNUM(274,312,339,AARCH64_get_robust_list),0},"get_robust_list", OK, RLONG, 3,
+      /*FIXME type: {{1, sizeof(struct robust_list_head), W},{2, sizeof(size_t), W},}*/},
+    {{PACKNUM(275,313,340,AARCH64_splice),0},"splice", OK, RLONG, 6,
+      /* FIXME 1, sizeof(loff_t), U, 3, sizeof(loff_t), U, */},
     {{PACKNUM(277,314,341,AARCH64_sync_file_range),0},"sync_file_range", OK, RLONG, 4,},
     {{PACKNUM(276,315,342,AARCH64_tee),0},"tee", OK, RLONG, 4,},
-    {{PACKNUM(278,316,343,AARCH64_vmsplice),0},"vmsplice", OK, RLONG, 4, /* FIXME 1, sizeof(struct iovec), U, */},
-    {{PACKNUM(279,317,344,AARCH64_move_pages),0},"move_pages", OK, RLONG, 6, /* FIXME 2, sizeof(void), U, 3, sizeof(int), U, 4, sizeof(int), U, */},
-    {{PACKNUM(309,318,345,AARCH64_getcpu),0},"getcpu", OK, RLONG, 3, /* FIXME 0, sizeof(unsigned), U, 1, sizeof(unsigned), U, 2, sizeof(struct getcpu_cache), U, */},
+    {{PACKNUM(278,316,343,AARCH64_vmsplice),0},"vmsplice", OK, RLONG, 4,
+      /* FIXME 1, sizeof(struct iovec), U, */},
+    {{PACKNUM(279,317,344,AARCH64_move_pages),0},"move_pages", OK, RLONG, 6,
+      /* FIXME 2, sizeof(void), U, 3, sizeof(int), U, 4, sizeof(int), U, */},
+    {{PACKNUM(309,318,345,AARCH64_getcpu),0},"getcpu", OK, RLONG, 3,
+      /* FIXME 0, sizeof(unsigned), U, 1, sizeof(unsigned), U, 2,
+       * sizeof(struct getcpu_cache), U,
+       */
+    },
     {{PACKNUM(281,319,346,AARCH64_epoll_pwait),0},"epoll_pwait", OK, RLONG, 6,
      {
          {1, -2, W|SYSARG_SIZE_IN_ELEMENTS, sizeof(struct epoll_event)},
@@ -1080,7 +1195,8 @@ syscall_info_t syscall_info[] = {
          {1, sizeof(struct itimerspec), W},
      }
     },
-    {{PACKNUM(289,327,355,AARCH64_signalfd4),0},"signalfd4", OK, RLONG, 4, /* FIXME 1, sizeof(kernel_sigset_t), U, */},
+    {{PACKNUM(289,327,355,AARCH64_signalfd4),0},"signalfd4", OK, RLONG, 4,
+      /* FIXME 1, sizeof(kernel_sigset_t), U, */},
     {{PACKNUM(290,328,356,AARCH64_eventfd2),0},"eventfd2", OK, RLONG, 2,},
     {{PACKNUM(291,329,357,AARCH64_epoll_create1),0},"epoll_create1", OK, RLONG, 1,},
     {{PACKNUM(292,330,358,AARCH64_dup3),0},"dup3", OK, RLONG, 3,},
@@ -1095,8 +1211,10 @@ syscall_info_t syscall_info[] = {
     /* FIXME i#1019: fill these new syscalls in */
     {{PACKNUM(295,333,361,AARCH64_preadv),0},"preadv", UNKNOWN, RLONG, 0, },
     {{PACKNUM(296,334,362,AARCH64_pwritev),0},"pwritev", UNKNOWN, RLONG, 0, },
-    {{PACKNUM(297,335,363,AARCH64_rt_tgsigqueueinfo),0},"rt_tgsigqueueinfo", UNKNOWN, RLONG, 0, },
-    {{PACKNUM(298,336,364,AARCH64_perf_event_open),0},"perf_event_open", UNKNOWN, RLONG, 0, },
+    {{PACKNUM(297,335,363,AARCH64_rt_tgsigqueueinfo),0},"rt_tgsigqueueinfo", UNKNOWN,
+      RLONG, 0, },
+    {{PACKNUM(298,336,364,AARCH64_perf_event_open),0},"perf_event_open", UNKNOWN, RLONG,
+      0, },
     {{PACKNUM(299,337,365,AARCH64_recvmmsg),0},"recvmmsg", UNKNOWN, RLONG, 0, },
     {{PACKNUM(300,338,367,AARCH64_fanotify_init),0},"fanotify_init", UNKNOWN, RLONG, 0, },
     {{PACKNUM(301,339,368,AARCH64_fanotify_mark),0},"fanotify_mark", UNKNOWN, RLONG, 0, },
@@ -1108,8 +1226,10 @@ syscall_info_t syscall_info[] = {
          {3, sizeof(struct rlimit), W},
      }
     },
-    {{PACKNUM(303,341,370,AARCH64_name_to_handle_at),0},"name_to_handle_at", UNKNOWN, RLONG, 0, },
-    {{PACKNUM(304,342,371,AARCH64_open_by_handle_at),0},"open_by_handle_at", UNKNOWN, RLONG, 0, },
+    {{PACKNUM(303,341,370,AARCH64_name_to_handle_at),0},"name_to_handle_at", UNKNOWN,
+      RLONG, 0, },
+    {{PACKNUM(304,342,371,AARCH64_open_by_handle_at),0},"open_by_handle_at", UNKNOWN,
+      RLONG, 0, },
     {{PACKNUM(305,343,372,AARCH64_clock_adjtime),0},"clock_adjtime", UNKNOWN, RLONG, 0, },
     {{PACKNUM(306,344,373,AARCH64_syncfs),0},"syncfs", OK, RLONG, 1,
      {
@@ -1166,7 +1286,8 @@ syscall_info_t syscall_info[] = {
     /**************************************************/
     /* 64-bit only (some are on ARM too) */
     {{PACKNUM(29,-1,307,AARCH64_shmget),0},"shmget", OK, RLONG, 3, },
-    {{PACKNUM(30,-1,305,AARCH64_shmat),0},"shmat", OK, RLONG, 3, /*FIXME i#1018: mark the shared mem as defined*/ },
+    {{PACKNUM(30,-1,305,AARCH64_shmat),0},"shmat", OK, RLONG, 3,
+      /*FIXME i#1018: mark the shared mem as defined*/ },
     {{PACKNUM(31,-1,308,AARCH64_shmctl),0},"shmctl", OK, RLONG, 3, /*special-cased*/},
     {{PACKNUM(41,-1,281,AARCH64_socket),0},"socket", OK, RLONG, 3, },
     {{PACKNUM(42,-1,283,AARCH64_connect),0},"connect", OK, RLONG, 3,
@@ -1191,7 +1312,8 @@ syscall_info_t syscall_info[] = {
      {
          {1, -2, W},
          {4, -5, WI|CT, SYSARG_TYPE_SOCKADDR},
-         {5, sizeof(socklen_t), R|W|HT|SYSARG_IGNORE_IF_PREV_NULL, DRSYS_TYPE_UNSIGNED_INT},
+         {5, sizeof(socklen_t), R|W|HT|SYSARG_IGNORE_IF_PREV_NULL,
+           DRSYS_TYPE_UNSIGNED_INT},
      }
     },
     {{PACKNUM(46,-1,296,AARCH64_sendmsg),0},"sendmsg", OK, RLONG, 3,
@@ -1246,7 +1368,8 @@ syscall_info_t syscall_info[] = {
      }
     },
     {{PACKNUM(66,-1,300,AARCH64_semctl),0},"semctl", OK, RLONG, 4, /*special-cased*/},
-    {{PACKNUM(67,-1,306,AARCH64_shmdt),0},"shmdt", OK, RLONG, 1, /*FIXME i#1018: mark the un-shared mem as unaddr*/  },
+    {{PACKNUM(67,-1,306,AARCH64_shmdt),0},"shmdt", OK, RLONG, 1,
+      /*FIXME i#1018: mark the un-shared mem as unaddr*/  },
     {{PACKNUM(68,-1,303,AARCH64_msgget),0},"msgget", OK, RLONG, 2, },
     {{PACKNUM(69,-1,301,AARCH64_msgsnd),0},"msgsnd", OK, RLONG, 4,
      {

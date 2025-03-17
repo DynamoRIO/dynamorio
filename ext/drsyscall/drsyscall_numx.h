@@ -94,7 +94,8 @@
  */
 /* NTDLL(name,                                          w2k, xpx86,w2003,xpwow,
  * xp64,vis86,viwow,vis64,w7x86,w7wow,w7x64,w8x86,   w8wow,w8x64,w81x86,
- * w81wow,w81x64,w10x86,w10wow,w10x64,w11x86,w11wow,w11x64,w12x86,w12wow,w12x64,w13x86,w13wow,w13x64,w14x86,w14wow,w14x64,w15x86,w15wow,w15x64)*/
+ * w81wow,w81x64,w10x86,w10wow,w10x64,w11x86,w11wow,w11x64,w12x86,w12wow,w12x64,
+ * w13x86,w13wow,w13x64,w14x86,w14wow,w14x64,w15x86,w15wow,w15x64)*/
 NTDLL(NtAllocateVirtualMemory, 0x10, 0x011, 0x012, 0x015, 0x015, 0x012, 0x015, 0x015,
       0x013, 0x015, 0x015, 0x196, 0x000016, 0x016, 0x19b, 0x000017, 0x017, 0x1a3,
       0x000018, 0x018, 0x1a6, 0x000018, 0x018, 0x1a8, 0x000018, 0x018, 0x1ad, 0x000018,
@@ -6103,7 +6104,8 @@ KERNEL32(WriteConsoleOutputString, NONE, NONE, NONE, 0x200e, NONE, NONE, 0x200e,
 
 /* NTDLL(name,                                          w2k, xpx86,w2003,xpwow,
  * xp64,vis86,viwow,vis64,w7x86,w7wow,w7x64,w8x86,   w8wow,w8x64,w81x86,
- * w81wow,w81x64,w10x86,w10wow,w10x64,w11x86,w11wow,w11x64,w12x86,w12wow,w12x64,w13x86,w13wow,w13x64,w14x86,w14wow,w14x64,w15x86,w15wow,w15x64)*/
+ * w81wow,w81x64,w10x86,w10wow,w10x64,w11x86,w11wow,w11x64,w12x86,w12wow,w12x64,w13x86,
+ * w13wow,w13x64,w14x86,w14wow,w14x64,w15x86,w15wow,w15x64)*/
 NTDLL(NtAcceptConnectPort, 0x00, 0x000, 0x000, 0x060, 0x060, 0x000, 0x060, 0x060, 0x000,
       0x060, 0x060, 0x1ac, 0x000061, 0x061, 0x001, 0x000001, 0x001, 0x002, 0x000002,
       0x002, 0x002, 0x000002, 0x002, 0x002, 0x000002, 0x002, 0x002, 0x000002, 0x002,

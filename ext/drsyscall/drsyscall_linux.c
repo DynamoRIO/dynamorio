@@ -1047,9 +1047,10 @@ handle_semctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii,
     case GETZCNT:
     case GETPID:
     case GETVAL:
-        if (ii->arg->pre)
+        if (ii->arg->pre) {
             if (!report_sysarg(ii, argnum_semid + 1 /*semnum*/, SYSARG_READ))
                 return;
+        }
         break;
     case SETVAL:
         if (ii->arg->pre) {
