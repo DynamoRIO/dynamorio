@@ -57,12 +57,10 @@ namespace drmemtrace {
  * the next way to replace in the block. This function assumes that all ways are valid,
  * and is called by `caching_device_t` when it cannot just replace an invalid way.
  *
- * Currently, the policy receives the block index as it is in `caching_device_t`,
- * which is the index of the first way in the set when all ways are stored in a
- * contiguous array. Most policies however only need the set index, which is the
- * index of the set in the cache. This can be obtained with `get_set_index()` - In the
- * future, we may want to change the interface to receive the set index directly, saving
- * the need for the division by the associativity.
+ * Note that the policy receives the set index, not the block index as it is in
+ * `caching_device_t`, which is the index of the first way in the set when all ways are
+ * stored in a contiguous array. This can be obtained with `compute_set_index()` in
+ * caching_device_t.
  */
 class cache_replacement_policy_t {
 public:
