@@ -554,8 +554,10 @@ syscall_info_t syscall_ioctl_info[] = {
 
 #if 0 /* FIXME: define not in my headers */
     // <include/linux/netrom.h>
-    {IOCTL(SIOCNRGETPARMS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct nr_parms_struct), R|W}}},
-    {IOCTL(SIOCNRSETPARMS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct nr_parms_struct), R}}},
+    {IOCTL(SIOCNRGETPARMS), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct nr_parms_struct), R|W}}},
+    {IOCTL(SIOCNRSETPARMS), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct nr_parms_struct), R}}},
     {IOCTL(SIOCNRDECOBS), OK, RLONG, 3, {FD_REQ, /* void */}},
     {IOCTL(SIOCNRRTCTL), OK, RLONG, 3, {FD_REQ, {2, sizeof(int), R, INT_TYPE}}},
 #endif
@@ -740,7 +742,8 @@ syscall_info_t syscall_ioctl_info[] = {
       3,
       { FD_REQ, { 2, sizeof(int), R, INT_TYPE } } },
 #if 0 /* FIXME: define not in my headers */
-    {IOCTL(SNDCTL_PMGR_ACCESS), OK, RLONG, 3, {FD_REQ, {2, sizeof(struct patmgr_info), R|W}}},
+    {IOCTL(SNDCTL_PMGR_ACCESS), OK, RLONG, 3,
+      {FD_REQ, {2, sizeof(struct patmgr_info), R|W}}},
 #endif
     { IOCTL(SNDCTL_SEQ_PANIC), OK, RLONG, 3, { FD_REQ, /* void */ } },
     { IOCTL(SNDCTL_SEQ_OUTOFBAND),

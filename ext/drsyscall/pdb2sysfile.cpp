@@ -54,6 +54,9 @@
 #include <unordered_map>
 #include <vector>
 
+namespace dynamorio {
+namespace drsyscall {
+
 /* We'll get an error in standalone usage by DrM's frontend if we call
  * dr_get_current_drcontext() in the utils.h NOTIFY so we make our own.
  * The frontend's -v, -vv, and -vvv set op_verbose_level.
@@ -967,3 +970,6 @@ drsys_generate_sysnum_file(void *drcontext, const char **sysnum_lib_paths,
 
     return DRMF_SUCCESS;
 }
+
+} // namespace drsyscall
+} // namespace dynamorio
