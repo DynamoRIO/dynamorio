@@ -4025,6 +4025,10 @@ if (BUILD_CLIENTS)
       if (ZLIB_FOUND)
         set(thread_trace_dir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+        # This trace has some futex calls with latencies ~40ms * 1000 time_units_per_us
+        # * default scale 0.1 is 2.5M instructions which makes core-sharded runs here
+        # a little long: so we scale them all back.
+        set(thread_trace_scale "-sched_block_scale 0.01")
         torunonly_simtool(reuse_offline_threads ${ci_shared_app}
           "-indir ${thread_trace_dir} -tool reuse_distance -reuse_distance_histogram" "")
         set(tool.reuse_offline_threads_rawtemp ON) # no preprocessor
@@ -4039,17 +4043,17 @@ if (BUILD_CLIENTS)
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
 
         torunonly_simtool(schedule_stats_nopreempt ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_quantum 10000000"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 10000000"
           "")
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
 
         torunonly_simtool(schedule_stats_maxcores ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_max_cores 2"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_max_cores 2"
           "")
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
 
         torunonly_simtool(core_serial ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats:basic_counts -core_serial -sched_block_scale 0.01)"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats:basic_counts -core_serial"
           "")
         set(tool.core_serial_rawtemp ON) # no preprocessor
 
@@ -4069,7 +4073,7 @@ if (BUILD_CLIENTS)
         set(switch_file
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
         torunonly_simtool(switch_insertion ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
           "")
         set(tool.switch_insertion_rawtemp ON) # no preprocessor
 
@@ -4082,12 +4086,12 @@ if (BUILD_CLIENTS)
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
 
         torunonly_simtool(syscall_insertion ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats -sched_syscall_file ${syscall_file}"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -sched_syscall_file ${syscall_file}"
           "")
         set(tool.syscall_insertion_rawtemp ON) # no preprocessor
 
         torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
           "")
         set(tool.syscall_insertion_core_sharded_rawtemp ON) # no preprocessor
 
@@ -4098,13 +4102,13 @@ if (BUILD_CLIENTS)
 
         # Test -multi_indir with 3 copies of our sample dir.
         torunonly_simtool(multi_indir ${ci_shared_app}
-          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} -tool schedule_stats -cores 3"
+          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -cores 3"
           "")
         set(tool.multi_indir_rawtemp ON) # no preprocessor
 
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
           "")
         set(tool.core_sharded_rawtemp ON) # no preprocessor
 

@@ -27,7 +27,7 @@ Total counts:
            0 observed migrations
            0 waits
     *[0-9]* idles
-      *[0-9\.]*% cpu busy by record count
+     *[0-9\.]*% cpu busy by record count
    *[0-9]* cpu microseconds
    *[0-9]* wait microseconds
    *[0-9]* idle microseconds
@@ -35,8 +35,8 @@ Total counts:
       *[0-9\.]*% cpu busy by time
       *[0-9\.]*% cpu busy by time, ignoring idle past last instr
   Instructions per context switch histogram:
-           0..   50000    13
-       50000..  100000     5
+           0..   50000    14
+       50000..  100000     4
   Cores per thread:
            1..       2     9
 Core #0 counts:
