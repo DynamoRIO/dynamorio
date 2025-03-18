@@ -50,7 +50,7 @@ create_cache_replacement_policy(const std::string &policy, int num_sets,
                                 int associativity)
 {
     // default LRU
-    if (policy == REPLACE_POLICY_NON_SPECIFIED || policy == REPLACE_POLICY_LRU) {
+    if (policy.empty() || policy == REPLACE_POLICY_LRU) {
         return std::unique_ptr<policy_lru_t>(new policy_lru_t(num_sets, associativity));
     }
     if (policy == REPLACE_POLICY_LFU) {
