@@ -4145,7 +4145,7 @@ if (BUILD_CLIENTS)
         if (CAT_EXE AND GUNZIP_EXE AND BASH_EXE)
           # Easiest to make our pipeline in bash with a direct add_test()
           # (although this bypasses the torun() features used by all other tests).
-          set(infile "${core_sharded_dir}/drmemtrace.core.0.trace.zip")
+          set(infile "${core_sharded_dir}/drmemtrace.core.000000.trace.zip")
           add_test(tool.drcacheoff.stdin
             ${BASH_EXE} -c
             "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
