@@ -111,7 +111,13 @@ read_feature_regs(uint64 isa_features[])
         :
         : "x0");
 
-    if (IF_LINUX_ELSE(!IS_STRING_OPTION_EMPTY(xarch_root), false)) {
+    bool skip_aa64mmfr2 = IF_LINUX_ELSE(!IS_STRING_OPTION_EMPTY(xarch_root), false);
+#    ifdef STANDALONE_UNIT_TEST
+    // The core unit_tests call proc_init() and do not have xarch_root set.
+    // We just disable this under the ifdef for those tests.
+    skip_aa64mmfr2 = true;
+#    endif
+    if (skip_aa64mmfr2) {
         /* We assume we're under QEMU, where this causes a fatal SIGILL (i#7315).
          * XXX i#7315: We'd prefer to use TRY_EXCEPT_ALLOW_NO_DCONTEXT here and
          * remove this xarch_root check, but proc_init() is called prior to
