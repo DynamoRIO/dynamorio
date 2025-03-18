@@ -38,6 +38,7 @@
 #include "module_private.h"
 #include "../utils.h"
 #include "instrument.h"
+#include "syscall.h"
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
 
@@ -1449,6 +1450,43 @@ tlsdesc_resolver(struct tlsdesc_t *arg)
 
 #endif /* !ANDROID */
 
+#ifdef RISCV64
+static int
+glibc_riscv_hwprobe(void *pairs, uint64_t pair_count, uint64_t cpu_count, uint64_t *cpus,
+                    uint32_t flags)
+{
+    return -dynamorio_syscall(SYS_riscv_hwprobe, 5, pairs, pair_count, cpu_count, cpus,
+                              flags);
+}
+#endif
+
+/* TODO: dynamic loaders from different libc versions may provide different
+ * arguments for the ifunc resolver. We may mimic the exact behavior with its
+ * version obtained from the dynamic loader.
+ */
+static ELF_ADDR
+resolve_ifunc(app_pc resolver_pc)
+{
+    ELF_ADDR addr;
+
+    /* Refer to glibc/sysdeps/ARCH/dl-irel.h for prototype of resolver */
+#ifdef RISCV64
+    typedef ELF_ADDR (*ifunc_resolver)(uint64_t hwcap, void *hwprobe, void *reserved);
+    /* TODO i#3544: RISC-V doesn't define any hwcap bits, thus it's fine to
+     * pass zero. Revisit when there're facilities for handling misc
+     * auxvector/hwcap bits. */
+    addr = ((ifunc_resolver)resolver_pc)(0, glibc_riscv_hwprobe, NULL);
+#else
+    /* FIXME i#1551: glibc passes hwcap to ifunc resolvers on AArch32
+     * FIXME i#1569: glibc passes hwcap and __ifunc_arg_t structure to ifunc
+     * resolvers on AArch64.
+     */
+    addr = ((ELF_ADDR(*)(void))resolver_pc)();
+#endif
+
+    return addr;
+}
+
 /* This routine is duplicated in privload_relocate_symbol for relocating
  * dynamorio symbols in a bootstrap stage. Any update here should be also
  * updated in privload_relocate_symbol.
@@ -1548,7 +1586,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
 #    endif
     case ELF_R_IRELATIVE:
         res = (byte *)pd->load_delta + (is_rela ? addend : *r_addr);
-        *r_addr = ((ELF_ADDR(*)(void))res)();
+        *r_addr = resolve_ifunc(res);
         LOG(GLOBAL, LOG_LOADER, 4, "privmod ifunc reloc %s => " PFX "\n", name, *r_addr);
         break;
 #endif /* ANDROID */
