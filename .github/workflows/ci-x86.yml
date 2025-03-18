@@ -62,6 +62,9 @@ jobs:
   x86-64:
     runs-on: ubuntu-22.04
     steps:
+    # When checking out the repository that triggered a workflow, actions/checkout
+    # defaults to the reference or SHA for that event. See documentation for ref at
+    # https://github.com/actions/checkout
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -87,7 +90,6 @@ jobs:
           liblz4-dev g++-multilib libunwind-dev
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
-    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
     - name: Setup newer cmake
       uses: jwlawson/actions-setup-cmake@v2
       with:
