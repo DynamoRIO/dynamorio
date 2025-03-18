@@ -51,6 +51,9 @@ my $is_CI = 0;
 my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 my $is_x86_64 = $Config{archname} =~ /x86_64/;
 my $is_riscv64 = $Config{archname} =~ /riscv64/;
+my $is_cygwin = $^O eq 'cygwin';
+my $is_non_cygwin_windows = $^O eq 'MSWin32';
+my $is_macos = $^O eq 'darwin';
 # i#4800,i#5873: We'd like to run a long suite for merges to master (via
 # "$ENV{'CI_TRIGGER'} eq 'push' && $ENV{'CI_BRANCH'} eq 'refs/heads/master'")
 # but we need pre-and-post-commmit test parity.
@@ -73,7 +76,7 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
 }
 
 my $osdir = $mydir;
-if ($^O eq 'cygwin') {
+if ($is_cygwin) {
     # CMake is native Windows so pass it a Windows path.
     # We use the full path to cygpath as git's cygpath is earlier on
     # the PATH for AppVeyor and it fails.
@@ -87,7 +90,7 @@ if ($^O eq 'cygwin') {
 my $res = '';
 my $child = 0;
 my $outfile = '';
-if ($^O ne 'MSWin32') {
+if (!$is_non_cygwin_windows) {
     print "Forking child for stdout tee\n";
     $child = open(CHILD, '-|');
     die "Failed to fork: $!" if (!defined($child));
@@ -97,7 +100,7 @@ if ($^O ne 'MSWin32') {
 if ($child) {
     # Parent
     # i#4126: We include extra printing to help diagnose hangs on the CI.
-    if ($^O ne 'cygwin') {
+    if (!$is_cygwin) {
         print "Parent tee-ing child stdout...\n";
         local $SIG{ALRM} = sub {
             print "\nxxxxxxxxxx 30s elapsed xxxxxxxxxxx\n";
@@ -143,7 +146,7 @@ if ($child) {
     }
     my $cmd = "ctest -VV -S \"${osdir}/../make/package.cmake${args}\"";
     print "Running ${cmd}\n";
-    if ($^O eq 'MSWin32') {
+    if ($is_non_cygwin_windows) {
         system("${cmd} 2>&1 | tee ${outfile}");
     } else {
         system("${cmd} 2>&1");
@@ -155,7 +158,7 @@ if ($child) {
     my $verbose = "-VV";
     my $cmd = "ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\"";
     print "Running ${cmd}\n";
-    if ($^O eq 'MSWin32') {
+    if ($is_non_cygwin_windows) {
         system("${cmd} 2>&1 | tee ${outfile}");
         print "Finished running ${cmd}\n";
     } else {
@@ -165,7 +168,7 @@ if ($child) {
     }
 }
 
-if ($^O eq 'MSWin32') {
+if ($is_non_cygwin_windows) {
     open my $handle, '<', "$outfile" or die "Failed to open teed ${outfile}: $!";
     $res = do {
         local $/; <$handle>
@@ -267,8 +270,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
         my %ignore_failures_32 = ();
         my %ignore_failures_64 = ();
         my %ignore_failures_sve = ();
-        if ($^O eq 'cygwin' ||
-            $^O eq 'MSWin32') {
+        if ($is_cygwin || $is_non_cygwin_windows) {
             # FIXME i#2145: ignoring certain Windows CI test failures until
             # we get all tests passing.
             %ignore_failures_32 = (
@@ -449,7 +451,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             $ignore_failures_64{'code_api|sample.memval_simple'} = 1;
             $ignore_failures_64{'code_api|client.drreg-test'} = 1;
             $issue_no = "#6260";
-        } elsif ($^O eq 'darwin') {
+        } elsif ($is_macos) {
             %ignore_failures_32 = ('code_api|common.decode-bad' => 1, # i#3127
                                    'code_api|linux.signal0000' => 1, # i#3127
                                    'code_api|linux.signal0010' => 1, # i#3127
@@ -511,6 +513,13 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 $ignore_failures_64{'code_api|client.drx_buf-test'} = 1; # i#2657
             }
             $issue_no = "#2941";
+        }
+        if (!$is_cygwin && !$is_non_cygwin_windows && !$is_macos) {
+            # Linux private loader on glibc 2.34+ fails to support C++ exceptions.
+            # XXX i#7297: We should either officially drop such support and
+            # remove this test, or add support (probably via i#7312).
+            $ignore_failures_64{'code_api|client.exception'} = 1; # i#7297
+            $ignore_failures_32{'code_api|client.exception'} = 1; # i#7297
         }
 
         # Read ahead to examine the test failures:

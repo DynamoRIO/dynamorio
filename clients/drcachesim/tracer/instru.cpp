@@ -73,7 +73,23 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
     if (instr_is_cbr(instr))
         return TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
 #ifdef X86
-    if (instr_get_opcode(instr) == OP_sysenter)
+    if (instr_get_opcode(instr) == OP_sysenter
+#    ifdef X86_32
+        // i#7340: On x86-32, we assume that an OP_syscall may be present only
+        // in the vdso __kernel_vsyscall on AMD machines. See notes in the
+        // Linux implementation: https://github.com/torvalds/linux/blob/v6.13/
+        // arch/x86/entry/entry_64_compat.S#L142
+        // Also, as noted in PR #5037, this 32-bit AMD OP_syscall does _not_
+        // return to the subsequent PC; the kernel sends control to a
+        // hardcoded address in the __kernel_vsyscall sequence, thus acting
+        // more like an OP_sysenter and requiring similar treatment.
+        // We decided to not add a new TRACE_TYPE_INSTR_ for such syscalls,
+        // as they are substantially similar to sysenter. However, note that
+        // the user can still figure out the underlying opcode using the
+        // instruction encodings in the trace.
+        || instr_get_opcode(instr) == OP_syscall
+#    endif
+    )
         return TRACE_TYPE_INSTR_SYSENTER;
 #endif
     // i#2051: to satisfy both cache and core simulators we mark subsequent iters

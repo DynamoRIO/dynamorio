@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -1174,8 +1174,13 @@ if (BUILD_TESTS AND
   if (APPLE)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
   endif ()
-  if (AARCHXX OR RISCV64)
+  if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH AND NOT DR_COPY_TO_DEVICE)
     set_tests_properties(unit_tests PROPERTIES LABELS RUNS_ON_QEMU)
+    # Make sure core code detects that we're under QEMU by setting the option
+    # used for that in managed mode, even though we don't really need this option
+    # for its own sake.
+    set_tests_properties(unit_tests PROPERTIES ENVIRONMENT
+      "DYNAMORIO_OPTIONS=-xarch_root ${CMAKE_FIND_ROOT_PATH}")
   endif ()
   copy_target_to_device(unit_tests "${location_suffix}")
 endif ()
