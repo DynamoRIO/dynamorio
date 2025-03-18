@@ -38,11 +38,13 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "cache_replacement_policy.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "memref.h"

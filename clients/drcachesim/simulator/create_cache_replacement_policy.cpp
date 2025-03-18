@@ -35,6 +35,7 @@
 #include <memory>
 #include <string>
 
+#include "cache_replacement_policy.h"
 #include "policy_bit_plru.h"
 #include "policy_fifo.h"
 #include "policy_lfu.h"

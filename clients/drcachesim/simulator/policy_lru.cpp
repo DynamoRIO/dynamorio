@@ -33,6 +33,9 @@
 #include "policy_lru.h"
 
 #include <algorithm>
+#include <string>
+
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {

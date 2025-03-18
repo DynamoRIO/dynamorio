@@ -32,9 +32,10 @@
 
 #include "policy_lfu.h"
 
-#include <algorithm>
+#include <string>
 #include <vector>
-#include <iostream>
+
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {

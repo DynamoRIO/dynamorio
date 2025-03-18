@@ -33,6 +33,9 @@
 #include "policy_fifo.h"
 
 #include <list>
+#include <string>
+
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {

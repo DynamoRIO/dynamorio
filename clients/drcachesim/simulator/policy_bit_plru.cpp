@@ -33,7 +33,10 @@
 #include "policy_bit_plru.h"
 
 #include <random>
+#include <string>
 #include <vector>
+
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {

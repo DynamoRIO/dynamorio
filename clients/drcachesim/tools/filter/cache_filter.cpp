@@ -32,6 +32,7 @@
 
 #include "cache_filter.h"
 
+#include <memory>
 #include <string>
 
 #include "cache.h"
