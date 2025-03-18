@@ -135,9 +135,15 @@ static size_t client_tls_size = 2 * 4096;
  * good way to guess how big this allocation was.  Instead we use this estimate.
  * For Ubuntu22 glibc 2.38, the size is 0x9c0; we use 0x1000 to cover future
  * expansion.
+ * For Ubuntu22 glibc 2.35 x86-32, 0x500 seems to cover it for now.
+ * At 0x490, _IO_link_in faults at
+ * => 0xf779e5b3:  mov    %gs:0x4fe,%al
+ *    0xf779e5b9:  movzbl %al,%eax
+ *    0xf779e5bc:  mov    %eax,0x8(%edx)
+ *    0xf779e5bf:  movb   $0x0,%gs:0x4fe
  */
 /* On A32, the pthread is put before tcbhead instead tcbhead being part of pthread */
-static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x490);
+static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x500);
 
 /* thread contol block header type from
  * - sysdeps/x86_64/nptl/tls.h
