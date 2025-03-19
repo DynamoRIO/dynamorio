@@ -968,12 +968,6 @@ protected:
     stream_status_t
     eof_or_idle(output_ordinal_t output, input_ordinal_t prev_input);
 
-    // Returns whether the current record for the current input stream scheduled on
-    // the 'output_ordinal'-th output stream is from a part of the trace corresponding
-    // to kernel execution.
-    bool
-    is_record_kernel(output_ordinal_t output);
-
     // These statistics are not guaranteed to be accurate when replaying a
     // prior schedule.
     double
