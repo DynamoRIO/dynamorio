@@ -7122,6 +7122,22 @@ handle_clone_pre(dcontext_t *dcontext)
 }
 #endif
 
+#if defined(AARCH64) && defined(LINUX)
+/* AArch64 canonincal VAs use the lower 48/52 bits of the address and the higher bits
+ * match 47/51. The TBI and MTE extensions use the top byte of the address to store a
+ * memory tag which is either ignored (TBI) or checked (MTE) by hardware.
+ *
+ * Memory tags are not part of the memory map of the process. It is a separate layer that
+ * is managed by the userspace allocator so system call parameters that contain addresses
+ * might have memory tags which need to be removed before we can compare them to
+ * canonical addresses in the process memory map.
+ * We do this by sign extending from bit 55.
+ */
+#    define STRIP_MEMORY_TAG(addr) ((__typeof__(addr))(((ptr_int_t)addr << 8) >> 8))
+#else
+#    define STRIP_MEMORY_TAG(addr) (addr)
+#endif
+
 /* System call interception: put any special handling here
  * Arguments come from the pusha right before the call
  */
@@ -7250,7 +7266,7 @@ pre_system_call(dcontext_t *dcontext)
              unsigned long prot, unsigned long flags,
              unsigned long fd, unsigned long pgoff)
          */
-        void *addr = (void *)sys_param(dcontext, 0);
+        void *addr = (void *)STRIP_MEMORY_TAG(sys_param(dcontext, 0));
         size_t len = (size_t)sys_param(dcontext, 1);
         uint prot = (uint)sys_param(dcontext, 2);
         uint flags = (uint)sys_param(dcontext, 3);
@@ -7292,7 +7308,7 @@ pre_system_call(dcontext_t *dcontext)
         /* in /usr/src/linux/mm/mmap.c:
            asmlinkage long sys_munmap(unsigned long addr, uint len)
          */
-        app_pc addr = (void *)sys_param(dcontext, 0);
+        app_pc addr = (app_pc)STRIP_MEMORY_TAG(sys_param(dcontext, 0));
         size_t len = (size_t)sys_param(dcontext, 1);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: munmap addr=" PFX " size=" PFX "\n", addr,
             len);
@@ -7351,7 +7367,7 @@ pre_system_call(dcontext_t *dcontext)
              unsigned long flags, unsigned long new_addr)
         */
         dr_mem_info_t info;
-        app_pc addr = (void *)sys_param(dcontext, 0);
+        app_pc addr = (app_pc)STRIP_MEMORY_TAG(sys_param(dcontext, 0));
         size_t old_len = (size_t)sys_param(dcontext, 1);
         size_t new_len = (size_t)sys_param(dcontext, 2);
         DEBUG_DECLARE(bool ok;)
@@ -7386,7 +7402,7 @@ pre_system_call(dcontext_t *dcontext)
         */
         uint res;
         DEBUG_DECLARE(size_t size;)
-        app_pc addr = (void *)sys_param(dcontext, 0);
+        app_pc addr = (app_pc)STRIP_MEMORY_TAG(sys_param(dcontext, 0));
         size_t len = (size_t)sys_param(dcontext, 1);
         uint prot = (uint)sys_param(dcontext, 2);
         uint old_memprot = MEMPROT_NONE, new_memprot;
@@ -7450,7 +7466,7 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_brk: {
         if (DYNAMO_OPTION(emulate_brk)) {
             /* i#1004: emulate brk via a separate mmap */
-            byte *new_val = (byte *)sys_param(dcontext, 0);
+            byte *new_val = (byte *)STRIP_MEMORY_TAG(sys_param(dcontext, 0));
             byte *res = emulate_app_brk(dcontext, new_val);
             execute_syscall = false;
             /* SYS_brk returns old brk on failure */
@@ -7459,7 +7475,7 @@ pre_system_call(dcontext_t *dcontext)
             /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
              * We store the old break in the param1 slot.
              */
-            DODEBUG(dcontext->sys_param0 = (reg_t)sys_param(dcontext, 0););
+            DODEBUG(dcontext->sys_param0 = (reg_t)STRIP_MEMORY_TAG(sys_param(dcontext, 0)););
             dcontext->sys_param1 = dynamorio_syscall(SYS_brk, 1, 0);
         }
         break;
