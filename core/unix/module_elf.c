@@ -38,7 +38,7 @@
 #include "module_private.h"
 #include "../utils.h"
 #include "instrument.h"
-#include "syscall.h"
+#include "include/syscall.h"
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
 
