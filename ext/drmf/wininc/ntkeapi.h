@@ -13,13 +13,12 @@
 /* from phlib/include/ntkeapi.h */
 
 #ifndef __PHLIB_NTKEAPI_H
-#define __PHLIB_NTKEAPI_H
+#    define __PHLIB_NTKEAPI_H
 
 /**************************************************
  * Syscalls added in Vista SP0
  */
-VOID NTAPI
-NtFlushProcessWriteBuffers(VOID);
+VOID NTAPI NtFlushProcessWriteBuffers(VOID);
 
 #endif /* __PHLIB_NTKEAPI_H */
 

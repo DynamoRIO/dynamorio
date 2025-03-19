@@ -20,7 +20,7 @@
  */
 
 #ifndef WINDOWS
-# error Windows-only
+#    error Windows-only
 #endif
 
 #include "dr_api.h"
@@ -38,23 +38,20 @@
  */
 #define MAX_WRITES_TO_RECORD 64
 
-GET_NTDLL(NtDeviceIoControlFile, (DR_PARAM_IN HANDLE FileHandle,
-                                  DR_PARAM_IN HANDLE Event OPTIONAL,
-                                  DR_PARAM_IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-                                  DR_PARAM_IN PVOID ApcContext OPTIONAL,
-                                  DR_PARAM_OUT PIO_STATUS_BLOCK IoStatusBlock,
-                                  DR_PARAM_IN ULONG IoControlCode,
-                                  DR_PARAM_IN PVOID InputBuffer OPTIONAL,
-                                  DR_PARAM_IN ULONG InputBufferLength,
-                                  DR_PARAM_OUT PVOID OutputBuffer OPTIONAL,
-                                  DR_PARAM_IN ULONG OutputBufferLength));
+GET_NTDLL(NtDeviceIoControlFile,
+          (DR_PARAM_IN HANDLE FileHandle, DR_PARAM_IN HANDLE Event OPTIONAL,
+           DR_PARAM_IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+           DR_PARAM_IN PVOID ApcContext OPTIONAL,
+           DR_PARAM_OUT PIO_STATUS_BLOCK IoStatusBlock, DR_PARAM_IN ULONG IoControlCode,
+           DR_PARAM_IN PVOID InputBuffer OPTIONAL, DR_PARAM_IN ULONG InputBufferLength,
+           DR_PARAM_OUT PVOID OutputBuffer OPTIONAL,
+           DR_PARAM_IN ULONG OutputBufferLength));
 
 /* from winioctl.h */
-#define FILE_ANY_ACCESS                 0
-#define METHOD_BUFFERED                 0
-#define CTL_CODE( DeviceType, Function, Method, Access ) (                 \
-    ((DeviceType) << 16) | ((Access) << 14) | ((Function) << 2) | (Method) \
-)
+#define FILE_ANY_ACCESS 0
+#define METHOD_BUFFERED 0
+#define CTL_CODE(DeviceType, Function, Method, Access) \
+    (((DeviceType) << 16) | ((Access) << 14) | ((Function) << 2) | (Method))
 
 static file_t f_driver;
 
@@ -94,33 +91,35 @@ void
 driver_thread_init(void *drcontext)
 {
     NTSTATUS res;
-    IO_STATUS_BLOCK iob = {0,0};
+    IO_STATUS_BLOCK iob = { 0, 0 };
     WritesBufferRegistration registration;
     WritesBuffer *writes;
-    tls_driver_t *pt = (tls_driver_t *)
-        thread_alloc(drcontext, sizeof(*pt), HEAPSTAT_MISC);
-    drmgr_set_tls_field(drcontext, tls_idx_driver, (void *) pt);
+    tls_driver_t *pt =
+        (tls_driver_t *)thread_alloc(drcontext, sizeof(*pt), HEAPSTAT_MISC);
+    drmgr_set_tls_field(drcontext, tls_idx_driver, (void *)pt);
     if (f_driver == INVALID_FILE)
         return;
     /* Note: we use the same buffer across callbacks (see driver_handle_callback()) */
     registration.buffer_size = sizeof(WritesBuffer) +
-        sizeof(WrittenSection)*(MAX_WRITES_TO_RECORD - 1/*1 already in struct*/);
+        sizeof(WrittenSection) * (MAX_WRITES_TO_RECORD - 1 /*1 already in struct*/);
     pt->driver_buffer = thread_alloc(drcontext, registration.buffer_size, HEAPSTAT_MISC);
-    writes = (WritesBuffer *) pt->driver_buffer;
+    writes = (WritesBuffer *)pt->driver_buffer;
     writes->num_writes = MAX_WRITES_TO_RECORD;
     registration.buffer = pt->driver_buffer;
 
     res = NtDeviceIoControlFile(f_driver, NULL, NULL, NULL, &iob,
-                                IOCTL_DRMEMORY_REGISTER_THREAD_BUFFER,
-                                &registration, sizeof(registration),
-                                NULL, 0);
+                                IOCTL_DRMEMORY_REGISTER_THREAD_BUFFER, &registration,
+                                sizeof(registration), NULL, 0);
     if (!NT_SUCCESS(res)) {
-        DO_ONCE({ WARN("WARNING: failed to register w/ syscall driver: "PFX"\n", res); });
-        LOG(1, "Failed to register w/ syscall driver: "PFX"\n", res);
+        DO_ONCE(
+            { WARN("WARNING: failed to register w/ syscall driver: " PFX "\n", res); });
+        LOG(1, "Failed to register w/ syscall driver: " PFX "\n", res);
     } else {
-        LOG(1, "Syscall driver reg for thread "TIDFMT" succeeded: buffer "PFX"-"PFX"\n",
+        LOG(1,
+            "Syscall driver reg for thread " TIDFMT " succeeded: buffer " PFX "-" PFX
+            "\n",
             dr_get_thread_id(drcontext), pt->driver_buffer,
-            (byte*)pt->driver_buffer + registration.buffer_size);
+            (byte *)pt->driver_buffer + registration.buffer_size);
         ASSERT(iob.Information == 0, "we didn't ask for prior reg");
     }
 }
@@ -129,18 +128,17 @@ void
 driver_thread_exit(void *drcontext)
 {
     NTSTATUS res;
-    IO_STATUS_BLOCK iob = {0,0};
-    WritesBufferRegistration registration = {NULL, 0};
-    tls_driver_t *pt = (tls_driver_t *) drmgr_get_tls_field(drcontext, tls_idx_driver);
+    IO_STATUS_BLOCK iob = { 0, 0 };
+    WritesBufferRegistration registration = { NULL, 0 };
+    tls_driver_t *pt = (tls_driver_t *)drmgr_get_tls_field(drcontext, tls_idx_driver);
     size_t sz = sizeof(WritesBuffer) +
-        sizeof(WrittenSection)*(MAX_WRITES_TO_RECORD - 1/*1 already in struct*/);
+        sizeof(WrittenSection) * (MAX_WRITES_TO_RECORD - 1 /*1 already in struct*/);
     if (f_driver == INVALID_FILE)
         return;
     res = NtDeviceIoControlFile(f_global, NULL, NULL, NULL, &iob,
-                                IOCTL_DRMEMORY_REGISTER_THREAD_BUFFER,
-                                NULL, 0, NULL, 0);
+                                IOCTL_DRMEMORY_REGISTER_THREAD_BUFFER, NULL, 0, NULL, 0);
     if (!NT_SUCCESS(res))
-        LOG(1, "Failed to unregister thread buffer: "PFX"\n", res);
+        LOG(1, "Failed to unregister thread buffer: " PFX "\n", res);
     thread_free(drcontext, pt->driver_buffer, sz, HEAPSTAT_MISC);
     drmgr_set_tls_field(drcontext, tls_idx_driver, NULL);
     thread_free(drcontext, pt, sizeof(*pt), HEAPSTAT_MISC);
@@ -154,7 +152,7 @@ driver_handle_callback(void *drcontext)
      * XXX: DR or drmem cb-handling code could have made syscalls before getting
      * to here!
      */
-    tls_driver_t *pt = (tls_driver_t *) drmgr_get_tls_field(drcontext, tls_idx_driver);
+    tls_driver_t *pt = (tls_driver_t *)drmgr_get_tls_field(drcontext, tls_idx_driver);
     driver_process_writes(drcontext, pt->sysnum);
 }
 
@@ -162,15 +160,15 @@ void
 driver_handle_cbret(void *drcontext)
 {
     /* Reset buffer */
-    tls_driver_t *pt = (tls_driver_t *) drmgr_get_tls_field(drcontext, tls_idx_driver);
+    tls_driver_t *pt = (tls_driver_t *)drmgr_get_tls_field(drcontext, tls_idx_driver);
     driver_pre_syscall(drcontext, pt->sysnum);
 }
 
 void
 driver_pre_syscall(void *drcontext, drsys_sysnum_t sysnum)
 {
-    tls_driver_t *pt = (tls_driver_t *) drmgr_get_tls_field(drcontext, tls_idx_driver);
-    WritesBuffer *writes = (WritesBuffer *) pt->driver_buffer;
+    tls_driver_t *pt = (tls_driver_t *)drmgr_get_tls_field(drcontext, tls_idx_driver);
+    WritesBuffer *writes = (WritesBuffer *)pt->driver_buffer;
     size_t i;
 
     /* remember for driver_handle_cbret */
@@ -186,8 +184,8 @@ driver_pre_syscall(void *drcontext, drsys_sysnum_t sysnum)
 bool
 driver_freeze_writes(void *drcontext)
 {
-    tls_driver_t *pt = (tls_driver_t *) drmgr_get_tls_field(drcontext, tls_idx_driver);
-    WritesBuffer *writes = (WritesBuffer *) pt->driver_buffer;
+    tls_driver_t *pt = (tls_driver_t *)drmgr_get_tls_field(drcontext, tls_idx_driver);
+    WritesBuffer *writes = (WritesBuffer *)pt->driver_buffer;
     size_t i, num;
     if (f_driver == INVALID_FILE)
         return false;
@@ -206,19 +204,19 @@ driver_freeze_writes(void *drcontext)
 bool
 driver_process_writes(void *drcontext, drsys_sysnum_t sysnum)
 {
-    tls_driver_t *pt = (tls_driver_t *) drmgr_get_tls_field(drcontext, tls_idx_driver);
-    WritesBuffer *writes = (WritesBuffer *) pt->driver_buffer;
+    tls_driver_t *pt = (tls_driver_t *)drmgr_get_tls_field(drcontext, tls_idx_driver);
+    WritesBuffer *writes = (WritesBuffer *)pt->driver_buffer;
     size_t i;
     if (f_driver == INVALID_FILE)
         return false;
     if (writes == NULL)
         return false;
     for (i = 0; i < pt->frozen_num_writes; i++) {
-        LOG(2, "driver info: syscall #0x%x write %d: "PFX"-"PFX"\n",
-            sysnum, i, writes->writes[i].start,
-            (byte*)writes->writes[i].start + writes->writes[i].length);
+        LOG(2, "driver info: syscall #0x%x write %d: " PFX "-" PFX "\n", sysnum, i,
+            writes->writes[i].start,
+            (byte *)writes->writes[i].start + writes->writes[i].length);
         shadow_set_range(writes->writes[i].start,
-                         (byte*)writes->writes[i].start + writes->writes[i].length,
+                         (byte *)writes->writes[i].start + writes->writes[i].length,
                          SHADOW_DEFINED);
     }
     return true;
@@ -227,8 +225,8 @@ driver_process_writes(void *drcontext, drsys_sysnum_t sysnum)
 bool
 driver_reset_writes(void *drcontext)
 {
-    tls_driver_t *pt = (tls_driver_t *) drmgr_get_tls_field(drcontext, tls_idx_driver);
-    WritesBuffer *writes = (WritesBuffer *) pt->driver_buffer;
+    tls_driver_t *pt = (tls_driver_t *)drmgr_get_tls_field(drcontext, tls_idx_driver);
+    WritesBuffer *writes = (WritesBuffer *)pt->driver_buffer;
     writes->num_used = 0;
     pt->frozen_num_writes = 0;
     return true;

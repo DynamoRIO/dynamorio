@@ -13,31 +13,23 @@
 /* from phlib/include/ntobapi.h */
 
 #ifndef __PHLIB_NTOBAPI_H
-#define __PHLIB_NTOBAPI_H
+#    define __PHLIB_NTOBAPI_H
 
 NTSTATUS
 NTAPI
-NtOpenPrivateNamespace(
-    __out PHANDLE NamespaceHandle,
-    __in ACCESS_MASK DesiredAccess,
-    __in_opt POBJECT_ATTRIBUTES ObjectAttributes,
-    __in PVOID BoundaryDescriptor
-    );
+NtOpenPrivateNamespace(__out PHANDLE NamespaceHandle, __in ACCESS_MASK DesiredAccess,
+                       __in_opt POBJECT_ATTRIBUTES ObjectAttributes,
+                       __in PVOID BoundaryDescriptor);
 
 NTSTATUS
 NTAPI
-NtCreatePrivateNamespace(
-    __out PHANDLE NamespaceHandle,
-    __in ACCESS_MASK DesiredAccess,
-    __in_opt POBJECT_ATTRIBUTES ObjectAttributes,
-    __in PVOID BoundaryDescriptor
-    );
+NtCreatePrivateNamespace(__out PHANDLE NamespaceHandle, __in ACCESS_MASK DesiredAccess,
+                         __in_opt POBJECT_ATTRIBUTES ObjectAttributes,
+                         __in PVOID BoundaryDescriptor);
 
 NTSTATUS
 NTAPI
-NtDeletePrivateNamespace(
-    __in HANDLE NamespaceHandle
-    );
+NtDeletePrivateNamespace(__in HANDLE NamespaceHandle);
 
 #endif /* __PHLIB_NTOBAPI_H */
 

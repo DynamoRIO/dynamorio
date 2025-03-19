@@ -36,10 +36,10 @@
 /* Some of this is based on the winsysnums.c client in DR */
 
 #ifdef WINDOWS
-# define UNICODE
-# define _UNICODE
+#    define UNICODE
+#    define _UNICODE
 #else
-# error Only Windows is supported
+#    error Only Windows is supported
 #endif
 
 #include "dr_api.h" /* for the types */
@@ -54,16 +54,20 @@
 #include <unordered_map>
 #include <vector>
 
+namespace dynamorio {
+namespace drsyscall {
+
 /* We'll get an error in standalone usage by DrM's frontend if we call
  * dr_get_current_drcontext() in the utils.h NOTIFY so we make our own.
  * The frontend's -v, -vv, and -vvv set op_verbose_level.
  */
 #undef NOTIFY
-#define NOTIFY(level, ...) do {          \
-    if (op_verbose_level >= (level)) {   \
-        dr_fprintf(STDERR, __VA_ARGS__); \
-    }                                    \
-} while (0)
+#define NOTIFY(level, ...)                   \
+    do {                                     \
+        if (op_verbose_level >= (level)) {   \
+            dr_fprintf(STDERR, __VA_ARGS__); \
+        }                                    \
+    } while (0)
 
 /***************************************************************************
  * Usercalls
@@ -72,118 +76,127 @@
 static std::string
 sysname_from_wrapper(std::string wrapper)
 {
-  static std::unordered_map<std::string, std::string> wrapper2sysname({
-    {"AllowForegroundActivation"     , "NtUserCallNoParam.ALLOWFOREGNDACTIVATION"      },
-    {"CreateMenu"                    , "NtUserCallNoParam.CREATEMENU"                  },
-    {"CreatePopupMenu"               , "NtUserCallNoParam.CREATEMENUPOPUP"             },
-    {"CreateSystemThreads"           , "NtUserCallNoParam.CREATESYSTEMTHREADS"         },
-    {"DeferredDesktopRotation"       , "NtUserCallNoParam.DEFERREDDESKTOPROTATION"     },
-    {"DestroyCaret"                  , "NtUserCallNoParam.DESTROY_CARET"               },
-    {"DisableProcessWindowsGhosting" , "NtUserCallNoParam.DISABLEPROCWNDGHSTING"       },
-    {"EnableMiPShellThread"          , "NtUserCallNoParam.ENABLEMIPSHELLTHREAD"        },
-    {"EnablePerMonitorMenuScaling"   , "NtUserCallNoParam.ENABLEPERMONITORMENUSCALING" },
-    {"GetIMEShowStatus"              , "NtUserCallNoParam.GETIMESHOWSTATUS"            },
-    {"GetInputDesktop"               , "NtUserCallNoParam.GETINPUTDESKTOP"             },
-    {"GetMessagePos"                 , "NtUserCallNoParam.GETMESSAGEPOS"               },
-    {"GetUnpredictedMessagePos"      , "NtUserCallNoParam.GETUNPREDICTEDMESSAGEPOS"    },
-    {"RegisterMessagePumpHook"       , "NtUserCallNoParam.INIT_MESSAGE_PUMP"           },
-    {"IsMiPShellThreadEnabled"       , "NtUserCallNoParam.ISMIPSHELLTHREADENABLED"     },
-    {"IsQueueAttached"               , "NtUserCallNoParam.ISQUEUEATTACHED"             },
-    {"LoadCursorsAndIcons"           , "NtUserCallNoParam.LOADCURSANDICOS"             },
-    {"ReleaseCapture"                , "NtUserCallNoParam.RELEASECAPTURE"              },
-    {"UnregisterMessagePumpHook"     , "NtUserCallNoParam.UNINIT_MESSAGE_PUMP"         },
-    {"UpdatePerUserImmEnabling"      , "NtUserCallNoParam.UPDATEPERUSERIMMENABLING"    },
+    static std::unordered_map<std::string, std::string> wrapper2sysname({
+        { "AllowForegroundActivation", "NtUserCallNoParam.ALLOWFOREGNDACTIVATION" },
+        { "CreateMenu", "NtUserCallNoParam.CREATEMENU" },
+        { "CreatePopupMenu", "NtUserCallNoParam.CREATEMENUPOPUP" },
+        { "CreateSystemThreads", "NtUserCallNoParam.CREATESYSTEMTHREADS" },
+        { "DeferredDesktopRotation", "NtUserCallNoParam.DEFERREDDESKTOPROTATION" },
+        { "DestroyCaret", "NtUserCallNoParam.DESTROY_CARET" },
+        { "DisableProcessWindowsGhosting", "NtUserCallNoParam.DISABLEPROCWNDGHSTING" },
+        { "EnableMiPShellThread", "NtUserCallNoParam.ENABLEMIPSHELLTHREAD" },
+        { "EnablePerMonitorMenuScaling",
+          "NtUserCallNoParam.ENABLEPERMONITORMENUSCALING" },
+        { "GetIMEShowStatus", "NtUserCallNoParam.GETIMESHOWSTATUS" },
+        { "GetInputDesktop", "NtUserCallNoParam.GETINPUTDESKTOP" },
+        { "GetMessagePos", "NtUserCallNoParam.GETMESSAGEPOS" },
+        { "GetUnpredictedMessagePos", "NtUserCallNoParam.GETUNPREDICTEDMESSAGEPOS" },
+        { "RegisterMessagePumpHook", "NtUserCallNoParam.INIT_MESSAGE_PUMP" },
+        { "IsMiPShellThreadEnabled", "NtUserCallNoParam.ISMIPSHELLTHREADENABLED" },
+        { "IsQueueAttached", "NtUserCallNoParam.ISQUEUEATTACHED" },
+        { "LoadCursorsAndIcons", "NtUserCallNoParam.LOADCURSANDICOS" },
+        { "ReleaseCapture", "NtUserCallNoParam.RELEASECAPTURE" },
+        { "UnregisterMessagePumpHook", "NtUserCallNoParam.UNINIT_MESSAGE_PUMP" },
+        { "UpdatePerUserImmEnabling", "NtUserCallNoParam.UPDATEPERUSERIMMENABLING" },
 
-    {"AllowSetForegroundWindow"      , "NtUserCallOneParam.ALLOWSETFOREGND"            },
-    {"BeginDeferWindowPos"           , "NtUserCallOneParam.BEGINDEFERWNDPOS"           },
-    {"CreateAniIcon"                 , "NtUserCallOneParam.CREATEEMPTYCUROBJECT"       },
-    {"DdeUninitialize"               , "NtUserCallOneParam.CSDDEUNINITIALIZE"          },
-    {"DirectedYield"                 , "NtUserCallOneParam.DIRECTEDYIELD"              },
-    {"DwmLockScreenUpdates"          , "NtUserCallOneParam.DWMLOCKSCREENUPDATES"       },
-    {"EnableSessionForMMCSS"         , "NtUserCallOneParam.ENABLESESSIONFORMMCSS"      },
-    {"EnumClipboardFormats"          , "NtUserCallOneParam.ENUMCLIPBOARDFORMATS"       },
-    {"ForceEnableNumpadTranslation"  , "NtUserCallOneParam.FORCEENABLENUMPADTRANSLATION"},
-    {"ForceFocusBasedMouseWheelRouting", "NtUserCallOneParam.FORCEFOCUSBASEDMOUSEWHEELROUTING"},
-    {"MsgWaitForMultipleObjectsEx"   , "NtUserCallOneParam.GETINPUTEVENT"              },
-    {"GetKeyboardLayout"             , "NtUserCallOneParam.GETKEYBOARDLAYOUT"          },
-    {"GetKeyboardType"               , "NtUserCallOneParam.GETKEYBOARDTYPE"            },
-    {"GetProcessDefaultLayout"       , "NtUserCallOneParam.GETPROCDEFLAYOUT"           },
-    {"GetQueueStatus"                , "NtUserCallOneParam.GETQUEUESTATUS"             },
-    {"GetSendMessageReceiver"        , "NtUserCallOneParam.GETSENDMSGRECVR"            },
-    {"GetWinStationInfo"             , "NtUserCallOneParam.GETWINSTAINFO"              },
-    {"IsThreadMessageQueueAttached"  , "NtUserCallOneParam.ISTHREADMESSAGEQUEUEATTACHED"},
-    {"LoadLocalFonts"                , "NtUserCallOneParam.LOADFONTS"                  },
-    {"LockSetForegroundWindow"       , "NtUserCallOneParam.LOCKFOREGNDWINDOW"          },
-    {"MessageBeep"                   , "NtUserCallOneParam.MESSAGEBEEP"                },
-    {"PostQuitMessage"               , "NtUserCallOneParam.POSTQUITMESSAGE"            },
-    {"PostUIActions"                 , "NtUserCallOneParam.POSTUIACTIONS"              },
-    {"UserRealizePalette"            , "NtUserCallOneParam.REALIZEPALETTE"             },
-    {"RegisterSystemThread"          , "NtUserCallOneParam.REGISTERSYSTEMTHREAD"       },
-    {"ReleaseDC"                     , "NtUserCallOneParam.RELEASEDC"                  },
-    {"ReplyMessage"                  , "NtUserCallOneParam.REPLYMESSAGE"               },
-    {"SetCaretBlinkTime"             , "NtUserCallOneParam.SETCARETBLINKTIME"          },
-    {"SetDoubleClickTime"            , "NtUserCallOneParam.SETDBLCLICKTIME"            },
-    {"SetInputServiceState"          , "NtUserCallOneParam.SETINPUTSERVICESTATE"       },
-    {"SetMessageExtraInfo"           , "NtUserCallOneParam.SETMESSAGEEXTRAINFO"        },
-    {"SetProcessDefaultLayout"       , "NtUserCallOneParam.SETPROCDEFLAYOUT"           },
-    {"SetShellChangeNotifyWindow"    , "NtUserCallOneParam.SETSHELLCHANGENOTIFYWINDOW" },
-    {"SetTSFEventState"              , "NtUserCallOneParam.SETTSFEVENTSTATE"           },
-    {"LoadAndSendWatermarkStrings"   , "NtUserCallOneParam.SETWATERMARKSTRINGS"        },
-    {"ShowCursor"                    , "NtUserCallOneParam.SHOWCURSOR"                 },
-    {"ShowStartGlass"                , "NtUserCallOneParam.SHOWSTARTGLASS"             },
-    {"SwapMouseButton"               , "NtUserCallOneParam.SWAPMOUSEBUTTON"            },
-    {"WindowFromDC"                  , "NtUserCallOneParam.WINDOWFROMDc"               },
-    {"WOWModuleUnload"               , "NtUserCallOneParam.WOWMODULEUNLOAD"            },
+        { "AllowSetForegroundWindow", "NtUserCallOneParam.ALLOWSETFOREGND" },
+        { "BeginDeferWindowPos", "NtUserCallOneParam.BEGINDEFERWNDPOS" },
+        { "CreateAniIcon", "NtUserCallOneParam.CREATEEMPTYCUROBJECT" },
+        { "DdeUninitialize", "NtUserCallOneParam.CSDDEUNINITIALIZE" },
+        { "DirectedYield", "NtUserCallOneParam.DIRECTEDYIELD" },
+        { "DwmLockScreenUpdates", "NtUserCallOneParam.DWMLOCKSCREENUPDATES" },
+        { "EnableSessionForMMCSS", "NtUserCallOneParam.ENABLESESSIONFORMMCSS" },
+        { "EnumClipboardFormats", "NtUserCallOneParam.ENUMCLIPBOARDFORMATS" },
+        { "ForceEnableNumpadTranslation",
+          "NtUserCallOneParam.FORCEENABLENUMPADTRANSLATION" },
+        { "ForceFocusBasedMouseWheelRouting",
+          "NtUserCallOneParam.FORCEFOCUSBASEDMOUSEWHEELROUTING" },
+        { "MsgWaitForMultipleObjectsEx", "NtUserCallOneParam.GETINPUTEVENT" },
+        { "GetKeyboardLayout", "NtUserCallOneParam.GETKEYBOARDLAYOUT" },
+        { "GetKeyboardType", "NtUserCallOneParam.GETKEYBOARDTYPE" },
+        { "GetProcessDefaultLayout", "NtUserCallOneParam.GETPROCDEFLAYOUT" },
+        { "GetQueueStatus", "NtUserCallOneParam.GETQUEUESTATUS" },
+        { "GetSendMessageReceiver", "NtUserCallOneParam.GETSENDMSGRECVR" },
+        { "GetWinStationInfo", "NtUserCallOneParam.GETWINSTAINFO" },
+        { "IsThreadMessageQueueAttached",
+          "NtUserCallOneParam.ISTHREADMESSAGEQUEUEATTACHED" },
+        { "LoadLocalFonts", "NtUserCallOneParam.LOADFONTS" },
+        { "LockSetForegroundWindow", "NtUserCallOneParam.LOCKFOREGNDWINDOW" },
+        { "MessageBeep", "NtUserCallOneParam.MESSAGEBEEP" },
+        { "PostQuitMessage", "NtUserCallOneParam.POSTQUITMESSAGE" },
+        { "PostUIActions", "NtUserCallOneParam.POSTUIACTIONS" },
+        { "UserRealizePalette", "NtUserCallOneParam.REALIZEPALETTE" },
+        { "RegisterSystemThread", "NtUserCallOneParam.REGISTERSYSTEMTHREAD" },
+        { "ReleaseDC", "NtUserCallOneParam.RELEASEDC" },
+        { "ReplyMessage", "NtUserCallOneParam.REPLYMESSAGE" },
+        { "SetCaretBlinkTime", "NtUserCallOneParam.SETCARETBLINKTIME" },
+        { "SetDoubleClickTime", "NtUserCallOneParam.SETDBLCLICKTIME" },
+        { "SetInputServiceState", "NtUserCallOneParam.SETINPUTSERVICESTATE" },
+        { "SetMessageExtraInfo", "NtUserCallOneParam.SETMESSAGEEXTRAINFO" },
+        { "SetProcessDefaultLayout", "NtUserCallOneParam.SETPROCDEFLAYOUT" },
+        { "SetShellChangeNotifyWindow", "NtUserCallOneParam.SETSHELLCHANGENOTIFYWINDOW" },
+        { "SetTSFEventState", "NtUserCallOneParam.SETTSFEVENTSTATE" },
+        { "LoadAndSendWatermarkStrings", "NtUserCallOneParam.SETWATERMARKSTRINGS" },
+        { "ShowCursor", "NtUserCallOneParam.SHOWCURSOR" },
+        { "ShowStartGlass", "NtUserCallOneParam.SHOWSTARTGLASS" },
+        { "SwapMouseButton", "NtUserCallOneParam.SWAPMOUSEBUTTON" },
+        { "WindowFromDC", "NtUserCallOneParam.WINDOWFROMDc" },
+        { "WOWModuleUnload", "NtUserCallOneParam.WOWMODULEUNLOAD" },
 
-    {"DeregisterShellHookWindow"     , "NtUserCallHwnd.DEREGISTERSHELLHOOKWINDOW"      },
-    {"GetModernAppWindow"            , "NtUserCallHwnd.GETMODERNAPPWINDOW"             },
-    {"GetWindowContextHelpId"        , "NtUserCallHwnd.GETWNDCONTEXTHLPID"             },
-    {"RegisterShellHookWindow"       , "NtUserCallHwnd.REGISTERSHELLHOOKWINDOW"        },
+        { "DeregisterShellHookWindow", "NtUserCallHwnd.DEREGISTERSHELLHOOKWINDOW" },
+        { "GetModernAppWindow", "NtUserCallHwnd.GETMODERNAPPWINDOW" },
+        { "GetWindowContextHelpId", "NtUserCallHwnd.GETWNDCONTEXTHLPID" },
+        { "RegisterShellHookWindow", "NtUserCallHwnd.REGISTERSHELLHOOKWINDOW" },
 
-    {"SetProgmanWindow"              , "NtUserCallHwndOpt.SETPROGMANWINDOW"            },
-    {"SetTaskmanWindow"              , "NtUserCallHwndOpt.SETTASKMANWINDOW"            },
+        { "SetProgmanWindow", "NtUserCallHwndOpt.SETPROGMANWINDOW" },
+        { "SetTaskmanWindow", "NtUserCallHwndOpt.SETTASKMANWINDOW" },
 
-    {"ClearWindowState"              , "NtUserCallHwndParam.CLEARWINDOWSTATE"          },
-    {"EnableModernAppWindowKeyboardIntercept", "NtUserCallHwndParam.ENABLEMODERNAPPWINDOWKBDINTERCEPT"},
-    {"RegisterKeyboardCorrectionCallout", "NtUserCallHwndParam.REGISTERKBDCORRECTION"  },
-    {"RegisterWindowArrangementCallout", "NtUserCallHwndParam.REGISTERWINDOWARRANGEMENTCALLOUT"},
-    {"SetWindowState"                , "NtUserCallHwndParam.SETWINDOWSTATE"            },
-    {"SetWindowContextHelpId"        , "NtUserCallHwndParam.SETWNDCONTEXTHLPID"        },
+        { "ClearWindowState", "NtUserCallHwndParam.CLEARWINDOWSTATE" },
+        { "EnableModernAppWindowKeyboardIntercept",
+          "NtUserCallHwndParam.ENABLEMODERNAPPWINDOWKBDINTERCEPT" },
+        { "RegisterKeyboardCorrectionCallout",
+          "NtUserCallHwndParam.REGISTERKBDCORRECTION" },
+        { "RegisterWindowArrangementCallout",
+          "NtUserCallHwndParam.REGISTERWINDOWARRANGEMENTCALLOUT" },
+        { "SetWindowState", "NtUserCallHwndParam.SETWINDOWSTATE" },
+        { "SetWindowContextHelpId", "NtUserCallHwndParam.SETWNDCONTEXTHLPID" },
 
-    {"ArrangeIconicWindows"          , "NtUserCallHwndLock.ARRANGEICONICWINDOWS"       },
-    {"DrawMenuBar"                   , "NtUserCallHwndLock.DRAWMENUBAR"                },
-    {"xxxGetSysMenuHandle"           , "NtUserCallHwndLock.GETSYSMENUHANDLE"           },
-    {"xxxGetSysMenuPtr"              , "NtUserCallHwndLock.GETSYSMENUHANDLEX"          },
-    {"GetWindowTrackInfoAsync"       , "NtUserCallHwndLock.GETWINDOWTRACKINFOASYNC"    },
-    {"RealMDIRedrawFrame"            , "NtUserCallHwndLock.REDRAWFRAME"                },
-    {"SetActiveImmersiveWindow"      , "NtUserCallHwndLock.SETACTIVEIMMERSIVEWINDOW"   },
-    {"SetForegroundWindow"           , "NtUserCallHwndLock.SETFOREGROUNDWINDOW"        },
-    {"MDIAddSysMenu"                 , "NtUserCallHwndLock.SETSYSMENU"                 },
-    {"UpdateWindow"                  , "NtUserCallHwndLock.UPDATEWINDOW"               },
+        { "ArrangeIconicWindows", "NtUserCallHwndLock.ARRANGEICONICWINDOWS" },
+        { "DrawMenuBar", "NtUserCallHwndLock.DRAWMENUBAR" },
+        { "xxxGetSysMenuHandle", "NtUserCallHwndLock.GETSYSMENUHANDLE" },
+        { "xxxGetSysMenuPtr", "NtUserCallHwndLock.GETSYSMENUHANDLEX" },
+        { "GetWindowTrackInfoAsync", "NtUserCallHwndLock.GETWINDOWTRACKINFOASYNC" },
+        { "RealMDIRedrawFrame", "NtUserCallHwndLock.REDRAWFRAME" },
+        { "SetActiveImmersiveWindow", "NtUserCallHwndLock.SETACTIVEIMMERSIVEWINDOW" },
+        { "SetForegroundWindow", "NtUserCallHwndLock.SETFOREGROUNDWINDOW" },
+        { "MDIAddSysMenu", "NtUserCallHwndLock.SETSYSMENU" },
+        { "UpdateWindow", "NtUserCallHwndLock.UPDATEWINDOW" },
 
-    {"EnableWindow"                  , "NtUserCallHwndParamLock.ENABLEWINDOW"          },
-    {"SetModernAppWindow"            , "NtUserCallHwndParamLock.SETMODERNAPPWINDOW"    },
-    {"ShowOwnedPopups"               , "NtUserCallHwndParamLock.SHOWOWNEDPOPUPS"       },
-    {"SwitchToThisWindow"            , "NtUserCallHwndParamLock.SWITCHTOTHISWINDOW"    },
-    {"ValidateRgn"                   , "NtUserCallHwndParamLock.VALIDATERGN"           },
-    {"NotifyOverlayWindow"           , "NtUserCallHwndParam.NOTIFYOVERLAYWINDOW"       },
+        { "EnableWindow", "NtUserCallHwndParamLock.ENABLEWINDOW" },
+        { "SetModernAppWindow", "NtUserCallHwndParamLock.SETMODERNAPPWINDOW" },
+        { "ShowOwnedPopups", "NtUserCallHwndParamLock.SHOWOWNEDPOPUPS" },
+        { "SwitchToThisWindow", "NtUserCallHwndParamLock.SWITCHTOTHISWINDOW" },
+        { "ValidateRgn", "NtUserCallHwndParamLock.VALIDATERGN" },
+        { "NotifyOverlayWindow", "NtUserCallHwndParam.NOTIFYOVERLAYWINDOW" },
 
-    {"ChangeWindowMessageFilter"     , "NtUserCallTwoParam.CHANGEWNDMSGFILTER"         },
-    {"EnableShellWindowManagementBehavior", "NtUserCallTwoParam.ENABLESHELLWINDOWMGT"  },
-    {"GetCursorPos"                  , "NtUserCallTwoParam.GETCURSORPOS"               },
-    {"InitOemXlateTables"            , "NtUserCallTwoParam.INITANSIOEM"                },
-    {"RegisterGhostWindow"           , "NtUserCallTwoParam.REGISTERGHSTWND"            },
-    {"RegisterLogonProcess"          , "NtUserCallTwoParam.REGISTERLOGONPROCESS"       },
-    {"RegisterFrostWindow"           , "NtUserCallTwoParam.REGISTERSBLFROSTWND"        },
-    {"RegisterUserHungAppHandlers"   , "NtUserCallTwoParam.REGISTERUSERHUNGAPPHANDLERS"},
-    {"SetCaretPos"                   , "NtUserCallTwoParam.SETCARETPOS"                },
-    {"SetCITInfo"                    , "NtUserCallTwoParam.SETCITINFO"                 },
-    {"SetCursorPos"                  , "NtUserCallTwoParam.SETCURSORPOS"               },
-    {"SetThreadQueueMergeSetting"    , "NtUserCallTwoParam.SETTHREADQUEUEMERGESETTING" },
-    {"UnhookWindowsHook"             , "NtUserCallTwoParam.UNHOOKWINDOWSHOOK"          },
-    {"WOWCleanup"                    , "NtUserCallTwoParam.WOWCLEANUP"                 },
-      });
-  return wrapper2sysname[wrapper];
+        { "ChangeWindowMessageFilter", "NtUserCallTwoParam.CHANGEWNDMSGFILTER" },
+        { "EnableShellWindowManagementBehavior",
+          "NtUserCallTwoParam.ENABLESHELLWINDOWMGT" },
+        { "GetCursorPos", "NtUserCallTwoParam.GETCURSORPOS" },
+        { "InitOemXlateTables", "NtUserCallTwoParam.INITANSIOEM" },
+        { "RegisterGhostWindow", "NtUserCallTwoParam.REGISTERGHSTWND" },
+        { "RegisterLogonProcess", "NtUserCallTwoParam.REGISTERLOGONPROCESS" },
+        { "RegisterFrostWindow", "NtUserCallTwoParam.REGISTERSBLFROSTWND" },
+        { "RegisterUserHungAppHandlers",
+          "NtUserCallTwoParam.REGISTERUSERHUNGAPPHANDLERS" },
+        { "SetCaretPos", "NtUserCallTwoParam.SETCARETPOS" },
+        { "SetCITInfo", "NtUserCallTwoParam.SETCITINFO" },
+        { "SetCursorPos", "NtUserCallTwoParam.SETCURSORPOS" },
+        { "SetThreadQueueMergeSetting", "NtUserCallTwoParam.SETTHREADQUEUEMERGESETTING" },
+        { "UnhookWindowsHook", "NtUserCallTwoParam.UNHOOKWINDOWSHOOK" },
+        { "WOWCleanup", "NtUserCallTwoParam.WOWCLEANUP" },
+    });
+    return wrapper2sysname[wrapper];
 }
 
 static const char *const usercall_names[] = {
@@ -252,8 +265,8 @@ look_for_usercall_targets(const char *dll_path, byte *map_base, size_t map_size,
             if (symres == DRSYM_SUCCESS) {
                 usercall_addr[i] = map_base + offs;
                 ++num_found;
-                NOTIFY(2, "%s = %d +0x%x == " PFX "" NL, usercall_names[i], symres,
-                       offs, usercall_addr[i]);
+                NOTIFY(2, "%s = %d +0x%x == " PFX "" NL, usercall_names[i], symres, offs,
+                       usercall_addr[i]);
             } else {
                 NOTIFY(2, "Error locating usercall %s" NL, usercall_names[i]);
             }
@@ -273,15 +286,15 @@ look_for_usercall(void *dcontext, byte *entry, const char *sym, byte *mod_end,
      *  76120503 8bec            mov     ebp,esp
      *  76120505 6a2e            push    2Eh
      *  76120507 ff7508          push    dword ptr [ebp+8]
-     *  7612050a ff15706a1376    call    dword ptr [USER32!_imp__NtUserCallOneParam (76136a70)]
-     *  76120510 5d              pop     ebp
-     *  76120511 c20400          ret     4
+     *  7612050a ff15706a1376    call    dword ptr [USER32!_imp__NtUserCallOneParam
+     * (76136a70)] 76120510 5d              pop     ebp 76120511 c20400          ret     4
      *
      * For 64-bit:
      *  USER32!AllowSetForegroundWindow:
      *  00007ffb`15e3bdd0 8bc9            mov     ecx,ecx
      *  00007ffb`15e3bdd2 ba2e000000      mov     edx,2Eh
-     *  00007ffb`15e3bdd7 48ff2572e20500  jmp     qword ptr [USER32!_imp_NtUserCallOneParam (00007ffb`15e9a050)]
+     *  00007ffb`15e3bdd7 48ff2572e20500  jmp     qword ptr
+     * [USER32!_imp_NtUserCallOneParam (00007ffb`15e9a050)]
      */
     bool found_set_imm = false;
     int imm = 0;
@@ -348,8 +361,8 @@ look_for_usercall(void *dcontext, byte *entry, const char *sym, byte *mod_end,
                     instr_get_opcode(instr) == OP_jmp_ind) &&
                    found_set_imm &&
                    (opnd_is_abs_addr(instr_get_target(instr))
-                    IF_X64(|| opnd_is_rel_addr(instr_get_target(instr))))) {
-            app_pc tgt = (app_pc) opnd_get_addr(instr_get_target(instr));
+                        IF_X64(|| opnd_is_rel_addr(instr_get_target(instr))))) {
+            app_pc tgt = (app_pc)opnd_get_addr(instr_get_target(instr));
             bool found = false;
             int i;
             for (i = 0; i < NUM_USERCALL; i++) {
@@ -382,16 +395,11 @@ look_for_usercall(void *dcontext, byte *entry, const char *sym, byte *mod_end,
  * Fetch symbols
  */
 
-static const char * const syscall_dlls[] = {
-    "ntdll.dll",
-    "kernelbase.dll",
-    "kernel32.dll",
-    "gdi32.dll",
-    "imm32.dll",
-    "user32.dll",
-    "win32u.dll",
+static const char *const syscall_dlls[] = {
+    "ntdll.dll", "kernelbase.dll", "kernel32.dll", "gdi32.dll",
+    "imm32.dll", "user32.dll",     "win32u.dll",
 };
-#define NUM_SYSCALL_DLLS (sizeof(syscall_dlls)/sizeof(syscall_dlls[0]))
+#define NUM_SYSCALL_DLLS (sizeof(syscall_dlls) / sizeof(syscall_dlls[0]))
 
 DR_EXPORT
 drmf_status_t
@@ -423,11 +431,10 @@ drsys_find_sysnum_libs(OUT char **sysnum_lib_paths,
     char buf[MAXIMUM_PATH];
     for (int i = 0; i < NUM_SYSCALL_DLLS; ++i) {
         bool readable;
-        _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%csystem32%c%s",
-                  system_root, DIRSEP, DIRSEP, syscall_dlls[i]);
+        _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%csystem32%c%s", system_root, DIRSEP,
+                  DIRSEP, syscall_dlls[i]);
         NULL_TERMINATE_BUFFER(buf);
-        if (drfront_access(buf, DRFRONT_READ, &readable) == DRFRONT_SUCCESS &&
-            readable) {
+        if (drfront_access(buf, DRFRONT_READ, &readable) == DRFRONT_SUCCESS && readable) {
             NOTIFY(1, "%s: %s is readable" NL, __FUNCTION__, buf);
             dll_readable[i] = true;
             ++count;
@@ -448,9 +455,9 @@ drsys_find_sysnum_libs(OUT char **sysnum_lib_paths,
     for (int i = 0; i < NUM_SYSCALL_DLLS; ++i) {
         if (!dll_readable[i])
             continue;
-        _snprintf(sysnum_lib_paths[index], MAXIMUM_PATH, "%s%csystem32%c%s",
-                  system_root, DIRSEP, DIRSEP, syscall_dlls[i]);
-        sysnum_lib_paths[index][MAXIMUM_PATH-1] = '\0';
+        _snprintf(sysnum_lib_paths[index], MAXIMUM_PATH, "%s%csystem32%c%s", system_root,
+                  DIRSEP, DIRSEP, syscall_dlls[i]);
+        sysnum_lib_paths[index][MAXIMUM_PATH - 1] = '\0';
         ++index;
     }
     return DRMF_SUCCESS;
@@ -468,7 +475,7 @@ fetch_symbols(const char **sysnum_lib_paths, size_t num_sysnum_libs,
     char symsrv_dir[MAXIMUM_PATH];
     if (drfront_set_client_symbol_search_path(cache_dir, false, symsrv_dir,
                                               BUFFER_SIZE_ELEMENTS(symsrv_dir)) !=
-        DRFRONT_SUCCESS ||
+            DRFRONT_SUCCESS ||
         drfront_set_symbol_search_path(symsrv_dir) != DRFRONT_SUCCESS)
         NOTIFY(0, "WARNING: Can't set symbol search path. Symbol lookup may fail." NL);
 
@@ -480,8 +487,8 @@ fetch_symbols(const char **sysnum_lib_paths, size_t num_sysnum_libs,
          */
 #define NUM_TRIES 2
         for (int j = 0; j < NUM_TRIES; ++j) {
-            NOTIFY(1, "Fetching symbols for \"%s\", attempt #%d" NL,
-                   sysnum_lib_paths[i], j);
+            NOTIFY(1, "Fetching symbols for \"%s\", attempt #%d" NL, sysnum_lib_paths[i],
+                   j);
             sc = drfront_fetch_module_symbols(sysnum_lib_paths[i], pdb_path,
                                               BUFFER_SIZE_ELEMENTS(pdb_path));
             if (sc == DRFRONT_SUCCESS) {
@@ -495,21 +502,22 @@ fetch_symbols(const char **sysnum_lib_paths, size_t num_sysnum_libs,
              * problems.
              */
             if (drfront_get_env_var("_NT_SYMBOL_PATH", symsrv_dir,
-                                    BUFFER_SIZE_ELEMENTS(symsrv_dir))
-                == DRFRONT_SUCCESS) {
+                                    BUFFER_SIZE_ELEMENTS(symsrv_dir)) ==
+                DRFRONT_SUCCESS) {
                 NOTIFY(0, "Ignoring local _NT_SYMBOL_PATH in next attempt." NL);
-                if (drfront_set_client_symbol_search_path
-                    (cache_dir, true, symsrv_dir, BUFFER_SIZE_ELEMENTS(symsrv_dir)) !=
-                    DRFRONT_SUCCESS ||
+                if (drfront_set_client_symbol_search_path(
+                        cache_dir, true, symsrv_dir, BUFFER_SIZE_ELEMENTS(symsrv_dir)) !=
+                        DRFRONT_SUCCESS ||
                     drfront_set_symbol_search_path(symsrv_dir) != DRFRONT_SUCCESS) {
-                    NOTIFY(0, "WARNING: Can't set symbol search path. "
+                    NOTIFY(0,
+                           "WARNING: Can't set symbol search path. "
                            "Symbol lookup may fail." NL);
                 }
             }
         }
         if (sc != DRFRONT_SUCCESS) {
-            NOTIFY(0, "Failed to fetch symbols for %s: error %d" NL,
-                   sysnum_lib_paths[i], sc);
+            NOTIFY(0, "Failed to fetch symbols for %s: error %d" NL, sysnum_lib_paths[i],
+                   sc);
             return DRMF_ERROR_NOT_FOUND;
         }
     }
@@ -527,9 +535,9 @@ fetch_symbols(const char **sysnum_lib_paths, size_t num_sysnum_libs,
  *     75caeabe 0f34        sysenter
  *     75caeac0 c3          ret
  */
-#define MAX_INSTRS_SYSENTER_CALLEE  4
+#define MAX_INSTRS_SYSENTER_CALLEE 4
 /* the max distance from call to the sysenter callee target */
-#define MAX_SYSENTER_CALLEE_OFFSET  0x50
+#define MAX_SYSENTER_CALLEE_OFFSET 0x50
 #define MAX_INSTRS_BEFORE_SYSCALL 16
 #define MAX_INSTRS_IN_FUNCTION 256
 
@@ -553,11 +561,9 @@ process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found
      */
     bool is_wow64 = dr_is_wow64();
     if (/* int 2e or x64 or win8 sysenter */
-        (instr_is_syscall(instr) &&
-         found_eax && !is_wow64) ||
+        (instr_is_syscall(instr) && found_eax && !is_wow64) ||
         /* sysenter case */
-        (found_edx && found_eax &&
-         instr_is_call_indirect(instr) &&
+        (found_edx && found_eax && instr_is_call_indirect(instr) &&
          /* XP SP{0,1}, 2003 SP0: call *edx */
          ((opnd_is_reg(instr_get_target(instr)) &&
            opnd_get_reg(instr_get_target(instr)) == DR_REG_EDX) ||
@@ -569,8 +575,7 @@ process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found
         /* wow case
          * we don't require found_ecx b/c win8 does not use ecx
          */
-        (is_wow64 && found_eax &&
-         instr_is_call_indirect(instr) &&
+        (is_wow64 && found_eax && instr_is_call_indirect(instr) &&
          ((opnd_is_far_base_disp(instr_get_target(instr)) &&
            opnd_get_base(instr_get_target(instr)) == DR_REG_NULL &&
            opnd_get_index(instr_get_target(instr)) == DR_REG_NULL &&
@@ -587,8 +592,8 @@ process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found
  *              xref the comment in process_syscall_instr.
  */
 static bool
-process_syscall_call(void *dcontext, byte *next_pc, instr_t *call,
-                     bool found_eax, bool found_edx)
+process_syscall_call(void *dcontext, byte *next_pc, instr_t *call, bool found_eax,
+                     bool found_edx)
 {
     int num_instr;
     byte *pc;
@@ -692,8 +697,8 @@ get_syscall_num(void *dcontext, byte *pc, byte *mod_start, byte *mod_end)
             /* If we wanted the # args we'd get it here, for stdcall. */
             break;
         } else if (instr_get_opcode(&instr) == OP_call) {
-            found_syscall = process_syscall_call(dcontext, pc, &instr,
-                                                 found_eax, found_edx);
+            found_syscall =
+                process_syscall_call(dcontext, pc, &instr, found_eax, found_edx);
             /* If we see a call and it is not a sysenter callee,
              * we assume this is not a syscall wrapper.
              */
@@ -718,7 +723,7 @@ get_syscall_num(void *dcontext, byte *pc, byte *mod_start, byte *mod_end)
              *   00007ff9`13185647 c3              ret
              */
             if (is_x64 && instr_is_cbr(&instr) &&
-                opnd_get_pc(instr_get_target(&instr)) == pc + 3/*syscall;ret*/) {
+                opnd_get_pc(instr_get_target(&instr)) == pc + 3 /*syscall;ret*/) {
                 /* keep going */
             } else
                 break;
@@ -726,11 +731,11 @@ get_syscall_num(void *dcontext, byte *pc, byte *mod_start, byte *mod_end)
                    instr_get_opcode(&instr) == OP_mov_imm &&
                    opnd_is_reg(instr_get_dst(&instr, 0))) {
             if (!found_eax && opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_EAX) {
-                sysnum = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
+                sysnum = (int)opnd_get_immed_int(instr_get_src(&instr, 0));
                 found_eax = true;
             } else if (!found_edx &&
                        opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_EDX) {
-                uint imm = (uint) opnd_get_immed_int(instr_get_src(&instr, 0));
+                uint imm = (uint)opnd_get_immed_int(instr_get_src(&instr, 0));
                 if (imm == 0x7ffe0300 ||
                     /* On Win10 the immed is ntdll!Wow64SystemServiceCall */
                     (is_wow64 && imm > (ptr_uint_t)mod_start &&
@@ -774,8 +779,8 @@ typedef struct _search_data_t {
 static bool
 search_syms_cb(const char *name, size_t modoffs, void *data)
 {
-    NOTIFY(3, "Found symbol \"%s\" at offs "PIFX NL, name, modoffs);
-    search_data_t *sd = (search_data_t *) data;
+    NOTIFY(3, "Found symbol \"%s\" at offs " PIFX NL, name, modoffs);
+    search_data_t *sd = (search_data_t *)data;
     /* XXX DRi#2715: drsyms sometimes passes bogus offsets so we're robust here */
     if (modoffs >= sd->dll_size)
         return true;
@@ -813,8 +818,8 @@ identify_syscalls(void *dcontext, const char **dlls, size_t num_dlls,
     }
     for (size_t i = 0; i < num_dlls; ++i) {
         size_t map_size;
-        byte *map_base = dr_map_executable_file(dlls[i], DR_MAPEXE_SKIP_WRITABLE,
-                                                &map_size);
+        byte *map_base =
+            dr_map_executable_file(dlls[i], DR_MAPEXE_SKIP_WRITABLE, &map_size);
         if (map_base == NULL) {
             NOTIFY(0, "Failed to map \"%s\"" NL, dlls[i]);
             return DRMF_ERROR;
@@ -825,17 +830,18 @@ identify_syscalls(void *dcontext, const char **dlls, size_t num_dlls,
         std::string pattern(std::string(dlls[i]) + "!*");
         std::string prefix = "";
         if (strcasestr(dlls[i], "user32") != NULL ||
-            strcasestr(dlls[i], "win32u") != NULL ||
-            strcasestr(dlls[i], "imm32") != NULL)
+            strcasestr(dlls[i], "win32u") != NULL || strcasestr(dlls[i], "imm32") != NULL)
             prefix = "NtUser";
         else if (strcasestr(dlls[i], "gdi32") != NULL)
             prefix = "NtGdi";
         NOTIFY(1, "Searching for system calls in \"%s\"" NL, dlls[i]);
-        search_data_t sd = {dcontext, map_base, map_size, prefix, &name2num, };
+        search_data_t sd = {
+            dcontext, map_base, map_size, prefix, &name2num,
+        };
         look_for_usercall_targets(dlls[i], map_base, map_size, sd.usercall_addr,
                                   &sd.usercall_targets_found);
-        drsym_error_t symres = drsym_search_symbols(dlls[i], pattern.c_str(),
-                                                    true, search_syms_cb, &sd);
+        drsym_error_t symres =
+            drsym_search_symbols(dlls[i], pattern.c_str(), true, search_syms_cb, &sd);
         if (symres != DRSYM_SUCCESS) {
             NOTIFY(0, "Error %d searching \"%s\"" NL, symres, dlls[i]);
             return DRMF_ERROR;
@@ -887,9 +893,9 @@ write_file(const std::unordered_map<std::string, int> &name2num, const std::stri
     dr_fprintf(f, "START=0x%x\n", name2num.at(key));
 
     /* It doesn't have to be sorted but it's nicer for humans this way. */
-    std::vector<std::pair<std::string, int> > sorted(name2num.size());
-    std::partial_sort_copy(name2num.begin(), name2num.end(),
-                           sorted.begin(), sorted.end(), cmp_names);
+    std::vector<std::pair<std::string, int>> sorted(name2num.size());
+    std::partial_sort_copy(name2num.begin(), name2num.end(), sorted.begin(), sorted.end(),
+                           cmp_names);
     for (const auto &keyval : sorted) {
         NOTIFY(2, "%s == 0x%x" NL, keyval.first.c_str(), keyval.second);
         dr_fprintf(f, "%s=0x%x\n", keyval.first.c_str(), keyval.second);
@@ -903,23 +909,23 @@ write_file(const std::unordered_map<std::string, int> &name2num, const std::stri
     }
     int num = -1;
 #define NONE -1
-#define USERCALL(type, name, w2k, xp, w2003, vistaSP01, vistaSP2, w7, w8, w81, w10, \
-                 w11, w12, w13, w14, w15) \
-    do {                                    \
-        std::string sysname(#type"."#name); \
-        auto keyval = name2num.find(sysname); \
-        if (keyval != name2num.end())               \
-            num = (*keyval).second;             \
-        else if (w15 != -1) { /* Assume once gone it's not coming back */ \
-            ++num; \
-            /* If an entry was removed we'll collide.  Just skip in that case. */\
-            /* Since the table order is not perfect we'll miss some. */\
-            if (num2name.find(num) == num2name.end()) { \
-                NOTIFY(2, "%s == 0x%x" NL, sysname.c_str(), num); \
-                dr_fprintf(f, "%s=0x%x\n", sysname.c_str(), num); \
-                num2name[num] = sysname; \
-            }\
-        } \
+#define USERCALL(type, name, w2k, xp, w2003, vistaSP01, vistaSP2, w7, w8, w81, w10, w11, \
+                 w12, w13, w14, w15)                                                     \
+    do {                                                                                 \
+        std::string sysname(#type "." #name);                                            \
+        auto keyval = name2num.find(sysname);                                            \
+        if (keyval != name2num.end())                                                    \
+            num = (*keyval).second;                                                      \
+        else if (w15 != -1) { /* Assume once gone it's not coming back */                \
+            ++num;                                                                       \
+            /* If an entry was removed we'll collide.  Just skip in that case. */        \
+            /* Since the table order is not perfect we'll miss some. */                  \
+            if (num2name.find(num) == num2name.end()) {                                  \
+                NOTIFY(2, "%s == 0x%x" NL, sysname.c_str(), num);                        \
+                dr_fprintf(f, "%s=0x%x\n", sysname.c_str(), num);                        \
+                num2name[num] = sysname;                                                 \
+            }                                                                            \
+        }                                                                                \
     } while (false);
 #include "drsyscall_usercallx.h"
 #undef USERCALL
@@ -964,3 +970,6 @@ drsys_generate_sysnum_file(void *drcontext, const char **sysnum_lib_paths,
 
     return DRMF_SUCCESS;
 }
+
+} // namespace drsyscall
+} // namespace dynamorio

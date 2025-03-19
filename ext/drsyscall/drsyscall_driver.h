@@ -52,5 +52,4 @@ driver_process_writes(void *drcontext, int sysnum);
 bool
 driver_reset_writes(void *drcontext, int sysnum);
 
-
 #endif /* _SYSCALL_DRIVER_H_ */

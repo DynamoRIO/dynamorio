@@ -18,14 +18,12 @@
 /* from reactos/include/ndk/psfuncs.h */
 typedef ULONG APPHELPCACHESERVICECLASS;
 
-
 /* from reactos/include/ndk/pstypes.h */
 
 //
 // Process/Thread/Job Information Classes for NtQueryInformationProcess/Thread/Job
 //
-typedef enum _PROCESSINFOCLASS
-{
+typedef enum _PROCESSINFOCLASS {
     ProcessBasicInformation,
     ProcessQuotaLimits,
     ProcessIoCounters,
@@ -81,8 +79,7 @@ typedef enum _PROCESSINFOCLASS
     MaxProcessInfoClass
 } PROCESSINFOCLASS;
 
-typedef enum _THREADINFOCLASS
-{
+typedef enum _THREADINFOCLASS {
     ThreadBasicInformation,
     ThreadTimes,
     ThreadPriority,
@@ -138,6 +135,5 @@ typedef struct _STACK_ALLOC_INFORMATION {
     ULONG ZeroBits;
     PVOID *BaseAddress; /* OUT */
 } STACK_ALLOC_INFORMATION;
-
 
 #endif /*_PSFUNCS_H */

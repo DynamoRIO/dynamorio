@@ -21,9 +21,9 @@
 typedef enum _PORT_INFORMATION_CLASS {
     PortBasicInformation
 #if DEVL
-,   PortDumpInformation
+    ,
+    PortDumpInformation
 #endif
 } PORT_INFORMATION_CLASS;
-
 
 #endif /*_LPCTYPES_H */

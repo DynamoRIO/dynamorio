@@ -10,21 +10,19 @@
  ****************************************************************************
  ****************************************************************************/
 
- /* from phlib/include/ntseapi.h */
+/* from phlib/include/ntseapi.h */
 
 #ifndef __PHLIB_NTSEAPI_H
-#define __PHLIB_NTSEAPI_H
+#    define __PHLIB_NTSEAPI_H
 
 NTSTATUS
 NTAPI
-NtQuerySecurityAttributesToken(
-    __in HANDLE TokenHandle,
-    __in_ecount_opt(NumberOfAttributes) PUNICODE_STRING Attributes,
-    __in ULONG NumberOfAttributes,
-    __out_bcount(Length) PVOID Buffer
-    __in ULONG Length,
-    __out PULONG ReturnLength
-    );
+NtQuerySecurityAttributesToken(__in HANDLE TokenHandle,
+                               __in_ecount_opt(NumberOfAttributes)
+                                   PUNICODE_STRING Attributes,
+                               __in ULONG NumberOfAttributes,
+                               __out_bcount(Length) PVOID Buffer __in ULONG Length,
+                               __out PULONG ReturnLength);
 
 #endif /* __PHLIB_NTSEAPI_H */
 /* EOF */

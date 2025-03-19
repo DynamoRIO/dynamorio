@@ -53,9 +53,9 @@ extern syscall_info_t syscall_info_bsd[];
 extern size_t count_syscall_info_bsd;
 
 /* FIXME i#1440: add mach syscall table */
-#define SYSCALL_NUM_MARKER_MACH      0x1000000
-#define SYSCALL_NUM_MARKER_BSD       0x2000000 /* x64 only */
-#define SYSCALL_NUM_MARKER_MACHDEP   0x3000000
+#define SYSCALL_NUM_MARKER_MACH 0x1000000
+#define SYSCALL_NUM_MARKER_BSD 0x2000000 /* x64 only */
+#define SYSCALL_NUM_MARKER_MACHDEP 0x3000000
 
 /* FIXME i#1440: add machdep syscall table */
 
@@ -70,7 +70,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
     case SYS_open:
     case SYS_open_nocancel: {
         /* 3rd arg is only required for O_CREAT */
-        int flags = (int) pt->sysarg[1];
+        int flags = (int)pt->sysarg[1];
         if (TEST(O_CREAT, flags)) {
             if (!report_sysarg_type(ii, 2, SYSARG_READ, sizeof(int),
                                     DRSYS_TYPE_SIGNED_INT, NULL))
@@ -98,12 +98,10 @@ os_handle_post_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
 
 /* XXX i#1440: share w/ Linux */
 static bool
-handle_cstring_access(sysarg_iter_info_t *ii,
-                      const sysinfo_arg_t *arg_info,
-                      app_pc start, uint size/*in bytes*/)
+handle_cstring_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info, app_pc start,
+                      uint size /*in bytes*/)
 {
-    return handle_cstring(ii, arg_info->param, arg_info->flags,
-                          NULL, start, size, NULL,
+    return handle_cstring(ii, arg_info->param, arg_info->flags, NULL, start, size, NULL,
                           /* let normal check ensure full size is addressable */
                           false);
 }
@@ -114,9 +112,9 @@ check_strarray(sysarg_iter_info_t *ii, char **array, int ordinal, const char *id
 {
     char *str;
     int i = 0;
-#   define STR_ARRAY_MAX_ITER 64*1024 /* safety check */
-    while (safe_read(&array[i], sizeof(str), &str) && str != NULL
-           && i < STR_ARRAY_MAX_ITER) {
+#define STR_ARRAY_MAX_ITER 64 * 1024 /* safety check */
+    while (safe_read(&array[i], sizeof(str), &str) && str != NULL &&
+           i < STR_ARRAY_MAX_ITER) {
         handle_cstring(ii, ordinal, SYSARG_READ, id, (app_pc)str, 0, NULL, false);
         i++;
     }
@@ -135,36 +133,32 @@ handle_strarray_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
 }
 
 static bool
-os_handle_syscall_arg_access(sysarg_iter_info_t *ii,
-                             const sysinfo_arg_t *arg_info,
+os_handle_syscall_arg_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
                              app_pc start, uint size)
 {
     if (!TEST(SYSARG_COMPLEX_TYPE, arg_info->flags))
         return false;
 
     switch (arg_info->misc) {
-    case SYSARG_TYPE_CSTRING:
-        return handle_cstring_access(ii, arg_info, start, size);
+    case SYSARG_TYPE_CSTRING: return handle_cstring_access(ii, arg_info, start, size);
     case DRSYS_TYPE_CSTRARRAY:
         return handle_strarray_access(ii, arg_info, start, size);
-    /* FIXME i#1440: add more handling -- probably also want
-     * SYSARG_TYPE_SOCKADDR?  Share w/ Linux?
-     */
+        /* FIXME i#1440: add more handling -- probably also want
+         * SYSARG_TYPE_SOCKADDR?  Share w/ Linux?
+         */
     }
     return false;
 }
 
 bool
-os_handle_pre_syscall_arg_access(sysarg_iter_info_t *ii,
-                                 const sysinfo_arg_t *arg_info,
+os_handle_pre_syscall_arg_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
                                  app_pc start, uint size)
 {
     return os_handle_syscall_arg_access(ii, arg_info, start, size);
 }
 
 bool
-os_handle_post_syscall_arg_access(sysarg_iter_info_t *ii,
-                                  const sysinfo_arg_t *arg_info,
+os_handle_post_syscall_arg_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
                                   app_pc start, uint size)
 {
     return os_handle_syscall_arg_access(ii, arg_info, start, size);
@@ -184,17 +178,16 @@ drmf_status_t
 drsyscall_os_init(void *drcontext)
 {
     uint i;
-    hashtable_init_ex(&systable, SYSTABLE_HASH_BITS, HASH_INTPTR, false/*!strdup*/,
-                      false/*!synch*/, NULL, sysnum_hash, sysnum_cmp);
+    hashtable_init_ex(&systable, SYSTABLE_HASH_BITS, HASH_INTPTR, false /*!strdup*/,
+                      false /*!synch*/, NULL, sysnum_hash, sysnum_cmp);
     /* We initialize & leave secondary_systable empty to be in sync with our
      * Windows & Linux solutions. Xref i#1438 i#1549.
      */
-    hashtable_init_ex(&secondary_systable, SECONDARY_SYSTABLE_HASH_BITS,
-                      HASH_INTPTR, false/*!strdup*/, false/*!synch*/, NULL,
-                      sysnum_hash, sysnum_cmp);
+    hashtable_init_ex(&secondary_systable, SECONDARY_SYSTABLE_HASH_BITS, HASH_INTPTR,
+                      false /*!strdup*/, false /*!synch*/, NULL, sysnum_hash, sysnum_cmp);
 
     hashtable_init(&name2num_table, NAME2NUM_TABLE_HASH_BITS, HASH_STRING,
-                   false/*!strdup*/);
+                   false /*!strdup*/);
 
     dr_recurlock_lock(systable_lock);
     for (i = 0; i < count_syscall_info_bsd; i++) {
@@ -207,13 +200,13 @@ drsyscall_os_init(void *drcontext)
          */
 #endif
         IF_DEBUG(bool ok =)
-            hashtable_add(&systable, (void *) &syscall_info_bsd[i].num,
-                          (void *) &syscall_info_bsd[i]);
+        hashtable_add(&systable, (void *)&syscall_info_bsd[i].num,
+                      (void *)&syscall_info_bsd[i]);
         ASSERT(ok, "no dups");
 
         IF_DEBUG(ok =)
-            hashtable_add(&name2num_table, (void *) syscall_info_bsd[i].name,
-                          (void *) &syscall_info_bsd[i].num);
+        hashtable_add(&name2num_table, (void *)syscall_info_bsd[i].name,
+                      (void *)&syscall_info_bsd[i].num);
         ASSERT(ok || strcmp(syscall_info_bsd[i].name, "ni_syscall") == 0, "no dups");
     }
     dr_recurlock_unlock(systable_lock);
@@ -246,8 +239,8 @@ drsyscall_os_module_load(void *drcontext, const module_data_t *info, bool loaded
 bool
 os_syscall_get_num(const char *name, drsys_sysnum_t *num_out DR_PARAM_OUT)
 {
-    drsys_sysnum_t *num = (drsys_sysnum_t *)
-        hashtable_lookup(&name2num_table, (void *)name);
+    drsys_sysnum_t *num =
+        (drsys_sysnum_t *)hashtable_lookup(&name2num_table, (void *)name);
     if (num != NULL) {
         *num_out = *num;
         return true;
@@ -275,7 +268,7 @@ drsyscall_os_get_sysparam_location(cls_syscall_t *pt, uint argnum, drsys_arg_t *
 #else
     /* Args are on stack, past retaddr from syscall wrapper */
     arg->reg = DR_REG_NULL;
-    arg->start_addr = (app_pc) (((reg_t *)arg->mc->esp) + 1/*retaddr*/ + argnum);
+    arg->start_addr = (app_pc)(((reg_t *)arg->mc->esp) + 1 /*retaddr*/ + argnum);
 #endif
 }
 

@@ -50,34 +50,40 @@ extern "C" {
  * current version, but we also increase the oldest-compatible
  * version to match the (just-incremented) current version.
  */
-#define DRMF_VERSION_COMPAT ${DRMF_VERSION_COMPAT}
-#define DRMF_VERSION_CUR ${DRMF_VERSION_CUR}
-#define DRMF_VERSION_USED_VAR    _DRMF_VERSION_USED_
-DR_EXPORT LINK_ONCE int DRMF_VERSION_USED_VAR = ${DRMF_VERSION_CUR};
-#define DRMF_VERSION_USED_NAME    STRINGIFY(DRMF_VERSION_USED_VAR)
-
+#define DRMF_VERSION_COMPAT \
+    $                       \
+    {                       \
+        DRMF_VERSION_COMPAT \
+    }
+#define DRMF_VERSION_CUR \
+    $                    \
+    {                    \
+        DRMF_VERSION_CUR \
+    }
+#define DRMF_VERSION_USED_VAR _DRMF_VERSION_USED_
+DR_EXPORT LINK_ONCE int DRMF_VERSION_USED_VAR = $ { DRMF_VERSION_CUR };
+#define DRMF_VERSION_USED_NAME STRINGIFY(DRMF_VERSION_USED_VAR)
 
 /** Status codes for the Dr. Memory Framework */
 typedef enum {
-    DRMF_SUCCESS,                  /**< Operation succeeded. */
-    DRMF_ERROR,                    /**< Operation failed. */
+    DRMF_SUCCESS,                     /**< Operation succeeded. */
+    DRMF_ERROR,                       /**< Operation failed. */
     DRMF_ERROR_INCOMPATIBLE_VERSION,  /**< Operation failed: incompatible version */
-    DRMF_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
-    DRMF_ERROR_INVALID_SIZE,       /**< Operation failed: invalid size */
-    DRMF_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not yet implemented */
+    DRMF_ERROR_INVALID_PARAMETER,     /**< Operation failed: invalid parameter */
+    DRMF_ERROR_INVALID_SIZE,          /**< Operation failed: invalid size */
+    DRMF_ERROR_NOT_IMPLEMENTED,       /**< Operation failed: not yet implemented */
     DRMF_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
-    DRMF_ERROR_NOMEM,              /**< Operation failed: not enough memory */
-    DRMF_ERROR_DETAILS_UNKNOWN,    /**< Operation failed: answer not yet known */
-    DRMF_ERROR_NOT_FOUND,          /**< Operation failed: query not found */
-    DRMF_ERROR_INVALID_CALL,       /**< Operation failed: pre-req for call not met */
-    DRMF_ERROR_NOT_ENOUGH_REGS,    /**< Operation failed: not enough registers for use */
-    DRMF_ERROR_ACCESS_DENIED,      /**< Operation failed: access denied */
+    DRMF_ERROR_NOMEM,                 /**< Operation failed: not enough memory */
+    DRMF_ERROR_DETAILS_UNKNOWN,       /**< Operation failed: answer not yet known */
+    DRMF_ERROR_NOT_FOUND,             /**< Operation failed: query not found */
+    DRMF_ERROR_INVALID_CALL,          /**< Operation failed: pre-req for call not met */
+    DRMF_ERROR_NOT_ENOUGH_REGS, /**< Operation failed: not enough registers for use */
+    DRMF_ERROR_ACCESS_DENIED,   /**< Operation failed: access denied */
     DRMF_WARNING_ALREADY_INITIALIZED, /**< Operation aborted: already initialized */
-    DRMF_ERROR_NOT_INITIALIZED,     /**< Operation failed: not initialized */
-    DRMF_ERROR_INVALID_ADDRESS,     /**< Operation failed: invalid address */
+    DRMF_ERROR_NOT_INITIALIZED,       /**< Operation failed: not initialized */
+    DRMF_ERROR_INVALID_ADDRESS,       /**< Operation failed: invalid address */
     DRMF_WARNING_UNSUPPORTED_KERNEL,  /**< Continuing not advised: unsupported kernel */
 } drmf_status_t;
-
 
 /*@}*/ /* end doxygen group */
 

@@ -15,25 +15,19 @@
 /* Observed called from IMM32!IsLegacyIMEDisabled.  Both fields are written
  * with 0 in all observed instances.
  */
-typedef struct _PROCESS_UI_CONTEXT
-{
+typedef struct _PROCESS_UI_CONTEXT {
     DWORD Unknown1;
     DWORD Unknown2;
 } PROCESS_UI_CONTEXT, *PPROCESS_UI_CONTEXT;
 
-BOOL
-NTAPI
-NtUserGetProcessUIContextInformation(
-    __in  HANDLE              ProcessHandle,
-    __out PROCESS_UI_CONTEXT  *ContextInformation
-    );
+BOOL NTAPI
+NtUserGetProcessUIContextInformation(__in HANDLE ProcessHandle,
+                                     __out PROCESS_UI_CONTEXT *ContextInformation);
 
 /* This can be observed just starting up calc.exe on Windows 8.1, called from
  * C:\Program Files (x86)\Common Files\Microsoft Shared\Ink\tiptsf.dll
  */
-BOOL
-NTAPI
-NtUserGetWindowBand(__in HANDLE hwnd,
-                    __out DWORD *value);
+BOOL NTAPI
+NtUserGetWindowBand(__in HANDLE hwnd, __out DWORD *value);
 
 #endif /* _NTUSER_WIN8_ */

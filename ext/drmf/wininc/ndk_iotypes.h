@@ -18,8 +18,7 @@
 //
 // Firmware Boot File Path
 //
-typedef struct _FILE_PATH
-{
+typedef struct _FILE_PATH {
     ULONG Version;
     ULONG Length;
     ULONG Type;
@@ -29,8 +28,7 @@ typedef struct _FILE_PATH
 //
 // Firmware Boot Options
 //
-typedef struct _BOOT_OPTIONS
-{
+typedef struct _BOOT_OPTIONS {
     ULONG Version;
     ULONG Length;
     ULONG Timeout;
@@ -42,7 +40,7 @@ typedef struct _BOOT_OPTIONS
 //
 // I/O structure for NtRemoveIoCompletionEx function
 //
-typedef struct _FILE_IO_COMPLETION_INFORMATION{
+typedef struct _FILE_IO_COMPLETION_INFORMATION {
     PVOID KeyContext;
     PVOID ApcContext;
     IO_STATUS_BLOCK IoStatusBlock;
@@ -51,16 +49,14 @@ typedef struct _FILE_IO_COMPLETION_INFORMATION{
 //
 // I/O Completion Information Class for NtQueryIoCompletionInformation
 //
-typedef enum _IO_COMPLETION_INFORMATION_CLASS
-{
+typedef enum _IO_COMPLETION_INFORMATION_CLASS {
     IoCompletionBasicInformation
 } IO_COMPLETION_INFORMATION_CLASS;
 
 //
 // File Information Classes for NtQueryInformationFileSystem
 //
-typedef enum _FSINFOCLASS
-{
+typedef enum _FSINFOCLASS {
     FileFsVolumeInformation = 1,
     FileFsLabelInformation,
     FileFsSizeInformation,
@@ -71,6 +67,7 @@ typedef enum _FSINFOCLASS
     FileFsObjectIdInformation,
     FileFsDriverPathInformation,
     FileFsMaximumInformation
-} FS_INFORMATION_CLASS, *PFS_INFORMATION_CLASS;
+} FS_INFORMATION_CLASS,
+    *PFS_INFORMATION_CLASS;
 
 #endif /* _IOTYPES_H */

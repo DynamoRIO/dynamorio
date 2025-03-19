@@ -33,12 +33,12 @@ char *
 strnchr(const char *str, int find, size_t max)
 {
     register const char *s = str;
-    register char c = (char) find;
+    register char c = (char)find;
     while (true) {
         if (s - str >= max)
             return NULL;
         if (*s == c)
-            return (char *) s;
+            return (char *)s;
         if (*s == '\0')
             return NULL;
         s++;
@@ -60,7 +60,7 @@ strcasestr(const char *text, const char *pattern)
     cur_pattern = pattern;
     while (true) {
         if (*cur_pattern == '\0')
-            return (char *) root;
+            return (char *)root;
         if (*cur_text == '\0')
             return NULL;
         /* XXX DRi#943: toupper is better, for int18n, and we need to call
@@ -86,8 +86,8 @@ drmem_strdup(const char *src, heapstat_t type)
     char *dup = NULL;
     if (src != NULL) {
         size_t len = strlen(src);
-        dup = global_alloc(len+1, type);
-        strncpy(dup, src, len+1);
+        dup = global_alloc(len + 1, type);
+        strncpy(dup, src, len + 1);
     }
     return dup;
 }
@@ -101,7 +101,7 @@ drmem_strndup(const char *src, size_t max, heapstat_t type)
     size_t sz;
     for (c = src; *c != '\0' && (c - src < max); c++)
         ; /* nothing */
-    sz = (c - src < max) ? c -src : max;
+    sz = (c - src < max) ? c - src : max;
     if (src != NULL) {
         dup = global_alloc(sz + 1, type);
         strncpy(dup, src, sz);
@@ -123,13 +123,12 @@ find_next_line(const char *start, const char *eof, const char **sol,
         newline = eof; /* handle EOF w/o trailing \n */
         next_line = newline + 1;
     } else {
-        for (next_line = newline; *next_line == '\r' || *next_line == '\n';
-             next_line++)
-            ; /* nothing */
-        if (*(newline-1) == '\r') /* always skip CR */
+        for (next_line = newline; *next_line == '\r' || *next_line == '\n'; next_line++)
+            ;                       /* nothing */
+        if (*(newline - 1) == '\r') /* always skip CR */
             newline--;
         if (skip_ws) {
-            for (; newline > line && (*(newline-1) == ' ' || *(newline-1) == '\t');
+            for (; newline > line && (*(newline - 1) == ' ' || *(newline - 1) == '\t');
                  newline--)
                 ; /* nothing */
         }

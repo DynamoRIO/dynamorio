@@ -20,35 +20,22 @@
 //
 // Event Types
 //
-typedef enum _EVENT_TYPE
-{
-    NotificationEvent,
-    SynchronizationEvent
-} EVENT_TYPE;
+typedef enum _EVENT_TYPE { NotificationEvent, SynchronizationEvent } EVENT_TYPE;
 
 //
 // Timer Types
 //
-typedef enum _TIMER_TYPE
-{
-    NotificationTimer,
-    SynchronizationTimer
-} TIMER_TYPE;
+typedef enum _TIMER_TYPE { NotificationTimer, SynchronizationTimer } TIMER_TYPE;
 
 //
 // Wait Types
 //
-typedef enum _WAIT_TYPE
-{
-    WaitAll,
-    WaitAny
-} WAIT_TYPE;
+typedef enum _WAIT_TYPE { WaitAll, WaitAny } WAIT_TYPE;
 
 //
 // Profiling Sources
 //
-typedef enum _KPROFILE_SOURCE
-{
+typedef enum _KPROFILE_SOURCE {
     ProfileTime,
     ProfileAlignmentFixup,
     ProfileTotalIssues,
@@ -76,14 +63,12 @@ typedef enum _KPROFILE_SOURCE
     ProfileMaximum
 } KPROFILE_SOURCE;
 
-
 /* from reactos/include/ndk/kdtypes.h */
 
 //
 // Debug Control Codes for NtSystemDebugcontrol
 //
-typedef enum _SYSDBG_COMMAND
-{
+typedef enum _SYSDBG_COMMAND {
     SysDbgQueryModuleInformation = 0,
     SysDbgQueryTraceInformation = 1,
     SysDbgSetTracepoint = 2,
