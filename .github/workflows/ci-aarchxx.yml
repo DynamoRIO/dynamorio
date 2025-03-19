@@ -87,7 +87,9 @@ jobs:
         run: git fetch --no-tags --depth=1 origin master
 
       - name: Create build directory
-        run: mkdir build
+        run: |
+          pwd
+          mkdir build
 
       - name: Create build environment
         run: |
@@ -129,13 +131,11 @@ jobs:
         with:
           cmakeVersion: '3.26.4'
 
-      - name: Check if format checks are disabled
-        id: are_format_checks_disabled
-        uses: ./.github/actions/are-format-checks-disabled
-
       - name: Run Suite
-        working-directory: ${{ github.workspace }}
-        run: ../suite/runsuite_wrapper.pl travis
+        working-directory: build
+        run: |
+          pwd
+          ../suite/runsuite_wrapper.pl travis
         env:
           CI_BRANCH: ${{ github.ref }}
           DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
