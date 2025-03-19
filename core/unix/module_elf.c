@@ -1450,7 +1450,9 @@ tlsdesc_resolver(struct tlsdesc_t *arg)
 
 #endif /* !ANDROID */
 
-#ifdef RISCV64
+#ifndef ANDROID
+
+#    ifdef RISCV64
 static int
 glibc_riscv_hwprobe(void *pairs, uint64_t pair_count, uint64_t cpu_count, uint64_t *cpus,
                     uint32_t flags)
@@ -1458,7 +1460,7 @@ glibc_riscv_hwprobe(void *pairs, uint64_t pair_count, uint64_t cpu_count, uint64
     return -dynamorio_syscall(SYS_riscv_hwprobe, 5, pairs, pair_count, cpu_count, cpus,
                               flags);
 }
-#endif
+#    endif
 
 /* TODO: dynamic loaders from different libc versions may provide different
  * arguments for the ifunc resolver. We may mimic the exact behavior with its
@@ -1470,22 +1472,23 @@ resolve_ifunc(app_pc resolver_pc)
     ELF_ADDR addr;
 
     /* Refer to glibc/sysdeps/ARCH/dl-irel.h for prototype of resolver */
-#ifdef RISCV64
+#    ifdef RISCV64
     typedef ELF_ADDR (*ifunc_resolver)(uint64_t hwcap, void *hwprobe, void *reserved);
     /* TODO i#3544: RISC-V doesn't define any hwcap bits, thus it's fine to
      * pass zero. Revisit when there're facilities for handling misc
      * auxvector/hwcap bits. */
     addr = ((ifunc_resolver)resolver_pc)(0, glibc_riscv_hwprobe, NULL);
-#else
+#    else
     /* FIXME i#1551: glibc passes hwcap to ifunc resolvers on AArch32
      * FIXME i#1569: glibc passes hwcap and __ifunc_arg_t structure to ifunc
      * resolvers on AArch64.
      */
     addr = ((ELF_ADDR(*)(void))resolver_pc)();
-#endif
+#    endif
 
     return addr;
 }
+#endif /* !ANDROID */
 
 /* This routine is duplicated in privload_relocate_symbol for relocating
  * dynamorio symbols in a bootstrap stage. Any update here should be also
