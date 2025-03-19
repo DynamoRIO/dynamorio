@@ -106,7 +106,7 @@ endif ()
 # since at least 2003, where adjusting the base address only requires to replace
 # the constant (default_base that we've retrieved earlier). Extra assignments
 # to currenct location counter should be avoided, which may create holes in the
-# address space, resulting an ELF header at unexpected address and break
+# address space, resulting in an ELF header at unexpected address and breaking
 # __executable_start.
 if (set_preferred)
   string(REGEX REPLACE
