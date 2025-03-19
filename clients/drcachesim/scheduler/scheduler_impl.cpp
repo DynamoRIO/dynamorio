@@ -3059,16 +3059,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t outp
 }
 
 template <typename RecordType, typename ReaderType>
-bool
-scheduler_impl_tmpl_t<RecordType, ReaderType>::is_record_kernel(output_ordinal_t output)
-{
-    int index = outputs_[output].cur_input;
-    if (index < 0)
-        return false;
-    return inputs_[index].reader->is_record_kernel();
-}
-
-template <typename RecordType, typename ReaderType>
 double
 scheduler_impl_tmpl_t<RecordType, ReaderType>::get_statistic(
     output_ordinal_t output, memtrace_stream_t::schedule_statistic_t stat) const

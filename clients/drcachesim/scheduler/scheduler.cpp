@@ -340,7 +340,7 @@ template <typename RecordType, typename ReaderType>
 bool
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::is_record_kernel() const
 {
-    return in_kernel_trace_ || scheduler_->is_record_kernel(ordinal_);
+    return in_kernel_trace_;
 }
 
 template <typename RecordType, typename ReaderType>
