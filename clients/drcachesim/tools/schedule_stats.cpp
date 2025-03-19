@@ -271,10 +271,16 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
              << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
              << shard->stream->get_instruction_ordinal() << " instrs: input "
-             << std::setw(4) << input_id << " @" << std::setw(9)
-             << shard->stream->get_input_interface()->get_record_ordinal() << " refs, "
+             << std::setw(4) << input_id << " @"
              << std::setw(9)
-             << shard->stream->get_input_interface()->get_instruction_ordinal()
+             // The interface is null when we see idle records.
+             << (shard->stream->get_input_interface() == nullptr
+                     ? -1
+                     : shard->stream->get_input_interface()->get_record_ordinal())
+             << " refs, " << std::setw(9)
+             << (shard->stream->get_input_interface() == nullptr
+                     ? -1
+                     : shard->stream->get_input_interface()->get_instruction_ordinal())
              << " instrs: " << std::setw(16) << trace_type_names[memref.marker.type];
         if (type_is_instr(memref.instr.type))
             line << " pc=" << std::hex << memref.instr.addr << std::dec;
