@@ -79,7 +79,16 @@ can select a particular reviewer if desired.
 
 \section sec_commit_messages Commit Messages
 
-Commit messages should include an initial title line separated from the body of the message by a blank line.  The title line should be a concise summary and should start with the issue number followed by a colon which is followed by the description of the issue fix.  If the issue is fixed by more than one commit, the title should instead start with the issue number followed by a space and a short issue description, then a colon, and then a description of this particular fix, with a reference to the issue at the bottom for automatic linking in Github.  In either case, the body of the message should elaborate on the contents of the commit using complete sentences.
+Commit messages should include an initial title line separated from the body of
+the message by a blank line.  The title line should be a concise summary and
+should start with the issue number followed by a colon which is followed by the
+description of the issue fix.  If there is no issue just write the summary,
+don't prefix it with, e.g., "iX:".  If the issue is fixed by more than one
+commit, the title should instead start with the issue number followed by a
+space and a short issue description, then a colon, and then a description of
+this particular fix, with a reference to the issue at the bottom for automatic
+linking in Github.  In either case, the body of the message should elaborate
+on the contents of the commit using complete sentences.
 
 For a commit that fixes an Issue, be sure to resolve the Issue with a
 message indicating the commit revision number.  If you use the exact string
