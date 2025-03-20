@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,10 +36,16 @@
 
 /* Stats to check on test exit */
 typedef struct _test_stats_t {
-    uint num_bytes_made_defined;
-    uint num_define_memory_requests;
+    uint num_bytes_made_defined_if_addressable;
+    uint num_define_memory_if_addressable_requests;
     uint num_bbs_truncated;
     uint num_instructions_truncated;
+    uint num_bytes_made_undefined;
+    uint num_bytes_made_defined;
+    uint num_bytes_checked_addressable;
+    uint num_bytes_checked_defined;
+    uint num_malloclike_requests;
+    uint num_freelike_requests;
 } test_stats_t;
 
 static test_stats_t test_stats;
@@ -58,9 +64,59 @@ handle_make_mem_defined_if_addressable(dr_vg_client_request_t *request)
 {
     dr_printf("Make %d bytes defined if addressable.\n", request->args[1]);
 
-    test_stats.num_bytes_made_defined += request->args[1];
-    test_stats.num_define_memory_requests++;
+    test_stats.num_bytes_made_defined_if_addressable += request->args[1];
+    test_stats.num_define_memory_if_addressable_requests++;
 
+    return 0;
+}
+
+static ptr_uint_t
+handle_make_mem_undefined(dr_vg_client_request_t *request)
+{
+    dr_printf("Make %d bytes undefined.\n", request->args[1]);
+    test_stats.num_bytes_made_undefined += request->args[1];
+    return 0;
+}
+
+static ptr_uint_t
+handle_make_mem_defined(dr_vg_client_request_t *request)
+{
+    dr_printf("Make %d bytes defined.\n", request->args[1]);
+    test_stats.num_bytes_made_defined += request->args[1];
+    return 0;
+}
+
+static ptr_uint_t
+handle_check_mem_is_addressable(dr_vg_client_request_t *request)
+{
+    dr_printf("Checking whether %d bytes are addressable.\n", request->args[1]);
+    test_stats.num_bytes_checked_addressable += request->args[1];
+    return 0;
+}
+
+static ptr_uint_t
+handle_check_mem_is_defined(dr_vg_client_request_t *request)
+{
+    dr_printf("Checking whether %d bytes are defined.\n", request->args[1]);
+    test_stats.num_bytes_checked_defined += request->args[1];
+    return 0;
+}
+
+static ptr_uint_t
+handle_malloclike_block(dr_vg_client_request_t *request)
+{
+    /* Parameters are: addr, size, redzone_size, is_zeroed. */
+    dr_printf("Malloclike %d bytes.\n", request->args[1]);
+    test_stats.num_malloclike_requests++;
+    return 0;
+}
+
+static ptr_uint_t
+handle_freelike_block(dr_vg_client_request_t *request)
+{
+    /* Parameters are: addr, redzone_size. */
+    dr_printf("Freelike.\n");
+    test_stats.num_freelike_requests++;
     return 0;
 }
 
@@ -110,8 +166,20 @@ exit_event(void)
     if (bb_truncation_mode)
         ASSERT(test_stats.num_instructions_truncated > 0);
 
-    dr_printf("Received %d 'define memory' requests for a total of %d bytes.\n",
-              test_stats.num_define_memory_requests, test_stats.num_bytes_made_defined);
+    dr_printf(
+        "Received %d 'define memory if addressable' requests for a total of %d bytes.\n",
+        test_stats.num_define_memory_if_addressable_requests,
+        test_stats.num_bytes_made_defined_if_addressable);
+    dr_printf("Received requests for %d bytes bytes made undefined.\n",
+              test_stats.num_bytes_made_undefined);
+    dr_printf("Received requests for %d bytes bytes made defined.\n",
+              test_stats.num_bytes_made_defined);
+    dr_printf("Received requests for %d bytes bytes checked addressable.\n",
+              test_stats.num_bytes_checked_addressable);
+    dr_printf("Received requests for %d bytes bytes checked defined.\n",
+              test_stats.num_bytes_checked_defined);
+    dr_printf("Received %d malloclike requests.\n", test_stats.num_malloclike_requests);
+    dr_printf("Received %d freelike requests.\n", test_stats.num_freelike_requests);
 }
 
 DR_EXPORT void
@@ -144,4 +212,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                     handle_running_on_valgrind);
     dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
                                     handle_make_mem_defined_if_addressable);
+    dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_UNDEFINED,
+                                    handle_make_mem_undefined);
+    dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_DEFINED, handle_make_mem_defined);
+    dr_annotation_register_valgrind(DR_VG_ID__CHECK_MEM_IS_ADDRESSABLE,
+                                    handle_check_mem_is_addressable);
+    dr_annotation_register_valgrind(DR_VG_ID__CHECK_MEM_IS_DEFINED,
+                                    handle_check_mem_is_defined);
+    dr_annotation_register_valgrind(DR_VG_ID__MALLOCLIKE_BLOCK, handle_malloclike_block);
+    dr_annotation_register_valgrind(DR_VG_ID__FREELIKE_BLOCK, handle_freelike_block);
 }
