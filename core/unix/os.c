@@ -7475,7 +7475,8 @@ pre_system_call(dcontext_t *dcontext)
             /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
              * We store the old break in the param1 slot.
              */
-            DODEBUG(dcontext->sys_param0 = (reg_t)STRIP_MEMORY_TAG(sys_param(dcontext, 0)););
+            DODEBUG(dcontext->sys_param0 =
+                        (reg_t)STRIP_MEMORY_TAG(sys_param(dcontext, 0)););
             dcontext->sys_param1 = dynamorio_syscall(SYS_brk, 1, 0);
         }
         break;
