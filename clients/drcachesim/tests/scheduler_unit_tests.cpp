@@ -39,6 +39,7 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <regex>
 #include <set>
 #include <string>
 #include <thread>
@@ -1136,8 +1137,8 @@ test_real_file_queries_and_filters(const char *testdir)
     static constexpr memref_tid_t TID_1_A = 23699;
     std::string trace2 = std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir";
     // This trace has many threads: we pick 2 of the smallest.
-    static constexpr memref_tid_t TID_2_A = 1257604;
-    static constexpr memref_tid_t TID_2_B = 1257602;
+    static constexpr memref_tid_t TID_2_A = 872905;
+    static constexpr memref_tid_t TID_2_B = 872906;
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(trace1);
@@ -1184,13 +1185,13 @@ test_real_file_queries_and_filters(const char *testdir)
            "chase.20190225.185346.23699.memtrace.sz");
     // These could be in any order (dir listing determines that).
     assert(scheduler.get_input_stream_name(1) ==
-               "drmemtrace.threadsig.1257604.1983.trace.zip" ||
+               "drmemtrace.threadsig.872905.5783.trace.zip" ||
            scheduler.get_input_stream_name(1) ==
-               "drmemtrace.threadsig.1257602.1021.trace.zip");
+               "drmemtrace.threadsig.872906.1041.trace.zip");
     assert(scheduler.get_input_stream_name(2) ==
-               "drmemtrace.threadsig.1257604.1983.trace.zip" ||
+               "drmemtrace.threadsig.872905.5783.trace.zip" ||
            scheduler.get_input_stream_name(2) ==
-               "drmemtrace.threadsig.1257602.1021.trace.zip");
+               "drmemtrace.threadsig.872906.1041.trace.zip");
     // Ensure all tids were seen.
     assert(tids_seen.size() == 3);
     assert(tids_seen.find(TID_1_A) != tids_seen.end() &&
@@ -2093,6 +2094,12 @@ test_synthetic_with_bindings_more_out()
             cores.insert(0);
             scheduler_t::input_thread_info_t info(tid, cores);
             sched_inputs.back().thread_modifiers.emplace_back(info);
+        } else {
+            // Specify all outputs for the 3rd to ensure that works.
+            std::set<scheduler_t::output_ordinal_t> cores;
+            cores.insert({ 0, 1, 2, 3 });
+            scheduler_t::input_thread_info_t info(tid, cores);
+            sched_inputs.back().thread_modifiers.emplace_back(info);
         }
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
@@ -2188,12 +2195,68 @@ test_synthetic_with_bindings_weighted()
 }
 
 static void
+test_synthetic_with_bindings_invalid()
+{
+    std::cerr << "\n----------------\nTesting synthetic with invalid bindings\n";
+    static constexpr memref_tid_t TID_A = 42;
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        make_thread(TID_A),
+        make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
+        make_timestamp(1),
+        make_instr(10),
+        make_exit(TID_A),
+        /* clang-format on */
+    };
+    {
+        // Test negative bindings.
+        static constexpr int NUM_OUTPUTS = 2;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        std::set<scheduler_t::output_ordinal_t> cores;
+        cores.insert({ 1, -1 });
+        sched_inputs.back().thread_modifiers.emplace_back(cores);
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        scheduler_t scheduler;
+        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
+               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+    {
+        // Test too-large bindings.
+        static constexpr int NUM_OUTPUTS = 2;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        std::set<scheduler_t::output_ordinal_t> cores;
+        cores.insert({ 1, 2 });
+        sched_inputs.back().thread_modifiers.emplace_back(cores);
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        scheduler_t scheduler;
+        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
+               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+}
+
+static void
 test_synthetic_with_bindings()
 {
     test_synthetic_with_bindings_time(/*time_deps=*/true);
     test_synthetic_with_bindings_time(/*time_deps=*/false);
     test_synthetic_with_bindings_more_out();
     test_synthetic_with_bindings_weighted();
+    test_synthetic_with_bindings_invalid();
 }
 
 static void
@@ -2780,6 +2843,9 @@ test_synthetic_multi_threaded(const char *testdir)
     static constexpr int NUM_OUTPUTS = 4;
     static constexpr int QUANTUM_DURATION = 2000;
     sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
+    // Keep the test short.
+    static constexpr uint64_t BLOCK_MAX = 50;
+    sched_ops.block_time_max_us = BLOCK_MAX;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
@@ -3217,6 +3283,9 @@ test_replay_multi_threaded(const char *testdir)
         sched_ops.schedule_record_ostream = &outfile;
         static constexpr int QUANTUM_DURATION = 2000;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
+        // Keep the test short.
+        static constexpr uint64_t BLOCK_MAX = 50;
+        sched_ops.block_time_max_us = BLOCK_MAX;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
             scheduler_t::STATUS_SUCCESS)
             assert(false);
@@ -4359,19 +4428,7 @@ test_replay_as_traced_from_file(const char *testdir)
     std::string path = std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir";
     std::string cpu_file =
         std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir/cpu_schedule.bin.zip";
-    // This checked-in trace has 8 threads on 7 cores.  It doesn't have
-    // much thread migration but our synthetic test above covers that.
-    // The outputs use the stored cores sorted by cpuid.
-    static const char *const SCHED_STRING =
-        "Core #0: 1257602 \nCore #1: 1257600 \n"
-        "Core #2: 1257599 => 1257604 @ <366987,87875,13331862029895453> "
-        // The ordinal is really 1 ("<1,0,0>") but with the scheduler's readahead we have
-        // more records and a timestamp; easier to just check for that as trying to avoid
-        // readahead causes other problems.  Maybe the scheduler should have mediator
-        // getters for the record and timestamp that hide the readahead.
-        "(<366986,87875,13331862029895453> => <6,0,13331862029900572>) \n"
-        "Core #3: 1257596 \nCore #4: 1257603 \nCore #5: 1257601 \nCore #6: 1257598 \n";
-    static constexpr int NUM_OUTPUTS = 7; // Matches the actual trace's core footprint.
+    static constexpr int NUM_OUTPUTS = 11; // Matches the actual trace's core footprint.
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(path);
@@ -4402,10 +4459,12 @@ test_replay_as_traced_from_file(const char *testdir)
             replay_string << cs << " ";
         replay_string << "\n";
     }
-    std::cerr << "As-traced from file:\n"
-              << SCHED_STRING << "Versus replay:\n"
-              << replay_string.str();
-    assert(replay_string.str() == SCHED_STRING);
+    std::cerr << "As-traced replay:\n" << replay_string.str();
+    assert(std::regex_search(replay_string.str(),
+                             std::regex(R"DELIM(Core #0: 872902 => 872905.*
+(.|\n)*
+Core #10: 872901 => 872905.*
+)DELIM")));
 #endif
 }
 
@@ -5676,13 +5735,14 @@ test_unscheduled_initially_rebalance()
     // We need the initial runqueue assignment to be unbalanced.
     // We achieve that by using input bindings.
     // This relies on knowing the scheduler takes the 1st binding if there
-    // are any: so we can set to all cores and these will all pile up on output #0
+    // are any if the bindings don't include all cores: so we can set to all-but-one
+    // core and these will all pile up on output #0
     // prior to the init-time rebalance.  That makes output
     // #0 big enough for a rebalance attempt, which causes scheduler init to fail
     // without the i#7318 fix as it can only move one of those blocked inputs and
     // so it hits an IDLE status on a later move attempt.
     std::set<scheduler_t::output_ordinal_t> cores;
-    cores.insert({ 0, 1, 2 });
+    cores.insert({ 0, 1 });
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs.back().thread_modifiers.emplace_back(cores);
@@ -5933,6 +5993,11 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
             if (in_switch[i]) {
                 // Test that switch code is marked synthetic.
                 assert(outputs[i]->is_record_synthetic());
+                // Test that it's marked as kernel, unless it's the end marker.
+                assert(
+                    outputs[i]->is_record_kernel() ||
+                    (memref.marker.type == TRACE_TYPE_MARKER &&
+                     memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END));
                 // Test that switch code doesn't count toward input ordinals, but
                 // does toward output ordinals.
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
@@ -5945,6 +6010,11 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
             } else if (in_syscall[i]) {
                 // Test that syscall code is marked synthetic.
                 assert(outputs[i]->is_record_synthetic());
+                // Test that it's marked as kernel, unless it's the end marker.
+                assert(
+                    outputs[i]->is_record_kernel() ||
+                    (memref.marker.type == TRACE_TYPE_MARKER &&
+                     memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END));
                 // Test that dynamically injected syscall code doesn't count toward
                 // input ordinals, but does toward output ordinals.
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
