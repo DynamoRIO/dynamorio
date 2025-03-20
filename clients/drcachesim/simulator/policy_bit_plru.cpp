@@ -30,42 +30,83 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
+#include "policy_bit_plru.h"
 
-#ifndef _TLB_H_
-#define _TLB_H_ 1
-
-#include <optional>
 #include <random>
+#include <string>
+#include <vector>
 
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
-public:
-    tlb_t(const std::string &name = "tlb");
+policy_bit_plru_t::policy_bit_plru_t(int num_sets, int associativity, int seed)
+    : cache_replacement_policy_t(num_sets, associativity)
+    , num_ones_(num_sets, 0)
+    , gen_(seed == -1 ? std::random_device()() : seed)
+{
+    // Initialize the bit vector for each set.
+    plru_bits_.reserve(num_sets);
+    for (int i = 0; i < num_sets; ++i) {
+        plru_bits_.emplace_back(associativity, false);
+    }
+}
 
-    void
-    request(const memref_t &memref) override;
+void
+policy_bit_plru_t::access_update(int set_idx, int way)
+{
+    // Set the bit for the accessed way.
+    if (!plru_bits_[set_idx][way]) {
+        plru_bits_[set_idx][way] = true;
+        num_ones_[set_idx]++;
+    }
+    if (num_ones_[set_idx] < associativity_) {
+        // Finished.
+        return;
+    }
+    // If all bits are set, reset them.
+    for (int i = 0; i < associativity_; ++i) {
+        plru_bits_[set_idx][i] = false;
+    }
+    num_ones_[set_idx] = 1;
+    plru_bits_[set_idx][way] = true;
+}
 
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
+void
+policy_bit_plru_t::eviction_update(int set_idx, int way)
+{
+    // Nothing to update, when the way is accessed we will update it.
+}
 
-protected:
-    void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
-};
+void
+policy_bit_plru_t::invalidation_update(int set_idx, int way)
+{
+    // Nothing to update, when the way is accessed we will update it.
+}
+
+int
+policy_bit_plru_t::get_next_way_to_replace(int set_idx) const
+{
+    std::vector<int> unset_bits;
+    for (int i = 0; i < associativity_; ++i) {
+        if (!plru_bits_[set_idx][i]) {
+            unset_bits.push_back(i);
+        }
+    }
+
+    if (unset_bits.empty()) {
+        // Should not reach here.
+        return -1;
+    }
+    return unset_bits[gen_() % unset_bits.size()];
+}
+
+std::string
+policy_bit_plru_t::get_name() const
+{
+    return "BIT_PLRU";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _TLB_H_ */

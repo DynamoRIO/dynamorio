@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,42 +30,41 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
+#include "create_cache_replacement_policy.h"
 
-#ifndef _TLB_H_
-#define _TLB_H_ 1
+#include <memory>
+#include <string>
 
-#include <optional>
-#include <random>
-
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include "cache_replacement_policy.h"
+#include "policy_bit_plru.h"
+#include "policy_fifo.h"
+#include "policy_lfu.h"
+#include "policy_lru.h"
+#include "options.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
-public:
-    tlb_t(const std::string &name = "tlb");
-
-    void
-    request(const memref_t &memref) override;
-
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
-
-protected:
-    void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
-};
+std::unique_ptr<cache_replacement_policy_t>
+create_cache_replacement_policy(const std::string &policy, int num_sets,
+                                int associativity)
+{
+    // default LRU
+    if (policy.empty() || policy == REPLACE_POLICY_LRU) {
+        return std::unique_ptr<policy_lru_t>(new policy_lru_t(num_sets, associativity));
+    }
+    if (policy == REPLACE_POLICY_LFU) {
+        return std::unique_ptr<policy_lfu_t>(new policy_lfu_t(num_sets, associativity));
+    }
+    if (policy == REPLACE_POLICY_FIFO) {
+        return std::unique_ptr<policy_fifo_t>(new policy_fifo_t(num_sets, associativity));
+    }
+    if (policy == REPLACE_POLICY_BIT_PLRU) {
+        return std::unique_ptr<policy_bit_plru_t>(
+            new policy_bit_plru_t(num_sets, associativity));
+    }
+    return nullptr;
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _TLB_H_ */

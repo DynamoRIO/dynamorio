@@ -30,42 +30,63 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
+#include "policy_lfu.h"
 
-#ifndef _TLB_H_
-#define _TLB_H_ 1
+#include <string>
+#include <vector>
 
-#include <optional>
-#include <random>
-
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
-public:
-    tlb_t(const std::string &name = "tlb");
+policy_lfu_t::policy_lfu_t(int num_sets, int associativity)
+    : cache_replacement_policy_t(num_sets, associativity)
+{
+    access_counts_.reserve(num_sets);
+    for (int i = 0; i < num_sets; ++i) {
+        access_counts_.emplace_back(associativity, 0);
+    }
+}
 
-    void
-    request(const memref_t &memref) override;
+void
+policy_lfu_t::access_update(int set_idx, int way)
+{
+    access_counts_[set_idx][way]++;
+}
 
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
+void
+policy_lfu_t::eviction_update(int set_idx, int way)
+{
+    access_counts_[set_idx][way] = 0;
+}
 
-protected:
-    void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
-};
+void
+policy_lfu_t::invalidation_update(int set_idx, int way)
+{
+    access_counts_[set_idx][way] = 0;
+}
+
+int
+policy_lfu_t::get_next_way_to_replace(int set_idx) const
+{
+    // Find the way with the minimum frequency counter.
+    int min_freq = access_counts_[set_idx][0];
+    int min_way = 0;
+    for (int i = 1; i < associativity_; ++i) {
+        if (access_counts_[set_idx][i] < min_freq) {
+            min_freq = access_counts_[set_idx][i];
+            min_way = i;
+        }
+    }
+    return min_way;
+}
+
+std::string
+policy_lfu_t::get_name() const
+{
+    return "LFU";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _TLB_H_ */

@@ -30,54 +30,77 @@
  * DAMAGE.
  */
 
-/* cache_fifo: represents a single hardware cache with FIFO algo.
- */
+#include "policy_lru.h"
 
-#ifndef _CACHE_FIFO_H_
-#define _CACHE_FIFO_H_ 1
-
+#include <algorithm>
 #include <string>
-#include <vector>
 
-#include "cache.h"
-#include "prefetcher.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class snoop_filter_t;
-
-class cache_fifo_t : public cache_t {
-public:
-    explicit cache_fifo_t(const std::string &name = "cache_fifo")
-        : cache_t(name)
-    {
+policy_lru_t::policy_lru_t(int num_sets, int associativity)
+    : cache_replacement_policy_t(num_sets, associativity)
+{
+    // Initialize the LRU list for each set.
+    lru_counters_.reserve(num_sets);
+    for (int i = 0; i < num_sets; ++i) {
+        lru_counters_.emplace_back(associativity, 1);
     }
-    bool
-    init(int associativity, int64_t block_size, int64_t total_size,
-         caching_device_t *parent, caching_device_stats_t *stats,
-         prefetcher_t *prefetcher = nullptr,
-         cache_inclusion_policy_t inclusion_policy =
-             cache_inclusion_policy_t::NON_INC_NON_EXC,
-         bool coherent_cache = false, int id = -1, snoop_filter_t *snoop_filter = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
+}
 
-    std::string
-    get_replace_policy() const override
-    {
-        return "FIFO";
+void
+policy_lru_t::access_update(int set_idx, int way)
+{
+    int count = lru_counters_[set_idx][way];
+    // Optimization: return early if it is a repeated access.
+    if (count == 0)
+        return;
+    // We inc all the counters that are not larger than count for LRU.
+    for (int i = 0; i < associativity_; ++i) {
+        if (i != way && lru_counters_[set_idx][i] <= count)
+            lru_counters_[set_idx][i]++;
     }
+    // Clear the counter for LRU.
+    lru_counters_[set_idx][way] = 0;
+}
 
-protected:
-    void
-    access_update(int block_idx, int way) override;
-    int
-    replace_which_way(int block_idx) override;
-    int
-    get_next_way_to_replace(const int block_idx) const override;
-};
+void
+policy_lru_t::eviction_update(int set_idx, int way)
+{
+    // Nothing to update, when the way is accessed we will update it -
+    // If the way was evicted, it is already at the end of the list.
+}
+
+void
+policy_lru_t::invalidation_update(int set_idx, int way)
+{
+    int max_counter =
+        *std::max_element(lru_counters_[set_idx].begin(), lru_counters_[set_idx].end());
+    lru_counters_[set_idx][way] = max_counter + 1;
+}
+
+int
+policy_lru_t::get_next_way_to_replace(int set_idx) const
+{
+    // We implement LRU by picking the slot with the largest counter value.
+    int max_counter = 0;
+    int max_way = 0;
+    for (int way = 0; way < associativity_; ++way) {
+        if (lru_counters_[set_idx][way] > max_counter) {
+            max_counter = lru_counters_[set_idx][way];
+            max_way = way;
+        }
+    }
+    return max_way;
+}
+
+std::string
+policy_lru_t::get_name() const
+{
+    return "LRU";
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif /* _CACHE_FIFO_H_ */

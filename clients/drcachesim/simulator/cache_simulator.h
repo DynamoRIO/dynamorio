@@ -110,9 +110,6 @@ public:
     get_knobs() const;
 
 protected:
-    // Create a cache_t object with a specific replacement policy.
-    virtual cache_t *
-    create_cache(const std::string &name, const std::string &policy);
     prefetcher_t *
     get_prefetcher(std::string prefetcher_name);
 

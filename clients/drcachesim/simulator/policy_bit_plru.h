@@ -30,42 +30,50 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
+#ifndef _BIT_PLRU_H_
+#define _BIT_PLRU_H_
 
-#ifndef _TLB_H_
-#define _TLB_H_ 1
-
-#include <optional>
 #include <random>
+#include <string>
+#include <vector>
 
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
+/**
+ * A replacement policy that uses a bit per way to track access frequency.
+ *
+ * On access, a way's bit is set to 1. Once all bits are set, the whole set's bits
+ * are set to 0. A random way with a 0 bit is chosen for replacement.
+ */
+class policy_bit_plru_t : public cache_replacement_policy_t {
 public:
-    tlb_t(const std::string &name = "tlb");
-
+    /// If seed is -1, a random seed will be used.
+    policy_bit_plru_t(int num_sets, int associativity, int seed = -1);
     void
-    request(const memref_t &memref) override;
-
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
-
-protected:
+    access_update(int set_idx, int way) override;
     void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
+    eviction_update(int set_idx, int way) override;
+    int
+    get_next_way_to_replace(int set_idx) const override;
+    void
+    invalidation_update(int set_idx, int way) override;
+    std::string
+    get_name() const override;
+
+    ~policy_bit_plru_t() override = default;
+
+private:
+    // A bit per way for each line.
+    std::vector<std::vector<bool>> plru_bits_;
+    // The amount of bits set to 1 for each line.
+    std::vector<int> num_ones_;
+    mutable std::mt19937 gen_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _TLB_H_ */
+#endif // _BIT_PLRU_H_

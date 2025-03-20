@@ -30,42 +30,23 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
+#ifndef _CREATE_CACHE_REPLACEMENT_POLICY_H_
+#define _CREATE_CACHE_REPLACEMENT_POLICY_H_ 1
 
-#ifndef _TLB_H_
-#define _TLB_H_ 1
+#include <memory>
+#include <string>
 
-#include <optional>
-#include <random>
-
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
-public:
-    tlb_t(const std::string &name = "tlb");
-
-    void
-    request(const memref_t &memref) override;
-
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
-
-protected:
-    void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
-};
+/// Initializes and returns a specific replacement policy.
+std::unique_ptr<cache_replacement_policy_t>
+create_cache_replacement_policy(const std::string &policy, int num_sets,
+                                int associativity);
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _TLB_H_ */
+#endif /* _CREATE_CACHE_REPLACEMENT_POLICY_H_ */
