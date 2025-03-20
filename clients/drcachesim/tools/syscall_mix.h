@@ -73,8 +73,9 @@ public:
         std::unordered_map<int, int64_t> syscall_trace_counts;
         // Failure code counts, but only for system calls traced
         // with -record_syscall where TRACE_MARKER_TYPE_SYSCALL_FAILED
-        // is recorded.
-        std::unordered_map<int64_t, int64_t> syscall_errno_counts;
+        // is recorded. That marker stores 32-bit errno values, which
+        // is our key here.
+        std::unordered_map<int, int64_t> syscall_errno_counts;
     };
 
     statistics_t
