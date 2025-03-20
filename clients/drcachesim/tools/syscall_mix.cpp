@@ -127,7 +127,8 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         ++shard->stats.syscall_trace_counts[syscall_num];
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_FAILED) {
-        ++shard->stats.syscall_errno_counts[memref.marker.marker_value];
+        ++shard->stats
+              .syscall_errno_counts[static_cast<int64_t>(memref.marker.marker_value)];
     }
     return true;
 }
