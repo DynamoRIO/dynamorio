@@ -189,10 +189,10 @@ syscall_mix_t::print_results()
     if (!total.syscall_errno_counts.empty()) {
         std::cerr << std::setw(15) << "failure count"
                   << " : " << std::setw(9) << "failure code\n";
-        std::vector<std::pair<int, int64_t>> sorted(total.syscall_errno_counts.begin(),
-                                                    total.syscall_errno_counts.end());
-        std::sort(sorted.begin(), sorted.end(), cmp_second_val);
-        for (const auto &keyvals : sorted) {
+        std::vector<std::pair<int, int64_t>> sort_errno(
+            total.syscall_errno_counts.begin(), total.syscall_errno_counts.end());
+        std::sort(sort_errno.begin(), sort_errno.end(), cmp_second_val);
+        for (const auto &keyvals : sort_errno) {
             std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                       << keyvals.first << "\n";
         }
