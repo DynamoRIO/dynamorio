@@ -74,12 +74,12 @@ typedef enum _dr_valgrind_request_id_t {
     DR_VG_ID__RUNNING_ON_VALGRIND,
     /**
      * Request an immediate memory scan to look for leaks.
-     * Not currently implemented in core DR.
+     * Not relevant to core DR; provided for client use.
      */
     DR_VG_ID__DO_LEAK_CHECK,
     /**
      * Indicate that the specified range of addresses should be considered defined if
-     * it is addressable. Not currently implemented in core DR.
+     * it is addressable. Not relevant to core DR; provided for client use.
      */
     DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
     /**
@@ -91,12 +91,12 @@ typedef enum _dr_valgrind_request_id_t {
     DR_VG_ID__DISCARD_TRANSLATIONS,
     /**
      * Indicate that the specified range of addresses should be considered undefined.
-     * Not currently implemented in core DR.
+     * Not relevant to core DR; provided for client use.
      */
     DR_VG_ID__MAKE_MEM_UNDEFINED,
     /**
      * Indicate that the specified range of addresses should be considered defined.
-     * Not currently implemented in core DR.
+     * Not relevant to core DR; provided for client use.
      */
     DR_VG_ID__MAKE_MEM_DEFINED,
     /**
@@ -110,13 +110,12 @@ typedef enum _dr_valgrind_request_id_t {
      */
     DR_VG_ID__CHECK_MEM_IS_DEFINED,
     /**
-     * Indicate that the specified range of addresses should be considered defined if
-     * it is addressable. Not currently implemented in core DR.
+     * Identifies a custom heap allocation. Not relevant to core DR; provided for client
+     * use.
      */
     DR_VG_ID__MALLOCLIKE_BLOCK,
     /**
-     * Indicate that the specified range of addresses should be considered defined if
-     * it is addressable. Not currently implemented in core DR.
+     * Identifies a custom heap free. Not relevant to core DR; provided for client use.
      */
     DR_VG_ID__FREELIKE_BLOCK,
     /**
