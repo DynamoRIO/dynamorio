@@ -94,13 +94,15 @@ do_some_syscalls()
     // Make some failing sigaction syscalls, which we record such that
     // syscall_mix will count the failure codes.
     // We bypass libc to ensure these make it to the syscall itself.
+    // We deliberately do not include templates for these, as a test of
+    // syscalls without templates.
     constexpr int KERNEL_SIGSET_SIZE = 8;
-    struct sigaction *act;
+    struct sigaction act;
     int res =
-        syscall(SYS_rt_sigaction, /*too large*/ 1280, act, nullptr, KERNEL_SIGSET_SIZE);
+        syscall(SYS_rt_sigaction, /*too large*/ 1280, &act, nullptr, KERNEL_SIGSET_SIZE);
     assert(res != 0 && errno == EINVAL);
     res =
-        syscall(SYS_rt_sigaction, /*too large*/ 12800, act, nullptr, KERNEL_SIGSET_SIZE);
+        syscall(SYS_rt_sigaction, /*too large*/ 12800, &act, nullptr, KERNEL_SIGSET_SIZE);
     assert(res != 0 && errno == EINVAL);
     res = syscall(SYS_rt_sigaction, SIGUSR1, nullptr,
                   /*bad address*/ reinterpret_cast<struct sigaction *>(4),
