@@ -64,7 +64,12 @@ foreach rule $rules {
         # tools/* in this category is excluded via regex.
         # TODO i#7303: Remove drmf and drsyscall files when formatting errrors
         # are fixed.
-        .*/ext/drmf/.*
+        .*/ext/drmf/common/.*
+        .*/ext/drmf/framework/.*
+        .*/ext/drmf/framework/samples/.*
+        .*/ext/drmf/wininc/.*
+        .*/ext/drmf/wininc/dxsdk/.*
+        .*/ext/drmf/wininc/psdk/.*
         .*/ext/drsyscall/.*
     }
 }
