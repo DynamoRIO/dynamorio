@@ -85,6 +85,7 @@ gettid(void)
 static int
 do_some_syscalls()
 {
+    // NOCHECK add failing syscalls; add -record_syscall; run syscall_mix on result
     getpid();
     gettid();
     std::cerr << "Done with system calls\n";

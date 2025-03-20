@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,6 +74,10 @@ protected:
         virtual ~shard_data_t() = default;
         std::unordered_map<int, int64_t> syscall_counts;
         std::unordered_map<int, int64_t> syscall_trace_counts;
+        // Failure code counts, but only for system calls traced
+        // with -record_syscall where TRACE_MARKER_TYPE_SYSCALL_FAILED
+        // is recorded.
+        std::unordered_map<int, int64_t> syscall_errno_counts;
         std::string error;
     };
 

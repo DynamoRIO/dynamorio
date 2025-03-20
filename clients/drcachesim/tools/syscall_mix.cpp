@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -125,6 +125,9 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
         ++shard->syscall_trace_counts[syscall_num];
+    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+               memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_FAILED) {
+        ++shard->syscall_errno_counts[memref.marker.marker_value];
     }
     return true;
 }
@@ -168,6 +171,9 @@ syscall_mix_t::print_results()
             for (const auto &keyvals : shard.second->syscall_trace_counts) {
                 total.syscall_trace_counts[keyvals.first] += keyvals.second;
             }
+            for (const auto &keyvals : shard.second->syscall_errno_counts) {
+                total.syscall_errno_counts[keyvals.first] += keyvals.second;
+            }
         }
     }
     std::cerr << TOOL_NAME << " results:\n";
@@ -192,6 +198,15 @@ syscall_mix_t::print_results()
             // XXX: It would be nicer to print the system call name string instead
             // of its number.
             std::cerr << std::setw(20) << keyvals.second << " : " << std::setw(9)
+                      << keyvals.first << "\n";
+        }
+    }
+    if (!total.syscall_errno_counts.empty()) {
+        std::vector<std::pair<int, int64_t>> sorted(total.syscall_errno_counts.begin(),
+                                                    total.syscall_errno_counts.end());
+        std::sort(sorted.begin(), sorted.end(), cmp_second_val);
+        for (const auto &keyvals : sorted) {
+            std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                       << keyvals.first << "\n";
         }
     }

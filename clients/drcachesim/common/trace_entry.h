@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -570,7 +570,7 @@ typedef enum {
     /**
      * This marker is emitted for system calls whose parameters are traced with
      * -record_syscall.  It is emitted immediately after #TRACE_MARKER_TYPE_FUNC_RETVAL
-     * if prior the system call (whose id is specified by the closest previous
+     * if the prior system call (whose id is specified by the closest previous
      * #TRACE_MARKER_TYPE_FUNC_ID marker entry) failed.  Whether it failed is obtained
      * from dr_syscall_get_result_ex() via the "succeeded" field of
      * #dr_syscall_result_info_t.  See the corresponding documentation for caveats about
