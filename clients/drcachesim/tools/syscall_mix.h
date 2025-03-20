@@ -68,16 +68,23 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
-protected:
-    struct shard_data_t {
-        // Provide a virtual destructor to allow subclassing.
-        virtual ~shard_data_t() = default;
+    struct statistics_t {
         std::unordered_map<int, int64_t> syscall_counts;
         std::unordered_map<int, int64_t> syscall_trace_counts;
         // Failure code counts, but only for system calls traced
         // with -record_syscall where TRACE_MARKER_TYPE_SYSCALL_FAILED
         // is recorded.
         std::unordered_map<int, int64_t> syscall_errno_counts;
+    };
+
+    statistics_t
+    get_total_statistics() const;
+
+protected:
+    struct shard_data_t {
+        // Provide a virtual destructor to allow subclassing.
+        virtual ~shard_data_t() = default;
+        statistics_t stats;
         std::string error;
     };
 

@@ -117,17 +117,17 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 #ifdef X64
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
-        ++shard->syscall_counts[syscall_num];
+        ++shard->stats.syscall_counts[syscall_num];
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START) {
         int syscall_num = static_cast<int>(memref.marker.marker_value);
 #ifdef X64
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
-        ++shard->syscall_trace_counts[syscall_num];
+        ++shard->stats.syscall_trace_counts[syscall_num];
     } else if (memref.marker.type == TRACE_TYPE_MARKER &&
                memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_FAILED) {
-        ++shard->syscall_errno_counts[memref.marker.marker_value];
+        ++shard->stats.syscall_errno_counts[memref.marker.marker_value];
     }
     return true;
 }
@@ -160,22 +160,7 @@ cmp_second_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &
 bool
 syscall_mix_t::print_results()
 {
-    shard_data_t total;
-    if (shard_map_.empty()) {
-        total = serial_shard_;
-    } else {
-        for (const auto &shard : shard_map_) {
-            for (const auto &keyvals : shard.second->syscall_counts) {
-                total.syscall_counts[keyvals.first] += keyvals.second;
-            }
-            for (const auto &keyvals : shard.second->syscall_trace_counts) {
-                total.syscall_trace_counts[keyvals.first] += keyvals.second;
-            }
-            for (const auto &keyvals : shard.second->syscall_errno_counts) {
-                total.syscall_errno_counts[keyvals.first] += keyvals.second;
-            }
-        }
-    }
+    statistics_t total = get_total_statistics();
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << "syscall count"
               << " : " << std::setw(9) << "syscall_num\n";
@@ -202,6 +187,8 @@ syscall_mix_t::print_results()
         }
     }
     if (!total.syscall_errno_counts.empty()) {
+        std::cerr << std::setw(15) << "failure count"
+                  << " : " << std::setw(9) << "failure code\n";
         std::vector<std::pair<int, int64_t>> sorted(total.syscall_errno_counts.begin(),
                                                     total.syscall_errno_counts.end());
         std::sort(sorted.begin(), sorted.end(), cmp_second_val);
@@ -211,6 +198,28 @@ syscall_mix_t::print_results()
         }
     }
     return true;
+}
+
+syscall_mix_t::statistics_t
+syscall_mix_t::get_total_statistics() const
+{
+    statistics_t total;
+    if (shard_map_.empty()) {
+        total = serial_shard_.stats;
+    } else {
+        for (const auto &shard : shard_map_) {
+            for (const auto &keyvals : shard.second->stats.syscall_counts) {
+                total.syscall_counts[keyvals.first] += keyvals.second;
+            }
+            for (const auto &keyvals : shard.second->stats.syscall_trace_counts) {
+                total.syscall_trace_counts[keyvals.first] += keyvals.second;
+            }
+            for (const auto &keyvals : shard.second->stats.syscall_errno_counts) {
+                total.syscall_errno_counts[keyvals.first] += keyvals.second;
+            }
+        }
+    }
+    return total;
 }
 
 } // namespace drmemtrace

@@ -40,6 +40,7 @@
 
 #include "analyzer.h"
 #include "tools/basic_counts.h"
+#include "tools/syscall_mix.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
 #include "drmemtrace/raw2trace.h"
@@ -48,9 +49,11 @@
 #include "scheduler.h"
 
 #include <cassert>
+#include <errno.h>
 #include <unistd.h>
 #include <fstream>
 #include <iostream>
+#include <signal.h>
 #include <string>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -85,9 +88,25 @@ gettid(void)
 static int
 do_some_syscalls()
 {
-    // NOCHECK add failing syscalls; add -record_syscall; run syscall_mix on result
     getpid();
     gettid();
+
+    // Make some failing sigaction syscalls, which we record such that
+    // syscall_mix will count the failure codes.
+    // We bypass libc to ensure these make it to the syscall itself.
+    constexpr int KERNEL_SIGSET_SIZE = 8;
+    struct sigaction *act;
+    int res =
+        syscall(SYS_rt_sigaction, /*too large*/ 1280, act, nullptr, KERNEL_SIGSET_SIZE);
+    assert(res != 0 && errno == EINVAL);
+    res =
+        syscall(SYS_rt_sigaction, /*too large*/ 12800, act, nullptr, KERNEL_SIGSET_SIZE);
+    assert(res != 0 && errno == EINVAL);
+    res = syscall(SYS_rt_sigaction, SIGUSR1, nullptr,
+                  /*bad address*/ reinterpret_cast<struct sigaction *>(4),
+                  KERNEL_SIGSET_SIZE);
+    assert(res != 0 && errno == EFAULT);
+
     std::cerr << "Done with system calls\n";
     return 1;
 }
@@ -249,12 +268,15 @@ postprocess(void *dr_context, std::string syscall_trace_template_file,
 }
 
 static basic_counts_t::counters_t
-get_basic_counts(const std::string &trace_dir)
+get_basic_counts(const std::string &trace_dir, syscall_mix_t::statistics_t &syscall_stats)
 {
     auto basic_counts_tool =
         std::unique_ptr<basic_counts_t>(new basic_counts_t(/*verbose=*/0));
+    auto syscall_mix_tool =
+        std::unique_ptr<syscall_mix_t>(new syscall_mix_t(/*verbose=*/0));
     std::vector<analysis_tool_t *> tools;
     tools.push_back(basic_counts_tool.get());
+    tools.push_back(syscall_mix_tool.get());
     analyzer_t analyzer(trace_dir, &tools[0], static_cast<int>(tools.size()));
     if (!analyzer) {
         FATAL_ERROR("failed to initialize analyzer: %s",
@@ -263,6 +285,7 @@ get_basic_counts(const std::string &trace_dir)
     if (!analyzer.run()) {
         FATAL_ERROR("failed to run analyzer: %s", analyzer.get_error_string().c_str());
     }
+    syscall_stats = syscall_mix_tool->get_total_statistics();
     return basic_counts_tool->get_total_counts();
 }
 
@@ -270,8 +293,9 @@ static void
 gather_trace()
 {
     std::cerr << "Collecting a trace...\n";
-    if (setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline",
-               1 /*override*/) != 0)
+    std::string ops = "-stderr_mask 0xc -client_lib ';;-offline -record_syscall " +
+        std::to_string(SYS_rt_sigaction) + "|4";
+    if (setenv("DYNAMORIO_OPTIONS", ops.c_str(), 1 /*override*/) != 0)
         std::cerr << "failed to set env var!\n";
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
@@ -475,7 +499,9 @@ test_template_with_repstr(void *dr_context)
 
     std::string syscall_trace_template =
         write_system_call_template_with_repstr(dr_context);
-    basic_counts_t::counters_t template_counts = get_basic_counts(syscall_trace_template);
+    syscall_mix_t::statistics_t syscall_stats;
+    basic_counts_t::counters_t template_counts =
+        get_basic_counts(syscall_trace_template, syscall_stats);
     if (!(template_counts.instrs == 1 &&
           template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
           template_counts.encodings == REP_MOVS_COUNT &&
@@ -489,11 +515,13 @@ test_template_with_repstr(void *dr_context)
                   << ", #stores: " << template_counts.stores << "\n";
         return 1;
     }
+    assert(syscall_stats.syscall_errno_counts.empty());
 
     std::string trace_dir = postprocess(dr_context, syscall_trace_template,
                                         /*expected_injected_syscall_count=*/1, "repstr");
 
-    basic_counts_t::counters_t final_trace_counts = get_basic_counts(trace_dir);
+    basic_counts_t::counters_t final_trace_counts =
+        get_basic_counts(trace_dir, syscall_stats);
     if (final_trace_counts.kernel_instrs != 1 ||
         final_trace_counts.kernel_nofetch_instrs != REP_MOVS_COUNT - 1) {
         std::cerr << "Unexpected counts in the final trace with repstr (#instr="
@@ -502,6 +530,10 @@ test_template_with_repstr(void *dr_context)
                   << "\n";
         return 1;
     }
+    assert(!syscall_stats.syscall_errno_counts.empty());
+    assert(syscall_stats.syscall_errno_counts[EINVAL] = 2);
+    assert(syscall_stats.syscall_errno_counts[EFAULT] = 1);
+
     std::cerr << "Done with test.\n";
     return 0;
 }
@@ -514,7 +546,9 @@ test_trace_templates(void *dr_context)
     // The following template is also used by the postcmd in cmake which runs the
     // invariant checker on a trace injected with these templates.
     std::string syscall_trace_template = write_system_call_template(dr_context);
-    basic_counts_t::counters_t template_counts = get_basic_counts(syscall_trace_template);
+    syscall_mix_t::statistics_t syscall_stats;
+    basic_counts_t::counters_t template_counts =
+        get_basic_counts(syscall_trace_template, syscall_stats);
     if (!(template_counts.instrs == 2 && template_counts.instrs_nofetch == 0 &&
           template_counts.encodings == 2 && template_counts.loads == 1 &&
           template_counts.stores == 0 &&
@@ -539,7 +573,8 @@ test_trace_templates(void *dr_context)
     if (!success) {
         return 1;
     }
-    basic_counts_t::counters_t final_trace_counts = get_basic_counts(trace_dir);
+    basic_counts_t::counters_t final_trace_counts =
+        get_basic_counts(trace_dir, syscall_stats);
     if (final_trace_counts.kernel_instrs != 2) {
         std::cerr << "Unexpected kernel instr count in the final trace ("
                   << final_trace_counts.kernel_instrs << ")\n";
