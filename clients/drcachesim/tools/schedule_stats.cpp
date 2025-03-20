@@ -414,7 +414,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
             ++shard->counters.syscalls;
             shard->saw_syscall = true;
-            shard->last_syscall_number = memref.marker.marker_value;
+            shard->last_syscall_number = static_cast<int>(memref.marker.marker_value);
         } else if (memref.marker.marker_type ==
                    TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
             ++shard->counters.maybe_blocking_syscalls;
