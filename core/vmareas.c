@@ -917,8 +917,6 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, uint vm_flags, uint f
             void *data _IF_DEBUG(const char *comment))
 {
     int i, j, diff;
-    start = STRIP_MEMORY_TAG(start);
-    end = STRIP_MEMORY_TAG(end);
     /* if we have overlap, we extend an existing area -- else we add a new area */
     int overlap_start = -1, overlap_end = -1;
     DEBUG_DECLARE(uint flagignore;)
@@ -1333,8 +1331,6 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
      * custom.frags and not custom.client
      */
     bool official_coarse_vector = (v == executable_areas);
-    start = STRIP_MEMORY_TAG(start);
-    end = STRIP_MEMORY_TAG(end);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
     LOG(GLOBAL, LOG_VMAREAS, 4, "in remove_vm_area " PFX " " PFX "\n", start, end);
@@ -1507,8 +1503,6 @@ static bool
 binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*OUT*/,
               int *index /*OUT*/, bool first)
 {
-    start = STRIP_MEMORY_TAG(start);
-    end = STRIP_MEMORY_TAG(end);
     /* BINARY SEARCH -- assumes the vector is kept sorted by add & remove! */
     int min = 0;
     int max = v->length - 1;
@@ -1585,8 +1579,6 @@ lookup_addr(vm_area_vector_t *v, app_pc addr, vm_area_t **area)
 static bool
 vm_area_overlap(vm_area_vector_t *v, app_pc start, app_pc end)
 {
-    start = STRIP_MEMORY_TAG(start);
-    end = STRIP_MEMORY_TAG(end);
     /* binary search asserts v is protected */
     return binary_search(v, start, end, NULL, NULL, false);
 }
@@ -1944,9 +1936,6 @@ vmvector_add_replace(vm_area_vector_t *v, app_pc start, app_pc end, void *data)
     void *old_data = NULL;
     bool release_lock; /* 'true' means this routine needs to unlock */
 
-    start = STRIP_MEMORY_TAG(start);
-    end = STRIP_MEMORY_TAG(end);
-
     LOCK_VECTOR(v, release_lock, write);
     ASSERT_OWN_WRITE_LOCK(SHOULD_LOCK_VECTOR(v), &v->lock);
     overlap = lookup_addr(v, start, &area);
@@ -2109,8 +2098,6 @@ vmvector_modify_data(vm_area_vector_t *v, app_pc start, app_pc end, void *data)
     bool overlap;
     vm_area_t *area = NULL;
     bool release_lock; /* 'true' means this routine needs to unlock */
-    start = STRIP_MEMORY_TAG(start);
-    end = STRIP_MEMORY_TAG(end);
 
     LOCK_VECTOR(v, release_lock, write);
     ASSERT_OWN_WRITE_LOCK(SHOULD_LOCK_VECTOR(v), &v->lock);
@@ -11671,164 +11658,6 @@ aslr_report_violation(app_pc execution_fault_pc, security_option_t handling_poli
 #ifdef STANDALONE_UNIT_TEST
 #    define INT_TO_PC(x) ((app_pc)(ptr_uint_t)(x))
 
-#    if defined(AARCH64)
-#        define TAG_INT_TO_PC(tag, addr) \
-            INT_TO_PC(((ptr_uint_t)tag) << 56 | ((ptr_uint_t)addr))
-#    endif
-
-/* Test vmvector behaviour with tagged pointers.
- * vmvector_tagged_pointer_tests() takes two pairs of app_pc values:
- * create_start, create_end are used to create an area,
- * lookup_start, lookup_end are used to look up the area after it has been created.
- * The *_start values should have the same address and the two *_end values should have
- * the same address but they can have different tag values.
- * We call vmvector_tagged_pointer_tests() several times with different combinations of
- * tagged and untagged pointers to test different scenarios (create tagged and lookup
- * untagged, create untagged and lookup tagged, etc).
- */
-void
-vmvector_tagged_pointer_tests(app_pc create_start, app_pc create_end, app_pc lookup_start,
-                              app_pc lookup_end)
-{
-    /* Sanity check to make sure the test function is being used correctly. */
-    EXPECT(STRIP_MEMORY_TAG(create_start), STRIP_MEMORY_TAG(lookup_start));
-    EXPECT(STRIP_MEMORY_TAG(create_end), STRIP_MEMORY_TAG(lookup_end));
-
-    vm_area_vector_t v = { 0, 0, 0, VECTOR_SHARED | VECTOR_NEVER_MERGE,
-                           INIT_READWRITE_LOCK(thread_vm_areas) };
-    uint data1 = 0;
-    uint data2 = 0;
-
-    vmvector_add(&v, create_start, create_end, &data1);
-
-    {
-        bool res = vmvector_overlap(&v, lookup_start, lookup_end);
-        EXPECT(res, true);
-    }
-
-    {
-        void *returned_data = vmvector_add_replace(&v, lookup_start, lookup_end, &data2);
-        EXPECT(returned_data, &data1);
-    }
-
-    {
-        void *returned_data = vmvector_lookup(&v, lookup_start);
-        EXPECT(returned_data, &data2);
-    }
-
-    {
-        bool res = vmvector_overlap(&v, lookup_start, lookup_end);
-        EXPECT(res, true);
-    }
-
-    {
-        app_pc start = NULL;
-        app_pc end = NULL;
-        void *returned_data = NULL;
-
-        bool res = vmvector_lookup_data(&v, lookup_start, &start, &end, &returned_data);
-
-        EXPECT(res, true);
-        EXPECT(start, STRIP_MEMORY_TAG(create_start));
-        EXPECT(end, STRIP_MEMORY_TAG(create_end));
-        EXPECT(returned_data, &data2);
-    }
-
-    {
-        bool res = vmvector_modify_data(&v, lookup_start, lookup_end, &data1);
-        EXPECT(res, true);
-
-        app_pc start = NULL;
-        app_pc end = NULL;
-        void *returned_data = NULL;
-        res = vmvector_lookup_data(&v, lookup_start, &start, &end, &returned_data);
-
-        EXPECT(res, true);
-        EXPECT(returned_data, &data1);
-    }
-
-    {
-        vmvector_iterator_t vmvi;
-        vmvector_iterator_start(&v, &vmvi);
-
-        app_pc start = NULL;
-        app_pc end = NULL;
-        void *returned_data = vmvector_iterator_peek(&vmvi, &start, &end);
-
-        EXPECT(returned_data, &data1);
-        EXPECT(start, STRIP_MEMORY_TAG(create_start));
-        EXPECT(end, STRIP_MEMORY_TAG(create_end));
-
-        vmvector_iterator_stop(&vmvi);
-    }
-
-    {
-        vmvector_iterator_t vmvi;
-        vmvector_iterator_start(&v, &vmvi);
-
-        app_pc start = NULL;
-        app_pc end = NULL;
-        void *returned_data = vmvector_iterator_next(&vmvi, &start, &end);
-
-        EXPECT(returned_data, &data1);
-        EXPECT(start, STRIP_MEMORY_TAG(create_start));
-        EXPECT(end, STRIP_MEMORY_TAG(create_end));
-
-        vmvector_iterator_stop(&vmvi);
-    }
-
-    {
-        bool res = vmvector_remove(&v, lookup_start, lookup_end);
-        EXPECT(res, true);
-
-        res = vmvector_overlap(&v, create_start, create_end);
-        EXPECT(res, false);
-
-        res = vmvector_overlap(&v, lookup_start, lookup_end);
-        EXPECT(res, false);
-    }
-
-    {
-        vmvector_add(&v, create_start, create_end, &data1);
-
-        app_pc start = NULL;
-        app_pc end = NULL;
-        vmvector_remove_containing_area(&v, lookup_start, &start, &end);
-        EXPECT(start, STRIP_MEMORY_TAG(create_start));
-        EXPECT(end, STRIP_MEMORY_TAG(create_end));
-    }
-
-    {
-#    define ADD_PC(pc, increment) (app_pc)((ptr_uint_t)pc + increment)
-        /* Create two regions with a gap between we can use to test
-         * vmvector_lookup_prev_next()
-         */
-        vmvector_add(&v, create_start, create_end, &data1);
-        vmvector_add(&v, ADD_PC(create_start, 0x200), ADD_PC(create_end, 0x200), &data1);
-
-        app_pc prev_start = NULL;
-        app_pc prev_end = NULL;
-        app_pc next_start = NULL;
-        app_pc next_end = NULL;
-        bool res = vmvector_lookup_prev_next(&v, ADD_PC(lookup_start, 0x101), &prev_start,
-                                             &prev_end, &next_start, &next_end);
-        EXPECT(res, true);
-        EXPECT(prev_start, STRIP_MEMORY_TAG(create_start));
-        EXPECT(prev_end, STRIP_MEMORY_TAG(create_end));
-        EXPECT(next_start, STRIP_MEMORY_TAG(ADD_PC(create_start, 0x200)));
-        EXPECT(next_end, STRIP_MEMORY_TAG(ADD_PC(create_end, 0x200)));
-
-        /* Fill the gap and lookup the address again. */
-        vmvector_add(&v, ADD_PC(create_start, 0x100), ADD_PC(create_end, 0x100), &data1);
-
-        res = vmvector_lookup_prev_next(&v, ADD_PC(lookup_start, 0x101), &prev_start,
-                                        &prev_end, &next_start, &next_end);
-        EXPECT(res, false);
-    }
-
-    DELETE_READWRITE_LOCK(v.lock);
-}
-
 static void
 print_vector_msg(vm_area_vector_t *v, file_t f, const char *msg)
 {
@@ -11886,27 +11715,6 @@ vmvector_tests()
         vmvector_remove(&v, INT_TO_PC(0x20), INT_TO_PC(0x210)); /* truncation allowed? */
     EXPECT(res, true);
     vmvector_print(&v, STDERR);
-
-    DELETE_READWRITE_LOCK(v.lock);
-
-#    if defined(AARCH64)
-    /* It is assumed that the untagged vs untagged case is covered by the tests above. */
-    print_file(STDERR, "tagged pointers (untagged vs tagged)\n");
-    vmvector_tagged_pointer_tests(INT_TO_PC(0x100), INT_TO_PC(0x1ff),
-                                  TAG_INT_TO_PC(0x11, 0x100), TAG_INT_TO_PC(0x11, 0x1ff));
-
-    print_file(STDERR, "tagged pointers (tagged vs untagged)\n");
-    vmvector_tagged_pointer_tests(TAG_INT_TO_PC(0x11, 0x100), TAG_INT_TO_PC(0x11, 0x1ff),
-                                  INT_TO_PC(0x100), INT_TO_PC(0x1ff));
-
-    print_file(STDERR, "tagged pointers (tagged vs tagged)\n");
-    vmvector_tagged_pointer_tests(TAG_INT_TO_PC(0x11, 0x100), TAG_INT_TO_PC(0x11, 0x1ff),
-                                  TAG_INT_TO_PC(0x11, 0x100), TAG_INT_TO_PC(0x11, 0x1ff));
-
-    print_file(STDERR, "tagged pointers (tagged vs different tag)\n");
-    vmvector_tagged_pointer_tests(TAG_INT_TO_PC(0x11, 0x100), TAG_INT_TO_PC(0x11, 0x1ff),
-                                  TAG_INT_TO_PC(0x22, 0x100), TAG_INT_TO_PC(0x22, 0x1ff));
-#    endif
 }
 
 /* initial vector tests
