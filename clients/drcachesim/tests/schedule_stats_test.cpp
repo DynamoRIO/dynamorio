@@ -400,7 +400,7 @@ test_syscall_latencies()
     assert(hist_x_switch ==
            "         500..     505     1\n        1000..    1005     1\n");
     auto it_x_noswitch = result.sysnum_noswitch_latency.find(SYSNUM_X);
-    assert(it_x_noswitch != result.sysnum_switch_latency.end());
+    assert(it_x_noswitch != result.sysnum_noswitch_latency.end());
     std::string hist_x_noswitch = it_x_noswitch->second->to_string();
     std::cerr << "Sysnum noswitch latency for " << SYSNUM_X << ":\n"
               << hist_x_noswitch << "\n";
