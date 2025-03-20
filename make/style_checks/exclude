@@ -47,6 +47,31 @@ set rules {
     required_namespaces
 }
 
+# TODO i#7303: Remove drmf and drsyscall files when formatting errrors
+# are fixed.
+set drsyscall_files {}
+foreach drsyscall_file [glob ../ext/drmf/common/*] {
+    lappend drsyscall_files [file tail $drsyscall_file]
+}
+foreach drsyscall_file [glob ../ext/drmf/framework/*] {
+    lappend drsyscall_files [file tail $drsyscall_file]
+}
+foreach drsyscall_file [glob ../ext/drmf/framework/samples/*] {
+    lappend drsyscall_files [file tail $drsyscall_file]
+}
+foreach drsyscall_file [glob ../ext/drmf/wininc/*] {
+    lappend drsyscall_files [file tail $drsyscall_file]
+}
+foreach drsyscall_file [glob ../ext/drmf/wininc/dxsdk/*] {
+    lappend drsyscall_files [file tail $drsyscall_file]
+}
+foreach drsyscall_file [glob ../ext/drmf/wininc/psdk/*] {
+    lappend drsyscall_files [file tail $drsyscall_file]
+}
+foreach drsyscall_file [glob ../ext/drsyscall/*] {
+    lappend drsyscall_files [file tail $drsyscall_file]
+}
+
 foreach rule $rules {
     set ruleExclusions($rule) {
         # Don't complain about the test file during the build.
@@ -62,15 +87,11 @@ foreach rule $rules {
         sideline.c
         symtab.c
         # tools/* in this category is excluded via regex.
-        # TODO i#7303: Remove drmf and drsyscall files when formatting errrors
-        # are fixed.
-        .*/ext/drmf/common/.*
-        .*/ext/drmf/framework/.*
-        .*/ext/drmf/framework/samples/.*
-        .*/ext/drmf/wininc/.*
-        .*/ext/drmf/wininc/dxsdk/.*
-        .*/ext/drmf/wininc/psdk/.*
-        .*/ext/drsyscall/.*
+    }
+    # TODO i#7303: Remove drmf and drsyscall files when formatting errrors
+    # are fixed.
+    foreach drsyscall_file $drsyscall_files {
+        lappend ruleExclusions($rule) [file tail $drsyscall_file]
     }
 }
 
