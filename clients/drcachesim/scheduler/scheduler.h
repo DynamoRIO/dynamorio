@@ -1229,6 +1229,7 @@ public:
         uint64_t cur_instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
         uint64_t first_timestamp_ = 0;
+        bool in_kernel_trace_ = false;
         // Remember top-level headers for the memtrace_stream_t interface.
         uint64_t version_ = 0;
         uint64_t filetype_ = 0;

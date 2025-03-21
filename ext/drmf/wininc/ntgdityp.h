@@ -200,7 +200,7 @@ typedef DWORD LFTYPE;
 
 /* CAPS1 support */
 #define CAPS1 94
-// #define C1_TRANSPARENT    0x0001
+//#define C1_TRANSPARENT    0x0001
 #define TC_TT_ABLE 0x0002
 #define C1_TT_CR_ANY 0x0004
 #define C1_EMF_COMPLIANT 0x0008

@@ -36,10 +36,9 @@ struct _DESKTOP;
 struct _WND;
 
 #    define FIRST_USER_HANDLE \
-        0x0020 /* first possible value for low word of user handle */
-#    define LAST_USER_HANDLE                                      \
-        0xffef /* last possible value for low word of user handle \
-                */
+        0x0020                      /* first possible value for low word of user handle */
+#    define LAST_USER_HANDLE 0xffef /* last possible value for low word of user handle \
+                                     */
 
 #    define HANDLEENTRY_INDESTROY 1
 

@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -74,12 +74,12 @@ typedef enum _dr_valgrind_request_id_t {
     DR_VG_ID__RUNNING_ON_VALGRIND,
     /**
      * Request an immediate memory scan to look for leaks.
-     * Not currently implemented in core DR.
+     * Not relevant to core DR; provided for client use.
      */
     DR_VG_ID__DO_LEAK_CHECK,
     /**
      * Indicate that the specified range of addresses should be considered defined if
-     * it is addressable. Not currently implemented in core DR.
+     * it is addressable. Not relevant to core DR; provided for client use.
      */
     DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
     /**
@@ -89,6 +89,35 @@ typedef enum _dr_valgrind_request_id_t {
      * though clients may implement additional functionality.
      */
     DR_VG_ID__DISCARD_TRANSLATIONS,
+    /**
+     * Indicate that the specified range of addresses should be considered undefined.
+     * Not relevant to core DR; provided for client use.
+     */
+    DR_VG_ID__MAKE_MEM_UNDEFINED,
+    /**
+     * Indicate that the specified range of addresses should be considered defined.
+     * Not relevant to core DR; provided for client use.
+     */
+    DR_VG_ID__MAKE_MEM_DEFINED,
+    /**
+     * Returns whether the specified range of addresses is addressable. Not currently
+     * implemented in core DR.
+     */
+    DR_VG_ID__CHECK_MEM_IS_ADDRESSABLE,
+    /**
+     * Returns whether the specified range of addresses is defined. Not currently
+     * implemented in core DR.
+     */
+    DR_VG_ID__CHECK_MEM_IS_DEFINED,
+    /**
+     * Identifies a custom heap allocation. Not relevant to core DR; provided for client
+     * use.
+     */
+    DR_VG_ID__MALLOCLIKE_BLOCK,
+    /**
+     * Identifies a custom heap free. Not relevant to core DR; provided for client use.
+     */
+    DR_VG_ID__FREELIKE_BLOCK,
     /**
      * Sentinel value for iterator convenience.
      */

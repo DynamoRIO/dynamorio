@@ -84,7 +84,7 @@ str sp, [REG_R0] str fp,
 /* shift r7 pointing to the call args */
 add REG_R8,
     sp,
-#     20 /* size for {r4-r8} */
+    #20 /* size for {r4-r8} */
     mov REG_R7,
     ARG1 /* sysnum */
     mov REG_R0,
@@ -92,7 +92,7 @@ add REG_R8,
     mov REG_R1,
     ARG4 /* syscall arg2 */
     ldmfd REG_R8,
-{ REG_R2 - REG_R6 } /* syscall arg3..arg7 */
+    { REG_R2 - REG_R6 } /* syscall arg3..arg7 */
 svc #0 pop { REG_R4 - REG_R8 } bx lr END_FUNC(raw_syscall)
 #endif /* LINUX */
 
@@ -107,15 +107,16 @@ svc #0 pop { REG_R4 - REG_R8 } bx lr END_FUNC(raw_syscall)
 #define FUNCNAME zero_pointers_on_stack
     DECLARE_FUNC_SEH(FUNCNAME) GLOBAL_LABEL(FUNCNAME:) rsb REG_R0,
     REG_R0, #0 sub REG_R0, REG_R0, #ARG_SZ mov REG_R2,
-# 0 1:
+    #0 1 :
     /* we assume no pointer pointing to address below 0x10000 */
-    ldr REG_R1, [ sp, REG_R0 ] cmp REG_R1,
+    ldr REG_R1,
+    [ sp, REG_R0 ] cmp REG_R1,
     HEX(10000) bls 2f /* skip store if not a pointer */
     str REG_R2,
     [ sp, REG_R0 ] 2 : add REG_R0,
-#ARG_SZ cmp REG_R0,
-#-
-                       ARG_SZ bne 1b bx lr END_FUNC(FUNCNAME)
+                       #ARG_SZ cmp REG_R0,
+                       # -
+                           ARG_SZ bne 1b bx lr END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-                           END_FILE
+                               END_FILE

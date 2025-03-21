@@ -56,7 +56,7 @@ function (gendox_to_dox gendox_in gendox_out path master_list)
   file(GLOB_RECURSE dox_glob "${path}/*.dox" "${path}/*.dox.in")
   set(${master_list} ${${master_list}};${dox_files} PARENT_SCOPE)
   foreach (dox_file ${dox_glob})
-    # FIXME i$7303: Fix missing link to DRMF_WARNING_UNSUPPORTED_KERNEL and
+    # TODO i#7303: Fix missing link to DRMF_WARNING_UNSUPPORTED_KERNEL and
     # page_drmf.
     if ("${dox_file}" MATCHES "drsyscall.dox" OR "${dox_file}" MATCHES "drmf.dox")
       continue()
