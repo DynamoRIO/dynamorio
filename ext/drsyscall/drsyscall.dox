@@ -61,8 +61,8 @@ point at the \p drmf subdirectory of the Dr. Memory package that you are
 using.  For example:
 
 \code
-cmake -G"Ninja" -DDynamoRIO_DIR=c:/path/to/DynamoRIO-Windows-4.1.0-8/cmake
--DDrMemoryFramework_DIR=c:/path/to/DrMemory-Windows-1.6.0-2/drmf ../mysrcs/ \endcode
+cmake -G"Ninja" -DDynamoRIO_DIR=c:/path/to/DynamoRIO-Windows-4.1.0-8/cmake -DDrMemoryFramework_DIR=c:/path/to/DrMemory-Windows-1.6.0-2/drmf ../mysrcs/
+\endcode
 
 That will automatically set up the include path and library dependence.
 
