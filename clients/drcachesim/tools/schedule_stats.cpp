@@ -385,6 +385,9 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         }
         shard->direct_switch_target = INVALID_THREAD_ID;
         if (shard->last_syscall_number >= 0 && !shard->stream->is_record_kernel()) {
+            // Since we clear last_syscall_number on detecting a context switch prior to
+            // here, if it's still set and we've found a regular instruction, we just
+            // completed a system call but did not switch.
             if (shard->stream->get_version() < TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS) {
                 // Legacy versions do not have the timestamps to compute latencies.
             } else {

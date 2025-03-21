@@ -347,17 +347,19 @@ test_syscall_latencies()
     static constexpr int64_t TID_A = 42;
     static constexpr int64_t TID_B = 142;
     static constexpr int64_t TID_C = 242;
+    static constexpr int64_t TID_D = 199;
+    static constexpr int64_t TID_E = 222;
     static constexpr uintptr_t SYSNUM_X = 12;
     static constexpr uintptr_t SYSNUM_Y = 167;
     std::vector<std::vector<memref_t>> memrefs = {
         {
             gen_instr(TID_A),
-            // Involuntary switch.
+            // Involuntary switch: ignored for syscall latencies.
             gen_instr(TID_B),
             gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1100),
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
             gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1600),
-            // Voluntary switch, on non-maybe-blocking-marked syscall.
+            // Voluntary switch: latency 500.
             gen_instr(TID_A),
             gen_instr(TID_A),
             gen_instr(TID_A),
@@ -365,19 +367,20 @@ test_syscall_latencies()
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_Y),
             gen_marker(TID_A, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
             gen_marker(TID_A, TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2300), // Direct switch.
+            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2300),
+            // Direct switch: latency 200.
             gen_instr(TID_C),
-            // No switch: latency too small.
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2500),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2599),
+            // No switch: latency 99 too small.
             gen_instr(TID_C),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3100),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_Y),
             gen_marker(TID_C, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
             gen_marker(TID_C, TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3300),
-            // Direct switch requested but failed.
+            // Direct switch requested but failed: latency 200.
             gen_instr(TID_C),
             gen_exit(TID_C),
             gen_exit(TID_A),
@@ -386,9 +389,30 @@ test_syscall_latencies()
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3400),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 4400),
-            // Voluntary switch, on non-maybe-blocking-marked syscall.
-            gen_instr(TID_B),
+            // Voluntary switch: latency 1000.
+            // Test a thread starting at a recorded syscall after another thread on a
+            // core.
+            gen_marker(TID_E, TRACE_MARKER_TYPE_TIMESTAMP, 4500),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_FUNC_ID, 202),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_FUNC_RETVAL, -4),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_SYSCALL_FAILED, 4),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_TIMESTAMP, 5200),
+            // Preempt to D so no latency should be recorded here, despite
+            // there being a syscall with no regular instr records in between.
+            gen_instr(TID_D),
+            gen_exit(TID_E),
             gen_exit(TID_B),
+        },
+        {
+            // Test a thread starting at a recorded syscall first thing on a core.
+            gen_marker(TID_D, TRACE_MARKER_TYPE_TIMESTAMP, 1500),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_FUNC_ID, 202),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_FUNC_RETVAL, -4),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_SYSCALL_FAILED, 4),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_TIMESTAMP, 3200),
+            // Preempt to E so no latency should be recorded here.
+            gen_instr(TID_E),
+            gen_exit(TID_D),
         },
     };
     auto result = run_schedule_stats(memrefs);
