@@ -502,9 +502,10 @@ write_system_call_template_with_repstr(void *dr_context)
 static void
 check_syscall_stats(syscall_mix_t::statistics_t &syscall_stats)
 {
-    assert(!syscall_stats.syscall_errno_counts.empty());
-    assert(syscall_stats.syscall_errno_counts[EINVAL] == 2);
-    assert(syscall_stats.syscall_errno_counts[EFAULT] == 1);
+    assert(syscall_stats.syscall_errno_counts.size() == 1);
+    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction].size() == 2);
+    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EINVAL] == 2);
+    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EFAULT] == 1);
 }
 
 static int

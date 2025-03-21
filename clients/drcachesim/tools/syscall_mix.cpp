@@ -120,6 +120,7 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
         ++shard->stats.syscall_counts[syscall_num];
+        shard->last_sysnum = syscall_num;
         break;
     }
     case TRACE_MARKER_TYPE_SYSCALL_TRACE_START: {
@@ -131,7 +132,8 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         break;
     }
     case TRACE_MARKER_TYPE_SYSCALL_FAILED:
-        ++shard->stats.syscall_errno_counts[static_cast<int>(memref.marker.marker_value)];
+        ++shard->stats.syscall_errno_counts[shard->last_sysnum]
+                                           [static_cast<int>(memref.marker.marker_value)];
         break;
     default: return true;
     }
@@ -193,14 +195,18 @@ syscall_mix_t::print_results()
         }
     }
     if (!total.syscall_errno_counts.empty()) {
-        std::cerr << std::setw(15) << "failure count"
-                  << " : " << std::setw(9) << "failure code\n";
-        std::vector<std::pair<int, int64_t>> sort_errno(
-            total.syscall_errno_counts.begin(), total.syscall_errno_counts.end());
-        std::sort(sort_errno.begin(), sort_errno.end(), cmp_second_val);
-        for (const auto &keyvals : sort_errno) {
-            std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
-                      << keyvals.first << "\n";
+        for (const auto &keyvals : total.syscall_errno_counts) {
+            std::cerr << std::setw(15) << "Failures for syscall " << keyvals.first
+                      << ":\n";
+            std::cerr << std::setw(15) << "failure count"
+                      << " : " << std::setw(9) << "failure code\n";
+            std::vector<std::pair<int, int64_t>> sort_errno(keyvals.second.begin(),
+                                                            keyvals.second.end());
+            std::sort(sort_errno.begin(), sort_errno.end(), cmp_second_val);
+            for (const auto &keyvals2 : sort_errno) {
+                std::cerr << std::setw(15) << keyvals2.second << " : " << std::setw(9)
+                          << keyvals2.first << "\n";
+            }
         }
     }
     return true;
@@ -221,7 +227,10 @@ syscall_mix_t::get_total_statistics() const
                 total.syscall_trace_counts[keyvals.first] += keyvals.second;
             }
             for (const auto &keyvals : shard.second->stats.syscall_errno_counts) {
-                total.syscall_errno_counts[keyvals.first] += keyvals.second;
+                for (const auto &keyvals2 : keyvals.second) {
+                    total.syscall_errno_counts[keyvals.first][keyvals2.first] +=
+                        keyvals2.second;
+                }
             }
         }
     }

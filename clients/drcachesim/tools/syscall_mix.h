@@ -71,11 +71,12 @@ public:
     struct statistics_t {
         std::unordered_map<int, int64_t> syscall_counts;
         std::unordered_map<int, int64_t> syscall_trace_counts;
-        // Failure code counts, but only for system calls traced
+        // First map translates syscall number to a map that translates
+        // failure codes to counts. This is only tracked for system calls traced
         // with -record_syscall where TRACE_MARKER_TYPE_SYSCALL_FAILED
         // is recorded. That marker stores 32-bit errno values, which
-        // is our key here.
-        std::unordered_map<int, int64_t> syscall_errno_counts;
+        // is our inner table's key here.
+        std::unordered_map<int, std::unordered_map<int, int64_t>> syscall_errno_counts;
     };
 
     statistics_t
@@ -87,6 +88,7 @@ protected:
         virtual ~shard_data_t() = default;
         statistics_t stats;
         std::string error;
+        int last_sysnum = -1;
     };
 
     std::unordered_map<int, shard_data_t *> shard_map_;
