@@ -87,14 +87,8 @@ endforeach (arg)
 if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
   execute_process(COMMAND ldd --version
     RESULT_VARIABLE ldd_result ERROR_VARIABLE ldd_err OUTPUT_VARIABLE ldd_out)
-  if (ldd_result OR ldd_err)
-    # Failed; just move on.
-  elseif (ldd_out MATCHES "GLIBC 2.3[5-9]")
-    # XXX i#5437, i#5431: While we work through Ubuntu22 issues we run
-    # just a few tests.
-    set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
-    set(arg_debug_only ON)
-  elseif (arg_32_only AND NOT cross_aarchxx_linux_only AND NOT cross_android_only)
+  message("ldd --version: ${ldd_out}")
+  if (arg_32_only AND NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
     # This includes timeouts which increases suite length.
     # Until we get ths x86-32 job back green, we drop back to a small set of tests.
@@ -262,8 +256,8 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-if (DEFINED ENV{DISABLE_CLANG_FORMAT_CHECKS} AND "$ENV{DISABLE_CLANG_FORMAT_CHECKS}" STREQUAL "yes")
-  message("clang-format check disabled")
+if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
+  message("format check disabled")
 else ()
   find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
   if (NOT CLANG_FORMAT_DIFF)

@@ -2,27 +2,29 @@ Schedule stats tool results:
 Total counts:
            4 cores
 .*
-      639664 instructions
-          11 total context switches
+      650640 instructions
+          32 total context switches
 .*
-           6 voluntary context switches
+          18 voluntary context switches
            0 direct context switches
-         363 context switch sequence injections
+          32 context switch sequence injections
+           0 system call sequence injections
 .*
-           9 switches input-to-input
-           5 switches input-to-idle
-           2 switches idle-to-input
+          19 switches input-to-input
+          16 switches input-to-idle
+          13 switches idle-to-input
 .*
 Core #0 counts:
 .*
-      117223 instructions
-           8 total context switches
+      211153 instructions
+          11 total context switches
 .*
-           3 voluntary context switches
+           9 voluntary context switches
            0 direct context switches
-         104 context switch sequence injections
+          11 context switch sequence injections
+           0 system call sequence injections
 .*
-           6 switches input-to-input
-           3 switches input-to-idle
-           2 switches idle-to-input
+           4 switches input-to-input
+           7 switches input-to-idle
+           7 switches idle-to-input
 .*

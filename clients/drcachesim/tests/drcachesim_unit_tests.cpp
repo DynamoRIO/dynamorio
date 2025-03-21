@@ -458,6 +458,42 @@ public:
 };
 
 void
+unit_test_set_parent()
+{
+    cache_t child_1;
+    cache_t child_2;
+    cache_t parent;
+    assert(child_1.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false)));
+    assert(child_2.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false)));
+    assert(parent.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false)));
+    // Test setting parent.
+    child_1.set_parent(&parent);
+    assert(child_1.get_parent() == &parent);
+    assert(parent.get_parent() == nullptr);
+    assert(parent.get_children() == std::vector<caching_device_t *> { &child_1 });
+    assert(child_1.get_children().empty());
+    // Test removing parent.
+    child_1.set_parent(nullptr);
+    assert(parent.get_parent() == nullptr);
+    assert(child_1.get_parent() == nullptr);
+    assert(parent.get_children().empty());
+    assert(child_1.get_children().empty());
+    // Test multiple children.
+    child_1.set_parent(&parent);
+    child_2.set_parent(&parent);
+    assert(child_1.get_parent() == &parent);
+    assert(child_2.get_parent() == &parent);
+    assert((parent.get_children() ==
+            std::vector<caching_device_t *> { &child_1, &child_2 }));
+    // Test existing child.
+    child_2.set_parent(&parent);
+    assert(child_1.get_parent() == &parent);
+    assert(child_2.get_parent() == &parent);
+    assert((parent.get_children() ==
+            std::vector<caching_device_t *> { &child_1, &child_2 }));
+}
+
+void
 unit_test_exclusive_cache()
 {
     // Create simple 3-level cache with exclusive LLC.
@@ -960,6 +996,7 @@ test_main(int argc, const char *argv[])
     unit_test_core_sharded();
     unit_test_nextline_prefetcher();
     unit_test_custom_prefetcher();
+    unit_test_set_parent();
     return 0;
 }
 

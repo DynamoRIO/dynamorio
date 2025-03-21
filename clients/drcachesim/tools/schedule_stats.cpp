@@ -169,6 +169,9 @@ schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &cou
     counters.switch_sequence_injections =
         static_cast<int64_t>(stream->get_schedule_statistic(
             memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS));
+    counters.syscall_sequence_injections =
+        static_cast<int64_t>(stream->get_schedule_statistic(
+            memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS));
 
     // XXX: Currently, schedule_stats is measuring swap-ins to a real input.  If we
     // want to match what "perf" targeting this app would record, which is swap-outs,
@@ -265,13 +268,16 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     int64_t input_id = shard->stream->get_input_id();
     if (knob_verbose_ >= 4) {
         std::ostringstream line;
+        memtrace_stream_t *input_stream = shard->stream->get_input_interface();
         line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
              << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
              << shard->stream->get_instruction_ordinal() << " instrs: input "
-             << std::setw(4) << input_id << " @" << std::setw(9)
-             << shard->stream->get_input_interface()->get_record_ordinal() << " refs, "
+             << std::setw(4) << input_id << " @"
              << std::setw(9)
-             << shard->stream->get_input_interface()->get_instruction_ordinal()
+             // The interface is null when we see idle records.
+             << (input_stream == nullptr ? -1 : input_stream->get_record_ordinal())
+             << " refs, " << std::setw(9)
+             << (input_stream == nullptr ? -1 : input_stream->get_instruction_ordinal())
              << " instrs: " << std::setw(16) << trace_type_names[memref.marker.type];
         if (type_is_instr(memref.instr.type))
             line << " pc=" << std::hex << memref.instr.addr << std::dec;
@@ -425,6 +431,8 @@ schedule_stats_t::print_counters(const counters_t &counters)
               << " direct context switches\n";
     std::cerr << std::setw(12) << counters.switch_sequence_injections
               << " context switch sequence injections\n";
+    std::cerr << std::setw(12) << counters.syscall_sequence_injections
+              << " system call sequence injections\n";
     print_percentage(static_cast<double>(counters.voluntary_switches),
                      static_cast<double>(counters.total_switches),
                      "% voluntary switches\n");

@@ -34,9 +34,11 @@
 #include <iostream>
 #undef NDEBUG
 #include <assert.h>
+#include <random>
 #include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache_fifo.h"
 #include "simulator/cache_lru.h"
+#include "simulator/tlb.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -63,28 +65,16 @@ static const std::vector<addr_t> addr_vec = { 128 * 0, 128 * 1, 128 * 2,  128 * 
                                               128 * 4, 128 * 5, 128 * 6,  128 * 7,
                                               128 * 8, 128 * 9, 128 * 10, 128 * 11 };
 
-template <class T> class cache_policy_test_t : public T {
+template <class T> class caching_device_policy_test_t : public T {
+protected:
     int associativity_;
     int line_size_;
-    int total_size_;
 
 public:
-    cache_policy_test_t(int associativity, int line_size, int total_size)
+    caching_device_policy_test_t(int associativity, int line_size)
+        : associativity_(associativity)
+        , line_size_(line_size)
     {
-        associativity_ = associativity;
-        line_size_ = line_size;
-        total_size_ = total_size;
-    }
-    void
-    initialize_cache()
-    {
-        caching_device_stats_t *stats = new cache_stats_t(line_size_, /*miss_file=*/"",
-                                                          /*warmup_enabled=*/true);
-        if (!this->init(associativity_, line_size_, total_size_, nullptr, stats,
-                        nullptr)) {
-            std::cerr << this->get_replace_policy() << " cache failed to initialize\n";
-            exit(1);
-        }
     }
 
     void
@@ -94,6 +84,7 @@ public:
         ref.data.type = TRACE_TYPE_READ;
         ref.data.size = 1;
         ref.data.addr = addr;
+        ref.data.pid = 1;
         this->request(ref);
         assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
                expected_replacement_way_after_access);
@@ -135,6 +126,63 @@ public:
             }
         }
         return true;
+    }
+};
+
+template <class T> class cache_policy_test_t : public caching_device_policy_test_t<T> {
+    int total_size_;
+
+public:
+    cache_policy_test_t(int associativity, int line_size, int total_size)
+        : caching_device_policy_test_t<T>(associativity, line_size)
+        , total_size_(total_size)
+    {
+    }
+
+    void
+    initialize_cache()
+    {
+        caching_device_stats_t *stats =
+            new cache_stats_t(this->line_size_, /*miss_file=*/"",
+                              /*warmup_enabled=*/true);
+        if (!this->init(this->associativity_, this->line_size_, total_size_, nullptr,
+                        stats, nullptr)) {
+            std::cerr << this->get_replace_policy() << " cache failed to initialize\n";
+            exit(1);
+        }
+    }
+};
+
+template <class T> class tlb_policy_test_t : public caching_device_policy_test_t<T> {
+    int entries_;
+
+public:
+    tlb_policy_test_t(int associativity, int line_size, int entries)
+        : caching_device_policy_test_t<T>(associativity, line_size)
+        , entries_(entries)
+    {
+    }
+
+    void
+    initialize_cache()
+    {
+        caching_device_stats_t *stats =
+            new cache_stats_t(this->line_size_, /*miss_file=*/"",
+                              /*warmup_enabled=*/true);
+        if (!this->init(this->associativity_, this->line_size_, entries_, nullptr,
+                        stats)) {
+            std::cerr << this->get_replace_policy() << " tlb failed to initialize\n";
+            exit(1);
+        }
+    }
+};
+
+template <class T> class seeded_tlb_policy_test_t : public tlb_policy_test_t<T> {
+public:
+    seeded_tlb_policy_test_t(int associativity, int line_size, int entries)
+        : tlb_policy_test_t<T>(associativity, line_size, entries)
+    {
+        this->gen_ = std::mt19937(0);
     }
 };
 
@@ -393,6 +441,49 @@ unit_test_cache_lfu_eight_way()
 }
 
 void
+unit_test_tlb_plru_four_way()
+{
+    seeded_tlb_policy_test_t<tlb_bit_plru_t> tlb_plru_test(/*associativity=*/4,
+                                                           /*line_size=*/64,
+                                                           /*entries=*/4);
+    tlb_plru_test.initialize_cache();
+    assert(tlb_plru_test.get_replace_policy() == "BIT_PLRU");
+    assert(tlb_plru_test.block_indices_are_identical(addr_vec));
+    assert(tlb_plru_test.tags_are_different(addr_vec));
+    tlb_plru_test.access_and_check(addr_vec[ADDR_A], 1); //     A x x x
+    tlb_plru_test.access_and_check(addr_vec[ADDR_B], 2); //     A B x x
+    tlb_plru_test.access_and_check(addr_vec[ADDR_C], 3); //     A B C x
+    tlb_plru_test.access_and_check(addr_vec[ADDR_D], 2); //     a b c D
+    // Next replacement chosen randomly from zero bits, the test runs with const seed.
+    tlb_plru_test.access_and_check(addr_vec[ADDR_A], 2); //     A b c D
+    tlb_plru_test.access_and_check(addr_vec[ADDR_B], 2); //     A B c D
+    tlb_plru_test.access_and_check(addr_vec[ADDR_E], 1); //     a b E d
+    tlb_plru_test.access_and_check(addr_vec[ADDR_A], 3); //     A b E d
+    tlb_plru_test.access_and_check(addr_vec[ADDR_B], 3); //     A B E d
+}
+
+void
+unit_test_tlb_lfu_four_way()
+{
+    tlb_policy_test_t<tlb_lfu_t> tlb_lfu_test(/*associativity=*/4,
+                                              /*line_size=*/64,
+                                              /*entries=*/4);
+    tlb_lfu_test.initialize_cache();
+    assert(tlb_lfu_test.get_replace_policy() == "LFU");
+    assert(tlb_lfu_test.block_indices_are_identical(addr_vec));
+    assert(tlb_lfu_test.tags_are_different(addr_vec));
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_A], 1); //     A1 x  x  x
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_B], 2); //     A1 B1 x  x
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_C], 3); //     A1 B1 C1 x
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_D], 0); //     A1 B1 C1 D1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_A], 1); //     A2 B1 C1 D1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_C], 1); //     A2 B1 C2 D1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_B], 3); //     A2 B2 C2 D1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_E], 3); //     A2 B2 C2 E1
+    tlb_lfu_test.access_and_check(addr_vec[ADDR_D], 3); //     A2 B2 C2 D1
+}
+
+void
 unit_test_cache_replacement_policy()
 {
     unit_test_cache_lru_four_way();
@@ -401,6 +492,8 @@ unit_test_cache_replacement_policy()
     unit_test_cache_fifo_eight_way();
     unit_test_cache_lfu_four_way();
     unit_test_cache_lfu_eight_way();
+    unit_test_tlb_plru_four_way();
+    unit_test_tlb_lfu_four_way();
     // XXX i#4842: Add more test sequences.
 }
 

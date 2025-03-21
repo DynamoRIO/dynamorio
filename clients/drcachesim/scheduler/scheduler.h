@@ -144,10 +144,10 @@ public:
         STATUS_STOLE, /**< Used for internal scheduler purposes. */
     };
 
-    /** Identifies an input stream by its index. */
+    /** Identifies an input stream by its index (0-based). */
     typedef int input_ordinal_t;
 
-    /** Identifies an output stream by its index. */
+    /** Identifies an output stream by its index (0-based). */
     typedef int output_ordinal_t;
 
     /** Sentinel value indicating that no input stream is specified. */
@@ -241,8 +241,9 @@ public:
          */
         std::vector<memref_tid_t> tids;
         /**
-         * Limits these threads to this set of output streams.  They will not
-         * be scheduled on any other output streams.
+         * Limits these threads to this set of output streams, which are specified by
+         * ordinal 0 through the output count minus oner.  They will not be scheduled
+         * on any other output streams.
          */
         std::set<output_ordinal_t> output_binding;
         /**
@@ -829,6 +830,31 @@ public:
          * when raising this value on uneven inputs.
          */
         double exit_if_fraction_inputs_left = 0.1;
+        /**
+         * Input file containing template sequences of kernel system call code.
+         * Each sequence must start with a #TRACE_MARKER_TYPE_SYSCALL_TRACE_START
+         * marker and end with #TRACE_MARKER_TYPE_SYSCALL_TRACE_END.
+         * The value of each marker must hold the system call number for the system call
+         * it corresponds to. Sequences for multiple system calls are concatenated into a
+         * single file. Each sequence should be in the regular offline drmemtrace format.
+         * Whenever a #TRACE_MARKER_TYPE_SYSCALL marker is encountered in a trace, if a
+         * corresponding sequence with the same marker value exists it is inserted into
+         * the output stream after the #TRACE_MARKER_TYPE_SYSCALL marker.
+         * The same file (or reader) must be passed when replaying as this kernel
+         * code is not stored when recording.
+         * An alternative to passing the file path is to pass #kernel_syscall_reader
+         * and #kernel_syscall_reader_end.
+         */
+        std::string kernel_syscall_trace_path;
+        /**
+         * An alternative to #kernel_syscall_trace_path is to pass a reader and
+         * #kernel_syscall_reader_end.  See the description of #kernel_syscall_trace_path.
+         * This field is only examined if #kernel_syscall_trace_path is empty.
+         * The scheduler will call the init() function for the reader.
+         */
+        std::unique_ptr<ReaderType> kernel_syscall_reader;
+        /** The end reader for #kernel_syscall_reader. */
+        std::unique_ptr<ReaderType> kernel_syscall_reader_end;
         // When adding new options, also add to print_configuration().
     };
 
@@ -1203,6 +1229,7 @@ public:
         uint64_t cur_instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
         uint64_t first_timestamp_ = 0;
+        bool in_kernel_trace_ = false;
         // Remember top-level headers for the memtrace_stream_t interface.
         uint64_t version_ = 0;
         uint64_t filetype_ = 0;

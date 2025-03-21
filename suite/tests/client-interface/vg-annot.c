@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -149,6 +149,20 @@ main()
         printf("\n");
     }
     printf("\n--------\n\n");
+
+    /* Exercise other supported VG annotations. */
+    printf("Invoking MAKE_MEM_UNDEFINED.\n");
+    VALGRIND_MAKE_MEM_UNDEFINED(alloc_a, 4);
+    printf("Invoking MAKE_MEM_DEFINED.\n");
+    VALGRIND_MAKE_MEM_DEFINED(alloc_a, 4);
+    printf("Invoking CHECK_MEM_IS_DEFINED.\n");
+    VALGRIND_CHECK_MEM_IS_DEFINED(alloc_a, 4);
+    printf("Invoking CHECK_MEM_IS_ADDRESSABLE.\n");
+    VALGRIND_CHECK_MEM_IS_ADDRESSABLE(alloc_a, 4);
+    printf("Invoking MALLOCLIKE_BLOCK.\n");
+    VALGRIND_MALLOCLIKE_BLOCK(alloc_a, 4, 0, 0);
+    printf("Invoking FREELIKE_BLOCK.\n");
+    VALGRIND_FREELIKE_BLOCK(alloc_a, 0);
 
     free(alloc_a);
     free(alloc_b);
