@@ -33,9 +33,9 @@ void
 name2num_entry_add(const char *name, drsys_sysnum_t num, bool dup_Zw, bool dup_name);
 
 bool
-syscall_num_from_name(void *drcontext, const module_data_t *info,
-                      const char *name, const char *optional_prefix,
-                      bool sym_lookup, drsys_sysnum_t *num_out DR_PARAM_OUT);
+syscall_num_from_name(void *drcontext, const module_data_t *info, const char *name,
+                      const char *optional_prefix, bool sym_lookup,
+                      drsys_sysnum_t *num_out DR_PARAM_OUT);
 
 bool
 read_sysnum_file(void *drcontext, const char *sysnum_file, module_data_t *ntdll_data);
@@ -45,10 +45,8 @@ handle_unicode_string_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_in
                              app_pc start, uint size, bool ignore_len);
 
 bool
-handle_cwstring(sysarg_iter_info_t *ii, const char *id,
-                byte *start, size_t size, int ordinal, uint arg_flags, wchar_t *safe,
-                bool check_addr);
-
+handle_cwstring(sysarg_iter_info_t *ii, const char *id, byte *start, size_t size,
+                int ordinal, uint arg_flags, wchar_t *safe, bool check_addr);
 
 /* drsyscall_wingdi.c */
 
@@ -66,16 +64,14 @@ void
 drsyscall_wingdi_exit(void);
 
 bool
-wingdi_shared_process_syscall(void *drcontext, cls_syscall_t *pt,
-                              sysarg_iter_info_t *ii);
+wingdi_shared_process_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii);
 
 void
-wingdi_shadow_process_syscall(void *drcontext, cls_syscall_t *pt,
-                              sysarg_iter_info_t *ii);
+wingdi_shadow_process_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii);
 
 bool
-wingdi_process_arg(sysarg_iter_info_t *iter_info,
-                   const sysinfo_arg_t *arg_info, app_pc start, uint size);
+wingdi_process_arg(sysarg_iter_info_t *iter_info, const sysinfo_arg_t *arg_info,
+                   app_pc start, uint size);
 
 /* Returns true if the success value is known, in which case it is placed in *success.
  * Returns false if the caller should determine whether successful.

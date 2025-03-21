@@ -18,8 +18,7 @@
 //
 // Debug States
 //
-typedef enum _DBG_STATE
-{
+typedef enum _DBG_STATE {
     DbgIdle,
     DbgReplyPending,
     DbgCreateThreadStateChange,
@@ -31,25 +30,23 @@ typedef enum _DBG_STATE
     DbgSingleStepStateChange,
     DbgLoadDllStateChange,
     DbgUnloadDllStateChange
-} DBG_STATE, *PDBG_STATE;
+} DBG_STATE,
+    *PDBG_STATE;
 
 //
 // Debug Message Structures
 //
-typedef struct _DBGKM_EXCEPTION
-{
+typedef struct _DBGKM_EXCEPTION {
     EXCEPTION_RECORD ExceptionRecord;
     ULONG FirstChance;
 } DBGKM_EXCEPTION, *PDBGKM_EXCEPTION;
 
-typedef struct _DBGKM_CREATE_THREAD
-{
+typedef struct _DBGKM_CREATE_THREAD {
     ULONG SubSystemKey;
     PVOID StartAddress;
 } DBGKM_CREATE_THREAD, *PDBGKM_CREATE_THREAD;
 
-typedef struct _DBGKM_CREATE_PROCESS
-{
+typedef struct _DBGKM_CREATE_PROCESS {
     ULONG SubSystemKey;
     HANDLE FileHandle;
     PVOID BaseOfImage;
@@ -58,18 +55,15 @@ typedef struct _DBGKM_CREATE_PROCESS
     DBGKM_CREATE_THREAD InitialThread;
 } DBGKM_CREATE_PROCESS, *PDBGKM_CREATE_PROCESS;
 
-typedef struct _DBGKM_EXIT_THREAD
-{
+typedef struct _DBGKM_EXIT_THREAD {
     NTSTATUS ExitStatus;
 } DBGKM_EXIT_THREAD, *PDBGKM_EXIT_THREAD;
 
-typedef struct _DBGKM_EXIT_PROCESS
-{
+typedef struct _DBGKM_EXIT_PROCESS {
     NTSTATUS ExitStatus;
 } DBGKM_EXIT_PROCESS, *PDBGKM_EXIT_PROCESS;
 
-typedef struct _DBGKM_LOAD_DLL
-{
+typedef struct _DBGKM_LOAD_DLL {
     HANDLE FileHandle;
     PVOID BaseOfDll;
     ULONG DebugInfoFileOffset;
@@ -77,27 +71,22 @@ typedef struct _DBGKM_LOAD_DLL
     PVOID NamePointer;
 } DBGKM_LOAD_DLL, *PDBGKM_LOAD_DLL;
 
-typedef struct _DBGKM_UNLOAD_DLL
-{
+typedef struct _DBGKM_UNLOAD_DLL {
     PVOID BaseAddress;
 } DBGKM_UNLOAD_DLL, *PDBGKM_UNLOAD_DLL;
 
 //
 // User-Mode Debug State Change Structure
 //
-typedef struct _DBGUI_WAIT_STATE_CHANGE
-{
+typedef struct _DBGUI_WAIT_STATE_CHANGE {
     DBG_STATE NewState;
     CLIENT_ID AppClientId;
-    union
-    {
-        struct
-        {
+    union {
+        struct {
             HANDLE HandleToThread;
             DBGKM_CREATE_THREAD NewThread;
         } CreateThread;
-        struct
-        {
+        struct {
             HANDLE HandleToProcess;
             HANDLE HandleToThread;
             DBGKM_CREATE_PROCESS NewProcess;
@@ -113,10 +102,10 @@ typedef struct _DBGUI_WAIT_STATE_CHANGE
 //
 // Debug Object Information Classes for NtQueryDebugObject
 //
-typedef enum _DEBUGOBJECTINFOCLASS
-{
+typedef enum _DEBUGOBJECTINFOCLASS {
     DebugObjectUnusedInformation,
     DebugObjectKillProcessOnExitInformation
-} DEBUGOBJECTINFOCLASS, *PDEBUGOBJECTINFOCLASS;
+} DEBUGOBJECTINFOCLASS,
+    *PDEBUGOBJECTINFOCLASS;
 
 #endif /*__AFD_SHARED_H */

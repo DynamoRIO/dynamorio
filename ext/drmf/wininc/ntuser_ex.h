@@ -15,8 +15,7 @@
 /* The data structure used for NtUserBuildPropList.
  * ReactOS has this as PROPLISTITEM but that does not match true Windows.
  */
-typedef struct _USER_PROP_LIST_ENTRY
-{
+typedef struct _USER_PROP_LIST_ENTRY {
     /* This first field seems to be a pointer to a string, but on x64 it is no
      * larger, or on x86 there is a NULL padding after it.
      */

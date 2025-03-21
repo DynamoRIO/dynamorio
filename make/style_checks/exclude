@@ -47,30 +47,6 @@ set rules {
     required_namespaces
 }
 
-# TODO i#7303: Remove drmf and drsyscall files when formatting errrors
-# are fixed.
-set drsyscall_files {
-    utils.h asm_utils_arm.asm asm_utils_x86.asm asm_utils.h windefs.h
-    utils_shared.c sysnum_linux.h utils.c drmf_utils.c samples drmf.h
-    version.c public.h strace.c ntktm.h ntwow64.h ndk_iotypes.h ntmmapi.h
-    safdlib.h tls.h ntioapi.h ntgdi.h ntpsapi.h tcpioctl.h afd_shared.h
-    ntalpc.h ntobapi.h ntregapi.h ntuser.h ktmtypes.h kernel32_private.h
-    ntgdityp.h ndk_extypes.h ntifs.h ntalpctyp.h winnt_recent.h ndk_psfuncs.h
-    ntddk.h ndk_dbgktypes.h wsock.h ntseapi.h ntmisc.h ntpnpapi.h wdm.h
-    ntuser_win8.h ntkeapi.h winioctl.h iptypes_undocumented.h ntexapi.h
-    ndk_lpctypes.h ndk_mmtypes.h dxsdk crtdbg.h ntuser_ex.h psdk ndk_ketypes.h
-    tdi.h ntgdihdl.h d3dcaps.h ntgdi.h dxgiformat.h dvp.h d3dnthal.h ddrawint.h
-    prntfont.h d3dtypes.h ddraw.h winddi.h drsyscall_os.h
-    table_windows_ntoskrnl.c drsyscall.c mksystable.pl drsyscall.h
-    drsyscall_usercallx.h drsyscall_linux.c linux_defines.h drsyscall_driver.c
-    table_linux_ioctl.c drsyscall_macos.c table_defines.h table_windows_ntuser.c
-    drsyscall_fileparse.c pdb2sysfile.cpp drsyscall_wingdi.c
-    table_windows_kernel32.c drsyscall_numx.h table_windows_ntusercall.c
-    table_linux.c drsyscall.dox drsyscall_driver.h table_windows_ntgdi.c
-    drsyscall_windows.c drsyscall_windows.h table_macos_bsd.c
-    table_windows_ntoskrnl_infoclass.c
-}
-
 foreach rule $rules {
     set ruleExclusions($rule) {
         # Don't complain about the test file during the build.
@@ -86,11 +62,6 @@ foreach rule $rules {
         sideline.c
         symtab.c
         # tools/* in this category is excluded via regex.
-    }
-    # TODO i#7303: Remove drmf and drsyscall files when formatting errrors
-    # are fixed.
-    foreach drsyscall_file $drsyscall_files {
-        lappend ruleExclusions($rule) [file tail $drsyscall_file]
     }
 }
 

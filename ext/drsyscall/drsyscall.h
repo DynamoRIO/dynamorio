@@ -45,18 +45,23 @@ extern "C" {
  * that drsyscall's actions occur at the right time.
  */
 #ifndef dr_get_tls_field
-# define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-# define dr_unregister_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-# define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-# define dr_unregister_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-# define dr_register_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
-# define dr_unregister_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
-# define dr_register_post_syscall_event DO_NOT_USE_post_syscall_USE_drmgr_events_instead
-# define dr_unregister_post_syscall_event DO_NOT_USE_post_syscall_USE_drmgr_events_instead
+#    define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_unregister_thread_init_event \
+        DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_unregister_thread_exit_event \
+        DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_register_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
+#    define dr_unregister_pre_syscall_event \
+        DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
+#    define dr_register_post_syscall_event \
+        DO_NOT_USE_post_syscall_USE_drmgr_events_instead
+#    define dr_unregister_post_syscall_event \
+        DO_NOT_USE_post_syscall_USE_drmgr_events_instead
 #endif /* dr_get_tls_field */
 /***************************************************************************
  * ENUMS AND TYPES
@@ -75,22 +80,22 @@ enum {
      * modify the application's context, in which case their event
      * should go beforehand.
      */
-    DRMGR_PRIORITY_PRESYS_DRSYS       = -100,
+    DRMGR_PRIORITY_PRESYS_DRSYS = -100,
     /** See the comment for DRMGR_PRIORITY_PRESYS_DRSYS. */
-    DRMGR_PRIORITY_POSTSYS_DRSYS      = -100,
+    DRMGR_PRIORITY_POSTSYS_DRSYS = -100,
     /**
      * Priority of the drsyscall last-chance post-syscall event.  This
      * event must take place after any dynamic iteration of system
      * call arguments, which means it must be after the post-syscall
      * event in all users of drsyscall.
      */
-    DRMGR_PRIORITY_POSTSYS_DRSYS_LAST =  10000,
+    DRMGR_PRIORITY_POSTSYS_DRSYS_LAST = 10000,
     /**
      * Priority of the drsyscall module load event.  This
      * event must take place before any user of drsyscall in order
      * to populate the tables used by drsys_name_to_syscall().
      */
-    DRMGR_PRIORITY_MODLOAD_DRSYS      = -100,
+    DRMGR_PRIORITY_MODLOAD_DRSYS = -100,
 };
 
 /**
@@ -128,7 +133,7 @@ typedef struct _drsys_sysnum_t {
      * interrupt vector used.
      */
     int number;
-    int secondary;   /**< Secondary component of \p number.secondary, or zero. */
+    int secondary; /**< Secondary component of \p number.secondary, or zero. */
 } drsys_sysnum_t;
 
 /**
@@ -136,8 +141,8 @@ typedef struct _drsys_sysnum_t {
  * bitmask, so multiple of these can be set.
  */
 typedef enum {
-    DRSYS_PARAM_IN     = 0x01,  /**< Input parameter. */
-    DRSYS_PARAM_OUT    = 0x02,  /**< Output parameter. */
+    DRSYS_PARAM_IN = 0x01,  /**< Input parameter. */
+    DRSYS_PARAM_OUT = 0x02, /**< Output parameter. */
     /**
      * May be IN or OUT.  Used only in pre-syscall to indicate the
      * size of an entire data structure, when only some fields are
@@ -157,7 +162,7 @@ typedef enum {
      * the specified type.  If this flag is set, the parameter's value
      * is passed in.
      */
-    DRSYS_PARAM_INLINED= 0x10,
+    DRSYS_PARAM_INLINED = 0x10,
 } drsys_param_mode_t;
 
 /* Keep this in synch with param_type_names[] */
@@ -168,61 +173,61 @@ typedef enum {
  * and mode DRSYS_PARAM_OUT can be assumed to be a pointer to an int.
  */
 typedef enum {
-    DRSYS_TYPE_INVALID,     /**< This type field is not used for this iteration type. */
-    DRSYS_TYPE_UNKNOWN,     /**< Unknown type. */
+    DRSYS_TYPE_INVALID, /**< This type field is not used for this iteration type. */
+    DRSYS_TYPE_UNKNOWN, /**< Unknown type. */
 
     /* Inlined */
-    DRSYS_TYPE_VOID,   	    /**< Void type. */
-    DRSYS_TYPE_BOOL,   	    /**< Boolean type. */
-    DRSYS_TYPE_INT,    	    /**< Integer type of unspecified signedness. */
-    DRSYS_TYPE_SIGNED_INT,  /**< Signed integer type. */
-    DRSYS_TYPE_UNSIGNED_INT,/**< Unsigned integer type. */
-    DRSYS_TYPE_SIZE_T,      /**< Size_t type */
-    DRSYS_TYPE_HANDLE,      /**< Windows-only: kernel/GDI/user handle type. */
-    DRSYS_TYPE_NTSTATUS,    /**< Windows-only: NTSTATUS Native API/RTL type. */
-    DRSYS_TYPE_ATOM,        /**< Windows-only: ATOM type. */
-    DRSYS_TYPE_LCID,        /**< Windows-only: LCID type. */
-    DRSYS_TYPE_LPARAM,      /**< Windows-only: LPARAM type. */
-    DRSYS_TYPE_HMODULE,     /**< Windows-only: HMODULE type. */
-    DRSYS_TYPE_HFILE,       /**< Windows-only: HFILE type. */
-    DRSYS_TYPE_POINTER,     /**< Pointer to an unspecified type. */
+    DRSYS_TYPE_VOID,         /**< Void type. */
+    DRSYS_TYPE_BOOL,         /**< Boolean type. */
+    DRSYS_TYPE_INT,          /**< Integer type of unspecified signedness. */
+    DRSYS_TYPE_SIGNED_INT,   /**< Signed integer type. */
+    DRSYS_TYPE_UNSIGNED_INT, /**< Unsigned integer type. */
+    DRSYS_TYPE_SIZE_T,       /**< Size_t type */
+    DRSYS_TYPE_HANDLE,       /**< Windows-only: kernel/GDI/user handle type. */
+    DRSYS_TYPE_NTSTATUS,     /**< Windows-only: NTSTATUS Native API/RTL type. */
+    DRSYS_TYPE_ATOM,         /**< Windows-only: ATOM type. */
+    DRSYS_TYPE_LCID,         /**< Windows-only: LCID type. */
+    DRSYS_TYPE_LPARAM,       /**< Windows-only: LPARAM type. */
+    DRSYS_TYPE_HMODULE,      /**< Windows-only: HMODULE type. */
+    DRSYS_TYPE_HFILE,        /**< Windows-only: HFILE type. */
+    DRSYS_TYPE_POINTER,      /**< Pointer to an unspecified type. */
 
     /* Structs */
-    DRSYS_TYPE_STRUCT,      /**< Unspecified structure type. */
-    DRSYS_TYPE_CSTRING,     /**< Null-terminated string of characters (C string). */
-    DRSYS_TYPE_CWSTRING,    /**< Null-terminated string of wide characters. */
-    DRSYS_TYPE_CARRAY,      /**< Non-null-terminated string of characters. */
-    DRSYS_TYPE_CWARRAY,     /**< Non-null-terminated string of wide characters. */
-    DRSYS_TYPE_CSTRARRAY,   /**< Null-terminated array of C strings. */
-    DRSYS_TYPE_UNICODE_STRING,      /**< UNICODE_STRING structure. */
-    DRSYS_TYPE_LARGE_STRING,        /**< LARGE_STRING structure. */
-    DRSYS_TYPE_OBJECT_ATTRIBUTES,   /**< OBJECT_ATTRIBUTES structure. */
-    DRSYS_TYPE_SECURITY_DESCRIPTOR, /**< SECURITY_DESCRIPTOR structure. */
-    DRSYS_TYPE_SECURITY_QOS,        /**< SECURITY_QUALITY_OF_SERVICE structure */
-    DRSYS_TYPE_PORT_MESSAGE,        /**< PORT_MESSAGE structure. */
-    DRSYS_TYPE_CONTEXT,             /**< CONTEXT structure. */
-    DRSYS_TYPE_EXCEPTION_RECORD,    /**< EXCEPTION_RECORD structure. */
-    DRSYS_TYPE_DEVMODEW,            /**< DEVMODEW structure. */
-    DRSYS_TYPE_WNDCLASSEXW,         /**< WNDCLASSEXW structure. */
-    DRSYS_TYPE_CLSMENUNAME,         /**< CLSMENUNAME structure. */
-    DRSYS_TYPE_MENUITEMINFOW,       /**< MENUITEMINFOW structure. */
-    DRSYS_TYPE_ALPC_PORT_ATTRIBUTES,/**< ALPC_PORT_ATTRIBUTES structure. */
-    DRSYS_TYPE_ALPC_SECURITY_ATTRIBUTES,/**< ALPC_SECURITY_ATTRIBUTES structure. */
-    DRSYS_TYPE_LOGFONTW,            /**< LOGFONTW structure. */
-    DRSYS_TYPE_NONCLIENTMETRICSW,   /**< NONCLIENTMETRICSW structure. */
-    DRSYS_TYPE_ICONMETRICSW,        /**< ICONMETRICSW structure. */
-    DRSYS_TYPE_SERIALKEYSW,         /**< SERIALKEYSW structure. */
-    DRSYS_TYPE_SOCKADDR,            /**< struct sockaddr. */
-    DRSYS_TYPE_MSGHDR,              /**< struct msghdr. */
-    DRSYS_TYPE_MSGBUF,              /**< struct msgbuf. */
-    DRSYS_TYPE_LARGE_INTEGER,       /**< LARGE_INTEGER structure. */
-    DRSYS_TYPE_ULARGE_INTEGER,      /**< ULARGE_INTEGER structure. */
-    DRSYS_TYPE_IO_STATUS_BLOCK,     /**< IO_STATUS_BLOCK structure. */
-    DRSYS_TYPE_FUNCTION,            /**< Function of unspecified signature. */
-    DRSYS_TYPE_BITMAPINFO,          /**< BITMAPINFO structure. */
-    DRSYS_TYPE_ALPC_CONTEXT_ATTRIBUTES,/**< ALPC_CONTEXT_ATTRIBUTES structure. */
-    DRSYS_TYPE_ALPC_MESSAGE_ATTRIBUTES,/**< ALPC_MESSAGE_ATTRIBUTES structure. */
-    DRSYS_TYPE_T2_SET_PARAMETERS,   /**< T2_SET_PARAMETERS structure. */
+    DRSYS_TYPE_STRUCT,            /**< Unspecified structure type. */
+    DRSYS_TYPE_CSTRING,           /**< Null-terminated string of characters (C string). */
+    DRSYS_TYPE_CWSTRING,          /**< Null-terminated string of wide characters. */
+    DRSYS_TYPE_CARRAY,            /**< Non-null-terminated string of characters. */
+    DRSYS_TYPE_CWARRAY,           /**< Non-null-terminated string of wide characters. */
+    DRSYS_TYPE_CSTRARRAY,         /**< Null-terminated array of C strings. */
+    DRSYS_TYPE_UNICODE_STRING,    /**< UNICODE_STRING structure. */
+    DRSYS_TYPE_LARGE_STRING,      /**< LARGE_STRING structure. */
+    DRSYS_TYPE_OBJECT_ATTRIBUTES, /**< OBJECT_ATTRIBUTES structure. */
+    DRSYS_TYPE_SECURITY_DESCRIPTOR,      /**< SECURITY_DESCRIPTOR structure. */
+    DRSYS_TYPE_SECURITY_QOS,             /**< SECURITY_QUALITY_OF_SERVICE structure */
+    DRSYS_TYPE_PORT_MESSAGE,             /**< PORT_MESSAGE structure. */
+    DRSYS_TYPE_CONTEXT,                  /**< CONTEXT structure. */
+    DRSYS_TYPE_EXCEPTION_RECORD,         /**< EXCEPTION_RECORD structure. */
+    DRSYS_TYPE_DEVMODEW,                 /**< DEVMODEW structure. */
+    DRSYS_TYPE_WNDCLASSEXW,              /**< WNDCLASSEXW structure. */
+    DRSYS_TYPE_CLSMENUNAME,              /**< CLSMENUNAME structure. */
+    DRSYS_TYPE_MENUITEMINFOW,            /**< MENUITEMINFOW structure. */
+    DRSYS_TYPE_ALPC_PORT_ATTRIBUTES,     /**< ALPC_PORT_ATTRIBUTES structure. */
+    DRSYS_TYPE_ALPC_SECURITY_ATTRIBUTES, /**< ALPC_SECURITY_ATTRIBUTES structure. */
+    DRSYS_TYPE_LOGFONTW,                 /**< LOGFONTW structure. */
+    DRSYS_TYPE_NONCLIENTMETRICSW,        /**< NONCLIENTMETRICSW structure. */
+    DRSYS_TYPE_ICONMETRICSW,             /**< ICONMETRICSW structure. */
+    DRSYS_TYPE_SERIALKEYSW,              /**< SERIALKEYSW structure. */
+    DRSYS_TYPE_SOCKADDR,                 /**< struct sockaddr. */
+    DRSYS_TYPE_MSGHDR,                   /**< struct msghdr. */
+    DRSYS_TYPE_MSGBUF,                   /**< struct msgbuf. */
+    DRSYS_TYPE_LARGE_INTEGER,            /**< LARGE_INTEGER structure. */
+    DRSYS_TYPE_ULARGE_INTEGER,           /**< ULARGE_INTEGER structure. */
+    DRSYS_TYPE_IO_STATUS_BLOCK,          /**< IO_STATUS_BLOCK structure. */
+    DRSYS_TYPE_FUNCTION,                 /**< Function of unspecified signature. */
+    DRSYS_TYPE_BITMAPINFO,               /**< BITMAPINFO structure. */
+    DRSYS_TYPE_ALPC_CONTEXT_ATTRIBUTES,  /**< ALPC_CONTEXT_ATTRIBUTES structure. */
+    DRSYS_TYPE_ALPC_MESSAGE_ATTRIBUTES,  /**< ALPC_MESSAGE_ATTRIBUTES structure. */
+    DRSYS_TYPE_T2_SET_PARAMETERS,        /**< T2_SET_PARAMETERS structure. */
 
     /* Additional types may be added in the future. Add them above. */
     DRSYS_TYPE_LAST_PLUS_ONE,
@@ -394,7 +399,6 @@ typedef struct _drsys_options_t {
      */
     bool (*is_register_defined)(reg_id_t reg);
 
-
     /** This is an internal-only option that is reserved for developer use. */
     bool verify_sysnums;
     /** This is an internal-only option that is reserved for developer use. */
@@ -504,7 +508,6 @@ DR_EXPORT
  */
 drmf_status_t
 drsys_exit(void);
-
 
 DR_EXPORT
 /**
@@ -659,7 +662,8 @@ DR_EXPORT
  * \return success code.
  */
 drmf_status_t
-drsys_syscall_succeeded(drsys_syscall_t *syscall, reg_t result, DR_PARAM_OUT bool *success);
+drsys_syscall_succeeded(drsys_syscall_t *syscall, reg_t result,
+                        DR_PARAM_OUT bool *success);
 
 DR_EXPORT
 /**
@@ -680,7 +684,8 @@ DR_EXPORT
  * \return success code.
  */
 drmf_status_t
-drsys_syscall_return_type(drsys_syscall_t *syscall, DR_PARAM_OUT drsys_param_type_t *type);
+drsys_syscall_return_type(drsys_syscall_t *syscall,
+                          DR_PARAM_OUT drsys_param_type_t *type);
 
 #ifdef WINDOWS
 DR_EXPORT
@@ -709,8 +714,7 @@ drsys_sysnums_equal(drsys_sysnum_t *num1, drsys_sysnum_t *num2)
 {
     if (num1 == NULL || num2 == NULL)
         return false;
-    return (num1->number == num2->number &&
-            num1->secondary == num2->secondary);
+    return (num1->number == num2->number && num1->secondary == num2->secondary);
 }
 
 DR_EXPORT
@@ -781,8 +785,8 @@ DR_EXPORT
  * \return success code.
  */
 drmf_status_t
-drsys_cur_syscall_result(void *drcontext, DR_PARAM_OUT bool *success, DR_PARAM_OUT uint64 *value,
-                         DR_PARAM_OUT uint *error_code);
+drsys_cur_syscall_result(void *drcontext, DR_PARAM_OUT bool *success,
+                         DR_PARAM_OUT uint64 *value, DR_PARAM_OUT uint *error_code);
 
 DR_EXPORT
 /**
@@ -855,7 +859,6 @@ DR_EXPORT
 drmf_status_t
 drsys_get_mcontext(void *drcontext, DR_PARAM_OUT dr_mcontext_t **mc);
 
-
 /***************************************************************************
  * STATIC CALLBACK-BASED ITERATORS
  */
@@ -880,8 +883,8 @@ DR_EXPORT
  * \return success code.
  */
 drmf_status_t
-drsys_iterate_syscalls(bool (*cb)(drsys_sysnum_t sysnum,
-                                  drsys_syscall_t *syscall, void *user_data),
+drsys_iterate_syscalls(bool (*cb)(drsys_sysnum_t sysnum, drsys_syscall_t *syscall,
+                                  void *user_data),
                        void *user_data);
 
 DR_EXPORT
@@ -1041,7 +1044,6 @@ drsys_generate_sysnum_file(void *drcontext, const char **sysnum_lib_paths,
 /* XXX i#1092: add start/next/stop synchronous layer on top of
  * callback-based iterators
  */
-
 
 /*@}*/ /* end doxygen group */
 

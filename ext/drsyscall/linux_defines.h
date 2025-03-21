@@ -28,24 +28,24 @@
 
 #ifdef HAVE_ASM_I386
 /* tying them all to this one header for now */
-# define GLIBC_2_3_2 1
+#    define GLIBC_2_3_2 1
 #endif
 
 #include <sys/types.h>
 #ifdef GLIBC_2_3_2
-# include <asm-i386/stat.h>
+#    include <asm-i386/stat.h>
 #else
-# include <asm/stat.h>
-# include <sys/statfs.h>
+#    include <asm/stat.h>
+#    include <sys/statfs.h>
 #endif
-#include <utime.h> /* struct utimbuf */
-#include <sys/times.h> /* struct tms */
-#include <sys/resource.h> /* struct rlimit */
-#include <sys/time.h> /* struct timezone */
-#include <sys/sysinfo.h> /* struct sysinfo */
-#include <sys/timex.h> /* struct timex */
+#include <utime.h>         /* struct utimbuf */
+#include <sys/times.h>     /* struct tms */
+#include <sys/resource.h>  /* struct rlimit */
+#include <sys/time.h>      /* struct timezone */
+#include <sys/sysinfo.h>   /* struct sysinfo */
+#include <sys/timex.h>     /* struct timex */
 #include <linux/utsname.h> /* struct new_utsname */
-#include <sched.h> /* struct sched_param */
+#include <sched.h>         /* struct sched_param */
 
 #ifndef ANDROID
 /* Avoid conflicts w/ DR's REG_* enum w/ more recent distros
@@ -53,11 +53,11 @@
  * Xref DRi#34.  We could instead update to use DR_REG_* and unset
  * DynamoRIO_REG_COMPATIBILITY.
  */
-# define __need_siginfo_t
-# define __need_sigevent_t
-# include <asm/siginfo.h>
+#    define __need_siginfo_t
+#    define __need_sigevent_t
+#    include <asm/siginfo.h>
 #else
-# include <signal.h>
+#    include <signal.h>
 #endif
 
 #include <linux/capability.h> /* cap_user_header_t */
@@ -66,33 +66,33 @@
  * #include <sys/statfs.h> (struct statfs)
  */
 #include <poll.h>
-#include <sys/epoll.h> /* struct epoll_event */
-#include <time.h> /* struct itimerspec */
-#include <errno.h> /* for EBADF */
+#include <sys/epoll.h>    /* struct epoll_event */
+#include <time.h>         /* struct itimerspec */
+#include <errno.h>        /* for EBADF */
 #include <linux/sysctl.h> /* struct __sysctl_args */
 
 /* block bits/stat.h which is included from fcntl.h on FC16 (glibc 2.14) */
-#define _BITS_STAT_H	1
+#define _BITS_STAT_H 1
 #include <fcntl.h> /* F_GETFD, etc. */
 
 #ifdef X86
-# include <asm/ldt.h> /* struct user_desc */
+#    include <asm/ldt.h> /* struct user_desc */
 #endif
 #include <linux/futex.h>
 #include <linux/mman.h> /* MREMAP_FIXED */
 
 /* ipc */
 #ifdef GLIBC_2_3_2
-# include <sys/ipc.h>
-# include <asm/ipc.h>
-# include <sys/sem.h>
-# include <sys/shm.h>
-# include <sys/msg.h>
+#    include <sys/ipc.h>
+#    include <asm/ipc.h>
+#    include <sys/sem.h>
+#    include <sys/shm.h>
+#    include <sys/msg.h>
 #else
-# include <linux/ipc.h>
-# include <linux/sem.h>
-# include <linux/shm.h>
-# include <linux/msg.h>
+#    include <linux/ipc.h>
+#    include <linux/sem.h>
+#    include <linux/shm.h>
+#    include <linux/msg.h>
 #endif
 
 /* socket */
@@ -103,7 +103,7 @@
 #include <linux/netlink.h>
 
 #ifndef SYS_ACCEPT4
-# define SYS_ACCEPT4 18
+#    define SYS_ACCEPT4 18
 #endif
 
 /* ioctl */
@@ -116,25 +116,25 @@
 #include <linux/fs.h>
 
 /* linux/cdk.h was removed from the kernel in 3.6 */
-#define STL_BINTR   0x00007314
-#define STL_BSTART  0x00007315
-#define STL_BSTOP   0x00007316
-#define STL_BRESET  0x00007317
+#define STL_BINTR 0x00007314
+#define STL_BSTART 0x00007315
+#define STL_BSTOP 0x00007316
+#define STL_BRESET 0x00007317
 
 /* i#911: linux/ext2_fs.h references a now-removed type umode_t in
  * FC16 (in flux apparently) so we define on our own:
  */
 #ifndef EXT2_IOC_GETFLAGS
-# ifndef FS_IOC_GETFLAGS
-#  define FS_IOC_GETFLAGS                _IOR('f', 1, long)
-#  define FS_IOC_SETFLAGS                _IOW('f', 2, long)
-#  define FS_IOC_GETVERSION              _IOR('v', 1, long)
-#  define FS_IOC_SETVERSION              _IOW('v', 2, long)
-# endif
-# define EXT2_IOC_GETFLAGS               FS_IOC_GETFLAGS
-# define EXT2_IOC_SETFLAGS               FS_IOC_SETFLAGS
-# define EXT2_IOC_GETVERSION             FS_IOC_GETVERSION
-# define EXT2_IOC_SETVERSION             FS_IOC_SETVERSION
+#    ifndef FS_IOC_GETFLAGS
+#        define FS_IOC_GETFLAGS _IOR('f', 1, long)
+#        define FS_IOC_SETFLAGS _IOW('f', 2, long)
+#        define FS_IOC_GETVERSION _IOR('v', 1, long)
+#        define FS_IOC_SETVERSION _IOW('v', 2, long)
+#    endif
+#    define EXT2_IOC_GETFLAGS FS_IOC_GETFLAGS
+#    define EXT2_IOC_SETFLAGS FS_IOC_SETFLAGS
+#    define EXT2_IOC_GETVERSION FS_IOC_GETVERSION
+#    define EXT2_IOC_SETVERSION FS_IOC_SETVERSION
 #endif
 
 #ifndef ANDROID /* Android headers already have this. */
@@ -155,77 +155,77 @@ struct rlimit64 {
 #include <linux/lp.h>
 #include <linux/mroute.h>
 #ifdef GLIBC_2_3_2
-# include <linux/mtio.h>
+#    include <linux/mtio.h>
 #elif !defined(ANDROID)
-# include <sys/mtio.h>
+#    include <sys/mtio.h>
 #endif
 #include <linux/netrom.h>
 #include <linux/scc.h>
 
 /* i#911: linux/smb_fs.h is missing on FC16 so we define on our own */
-#define SMB_IOC_GETMOUNTUID             _IOR('u', 1, __kernel_old_uid_t)
+#define SMB_IOC_GETMOUNTUID _IOR('u', 1, __kernel_old_uid_t)
 
 #include <linux/sockios.h>
 #include <linux/route.h>
 #include <linux/if_arp.h>
 #include <linux/soundcard.h>
 #if 0 /* XXX: header not avail: ioctl code below disabled as well */
-# include <linux/umsdos_fs.h>
+#    include <linux/umsdos_fs.h>
 #endif
 #include <linux/vt.h>
 #include <linux/ipmi.h> /* PR 531644 */
 #ifndef GLIBC_2_3_2
-# include <linux/net.h>
+#    include <linux/net.h>
 #endif
 
 /* prctl */
 #include <sys/prctl.h>
 /* may not be building w/ most recent headers */
 #ifndef PR_GET_FPEMU
-# define PR_GET_FPEMU  9
-# define PR_SET_FPEMU 10
+#    define PR_GET_FPEMU 9
+#    define PR_SET_FPEMU 10
 #endif
 #ifndef PR_GET_FPEXC
-# define PR_GET_FPEXC    11
-# define PR_SET_FPEXC    12
+#    define PR_GET_FPEXC 11
+#    define PR_SET_FPEXC 12
 #endif
 #ifndef PR_GET_TIMING
-# define PR_GET_TIMING   13
-# define PR_SET_TIMING   14
+#    define PR_GET_TIMING 13
+#    define PR_SET_TIMING 14
 #endif
 #ifndef PR_GET_NAME
-# define PR_SET_NAME    15
-# define PR_GET_NAME    16
+#    define PR_SET_NAME 15
+#    define PR_GET_NAME 16
 #endif
 #ifndef PR_GET_ENDIAN
-# define PR_GET_ENDIAN   19
-# define PR_SET_ENDIAN   20
+#    define PR_GET_ENDIAN 19
+#    define PR_SET_ENDIAN 20
 #endif
 #ifndef PR_GET_SECCOMP
-# define PR_GET_SECCOMP  21
-# define PR_SET_SECCOMP  22
+#    define PR_GET_SECCOMP 21
+#    define PR_SET_SECCOMP 22
 #endif
 #ifndef PR_CAPBSET_READ
-# define PR_CAPBSET_READ 23
-# define PR_CAPBSET_DROP 24
+#    define PR_CAPBSET_READ 23
+#    define PR_CAPBSET_DROP 24
 #endif
 #ifndef PR_GET_TSC
-# define PR_GET_TSC 25
-# define PR_SET_TSC 26
+#    define PR_GET_TSC 25
+#    define PR_SET_TSC 26
 #endif
 #ifndef PR_GET_SECUREBITS
-# define PR_GET_SECUREBITS 27
-# define PR_SET_SECUREBITS 28
+#    define PR_GET_SECUREBITS 27
+#    define PR_SET_SECUREBITS 28
 #endif
 #ifndef PR_GET_TIMERSLACK
-# define PR_SET_TIMERSLACK 29
-# define PR_GET_TIMERSLACK 30
+#    define PR_SET_TIMERSLACK 29
+#    define PR_GET_TIMERSLACK 30
 #endif
 
 /* kernel's sigset_t packs info into bits, while glibc's uses a short for
  * each (-> 8 bytes vs. 128 bytes)
  */
-#define MAX_SIGNUM  64
+#define MAX_SIGNUM 64
 /* size of long */
 #ifdef X64
 #    define _NSIG_BPW 64
@@ -254,14 +254,14 @@ typedef struct _kernel_sigaction_t {
 
 #ifdef GLIBC_2_3_2
 union semun {
-    int val; /* value for SETVAL */
-    struct semid_ds *buf; /* buffer for IPC_STAT, IPC_SET */
+    int val;               /* value for SETVAL */
+    struct semid_ds *buf;  /* buffer for IPC_STAT, IPC_SET */
     unsigned short *array; /* array for GETALL, SETALL */
     struct seminfo *__buf; /* buffer for IPC_INFO */
 };
 
 /* not in older defines: version flag or-ed in for semctl, msgctl, shmctl */
-# define IPC_64  0x0100
+#    define IPC_64 0x0100
 #endif
 
 #ifndef ANDROID

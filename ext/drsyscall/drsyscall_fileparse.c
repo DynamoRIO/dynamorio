@@ -98,7 +98,7 @@ read_sysnum_file(void *drcontext, const char *sysnum_file, module_data_t *ntdll_
     name[search - line] = '\0';
     LOG(SYSCALL_VERBOSE, "syscall file: index name is %s\n", name);
 
-    ok = syscall_num_from_name(drcontext, ntdll_data, name, NULL, false/*exported*/,
+    ok = syscall_num_from_name(drcontext, ntdll_data, name, NULL, false /*exported*/,
                                &num_from_wrapper);
     if (!ok)
         goto read_sysnum_file_done;
@@ -112,27 +112,27 @@ read_sysnum_file(void *drcontext, const char *sysnum_file, module_data_t *ntdll_
     do {
         search = strstr(line, "\nSTART=0x");
         LOG(SYSCALL_VERBOSE, "syscall file: examining %.16s\n",
-            search == NULL ? "<null>" : search+1);
+            search == NULL ? "<null>" : search + 1);
         if (search == NULL || search - map > actual_size)
             goto read_sysnum_file_done;
-        if (dr_sscanf(search+1, "START=0x%x", &val) != 1)
+        if (dr_sscanf(search + 1, "START=0x%x", &val) != 1)
             goto read_sysnum_file_done;
         if (num_from_wrapper.number == val) {
             LOG(SYSCALL_VERBOSE, "syscall file: found target list\n");
             break;
         }
-        line = strchr(search+1, '\n');
+        line = strchr(search + 1, '\n');
         if (line == NULL || line - map > actual_size)
             goto read_sysnum_file_done;
     } while (search - map < actual_size);
 
-    line = strchr(search+1, '\n');
+    line = strchr(search + 1, '\n');
     if (line == NULL || line - map > actual_size)
         goto read_sysnum_file_done;
     line++;
 
-    while (strncmp(line, DRSYS_SYSNUM_FILE_FOOTER,
-                   strlen(DRSYS_SYSNUM_FILE_FOOTER)) != 0) {
+    while (strncmp(line, DRSYS_SYSNUM_FILE_FOOTER, strlen(DRSYS_SYSNUM_FILE_FOOTER)) !=
+           0) {
         search = strchr(line, '=');
         if (search == NULL || search - map > actual_size ||
             search - line >= BUFFER_SIZE_ELEMENTS(name))
@@ -145,11 +145,12 @@ read_sysnum_file(void *drcontext, const char *sysnum_file, module_data_t *ntdll_
         line = search + 1;
         if (dr_sscanf(line, "0x%x", &val) != 1)
             goto read_sysnum_file_done;
-        name2num_record(name, val, true/*dup the string*/);
+        name2num_record(name, val, true /*dup the string*/);
         line = strchr(line, '\n');
         /* Handle a missing trailing newline */
-        if (line == NULL && strncmp(line, DRSYS_SYSNUM_FILE_FOOTER,
-                                    strlen(DRSYS_SYSNUM_FILE_FOOTER)) == 0)
+        if (line == NULL &&
+            strncmp(line, DRSYS_SYSNUM_FILE_FOOTER, strlen(DRSYS_SYSNUM_FILE_FOOTER)) ==
+                0)
             break;
         if (line == NULL || line - map > actual_size)
             goto read_sysnum_file_done;
@@ -157,7 +158,7 @@ read_sysnum_file(void *drcontext, const char *sysnum_file, module_data_t *ntdll_
     }
 
     status = DRMF_SUCCESS;
- read_sysnum_file_done:
+read_sysnum_file_done:
     DOLOG(SYSCALL_VERBOSE, {
         if (status != DRMF_SUCCESS)
             LOG(SYSCALL_VERBOSE, "failed to parse syscall file %s\n", sysnum_file);

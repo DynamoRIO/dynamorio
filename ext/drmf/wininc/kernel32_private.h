@@ -14,8 +14,5 @@
 
 /* Kernel32 undocumented and private function definitions */
 
-BOOL
-WINAPI
-VerifyConsoleIoHandle(
-    __in HANDLE Handle
-    );
+BOOL WINAPI
+VerifyConsoleIoHandle(__in HANDLE Handle);

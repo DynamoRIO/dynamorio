@@ -16,62 +16,62 @@
 #define __MSAFDLIB_H
 
 /* Socket State */
-typedef enum _SOCKET_STATE
-{
+typedef enum _SOCKET_STATE {
     SocketUndefined = -1,
     SocketOpen,
     SocketBound,
     SocketBoundUdp,
     SocketConnected,
     SocketClosed
-} SOCKET_STATE, *PSOCKET_STATE;
+} SOCKET_STATE,
+    *PSOCKET_STATE;
 
 /*
  * Shared Socket Information.
  * It's called shared because we send it to Kernel-Mode for safekeeping
  */
 typedef struct _SOCK_SHARED_INFO {
-    SOCKET_STATE                State;
-    INT                            AddressFamily;
-    INT                            SocketType;
-    INT                            Protocol;
-    INT                            SizeOfLocalAddress;
-    INT                            SizeOfRemoteAddress;
-    struct linger                LingerData;
-    ULONG                        SendTimeout;
-    ULONG                        RecvTimeout;
-    ULONG                        SizeOfRecvBuffer;
-    ULONG                        SizeOfSendBuffer;
+    SOCKET_STATE State;
+    INT AddressFamily;
+    INT SocketType;
+    INT Protocol;
+    INT SizeOfLocalAddress;
+    INT SizeOfRemoteAddress;
+    struct linger LingerData;
+    ULONG SendTimeout;
+    ULONG RecvTimeout;
+    ULONG SizeOfRecvBuffer;
+    ULONG SizeOfSendBuffer;
     struct {
-        BOOLEAN                    Listening:1;
-        BOOLEAN                    Broadcast:1;
-        BOOLEAN                    Debug:1;
-        BOOLEAN                    OobInline:1;
-        BOOLEAN                    ReuseAddresses:1;
-        BOOLEAN                    ExclusiveAddressUse:1;
-        BOOLEAN                    NonBlocking:1;
-        BOOLEAN                    DontUseWildcard:1;
-        BOOLEAN                    ReceiveShutdown:1;
-        BOOLEAN                    SendShutdown:1;
-        BOOLEAN                    UseDelayedAcceptance:1;
-        BOOLEAN                    UseSAN:1;
+        BOOLEAN Listening : 1;
+        BOOLEAN Broadcast : 1;
+        BOOLEAN Debug : 1;
+        BOOLEAN OobInline : 1;
+        BOOLEAN ReuseAddresses : 1;
+        BOOLEAN ExclusiveAddressUse : 1;
+        BOOLEAN NonBlocking : 1;
+        BOOLEAN DontUseWildcard : 1;
+        BOOLEAN ReceiveShutdown : 1;
+        BOOLEAN SendShutdown : 1;
+        BOOLEAN UseDelayedAcceptance : 1;
+        BOOLEAN UseSAN : 1;
         /* timurrrr: based on XP 32-bit vs Win7 observations: i#375 */
-        BOOLEAN                    HasGUID:1;
+        BOOLEAN HasGUID : 1;
     }; // Flags
-    DWORD                        CreateFlags;
-    DWORD                        CatalogEntryId;
-    DWORD                        ServiceFlags1;
-    DWORD                        ProviderFlags;
-    GROUP                        GroupID;
-    DWORD                        GroupType;
-    INT                            GroupPriority;
-    INT                            SocketLastError;
-    HWND                        hWnd;
-    LONG                        Unknown;
-    DWORD                        SequenceNumber;
-    UINT                        wMsg;
-    LONG                        AsyncEvents;
-    LONG                        AsyncDisabledEvents;
+    DWORD CreateFlags;
+    DWORD CatalogEntryId;
+    DWORD ServiceFlags1;
+    DWORD ProviderFlags;
+    GROUP GroupID;
+    DWORD GroupType;
+    INT GroupPriority;
+    INT SocketLastError;
+    HWND hWnd;
+    LONG Unknown;
+    DWORD SequenceNumber;
+    UINT wMsg;
+    LONG AsyncEvents;
+    LONG AsyncDisabledEvents;
 } SOCK_SHARED_INFO, *PSOCK_SHARED_INFO;
 
 /* The blob of data we send to Kernel-Mode for safekeeping */

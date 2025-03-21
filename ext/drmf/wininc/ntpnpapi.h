@@ -12,21 +12,16 @@
 /* from phlib/include/ntpnpapi.h */
 
 #ifndef __PHLIB_NTPNPAPI_H
-#define __PHLIB_NTPNPAPI_H
+#    define __PHLIB_NTPNPAPI_H
 
 NTSTATUS
 NTAPI
-NtReplacePartitionUnit(
-    __in PUNICODE_STRING TargetInstancePath,
-    __in PUNICODE_STRING SpareInstancePath,
-    __in ULONG Flags
-    );
+NtReplacePartitionUnit(__in PUNICODE_STRING TargetInstancePath,
+                       __in PUNICODE_STRING SpareInstancePath, __in ULONG Flags);
 
 NTSTATUS
 NTAPI
-NtSerializeBoot(
-    VOID
-    );
+NtSerializeBoot(VOID);
 
 #endif /* __PHLIB_NTPNPAPI_H */
 

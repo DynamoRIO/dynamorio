@@ -18,8 +18,7 @@
 //
 // Memory Information Classes for NtQueryVirtualMemory
 //
-typedef enum _MEMORY_INFORMATION_CLASS
-{
+typedef enum _MEMORY_INFORMATION_CLASS {
     MemoryBasicInformation,
     MemoryWorkingSetList,
     MemorySectionName,
@@ -29,8 +28,7 @@ typedef enum _MEMORY_INFORMATION_CLASS
 //
 // Section Information Clasess for NtQuerySection
 //
-typedef enum _SECTION_INFORMATION_CLASS
-{
+typedef enum _SECTION_INFORMATION_CLASS {
     SectionBasicInformation,
     SectionImageInformation,
 } SECTION_INFORMATION_CLASS;

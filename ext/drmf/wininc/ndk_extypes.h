@@ -18,8 +18,7 @@
 //
 //  System Information Classes for NtQuerySystemInformation
 //
-typedef enum _SYSTEM_INFORMATION_CLASS
-{
+typedef enum _SYSTEM_INFORMATION_CLASS {
     SystemBasicInformation,
     SystemProcessorInformation,
     SystemPerformanceInformation,
@@ -124,8 +123,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
 //
 //  System Information Classes for NtQueryMutant
 //
-typedef enum _MUTANT_INFORMATION_CLASS
-{
+typedef enum _MUTANT_INFORMATION_CLASS {
     MutantBasicInformation,
     MutantOwnerInformation
 } MUTANT_INFORMATION_CLASS;
@@ -133,8 +131,7 @@ typedef enum _MUTANT_INFORMATION_CLASS
 //
 //  System Information Classes for NtQueryAtom
 //
-typedef enum _ATOM_INFORMATION_CLASS
-{
+typedef enum _ATOM_INFORMATION_CLASS {
     AtomBasicInformation,
     AtomTableInformation,
 } ATOM_INFORMATION_CLASS;
@@ -142,24 +139,19 @@ typedef enum _ATOM_INFORMATION_CLASS
 //
 //  System Information Classes for NtQueryTimer
 //
-typedef enum _TIMER_INFORMATION_CLASS
-{
-    TimerBasicInformation
-} TIMER_INFORMATION_CLASS;
+typedef enum _TIMER_INFORMATION_CLASS { TimerBasicInformation } TIMER_INFORMATION_CLASS;
 
 //
 //  System Information Classes for NtQuerySemaphore
 //
-typedef enum _SEMAPHORE_INFORMATION_CLASS
-{
+typedef enum _SEMAPHORE_INFORMATION_CLASS {
     SemaphoreBasicInformation
 } SEMAPHORE_INFORMATION_CLASS;
 
 //
 // System Information Classes for NtSetTimerEx
 //
-typedef enum _TIMER_SET_INFORMATION_CLASS
-{
+typedef enum _TIMER_SET_INFORMATION_CLASS {
     TimerSetCoalescableTimer,
     MaxTimerInfoClass
 } TIMER_SET_INFORMATION_CLASS;
@@ -167,14 +159,10 @@ typedef enum _TIMER_SET_INFORMATION_CLASS
 //
 //  System Information Classes for NtQueryEvent
 //
-typedef enum _EVENT_INFORMATION_CLASS
-{
-    EventBasicInformation
-} EVENT_INFORMATION_CLASS;
+typedef enum _EVENT_INFORMATION_CLASS { EventBasicInformation } EVENT_INFORMATION_CLASS;
 
 // Class 26
-typedef struct _SYSTEM_GDI_DRIVER_INFORMATION
-{
+typedef struct _SYSTEM_GDI_DRIVER_INFORMATION {
     UNICODE_STRING DriverName;
     PVOID ImageAddress;
     PVOID SectionPointer;
@@ -184,8 +172,7 @@ typedef struct _SYSTEM_GDI_DRIVER_INFORMATION
 } SYSTEM_GDI_DRIVER_INFORMATION, *PSYSTEM_GDI_DRIVER_INFORMATION;
 
 // Class 53
-typedef struct _SYSTEM_SESSION_PROCESS_INFORMATION
-{
+typedef struct _SYSTEM_SESSION_PROCESS_INFORMATION {
     ULONG SessionId;
     ULONG SizeOfBuf;
     PVOID Buffer; // Same format as in SystemProcessInformation
@@ -199,8 +186,7 @@ typedef USHORT RTL_ATOM, *PRTL_ATOM;
 //
 // Shutdown types for NtShutdownSystem
 //
-typedef enum _SHUTDOWN_ACTION
-{
+typedef enum _SHUTDOWN_ACTION {
     ShutdownNoReboot,
     ShutdownReboot,
     ShutdownPowerOff
@@ -208,24 +194,23 @@ typedef enum _SHUTDOWN_ACTION
 
 // System Information Class: SystemHandleInformation (16)
 typedef struct _SYSTEM_HANDLE_ENTRY {
-    ULONG  OwnerPid;
-    BYTE   ObjectType;
-    BYTE   HandleFlags;
+    ULONG OwnerPid;
+    BYTE ObjectType;
+    BYTE HandleFlags;
     USHORT HandleValue;
-    PVOID  ObjectPointer;
-    ULONG  AccessMask;
+    PVOID ObjectPointer;
+    ULONG AccessMask;
 } SYSTEM_HANDLE_ENTRY, *PSYSTEM_HANDLE_ENTRY;
 
 typedef struct _SYSTEM_HANDLE_INFORMATION {
-     ULONG               Count;
-     SYSTEM_HANDLE_ENTRY Handle[1];
+    ULONG Count;
+    SYSTEM_HANDLE_ENTRY Handle[1];
 } SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION;
 
 //
 // System Information Class for Nt*InformationWorkerFactory group of functions
 //
-typedef enum _WORKERFACTORYINFOCLASS
-{
+typedef enum _WORKERFACTORYINFOCLASS {
     WorkerFactoryTimeout,
     WorkerFactoryRetryTimeout,
     WorkerFactoryIdleTimeout,
@@ -238,7 +223,8 @@ typedef enum _WORKERFACTORYINFOCLASS
     WorkerFactoryCallbackType,
     WorkerFactoryStackInformation,
     MaxWorkerFactoryInfoClass
-} WORKERFACTORYINFOCLASS, *PWORKERFACTORYINFOCLASS;
+} WORKERFACTORYINFOCLASS,
+    *PWORKERFACTORYINFOCLASS;
 
 typedef struct _T2_SET_PARAMETERS_V0 {
     ULONG Version;

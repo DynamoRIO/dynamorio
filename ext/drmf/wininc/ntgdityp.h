@@ -19,36 +19,35 @@
 
 /* ENUMERATIONS **************************************************************/
 
-typedef enum _ARCTYPE
-{
+typedef enum _ARCTYPE {
     GdiTypeArc,
     GdiTypeArcTo,
     GdiTypeChord,
     GdiTypePie,
-} ARCTYPE, *PARCTYPE;
+} ARCTYPE,
+    *PARCTYPE;
 
-typedef enum _PALFUNCTYPE
-{
+typedef enum _PALFUNCTYPE {
     GdiPalAnimate,
     GdiPalSetEntries,
     GdiPalGetEntries,
     GdiPalGetSystemEntries,
     GdiPalSetColorTable,
     GdiPalGetColorTable,
-} PALFUNCTYPE, *PPALFUNCTYPE;
+} PALFUNCTYPE,
+    *PPALFUNCTYPE;
 
-typedef enum _POLYFUNCTYPE
-{
+typedef enum _POLYFUNCTYPE {
     GdiPolyPolygon = 1,
     GdiPolyPolyLine,
     GdiPolyBezier,
     GdiPolyLineTo,
     GdiPolyBezierTo,
     GdiPolyPolyRgn,
-} POLYFUNCTYPE, *PPOLYFUNCTYPE;
+} POLYFUNCTYPE,
+    *PPOLYFUNCTYPE;
 
-typedef enum _GETDCDWORD
-{
+typedef enum _GETDCDWORD {
     GdiGetJournal,
     GdiGetRelAbs,
     GdiGetBreakExtra,
@@ -59,10 +58,10 @@ typedef enum _GETDCDWORD
     GdiGetIsMemDc,
     GdiGetMapMode,
     GdiGetTextCharExtra,
-} GETDCDWORD, *PGETDCDWORD;
+} GETDCDWORD,
+    *PGETDCDWORD;
 
-typedef enum _GETSETDCDWORD
-{
+typedef enum _GETSETDCDWORD {
     GdiGetSetCopyCount = 2,
     GdiGetSetTextAlign,
     GdiGetSetRelAbs,
@@ -71,21 +70,20 @@ typedef enum _GETSETDCDWORD
     GdiGetSetMapperFlagsInternal,
     GdiGetSetMapMode,
     GdiGetSetArcDirection,
-} GETSETDCDWORD, *PGETSETDCDWORD;
+} GETSETDCDWORD,
+    *PGETSETDCDWORD;
 
-typedef enum _GETDCPOINT
-{
+typedef enum _GETDCPOINT {
     GdiGetViewPortExt = 1,
     GdiGetWindowExt,
     GdiGetViewPortOrg,
     GdiGetWindowOrg,
     GdiGetAspectRatioFilter,
     GdiGetDCOrg = 6,
-} GETDCPOINT, *PGETDCPOINT;
+} GETDCPOINT,
+    *PGETDCPOINT;
 
-
-typedef enum _GDIBATCHCMD
-{
+typedef enum _GDIBATCHCMD {
     GdiBCPatBlt,
     GdiBCPolyPatBlt,
     GdiBCTextOut,
@@ -95,25 +93,24 @@ typedef enum _GDIBATCHCMD
     GdiBCSelObj,
     GdiBCDelObj,
     GdiBCDelRgn,
-} GDIBATCHCMD, *PGDIBATCHCMD;
+} GDIBATCHCMD,
+    *PGDIBATCHCMD;
 
-typedef enum _TRANSFORMTYPE
-{
+typedef enum _TRANSFORMTYPE {
     GdiDpToLp,
     GdiLpToDp,
-} TRANSFORMTYPE, *PTRANSFORMTYPE;
+} TRANSFORMTYPE,
+    *PTRANSFORMTYPE;
 
 /* MATRIX flAccel flags */
-enum
-{
+enum {
     MX_SCALE = 1,
     MX_IDENTITYSCALE = 2,
     MX_INTEGER = 4,
     MX_NOTRANSLATE = 8,
 };
 
-typedef enum GDIObjType
-{
+typedef enum GDIObjType {
     GDIObjType_DEF_TYPE = 0x00,
     GDIObjType_DC_TYPE = 0x01,
     GDIObjType_UNUSED1_TYPE = 0x02,
@@ -147,10 +144,10 @@ typedef enum GDIObjType
     GDIObjType_SPOOL_TYPE = 0x1e,
     GDIObjType_MAX_TYPE = 0x1e,
     GDIObjTypeTotal = 0x1f,
-} GDIOBJTYPE, *PGDIOBJTYPE;
+} GDIOBJTYPE,
+    *PGDIOBJTYPE;
 
-typedef enum GDILoObjType
-{
+typedef enum GDILoObjType {
     GDILoObjType_LO_BRUSH_TYPE = 0x100000,
     GDILoObjType_LO_DC_TYPE = 0x10000,
     GDILoObjType_LO_BITMAP_TYPE = 0x50000,
@@ -166,12 +163,13 @@ typedef enum GDILoObjType
     GDILoObjType_LO_METAFILE16_TYPE = 0x260000,
     GDILoObjType_LO_METAFILE_TYPE = 0x460000,
     GDILoObjType_LO_METADC16_TYPE = 0x660000
-} GDILOOBJTYPE, *PGDILOOBJTYPE;
+} GDILOOBJTYPE,
+    *PGDILOOBJTYPE;
 
-#define GdiWorldSpaceToPageSpace    0x203
-#define GdiWorldSpaceToDeviceSpace  0x204
-#define GdiPageSpaceToDeviceSpace   0x304
-#define GdiDeviceSpaceToWorldSpace  0x402
+#define GdiWorldSpaceToPageSpace 0x203
+#define GdiWorldSpaceToDeviceSpace 0x204
+#define GdiPageSpaceToDeviceSpace 0x304
+#define GdiDeviceSpaceToWorldSpace 0x402
 
 /* FIXME: Unknown */
 typedef DWORD FULLSCREENCONTROL;
@@ -183,14 +181,13 @@ typedef DWORD LFTYPE;
 /* extra stock object: default 1x1 bitmap for memory DCs */
 #define DEFAULT_BITMAP (21)
 
-
 /* DEFINES *******************************************************************/
 
-#define GDIBATCHBUFSIZE 0x136*4
+#define GDIBATCHBUFSIZE 0x136 * 4
 #define GDI_BATCH_LIMIT 20
 
 // NtGdiGetCharWidthW Flags
-#define GCW_WIN32   0x0001
+#define GCW_WIN32 0x0001
 #define GCW_NOFLOAT 0x0002
 #define GCW_INDICES 0x0008
 
@@ -202,26 +199,26 @@ typedef DWORD LFTYPE;
 #define GTEF_INDICES 0x1
 
 /* CAPS1 support */
-#define CAPS1             94
+#define CAPS1 94
 //#define C1_TRANSPARENT    0x0001
-#define TC_TT_ABLE        0x0002
-#define C1_TT_CR_ANY      0x0004
-#define C1_EMF_COMPLIANT  0x0008
-#define C1_DIBENGINE      0x0010
-#define C1_GAMMA_RAMP     0x0040
-#define C1_REINIT_ABLE    0x0080
-#define C1_GLYPH_INDEX    0x0100
-#define C1_BIT_PACKED     0x0200
-#define C1_BYTE_PACKED    0x0400
-#define C1_COLORCURSOR    0x0800
-#define C1_CMYK_ABLE      0x1000
-#define C1_SLOW_CARD      0x2000
-#define C1_MIRRORING      0X4000
+#define TC_TT_ABLE 0x0002
+#define C1_TT_CR_ANY 0x0004
+#define C1_EMF_COMPLIANT 0x0008
+#define C1_DIBENGINE 0x0010
+#define C1_GAMMA_RAMP 0x0040
+#define C1_REINIT_ABLE 0x0080
+#define C1_GLYPH_INDEX 0x0100
+#define C1_BIT_PACKED 0x0200
+#define C1_BYTE_PACKED 0x0400
+#define C1_COLORCURSOR 0x0800
+#define C1_CMYK_ABLE 0x1000
+#define C1_SLOW_CARD 0x2000
+#define C1_MIRRORING 0X4000
 
 // NtGdiGetRandomRgn iCodes
 #define CLIPRGN 1 // GetClipRgn
 #define METARGN 2 // GetMetaRgn
-#define APIRGN  3
+#define APIRGN 3
 
 /* TYPES *********************************************************************/
 
@@ -238,40 +235,37 @@ typedef LONG FIX;
 
 typedef struct _CHWIDTHINFO // Based on FD_DEVICEMETRICS
 {
-   LONG    lMinA;
-   LONG    lMinC;
-   LONG    lMinD;
+    LONG lMinA;
+    LONG lMinC;
+    LONG lMinD;
 } CHWIDTHINFO, *PCHWIDTHINFO;
 
-typedef struct _UNIVERSAL_FONT_ID
-{
+typedef struct _UNIVERSAL_FONT_ID {
     ULONG CheckSum;
     ULONG Index;
 } UNIVERSAL_FONT_ID, *PUNIVERSAL_FONT_ID;
 
-#define RI_TECH_BITMAP   1
-#define RI_TECH_FIXED    2
+#define RI_TECH_BITMAP 1
+#define RI_TECH_FIXED 2
 #define RI_TECH_SCALABLE 3
 
-typedef struct _REALIZATION_INFO
-{
-    DWORD  iTechnology;
-    DWORD  iUniq;
-    DWORD  dwUnknown;
+typedef struct _REALIZATION_INFO {
+    DWORD iTechnology;
+    DWORD iUniq;
+    DWORD dwUnknown;
 } REALIZATION_INFO, *PREALIZATION_INFO;
 
-typedef struct _WIDTHDATA
-{
-    USHORT      sOverhang;
-    USHORT      sHeight;
-    USHORT      sCharInc;
-    USHORT      sBreak;
-    BYTE        jFirst;
-    BYTE        jLast;
-    BYTE        jBreak;
-    BYTE        jDefault;
-    USHORT      sDBCSInc;
-    USHORT      sDefaultInc;
+typedef struct _WIDTHDATA {
+    USHORT sOverhang;
+    USHORT sHeight;
+    USHORT sCharInc;
+    USHORT sBreak;
+    BYTE jFirst;
+    BYTE jLast;
+    BYTE jBreak;
+    BYTE jDefault;
+    USHORT sDBCSInc;
+    USHORT sDefaultInc;
 } WIDTHDATA, *PWIDTHDATA;
 
 typedef struct _DEVCAPS // Very similar to GDIINFO
@@ -316,29 +310,28 @@ typedef struct _DEVCAPS // Very similar to GDIINFO
 
 /* Gdi Handle Cache Types and Structures */
 #define GDI_CACHED_HANDLE_TYPES 4
-#define CACHE_BRUSH_ENTRIES  10
-#define CACHE_PEN_ENTRIES     8
-#define CACHE_REGION_ENTRIES  8
-#define CACHE_LFONT_ENTRIES   1
+#define CACHE_BRUSH_ENTRIES 10
+#define CACHE_PEN_ENTRIES 8
+#define CACHE_REGION_ENTRIES 8
+#define CACHE_LFONT_ENTRIES 1
 
-typedef enum _HANDLECACHETYPE
-{
+typedef enum _HANDLECACHETYPE {
     hctBrushHandle,
     hctPenHandle,
     hctRegionHandle,
     hctLFontHandle
-} HANDLECACHETYPE,*PHANDLECACHETYPE;
+} HANDLECACHETYPE,
+    *PHANDLECACHETYPE;
 
-typedef struct _GDIHANDLECACHE
-{
-    ULONG           ulLock;
-    ULONG           ulNumHandles[GDI_CACHED_HANDLE_TYPES];
-    HANDLE          Handle[CACHE_BRUSH_ENTRIES+CACHE_PEN_ENTRIES+CACHE_REGION_ENTRIES+CACHE_LFONT_ENTRIES];
+typedef struct _GDIHANDLECACHE {
+    ULONG ulLock;
+    ULONG ulNumHandles[GDI_CACHED_HANDLE_TYPES];
+    HANDLE Handle[CACHE_BRUSH_ENTRIES + CACHE_PEN_ENTRIES + CACHE_REGION_ENTRIES +
+                  CACHE_LFONT_ENTRIES];
 } GDIHANDLECACHE, *PGDIHANDLECACHE;
 
 /* Font Structures */
-typedef struct _TMDIFF
-{
+typedef struct _TMDIFF {
     ULONG cjotma;
     CHAR chFirst;
     CHAR chLast;
@@ -346,20 +339,17 @@ typedef struct _TMDIFF
     CHAR ChBreak;
 } TMDIFF, *PTMDIFF;
 
-typedef struct _TMW_INTERNAL
-{
+typedef struct _TMW_INTERNAL {
     TEXTMETRICW TextMetric;
     TMDIFF Diff;
 } TMW_INTERNAL, *PTMW_INTERNAL;
 
-typedef struct _NTMW_INTERNAL
-{
+typedef struct _NTMW_INTERNAL {
     TMDIFF tmd;
     NEWTEXTMETRICEXW ntmw;
 } NTMW_INTERNAL, *PNTMW_INTERNAL;
 
-typedef struct _ENUMFONTDATAW
-{
+typedef struct _ENUMFONTDATAW {
     ULONG cbSize;
     ULONG ulNtmwiOffset;
     DWORD dwFontType;
@@ -368,15 +358,13 @@ typedef struct _ENUMFONTDATAW
 } ENUMFONTDATAW, *PENUMFONTDATAW;
 
 /* Number Representation */
-typedef struct _EFLOAT_S
-{
+typedef struct _EFLOAT_S {
     LONG lMant;
     LONG lExp;
 } EFLOAT_S;
 
 /* XFORM Structures */
-typedef struct _MATRIX_S
-{
+typedef struct _MATRIX_S {
     EFLOAT_S efM11;
     EFLOAT_S efM12;
     EFLOAT_S efM21;
@@ -388,8 +376,7 @@ typedef struct _MATRIX_S
     FLONG flAccel;
 } MATRIX_S;
 
-typedef struct _MATRIX
-{
+typedef struct _MATRIX {
     FLOATOBJ efM11;
     FLOATOBJ efM12;
     FLOATOBJ efM21;
@@ -402,75 +389,69 @@ typedef struct _MATRIX
 } MATRIX, *PMATRIX;
 
 /* Gdi XForm storage union */
-typedef union
-{
-  FLOAT f;
-  ULONG l;
+typedef union {
+    FLOAT f;
+    ULONG l;
 } gxf_long;
 
 #define CFONT_REALIZATION 0x0080
 
-typedef struct _CFONT
-{
-    struct _CFONT   *pcfNext;
-    HFONT           hf;
-    ULONG           cRef;               // Count of all pointers to this CFONT.
-    FLONG           fl;
-    LONG            lHeight;            // Precomputed logical height.
-    HDC             hdc;                // HDC of realization.  0 for display.
-    EFLOAT_S        efM11;              // efM11 of WtoD of DC of realization
-    EFLOAT_S        efM22;              // efM22 of WtoD of DC of realization
-    EFLOAT_S        efDtoWBaseline;     // Precomputed back transform.  (FXtoL)
-    EFLOAT_S        efDtoWAscent;       // Precomputed back transform.  (FXtoL)
-    WIDTHDATA       wd;
-    FLONG           flInfo;
-    USHORT          sWidth[256];        // Widths in pels.
-    ULONG           ulAveWidth;         // bogus average used by USER
-    TMW_INTERNAL    tmw;                // cached metrics
-    DWORD           iTechnology;
-    DWORD           iUniq;
-    DWORD           dwUnknown;
-    DWORD           dwCFCount;
+typedef struct _CFONT {
+    struct _CFONT *pcfNext;
+    HFONT hf;
+    ULONG cRef; // Count of all pointers to this CFONT.
+    FLONG fl;
+    LONG lHeight;            // Precomputed logical height.
+    HDC hdc;                 // HDC of realization.  0 for display.
+    EFLOAT_S efM11;          // efM11 of WtoD of DC of realization
+    EFLOAT_S efM22;          // efM22 of WtoD of DC of realization
+    EFLOAT_S efDtoWBaseline; // Precomputed back transform.  (FXtoL)
+    EFLOAT_S efDtoWAscent;   // Precomputed back transform.  (FXtoL)
+    WIDTHDATA wd;
+    FLONG flInfo;
+    USHORT sWidth[256]; // Widths in pels.
+    ULONG ulAveWidth;   // bogus average used by USER
+    TMW_INTERNAL tmw;   // cached metrics
+    DWORD iTechnology;
+    DWORD iUniq;
+    DWORD dwUnknown;
+    DWORD dwCFCount;
 } CFONT, *PCFONT;
 
 //
 // GDI Batch structures.
 //
-typedef struct _GDIBATCHHDR
-{
-  SHORT Size;
-  SHORT Cmd;
+typedef struct _GDIBATCHHDR {
+    SHORT Size;
+    SHORT Cmd;
 } GDIBATCHHDR, *PGDIBATCHHDR;
 
-typedef struct _GDIBSPATBLT
-{
-  GDIBATCHHDR gbHdr;
-  int nXLeft;
-  int nYLeft;
-  int nWidth;
-  int nHeight;
-  HANDLE hbrush;
-  DWORD dwRop;
-  COLORREF crForegroundClr;
-  COLORREF crBackgroundClr;
-  COLORREF crBrushClr;
-  INT IcmBrushColor;
-  POINTL ptlViewportOrg;
-  ULONG ulForegroundClr;
-  ULONG ulBackgroundClr;
-  ULONG ulBrushClr;
+typedef struct _GDIBSPATBLT {
+    GDIBATCHHDR gbHdr;
+    int nXLeft;
+    int nYLeft;
+    int nWidth;
+    int nHeight;
+    HANDLE hbrush;
+    DWORD dwRop;
+    COLORREF crForegroundClr;
+    COLORREF crBackgroundClr;
+    COLORREF crBrushClr;
+    INT IcmBrushColor;
+    POINTL ptlViewportOrg;
+    ULONG ulForegroundClr;
+    ULONG ulBackgroundClr;
+    ULONG ulBrushClr;
 } GDIBSPATBLT, *PGDIBSPATBLT;
 
 #ifndef _NTUSRTYP_
-typedef struct _PATRECT
-{
-  RECT r;
-  HBRUSH hBrush;
-} PATRECT, * PPATRECT;
+typedef struct _PATRECT {
+    RECT r;
+    HBRUSH hBrush;
+} PATRECT, *PPATRECT;
 #endif
 #ifndef __WIN32K_NTUSER_H
-typedef struct _W32CLIENTINFO
-{
+typedef struct _W32CLIENTINFO {
     ULONG CI_flags;
     ULONG cSpins;
     ULONG ulWindowsVersion;
@@ -479,185 +460,177 @@ typedef struct _W32CLIENTINFO
     ULONG W32ClientInfo[57];
 } W32CLIENTINFO, *PW32CLIENTINFO;
 #endif
-typedef struct _GDIBSPPATBLT
-{
-  GDIBATCHHDR gbHdr;
-  DWORD rop4;
-  DWORD Mode;
-  DWORD Count;
-  COLORREF crForegroundClr;
-  COLORREF crBackgroundClr;
-  COLORREF crBrushClr;
-  ULONG ulForegroundClr;
-  ULONG ulBackgroundClr;
-  ULONG ulBrushClr;
-  POINTL ptlViewportOrg;
-  PATRECT pRect[1]; // POLYPATBLT
+typedef struct _GDIBSPPATBLT {
+    GDIBATCHHDR gbHdr;
+    DWORD rop4;
+    DWORD Mode;
+    DWORD Count;
+    COLORREF crForegroundClr;
+    COLORREF crBackgroundClr;
+    COLORREF crBrushClr;
+    ULONG ulForegroundClr;
+    ULONG ulBackgroundClr;
+    ULONG ulBrushClr;
+    POINTL ptlViewportOrg;
+    PATRECT pRect[1]; // POLYPATBLT
 } GDIBSPPATBLT, *PGDIBSPPATBLT;
 
-typedef struct _GDIBSTEXTOUT
-{
-  GDIBATCHHDR gbHdr;
-  COLORREF crForegroundClr;
-  COLORREF crBackgroundClr;
-  LONG lmBkMode;
-  ULONG ulForegroundClr;
-  ULONG ulBackgroundClr;
-  int x;
-  int y;
-  UINT Options;
-  RECT Rect;
-  DWORD iCS_CP;
-  UINT cbCount;
-  UINT Size;
-  HANDLE hlfntNew;
-  FLONG flTextAlign;
-  POINTL ptlViewportOrg;
-  WCHAR String[2];
+typedef struct _GDIBSTEXTOUT {
+    GDIBATCHHDR gbHdr;
+    COLORREF crForegroundClr;
+    COLORREF crBackgroundClr;
+    LONG lmBkMode;
+    ULONG ulForegroundClr;
+    ULONG ulBackgroundClr;
+    int x;
+    int y;
+    UINT Options;
+    RECT Rect;
+    DWORD iCS_CP;
+    UINT cbCount;
+    UINT Size;
+    HANDLE hlfntNew;
+    FLONG flTextAlign;
+    POINTL ptlViewportOrg;
+    WCHAR String[2];
 } GDIBSTEXTOUT, *PGDIBSTEXTOUT;
 
-typedef struct _GDIBSEXTTEXTOUT
-{
-  GDIBATCHHDR gbHdr;
-  UINT Count;
-  UINT Options;
-  RECT Rect;
-  POINTL ptlViewportOrg;
-  ULONG ulBackgroundClr;
+typedef struct _GDIBSEXTTEXTOUT {
+    GDIBATCHHDR gbHdr;
+    UINT Count;
+    UINT Options;
+    RECT Rect;
+    POINTL ptlViewportOrg;
+    ULONG ulBackgroundClr;
 } GDIBSEXTTEXTOUT, *PGDIBSEXTTEXTOUT;
 
-typedef struct _GDIBSSETBRHORG
-{
-  GDIBATCHHDR gbHdr;
-  POINTL ptlBrushOrigin;
+typedef struct _GDIBSSETBRHORG {
+    GDIBATCHHDR gbHdr;
+    POINTL ptlBrushOrigin;
 } GDIBSSETBRHORG, *PGDIBSSETBRHORG;
 
-typedef struct _GDIBSEXTSELCLPRGN
-{
-  GDIBATCHHDR gbHdr;
-  int fnMode;
-  RECTL;
+typedef struct _GDIBSEXTSELCLPRGN {
+    GDIBATCHHDR gbHdr;
+    int fnMode;
+    RECTL;
 } GDIBSEXTSELCLPRGN, *PGDIBSEXTSELCLPRGN;
 //
 //   Use with GdiBCSelObj, GdiBCDelObj and GdiBCDelRgn.
-typedef struct _GDIBSOBJECT
-{
-  GDIBATCHHDR gbHdr;
-  HGDIOBJ hgdiobj;
+typedef struct _GDIBSOBJECT {
+    GDIBATCHHDR gbHdr;
+    HGDIOBJ hgdiobj;
 } GDIBSOBJECT, *PGDIBSOBJECT;
 
 //
 // Declarations missing in ddk/winddi.h
 //
-typedef VOID (APIENTRY *PFN_DrvMovePanning)(LONG, LONG, FLONG);
-//typedef BOOL (APIENTRY *PFN_DrvOffset)(SURFOBJ*, LONG, LONG, FLONG);
-
+typedef VOID(APIENTRY *PFN_DrvMovePanning)(LONG, LONG, FLONG);
+// typedef BOOL (APIENTRY *PFN_DrvOffset)(SURFOBJ*, LONG, LONG, FLONG);
 
 //
 // Most of these are defined in ddk/winddi.h
 //
-typedef struct _DRIVER_FUNCTIONS
-{
-    PFN_DrvEnablePDEV              EnablePDEV;
-    PFN_DrvCompletePDEV            CompletePDEV;
-    PFN_DrvDisablePDEV             DisablePDEV;
-    PFN_DrvEnableSurface           EnableSurface;
-    PFN_DrvDisableSurface          DisableSurface;
-    PFN_DrvAssertMode              AssertMode;
-    PFN_DrvOffset                  Offset;
-    PFN_DrvResetDevice             ResetPDEV;
-    PFN_DrvDisableDriver           DisableDriver;
-    PVOID                          Unknown1;
-    PFN_DrvCreateDeviceBitmap      CreateDeviceBitmap;
-    PFN_DrvDeleteDeviceBitmap      DeleteDeviceBitmap;
-    PFN_DrvRealizeBrush            RealizeBrush;
-    PFN_DrvDitherColor             DitherColor;
-    PFN_DrvStrokePath              StrokePath;
-    PFN_DrvFillPath                FillPath;
-    PFN_DrvStrokeAndFillPath       StrokeAndFillPath;
-    PFN_DrvPaint                   Paint;
-    PFN_DrvBitBlt                  BitBlt;
-    PFN_DrvCopyBits                CopyBits;
-    PFN_DrvStretchBlt              StretchBlt;
-    PVOID                          Unknown2;
-    PFN_DrvSetPalette              SetPalette;
-    PFN_DrvTextOut                 TextOut;
-    PFN_DrvEscape                  Escape;
-    PFN_DrvDrawEscape              DrawEscape;
-    PFN_DrvQueryFont               QueryFont;
-    PFN_DrvQueryFontTree           QueryFontTree;
-    PFN_DrvQueryFontData           QueryFontData;
-    PFN_DrvSetPointerShape         SetPointerShape;
-    PFN_DrvMovePointer             MovePointer;
-    PFN_DrvLineTo                  LineTo;
-    PFN_DrvSendPage                SendPage;
-    PFN_DrvStartPage               StartPage;
-    PFN_DrvEndDoc                  EndDoc;
-    PFN_DrvStartDoc                StartDoc;
-    PVOID                          Unknown3;
-    PFN_DrvGetGlyphMode            GetGlyphMode;
-    PFN_DrvSynchronize             Synchronize;
-    PVOID                          Unknown4;
-    PFN_DrvSaveScreenBits          SaveScreenBits;
-    PFN_DrvGetModes                GetModes;
-    PFN_DrvFree                    Free;
-    PFN_DrvDestroyFont             DestroyFont;
-    PFN_DrvQueryFontCaps           QueryFontCaps;
-    PFN_DrvLoadFontFile            LoadFontFile;
-    PFN_DrvUnloadFontFile          UnloadFontFile;
-    PFN_DrvFontManagement          FontManagement;
-    PFN_DrvQueryTrueTypeTable      QueryTrueTypeTable;
-    PFN_DrvQueryTrueTypeOutline    QueryTrueTypeOutline;
-    PFN_DrvGetTrueTypeFile         GetTrueTypeFile;
-    PFN_DrvQueryFontFile           QueryFontFile;
-    PFN_DrvMovePanning             MovePanning;
-    PFN_DrvQueryAdvanceWidths      QueryAdvanceWidths;
-    PFN_DrvSetPixelFormat          SetPixelFormat;
-    PFN_DrvDescribePixelFormat     DescribePixelFormat;
-    PFN_DrvSwapBuffers             SwapBuffers;
-    PFN_DrvStartBanding            StartBanding;
-    PFN_DrvNextBand                NextBand;
-    PFN_DrvGetDirectDrawInfo       GetDirectDrawInfo;
-    PFN_DrvEnableDirectDraw        EnableDirectDraw;
-    PFN_DrvDisableDirectDraw       DisableDirectDraw;
-    PFN_DrvQuerySpoolType          QuerySpoolType;
-    PVOID                          Unknown5;
+typedef struct _DRIVER_FUNCTIONS {
+    PFN_DrvEnablePDEV EnablePDEV;
+    PFN_DrvCompletePDEV CompletePDEV;
+    PFN_DrvDisablePDEV DisablePDEV;
+    PFN_DrvEnableSurface EnableSurface;
+    PFN_DrvDisableSurface DisableSurface;
+    PFN_DrvAssertMode AssertMode;
+    PFN_DrvOffset Offset;
+    PFN_DrvResetDevice ResetPDEV;
+    PFN_DrvDisableDriver DisableDriver;
+    PVOID Unknown1;
+    PFN_DrvCreateDeviceBitmap CreateDeviceBitmap;
+    PFN_DrvDeleteDeviceBitmap DeleteDeviceBitmap;
+    PFN_DrvRealizeBrush RealizeBrush;
+    PFN_DrvDitherColor DitherColor;
+    PFN_DrvStrokePath StrokePath;
+    PFN_DrvFillPath FillPath;
+    PFN_DrvStrokeAndFillPath StrokeAndFillPath;
+    PFN_DrvPaint Paint;
+    PFN_DrvBitBlt BitBlt;
+    PFN_DrvCopyBits CopyBits;
+    PFN_DrvStretchBlt StretchBlt;
+    PVOID Unknown2;
+    PFN_DrvSetPalette SetPalette;
+    PFN_DrvTextOut TextOut;
+    PFN_DrvEscape Escape;
+    PFN_DrvDrawEscape DrawEscape;
+    PFN_DrvQueryFont QueryFont;
+    PFN_DrvQueryFontTree QueryFontTree;
+    PFN_DrvQueryFontData QueryFontData;
+    PFN_DrvSetPointerShape SetPointerShape;
+    PFN_DrvMovePointer MovePointer;
+    PFN_DrvLineTo LineTo;
+    PFN_DrvSendPage SendPage;
+    PFN_DrvStartPage StartPage;
+    PFN_DrvEndDoc EndDoc;
+    PFN_DrvStartDoc StartDoc;
+    PVOID Unknown3;
+    PFN_DrvGetGlyphMode GetGlyphMode;
+    PFN_DrvSynchronize Synchronize;
+    PVOID Unknown4;
+    PFN_DrvSaveScreenBits SaveScreenBits;
+    PFN_DrvGetModes GetModes;
+    PFN_DrvFree Free;
+    PFN_DrvDestroyFont DestroyFont;
+    PFN_DrvQueryFontCaps QueryFontCaps;
+    PFN_DrvLoadFontFile LoadFontFile;
+    PFN_DrvUnloadFontFile UnloadFontFile;
+    PFN_DrvFontManagement FontManagement;
+    PFN_DrvQueryTrueTypeTable QueryTrueTypeTable;
+    PFN_DrvQueryTrueTypeOutline QueryTrueTypeOutline;
+    PFN_DrvGetTrueTypeFile GetTrueTypeFile;
+    PFN_DrvQueryFontFile QueryFontFile;
+    PFN_DrvMovePanning MovePanning;
+    PFN_DrvQueryAdvanceWidths QueryAdvanceWidths;
+    PFN_DrvSetPixelFormat SetPixelFormat;
+    PFN_DrvDescribePixelFormat DescribePixelFormat;
+    PFN_DrvSwapBuffers SwapBuffers;
+    PFN_DrvStartBanding StartBanding;
+    PFN_DrvNextBand NextBand;
+    PFN_DrvGetDirectDrawInfo GetDirectDrawInfo;
+    PFN_DrvEnableDirectDraw EnableDirectDraw;
+    PFN_DrvDisableDirectDraw DisableDirectDraw;
+    PFN_DrvQuerySpoolType QuerySpoolType;
+    PVOID Unknown5;
     PFN_DrvIcmCreateColorTransform IcmCreateColorTransform;
     PFN_DrvIcmDeleteColorTransform IcmDeleteColorTransform;
-    PFN_DrvIcmCheckBitmapBits      IcmCheckBitmapBits;
-    PFN_DrvIcmSetDeviceGammaRamp   IcmSetDeviceGammaRamp;
-    PFN_DrvGradientFill            GradientFill;
-    PFN_DrvStretchBltROP           StretchBltROP;
-    PFN_DrvPlgBlt                  PlgBlt;
-    PFN_DrvAlphaBlend              AlphaBlend;
-    PVOID                          SynthesizeFont;
-    PVOID                          GetSynthesizedFontFiles;
-    PFN_DrvTransparentBlt          TransparentBlt;
-    PFN_DrvQueryPerBandInfo        QueryPerBandInfo;
-    PFN_DrvQueryDeviceSupport      QueryDeviceSupport;
-    PVOID                          Reserved1;
-    PVOID                          Reserved2;
-    PVOID                          Reserved3;
-    PVOID                          Reserved4;
-    PVOID                          Reserved5;
-    PVOID                          Reserved6;
-    PVOID                          Reserved7;
-    PVOID                          Reserved8;
-    PFN_DrvDeriveSurface           DeriveSurface;
-    PFN_DrvQueryGlyphAttrs         QueryGlyphAttrs;
-    PFN_DrvNotify                  Notify;
-    PFN_DrvSynchronizeSurface      SynchronizeSurface;
-    PFN_DrvResetDevice             ResetDevice;
-    PVOID                          Reserved9;
-    PVOID                          Reserved10;
-    PVOID                          Reserved11; /* 92 */
+    PFN_DrvIcmCheckBitmapBits IcmCheckBitmapBits;
+    PFN_DrvIcmSetDeviceGammaRamp IcmSetDeviceGammaRamp;
+    PFN_DrvGradientFill GradientFill;
+    PFN_DrvStretchBltROP StretchBltROP;
+    PFN_DrvPlgBlt PlgBlt;
+    PFN_DrvAlphaBlend AlphaBlend;
+    PVOID SynthesizeFont;
+    PVOID GetSynthesizedFontFiles;
+    PFN_DrvTransparentBlt TransparentBlt;
+    PFN_DrvQueryPerBandInfo QueryPerBandInfo;
+    PFN_DrvQueryDeviceSupport QueryDeviceSupport;
+    PVOID Reserved1;
+    PVOID Reserved2;
+    PVOID Reserved3;
+    PVOID Reserved4;
+    PVOID Reserved5;
+    PVOID Reserved6;
+    PVOID Reserved7;
+    PVOID Reserved8;
+    PFN_DrvDeriveSurface DeriveSurface;
+    PFN_DrvQueryGlyphAttrs QueryGlyphAttrs;
+    PFN_DrvNotify Notify;
+    PFN_DrvSynchronizeSurface SynchronizeSurface;
+    PFN_DrvResetDevice ResetDevice;
+    PVOID Reserved9;
+    PVOID Reserved10;
+    PVOID Reserved11; /* 92 */
 
     /* ReactOS specify */
-    PFN_DrvEnableDriver            EnableDriver; //ReactOS Extra
+    PFN_DrvEnableDriver EnableDriver; // ReactOS Extra
 } DRIVER_FUNCTIONS, *PDRIVER_FUNCTIONS;
 
 #define ASSERT_PFN(pfn) \
- C_ASSERT(FIELD_OFFSET(DRIVER_FUNCTIONS, pfn) == sizeof(PVOID) * INDEX_Drv##pfn)
+    C_ASSERT(FIELD_OFFSET(DRIVER_FUNCTIONS, pfn) == sizeof(PVOID) * INDEX_Drv##pfn)
 
 ASSERT_PFN(EnablePDEV);
 ASSERT_PFN(CompletePDEV);
