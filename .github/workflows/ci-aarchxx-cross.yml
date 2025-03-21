@@ -107,6 +107,10 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
+
   # ARM cross-compile with gcc, with some tests run under QEMU.
   # We use a more recent Ubuntu for a more recent QEMU.
   arm-cross-compile:
@@ -160,3 +164,7 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
+
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
