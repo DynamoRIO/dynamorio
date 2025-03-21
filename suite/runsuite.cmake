@@ -302,8 +302,6 @@ else ()
   # Check for tabs other than on the revision lines.
   # The clang-format check will now find these in C files, but not non-C files.
   string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
-  # Allow tabs to be removed from existing lines.
-  string(REGEX REPLACE "\n-[^\n]*\t" "" diff_notabs "${diff_notabs}")
   string(REGEX MATCH "\t" match "${diff_notabs}")
   if (NOT "${match}" STREQUAL "")
     string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")

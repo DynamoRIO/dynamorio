@@ -47,6 +47,9 @@ set rules {
     required_namespaces
 }
 
+puts "pwd: "
+puts [pwd]
+
 foreach rule $rules {
     set ruleExclusions($rule) {
         # Don't complain about the test file during the build.
