@@ -84,6 +84,17 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
 endforeach (arg)
 
+if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
+  execute_process(COMMAND ldd --version
+    RESULT_VARIABLE ldd_result ERROR_VARIABLE ldd_err OUTPUT_VARIABLE ldd_out)
+  message("ldd --version: ${ldd_out}")
+  if (arg_32_only AND NOT cross_aarchxx_linux_only AND NOT cross_android_only)
+    # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
+    # This includes timeouts which increases suite length.
+    # Until we get ths x86-32 job back green, we drop back to a small set of tests.
+    set(extra_ctest_args EXCLUDE_LABEL AMD_X32_DENYLIST)
+  endif ()
+endif ()
 
 set(build_tests "BUILD_TESTS:BOOL=ON")
 
@@ -291,6 +302,8 @@ else ()
   # Check for tabs other than on the revision lines.
   # The clang-format check will now find these in C files, but not non-C files.
   string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
+  # Allow tabs to be removed from existing lines.
+  string(REGEX REPLACE "\n-[^\n]*\t" "" diff_notabs "${diff_notabs}")
   string(REGEX MATCH "\t" match "${diff_notabs}")
   if (NOT "${match}" STREQUAL "")
     string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")

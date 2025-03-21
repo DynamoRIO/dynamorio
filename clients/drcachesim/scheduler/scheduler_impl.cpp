@@ -1727,6 +1727,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     }
     return stream_status_t::STATUS_OK;
 }
+
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
@@ -3055,16 +3056,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t outp
     set_cur_input(output, sched_type_t::INVALID_INPUT_ORDINAL);
     ++outputs_[output].idle_count;
     return sched_type_t::STATUS_IDLE;
-}
-
-template <typename RecordType, typename ReaderType>
-bool
-scheduler_impl_tmpl_t<RecordType, ReaderType>::is_record_kernel(output_ordinal_t output)
-{
-    int index = outputs_[output].cur_input;
-    if (index < 0)
-        return false;
-    return inputs_[index].reader->is_record_kernel();
 }
 
 template <typename RecordType, typename ReaderType>

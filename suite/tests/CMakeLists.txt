@@ -4145,7 +4145,7 @@ if (BUILD_CLIENTS)
         if (CAT_EXE AND GUNZIP_EXE AND BASH_EXE)
           # Easiest to make our pipeline in bash with a direct add_test()
           # (although this bypasses the torun() features used by all other tests).
-          set(infile "${core_sharded_dir}/drmemtrace.core.0.trace.zip")
+          set(infile "${core_sharded_dir}/drmemtrace.core.000000.trace.zip")
           add_test(tool.drcacheoff.stdin
             ${BASH_EXE} -c
             "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
@@ -6282,15 +6282,11 @@ if (NOT ANDROID)
   mark_execstack("${TestMemProtChg}")
 endif ()
 
-if (DISABLE_FORMAT_CHECKS)
-  message(STATUS "Style checks are disabled")
-else ()
-  if (vera++_FOUND)
-    file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
-    add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
-      --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
-    set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
-  endif ()
+if (vera++_FOUND)
+  file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
+  add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
+    --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
+  set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
 endif ()
 
 ###########################################################################
@@ -6544,47 +6540,6 @@ if (NOT ANDROID AND AARCHXX)
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
 endif (NOT ANDROID AND AARCHXX)
-
-# XXX i#5437, i#5431: While we work through Ubuntu22 issues we want our new GA CI job to
-# just run sanity tests that do pass now as a glibc change detector to see if our
-# workarounds so far break over time.
-set_tests_properties(
-  code_api|common.broadfun
-  PROPERTIES LABELS UBUNTU_22)
-if (BUILD_SAMPLES AND NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-  set_tests_properties(
-    code_api|sample.bbsize
-    PROPERTIES LABELS UBUNTU_22)
-endif ()
-if (BUILD_CLIENTS AND NOT ANDROID)
-  set_tests_properties(
-    code_api|tool.drcachesim.simple
-    code_api|tool.drcacheoff.simple
-    PROPERTIES LABELS UBUNTU_22)
-endif ()
-if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID) # TODO i#3544: Port tests to RISC-V 64
-  # TODO i#1874: Build drmemtrace on Android (rseq tests depend on drmemtrace).
-  set_tests_properties(
-    code_api|api.rseq
-    code_api|linux.rseq_disable
-    code_api|linux.rseq_noarray
-    code_api|linux.rseq
-    code_api|linux.rseq_table
-    code_api|tool.drcacheoff.rseq
-    PROPERTIES LABELS UBUNTU_22)
-endif ()
-if (TARGET tool.drcacheoff.purestatic)
-  # This target only easily builds on Ubuntu22+ so make sure we run it there.
-  set_tests_properties(
-    code_api|tool.drcacheoff.purestatic
-    PROPERTIES LABELS UBUNTU_22)
-endif()
-if (LINUX AND X64 AND NOT RISCV64 AND NOT ANDROID)
-set_tests_properties(
-  code_api|client.memory_dump_test
-  code_api|client.attach_memory_dump_test
-  PROPERTIES LABELS UBUNTU_22)
-endif()
 
 # XXX i#3544: Support for running RISC-V Linux tests under QEMU.
 # Currently about 1/6 of the compiled tests pass.

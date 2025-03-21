@@ -5993,6 +5993,11 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
             if (in_switch[i]) {
                 // Test that switch code is marked synthetic.
                 assert(outputs[i]->is_record_synthetic());
+                // Test that it's marked as kernel, unless it's the end marker.
+                assert(
+                    outputs[i]->is_record_kernel() ||
+                    (memref.marker.type == TRACE_TYPE_MARKER &&
+                     memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END));
                 // Test that switch code doesn't count toward input ordinals, but
                 // does toward output ordinals.
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
@@ -6005,6 +6010,11 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
             } else if (in_syscall[i]) {
                 // Test that syscall code is marked synthetic.
                 assert(outputs[i]->is_record_synthetic());
+                // Test that it's marked as kernel, unless it's the end marker.
+                assert(
+                    outputs[i]->is_record_kernel() ||
+                    (memref.marker.type == TRACE_TYPE_MARKER &&
+                     memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END));
                 // Test that dynamically injected syscall code doesn't count toward
                 // input ordinals, but does toward output ordinals.
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
