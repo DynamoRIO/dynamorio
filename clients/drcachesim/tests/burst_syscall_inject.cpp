@@ -116,6 +116,16 @@ do_some_syscalls()
     return 1;
 }
 
+// Checks that the failure counts match those in do_some_syscalls().
+static void
+check_syscall_stats(syscall_mix_t::statistics_t &syscall_stats)
+{
+    assert(syscall_stats.syscall_errno_counts.size() == 1);
+    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction].size() == 2);
+    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EINVAL] == 2);
+    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EFAULT] == 1);
+}
+
 static void
 write_trace_entry(std::unique_ptr<std::ostream> &writer, const trace_entry_t &entry)
 {
@@ -496,16 +506,6 @@ write_system_call_template_with_repstr(void *dr_context)
     write_footer_entries(writer);
 
     return syscall_trace_template_file;
-}
-
-// Checks that the failure counts match those in do_some_syscalls().
-static void
-check_syscall_stats(syscall_mix_t::statistics_t &syscall_stats)
-{
-    assert(syscall_stats.syscall_errno_counts.size() == 1);
-    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction].size() == 2);
-    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EINVAL] == 2);
-    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EFAULT] == 1);
 }
 
 static int
