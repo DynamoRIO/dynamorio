@@ -42,33 +42,33 @@
 
 #ifdef LINUX
 /* See the big comment "64-bit vs 32-bit" in drsyscall_linux.c. */
-# ifdef X86
-#  define PACKNUM(x64,x86,arm, aarch64) ((((uint)x64) << 16) | (x86 & 0xffff))
-# elif defined(ARM)
+#    ifdef X86
+#        define PACKNUM(x64, x86, arm, aarch64) ((((uint)x64) << 16) | (x86 & 0xffff))
+#    elif defined(ARM)
 /* XXX i#1569: for AArch64 we'll have to see how the numbers change.
  * We can't pack in the same way b/c the arm-specific syscalls use top bits.
  */
-#  define PACKNUM(x64,x86,arm, aarch64) arm
-# elif defined(AARCH64)
-#  define PACKNUM(x64,x86,arm, aarch64) aarch64
-# endif
+#        define PACKNUM(x64, x86, arm, aarch64) arm
+#    elif defined(AARCH64)
+#        define PACKNUM(x64, x86, arm, aarch64) aarch64
+#    endif
 #endif
 
 #ifdef WINDOWS
-# define WINNT    DR_WINDOWS_VERSION_NT
-# define WIN2K    DR_WINDOWS_VERSION_2000
-# define WINXP    DR_WINDOWS_VERSION_XP
-# define WIN2K3   DR_WINDOWS_VERSION_2003
-# define WINVISTA DR_WINDOWS_VERSION_VISTA
-# define WIN7     DR_WINDOWS_VERSION_7
-# define WIN8     DR_WINDOWS_VERSION_8
-# define WIN81    DR_WINDOWS_VERSION_8_1
-# define WIN10    DR_WINDOWS_VERSION_10
-# define WIN11    DR_WINDOWS_VERSION_10_1511
-# define WIN12    DR_WINDOWS_VERSION_10_1607
-# define WIN13    DR_WINDOWS_VERSION_10_1703
-# define WIN14    DR_WINDOWS_VERSION_10_1709
-# define WIN15    DR_WINDOWS_VERSION_10_1803
+#    define WINNT DR_WINDOWS_VERSION_NT
+#    define WIN2K DR_WINDOWS_VERSION_2000
+#    define WINXP DR_WINDOWS_VERSION_XP
+#    define WIN2K3 DR_WINDOWS_VERSION_2003
+#    define WINVISTA DR_WINDOWS_VERSION_VISTA
+#    define WIN7 DR_WINDOWS_VERSION_7
+#    define WIN8 DR_WINDOWS_VERSION_8
+#    define WIN81 DR_WINDOWS_VERSION_8_1
+#    define WIN10 DR_WINDOWS_VERSION_10
+#    define WIN11 DR_WINDOWS_VERSION_10_1511
+#    define WIN12 DR_WINDOWS_VERSION_10_1607
+#    define WIN13 DR_WINDOWS_VERSION_10_1703
+#    define WIN14 DR_WINDOWS_VERSION_10_1709
+#    define WIN15 DR_WINDOWS_VERSION_10_1803
 #endif
 
 #endif /* _TABLE_DEFINES_H 1 */

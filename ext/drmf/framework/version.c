@@ -39,15 +39,13 @@ drmf_check_version(client_id_t client_id)
         return res;
 
     base = dr_get_client_base(client_id);
-    drmf_ver_used = (int *)
-        dr_get_proc_address((module_handle_t) base, DRMF_VERSION_USED_NAME);
-    LOG(1, "%s: lib ver=%d-%d vs client version %d"NL, __FUNCTION__,
-        DRMF_VERSION_COMPAT, DRMF_VERSION_CUR,
-        (drmf_ver_used == NULL) ? -1 : *drmf_ver_used);
-    if (drmf_ver_used == NULL ||
-        *drmf_ver_used < DRMF_VERSION_COMPAT ||
+    drmf_ver_used =
+        (int *)dr_get_proc_address((module_handle_t)base, DRMF_VERSION_USED_NAME);
+    LOG(1, "%s: lib ver=%d-%d vs client version %d" NL, __FUNCTION__, DRMF_VERSION_COMPAT,
+        DRMF_VERSION_CUR, (drmf_ver_used == NULL) ? -1 : *drmf_ver_used);
+    if (drmf_ver_used == NULL || *drmf_ver_used < DRMF_VERSION_COMPAT ||
         *drmf_ver_used > DRMF_VERSION_CUR) {
-        NOTIFY_ERROR("Version %d-%d mismatch with client version %d-%d"NL,
+        NOTIFY_ERROR("Version %d-%d mismatch with client version %d-%d" NL,
                      DRMF_VERSION_COMPAT, DRMF_VERSION_CUR,
                      (drmf_ver_used == NULL) ? -1 : *drmf_ver_used);
         res = DRMF_ERROR_INCOMPATIBLE_VERSION;

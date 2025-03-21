@@ -32,7 +32,8 @@ typedef enum _KTMOBJECT_TYPE {
     KTMOBJECT_ENLISTMENT,
     KTMOBJECT_INVALID
 
-} KTMOBJECT_TYPE, *PKTMOBJECT_TYPE;
+} KTMOBJECT_TYPE,
+    *PKTMOBJECT_TYPE;
 
 typedef enum _ENLISTMENT_INFORMATION_CLASS {
     EnlistmentBasicInformation,
@@ -51,14 +52,14 @@ typedef enum _TRANSACTION_INFORMATION_CLASS {
     TransactionPropertiesInformation,
     TransactionEnlistmentInformation,
     TransactionSuperiorEnlistmentInformation
-// end_wdm
+    // end_wdm
     ,
-// The following info-classes are intended for DTC's use only; it will be
-// deprecated, and no one else should take a dependency on it.
-    TransactionBindInformation, // private and deprecated
+    // The following info-classes are intended for DTC's use only; it will be
+    // deprecated, and no one else should take a dependency on it.
+    TransactionBindInformation,      // private and deprecated
     TransactionDTCPrivateInformation // private and deprecated
     ,
-// begin_wdm
+    // begin_wdm
 } TRANSACTION_INFORMATION_CLASS;
 
 // begin_wdm
@@ -67,16 +68,16 @@ typedef enum _TRANSACTIONMANAGER_INFORMATION_CLASS {
     TransactionManagerLogInformation,
     TransactionManagerLogPathInformation,
     TransactionManagerRecoveryInformation = 4
-// end_wdm
+    // end_wdm
     ,
-// The following info-classes are intended for internal use only; they
-// are considered deprecated, and no one else should take a dependency
-// on them.
+    // The following info-classes are intended for internal use only; they
+    // are considered deprecated, and no one else should take a dependency
+    // on them.
     TransactionManagerOnlineProbeInformation = 3,
     TransactionManagerOldestTransactionInformation = 5
-// end_wdm
+    // end_wdm
 
-// begin_wdm
+    // begin_wdm
 } TRANSACTIONMANAGER_INFORMATION_CLASS;
 
 #endif
