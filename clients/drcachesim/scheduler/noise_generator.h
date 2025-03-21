@@ -56,9 +56,9 @@ struct noise_generator_info_t {
     memref_tid_t tid = 1;
     // TODO i#7216: this parameter drives the noise generation. Currently we only set a
     // default value of numbers of records to generate, but we plan to have more
-    // parameters to control the mix of noise (e.g., load/store mix, address patterns).
-    // This is not the final set of parameters, we'll add them as needed depending on the
-    // patter of noise we want to generate.
+    // parameters to control the mix of noise (e.g., load/store mix, address patterns with
+    // strides). This is not the final set of parameters, we'll add them as needed
+    // depending on the patter of noise we want to generate.
     uint64_t num_records_to_generate = 1000;
 };
 
