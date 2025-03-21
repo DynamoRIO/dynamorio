@@ -1,0 +1,102 @@
+/* **********************************************************
+ * Copyright (c) 2012-2014 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drmf Dr. Memory Framework
+
+Dr. Memory provides a Software Development Kit called the Dr. Memory
+Framework, or DRMF.  The DRMF allows other tools to leverage the powerful
+features built into Dr. Memory.  The DRMF is organized into separate
+DynamoRIO Extension libraries:
+
+ - \subpage page_drsyscall
+   <br>Detailed system call parameter monitoring
+ - \subpage page_umbra
+   <br>Shadow memory mapping
+ - \subpage page_drsymcache
+   <br>Persistent caching of symbol lookup data
+ - \subpage page_drfuzz
+   <br>Fuzz testing
+ - Dr. Malloc
+   <br>Memory allocation tracking (<em>coming soon</em>)
+ - Dr. Callstack
+   <br>Efficient callstack walking and storage (<em>coming soon</em>)
+
+\section sec_drmf_setup Using DRMF
+
+DRMF is now distributed in a combined package with DynamoRIO for DynamoRIO
+versions 5.0 and higher.  If you are using such a combined package, DRMF
+will be automatically located and loaded for you when you execute the
+<tt>find_package(DynamoRIO)</tt> command.
+
+If you are using a standalone Dr. Memory package, to use one or more of the
+components of DRMF, locate the Dr. Memory Framework using the \p
+find_package command right after similarly locating the DynamoRIO package:
+
+\code
+find_package(DynamoRIO)
+find_package(DrMemoryFramework)
+\endcode
+
+All of the components of DRMF share the same versioning scheme.
+You can pass a required version to \p find_package:
+
+\code
+find_package(DrMemoryFramework 1.0)
+\endcode
+
+To point CMake at the framework, set the DrMemoryFramework_DIR variable to
+point at the \p drmf subdirectory of the Dr. Memory package that you are
+using.  For example:
+
+\code
+cmake -G"Ninja" -DDynamoRIO_DIR=c:/path/to/DynamoRIO-Windows-4.1.0-8/cmake -DDrMemoryFramework_DIR=c:/path/to/DrMemory-Windows-1.6.0-2/drmf ../mysrcs/
+\endcode
+
+Once the package is located, use the standard method of using an Extension
+for each component your client uses.  The two steps combined will look like
+this example in your client's \p CMakeLists.txt file:
+
+\code
+find_package(DrMemoryFramework)
+use_DynamoRIO_extension(clientname drsyscall)
+use_DynamoRIO_extension(clientname umbra)
+\endcode
+
+That will automatically set up the include paths and library dependences.
+
+See the documentation for the individual components for information on how
+to use each one.
+
+*/
