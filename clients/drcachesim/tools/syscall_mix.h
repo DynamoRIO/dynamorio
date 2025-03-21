@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,13 +68,27 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
+    struct statistics_t {
+        std::unordered_map<int, int64_t> syscall_counts;
+        std::unordered_map<int, int64_t> syscall_trace_counts;
+        // First map translates syscall number to a map that translates
+        // failure codes to counts. This is only tracked for system calls traced
+        // with -record_syscall where TRACE_MARKER_TYPE_SYSCALL_FAILED
+        // is recorded. That marker stores 32-bit errno values, which
+        // is our inner table's key here.
+        std::unordered_map<int, std::unordered_map<int, int64_t>> syscall_errno_counts;
+    };
+
+    statistics_t
+    get_total_statistics() const;
+
 protected:
     struct shard_data_t {
         // Provide a virtual destructor to allow subclassing.
         virtual ~shard_data_t() = default;
-        std::unordered_map<int, int64_t> syscall_counts;
-        std::unordered_map<int, int64_t> syscall_trace_counts;
+        statistics_t stats;
         std::string error;
+        int last_sysnum = -1;
     };
 
     std::unordered_map<int, shard_data_t *> shard_map_;
