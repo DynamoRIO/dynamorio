@@ -1462,9 +1462,9 @@ glibc_riscv_hwprobe(void *pairs, uint64_t pair_count, uint64_t cpu_count, uint64
 }
 #    endif
 
-/* TODO: dynamic loaders from different libc versions may provide different
- * arguments for the ifunc resolver. We may mimic the exact behavior with its
- * version obtained from the dynamic loader.
+/* TODO i#7392: dynamic loaders from different libc versions may provide
+ * different arguments for the ifunc resolver. We may mimic the exact behavior
+ * with its version obtained from the dynamic loader.
  */
 static ELF_ADDR
 resolve_ifunc(app_pc resolver_pc)
@@ -1479,9 +1479,8 @@ resolve_ifunc(app_pc resolver_pc)
      * auxvector/hwcap bits. */
     addr = ((ifunc_resolver)resolver_pc)(0, glibc_riscv_hwprobe, NULL);
 #    else
-    /* FIXME i#1551: glibc passes hwcap to ifunc resolvers on AArch32
-     * FIXME i#1569: glibc passes hwcap and __ifunc_arg_t structure to ifunc
-     * resolvers on AArch64.
+    /* TODO i#7392: glibc passes hwcap to ifunc resolvers on AArch32, and
+     * hwcap and __ifunc_arg_t structure to ifunc resolvers on AArch64.
      */
     addr = ((ELF_ADDR(*)(void))resolver_pc)();
 #    endif
