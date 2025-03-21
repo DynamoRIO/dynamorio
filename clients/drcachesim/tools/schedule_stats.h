@@ -313,6 +313,8 @@ protected:
             : counters(analyzer)
         {
         }
+        // Provide a virtual destructor to allow subclassing.
+        virtual ~per_shard_t() = default;
         std::string error;
         memtrace_stream_t *stream = nullptr;
         int64_t core = 0; // We target core-sharded.
