@@ -1479,7 +1479,7 @@ resolve_ifunc(app_pc resolver_pc)
      * auxvector/hwcap bits. */
     addr = ((ifunc_resolver)resolver_pc)(0, glibc_riscv_hwprobe, NULL);
 #    else
-    /* TODO i#7392: glibc passes hwcap to ifunc resolvers on AArch32, and
+    /* TODO i#7392: glibc 2.41 passes hwcap to ifunc resolvers on AArch32, and
      * hwcap and __ifunc_arg_t structure to ifunc resolvers on AArch64.
      */
     addr = ((ELF_ADDR(*)(void))resolver_pc)();
