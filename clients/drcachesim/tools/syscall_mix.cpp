@@ -111,23 +111,29 @@ bool
 syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+    if (memref.marker.type != TRACE_TYPE_MARKER)
+        return true;
+    switch (memref.marker.marker_type) {
+    case TRACE_MARKER_TYPE_SYSCALL: {
         int syscall_num = static_cast<int>(memref.marker.marker_value);
 #ifdef X64
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
         ++shard->stats.syscall_counts[syscall_num];
-    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
-               memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START) {
+        break;
+    }
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START: {
         int syscall_num = static_cast<int>(memref.marker.marker_value);
 #ifdef X64
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
         ++shard->stats.syscall_trace_counts[syscall_num];
-    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
-               memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_FAILED) {
+        break;
+    }
+    case TRACE_MARKER_TYPE_SYSCALL_FAILED:
         ++shard->stats.syscall_errno_counts[static_cast<int>(memref.marker.marker_value)];
+        break;
+    default: return true;
     }
     return true;
 }
