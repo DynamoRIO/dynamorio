@@ -394,7 +394,7 @@ test_syscall_latencies()
             // core.
             gen_marker(TID_E, TRACE_MARKER_TYPE_TIMESTAMP, 4500),
             gen_marker(TID_E, TRACE_MARKER_TYPE_FUNC_ID, 202),
-            gen_marker(TID_E, TRACE_MARKER_TYPE_FUNC_RETVAL, -4),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_FUNC_RETVAL, static_cast<uintptr_t>(-4)),
             gen_marker(TID_E, TRACE_MARKER_TYPE_SYSCALL_FAILED, 4),
             gen_marker(TID_E, TRACE_MARKER_TYPE_TIMESTAMP, 5200),
             // Preempt to D so no latency should be recorded here, despite
@@ -407,7 +407,7 @@ test_syscall_latencies()
             // Test a thread starting at a recorded syscall first thing on a core.
             gen_marker(TID_D, TRACE_MARKER_TYPE_TIMESTAMP, 1500),
             gen_marker(TID_D, TRACE_MARKER_TYPE_FUNC_ID, 202),
-            gen_marker(TID_D, TRACE_MARKER_TYPE_FUNC_RETVAL, -4),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_FUNC_RETVAL, static_cast<uintptr_t>(-4)),
             gen_marker(TID_D, TRACE_MARKER_TYPE_SYSCALL_FAILED, 4),
             gen_marker(TID_D, TRACE_MARKER_TYPE_TIMESTAMP, 3200),
             // Preempt to E so no latency should be recorded here.
