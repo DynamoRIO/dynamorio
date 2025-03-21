@@ -120,6 +120,17 @@ else ()
   set(CMAKE_BUILD_TYPE "${specified_build_type}")
 endif ()
 
+# Set the default to disable clang-format, style, and vera test if
+# ENV{DISABLE_FORMAT_CHECKS} is "yes".
+if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
+  set(DISABLE_FORMAT_CHECKS_DEFAULT ON)
+else ()
+  set(DISABLE_FORMAT_CHECKS_DEFAULT OFF)
+endif ()
+set(DISABLE_FORMAT_CHECKS_DESCR "Disable clang-format, style, and vera checks.")
+option(DISABLE_FORMAT_CHECKS ${DISABLE_FORMAT_CHECKS_DESCR}
+  ${DISABLE_FORMAT_CHECKS_DEFAULT})
+
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 include(CheckIncludeFile)
@@ -1677,9 +1688,7 @@ if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)
 
-if (BUILD_TOOLS OR BUILD_DRSTATS OR BUILD_CLIENTS)
-  add_subdirectory(libutil)
-endif (BUILD_TOOLS OR BUILD_DRSTATS OR BUILD_CLIENTS)
+add_subdirectory(libutil)
 
 if (BUILD_TOOLS)
   add_subdirectory(tools)

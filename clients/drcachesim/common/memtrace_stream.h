@@ -116,6 +116,10 @@ public:
          * Counts the instances when the kernel context switch sequences were injected.
          */
         SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS,
+        /**
+         * Counts the instances when the kernel syscall sequences were injected.
+         */
+        SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS,
         /** Count of statistic types. */
         SCHED_STAT_TYPE_COUNT,
     };

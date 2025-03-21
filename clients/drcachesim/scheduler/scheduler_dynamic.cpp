@@ -243,9 +243,10 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
         static int64_t global_heartbeat;
         // 10K is too frequent for simple analyzer runs: it is too noisy with
         // the new core-sharded-by-default for new users using defaults.
-        // 50K is a reasonable compromise.
+        // Even 50K is too frequent on the threadsig checked-in trace.
+        // 500K is a reasonable compromise.
         // XXX: Add a runtime option to tweak this.
-        static constexpr int64_t GLOBAL_HEARTBEAT_CADENCE = 50000;
+        static constexpr int64_t GLOBAL_HEARTBEAT_CADENCE = 500000;
         // We are ok with races as the cadence is approximate.
         if (++global_heartbeat % GLOBAL_HEARTBEAT_CADENCE == 0) {
             print_queue_stats();
@@ -879,9 +880,19 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::rebalance_queues(
                            "Rebalance iteration %d: output %d giving up input %d\n",
                            iteration, i, queue_next->index);
                     inputs_to_add.push_back(queue_next->index);
-                } else
+                } else {
+                    if (status == sched_type_t::STATUS_IDLE) {
+                        // An IDLE result is not an error: it just means there were no
+                        // unblocked inputs available.  We do not want to propagate it to
+                        // the caller.
+                        status = sched_type_t::STATUS_OK;
+                    }
                     break;
+                }
             }
+            // If we hit some fatal error, bail and propagate the error.
+            if (status != sched_type_t::STATUS_OK)
+                break;
             std::vector<input_ordinal_t> incompatible_inputs;
             // If we reach the 3rd iteration, we have fussy inputs with bindings.
             // Try to add them to every output.
@@ -1203,7 +1214,8 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue_hold_lock
     VDO(this, 1, {
         static int output_heartbeat;
         // We are ok with races as the cadence is approximate.
-        if (++output_heartbeat % 2000 == 0) {
+        static constexpr int64_t OUTPUT_HEARTBEAT_CADENCE = 200000;
+        if (++output_heartbeat % OUTPUT_HEARTBEAT_CADENCE == 0) {
             size_t unsched_size = 0;
             {
                 std::lock_guard<mutex_dbg_owned> unsched_lock(

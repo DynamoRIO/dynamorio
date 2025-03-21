@@ -86,9 +86,6 @@ jobs:
       - name: Fetch master
         run: git fetch --no-tags --depth=1 origin master
 
-      - name: Create build directory
-        run: mkdir build
-
       - name: Create build environment
         run: |
           sudo apt-get update && \
@@ -103,6 +100,24 @@ jobs:
             python3 \
             vera++ \
             zlib1g-dev
+
+      - name: Install gh
+        run: |
+          (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
+            && sudo mkdir -p -m 755 /etc/apt/keyrings \
+            && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+            && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+            && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+            && sudo apt update \
+            && sudo apt install gh -y
+
+      - name: Check if format checks are disabled
+        id: are_format_checks_disabled
+        uses: ./.github/actions/are-format-checks-disabled
+
+      - name: Create build directory
+        run: mkdir build
 
       - name: Set ptrace_scope to 0
         run: |
@@ -123,6 +138,7 @@ jobs:
         run: ../suite/runsuite_wrapper.pl travis
         env:
           CI_BRANCH: ${{ github.ref }}
+          DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
         if: ${{ matrix.sve == false || matrix.sve_length == '' }}
 
       - name: Run Suite with sve vector length ${{ matrix.sve_length }}
@@ -130,6 +146,7 @@ jobs:
         run: ../tools/run_with_vector_length.py ${{ matrix.sve_length }} ../suite/runsuite_wrapper.pl travis
         env:
           CI_BRANCH: ${{ github.ref }}
+          DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
         if: ${{ matrix.sve == true && matrix.sve_length != ''}}
 
   send-failure-notification:

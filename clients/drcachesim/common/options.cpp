@@ -500,7 +500,9 @@ droption_t<std::string>
     op_TLB_replace_policy(DROPTION_SCOPE_FRONTEND, "TLB_replace_policy",
                           REPLACE_POLICY_LFU, "TLB replacement policy",
                           "Specifies the replacement policy for TLBs. "
-                          "Supported policies: LFU (Least Frequently Used).");
+                          "Supported policies: " REPLACE_POLICY_LFU
+                          " (Least Frequently Used), " REPLACE_POLICY_BIT_PLRU
+                          " (Pseudo Least Recently Used).");
 
 droption_t<std::string>
     op_tool(DROPTION_SCOPE_FRONTEND,

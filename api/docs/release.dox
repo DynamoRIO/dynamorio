@@ -134,6 +134,8 @@ changes:
    written with the path to the memory dump file.
 
 Further non-compatibility-affecting changes include:
+ - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
+   in dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - Added support for reading a single drmemtrace trace file from stdin
    via "-infile -".
  - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
@@ -588,7 +590,7 @@ changes:
    segment index.  The custom data field is now per-segment and not per-module,
    and all callbacks are invoked separately for each segment.
 
-The changes between version \DR_VERSION and 8.0.0 include the following minor
+The changes between version 9.0.0 and 8.0.0 include the following minor
 compatibility changes:
 
  - drconfiglib (and thus drrun and drconfig) now sets only the new client path

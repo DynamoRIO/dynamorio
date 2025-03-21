@@ -451,8 +451,9 @@ add_dependencies(scheduler_launcher api_headers)
 if (X86 AND X64 AND ZIP_FOUND)
   set(trace_dir
     "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+  # We further shrink the block time for a faster test.
   add_test(NAME tool.scheduler_launcher
-    COMMAND scheduler_launcher -trace_dir ${trace_dir})
+    COMMAND scheduler_launcher -trace_dir ${trace_dir} -block_time_scale 0.01)
   set_tests_properties(tool.scheduler_launcher PROPERTIES TIMEOUT ${test_seconds})
 endif ()
 

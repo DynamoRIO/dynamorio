@@ -4,6 +4,12 @@ Make 567 bytes defined if addressable.
 Make 1234 bytes defined if addressable.
 Make 89 bytes defined if addressable.
 Make 567 bytes defined if addressable.
+Make 4 bytes undefined.
+Make 4 bytes defined.
+Checking whether 4 bytes are defined.
+Checking whether 4 bytes are addressable.
+Malloclike 4 bytes.
+Freelike.
 The Valgrind annotation test thinks it is running on Valgrind.
 Before annotation: j=1
 After annotation: j=1
@@ -34,4 +40,16 @@ Row 11: 00 00 00 00 00 00 00 00 00 00 00 00
 
 --------
 
-Received 5 'define memory' requests for a total of 3024 bytes.
+Invoking MAKE_MEM_UNDEFINED.
+Invoking MAKE_MEM_DEFINED.
+Invoking CHECK_MEM_IS_DEFINED.
+Invoking CHECK_MEM_IS_ADDRESSABLE.
+Invoking MALLOCLIKE_BLOCK.
+Invoking FREELIKE_BLOCK.
+Received 5 'define memory if addressable' requests for a total of 3024 bytes.
+Received requests for 4 bytes bytes made undefined.
+Received requests for 4 bytes bytes made defined.
+Received requests for 4 bytes bytes checked addressable.
+Received requests for 4 bytes bytes checked defined.
+Received 1 malloclike requests.
+Received 1 freelike requests.

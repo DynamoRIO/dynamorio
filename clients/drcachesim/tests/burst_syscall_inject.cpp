@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -146,7 +146,8 @@ write_header_entries(std::unique_ptr<std::ostream> &writer)
     // Some header read-ahead logic uses the timestamp marker to know when
     // to stop. It is important to not read-ahead any kernel syscall trace
     // content, as then is_record_kernel() starts returning true on the stream.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 0));
+    // Also, some scheduler logic wants non-zero timestamps.
+    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1));
 }
 
 static void

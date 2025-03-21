@@ -882,7 +882,8 @@ protected:
     // Actions that must be taken only when we know for sure that the given record
     // is going to be the next record for some output stream.
     stream_status_t
-    finalize_next_record(const RecordType &record, input_info_t *input);
+    finalize_next_record(output_ordinal_t output, const RecordType &record,
+                         input_info_t *input);
 
     // Used for diagnostics: prints record fields to stderr.
     void
@@ -966,12 +967,6 @@ protected:
     // Never returns STATUS_OK.
     stream_status_t
     eof_or_idle(output_ordinal_t output, input_ordinal_t prev_input);
-
-    // Returns whether the current record for the current input stream scheduled on
-    // the 'output_ordinal'-th output stream is from a part of the trace corresponding
-    // to kernel execution.
-    bool
-    is_record_kernel(output_ordinal_t output);
 
     // These statistics are not guaranteed to be accurate when replaying a
     // prior schedule.
