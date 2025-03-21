@@ -576,8 +576,8 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 
     // Enable the noise generator before init_scheduler(), where we eventually add a
     // noise generator as another input workload.
-    if (op_noise_generator_enable.get_value())
-        this->noise_generator_enabled_ = true;
+    if (op_add_noise_generator.get_value())
+        this->add_noise_generator_ = true;
 
     if (!indirs.empty()) {
         std::vector<std::string> tracedirs;

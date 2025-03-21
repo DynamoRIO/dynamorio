@@ -442,7 +442,7 @@ protected:
     // Factory to create noise generators that can then be added to the scheduler's
     // input workloads.
     noise_generator_factory_t<RecordType, ReaderType> noise_generator_factory_;
-    bool noise_generator_enabled_ = false;
+    bool add_noise_generator_ = false;
 
 private:
     bool

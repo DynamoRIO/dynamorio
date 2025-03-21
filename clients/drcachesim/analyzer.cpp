@@ -297,15 +297,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     typename sched_type_t::scheduler_options_t options)
 {
     // Add noise generator to input workloads.
-    if (noise_generator_enabled_) {
+    if (add_noise_generator_) {
         // TODO i#7216: here can be a good place to analyze the workloads in order to
         // tweak noise_generator_info_t parameters. For now we use noise_generator_info_t
         // default values.
         noise_generator_info_t noise_generator_info;
+        // TODO i#7216: currently we only create a single-process, single-thread noise
+        // generator. We plan to add more in the future (multi-process and/or
+        // multi-thread noise generators).
         typename sched_type_t::input_reader_t noise_generator_reader =
             noise_generator_factory_.create_noise_generator(noise_generator_info);
         // Check for errors.
-        error_string_ = error_string_ + noise_generator_factory_.get_error_string();
+        error_string_ += noise_generator_factory_.get_error_string();
         if (!error_string_.empty()) {
             return false;
         }

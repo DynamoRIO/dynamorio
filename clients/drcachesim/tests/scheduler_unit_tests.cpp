@@ -6910,12 +6910,10 @@ test_options_match()
 }
 
 // A mock noise generator that only generates TRACE_TYPE_READ records with
-// address 0xdeadbeef.
+// address 0xdeadbeef and instruction fetches.
 class mock_noise_generator_t : public noise_generator_t {
 public:
-    mock_noise_generator_t() {};
-
-    mock_noise_generator_t(noise_generator_info_t &info, addr_t addr_to_generate)
+    mock_noise_generator_t(noise_generator_info_t &info, const addr_t addr_to_generate)
         : noise_generator_t(info)
         , addr_to_generate_(addr_to_generate) {};
 
@@ -6923,9 +6921,53 @@ protected:
     trace_entry_t
     generate_trace_entry() override
     {
-        trace_entry_t generated_entry = { TRACE_TYPE_READ, 4, { addr_to_generate_ } };
+        trace_entry_t generated_entry;
+        // We alternate between read and instruction fetch records.
+        // We need to generate instructions to have the scheduler interleave noise
+        // records with the rest of the input workloads. Instructions are what the
+        // scheduler uses to estimate time quants to switch from one input workload
+        // to another. Generating only read records does not advance the scheduler
+        // time, which means all noise read records are scheduled altogether in the
+        // same time quant, no matter how many.
+        if (record_counter_ % 2) {
+            generated_entry = { TRACE_TYPE_READ, 4, { addr_to_generate_ } };
+        } else {
+            generated_entry = { TRACE_TYPE_INSTR,
+                                1,
+                                { static_cast<addr_t>(record_counter_) } };
+        }
+        ++record_counter_;
         return generated_entry;
     }
+
+private:
+    addr_t addr_to_generate_ = 0x0;
+    uint64_t record_counter_ = 0;
+};
+
+// A mock noise generator factory that creates mock_noise_generator_t.
+class mock_noise_generator_factory_t
+    : public noise_generator_factory_t<memref_t, reader_t> {
+public:
+    mock_noise_generator_factory_t(const addr_t addr_to_generate)
+        : addr_to_generate_(addr_to_generate) {};
+
+protected:
+    std::unique_ptr<reader_t>
+    create_noise_generator_begin(noise_generator_info_t &info) override
+    {
+        return std::unique_ptr<mock_noise_generator_t>(
+            new mock_noise_generator_t(info, addr_to_generate_));
+    };
+
+    std::unique_ptr<reader_t>
+    create_noise_generator_end() override
+    {
+        noise_generator_info_t info;
+        info.num_records_to_generate = 0;
+        return std::unique_ptr<mock_noise_generator_t>(
+            new mock_noise_generator_t(info, 0));
+    };
 
 private:
     addr_t addr_to_generate_ = 0x0;
@@ -6935,73 +6977,98 @@ static void
 test_noise_generator()
 {
     std::cerr << "\n----------------\nTesting noise generator\n";
-    static constexpr addr_t noise_generator_addr_to_generate = 0xdeadbeef;
-    static constexpr memref_tid_t TID_A = 42;
-    static constexpr memref_tid_t TID_B = 99;
-    std::vector<trace_entry_t> refs_A = {
-        /* clang-format off */
-        make_thread(TID_A),
-        make_pid(1),
-        make_version(4),
-        make_timestamp(10),
-        make_instr(10),
-        make_timestamp(30),
-        make_instr(30),
-        make_timestamp(50),
-        make_instr(50),
-        make_exit(TID_A),
-        /* clang-format on */
-    };
-    std::vector<trace_entry_t> refs_B = {
-        /* clang-format off */
-        make_thread(TID_B),
-        make_pid(1),
-        make_version(4),
-        make_timestamp(20),
-        make_instr(20),
-        make_timestamp(40),
-        make_instr(40),
-        make_timestamp(60),
-        make_instr(60),
-        make_exit(TID_B),
-        /* clang-format on */
-    };
+    static constexpr addr_t ADDR_TO_GENERATE = 0xdeadbeef;
+    static constexpr uint64_t TIMESTAMP_BASE = 1;
+    static constexpr memref_tid_t TID_BASE = 1;
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int NUM_INSTRS = 1000;
+
+    // Make some input workloads.
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        // Add a timestamp after the PID as required by the scheduler.
+        uint64_t cur_timestamp = TIMESTAMP_BASE + i * 10;
+        inputs[i].push_back(make_timestamp(cur_timestamp));
+        // Add instruction fetches.
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(make_instr(42 + j * 4));
+            inputs[i].push_back(make_memref(0xaaaaaaaa, TRACE_TYPE_READ));
+        }
+        inputs[i].push_back(make_exit(tid));
+    }
     std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-    // Add noise.
-    noise_generator_info_t noise_generator_info = { 1, 1, 10 };
-    readers.emplace_back(
-        std::unique_ptr<mock_noise_generator_t>(new mock_noise_generator_t(
-            noise_generator_info, noise_generator_addr_to_generate)),
-        std::unique_ptr<mock_noise_generator_t>(new mock_noise_generator_t()),
-        INVALID_THREAD_ID);
-    scheduler_t scheduler;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
+                             TID_BASE + i);
+    }
+
+    // Create a noise generator.
+    noise_generator_info_t noise_generator_info;
+    noise_generator_info.pid = TID_BASE + NUM_INPUTS;
+    noise_generator_info.tid = TID_BASE + NUM_INPUTS;
+    noise_generator_info.num_records_to_generate = NUM_INSTRS;
+    mock_noise_generator_factory_t noise_generator_factory(ADDR_TO_GENERATE);
+    scheduler_t::input_reader_t noise_generator_reader =
+        noise_generator_factory.create_noise_generator(noise_generator_info);
+    // Check for errors.
+    assert(noise_generator_factory.get_error_string().empty());
+    // Add the noise generator to a separate input_reader_t vector like we do in an
+    // analyzer.
+    std::vector<scheduler_t::input_reader_t> noise_generator_readers;
+    noise_generator_readers.emplace_back(std::move(noise_generator_reader));
+
+    // Add input workloads and noise to the inputs to schedule.
     std::vector<scheduler_t::input_workload_t> sched_inputs;
+    // Input ordinal 0.
     sched_inputs.emplace_back(std::move(readers));
-    if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
-        scheduler_t::STATUS_SUCCESS)
+    // Input ordinal 1.
+    sched_inputs.emplace_back(std::move(noise_generator_readers));
+
+    // Create custom scheduler options.
+    // MAP_TO_ANY_OUTPUT selects dynamic scheduling, which is what we currently support
+    // for the noise generator.
+    scheduler_t::scheduler_options_t sched_ops(
+        scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+        scheduler_t::SCHEDULER_DEFAULTS, /*verbose=*/4);
+    // This is the default quantum_unit, but we specify it anyway in case it changes in
+    // the future.
+    sched_ops.quantum_unit = scheduler_t::QUANTUM_INSTRUCTIONS;
+    // We shorten quantum_duration_instrs from the default since we only generate 1000
+    // instructions. This is needed to have the scheduler interleave the input workloads
+    // and the noise together in the same output. The default value is too large and
+    // allows all records of each input to be scheduled together in a single time quant,
+    // so there is not interleaving.
+    sched_ops.quantum_duration_instrs = 5;
+
+    // Initialize the scheduler.
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS) {
         assert(false);
-    auto *stream = scheduler.get_stream(0);
+    }
+
     memref_t memref;
-    bool found_at_least_one_read = false;
+    bool found_at_least_one_noise_generator_read = false;
+    // We only have a single output.
+    auto *stream = scheduler.get_stream(0);
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
-        // There is just one output so we expect to always see 0 as the ordinal.
-        assert(stream->get_input_workload_ordinal() == 0);
-        // All TRACE_TYPE_READ records are generated by the noise generator and their
-        // addr is always the constant noise_generator_addr_to_generate.
-        if (memref.data.type == TRACE_TYPE_READ) {
-            assert(memref.data.addr ==
-                   static_cast<addr_t>(noise_generator_addr_to_generate));
-            found_at_least_one_read = true;
+        // Check that all read records generated by the scheduler have address
+        // ADDR_TO_GENERATE.
+        if (stream->get_input_workload_ordinal() == 1) {
+            if (memref.data.type == TRACE_TYPE_READ) {
+                assert(memref.data.addr == static_cast<addr_t>(ADDR_TO_GENERATE));
+                found_at_least_one_noise_generator_read = true;
+            }
         }
     }
-    assert(found_at_least_one_read);
+    assert(found_at_least_one_noise_generator_read);
 }
 
 int

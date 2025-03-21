@@ -44,7 +44,7 @@ namespace drmemtrace {
  * Contains metadata information to drive the noise generation.
  */
 struct noise_generator_info_t {
-    noise_generator_info_t() {};
+    noise_generator_info_t() = default;
     noise_generator_info_t(addr_t pid, addr_t tid, uint64_t num_records_to_generate)
         : pid(pid)
         , tid(tid)
@@ -52,22 +52,40 @@ struct noise_generator_info_t {
     {
     }
     // TODO i#7216: temporary default values.
-    addr_t pid = 1;
-    addr_t tid = 1;
+    memref_pid_t pid = 1;
+    memref_tid_t tid = 1;
+    // TODO i#7216: this parameter drives the noise generation. Currently we only set a
+    // default value of numbers of records to generate, but we plan to have more
+    // parameters to control the mix of noise (e.g., load/store mix, address patterns).
+    // This is not the final set of parameters, we'll add them as needed depending on the
+    // patter of noise we want to generate.
     uint64_t num_records_to_generate = 1000;
 };
 
 /**
- * Generates synthetic #dynamorio::drmemtrace::memref_t trace entries in a single thread
- * and presents them via an iterator interface to the scheduler.
+ * Generates synthetic #dynamorio::drmemtrace::memref_t trace records in a single-process
+ * single-thread and presents them via an iterator interface to the scheduler.
+ * These synthetic trace records are preceded by
+ * #dynamorio::drmemtrace::TRACE_TYPE_THREAD, #dynamorio::drmemtrace::TRACE_TYPE_PID,
+ * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP records and followed by
+ * #dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT, as this is the order of records that
+ * the scheduler expects. The value of #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP
+ * is (ULONG_MAX - 1), which is not a serial-or-interval-suited timestamp value for mixing
+ * with real workload inputs. A serial analysis combined with real workload inputs would
+ * have these synthetic records at the very end, while time interval analysis would not
+ * consider these records unless the interval is very large (likely beyond the end of real
+ * input workloads). Noise generation is suited for dynamic scheduling, where the
+ * scheduler will re-write the values of
+ * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP.
+ * Note that this class does not support simultaneous use by concurrent threads.
  */
 class noise_generator_t : public reader_t {
 public:
-    noise_generator_t();
+    noise_generator_t() = default;
 
-    noise_generator_t(noise_generator_info_t &info);
+    explicit noise_generator_t(noise_generator_info_t &info);
 
-    virtual ~noise_generator_t();
+    virtual ~noise_generator_t() = default;
 
     bool
     init() override;
@@ -86,19 +104,19 @@ protected:
     virtual trace_entry_t
     generate_trace_entry();
 
-    // This counter does not count TRACE_TYPE_THREAD, TRACE_TYPE_PID, and
-    // TRACE_MARKER_TYPE_TIMESTAMP. The idea is that when the user wants to generate at
-    // at least one record, tid, pid, and timestamp always have to be there, otherwise
-    // the scheduler will report an error.
-    uint64_t num_records_to_generate_ = 0;
-    addr_t pid_ = 0;
-    addr_t tid_ = 0;
+    noise_generator_info_t info_ = {};
 
 private:
     trace_entry_t entry_ = {};
     bool pid_generated_ = false;
     bool tid_generated_ = false;
     bool marker_timestamp_generated_ = false;
+    // This counter does not count TRACE_TYPE_THREAD, TRACE_TYPE_PID, and
+    // TRACE_MARKER_TYPE_TIMESTAMP. The idea is that when the user wants to generate at
+    // at least one record, tid, pid, and timestamp always have to be there, otherwise
+    // the scheduler will report an error. So, for example, if the user wants to generate
+    // only one record, we cannot generate TRACE_TYPE_THREAD only.
+    uint64_t num_records_generated_ = 0;
 };
 
 /**
@@ -106,19 +124,17 @@ private:
  */
 template <typename RecordType, typename ReaderType> class noise_generator_factory_t {
 public:
-    typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
-
     std::string
     get_error_string();
 
-    typename sched_type_t::input_reader_t
+    typename scheduler_tmpl_t<RecordType, ReaderType>::input_reader_t
     create_noise_generator(noise_generator_info_t &info);
 
 protected:
-    std::unique_ptr<ReaderType>
+    virtual std::unique_ptr<ReaderType>
     create_noise_generator_begin(noise_generator_info_t &info);
 
-    std::unique_ptr<ReaderType>
+    virtual std::unique_ptr<ReaderType>
     create_noise_generator_end();
 
     std::string error_string_;
