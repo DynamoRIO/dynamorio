@@ -65,18 +65,16 @@ struct noise_generator_info_t {
 /**
  * Generates synthetic #dynamorio::drmemtrace::memref_t trace records in a single-process
  * single-thread and presents them via an iterator interface to the scheduler.
- * These synthetic trace records are preceded by
- * TRACE_TYPE_THREAD, #dynamorio::drmemtrace::TRACE_TYPE_PID,
- * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP records and followed by
- * #dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT, as this is the order of records that
- * the scheduler expects. The value of #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP
- * is (ULONG_MAX - 1), which is not a serial-or-interval-suited timestamp value for mixing
- * with real workload inputs. A serial analysis combined with real workload inputs would
- * have these synthetic records at the very end, while time interval analysis would not
- * consider these records unless the interval is very large (likely beyond the end of real
- * input workloads). Noise generation is suited for dynamic scheduling, where the
- * scheduler will re-write the values of
- * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP.
+ * These synthetic trace records are preceded by TRACE_TYPE_THREAD, TRACE_TYPE_PID,
+ * TRACE_MARKER_TYPE_TIMESTAMP records and followed by TRACE_TYPE_THREAD_EXIT, as this is
+ * the order of records that the scheduler expects. The value of
+ * TRACE_MARKER_TYPE_TIMESTAMP is (ULONG_MAX - 1), which is not a
+ * serial-or-interval-suited timestamp value for mixing with real workload inputs.
+ * A serial analysis combined with real workload inputs would have these synthetic
+ * records at the very end, while time interval analysis would not consider these records
+ * unless the interval is very large (likely beyond the end of real input workloads).
+ * Noise generation is suited for dynamic scheduling, where the scheduler will re-write
+ * the values of TRACE_MARKER_TYPE_TIMESTAMP.
  * Note that this class does not support simultaneous use by concurrent threads.
  */
 class noise_generator_t : public reader_t {
