@@ -179,6 +179,7 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_warmu
 extern dynamorio::droption::droption_t<double> op_warmup_fraction;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_sim_refs;
 extern dynamorio::droption::droption_t<std::string> op_config_file;
+extern dynamorio::droption::droption_t<bool> op_add_noise_generator;
 extern dynamorio::droption::droption_t<unsigned int> op_report_top;
 extern dynamorio::droption::droption_t<unsigned int> op_reuse_distance_threshold;
 extern dynamorio::droption::droption_t<bool> op_reuse_distance_histogram;

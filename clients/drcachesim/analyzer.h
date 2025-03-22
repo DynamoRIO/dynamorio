@@ -55,6 +55,7 @@
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include "noise_generator.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "scheduler.h"
@@ -437,6 +438,11 @@ protected:
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     bool sched_by_time_ = false;
     typename sched_type_t::mapping_t sched_mapping_ = sched_type_t::MAP_TO_ANY_OUTPUT;
+
+    // Factory to create noise generators that can then be added to the scheduler's
+    // input workloads.
+    noise_generator_factory_t<RecordType, ReaderType> noise_generator_factory_;
+    bool add_noise_generator_ = false;
 
 private:
     bool
