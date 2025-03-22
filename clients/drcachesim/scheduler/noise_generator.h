@@ -66,7 +66,7 @@ struct noise_generator_info_t {
  * Generates synthetic #dynamorio::drmemtrace::memref_t trace records in a single-process
  * single-thread and presents them via an iterator interface to the scheduler.
  * These synthetic trace records are preceded by
- * #dynamorio::drmemtrace::TRACE_TYPE_THREAD, #dynamorio::drmemtrace::TRACE_TYPE_PID,
+ * TRACE_TYPE_THREAD, #dynamorio::drmemtrace::TRACE_TYPE_PID,
  * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP records and followed by
  * #dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT, as this is the order of records that
  * the scheduler expects. The value of #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP
