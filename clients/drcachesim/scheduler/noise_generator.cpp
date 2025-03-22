@@ -146,7 +146,7 @@ noise_generator_factory_t<memref_t, reader_t>::create_noise_generator_end()
 }
 
 /*****************************************************************************************
- * Specializations for noise_generator_factory_t<memref_t, reader_t>.
+ * Specializations for noise_generator_factory_t<trace_entry_t, record_reader_t>.
  */
 
 template <>
