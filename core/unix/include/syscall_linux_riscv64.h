@@ -11,6 +11,10 @@
 #    error Only use this file on Linux
 #endif
 
+#ifndef __NR_riscv_hwprobe
+#    define __NR_riscv_hwprobe (__NR_arch_specific_syscall + 14)
+#endif
+
 #ifndef __NR_riscv_flush_icache
 #    define __NR_riscv_flush_icache (__NR_arch_specific_syscall + 15)
 #endif
