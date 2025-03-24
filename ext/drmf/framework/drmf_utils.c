@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -26,8 +26,7 @@
 #include "dr_api.h"
 
 bool op_print_stderr = false;
-// kyluk keep?
-int op_verbose_level = -1;
+int verbose = -1;
 bool op_ignore_asserts = true;
 file_t f_global = INVALID_FILE;
 int tls_idx_util = -1;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,8 +43,7 @@
 /* globals that affect NOTIFY* and *LOG* macros */
 int tls_idx_util = -1;
 bool op_print_stderr = true;
-// kyluk keep?
-int op_verbose_level;
+int verbose = -1;
 bool op_pause_at_assert;
 bool op_pause_via_loop;
 bool op_ignore_asserts;
