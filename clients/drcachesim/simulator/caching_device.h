@@ -40,11 +40,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "cache_replacement_policy.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "memref.h"
@@ -73,6 +75,7 @@ public:
     virtual bool
     init(int associativity, int64_t block_size, int64_t num_blocks,
          caching_device_t *parent, caching_device_stats_t *stats,
+         std::unique_ptr<cache_replacement_policy_t> replacement_policy,
          prefetcher_t *prefetcher = nullptr,
          cache_inclusion_policy_t inclusion_policy =
              cache_inclusion_policy_t::NON_INC_NON_EXC,
@@ -197,7 +200,12 @@ public:
     virtual std::string
     get_replace_policy() const
     {
-        return "LFU";
+        return replacement_policy_->get_name();
+    }
+    virtual void
+    set_replace_policy(std::unique_ptr<cache_replacement_policy_t> replacement_policy)
+    {
+        replacement_policy_ = std::move(replacement_policy);
     }
     virtual const std::string &
     get_name() const
@@ -230,6 +238,14 @@ protected:
     compute_block_idx(addr_t tag) const
     {
         return (tag & blocks_per_way_mask_) * associativity_;
+    }
+    virtual int
+    compute_set_index(int block_idx) const
+    {
+        // The block index points to the first way in the set, and the ways are stored
+        // in a contiguous array, so we divide by the associativity to get the block
+        // index.
+        return block_idx / associativity_;
     }
     inline caching_device_block_t &
     get_caching_device_block(int block_idx, int way) const
@@ -311,6 +327,8 @@ protected:
                        std::function<unsigned long(addr_t)>>
         tag2block;
     bool use_tag2block_table_ = false;
+
+    mutable std::unique_ptr<cache_replacement_policy_t> replacement_policy_;
 
     // Name for this cache.
     const std::string name_;
