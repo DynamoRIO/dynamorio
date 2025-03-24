@@ -51,6 +51,7 @@ extern "C" {
 #    define IF_WINDOWS(x) x
 #    define IF_WINDOWS_(x) x,
 #    define _IF_WINDOWS(x) , x
+#    define IF_WINDOWS_ELSE(x, y) x
 #    define IF_UNIX(x)
 #    define IF_UNIX_ELSE(x, y) y
 #    define IF_LINUX(x)
@@ -60,6 +61,7 @@ extern "C" {
 #    define IF_WINDOWS(x)
 #    define IF_WINDOWS_(x)
 #    define _IF_WINDOWS(x)
+#    define IF_WINDOWS_ELSE(x, y) y
 #    define IF_UNIX(x) x
 #    define IF_UNIX_ELSE(x, y) x
 #    define IF_UNIX_(x) x,
