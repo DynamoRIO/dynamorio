@@ -777,7 +777,7 @@ secondary_syscall_setup(void *drcontext, const module_data_t *info,
             continue;
         if (cb != NULL) {
             second_entry_num =
-                cb(syscall_info_second[entry_index].name, syslist->num.number);
+                cb(drcontext, syscall_info_second[entry_index].name, syslist->num.number);
             if (second_entry_num == -1) {
                 LOG(drcontext, SYSCALL_VERBOSE,
                     "can't resolve secondary number for %s syscall\n",

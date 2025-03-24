@@ -238,12 +238,12 @@ wingdi_get_secondary_syscall_num(void *drcontext, const char *name, uint primary
     num.number = primary_num;
 
     /* add secondary usercall with & without primary prefix */
-    name2num_entry_add(name, num, false /*no Zw*/, false);
+    name2num_entry_add(drcontext, name, num, false /*no Zw*/, false);
     skip_primary = strstr(name, ".");
     if (skip_primary != NULL &&
         /* don't add unknown w/o primary */
         strstr(name, ".UNKNOWN") == NULL) {
-        name2num_entry_add(skip_primary + 1 /*"."*/, num, false /*no Zw*/, false);
+        name2num_entry_add(drcontext, skip_primary + 1 /*"."*/, num, false /*no Zw*/, false);
     }
     return num.secondary;
 }
