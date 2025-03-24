@@ -30,42 +30,46 @@
  * DAMAGE.
  */
 
-/* tlb: represents a single hardware TLB.
- */
+#ifndef _FIFO_H_
+#define _FIFO_H_
 
-#ifndef _TLB_H_
-#define _TLB_H_ 1
+#include <list>
+#include <string>
+#include <vector>
 
-#include <optional>
-#include <random>
-
-#include "caching_device.h"
-#include "memref.h"
-#include "tlb_entry.h"
-#include "tlb_stats.h"
+#include "cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class tlb_t : public caching_device_t {
+/**
+ * A FIFO cache replacement policy.
+ *
+ * It is initialized with the ways in ascending order of their index, and ignores which
+ * ways are valid.
+ */
+class policy_fifo_t : public cache_replacement_policy_t {
 public:
-    tlb_t(const std::string &name = "tlb");
-
+    policy_fifo_t(int num_sets, int associativity);
     void
-    request(const memref_t &memref) override;
-
-    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
-    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
-    // propagate_eviction() by overriding them.
-
-protected:
+    access_update(int set_idx, int way) override;
     void
-    init_blocks() override;
-    // Optimization: remember last pid in addition to last tag
-    memref_pid_t last_pid_;
+    eviction_update(int set_idx, int way) override;
+    void
+    invalidation_update(int set_idx, int way) override;
+    int
+    get_next_way_to_replace(int set_idx) const override;
+    std::string
+    get_name() const override;
+
+    ~policy_fifo_t() override = default;
+
+private:
+    // FIFO queue for each line.
+    std::vector<std::list<int>> queues_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _TLB_H_ */
+#endif // _FIFO_H_
