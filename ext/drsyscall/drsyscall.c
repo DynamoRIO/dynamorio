@@ -403,8 +403,8 @@ handle_pre_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_info
     if (!drsys_ops.analyze_unknown_syscalls)
         return;
     LOG(drcontext, SYSCALL_VERBOSE,
-         "unknown system call #" SYSNUM_FMT "." SYSNUM_FMT " %s\n", sysnum.number,
-         sysnum.secondary, sysinfo == NULL ? "" : sysinfo->name);
+        "unknown system call #" SYSNUM_FMT "." SYSNUM_FMT " %s\n", sysnum.number,
+        sysnum.secondary, sysinfo == NULL ? "" : sysinfo->name);
     /* PR 484069: reduce global logfile size */
     DO_ONCE(ELOGF(0, f_global, "WARNING: unhandled system calls found\n"));
     for (i = 0; i < SYSCALL_NUM_ARG_TRACK; i++) {
