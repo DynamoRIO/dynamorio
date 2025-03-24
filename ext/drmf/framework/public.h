@@ -50,10 +50,15 @@ extern "C" {
  * current version, but we also increase the oldest-compatible
  * version to match the (just-incremented) current version.
  */
+/* Work around clang-format breaks ${DRMF_VERSION_COMPAT} and ${DRMF_VERSION_CUR}
+ * into multiple lines.
+ */
+/* clang-format off */
 #define DRMF_VERSION_COMPAT ${DRMF_VERSION_COMPAT}
 #define DRMF_VERSION_CUR ${DRMF_VERSION_CUR}
 #define DRMF_VERSION_USED_VAR _DRMF_VERSION_USED_
 DR_EXPORT LINK_ONCE int DRMF_VERSION_USED_VAR = ${DRMF_VERSION_CUR};
+/* clang-format on */
 #define DRMF_VERSION_USED_NAME STRINGIFY(DRMF_VERSION_USED_VAR)
 
 /** Status codes for the Dr. Memory Framework */
