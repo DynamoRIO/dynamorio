@@ -26,6 +26,7 @@
 #include "dr_api.h"
 
 bool op_print_stderr = false;
+// kyluk keep?
 int op_verbose_level = -1;
 bool op_ignore_asserts = true;
 file_t f_global = INVALID_FILE;

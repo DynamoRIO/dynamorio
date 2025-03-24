@@ -25,6 +25,6 @@
 /* Dr. Memory Framework: code shared across Extensions */
 
 drmf_status_t
-drmf_check_version(client_id_t client_id);
+drmf_check_version(void *drcontext, client_id_t client_id);
 
 #endif /* _DRMF_H_ */

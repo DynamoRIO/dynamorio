@@ -43,6 +43,7 @@
 /* globals that affect NOTIFY* and *LOG* macros */
 int tls_idx_util = -1;
 bool op_print_stderr = true;
+// kyluk keep?
 int op_verbose_level;
 bool op_pause_at_assert;
 bool op_pause_via_loop;
@@ -175,7 +176,7 @@ static bool
 search_syms_cb(drsym_info_t *info, drsym_error_t status, void *data)
 {
     size_t *ans = (size_t *)data;
-    LOG(3, "sym lookup cb: %s @ offs " PIFX "\n", info->name, info->start_offs);
+    ELOG(3, "sym lookup cb: %s @ offs " PIFX "\n", info->name, info->start_offs);
     ASSERT(ans != NULL, "invalid param");
     *ans = info->start_offs;
     return false; /* stop iterating: we want first match */
@@ -190,8 +191,8 @@ static bool
 verify_lookup_cb(drsym_info_t *info, drsym_error_t status, void *data)
 {
     size_t *ans = (size_t *)data;
-    LOG(3, "verify lookup cb: %s " PIFX " vs " PIFX "\n", info->name, *ans,
-        info->start_offs);
+    ELOG(3, "verify lookup cb: %s " PIFX " vs " PIFX "\n", info->name, *ans,
+         info->start_offs);
     ASSERT(ans != NULL, "invalid param");
     if (*ans != info->start_offs) {
         NOTIFY_ERROR("DBGHELP ERROR: mismatch for %s between SymFromName (" PIFX
@@ -224,8 +225,8 @@ search_syms_regex_cb(drsym_info_t *info, drsym_error_t status, void *data)
     const char *sym = strchr(sr->regex, '!');
     const char *name = info->name;
 
-    LOG(3, "%s: comparing %s to pattern |%s| (regex=|%s|)\n", __FUNCTION__, name,
-        sym == NULL ? sr->regex : sym + 1, sr->regex);
+    ELOG(3, "%s: comparing %s to pattern |%s| (regex=|%s|)\n", __FUNCTION__, name,
+         sym == NULL ? sr->regex : sym + 1, sr->regex);
     if (sr->regex[0] == '\0' || (sym != NULL && *(sym + 1) == '\0') ||
         text_matches_pattern(name, sym == NULL ? sr->regex : sym + 1, false)) {
         return sr->orig_cb(info, status, sr->orig_data);
@@ -356,8 +357,8 @@ lookup_symbol_common(const module_data_t *mod, const char *sym_pattern, bool ful
         }
 #endif
     }
-    LOG(2, "sym lookup of %s in %s => %d " PFX "\n", sym_with_mod, mod->full_path, symres,
-        modoffs);
+    ELOG(2, "sym lookup of %s in %s => %d " PFX "\n", sym_with_mod, mod->full_path,
+         symres, modoffs);
     if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
         if (callback == NULL) {
             if (op_use_symcache)
@@ -432,8 +433,8 @@ print_mcontext(file_t f, dr_mcontext_t *mc)
 void
 hashtable_delete_with_stats(hashtable_t *table, const char *name)
 {
-    LOG(1, "final %s table size: %u bits, %u entries\n", name, table->table_bits,
-        table->entries);
+    ELOG(1, "final %s table size: %u bits, %u entries\n", name, table->table_bits,
+         table->entries);
     /* XXX: add collision data: though would want those stats mid-run
      * for tables that have entries freed during exit before here
      */
@@ -458,8 +459,8 @@ hashtable_cluster_stats(hashtable_t *table, const char *name)
         tot_cluster += cluster;
     }
     /* we don't want to use floating point so we print count and tot */
-    LOG(0, "%s table: clusters=%u max=%u tot=%u\n", name, count_cluster, max_cluster,
-        tot_cluster);
+    ELOG(0, "%s table: clusters=%u max=%u tot=%u\n", name, count_cluster, max_cluster,
+         tot_cluster);
 }
 #endif
 
@@ -591,7 +592,7 @@ text_matches_pattern(const char *text, const char *pattern, bool ignore_case)
             }
             if (*pattern == '\0') {
                 /* the pattern ends with a series of '*' */
-                LOG(5, "    text_matches_pattern \"%s\" == \"%s\"\n", text, pattern);
+                ELOG(5, "    text_matches_pattern \"%s\" == \"%s\"\n", text, pattern);
                 return true;
             }
             text_last_asterisk = cur_text;
@@ -606,13 +607,13 @@ text_matches_pattern(const char *text, const char *pattern, bool ignore_case)
             pattern = pattern_last_asterisk;
             cur_text = text_last_asterisk++;
         } else {
-            LOG(5, "    text_matches_pattern \"%s\" != \"%s\"\n", text, pattern);
+            ELOG(5, "    text_matches_pattern \"%s\" != \"%s\"\n", text, pattern);
             return false;
         }
     }
     while (*pattern == '*')
         ++pattern;
-    LOG(4, "    text_matches_pattern \"%s\": end at \"%.5s\"\n", text, pattern);
+    ELOG(4, "    text_matches_pattern \"%s\": end at \"%.5s\"\n", text, pattern);
     return *pattern == '\0';
 }
 
@@ -745,8 +746,8 @@ get_tid_from_handle(HANDLE h)
     res = NtQueryInformationThread(h, ThreadBasicInformation, &info,
                                    sizeof(THREAD_BASIC_INFORMATION), &got);
     if (!NT_SUCCESS(res) || got != sizeof(THREAD_BASIC_INFORMATION)) {
-        LOG(1, "%s: failed with 0x%08x %d vs %d\n", __FUNCTION__, res, got,
-            sizeof(THREAD_BASIC_INFORMATION));
+        ELOG(1, "%s: failed with 0x%08x %d vs %d\n", __FUNCTION__, res, got,
+             sizeof(THREAD_BASIC_INFORMATION));
         return INVALID_THREAD_ID;
     }
     return (thread_id_t)info.ClientId.UniqueThread;
@@ -981,7 +982,7 @@ module_imports_from_msvc(const module_data_t *mod)
 #    endif
     while (dr_module_import_iterator_hasnext(iter)) {
         dr_module_import_t *imp = dr_module_import_iterator_next(iter);
-        LOG(3, "module %s imports from %s\n", modname, imp->modname);
+        ELOG(3, "module %s imports from %s\n", modname, imp->modname);
         if (text_matches_pattern(imp->modname, "msvc*.dll", FILESYS_CASELESS)) {
             res = true;
             break;
@@ -1360,7 +1361,7 @@ utils_init(void)
 #endif
 
     if (drsym_init(IF_WINDOWS_ELSE(NULL, 0)) != DRSYM_SUCCESS) {
-        LOG(1, "WARNING: unable to initialize symbol translation\n");
+        ELOG(1, "WARNING: unable to initialize symbol translation\n");
     }
 
 #ifdef WINDOWS
@@ -1376,7 +1377,7 @@ void
 utils_exit(void)
 {
     if (drsym_exit() != DRSYM_SUCCESS) {
-        LOG(1, "WARNING: error cleaning up symbol library\n");
+        ELOG(1, "WARNING: error cleaning up symbol library\n");
     }
     drmgr_unregister_tls_field(tls_idx_util);
 }

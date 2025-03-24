@@ -202,6 +202,10 @@
 # define FILE_NAME "drcallstack.dll"
 # define FILE_DESCRIPTION PRODUCT_NAME " callstack walker"
 # define FILE_TYPE VFT_DLL
+# elif defined(RC_IS_DRSYSCALL) || defined(RC_IS_drcallstack_static)
+# define FILE_NAME "drsyscall.dll"
+# define FILE_DESCRIPTION "System call monitor"
+# define FILE_TYPE VFT_DLL
 /* tests */
 #elif defined(RC_IS_TEST)
 # define FILE_NAME ""

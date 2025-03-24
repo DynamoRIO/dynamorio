@@ -23,9 +23,8 @@
 #include "dr_api.h"
 #include "drsyscall.h"
 #include "drsyscall_os.h"
-#include "sysnum_linux.h"
-#include "heap.h"
-#include "asm_utils.h"
+#include "../drmf/common/sysnum_linux.h"
+#include "../drmf/common/asm_utils.h"
 #include <string.h> /* for strcmp */
 #include <stddef.h> /* for offsetof */
 #include "linux_defines.h"
@@ -196,12 +195,12 @@ sysparam_reg(uint argnum)
 {
 #ifdef X64
     switch (argnum) {
-    case 0: return IF_X86_ELSE(REG_RDI, DR_REG_R0);
-    case 1: return IF_X86_ELSE(REG_RSI, DR_REG_R1);
-    case 2: return IF_X86_ELSE(REG_RDX, DR_REG_R2);
-    case 3: return IF_X86_ELSE(REG_R10, DR_REG_R3); /* rcx = retaddr for OP_syscall */
-    case 4: return IF_X86_ELSE(REG_R8, DR_REG_R4);
-    case 5: return IF_X86_ELSE(REG_R9, DR_REG_R5);
+    case 0: return IF_X86_ELSE(DR_REG_RDI, DR_REG_R0);
+    case 1: return IF_X86_ELSE(DR_REG_RSI, DR_REG_R1);
+    case 2: return IF_X86_ELSE(DR_REG_RDX, DR_REG_R2);
+    case 3: return IF_X86_ELSE(DR_REG_R10, DR_REG_R3); /* rcx = retaddr for OP_syscall */
+    case 4: return IF_X86_ELSE(DR_REG_R8, DR_REG_R4);
+    case 5: return IF_X86_ELSE(DR_REG_R9, DR_REG_R5);
     default: ASSERT(false, "invalid syscall argnum");
     }
 #else
@@ -493,7 +492,8 @@ check_iov(cls_syscall_t *pt, sysarg_iter_info_t *ii, struct iovec *iov, size_t i
                 iov_copy.iov_len = (bytes_read - bytes_so_far);
             }
             bytes_so_far += iov_copy.iov_len;
-            LOG(3, "check_iov: iov entry %d, buf=" PFX ", len=" PIFX "\n", i,
+            LOG(ii->arg->drcontext, 3,
+                "check_iov: iov entry %d, buf=" PFX ", len=" PIFX "\n", i,
                 iov_copy.iov_base, iov_copy.iov_len);
             if (iov_copy.iov_len > 0 &&
                 !report_memarg_type(ii, ordinal, arg_flags, (app_pc)iov_copy.iov_base,
@@ -533,8 +533,8 @@ check_msghdr(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *p
         size_t len = sendmsg ? sizeof(struct msghdr) :
                              /* msg_flags is an out param */
             offsetof(struct msghdr, msg_flags);
-        LOG(3, "\tmsg=" PFX ", name=" PFX ", iov=" PFX ", control=" PFX "\n", msg,
-            msg->msg_name, msg->msg_iov, msg->msg_control); /*unsafe reads*/
+        LOG(drcontext, 3, "\tmsg=" PFX ", name=" PFX ", iov=" PFX ", control=" PFX "\n",
+            msg, msg->msg_name, msg->msg_iov, msg->msg_control); /*unsafe reads*/
         if (!report_memarg_type(ii, ordinal, arg_flags, (app_pc)msg, len,
                                 sendmsg ? "sendmsg msg" : "recvmsg msg",
                                 DRSYS_TYPE_STRUCT, NULL))
@@ -649,9 +649,9 @@ handle_pre_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
         pt->sysarg[4] = 0;
         pt->sysarg[5] = 0;
     }
-    LOG(2, "pre-sys_socketcall request=%d arg=" PFX "\n", request, arg);
-    LOG(3, "\targs: 0=" PFX ", 2=" PFX ", 3=" PFX ", 4=" PFX "\n", arg[0], arg[1], arg[2],
-        arg[3], arg[4]); /*unsafe reads*/
+    LOG(drcontext, 2, "pre-sys_socketcall request=%d arg=" PFX "\n", request, arg);
+    LOG(drcontext, 3, "\targs: 0=" PFX ", 2=" PFX ", 3=" PFX ", 4=" PFX "\n", arg[0],
+        arg[1], arg[2], arg[3], arg[4]); /*unsafe reads*/
     if (arg == NULL)
         return;
     /* XXX: could use SYSINFO_SECONDARY_TABLE instead */
@@ -860,7 +860,7 @@ handle_post_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
     app_pc ptr2;
     socklen_t val_socklen;
     const char *id = NULL;
-    LOG(2, "post-sys_socketcall result=" PIFX "\n", result);
+    LOG(drcontext, 2, "post-sys_socketcall result=" PIFX "\n", result);
     if (result < 0)
         return;
     switch (request) {
@@ -1917,7 +1917,7 @@ os_syscall_succeeded(drsys_sysnum_t sysnum, syscall_info_t *info, cls_syscall_t 
     ptr_int_t res = (ptr_int_t)pt->mc.IF_X86_ELSE(xax, r0);
     if (sysnum.number == SYS_mmap ||
         IF_NOT_X64(sysnum.number == SYS_mmap2 ||) sysnum.number == SYS_mremap)
-        return (res >= 0 || res < -PAGE_SIZE);
+        return (res >= 0 || res < -dr_page_size());
     else
         return (res >= 0);
 }

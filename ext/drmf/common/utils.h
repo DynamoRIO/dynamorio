@@ -51,7 +51,6 @@ extern "C" {
 #    define IF_WINDOWS(x) x
 #    define IF_WINDOWS_(x) x,
 #    define _IF_WINDOWS(x) , x
-#    define IF_WINDOWS_ELSE(x, y) x
 #    define IF_UNIX(x)
 #    define IF_UNIX_ELSE(x, y) y
 #    define IF_LINUX(x)
@@ -61,7 +60,6 @@ extern "C" {
 #    define IF_WINDOWS(x)
 #    define IF_WINDOWS_(x)
 #    define _IF_WINDOWS(x)
-#    define IF_WINDOWS_ELSE(x, y) y
 #    define IF_UNIX(x) x
 #    define IF_UNIX_ELSE(x, y) x
 #    define IF_UNIX_(x) x,
@@ -301,7 +299,7 @@ extern "C" {
 
 /* globals that affect NOTIFY* and *LOG* macros */
 extern bool op_print_stderr;
-extern int op_verbose_level;
+extern uint verbose;
 extern bool op_pause_at_assert;
 extern bool op_pause_via_loop;
 extern bool op_ignore_asserts;
@@ -391,13 +389,13 @@ print_prefix_to_console(void);
             PRINT_CONSOLE(__VA_ARGS__);  \
         }                                \
     } while (0)
-#define NOTIFY_VERBOSE(level, ...)                          \
-    do {                                                    \
-        ELOG(0, __VA_ARGS__);                               \
-        if (op_verbose_level >= level && op_print_stderr) { \
-            print_prefix_to_console();                      \
-            PRINT_CONSOLE(__VA_ARGS__);                     \
-        }                                                   \
+#define NOTIFY_VERBOSE(level, ...)                 \
+    do {                                           \
+        ELOG(0, __VA_ARGS__);                      \
+        if (verbose >= level && op_print_stderr) { \
+            print_prefix_to_console();             \
+            PRINT_CONSOLE(__VA_ARGS__);            \
+        }                                          \
     } while (0)
 #define NOTIFY_NO_PREFIX(...)           \
     do {                                \
@@ -425,32 +423,32 @@ extern int tls_idx_util;
 #define PT_LOOKUP() PT_GET(dr_get_current_drcontext())
 #define LOGFILE_LOOKUP() LOGFILE(PT_LOOKUP())
 /* we require a ,fmt arg but C99 requires one+ argument which we just strip */
-#define ELOGF(level, f, ...)                                      \
-    do {                                                          \
-        if (op_verbose_level >= (level) && (f) != INVALID_FILE) { \
-            if (dr_fprintf(f, __VA_ARGS__) < 0)                   \
-                REPORT_DISK_ERROR();                              \
-        }                                                         \
+#define ELOGF(level, f, ...)                             \
+    do {                                                 \
+        if (verbose >= (level) && (f) != INVALID_FILE) { \
+            if (dr_fprintf(f, __VA_ARGS__) < 0)          \
+                REPORT_DISK_ERROR();                     \
+        }                                                \
     } while (0)
 #define ELOGPT(level, pt, ...) ELOGF(level, LOGFILE(pt), __VA_ARGS__)
-#define ELOG(level, ...)                                            \
-    do {                                                            \
-        if (op_verbose_level >= (level)) { /* avoid unnec PT_GET */ \
-            ELOGPT(level, PT_LOOKUP(), __VA_ARGS__);                \
-        }                                                           \
+#define ELOG(level, ...)                                   \
+    do {                                                   \
+        if (verbose >= (level)) { /* avoid unnec PT_GET */ \
+            ELOGPT(level, PT_LOOKUP(), __VA_ARGS__);       \
+        }                                                  \
     } while (0)
 /* DR's fprintf has a size limit */
-#define ELOG_LARGE_F(level, f, s)                               \
-    do {                                                        \
-        if (op_verbose_level >= (level) && (f) != INVALID_FILE) \
-            dr_write_file(f, s, strlen(s));                     \
+#define ELOG_LARGE_F(level, f, s)                      \
+    do {                                               \
+        if (verbose >= (level) && (f) != INVALID_FILE) \
+            dr_write_file(f, s, strlen(s));            \
     } while (0)
 #define ELOG_LARGE_PT(level, pt, s) ELOG_LARGE_F(level, LOGFILE(pt), s)
-#define ELOG_LARGE(level, s)                                        \
-    do {                                                            \
-        if (op_verbose_level >= (level)) { /* avoid unnec PT_GET */ \
-            ELOG_LARGE_PT(level, PT_LOOKUP(), s);                   \
-        }                                                           \
+#define ELOG_LARGE(level, s)                               \
+    do {                                                   \
+        if (verbose >= (level)) { /* avoid unnec PT_GET */ \
+            ELOG_LARGE_PT(level, PT_LOOKUP(), s);          \
+        }                                                  \
     } while (0)
 
 #define WARN(...) ELOGF(0, f_global, __VA_ARGS__)
@@ -524,14 +522,17 @@ extern int tls_idx_util;
 #ifdef DEBUG
 #    define LOGF ELOGF
 #    define LOGPT ELOGPT
-#    define LOG ELOG
+#    define LOG(drcontext, level, f, ...) \
+        do {                              \
+            ELOG(level, f, __VA_ARGS__);  \
+        } while (0)
 #    define LOG_LARGE_F ELOG_LARGE_F
 #    define LOG_LARGE_PT ELOG_LARGE_PT
 #    define LOG_LARGE ELOG_LARGE
-#    define DOLOG(level, stmt)               \
-        do {                                 \
-            if (op_verbose_level >= (level)) \
-                stmt                         \
+#    define DOLOG(level, stmt)      \
+        do {                        \
+            if (verbose >= (level)) \
+                stmt                \
         } while (0)
 #    define DODEBUG(stmt) \
         do {              \
