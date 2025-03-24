@@ -243,7 +243,8 @@ wingdi_get_secondary_syscall_num(void *drcontext, const char *name, uint primary
     if (skip_primary != NULL &&
         /* don't add unknown w/o primary */
         strstr(name, ".UNKNOWN") == NULL) {
-        name2num_entry_add(drcontext, skip_primary + 1 /*"."*/, num, false /*no Zw*/, false);
+        name2num_entry_add(drcontext, skip_primary + 1 /*"."*/, num, false /*no Zw*/,
+                           false);
     }
     return num.secondary;
 }
