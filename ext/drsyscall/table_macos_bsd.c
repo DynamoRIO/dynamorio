@@ -101,17 +101,29 @@ struct mac {
 #ifndef SYS_fstatv
 #    define SYS_fstatv 219
 #endif
+#ifndef SYS_nfsclnt
+#    define SYS_nfsclnt 247
+#endif
 #ifndef SYS_getaudit
 #    define SYS_getaudit 355
 #endif
 #ifndef SYS_setaudit
 #    define SYS_setaudit 356
 #endif
+#ifndef SYS___old_semwait_signal
+#    define SYS___old_semwait_signal 370
+#endif
+#ifndef SYS___old_semwait_signal_nocancel
+#    define SYS___old_semwait_signal_nocancel 371
+#endif
 #ifndef SYS_pid_hibernate
 #    define SYS_pid_hibernate 435
 #endif
 #ifndef SYS_pid_shutdown_sockets
 #    define SYS_pid_shutdown_sockets 436
+#endif
+#ifndef SYS_shared_region_map_and_slide_np
+#    define SYS_shared_region_map_and_slide_np 438
 #endif
 
 /* Syscalls changed in Yosemite */
@@ -1828,16 +1840,15 @@ syscall_info_t syscall_info_bsd[] = {
           { 2, sizeof(caddr_t), W | HT, DRSYS_TYPE_CSTRING },
           { 3, sizeof(u_int), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
       } },
-    // TODO DrMemory i#2483: Add SYS_nfsclnt support.
-    //{ { SYS_nfsclnt /*247*/ },
-    //  "nfsclnt",
-    //  OK,
-    //  RLONG,
-    //  2,
-    //  {
-    //      { 0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
-    //      { 1, sizeof(caddr_t), W | HT, DRSYS_TYPE_CSTRING },
-    //  } },
+    { { SYS_nfsclnt /*247*/ },
+      "nfsclnt",
+      OK,
+      RLONG,
+      2,
+      {
+          { 0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
+          { 1, sizeof(caddr_t), W | HT, DRSYS_TYPE_CSTRING },
+      } },
     { { SYS_fhopen /*248*/ },
       "fhopen",
       OK,
@@ -3017,19 +3028,18 @@ syscall_info_t syscall_info_bsd[] = {
           { 6, sizeof(struct timespec), W | HT, DRSYS_TYPE_STRUCT },
 #endif
       } },
-    // TODO DrMemory i#2483: Add SYS___old_semwait_signal support.
-    //{ { SYS___old_semwait_signal /*370*/ },
-    //  "__old_semwait_signal",
-    //  OK,
-    //  RLONG,
-    //  5,
-    //  {
-    //      { 0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
-    //      { 1, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
-    //      { 2, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
-    //      { 3, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
-    //      { 4, sizeof(struct timespec), W | HT, DRSYS_TYPE_STRUCT },
-    //  } },
+    { { SYS___old_semwait_signal /*370*/ },
+      "__old_semwait_signal",
+      OK,
+      RLONG,
+      5,
+      {
+          { 0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
+          { 1, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
+          { 2, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
+          { 3, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
+          { 4, sizeof(struct timespec), W | HT, DRSYS_TYPE_STRUCT },
+      } },
     { { SYS___old_semwait_signal_nocancel /*371*/ },
       "__old_semwait_signal_nocancel",
       OK,
@@ -3599,20 +3609,19 @@ syscall_info_t syscall_info_bsd[] = {
           { 0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
           { 1, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
       } },
-    // TODO DrMemory i#2483: Add SYS_shared_region_map_and_slide_np support.
-    //{ { SYS_shared_region_map_and_slide_np /*438*/ },
-    //  "shared_region_map_and_slide_np",
-    //  OK,
-    //  RLONG,
-    //  6,
-    //  {
-    //      { 0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
-    //      { 1, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
-    //      { 2, sizeof(struct shared_file_mapping_np), W | HT, DRSYS_TYPE_STRUCT },
-    //      { 3, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
-    //      { 4, sizeof(uint64_t), W | HT, DRSYS_TYPE_UNSIGNED_INT },
-    //      { 5, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
-    //  } },
+    { { SYS_shared_region_map_and_slide_np /*438*/ },
+      "shared_region_map_and_slide_np",
+      OK,
+      RLONG,
+      6,
+      {
+          { 0, sizeof(int), SYSARG_INLINED, DRSYS_TYPE_SIGNED_INT },
+          { 1, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
+          { 2, sizeof(struct shared_file_mapping_np), W | HT, DRSYS_TYPE_STRUCT },
+          { 3, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
+          { 4, sizeof(uint64_t), W | HT, DRSYS_TYPE_UNSIGNED_INT },
+          { 5, sizeof(uint32_t), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
+      } },
 };
 
 size_t count_syscall_info_bsd = sizeof(syscall_info_bsd) / sizeof(syscall_info_bsd[0]);
