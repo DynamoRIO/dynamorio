@@ -343,7 +343,7 @@ protected:
     };
 
     virtual std::unique_ptr<histogram_interface_t>
-    create_histogram(uint64_t bin_size = 1)
+    create_histogram(uint64_t bin_size)
     {
         return std::unique_ptr<histogram_interface_t>(new histogram_t(bin_size));
     }
