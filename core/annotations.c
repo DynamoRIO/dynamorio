@@ -40,6 +40,8 @@
 
 #ifdef ANNOTATIONS /* around whole file */
 
+#    include "annotations_api.h"
+
 #    if !(defined(WINDOWS) && defined(X64))
 #        include "valgrind.h"
 #        include "memcheck.h"
@@ -227,7 +229,7 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request);
 #    endif
 
 static bool
-is_annotation_tag(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *start_pc, instr_t *scratch,
+is_annotation_tag(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *cur_pc, instr_t *scratch,
                   DR_PARAM_OUT const char **name);
 
 static void
