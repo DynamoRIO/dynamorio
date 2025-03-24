@@ -7122,22 +7122,6 @@ handle_clone_pre(dcontext_t *dcontext)
 }
 #endif
 
-#if defined(AARCH64) && defined(LINUX)
-/* AArch64 canonincal VAs use the lower 48/52 bits of the address and the higher bits
- * match 47/51. The TBI and MTE extensions use the top byte of the address to store a
- * memory tag which is either ignored (TBI) or checked (MTE) by hardware.
- *
- * Memory tags are not part of the memory map of the process. It is a separate layer that
- * is managed by the userspace allocator so system call parameters that contain addresses
- * might have memory tags which need to be removed before we can compare them to
- * canonical addresses in the process memory map.
- * We do this by sign extending from bit 55.
- */
-#    define STRIP_MEMORY_TAG(addr) ((__typeof__(addr))(((ptr_int_t)addr << 8) >> 8))
-#else
-#    define STRIP_MEMORY_TAG(addr) (addr)
-#endif
-
 /* System call interception: put any special handling here
  * Arguments come from the pusha right before the call
  */
