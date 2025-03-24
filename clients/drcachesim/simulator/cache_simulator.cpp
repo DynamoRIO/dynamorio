@@ -671,6 +671,11 @@ cache_simulator_t::get_cache_metric(metric_name_t metric, unsigned level, unsign
 {
     caching_device_t *curr_cache;
 
+    if (level < 1) {
+        std::cerr << "Cache levels start at 1.\n";
+        return STATS_ERROR_WRONG_CACHE_LEVEL;
+    }
+
     if (core >= knobs_.num_cores) {
         return STATS_ERROR_WRONG_CORE_NUMBER;
     }

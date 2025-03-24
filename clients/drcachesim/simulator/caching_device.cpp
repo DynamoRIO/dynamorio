@@ -233,7 +233,12 @@ caching_device_t::request(const memref_t &memref_in)
             }
         } else {
             // Access is a miss.
-            way = replace_which_way(block_idx);
+            // replace_which_way() modifies cache state to prepare a line for
+            // eviction, so if this cache is exclusive and won't actually evict
+            // anything, avoid calling that method.  The way selection is used
+            // to select a cache_block, which is a required (but unused)
+            // parameter for record_access_stats().
+            way = is_exclusive() ? 0 : replace_which_way(block_idx);
             caching_device_block_t *cache_block =
                 &get_caching_device_block(block_idx, way);
 
@@ -399,6 +404,9 @@ caching_device_t::propagate_eviction(addr_t tag, const caching_device_t *request
         int way = replace_which_way(block_idx);
         // Insert line and update snoop filter if appropriate.
         insert_tag(tag, /*is_write=*/false, way, block_idx);
+        // Notify the cache policy as if this were a new access to the newly
+        // inserted line.
+        access_update(block_idx, way);
         return;
     }
 
