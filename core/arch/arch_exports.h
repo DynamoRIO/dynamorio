@@ -930,6 +930,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 #    define PC_AS_JMP_TGT(isa_mode, pc) pc
 #    define PC_AS_LOAD_TGT(isa_mode, pc) pc
+#    define STRIP_MEMORY_TAG(addr) (addr)
 
 #    define SIZE_MOV_XAX_TO_TLS(flags, require_addr16)                            \
         (FRAG_IS_32(flags) ? ((require_addr16 || use_addr_prefix_on_short_disp()) \
@@ -1022,6 +1023,27 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
         ((isa_mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) | 1) : pc)
 #    define PC_AS_LOAD_TGT(isa_mode, pc) \
         ((isa_mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) & ~0x1) : pc)
+#    if defined(AARCH64)
+/* AArch64 canonincal VAs use the lower 48/52 bits of the address and the higher bits
+ * match 47/51. The TBI and MTE extensions use the top byte of the address to store a
+ * memory tag which is either ignored (TBI) or checked (MTE) by hardware.
+ *
+ * Memory tags are not part of the memory map of the process. It is a separate layer that
+ * is managed by the userspace allocator so system call parameters that contain addresses
+ * might have memory tags which need to be removed before we can compare them to
+ * canonical addresses in the process memory map.
+ * We do this by sign extending from bit 55.
+ *
+ * XXX i#7364: We need to be careful when stripping MTE tags from app pointers that we
+ *             need to access. MTE tags are checked by hardware so accessing a stripped
+ *             pointer will fault. For use cases where we need to dereference the app
+ *             pointer (for example code cache tags) we will either need to preserve the
+ *             allocations tags or disable tag checking.
+ */
+#        define STRIP_MEMORY_TAG(addr) ((__typeof__(addr))(((ptr_int_t)addr << 8) >> 8))
+#    else
+#        define STRIP_MEMORY_TAG(addr) (addr)
+#    endif
 
 #    ifdef AARCH64
 #        define AARCH64_INSTR_SIZE 4
@@ -1096,6 +1118,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define FRAG_IS_32(flags) false
 #    define PC_AS_JMP_TGT(isa_mode, pc) pc
 #    define PC_AS_LOAD_TGT(isa_mode, pc) pc
+#    define STRIP_MEMORY_TAG(addr) (addr)
 /* Size of data slot used to store address of linked fragment or fcache return routine.
  * We reserve 16 bytes for the 8 byte address, so that we can store it in an 8-byte
  * aligned address (unlike AArch64, 12 bytes is not enough as RISC-V instructions can
