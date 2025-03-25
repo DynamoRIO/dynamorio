@@ -18,8 +18,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-#XXX: Add support for RISCV64, ANDROID and MUSL
-#TODO i#7303: Add common/asm_utils_aarch64.asm for AARCH64 support.
+#TODO i#7399: Add Aarch64, Android, MUSL, and RISCV64 support to DrSyscall.
 if (RISCV64 OR AARCH64 OR ANDROID OR MUSL)
   return()
 endif ()
@@ -40,32 +39,8 @@ if (SYSCALL_DRIVER)
   include_directories(${SYSCALL_DRIVER_SRCDIR})
 endif (SYSCALL_DRIVER)
 
-# for cpp2asm_defines.h
-include_directories(${DynamoRIO_DIR})
-
-# we aren't using DR's configure.h so we have to set defines:
-if (UNIX)
-  if (APPLE AND NOT AARCH64)
-    set(asm_defs ${asm_defs} -DASSEMBLE_WITH_NASM)
-  else (APPLE AND NOT AARCH64)
-    set(asm_defs ${asm_defs} -DASSEMBLE_WITH_GAS)
-  endif (APPLE AND NOT AARCH64)
-else (UNIX)
-  set(asm_defs ${asm_defs} -DASSEMBLE_WITH_MASM)
-endif (UNIX)
-get_DynamoRIO_defines(DR_DEFINES OFF)
-# We need defines to be a list to pass as separate args to custom command.
-# We assume none have spaces inside them which seems reasonable.
-string(REPLACE " " ";" DR_DEFINES "${DR_DEFINES}")
-set(asm_flags ${asm_defs} ${DR_DEFINES} -I "${DynamoRIO_DIR}")
-set(asm_deps "${DynamoRIO_DIR}/cpp2asm_defines.h")
-if (DR_HOST_X86)
-  set(asm_file "../drmf/common/asm_utils_x86.asm")
-else ()
-  set(asm_file "../drmf/common/asm_utils_arm.asm")
-endif ()
-add_asm_target(${asm_file} asm_utils_src asm_utils_tgt ""
-  "${asm_flags}" "${asm_deps}")
+add_ext_asm_target("../drmf/common/asm_utils_arm.asm" "" ""
+  "../drmf/common/asm_utils_x86.asm" asm_utils_src asm_utils_tgt)
 
 set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
 # Set DRMF_VERSION_CUR for DRMF_VERSION_USED_VAR in framework/public.h.
@@ -186,13 +161,10 @@ use_DynamoRIO_extension(drsyscall_static drcontainers)
 use_DynamoRIO_extension(drsyscall_static drsyms_static)
 configure_drsyscall_target(drsyscall_static)
 
-# We build a separate static target for internal use that has our
-# log/assert/notify infrastructure.
 add_library(drsyscall_drstatic STATIC ${srcs_static})
 configure_extension(drsyscall_drstatic ON ON)
 use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatuc)
 use_DynamoRIO_extension(drsyscall_drstatic drmgr_static)
-
 configure_drsyscall_target(drsyscall_drstatic)
 
-# Documentation is handled as part of the main tool docs processing.
+install_ext_header(drsyscall.h)
