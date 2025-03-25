@@ -522,6 +522,8 @@ extern int tls_idx_util;
 #endif
 
 #ifdef DEBUG
+// TODO i#7303: Ensure logging functionality remains consistent after DrSyscall
+// migration to DynamoRIO.
 #    define LOGF ELOGF
 #    define LOGPT ELOGPT
 #    define LOG(drcontext, level, f, ...) \
