@@ -34,7 +34,7 @@
 #include <d3dnthal.h>
 #include <winddi.h> /* required by ntgdityp.h and prntfont.h */
 #include <prntfont.h>
-#include "ntgdityp.h"
+#include "../drmf/wininc/ntgdityp.h"
 #include <ntgdi.h>
 #include <winspool.h>   /* for DRIVER_INFO_2W */
 #include <dxgiformat.h> /* for DXGI_FORMAT */
