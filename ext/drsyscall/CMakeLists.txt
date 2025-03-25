@@ -42,6 +42,10 @@ endif (SYSCALL_DRIVER)
 add_ext_asm_target("../drmf/common/asm_utils_arm.asm" "" ""
   "../drmf/common/asm_utils_x86.asm" asm_utils_src asm_utils_tgt)
 
+# TODO i#7303: Use DynanmoRIO version instead of DRMF_VERSION.
+# DrSyscall is currently being migrated from DrMemory to DynamoRIO. Once the
+# migration is complete, DrSyscall will be removed from DrMemory. Until then,
+# the DRMF version is temporarily in use.
 set(DRMF_VERSION_COMPAT 9)                # Oldest compatible version
 # Set DRMF_VERSION_CUR for DRMF_VERSION_USED_VAR in framework/public.h.
 math(EXPR DRMF_VERSION_CUR "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
