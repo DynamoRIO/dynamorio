@@ -553,20 +553,20 @@ LLC {
     // Furthermore, once lines start getting evicted, LRU should keep the
     // recent lines in the cache and only evict old lines.
 
-    const int NUM_LOOPS = 10;
+    constexpr int NUM_LOOPS = 10;
     const int ADDR_STRIDE = llc->get_size_bytes(); // Guaranteed to conflict.
 
     // Helper routines to grab cache stats as if the full hierarchy were a
     // single cache.  So this means HITS are summed, but only LLC misses count.
     auto get_hits = [&](void) {
-        auto l1_hits = cache_sim.get_cache_metric(metric_name_t::HITS, /*level=*/1,
+        int64_t l1_hits = cache_sim.get_cache_metric(metric_name_t::HITS, /*level=*/1,
                                                   /*core=*/0, cache_split_t::DATA);
-        auto l2_hits = cache_sim.get_cache_metric(metric_name_t::HITS, /*level=*/2,
+        int64_t l2_hits = cache_sim.get_cache_metric(metric_name_t::HITS, /*level=*/2,
                                                   /*core=*/0, cache_split_t::DATA);
         return l1_hits + l2_hits;
     };
     auto get_misses = [&](void) {
-        auto l2_misses = cache_sim.get_cache_metric(metric_name_t::MISSES, /*level=*/2,
+        int64_t l2_misses = cache_sim.get_cache_metric(metric_name_t::MISSES, /*level=*/2,
                                                     /*core=*/0, cache_split_t::DATA);
         return l2_misses;
     };
@@ -576,8 +576,8 @@ LLC {
     // all lines are conflicting.
     auto process_test_lines = [&](int loops, const std::vector<int> &lines) {
         for (int i = 0; i < loops; ++i) {
-            for (const auto &line : lines) {
-                auto maddr = ADDR_STRIDE * line;
+            for (const int line : lines) {
+                addr_t maddr = ADDR_STRIDE * line;
                 if (!cache_sim.process_memref(make_memref(maddr))) {
                     std::cerr << "drcachesim failed: " << cache_sim.get_error_string()
                               << "\n";
@@ -593,21 +593,21 @@ LLC {
     std::vector<int> test_lines1 { 1, 2, 3, 4, 5, 1, 2, 3, 4, 5 };
 
     process_test_lines(NUM_LOOPS, test_lines1);
-    int exp1_misses = 5;
-    int exp1_hits = test_lines1.size() * NUM_LOOPS - exp1_misses;
-    TEST_EQ(get_misses(), exp1_misses);
+    constexpr int EXP1_MISSES = 5;
+    const int exp1_hits = test_lines1.size() * NUM_LOOPS - EXP1_MISSES;
+    TEST_EQ(get_misses(), EXP1_MISSES);
     TEST_EQ(get_hits(), exp1_hits);
 
     // Next, access more lines than fit in the cache, which should cause a few
     // misses and replacements.  Note lines 3 and 6 are accessed frequently to keep
     // them recently-accessed and thus not evicted.
     //         expectation ----->  H  M  H  H  M  H  M  H  H  M  M  H  H  H
-    //      evicted line index ->     1        2     5        4  7
+    //    evicted line ordinal ->     1        2     5        4  7
     std::vector<int> test_lines2 { 5, 6, 4, 3, 7, 6, 2, 6, 3, 1, 5, 6, 2, 3 };
     process_test_lines(1, test_lines2);
-    int exp2_misses = 5;
-    int exp2_hits = test_lines2.size() - exp2_misses;
-    TEST_EQ(get_misses(), exp1_misses + exp2_misses);
+    constexpr int EXP2_MISSES = 5;
+    int exp2_hits = test_lines2.size() - EXP2_MISSES;
+    TEST_EQ(get_misses(), EXP1_MISSES + EXP2_MISSES);
     TEST_EQ(get_hits(), exp1_hits + exp2_hits);
 }
 
@@ -677,14 +677,14 @@ L1 {
     // Helper routines to grab cache stats as if the full hierarchy were a
     // single cache.  So this means HITS are summed, but only LLC misses count.
     auto get_hits_exc = [&](void) {
-        auto l1_hits = cache_sim_exc.get_cache_metric(metric_name_t::HITS, /*level=*/1,
+        int64_t l1_hits = cache_sim_exc.get_cache_metric(metric_name_t::HITS, /*level=*/1,
                                                       /*core=*/0, cache_split_t::DATA);
-        auto l2_hits = cache_sim_exc.get_cache_metric(metric_name_t::HITS, /*level=*/2,
+        int64_t l2_hits = cache_sim_exc.get_cache_metric(metric_name_t::HITS, /*level=*/2,
                                                       /*core=*/0, cache_split_t::DATA);
         return l1_hits + l2_hits;
     };
     auto get_misses_exc = [&](void) {
-        auto l2_misses =
+        int64_t l2_misses =
             cache_sim_exc.get_cache_metric(metric_name_t::MISSES, /*level=*/2,
                                            /*core=*/0, cache_split_t::DATA);
         return l2_misses;
@@ -692,12 +692,12 @@ L1 {
 
     // Similar to the above, but for the 1-level 8-way cache.
     auto get_hits_8way = [&](void) {
-        auto l1_hits = cache_sim_8way.get_cache_metric(metric_name_t::HITS, /*level=*/1,
+        int64_t l1_hits = cache_sim_8way.get_cache_metric(metric_name_t::HITS, /*level=*/1,
                                                        /*core=*/0, cache_split_t::DATA);
         return l1_hits;
     };
     auto get_misses_8way = [&](void) {
-        auto l1_misses =
+        int64_t l1_misses =
             cache_sim_8way.get_cache_metric(metric_name_t::MISSES, /*level=*/1,
                                             /*core=*/0, cache_split_t::DATA);
         return l1_misses;
@@ -717,9 +717,9 @@ L1 {
 
     // Run a bunch of random conflicting cache addresses through both caches
     // to give the replacement logic a workout.
-    const int NUM_LINES = 10000;
+    constexpr int NUM_LINES = 10000;
     // Pick a large multiple of the cache size as our stride, to ensure all
-    // generated address conflict.
+    // generated addresses conflict.
     const int ADDR_STRIDE = cache_sim_8way.get_named_cache("L1")->get_size_bytes() * 4;
     for (int i = 0; i < NUM_LINES; ++i) {
         // Generate a random address that will hit set 0.

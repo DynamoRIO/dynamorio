@@ -233,23 +233,25 @@ caching_device_t::request(const memref_t &memref_in)
             }
         } else {
             // Access is a miss.
-            // replace_which_way() modifies cache state to prepare a line for
-            // eviction, so if this cache is exclusive and won't actually evict
-            // anything, avoid calling that method.  The way selection is used
-            // to select a cache_block, which is a required (but unused)
-            // parameter for record_access_stats().
-            way = is_exclusive() ? 0 : replace_which_way(block_idx);
-            caching_device_block_t *cache_block =
-                &get_caching_device_block(block_idx, way);
-
-            record_access_stats(memref, false /*miss*/, cache_block);
             missed = true;
             // If no parent we assume we get the data from main memory.
             if (parent_ != nullptr) {
                 parent_->request(memref);
             }
             // Exclusive caches only insert lines that have been evicted
-            // by a child cache.  So a regular miss does nothing more.
+            // by a child cache.  So for a "normal" miss like this, only need
+            // to update the stats to make sure the miss is counted.
+            if (is_exclusive()) {
+              caching_device_block_t invalid_block;  // Dummy for stats update.
+              record_access_stats(memref, /*hit=*/false, &invalid_block);
+              continue;
+            }
+
+            way = replace_which_way(block_idx);
+            caching_device_block_t *cache_block =
+                &get_caching_device_block(block_idx, way);
+
+            record_access_stats(memref, false /*miss*/, cache_block);
             if (is_exclusive()) {
                 continue;
             }
