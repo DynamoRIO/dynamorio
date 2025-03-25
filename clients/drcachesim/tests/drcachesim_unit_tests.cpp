@@ -560,14 +560,14 @@ LLC {
     // single cache.  So this means HITS are summed, but only LLC misses count.
     auto get_hits = [&](void) {
         int64_t l1_hits = cache_sim.get_cache_metric(metric_name_t::HITS, /*level=*/1,
-                                                  /*core=*/0, cache_split_t::DATA);
+                                                     /*core=*/0, cache_split_t::DATA);
         int64_t l2_hits = cache_sim.get_cache_metric(metric_name_t::HITS, /*level=*/2,
-                                                  /*core=*/0, cache_split_t::DATA);
+                                                     /*core=*/0, cache_split_t::DATA);
         return l1_hits + l2_hits;
     };
     auto get_misses = [&](void) {
         int64_t l2_misses = cache_sim.get_cache_metric(metric_name_t::MISSES, /*level=*/2,
-                                                    /*core=*/0, cache_split_t::DATA);
+                                                       /*core=*/0, cache_split_t::DATA);
         return l2_misses;
     };
 
@@ -678,9 +678,9 @@ L1 {
     // single cache.  So this means HITS are summed, but only LLC misses count.
     auto get_hits_exc = [&](void) {
         int64_t l1_hits = cache_sim_exc.get_cache_metric(metric_name_t::HITS, /*level=*/1,
-                                                      /*core=*/0, cache_split_t::DATA);
+                                                         /*core=*/0, cache_split_t::DATA);
         int64_t l2_hits = cache_sim_exc.get_cache_metric(metric_name_t::HITS, /*level=*/2,
-                                                      /*core=*/0, cache_split_t::DATA);
+                                                         /*core=*/0, cache_split_t::DATA);
         return l1_hits + l2_hits;
     };
     auto get_misses_exc = [&](void) {
@@ -692,8 +692,9 @@ L1 {
 
     // Similar to the above, but for the 1-level 8-way cache.
     auto get_hits_8way = [&](void) {
-        int64_t l1_hits = cache_sim_8way.get_cache_metric(metric_name_t::HITS, /*level=*/1,
-                                                       /*core=*/0, cache_split_t::DATA);
+        int64_t l1_hits =
+            cache_sim_8way.get_cache_metric(metric_name_t::HITS, /*level=*/1,
+                                            /*core=*/0, cache_split_t::DATA);
         return l1_hits;
     };
     auto get_misses_8way = [&](void) {

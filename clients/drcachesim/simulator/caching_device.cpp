@@ -242,9 +242,9 @@ caching_device_t::request(const memref_t &memref_in)
             // by a child cache.  So for a "normal" miss like this, only need
             // to update the stats to make sure the miss is counted.
             if (is_exclusive()) {
-              caching_device_block_t invalid_block;  // Dummy for stats update.
-              record_access_stats(memref, /*hit=*/false, &invalid_block);
-              continue;
+                caching_device_block_t invalid_block; // Dummy for stats update.
+                record_access_stats(memref, /*hit=*/false, &invalid_block);
+                continue;
             }
 
             way = replace_which_way(block_idx);
