@@ -30,10 +30,10 @@
 #include "table_defines.h"
 #include <stddef.h> /* offsetof */
 
-#include "../drmf/wininc/ndk_extypes.h" /* required by ntuser.h */
-#include "../drmf/wininc/ntuser.h"
-#include "../drmf/wininc/ntuser_win8.h"
-#include "../drmf/wininc/ntuser_ex.h"
+#include "ndk_extypes.h" /* required by ntuser.h */
+#include "ntuser.h"
+#include "ntuser_win8.h"
+#include "ntuser_ex.h"
 
 /***************************************************************************/
 /* System calls with wrappers in user32.dll.

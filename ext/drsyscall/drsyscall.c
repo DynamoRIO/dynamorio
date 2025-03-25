@@ -27,8 +27,8 @@
 #include "drsyscall.h"
 #include "drsyscall_os.h"
 #include "drmemory_framework.h"
-#include "../drmf/framework/drmf.h"
-#include "../drmf/common/utils.h"
+#include "drmf.h"
+#include "utils.h"
 #include <string.h>
 #include <stddef.h> /* for offsetof */
 

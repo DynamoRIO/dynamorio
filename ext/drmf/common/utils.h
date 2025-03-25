@@ -178,14 +178,14 @@ extern "C" {
 #    define IF_DRMEM_ELSE(x, y) y
 #endif
 
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment) - 1)))
 #define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
+    ((((ptr_uint_t)x) + ((alignment) - 1)) & (~((alignment) - 1)))
 #define ALIGN_MOD(addr, size, alignment) \
-    ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
+    ((((ptr_uint_t)addr) + (size) - 1) & ((alignment) - 1))
 #define CROSSES_ALIGNMENT(addr, size, alignment) \
-    (ALIGN_MOD(addr, size, alignment) < (size)-1)
+    (ALIGN_MOD(addr, size, alignment) < (size) - 1)
 
 #ifndef TESTANY
 #    define TEST(mask, var) (((mask) & (var)) != 0)
@@ -194,7 +194,7 @@ extern "C" {
 #    define TESTONE(mask, var) test_one_bit_set((mask) & (var))
 #endif
 
-#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
+#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
@@ -204,7 +204,7 @@ extern "C" {
 #    define INLINE_FORCED __forceinline
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200 /* XXX: __pragma may work w/ vc6: then don't need #if */
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif
@@ -301,7 +301,7 @@ extern "C" {
 
 /* globals that affect NOTIFY* and *LOG* macros */
 extern bool op_print_stderr;
-extern uint verbose;
+extern int op_verbose_level;
 extern bool op_pause_at_assert;
 extern bool op_pause_via_loop;
 extern bool op_ignore_asserts;
@@ -391,13 +391,13 @@ print_prefix_to_console(void);
             PRINT_CONSOLE(__VA_ARGS__);  \
         }                                \
     } while (0)
-#define NOTIFY_VERBOSE(level, ...)                 \
-    do {                                           \
-        ELOG(0, __VA_ARGS__);                      \
-        if (verbose >= level && op_print_stderr) { \
-            print_prefix_to_console();             \
-            PRINT_CONSOLE(__VA_ARGS__);            \
-        }                                          \
+#define NOTIFY_VERBOSE(level, ...)                          \
+    do {                                                    \
+        ELOG(0, __VA_ARGS__);                               \
+        if (op_verbose_level >= level && op_print_stderr) { \
+            print_prefix_to_console();                      \
+            PRINT_CONSOLE(__VA_ARGS__);                     \
+        }                                                   \
     } while (0)
 #define NOTIFY_NO_PREFIX(...)           \
     do {                                \
@@ -425,32 +425,32 @@ extern int tls_idx_util;
 #define PT_LOOKUP() PT_GET(dr_get_current_drcontext())
 #define LOGFILE_LOOKUP() LOGFILE(PT_LOOKUP())
 /* we require a ,fmt arg but C99 requires one+ argument which we just strip */
-#define ELOGF(level, f, ...)                             \
-    do {                                                 \
-        if (verbose >= (level) && (f) != INVALID_FILE) { \
-            if (dr_fprintf(f, __VA_ARGS__) < 0)          \
-                REPORT_DISK_ERROR();                     \
-        }                                                \
+#define ELOGF(level, f, ...)                                      \
+    do {                                                          \
+        if (op_verbose_level >= (level) && (f) != INVALID_FILE) { \
+            if (dr_fprintf(f, __VA_ARGS__) < 0)                   \
+                REPORT_DISK_ERROR();                              \
+        }                                                         \
     } while (0)
 #define ELOGPT(level, pt, ...) ELOGF(level, LOGFILE(pt), __VA_ARGS__)
-#define ELOG(level, ...)                                   \
-    do {                                                   \
-        if (verbose >= (level)) { /* avoid unnec PT_GET */ \
-            ELOGPT(level, PT_LOOKUP(), __VA_ARGS__);       \
-        }                                                  \
+#define ELOG(level, ...)                                            \
+    do {                                                            \
+        if (op_verbose_level >= (level)) { /* avoid unnec PT_GET */ \
+            ELOGPT(level, PT_LOOKUP(), __VA_ARGS__);                \
+        }                                                           \
     } while (0)
 /* DR's fprintf has a size limit */
-#define ELOG_LARGE_F(level, f, s)                      \
-    do {                                               \
-        if (verbose >= (level) && (f) != INVALID_FILE) \
-            dr_write_file(f, s, strlen(s));            \
+#define ELOG_LARGE_F(level, f, s)                               \
+    do {                                                        \
+        if (op_verbose_level >= (level) && (f) != INVALID_FILE) \
+            dr_write_file(f, s, strlen(s));                     \
     } while (0)
 #define ELOG_LARGE_PT(level, pt, s) ELOG_LARGE_F(level, LOGFILE(pt), s)
-#define ELOG_LARGE(level, s)                               \
-    do {                                                   \
-        if (verbose >= (level)) { /* avoid unnec PT_GET */ \
-            ELOG_LARGE_PT(level, PT_LOOKUP(), s);          \
-        }                                                  \
+#define ELOG_LARGE(level, s)                                        \
+    do {                                                            \
+        if (op_verbose_level >= (level)) { /* avoid unnec PT_GET */ \
+            ELOG_LARGE_PT(level, PT_LOOKUP(), s);                   \
+        }                                                           \
     } while (0)
 
 #define WARN(...) ELOGF(0, f_global, __VA_ARGS__)
@@ -531,10 +531,10 @@ extern int tls_idx_util;
 #    define LOG_LARGE_F ELOG_LARGE_F
 #    define LOG_LARGE_PT ELOG_LARGE_PT
 #    define LOG_LARGE ELOG_LARGE
-#    define DOLOG(level, stmt)      \
-        do {                        \
-            if (verbose >= (level)) \
-                stmt                \
+#    define DOLOG(level, stmt)               \
+        do {                                 \
+            if (op_verbose_level >= (level)) \
+                stmt                         \
         } while (0)
 #    define DODEBUG(stmt) \
         do {              \
@@ -562,7 +562,7 @@ extern int tls_idx_util;
         len = dr_snprintf((buf) + (sofar), (bufsz) - (sofar), __VA_ARGS__);             \
         sofar += (len == -1 ? ((bufsz) - (sofar)) : (len < 0 ? 0 : len));               \
         /* be paranoid: though usually many calls in a row and could delay until end */ \
-        (buf)[(bufsz)-1] = '\0';                                                        \
+        (buf)[(bufsz) - 1] = '\0';                                                      \
     } while (0)
 
 #define BUFPRINT(buf, bufsz, sofar, len, ...)                    \

@@ -24,13 +24,13 @@
 #include "drsyscall_os.h"
 #include "drsyscall_windows.h"
 
-#include "../drmf/wininc/wdm.h"
-#include "../drmf/wininc/ndk_extypes.h"
-#include "../drmf/wininc/ndk_lpctypes.h"
-#include "../drmf/wininc/ndk_iotypes.h"
-#include "../drmf/wininc/wdm.h"
-#include "../drmf/wininc/ntifs.h"
-#include "../drmf/wininc/ntalpctyp.h"
+#include "wdm.h"
+#include "ndk_extypes.h"
+#include "ndk_lpctypes.h"
+#include "ndk_iotypes.h"
+#include "wdm.h"
+#include "ntifs.h"
+#include "ntalpctyp.h"
 #include "table_defines.h"
 
 extern drsys_sysnum_t sysnum_SetInformationFile;

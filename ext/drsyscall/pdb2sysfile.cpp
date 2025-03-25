@@ -46,8 +46,8 @@
 #include "dr_frontend.h"
 #include "droption.h"
 #include "drsyms.h"
-#include "../drmf/common/utils.h" /* only for BUFFER*, DIRSEP */
-#include "../drsyscall/drsyscall.h"
+#include "utils.h" /* only for BUFFER*, DIRSEP */
+#include "drsyscall.h"
 
 #include <assert.h>
 #include <algorithm>
@@ -59,12 +59,12 @@ namespace drsyscall {
 
 /* We'll get an error in standalone usage by DrM's frontend if we call
  * dr_get_current_drcontext() in the utils.h NOTIFY so we make our own.
- * The frontend's -v, -vv, and -vvv set verbose.
+ * The frontend's -v, -vv, and -vvv set op_verbose_level.
  */
 #undef NOTIFY
 #define NOTIFY(level, ...)                   \
     do {                                     \
-        if (verbose >= (level)) {            \
+        if (op_verbose_level >= (level)) {   \
             dr_fprintf(STDERR, __VA_ARGS__); \
         }                                    \
     } while (0)
@@ -310,7 +310,7 @@ look_for_usercall(void *dcontext, byte *entry, const char *sym, byte *mod_end,
         instr_reset(dcontext, instr);
         pre_pc = pc;
         pc = decode(dcontext, pc, instr);
-        if (verbose >= 3) {
+        if (op_verbose_level >= 3) {
             instr_set_translation(instr, pre_pc);
             dr_print_instr(dcontext, STDOUT, instr, "");
         }
@@ -638,7 +638,7 @@ process_syscall_call(void *dcontext, byte *next_pc, instr_t *call, bool found_ea
     do {
         instr_reset(dcontext, &instr);
         pc = decode(dcontext, pc, &instr);
-        if (verbose >= 3)
+        if (op_verbose_level >= 3)
             dr_print_instr(dcontext, STDOUT, &instr, "");
         if (pc == NULL || !instr_valid(&instr))
             break;
@@ -670,7 +670,7 @@ get_syscall_num(void *dcontext, byte *pc, byte *mod_start, byte *mod_end)
         instr_reset(dcontext, &instr);
         pre_pc = pc;
         pc = decode(dcontext, pc, &instr);
-        if (verbose >= 3) {
+        if (op_verbose_level >= 3) {
             instr_set_translation(&instr, pre_pc);
             dr_print_instr(dcontext, STDOUT, &instr, "");
         }

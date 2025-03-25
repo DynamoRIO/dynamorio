@@ -143,12 +143,17 @@ macro(configure_drsyscall_target target)
   # same flags and avoid compiling the same file differently.
   _DR_append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${DEFINES_NO_D}")
   target_link_libraries(${target} drfrontendlib ${ntimp_lib})
+
+  include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/common)
+  include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/framework)
+
   IF (WIN32)
     add_dependencies(${target} ntdll_imports)
     add_definitions(${asm_defs})
     # We can't include directly from DDK b/c the DDK include dir and VS include
     # dirs are incompatible, so we have our own copies of the headers we need.
-    include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk
+    include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/wininc
+            ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/psdk
             ${PROJECT_SOURCE_DIR}/ext/drmf/wininc/dxsdk)
     target_link_libraries(${target} ntdll_imports)
   endif ()

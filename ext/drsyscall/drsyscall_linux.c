@@ -23,8 +23,8 @@
 #include "dr_api.h"
 #include "drsyscall.h"
 #include "drsyscall_os.h"
-#include "../drmf/common/sysnum_linux.h"
-#include "../drmf/common/asm_utils.h"
+#include "sysnum_linux.h"
+#include "asm_utils.h"
 #include <string.h> /* for strcmp */
 #include <stddef.h> /* for offsetof */
 #include "linux_defines.h"

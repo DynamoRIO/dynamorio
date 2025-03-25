@@ -23,7 +23,7 @@
 #include "dr_api.h"
 #include "drsyscall.h"
 #include "drsyscall_os.h"
-#include "../drmf/common/sysnum_linux.h"
+#include "sysnum_linux.h"
 #include "linux_defines.h"
 #include "table_defines.h"
 

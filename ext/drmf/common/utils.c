@@ -43,7 +43,7 @@
 /* globals that affect NOTIFY* and *LOG* macros */
 int tls_idx_util = -1;
 bool op_print_stderr = true;
-int verbose = -1;
+int op_verbose_level;
 bool op_pause_at_assert;
 bool op_pause_via_loop;
 bool op_ignore_asserts;
