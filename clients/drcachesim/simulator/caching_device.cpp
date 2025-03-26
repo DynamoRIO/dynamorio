@@ -233,18 +233,25 @@ caching_device_t::request(const memref_t &memref_in)
             }
         } else {
             // Access is a miss.
-            way = replace_which_way(block_idx);
-            caching_device_block_t *cache_block =
-                &get_caching_device_block(block_idx, way);
-
-            record_access_stats(memref, false /*miss*/, cache_block);
             missed = true;
+            // Exclusive caches only insert lines that have been evicted
+            // by a child cache.  So for a "normal" miss like this, no line
+            // is getting evicted.  Use a temporary invalid line for
+            // purposes of updating the access stats.
+            if (is_exclusive()) {
+                caching_device_block_t invalid_block; // Dummy for stats update.
+                record_access_stats(memref, /*hit=*/false, &invalid_block);
+            } else {
+                // Replace a line in the cache.
+                way = replace_which_way(block_idx);
+                caching_device_block_t *cache_block =
+                    &get_caching_device_block(block_idx, way);
+                record_access_stats(memref, false /*miss*/, cache_block);
+            }
             // If no parent we assume we get the data from main memory.
             if (parent_ != nullptr) {
                 parent_->request(memref);
             }
-            // Exclusive caches only insert lines that have been evicted
-            // by a child cache.  So a regular miss does nothing more.
             if (is_exclusive()) {
                 continue;
             }
@@ -399,6 +406,9 @@ caching_device_t::propagate_eviction(addr_t tag, const caching_device_t *request
         int way = replace_which_way(block_idx);
         // Insert line and update snoop filter if appropriate.
         insert_tag(tag, /*is_write=*/false, way, block_idx);
+        // Notify the cache policy as if this were a new access to the newly
+        // inserted line.
+        access_update(block_idx, way);
         return;
     }
 
