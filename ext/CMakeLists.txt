@@ -129,7 +129,7 @@ macro(add_ext_asm_target asm_file_arm asm_file_aarch64 asm_file_riscv64 asm_file
     set(asm_file ${asm_file_arm})
   elseif (DR_HOST_AARCH64)
     set(asm_file ${asm_file_aarch64})
-    elseif (DR_HOST_RISCV64)
+  elseif (DR_HOST_RISCV64)
     set(asm_file ${asm_file_riscv64})
   else ()
     set(asm_file ${asm_file_x86})

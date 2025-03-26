@@ -18,7 +18,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-#TODO i#7399: Add Aarch64, Android, MUSL, and RISCV64 support to DrSyscall.
+# TODO i#7399: Add Aarch64, Android, MUSL, and RISCV64 support to DrSyscall.
 if (RISCV64 OR AARCH64 OR ANDROID OR MUSL)
   return()
 endif ()

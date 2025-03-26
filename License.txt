@@ -70,7 +70,7 @@ SUCH DAMAGE.
 ===========================================================================
 Certain Extensions are instead under the LGPL 2.1 License
 
-The drsyscall, drwrap and drutil Extensions, along with Dr. Memory and all of
+The drsyscall, drwrap, and drutil Extensions, along with Dr. Memory and all of
 its libraries in the Dr. Memory Framework (if packaged with DynamoRIO), are
 licensed under the LGPL 2.1 License and NOT the BSD license used for the
 rest of DynamoRIO.  These Extensions are provided as libraries distinct
