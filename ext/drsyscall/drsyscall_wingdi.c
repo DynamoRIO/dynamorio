@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -35,15 +35,15 @@
 #include <d3dnthal.h>
 #include <winddi.h> /* required by ntgdityp.h and prntfont.h */
 #include <prntfont.h>
-#include "../wininc/ntgdityp.h"
+#include "../drmf/wininc/ntgdityp.h"
 #include <ntgdi.h>
 #include <winspool.h>   /* for DRIVER_INFO_2W */
 #include <dxgiformat.h> /* for DXGI_FORMAT */
 
 /* for NtUser* syscalls */
-#include "../wininc/ndk_extypes.h" /* required by ntuser.h */
-#include "../wininc/ntuser.h"
-#include "../wininc/ntuser_win8.h"
+#include "../drmf/wininc/ndk_extypes.h" /* required by ntuser.h */
+#include "../drmf/wininc/ntuser.h"
+#include "../drmf/wininc/ntuser_win8.h"
 #include <commctrl.h> /* for EM_GETCUEBANNER */
 
 /***************************************************************************/
@@ -224,32 +224,33 @@ drsys_sysnum_t sysnum_GdiPolyPolyDraw = { -1, 0 };
  */
 
 uint
-wingdi_get_secondary_syscall_num(const char *name, uint primary_num)
+wingdi_get_secondary_syscall_num(void *drcontext, const char *name, uint primary_num)
 {
     drsys_sysnum_t num;
     const char *skip_primary;
 
     num.secondary = (uint)(ptr_uint_t)hashtable_lookup(&usercall_table, (void *)name);
     if (num.secondary == 0) {
-        LOG(SYSCALL_VERBOSE, "WARNING: could not find usercall %s\n", name);
+        LOG(drcontext, SYSCALL_VERBOSE, "WARNING: could not find usercall %s\n", name);
         return -1;
     }
     num.secondary = num.secondary - 1 /*+1 in usercall table*/;
     num.number = primary_num;
 
     /* add secondary usercall with & without primary prefix */
-    name2num_entry_add(name, num, false /*no Zw*/, false);
+    name2num_entry_add(drcontext, name, num, false /*no Zw*/, false);
     skip_primary = strstr(name, ".");
     if (skip_primary != NULL &&
         /* don't add unknown w/o primary */
         strstr(name, ".UNKNOWN") == NULL) {
-        name2num_entry_add(skip_primary + 1 /*"."*/, num, false /*no Zw*/, false);
+        name2num_entry_add(drcontext, skip_primary + 1 /*"."*/, num, false /*no Zw*/,
+                           false);
     }
     return num.secondary;
 }
 
 void
-wingdi_add_usercall(const char *name, int num)
+wingdi_add_usercall(void *drcontext, const char *name, int num)
 {
     IF_DEBUG(bool ok;)
     /* We might be called from sysnum file parsing prior to drsyscall_wingdi_init: */
@@ -258,13 +259,14 @@ wingdi_add_usercall(const char *name, int num)
         hashtable_init(&usercall_table, USERCALL_TABLE_HASH_BITS, HASH_STRING,
                        true /*strdup*/);
     }
-    LOG(SYSCALL_VERBOSE + 1, "name2num usercall: adding %s => %d\n", name, num);
+    LOG(drcontext, SYSCALL_VERBOSE + 1, "name2num usercall: adding %s => %d\n", name,
+        num);
     IF_DEBUG(ok =)
     hashtable_add(&usercall_table, (void *)name,
                   (void *)(ptr_uint_t)(num + 1 /*avoid 0*/));
     DOLOG(1, {
         if (!ok)
-            LOG(1, "Dup usercall entry for %s\n", name);
+            LOG(drcontext, 1, "Dup usercall entry for %s\n", name);
     });
     ASSERT(ok, "no dup entries in usercall_table");
 }
@@ -287,8 +289,8 @@ drsyscall_wingdi_init(void *drcontext, app_pc ntdll_base, dr_os_version_info_t *
          */
         return DRMF_SUCCESS;
     }
-    LOG(1, "Windows version is %d.%d.%d\n", ver->version, ver->service_pack_major,
-        ver->service_pack_minor);
+    LOG(drcontext, 1, "Windows version is %d.%d.%d\n", ver->version,
+        ver->service_pack_major, ver->service_pack_minor);
     switch (ver->version) {
     case DR_WINDOWS_VERSION_10_1803: usercalls = win10_1803_usercall_nums; break;
     case DR_WINDOWS_VERSION_10_1709: usercalls = win10_1709_usercall_nums; break;
@@ -316,7 +318,7 @@ drsyscall_wingdi_init(void *drcontext, app_pc ntdll_base, dr_os_version_info_t *
     /* Set up hashtable to translate usercall names to numbers */
     for (i = 0; i < NUM_USERCALL_NAMES; i++) {
         if (usercalls[i] != NONE) {
-            wingdi_add_usercall(usercall_names[i], usercalls[i]);
+            wingdi_add_usercall(drcontext, usercall_names[i], usercalls[i]);
         }
     }
 
@@ -794,7 +796,8 @@ handle_nonclientmetrics(sysarg_iter_info_t *ii, byte *start, size_t size_specifi
      * and we pretty much ignore the uiParam and cbSize values except
      * post-write (kernel puts in the right size).  Crazy.
      */
-    LOG(2, "NONCLIENTMETRICSW %s: sizeof(NONCLIENTMETRICSW)=%x, cbSize=%x, uiParam=%x\n",
+    LOG(ii->arg->drcontext, 2,
+        "NONCLIENTMETRICSW %s: sizeof(NONCLIENTMETRICSW)=%x, cbSize=%x, uiParam=%x\n",
         TEST(SYSARG_WRITE, arg_flags) ? "write" : "read", sizeof(NONCLIENTMETRICSW),
         ptr_safe->cbSize, size_specified);
     /* win7 seems to set cbSize properly, always */
@@ -2360,8 +2363,8 @@ handle_UserMessageCall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
 
     default: {
         DO_ONCE({ WARN("WARNING: unhandled NtUserMessageCall types found\n"); });
-        LOG(SYSCALL_VERBOSE, "WARNING: unhandled NtUserMessageCall message type 0x%x\n",
-            msg);
+        LOG(drcontext, SYSCALL_VERBOSE,
+            "WARNING: unhandled NtUserMessageCall message type 0x%x\n", msg);
         break;
     }
     }

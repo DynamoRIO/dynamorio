@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -101,17 +101,29 @@ struct mac {
 #ifndef SYS_fstatv
 #    define SYS_fstatv 219
 #endif
+#ifndef SYS_nfsclnt
+#    define SYS_nfsclnt 247
+#endif
 #ifndef SYS_getaudit
 #    define SYS_getaudit 355
 #endif
 #ifndef SYS_setaudit
 #    define SYS_setaudit 356
 #endif
+#ifndef SYS___old_semwait_signal
+#    define SYS___old_semwait_signal 370
+#endif
+#ifndef SYS___old_semwait_signal_nocancel
+#    define SYS___old_semwait_signal_nocancel 371
+#endif
 #ifndef SYS_pid_hibernate
 #    define SYS_pid_hibernate 435
 #endif
 #ifndef SYS_pid_shutdown_sockets
 #    define SYS_pid_shutdown_sockets 436
+#endif
+#ifndef SYS_shared_region_map_and_slide_np
+#    define SYS_shared_region_map_and_slide_np 438
 #endif
 
 /* Syscalls changed in Yosemite */

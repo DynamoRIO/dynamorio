@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -27,7 +27,7 @@
 #include "drsyscall.h"
 #include "drsyscall_os.h"
 #include "drmemory_framework.h"
-#include "../framework/drmf.h"
+#include "drmf.h"
 #include "utils.h"
 #include <string.h>
 #include <stddef.h> /* for offsetof */
@@ -49,7 +49,7 @@
 #        include <linux/netlink.h>
 #    endif
 #else
-#    include "../wininc/afd_shared.h"
+#    include "../drmf/wininc/afd_shared.h"
 #endif
 
 #ifdef SYSCALL_DRIVER
@@ -402,8 +402,9 @@ handle_pre_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_info
 
     if (!drsys_ops.analyze_unknown_syscalls)
         return;
-    LOG(SYSCALL_VERBOSE, "unknown system call #" SYSNUM_FMT "." SYSNUM_FMT " %s\n",
-        sysnum.number, sysnum.secondary, sysinfo == NULL ? "" : sysinfo->name);
+    LOG(drcontext, SYSCALL_VERBOSE,
+        "unknown system call #" SYSNUM_FMT "." SYSNUM_FMT " %s\n", sysnum.number,
+        sysnum.secondary, sysinfo == NULL ? "" : sysinfo->name);
     /* PR 484069: reduce global logfile size */
     DO_ONCE(ELOGF(0, f_global, "WARNING: unhandled system calls found\n"));
     for (i = 0; i < SYSCALL_NUM_ARG_TRACK; i++) {
@@ -418,7 +419,7 @@ handle_pre_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_info
         if (defined) {
             /* No need for a TRY/EXCEPT b/c this mem addr is defined */
             start = (app_pc)dr_syscall_get_param(drcontext, i);
-            LOG(2,
+            LOG(drcontext, 2,
                 "pre-unknown-syscall #" SYSNUM_FMT "." SYSNUM_FMT ": param %d == " PFX
                 "\n",
                 sysnum.number, sysnum.secondary, i, start);
@@ -447,7 +448,7 @@ handle_pre_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_info
                         break;
                 }
                 if (j > 0) {
-                    LOG(SYSCALL_VERBOSE,
+                    LOG(drcontext, SYSCALL_VERBOSE,
                         "pre-unknown-syscall #" PIFX ": param %d == " PFX " %d bytes\n",
                         sysnum, i, start, j);
                     /* Make a copy of the arg values */
@@ -465,7 +466,7 @@ handle_pre_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_info
                         cpt->sysarg_ptr[i] = start;
                         cpt->sysarg_sz[i] = j;
                     } else {
-                        LOG(SYSCALL_VERBOSE,
+                        LOG(drcontext, SYSCALL_VERBOSE,
                             "WARNING: unable to read syscall arg " PFX "-" PFX "!\n",
                             start, start + j);
                         cpt->sysarg_sz[i] = 0;
@@ -488,13 +489,13 @@ handle_pre_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_info
                             if (!dr_safe_write(start + j, 1, &UNKNOWN_SYSVAL_SENTINEL,
                                                NULL)) {
                                 /* if page is read-only then assume rest is not OUT */
-                                LOG(1,
+                                LOG(drcontext, 1,
                                     "WARNING: unable to write sentinel value @" PFX "\n",
                                     start + j);
                                 break;
                             }
                         } else if (s_at != NULL) {
-                            LOG(2,
+                            LOG(drcontext, 2,
                                 "writing sentinel value to " PFX "-" PFX " %d %d " PFX
                                 "\n",
                                 s_at, start + j, i, j, cpt->sysarg_ptr[i]);
@@ -502,8 +503,8 @@ handle_pre_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_info
                         }
                     }
                     if (s_at != NULL) {
-                        LOG(2, "writing sentinel value to " PFX "-" PFX "\n", s_at,
-                            start + j);
+                        LOG(drcontext, 2, "writing sentinel value to " PFX "-" PFX "\n",
+                            s_at, start + j);
                         s_at = NULL;
                     }
                 }
@@ -534,7 +535,7 @@ handle_post_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_inf
                          * XXX: we won't mark as defined if pre-syscall value
                          * matched sentinel and kernel wrote sentinel!
                          */
-                        LOG(4, "\targ %d " PFX " %d comparing %x to %x\n", i,
+                        LOG(drcontext, 4, "\targ %d " PFX " %d comparing %x to %x\n", i,
                             cpt->sysarg_ptr[i], j, post_val[j], cpt->sysarg_val[i][j]);
                         if ((drsys_ops.syscall_sentinels &&
                              post_val[j] != UNKNOWN_SYSVAL_SENTINEL) ||
@@ -570,16 +571,16 @@ handle_post_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_inf
                                 /* kernel didn't write so restore app value that
                                  * we clobbered w/ our sentinel.
                                  */
-                                LOG(4, "restoring app sysval @" PFX "\n", pc);
+                                LOG(drcontext, 4, "restoring app sysval @" PFX "\n", pc);
                                 if (!dr_safe_write(pc, 1, &cpt->sysarg_val[i][j], NULL)) {
-                                    LOG(1,
+                                    LOG(drcontext, 1,
                                         "WARNING: unable to restore app sysval @" PFX
                                         "\n",
                                         pc);
                                 }
                             }
                             if (w_at != NULL) {
-                                LOG(SYSCALL_VERBOSE,
+                                LOG(drcontext, SYSCALL_VERBOSE,
                                     "unknown-syscall #" SYSNUM_FMT
                                     ": param %d written " PFX " %d bytes\n",
                                     (ii == NULL) ? 0 : ii->arg->sysnum.number, i, w_at,
@@ -588,12 +589,12 @@ handle_post_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_inf
                             }
                         }
                     } else {
-                        LOG(4, "\targ %d " PFX " byte %d defined\n", i,
+                        LOG(drcontext, 4, "\targ %d " PFX " byte %d defined\n", i,
                             cpt->sysarg_ptr[i], j);
                     }
                 }
                 if (w_at != NULL) {
-                    LOG(SYSCALL_VERBOSE,
+                    LOG(drcontext, SYSCALL_VERBOSE,
                         "unknown-syscall #" SYSNUM_FMT ": param %d written " PFX
                         " %d bytes\n",
                         (ii == NULL) ? 0 : ii->arg->sysnum.number, i, w_at,
@@ -604,7 +605,7 @@ handle_post_unknown_syscall(void *drcontext, cls_syscall_t *cpt, sysarg_iter_inf
                 /* If we can't read I assume we are also unable to write to undo
                  * sentinel writes: though should try since param could span pages
                  */
-                LOG(1, "WARNING: unable to read app sysarg @" PFX "\n",
+                LOG(drcontext, 1, "WARNING: unable to read app sysarg @" PFX "\n",
                     cpt->sysarg_ptr[i]);
             }
         }
@@ -914,7 +915,7 @@ report_memarg_type(sysarg_iter_info_t *ii, int ordinal, uint arg_flags, app_pc p
                    size_t sz, const char *id, drsys_param_type_t type,
                    const char *type_name)
 {
-    LOG(2, "%s: " PFX "-" PFX "\n", __FUNCTION__, ptr, ptr + sz);
+    LOG(ii->arg->drcontext, 2, "%s: " PFX "-" PFX "\n", __FUNCTION__, ptr, ptr + sz);
     return report_memarg_ex(ii, ordinal, mode_from_flags(arg_flags), ptr, sz, id, type,
                             type_name, DRSYS_TYPE_INVALID);
 }
@@ -1374,7 +1375,7 @@ sysarg_get_size(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii,
         }
     }
     if (TEST(SYSARG_SIZE_PLUS_1, arg->flags)) {
-        LOG(SYSCALL_VERBOSE, "\t  adding 1 to original size of %d\n", size);
+        LOG(drcontext, SYSCALL_VERBOSE, "\t  adding 1 to original size of %d\n", size);
         size++;
     }
     if (TEST(SYSARG_SIZE_IN_ELEMENTS, arg->flags)) {
@@ -1420,11 +1421,12 @@ process_pre_syscall_reads_and_writes(cls_syscall_t *pt, sysarg_iter_info_t *ii)
     int i, last_param = -1;
     char idmsg[32];
 
-    LOG(SYSCALL_VERBOSE, "processing pre system call #" SYSNUM_FMT "." SYSNUM_FMT " %s\n",
+    LOG(drcontext, SYSCALL_VERBOSE,
+        "processing pre system call #" SYSNUM_FMT "." SYSNUM_FMT " %s\n",
         pt->sysnum.number, pt->sysnum.secondary, sysinfo->name);
     for (i = 0; i < MAX_ARGS_IN_ENTRY; i++) { /* not <arg_count b/c of double entries */
-        LOG(SYSCALL_VERBOSE, "\t  pre considering arg %d %d %x\n", sysinfo->arg[i].param,
-            sysinfo->arg[i].size, sysinfo->arg[i].flags);
+        LOG(drcontext, SYSCALL_VERBOSE, "\t  pre considering arg %d %d %x\n",
+            sysinfo->arg[i].param, sysinfo->arg[i].size, sysinfo->arg[i].flags);
         if (sysarg_invalid(&sysinfo->arg[i]))
             break;
         ASSERT(sysinfo->arg[i].param < sysinfo->arg_count, "param # > arg count!");
@@ -1450,8 +1452,8 @@ process_pre_syscall_reads_and_writes(cls_syscall_t *pt, sysarg_iter_info_t *ii)
         start = SYSARG_AS_PTR(pt, sysinfo->arg[i].param, app_pc);
         size = sysarg_get_size(drcontext, pt, ii, sysinfo, i, true /*pre*/, start);
         pt->sysarg_known_sz[sysinfo->arg[i].param] = size;
-        LOG(SYSCALL_VERBOSE, "\t  pre storing size " PIFX " for arg %d\n", size,
-            sysinfo->arg[i].param);
+        LOG(drcontext, SYSCALL_VERBOSE, "\t  pre storing size " PIFX " for arg %d\n",
+            size, sysinfo->arg[i].param);
         if (ii->abort)
             break;
 
@@ -1506,12 +1508,13 @@ process_post_syscall_reads_and_writes(cls_syscall_t *pt, sysarg_iter_info_t *ii)
     ptr_int_t result = dr_syscall_get_result(drcontext);
 #endif
 
-    LOG(SYSCALL_VERBOSE, "processing post system call #" SYSNUM_FMT "." SYSNUM_FMT,
-        pt->sysnum.number, pt->sysnum.secondary);
-    LOG(SYSCALL_VERBOSE, " %s res=" PIFX "\n", sysinfo->name,
+    LOG(drcontext, SYSCALL_VERBOSE,
+        "processing post system call #" SYSNUM_FMT "." SYSNUM_FMT, pt->sysnum.number,
+        pt->sysnum.secondary);
+    LOG(drcontext, SYSCALL_VERBOSE, " %s res=" PIFX "\n", sysinfo->name,
         dr_syscall_get_result(drcontext));
     for (i = 0; i < MAX_ARGS_IN_ENTRY; i++) { /* not <arg_count b/c of double entries */
-        LOG(SYSCALL_VERBOSE, "\t  post considering arg %d %d %x " PFX "\n",
+        LOG(drcontext, SYSCALL_VERBOSE, "\t  post considering arg %d %d %x " PFX "\n",
             sysinfo->arg[i].param, sysinfo->arg[i].size, sysinfo->arg[i].flags,
             pt->sysarg[sysinfo->arg[i].param]);
         if (sysarg_invalid(&sysinfo->arg[i]))
@@ -1539,7 +1542,7 @@ process_post_syscall_reads_and_writes(cls_syscall_t *pt, sysarg_iter_info_t *ii)
          * the written size.  Xref i#1119.
          */
         if (size > pt->sysarg_known_sz[sysinfo->arg[i].param]) {
-            LOG(SYSCALL_VERBOSE,
+            LOG(drcontext, SYSCALL_VERBOSE,
                 "\ttruncating out size of arg %d from " PIFX " to " PIFX "\n",
                 sysinfo->arg[i].param, size, pt->sysarg_known_sz[sysinfo->arg[i].param]);
             size = pt->sysarg_known_sz[sysinfo->arg[i].param];
@@ -1600,7 +1603,8 @@ process_post_syscall_reads_and_writes(cls_syscall_t *pt, sysarg_iter_info_t *ii)
         if (i < MAX_ARGS_IN_ENTRY - 1 && sysinfo->arg[i + 1].param == last_param &&
             !sysarg_invalid(&sysinfo->arg[i + 1]))
             continue;
-        LOG(SYSCALL_VERBOSE, "\t     start " PFX ", size " PIFX "\n", start, size);
+        LOG(drcontext, SYSCALL_VERBOSE, "\t     start " PFX ", size " PIFX "\n", start,
+            size);
         if (start != NULL && size > 0) {
             bool skip =
                 os_handle_post_syscall_arg_access(ii, &sysinfo->arg[i], start, size);
@@ -1693,7 +1697,7 @@ drsys_iterate_memargs(void *drcontext, drsys_iter_cb_t cb, void *user_data)
 #endif
         if (pt->sysinfo != NULL) {
             if (!os_syscall_succeeded(pt->sysnum, pt->sysinfo, pt)) {
-                LOG(SYSCALL_VERBOSE,
+                LOG(drcontext, SYSCALL_VERBOSE,
                     "system call #" SYSNUM_FMT "." SYSNUM_FMT " %s failed with " PFX "\n",
                     pt->sysnum.number, pt->sysnum.secondary, pt->sysinfo->name,
                     dr_syscall_get_result(drcontext));
@@ -1721,7 +1725,8 @@ drsys_iterate_args_common(void *drcontext, cls_syscall_t *pt, syscall_info_t *sy
     if (sysinfo == NULL)
         return DRMF_ERROR_DETAILS_UNKNOWN;
 
-    LOG(2, "iterating over args for syscall #" SYSNUM_FMT "." SYSNUM_FMT " %s\n",
+    LOG(drcontext, 2,
+        "iterating over args for syscall #" SYSNUM_FMT "." SYSNUM_FMT " %s\n",
         sysinfo->num.number, sysinfo->num.secondary, sysinfo->name);
 
     arg->drcontext = drcontext;
@@ -1923,7 +1928,7 @@ drsys_event_pre_syscall(void *drcontext, int initial_num)
      * We are reading beyond the # of args of some syscalls and we can
      * (and do: i#1419) read beyond the base of the stack so we use a try.
      */
-    LOG(SYSCALL_VERBOSE, "app xsp=" PFX "\n", pt->mc.xsp);
+    LOG(drcontext, SYSCALL_VERBOSE, "app xsp=" PFX "\n", pt->mc.xsp);
     DR_TRY_EXCEPT(
         drcontext,
         {
@@ -1951,7 +1956,8 @@ drsys_event_pre_syscall(void *drcontext, int initial_num)
                     }
                 });
                 dr_slot++;
-                LOG(SYSCALL_VERBOSE, "\targ %d = " ARGFMT "\n", i, pt->sysarg[i]);
+                LOG(drcontext, SYSCALL_VERBOSE, "\targ %d = " ARGFMT "\n", i,
+                    pt->sysarg[i]);
             }
         },
         {
@@ -2188,7 +2194,7 @@ drsys_init(client_id_t client_id, drsys_options_t *ops)
     if (count > 1)
         return DRMF_SUCCESS;
 
-    res = drmf_check_version(client_id);
+    res = drmf_check_version(drcontext, client_id);
     if (res != DRMF_SUCCESS)
         return res;
 

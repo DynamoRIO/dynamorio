@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -34,7 +34,7 @@
 #include <d3dnthal.h>
 #include <winddi.h> /* required by ntgdityp.h and prntfont.h */
 #include <prntfont.h>
-#include "../wininc/ntgdityp.h"
+#include "../drmf/wininc/ntgdityp.h"
 #include <ntgdi.h>
 #include <winspool.h>   /* for DRIVER_INFO_2W */
 #include <dxgiformat.h> /* for DXGI_FORMAT */
