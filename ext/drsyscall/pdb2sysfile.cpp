@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,8 +46,8 @@
 #include "dr_frontend.h"
 #include "droption.h"
 #include "drsyms.h"
-#include "../common/utils.h" /* only for BUFFER*, DIRSEP */
-#include "../drsyscall/drsyscall.h"
+#include "utils.h" /* only for BUFFER*, DIRSEP */
+#include "drsyscall.h"
 
 #include <assert.h>
 #include <algorithm>
@@ -426,7 +426,7 @@ drsys_find_sysnum_libs(OUT char **sysnum_lib_paths,
     /* Next, get the count of dlls that exist on this machine
      * (win32u.dll and kernelbase.dll do not exist on older Windows).
      */
-    int count = 0;
+    size_t count = 0;
     int dll_readable[NUM_SYSCALL_DLLS];
     char buf[MAXIMUM_PATH];
     for (int i = 0; i < NUM_SYSCALL_DLLS; ++i) {
@@ -479,7 +479,7 @@ fetch_symbols(const char **sysnum_lib_paths, size_t num_sysnum_libs,
         drfront_set_symbol_search_path(symsrv_dir) != DRFRONT_SUCCESS)
         NOTIFY(0, "WARNING: Can't set symbol search path. Symbol lookup may fail." NL);
 
-    for (int i = 0; i < num_sysnum_libs; ++i) {
+    for (size_t i = 0; i < num_sysnum_libs; ++i) {
         char pdb_path[MAXIMUM_PATH];
         drfront_status_t sc = DRFRONT_SUCCESS;
         /* Sometimes there are transient errors on the symbol server side so we

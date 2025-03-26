@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -522,9 +522,14 @@ extern int tls_idx_util;
 #endif
 
 #ifdef DEBUG
+// TODO i#7303: Ensure logging functionality remains consistent after DrSyscall
+// migration to DynamoRIO.
 #    define LOGF ELOGF
 #    define LOGPT ELOGPT
-#    define LOG ELOG
+#    define LOG(drcontext, level, f, ...) \
+        do {                              \
+            ELOG(level, f, __VA_ARGS__);  \
+        } while (0)
 #    define LOG_LARGE_F ELOG_LARGE_F
 #    define LOG_LARGE_PT ELOG_LARGE_PT
 #    define LOG_LARGE ELOG_LARGE

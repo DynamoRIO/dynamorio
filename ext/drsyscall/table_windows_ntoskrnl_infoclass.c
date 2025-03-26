@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -24,13 +24,13 @@
 #include "drsyscall_os.h"
 #include "drsyscall_windows.h"
 
-#include "../wininc/wdm.h"
-#include "../wininc/ndk_extypes.h"
-#include "../wininc/ndk_lpctypes.h"
-#include "../wininc/ndk_iotypes.h"
-#include "../wininc/wdm.h"
-#include "../wininc/ntifs.h"
-#include "../wininc/ntalpctyp.h"
+#include "../drmf/wininc/wdm.h"
+#include "../drmf/wininc/ndk_extypes.h"
+#include "../drmf/wininc/ndk_lpctypes.h"
+#include "../drmf/wininc/ndk_iotypes.h"
+#include "../drmf/wininc/wdm.h"
+#include "../drmf/wininc/ntifs.h"
+#include "../drmf/wininc/ntalpctyp.h"
 #include "table_defines.h"
 
 extern drsys_sysnum_t sysnum_SetInformationFile;

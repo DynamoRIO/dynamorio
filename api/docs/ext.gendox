@@ -67,7 +67,9 @@ package.
 Dr. Syscall is a DynamoRIO Extension that provides system call monitoring
 features beyond the basics in the DynamoRIO API itself.  It is distributed
 as part of the Dr. Memory Framework, which is included with DynamoRIO
-versions 5.0.0 and higher.  <a
+versions 5.0.0 and higher. Dr. Syscall is currently being migrated from
+Dr. Memory Framework to DynamoRIO. Once the migration is complete, Dr. Syscall
+will be removed from the Dr. Memory Framework.  <a
 href="http://drmemory.org/page_drsyscall.html">Online documentation is
 available</a>.  If this documentation is part of a DynamoRIO public
 release, <a href="../../drmemory/drmemory/docs/html/page_drsyscall.html">this

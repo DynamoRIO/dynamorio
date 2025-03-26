@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -29,9 +29,9 @@
 #include "drsyscall_windows.h"
 #include "table_defines.h"
 
-#include "../wininc/ndk_extypes.h" /* required by ntuser.h */
-#include "../wininc/ntuser.h"
-#include "../wininc/ntuser_win8.h"
+#include "../drmf/wininc/ndk_extypes.h" /* required by ntuser.h */
+#include "../drmf/wininc/ntuser.h"
+#include "../drmf/wininc/ntuser_win8.h"
 
 /* Secondary system calls for NtUserCall{No, One, Two}Param */
 /* FIXME i#1094: the official return type is DWORD_PTR but it would be more useful
