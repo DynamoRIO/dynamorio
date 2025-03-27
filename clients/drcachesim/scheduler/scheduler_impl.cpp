@@ -2912,20 +2912,22 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
         // sched_type_t::MAP_AS_PREVIOUSLY).
         return;
     }
-    // We modify the tid and pid fields to ensure uniqueness for
-    // core-sharded-on-disk and with analyzers not using our workload identifiers.
-    // To maintain the original values, we write the workload ordinal into the top
-    // 32 bits.  We don't support distinguishing for 32-bit-build record_filter.
-    // We also ignore complexities on Mac with its 64-bit tid type.
+    // We modify the tid and pid fields to ensure uniqueness across multiple workloads for
+    // core-sharded-on-disk and with analyzers that look at the tid instead of using our
+    // workload identifiers (and since the workload API is not there for
+    // core-sharded-on-disk it may not be worth updating these analyzers).  To maintain
+    // the original values, we write the workload ordinal into the top 32 bits.  We don't
+    // support distinguishing for 32-bit-build record_filter.  We also ignore complexities
+    // on Mac with its 64-bit tid type.
     int64_t workload = get_workload_ordinal(output);
     memref_tid_t cur_tid;
     if (record_type_has_tid(record, cur_tid) && workload > 0) {
-        memref_tid_t new_tid = (workload << 32) | cur_tid;
+        memref_tid_t new_tid = (workload << MEMREF_ID_WORKLOAD_SHIFT) | cur_tid;
         record_type_set_tid(record, new_tid);
     }
     memref_pid_t cur_pid;
     if (record_type_has_pid(record, cur_pid) && workload > 0) {
-        memref_tid_t new_pid = (workload << 32) | cur_pid;
+        memref_tid_t new_pid = (workload << MEMREF_ID_WORKLOAD_SHIFT) | cur_pid;
         record_type_set_pid(record, new_pid);
     }
     // For a dynamic schedule, the as-traced cpuids and timestamps no longer

@@ -125,7 +125,7 @@ protected:
     print_header()
     {
         std::cerr << "Output format:\n"
-                  << "<--record#-> <--instr#->: <---tid---> <record details>\n"
+                  << "<--record#-> <--instr#->: <Wrkld.Tid> <record details>\n"
                   << "------------------------------------------------------------\n";
     }
 
@@ -143,10 +143,13 @@ protected:
         prev_tid_ = memref.instr.tid;
         prev_record_ = record_ord;
 
+        std::ostringstream wtid;
+        wtid << "W" << workload_from_memref_tid(memref.data.tid) << ".T"
+             << tid_from_memref_tid(memref.data.tid);
+
         stream << std::setw(RECORD_COLUMN_WIDTH) << record_ord
                << std::setw(INSTR_COLUMN_WIDTH) << memstream->get_instruction_ordinal()
-               << ": " << std::setw(TID_COLUMN_WIDTH) << std::hex << memref.marker.tid
-               << std::dec << " ";
+               << ": " << std::setw(TID_COLUMN_WIDTH) << wtid.str() << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after

@@ -351,12 +351,13 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // we would want to track the prior tid and print out a thread switch
             // message whenever it changes.
             if (memref.marker.marker_value == INVALID_CPU_MARKER_VALUE) {
-                std::cerr << "<marker: tid 0x" << std::hex << memref.marker.tid
-                          << std::dec << " on core unknown>\n";
+                std::cerr << "<marker: W" << workload_from_memref_tid(memref.data.tid)
+                          << ".T" << tid_from_memref_tid(memref.data.tid)
+                          << " on core unknown>\n";
             } else {
-                std::cerr << "<marker: tid 0x" << std::hex << memref.marker.tid
-                          << std::dec << " on core " << memref.marker.marker_value
-                          << ">\n";
+                std::cerr << "<marker: W" << workload_from_memref_tid(memref.data.tid)
+                          << ".T" << tid_from_memref_tid(memref.data.tid) << " on core "
+                          << memref.marker.marker_value << ">\n";
             }
             break;
         case TRACE_MARKER_TYPE_KERNEL_EVENT:
@@ -532,7 +533,8 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         switch (memref.data.type) {
         default: std::cerr << "<entry type " << memref.data.type << ">\n"; return true;
         case TRACE_TYPE_THREAD_EXIT:
-            std::cerr << "<thread " << memref.data.tid << " exited>\n";
+            std::cerr << "<thread W" << workload_from_memref_tid(memref.data.tid) << ".T"
+                      << tid_from_memref_tid(memref.data.tid) << " exited>\n";
             return true;
             // The rest are address-containing types.
         case TRACE_TYPE_READ: name = "read"; break;

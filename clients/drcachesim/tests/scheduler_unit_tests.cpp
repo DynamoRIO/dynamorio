@@ -6158,7 +6158,8 @@ test_kernel_switch_sequences()
     // Zoom in and check the first sequence record by record with value checks.
     int idx = 0;
     bool res = true;
-    memref_tid_t workload1_tid1_final = (1ULL << 32) | (TID_BASE + 4);
+    memref_tid_t workload1_tid1_final =
+        (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4);
     res = res &&
         check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
@@ -7047,10 +7048,12 @@ test_marker_updates()
             if (status == scheduler_t::STATUS_IDLE)
                 continue;
             assert(status == scheduler_t::STATUS_OK);
-            assert(memref.marker.tid ==
-                   ((outputs[i]->get_workload_id() << 32) | TID_BASE));
-            assert(memref.marker.pid ==
-                   ((outputs[i]->get_workload_id() << 32) | PID_BASE));
+            assert(
+                memref.marker.tid ==
+                ((outputs[i]->get_workload_id() << MEMREF_ID_WORKLOAD_SHIFT) | TID_BASE));
+            assert(
+                memref.marker.pid ==
+                ((outputs[i]->get_workload_id() << MEMREF_ID_WORKLOAD_SHIFT) | PID_BASE));
             if (memref.marker.type != TRACE_TYPE_MARKER)
                 continue;
             // Make sure the random values have some order now, satisfying invariants.

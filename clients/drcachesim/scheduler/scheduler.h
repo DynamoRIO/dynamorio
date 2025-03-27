@@ -464,7 +464,7 @@ public:
          * to reflect the virtual cores; input #TRACE_MARKER_TYPE_TIMESTAMP values are
          * modified to reflect a notion of virtual time; and input .tid and .pid
          * #memref_t fields have the workload ordinal set in the top 32 bits in order
-         * to ensure the values are unique.
+         * to ensure the values are unique across multiple workloads.
          */
         MAP_TO_ANY_OUTPUT,
         /**
@@ -479,7 +479,7 @@ public:
          * to reflect the virtual cores; input #TRACE_MARKER_TYPE_TIMESTAMP values are
          * modified to reflect a notion of virtual time; and input .tid and .pid
          * #memref_t fields have the workload ordinal set in the top 32 bits in order
-         * to ensure the values are unique.
+         * to ensure the values are unique across multiple workloads.
          */
         MAP_AS_PREVIOUSLY,
     };
