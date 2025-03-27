@@ -2195,6 +2195,7 @@ drsys_init(client_id_t client_id, drsys_options_t *ops)
         return DRMF_SUCCESS;
 
     res = drmf_check_version(drcontext, client_id);
+    ASSERT(res == DRMF_SUCCESS, "drmf_check_version failed");
     if (res != DRMF_SUCCESS)
         return res;
 
@@ -2219,6 +2220,8 @@ drsys_init(client_id_t client_id, drsys_options_t *ops)
     systable_lock = dr_recurlock_create();
 
     res = drsyscall_os_init(drcontext);
+    ASSERT(res == DRMF_SUCCESS || res == DRMF_WARNING_UNSUPPORTED_KERNEL,
+           "drsyscall_os_init failed");
     if (res != DRMF_SUCCESS && res != DRMF_WARNING_UNSUPPORTED_KERNEL)
         return res;
 

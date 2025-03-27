@@ -180,9 +180,12 @@ event_pre_syscall(void *drcontext, int sysnum)
 
     check_mcontext(drcontext);
 
-    if (drsys_syscall_return_type(syscall, &ret_type) != DRMF_SUCCESS ||
-        ret_type == DRSYS_TYPE_INVALID || ret_type == DRSYS_TYPE_UNKNOWN)
+    drmf_status_t status = drsys_syscall_return_type(syscall, &ret_type);
+    if (status != DRMF_SUCCESS ||
+        ret_type == DRSYS_TYPE_INVALID || ret_type == DRSYS_TYPE_UNKNOWN) {
+        dr_fprintf(STDERR, "status: %d, ret_type: %d\n", status, ret_type);
         ASSERT(false, "failed to get syscall return type");
+    }
 
     if (drsys_syscall_is_known(syscall, &known) != DRMF_SUCCESS || !known)
         ASSERT(IF_WINDOWS_ELSE(os_version.version >= DR_WINDOWS_VERSION_10_1607, false),
@@ -390,8 +393,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_get_os_version(&os_version);
 #endif
     drmgr_init();
-    if (drsys_init(id, &ops) != DRMF_SUCCESS)
+    drmf_status_t status = drsys_init(id, &ops);
+    if (status != DRMF_SUCCESS) {
+        dr_fprintf(STDERR, "drsys failed to init: %d\n", status);
         ASSERT(false, "drsys failed to init");
+    }
     dr_register_exit_event(exit_event);
 
     dr_register_filter_syscall_event(event_filter_syscall);
