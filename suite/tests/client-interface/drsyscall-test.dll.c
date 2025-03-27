@@ -141,7 +141,7 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
         if (drsys_pre_syscall_arg64(arg->drcontext, arg->ordinal, &val64) != DRMF_SUCCESS)
             ASSERT(false, "drsys_pre_syscall_arg64 failed");
         if (arg->size < sizeof(val)) {
-            val = truncate_int_to_size(val, arg->size);
+            val = (ptr_uint_t)truncate_int_to_size(val, arg->size);
             val64 = truncate_int_to_size(val64, arg->size);
         }
         ASSERT(val == arg->value, "values do not match");

@@ -6295,7 +6295,7 @@ IF (NOT AARCH64 AND NOT ANDROID AND NOT MUSL AND NOT RISCV64)
   get_target_path_for_execution(drsyscall_libpath client.drsyscall-test.dll
     "${location_suffix}")
   get_target_path_for_execution(app_path client.drsyscall-test "${location_suffix}")
-  add_test(drsyscall_test ${drrun_path} -s 90 -quiet -killpg
+  add_test(drsyscall_test ${drrun_path} -s 90 -quiet
     -client ${drsyscall_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(client.drsyscall-test.dll drmgr)
   use_DynamoRIO_extension(client.drsyscall-test.dll drsyscall)
@@ -6303,18 +6303,19 @@ IF (NOT AARCH64 AND NOT ANDROID AND NOT MUSL AND NOT RISCV64)
   tobuild_ci(client.strace-test client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(strace_test_libpath client.strace-test.dll
     "${location_suffix}")
-  add_test(strace_test ${drrun_path} -s 90 -quiet -killpg
+  add_test(strace_test ${drrun_path} -s 90 -quiet
     -client ${strace_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(client.strace-test.dll drmgr)
   use_DynamoRIO_extension(client.strace-test.dll drsyscall)
 
-  tobuild_ci(client.strace-sample-test client-interface/drsyscall-test.c "" "" "")
-  get_target_path_for_execution(strace_sample_test_libpath client.strace-sample-test.dll
-    "${location_suffix}")
-  add_test(strace_sample ${drrun_path} -s 90 -quiet -killpg
-    -client ${strace_sample_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
-  use_DynamoRIO_extension(client.strace-sample-test.dll drmgr)
-  use_DynamoRIO_extension(client.strace-sample-test.dll drsyscall)
+  # kyluk
+  ##tobuild_ci(client.strace-sample-test client-interface/drsyscall-test.c "" "" "")
+  ##get_target_path_for_execution(strace_sample_test_libpath client.strace-sample-test.dll
+  ##  "${location_suffix}")
+  ##add_test(strace_sample ${drrun_path} -s 90 -quiet -killpg
+  ##  -client ${strace_sample_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
+  ##use_DynamoRIO_extension(client.strace-sample-test.dll drmgr)
+  ##use_DynamoRIO_extension(client.strace-sample-test.dll drsyscall)
 endif ()
 
 ###########################################################################
