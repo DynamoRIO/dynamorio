@@ -463,8 +463,13 @@ public:
          * In this mode, input #TRACE_MARKER_TYPE_CPU_ID marker values are modified
          * to reflect the virtual cores; input #TRACE_MARKER_TYPE_TIMESTAMP values are
          * modified to reflect a notion of virtual time; and input .tid and .pid
-         * #memref_t fields have the workload ordinal set in the top 32 bits in order
-         * to ensure the values are unique across multiple workloads.
+         * #memref_t fields have the workload ordinal set in the top
+         * (64 - #MEMREF_ID_WORKLOAD_SHIFT) bits in order
+         * to ensure the values are unique across multiple workloads (see also
+         * workload_from_memref_pid(), workload_from_memref_tid(),
+         * pid_from_memref_tid(), and tid_from_memref_tid()).
+         * (The tid and pid changes are not supported for 32-bit builds, and
+         * do not support tid values occupying more than #MEMREF_ID_WORKLOAD_SHIFT bits.)
          */
         MAP_TO_ANY_OUTPUT,
         /**
@@ -478,8 +483,13 @@ public:
          * In this mode, input #TRACE_MARKER_TYPE_CPU_ID marker values are modified
          * to reflect the virtual cores; input #TRACE_MARKER_TYPE_TIMESTAMP values are
          * modified to reflect a notion of virtual time; and input .tid and .pid
-         * #memref_t fields have the workload ordinal set in the top 32 bits in order
-         * to ensure the values are unique across multiple workloads.
+         * #memref_t fields have the workload ordinal set in the top 32
+         * (64 - #MEMREF_ID_WORKLOAD_SHIFT) bits in order
+         * to ensure the values are unique across multiple workloads (see also
+         * workload_from_memref_pid(), workload_from_memref_tid(),
+         * pid_from_memref_tid(), and tid_from_memref_tid()).
+         * (The tid and pid changes are not supported for 32-bit builds, and
+         * do not support tid values occupying more than #MEMREF_ID_WORKLOAD_SHIFT bits.)
          */
         MAP_AS_PREVIOUSLY,
     };
