@@ -351,11 +351,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // we would want to track the prior tid and print out a thread switch
             // message whenever it changes.
             if (memref.marker.marker_value == INVALID_CPU_MARKER_VALUE) {
-                std::cerr << "<marker: tid " << memref.marker.tid
-                          << " on core unknown>\n";
+                std::cerr << "<marker: tid 0x" << std::hex << memref.marker.tid
+                          << std::dec << " on core unknown>\n";
             } else {
-                std::cerr << "<marker: tid " << memref.marker.tid << " on core "
-                          << memref.marker.marker_value << ">\n";
+                std::cerr << "<marker: tid 0x" << std::hex << memref.marker.tid
+                          << std::dec << " on core " << memref.marker.marker_value
+                          << ">\n";
             }
             break;
         case TRACE_MARKER_TYPE_KERNEL_EVENT:

@@ -460,6 +460,11 @@ public:
          * or a (potentially) blocking system call is identified.  At this point,
          * a new input is selected, taking into consideration other options such
          * as priorities, core bindings, and inter-input dependencies.
+         * In this mode, input #TRACE_MARKER_TYPE_CPU_ID marker values are modified
+         * to reflect the virtual cores; input #TRACE_MARKER_TYPE_TIMESTAMP values are
+         * modified to reflect a notion of virtual time; and input .tid and .pid
+         * #memref_t fields have the workload ordinal set in the top 32 bits in order
+         * to ensure the values are unique.
          */
         MAP_TO_ANY_OUTPUT,
         /**
@@ -470,6 +475,11 @@ public:
          * The same output count and input stream order and count must be re-specified;
          * scheduling details such as regions of interest and core bindings do not
          * need to be re-specified and are in fact ignored.
+         * In this mode, input #TRACE_MARKER_TYPE_CPU_ID marker values are modified
+         * to reflect the virtual cores; input #TRACE_MARKER_TYPE_TIMESTAMP values are
+         * modified to reflect a notion of virtual time; and input .tid and .pid
+         * #memref_t fields have the workload ordinal set in the top 32 bits in order
+         * to ensure the values are unique.
          */
         MAP_AS_PREVIOUSLY,
     };

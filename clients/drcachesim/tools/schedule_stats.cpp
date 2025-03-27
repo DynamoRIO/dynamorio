@@ -473,7 +473,8 @@ schedule_stats_t::print_counters(const counters_t &counters)
         std::cerr << ": ";
         auto it = counters.threads.begin();
         while (it != counters.threads.end()) {
-            std::cerr << "W" << it->workload_id << ".T" << it->tid;
+            std::cerr << "W" << it->workload_id << ".T" << std::hex << it->tid
+                      << std::dec;
             ++it;
             if (it != counters.threads.end())
                 std::cerr << ", ";

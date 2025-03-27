@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -145,7 +145,8 @@ protected:
 
         stream << std::setw(RECORD_COLUMN_WIDTH) << record_ord
                << std::setw(INSTR_COLUMN_WIDTH) << memstream->get_instruction_ordinal()
-               << ": " << std::setw(TID_COLUMN_WIDTH) << memref.marker.tid << " ";
+               << ": " << std::setw(TID_COLUMN_WIDTH) << std::hex << memref.marker.tid
+               << std::dec << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after
