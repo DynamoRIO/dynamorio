@@ -154,6 +154,10 @@ Further non-compatibility-affecting changes include:
    templates. Added similar options for the drmemtrace scheduler: #dynamorio::drmemtrace::
    scheduler_tmpl_t::scheduler_options_t::kernel_syscall_trace_path, and #dynamorio::
    drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
+ - Added info.textproto to the list of auxiliary files skipped when iterating over the
+   content of a trace directory. This file is used to provide users with additional,
+   human-readable information about #DR_ISA_REGDEPS traces. Currently, it contains
+   information on peak live core count and workload phases.
 
 **************************************************
 <hr>

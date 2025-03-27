@@ -1527,6 +1527,13 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
  */
 #define DRMEMTRACE_V2P_FILENAME "v2p.textproto"
 
+/**
+ * The name of the file in that contains metadata information about a #DR_ISA_REGDEPS
+ * trace. This file is not used by any tool, it is meant to be human-readable and provide
+ * the user with additional information about a #DR_ISA_REGDEPS trace.
+ */
+#define DRMEMTRACE_TRACE_INFO_FILENAME "info.textproto"
+
 } // namespace drmemtrace
 } // namespace dynamorio
 

@@ -161,7 +161,9 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::get_reader(const std::string &path,
             // Skip the auxiliary files.
             if (fname == DRMEMTRACE_MODULE_LIST_FILENAME ||
                 fname == DRMEMTRACE_FUNCTION_LIST_FILENAME ||
-                fname == DRMEMTRACE_ENCODING_FILENAME || fname == DRMEMTRACE_V2P_FILENAME)
+                fname == DRMEMTRACE_ENCODING_FILENAME ||
+                fname == DRMEMTRACE_V2P_FILENAME ||
+                fname == DRMEMTRACE_TRACE_INFO_FILENAME)
                 continue;
 #    ifdef HAS_SNAPPY
             if (ends_with(*iter, ".sz")) {
@@ -1812,7 +1814,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_readers(
         // Skip the auxiliary files.
         if (fname == DRMEMTRACE_MODULE_LIST_FILENAME ||
             fname == DRMEMTRACE_FUNCTION_LIST_FILENAME ||
-            fname == DRMEMTRACE_ENCODING_FILENAME || fname == DRMEMTRACE_V2P_FILENAME)
+            fname == DRMEMTRACE_ENCODING_FILENAME || fname == DRMEMTRACE_V2P_FILENAME ||
+            fname == DRMEMTRACE_TRACE_INFO_FILENAME)
             continue;
         const std::string file = path + DIRSEP + fname;
         files.push_back(file);
