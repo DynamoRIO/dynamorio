@@ -4035,6 +4035,7 @@ if (BUILD_CLIENTS)
       torunonly_simtool(schedule_stats_noise_generator ${ci_shared_app}
           "-infile ${small_trace_file} -tool schedule_stats:basic_counts -add_noise_generator -core_serial"
           "")
+      set(tool.core_serial_rawtemp ON) # no preprocessor
 
       # Our multi-threaded sample trace is larger so we require gzip.
       if (ZLIB_FOUND)
