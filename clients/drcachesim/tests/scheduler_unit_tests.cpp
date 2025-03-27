@@ -6158,7 +6158,7 @@ test_kernel_switch_sequences()
     // Zoom in and check the first sequence record by record with value checks.
     int idx = 0;
     bool res = true;
-    memref_tid_t workload1_tid1_final = (1UL << 32) | (TID_BASE + 4);
+    memref_tid_t workload1_tid1_final = (1ULL << 32) | (TID_BASE + 4);
     res = res &&
         check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,

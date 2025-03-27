@@ -2916,6 +2916,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
     // core-sharded-on-disk and with analyzers not using our workload identifiers.
     // To maintain the original values, we write the workload ordinal into the top
     // 32 bits.  We don't support distinguishing for 32-bit-build record_filter.
+    // We also ignore complexities on Mac with its 64-bit tid type.
     int64_t workload = get_workload_ordinal(output);
     memref_tid_t cur_tid;
     if (record_type_has_tid(record, cur_tid) && workload > 0) {

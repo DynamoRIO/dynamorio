@@ -490,7 +490,7 @@ run_single_thread_chunk_test(void *drcontext)
            3           0:           3 <marker: cache line size 64>
            4           0:           3 <marker: chunk instruction count 2>
            5           0:           3 <marker: timestamp 1002>
-           6           0:           3 <marker: tid 3 on core 2>
+           6           0:           3 <marker: tid 0x3 on core 2>
            7           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
            8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
            9           2:           3 <marker: chunk footer #0>
@@ -557,7 +557,7 @@ run_serial_chunk_test(void *drcontext)
            3           0:           3 <marker: cache line size 64>
            4           0:           3 <marker: chunk instruction count 20>
            5           0:           3 <marker: timestamp 1001>
-           6           0:           3 <marker: tid 3 on core 2>
+           6           0:           3 <marker: tid 0x3 on core 2>
            7           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
            8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
@@ -566,16 +566,16 @@ run_serial_chunk_test(void *drcontext)
           11           2:           7 <marker: cache line size 64>
           12           2:           7 <marker: chunk instruction count 2>
           13           2:           7 <marker: timestamp 1002>
-          14           2:           7 <marker: tid 7 on core 2>
+          14           2:           7 <marker: tid 0x7 on core 2>
           15           3:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
           16           4:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
           17           4:           3 <marker: timestamp 1003>
-          18           4:           3 <marker: tid 3 on core 3>
+          18           4:           3 <marker: tid 0x3 on core 3>
           19           5:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
           20           5:           7 <marker: timestamp 1004>
-          21           5:           7 <marker: tid 7 on core 3>
+          21           5:           7 <marker: tid 0x7 on core 3>
           22           6:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
@@ -650,7 +650,7 @@ run_regdeps_test(void *drcontext)
            3           0:           3 <marker: cache line size 64>
            4           0:           3 <marker: chunk instruction count 5>
            5           0:           3 <marker: timestamp 1002>
-           6           0:           3 <marker: tid 3 on core 2>
+           6           0:           3 <marker: tid 0x3 on core 2>
            7           1:           3 ifetch       3 byte(s) @ 0x00007f6fdd3ec360 00010011 00060906 move [8byte]       %rv4 -> %rv7
            8           2:           3 ifetch       4 byte(s) @ 0x00007f6fdc76cb35 00004011 004e0321 simd [32byte]       %rv76 -> %rv1
            9           3:           3 ifetch       4 byte(s) @ 0x00007f6fdc76cb2d 00004811 00094921 load simd [32byte]       %rv7 -> %rv71
