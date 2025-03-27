@@ -36,6 +36,7 @@
 #include "common/options.h"
 #include "common/utils.h"
 #include "common/directory_iterator.h"
+#include "noise_generator.h"
 #include "tlb_simulator.h"
 #include "tracer/raw2trace_directory.h"
 #include "tracer/raw2trace.h"
@@ -572,6 +573,11 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
     }
 
     sched_ops.kernel_syscall_trace_path = op_sched_syscall_file.get_value();
+
+    // Enable the noise generator before init_scheduler(), where we eventually add a
+    // noise generator as another input workload.
+    if (op_add_noise_generator.get_value())
+        this->add_noise_generator_ = true;
 
     if (!indirs.empty()) {
         std::vector<std::string> tracedirs;
