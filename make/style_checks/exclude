@@ -66,7 +66,7 @@ foreach rule $rules {
         drsyscall_app.c
         drsyscall_client.c
         strace_client.c
-        strace-sample.c
+        strace.c
     }
 }
 
