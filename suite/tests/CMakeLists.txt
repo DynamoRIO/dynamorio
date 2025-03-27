@@ -6290,7 +6290,7 @@ if (vera++_FOUND)
 endif ()
 
 # TODO i#7399: Add Aarch64, Android, MUSL, and RISCV64 support to DrSyscall.
-IF (NOT AARCH64 AND NOT ANDROID AND NOT MUSL)
+IF (NOT AARCH64 AND NOT ANDROID AND NOT MUSL AND NOT RISCV64)
   tobuild_ci(client.drsyscall-test client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(drsyscall_libpath client.drsyscall-test.dll
     "${location_suffix}")

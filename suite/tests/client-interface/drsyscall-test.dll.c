@@ -104,7 +104,7 @@ drsys_iter_memarg_cb(drsys_arg_t *arg, void *user_data)
 }
 
 static uint64
-truncate_int_to_size(uint64 val, uint size)
+truncate_int_to_size(uint64 val, size_t size)
 {
     if (size == 1)
         val &= 0xff;
