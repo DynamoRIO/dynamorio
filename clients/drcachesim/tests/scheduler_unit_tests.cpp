@@ -6159,6 +6159,8 @@ test_kernel_switch_sequences()
     // Zoom in and check the first sequence record by record with value checks.
     int idx = 0;
     bool res = true;
+    memref_tid_t workload1_tid1_final =
+        (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4);
     res = res &&
         check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
@@ -6186,24 +6188,24 @@ test_kernel_switch_sequences()
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
         // Process switch.
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   // Verify that the timestamp is updated.
                   TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS) &&
         // We now see the headers for this thread.
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
         // The 3-instr quantum should not count the 2 switch instrs.
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR);
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR);
     assert(res);
 
     {
@@ -6972,7 +6974,7 @@ test_exit_early()
 static void
 test_marker_updates()
 {
-    std::cerr << "\n----------------\nTesting marker updates\n";
+    std::cerr << "\n----------------\nTesting marker and tid/pid updates\n";
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
@@ -6984,6 +6986,7 @@ test_marker_updates()
     const int NUM_INSTRS =
         static_cast<int>(sched_ops.time_units_per_us) * TIMESTAMP_GAP_US;
     static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_pid_t PID_BASE = 200;
     static constexpr uint64_t TIMESTAMP_BASE = 12340000;
 
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
@@ -6992,9 +6995,10 @@ test_marker_updates()
     rand_gen.seed(static_cast<int>(reinterpret_cast<int64_t>(&inputs[0])));
 
     for (int i = 0; i < NUM_INPUTS; i++) {
-        memref_tid_t tid = TID_BASE + i;
+        // Each input is a separate workload with the same pid and tid.
+        memref_tid_t tid = TID_BASE;
         inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(make_pid(PID_BASE));
         inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
         // Add a randomly-increasing-value timestamp.
         uint64_t cur_timestamp = TIMESTAMP_BASE;
@@ -7017,7 +7021,7 @@ test_marker_updates()
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE + i);
+                             TID_BASE);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t scheduler;
@@ -7045,6 +7049,12 @@ test_marker_updates()
             if (status == scheduler_t::STATUS_IDLE)
                 continue;
             assert(status == scheduler_t::STATUS_OK);
+            assert(
+                memref.marker.tid ==
+                ((outputs[i]->get_workload_id() << MEMREF_ID_WORKLOAD_SHIFT) | TID_BASE));
+            assert(
+                memref.marker.pid ==
+                ((outputs[i]->get_workload_id() << MEMREF_ID_WORKLOAD_SHIFT) | PID_BASE));
             if (memref.marker.type != TRACE_TYPE_MARKER)
                 continue;
             // Make sure the random values have some order now, satisfying invariants.

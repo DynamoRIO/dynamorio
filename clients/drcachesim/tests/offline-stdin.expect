@@ -1,15 +1,15 @@
 Output format:
-<--record#-> <--instr#->: <---tid---> <record details>
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
-           1           0:      872894 <marker: version 7>
-           2           0:      872894 <marker: filetype 0x10e40>
-           3           0:      872894 <marker: cache line size 64>
-           4           0:      872894 <marker: chunk instruction count 10000000>
-           5           0:      872894 <marker: page size 4096>
-           6           0:      872894 <marker: timestamp 13386385969186755>
-           7           0:      872894 <marker: tid 872894 on core 0>
-           8           1:      872894 ifetch       6 byte\(s\) @ 0x00007f87daf7ecc9 62 e1 fe 28 6f 06    vmovdqu64 \(%rsi\), %ymm16 \{%k0\}
-           9           1:      872894 read        32 byte\(s\) @ 0x00007f8590000d51 by PC 0x00007f87daf7ecc9
-          10           2:      872894 ifetch       4 byte\(s\) @ 0x00007f87daf7eccf 48 83 fa 40          cmp    %rdx, \$0x40
+           1           0:  W0.T872894 <marker: version 7>
+           2           0:  W0.T872894 <marker: filetype 0x10e40>
+           3           0:  W0.T872894 <marker: cache line size 64>
+           4           0:  W0.T872894 <marker: chunk instruction count 10000000>
+           5           0:  W0.T872894 <marker: page size 4096>
+           6           0:  W0.T872894 <marker: timestamp 13386385969186755>
+           7           0:  W0.T872894 <marker: W0.T872894 on core 0>
+           8           1:  W0.T872894 ifetch       6 byte\(s\) @ 0x00007f87daf7ecc9 62 e1 fe 28 6f 06    vmovdqu64 \(%rsi\), %ymm16 \{%k0\}
+           9           1:  W0.T872894 read        32 byte\(s\) @ 0x00007f8590000d51 by PC 0x00007f87daf7ecc9
+          10           2:  W0.T872894 ifetch       4 byte\(s\) @ 0x00007f87daf7eccf 48 83 fa 40          cmp    %rdx, \$0x40
 View tool results:
               2 : total instructions

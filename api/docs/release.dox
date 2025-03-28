@@ -132,12 +132,19 @@ changes:
  - Added new fields elf_path and elf_path_size to dr_memory_dump_spec_t. When
    dr_create_memory_dump() returns true and elf_path is not NULL, elf_path will be
    written with the path to the memory dump file.
+
+The changes between version \DR_VERSION and 11.3.0 include the following minor
+compatibility changes:
+
  - Added a separate cache replacement policy object to `caching_device_t`. `init` now
    takes an `std::unique_ptr<cache_replacement_policy_t>` that defines the replacement
    policy. It can be created manually or by using `create_cache_replacement_policy`.
    Removed the subclasses `cache_lru_t`, `cache_fifo_t`, `tlb_lfu_t`, `tlb_plru_t` that
    implemented specific cache replacement policies. Added implementations for the
    matching policies as subclasses of `cache_replacement_policy_t`.
+ - Added the workload to the top bits of the tid for multi-workload drmemtrace
+   scheduling.  The drmemtrace view tool now prints the workload and tid in
+   the form "Wn.Tmmm".
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`

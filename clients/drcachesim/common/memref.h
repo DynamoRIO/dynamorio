@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,8 +49,73 @@ namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure names
 
 // On some platforms, like MacOS, a thread id is 64 bits.
 // We just make both 64 bits to cover all our bases.
-typedef int64_t memref_pid_t; /**< Process id type. */
-typedef int64_t memref_tid_t; /**< Thread id type. */
+/**
+ * Process id type.  When multiple workloads are combined in one trace, a workload ordinal
+ * is added to the top (64-MEMREF_ID_WORKLOAD_SHIFT) bits; the workload_from_memref_pid()
+ * and pid_from_memref_pid() helpers can be used to separate the values if desired.
+ */
+typedef int64_t memref_pid_t;
+/**
+ * Thread id type.  When multiple workloads are combined in one trace, a workload ordinal
+ * is added to the top (64-MEMREF_ID_WORKLOAD_SHIFT) bits; the workload_from_memref_tid()
+ * and tid_from_memref_tid() helpers can be used to separate the values if desired.
+ */
+typedef int64_t memref_tid_t;
+
+/** Constants related to tid and pid fields. */
+enum {
+    /**
+     * When multiple workloads are combined in one trace, a workload ordinal is added to
+     * the top (64-MEMREF_ID_WORKLOAD_SHIFT) bits of the pid and tid fields of #memref_t.
+     * We use 48 to leave some room for >32-bit identifiers (Mac has a 64-bit tid type)
+     * while still leaving plenty of room for the workload ordinal.
+     */
+    MEMREF_ID_WORKLOAD_SHIFT = 48,
+};
+
+/**
+ * When multiple workloads are combined in one trace, a workload ordinal is added to the
+ * top (64-MEMREF_ID_WORKLOAD_SHIFT) bits of the #memref_t pid field.  This function
+ * extracts the workload ordinal.
+ */
+static inline int
+workload_from_memref_pid(memref_tid_t pid)
+{
+    return pid >> MEMREF_ID_WORKLOAD_SHIFT;
+}
+
+/**
+ * When multiple workloads are combined in one trace, a workload ordinal is added to the
+ * top (64-MEMREF_ID_WORKLOAD_SHIFT) bits of the #memref_t tid field.  This function
+ * extracts the workload ordinal.
+ */
+static inline int
+workload_from_memref_tid(memref_tid_t tid)
+{
+    return tid >> MEMREF_ID_WORKLOAD_SHIFT;
+}
+
+/**
+ * When multiple workloads are combined in one trace, a workload ordinal is added to the
+ * top (64-MEMREF_ID_WORKLOAD_SHIFT) bits of the #memref_t pid field.  This function
+ * extracts just the pid.
+ */
+static inline memref_pid_t
+pid_from_memref_pid(memref_pid_t pid)
+{
+    return pid & ((1ULL << MEMREF_ID_WORKLOAD_SHIFT) - 1);
+}
+
+/**
+ * When multiple workloads are combined in one trace, a workload ordinal is added to the
+ * top (64-MEMREF_ID_WORKLOAD_SHIFT) bits of the #memref_t tid field.  This function
+ * extracts just the tid.
+ */
+static inline memref_tid_t
+tid_from_memref_tid(memref_tid_t tid)
+{
+    return tid & ((1ULL << MEMREF_ID_WORKLOAD_SHIFT) - 1);
+}
 
 /** A trace entry representing a data load, store, or prefetch. */
 struct _memref_data_t {
