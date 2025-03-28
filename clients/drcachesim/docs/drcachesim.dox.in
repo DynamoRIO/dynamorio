@@ -1032,7 +1032,13 @@ compared to the original trace, instructions follow the
 #DR_ISA_REGDEPS synthetic ISA.
 
 #DR_ISA_REGDEPS has the purpose of preserving register dependencies and giving
-hints on the type of operation an instruction performs.
+hints on the type of operation an instruction performs.  For this reason, all operands
+that are not registers (e.g., memory and immediate operands) are not present.
+Memory operations of a #DR_ISA_REGDEPS #instr_t can be inferred from the subsequent
+#dynamorio::drmemtrace::TRACE_TYPE_READ and #dynamorio::drmemtrace::TRACE_TYPE_WRITE
+records.  Note that if a memory operand of the original ISA instruction uses a register,
+its corresponding virtual register will be present in the list of source register operands
+of the corresponding #DR_ISA_REGDEPS instruction.
 
 Being a synthetic ISA, some routines that work on instructions coming from an
 actual ISA (such as #DR_ISA_AMD64) are not supported (e.g., decode_sizeof()).
@@ -1080,7 +1086,7 @@ Note that all routines that operate on #instr_t and #opnd_t are also supported f
 of those described above will return the zeroed value set by instr_create() or
 instr_init() when the #instr_t was created.
 
-On top of instructions and memory acceses, traces also have
+On top of instructions and memory accesses, traces also have
 #dynamorio::drmemtrace::trace_marker_type_t markers.
 All markers of the original trace are present, except for:
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_IDX
@@ -1103,12 +1109,16 @@ Also, we preserved the following markers, but only for SYS_futex functions:
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETADDR
 
-Finally, every trace has a v2p.textproto file associated to it, which provides a
-plausible virtual to physical mapping of the virtual addresses present in a trace
-for more realistic TLB simulations.  This is a static virtual to physical mapping
-with 2 MB pages. Users can generate different mappings (e.g., smaller page size)
-by modifying this file, or create their own mapping following the same
-v2p.textproto format.
+Every trace has a v2p.textproto and an info.textproto file associated to it.
+
+The v2p.textproto file provides a plausible virtual to physical mapping of the virtual
+addresses present in a trace for more realistic TLB simulations.  This is a static
+virtual to physical mapping with 2 MB pages. Users can generate different mappings
+(e.g., smaller page size) by modifying this file, or create their own mapping following
+the same v2p.textproto format.
+
+The info.textproto file provides users with additional, human-readable information about
+a trace.  This file is not intended to be used with any DynamoRIO's tool.
 
 These traces are supported starting from DynamoRIO 11.3.
 
@@ -1122,6 +1132,7 @@ Directory structure:
 \verbatim
 workload_name/
   <uuid>.<tid>.memtrace.zip
+  info.textproto
   v2p.textproto
 \endverbatim
 
