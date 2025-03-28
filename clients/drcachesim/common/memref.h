@@ -67,6 +67,8 @@ enum {
     /**
      * When multiple workloads are combined in one trace, a workload ordinal is added to
      * the top (64-MEMREF_ID_WORKLOAD_SHIFT) bits of the pid and tid fields of #memref_t.
+     * We use 48 to leave some room for >32-bit identifiers (Mac has a 64-bit tid type)
+     * while still leaving plenty of room for the workload ordinal.
      */
     MEMREF_ID_WORKLOAD_SHIFT = 48,
 };
@@ -101,7 +103,7 @@ workload_from_memref_tid(memref_tid_t tid)
 static inline memref_pid_t
 pid_from_memref_pid(memref_pid_t pid)
 {
-    return pid & 0x0000ffffffffffff;
+    return pid & ((1ULL << MEMREF_ID_WORKLOAD_SHIFT) - 1);
 }
 
 /**
@@ -112,7 +114,7 @@ pid_from_memref_pid(memref_pid_t pid)
 static inline memref_tid_t
 tid_from_memref_tid(memref_tid_t tid)
 {
-    return tid & 0x0000ffffffffffff;
+    return tid & ((1ULL << MEMREF_ID_WORKLOAD_SHIFT) - 1);
 }
 
 /** A trace entry representing a data load, store, or prefetch. */

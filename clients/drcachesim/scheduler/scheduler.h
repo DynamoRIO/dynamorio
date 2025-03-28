@@ -1166,6 +1166,13 @@ public:
         /**
          * Returns the ordinal for the current
          * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
+         *
+         * For a core-sharded-on-disk trace (#OFFLINE_FILE_TYPE_CORE_SHARDED), which
+         * is already scheduled, get_workload_id() will not return the original
+         * separate inputs but rather the new inputs as seen by the scheduler which
+         * are a single workload with one input per core.  Use the modified #memref_t
+         * tid and pid fields with the helpers workload_from_memref_pid() and
+         * workload_from_memref_tid() to obtain the workload in this case.
          */
         int64_t
         get_workload_id() const override
