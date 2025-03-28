@@ -108,9 +108,8 @@ jobs:
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # ARM cross-compile with gcc, with some tests run under QEMU.
-  # We use a more recent Ubuntu for a more recent QEMU.
   arm-cross-compile:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
