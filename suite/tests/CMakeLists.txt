@@ -2266,7 +2266,7 @@ elseif (AARCHXX)
   torunonly(common.broadfun-stress common.broadfun common/broadfun.c
     "-stress_recreate_state" "")
   # Under QEMU this can take longer.
-  set(common/broadfun-stress_timeout 120)
+  set(common/broadfun-stress_timeout 240)
 endif ()
 
 if (X86)
