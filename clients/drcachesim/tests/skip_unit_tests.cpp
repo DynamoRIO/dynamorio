@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,24 +116,24 @@ test_skip_initial()
         std::stringstream res_stream(res);
         // Example output for -skip_instrs 49:
         //    Output format:
-        //    <--record#-> <--instr#->: <---tid---> <record details>
+        //    <--record#-> <--instr#->: <Wrkld.Tid> <record details>
         //    ------------------------------------------------------------
-        //              69          49:     3854659 <marker: timestamp 13312570674112282>
-        //              70          49:     3854659 <marker: tid 3854659 on core 3>
-        //              71          50:     3854659 ifetch    2 byte(s) @ 0x0000000401 ...
+        //              69          49: W0.T3854659 <marker: timestamp 13312570674112282>
+        //              70          49: W0.T3854659 <marker: W0.T3854659 on core 3>
+        //              71          50: W0.T3854659 ifetch    2 byte(s) @ 0x0000000401 ...
         //                                   d9                jnz    $0x000000000040100b
         std::string line;
         // First we expect "Output format:"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "Output format"), "missing header");
-        // Next we expect "<--record#-> <--instr#->: <---tid---> <record details>"
+        // Next we expect "<--record#-> <--instr#->: <Wrkld.Tid> <record details>"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "<--record#-> <--instr#->"), "missing 2nd header");
         // Next we expect "------------------------------------------------------------"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "------"), "missing divider line");
         // Next we expect the timestamp entry with the instruction count before
-        // a colon: "       69       49: T3854659 <marker: timestamp 13312570674112282>"
+        // a colon: "      69       49: W0.T3854659 <marker: timestamp 13312570674112282>"
         // We expect the count to equal the -skip_instrs value.
         std::getline(res_stream, line, '\n');
         std::stringstream expect_stream;

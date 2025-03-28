@@ -828,6 +828,10 @@ protected:
     void
     record_type_set_tid(RecordType &record, memref_tid_t tid);
 
+    // For trace_entry_t, only sets the pid for record types that have it.
+    void
+    record_type_set_pid(RecordType &record, memref_pid_t pid);
+
     // Returns whether the given record is an instruction.
     bool
     record_type_is_instr(RecordType record);

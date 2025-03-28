@@ -11,7 +11,7 @@ Adios world!
 .*
           43          20:   .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
           44          20:   .* <marker: timestamp .*>
-          45          20:   .* <marker: tid .* on core .*>
+          45          20:   .* <marker: .* on core .*>
           46          20:   .* <marker: system call 1>
           47          20:   .* <marker: maybe-blocking system call>
           48          20:   .* <marker: function==syscall #1>

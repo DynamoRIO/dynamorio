@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -749,7 +749,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     ++per_shard->input_entry_count;
     trace_entry_t entry = input_entry;
     bool output = true;
-    // XXX: Once we have multi-workload inputs we'll want all our PC keys to become
+    // XXX i#7404: Once we have multi-workload inputs we'll want all our PC keys to become
     // pairs <get_workload_ordinal(), PC>.
     if (per_shard->shard_stream->get_workload_id() != per_shard->prev_workload_id &&
         per_shard->shard_stream->get_workload_id() >= 0 &&

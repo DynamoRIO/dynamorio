@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -165,8 +165,9 @@ test_queries()
             // We have one thread for each of our NUM_INPUTS workloads.
             assert(shard->stream->get_output_cpuid() == shard->index);
             // We have just one thread per workload, so they're the same.
-            assert(shard->stream->get_workload_id() == memref.instr.tid - BASE_TID);
-            assert(shard->stream->get_input_id() == memref.instr.tid - BASE_TID);
+            memref_tid_t tid_only = memref.instr.tid & 0x00000000ffffffff;
+            assert(shard->stream->get_workload_id() == tid_only - BASE_TID);
+            assert(shard->stream->get_input_id() == tid_only - BASE_TID);
             return true;
         }
 

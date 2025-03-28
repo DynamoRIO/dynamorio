@@ -247,8 +247,8 @@ public:
     /**
      * Returns a unique identifier for the current workload.  This might be an ordinal
      * from the list of active workloads, or some other identifier.  This is guaranteed
-     * to be unique among all inputs, unlike the process and thread identifiers in
-     * #memref_t. If not implemented for the current mode, -1 is returned.
+     * to be unique among all inputs. If not implemented for the current mode, -1 is
+     * returned.
      */
     virtual int64_t
     get_workload_id() const
@@ -259,8 +259,8 @@ public:
     /**
      * Returns a unique identifier for the current input trace.  This might be an ordinal
      * from the list of active inputs, or some other identifier.  This is guaranteed to
-     * be unique among all inputs, unlike the process and thread identifiers in
-     * #memref_t.  If not implemented for the current mode, -1 is returned.
+     * be unique among all inputs.  If not implemented for the current mode, -1 is
+     * returned.
      */
     virtual int64_t
     get_input_id() const
