@@ -23,7 +23,7 @@ if (RISCV64 OR AARCH64 OR ANDROID OR MUSL)
   return()
 endif ()
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.16)
 
 include(${PROJECT_SOURCE_DIR}/make/policies.cmake NO_POLICY_SCOPE)
 
