@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -169,7 +169,7 @@ OPCODE(movntss, movntss, movntss, 0, MEMARG(OPSZ_4), REGARG_PARTIAL(XMM0, OPSZ_4
 OPCODE(movntsd, movntsd, movntsd, 0, MEMARG(OPSZ_8), REGARG_PARTIAL(XMM0, OPSZ_8))
 OPCODE(movntps, movntps, movntps, 0, MEMARG(OPSZ_16), REGARG(XMM0))
 OPCODE(movntpd, movntpd, movntpd, 0, MEMARG(OPSZ_16), REGARG(XMM0))
-OPCODE(movntdqa, movntdqa, movntdqa, 0, MEMARG(OPSZ_16), REGARG(XMM0))
+OPCODE(movntdqa, movntdqa, movntdqa, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(movntq, movntq, movntq, 0, MEMARG(OPSZ_8), REGARG(MM0))
 OPCODE(movntdq, movntdq, movntdq, 0, MEMARG(OPSZ_16), REGARG(XMM0))
 OPCODE(movnti, movnti, movnti, 0, MEMARG(OPSZ_4), REGARG(EAX))

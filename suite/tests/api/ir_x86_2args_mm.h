@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -135,7 +135,7 @@ OPCODE(vpmovsxwqm, vpmovsxwq, vpmovsxwq, 0, REGARG(XMM0), MEMARG(OPSZ_4))
 OPCODE(vpmovsxwqr, vpmovsxwq, vpmovsxwq, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4))
 OPCODE(vpmovsxdqm, vpmovsxdq, vpmovsxdq, 0, REGARG(XMM0), MEMARG(OPSZ_8))
 OPCODE(vpmovsxdqr, vpmovsxdq, vpmovsxdq, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8))
-OPCODE(vmovntdqa, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_16), REGARG(XMM0))
+OPCODE(vmovntdqa, vmovntdqa, vmovntdqa, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(vpmovzxbwm, vpmovzxbw, vpmovzxbw, 0, REGARG(XMM0), MEMARG(OPSZ_8))
 OPCODE(vpmovzxbwr, vpmovzxbw, vpmovzxbw, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8))
 OPCODE(vpmovzxbdm, vpmovzxbd, vpmovzxbd, 0, REGARG(XMM0), MEMARG(OPSZ_4))
@@ -218,7 +218,7 @@ OPCODE(vpmovsxwq_256r, vpmovsxwq, vpmovsxwq, 0, REGARG(YMM0),
 OPCODE(vpmovsxdq_256m, vpmovsxdq, vpmovsxdq, 0, REGARG(YMM0), MEMARG(OPSZ_16))
 OPCODE(vpmovsxdq_256r, vpmovsxdq, vpmovsxdq, 0, REGARG(YMM0),
        REGARG_PARTIAL(YMM1, OPSZ_16))
-OPCODE(vmovntdqa_256, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_32), REGARG(YMM0))
+OPCODE(vmovntdqa_256, vmovntdqa, vmovntdqa, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 OPCODE(vpmovzxbw_256m, vpmovzxbw, vpmovzxbw, 0, REGARG(YMM0), MEMARG(OPSZ_16))
 OPCODE(vpmovzxbw_256r, vpmovzxbw, vpmovzxbw, 0, REGARG(YMM0),
        REGARG_PARTIAL(YMM1, OPSZ_16))
