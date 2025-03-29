@@ -1075,6 +1075,12 @@ typedef enum {
     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY = 0x8000,
     /**
      * Each trace shard represents one core and contains interleaved software threads.
+     * Such a trace is already scheduled, so it is run through the scheduler in a
+     * non-scheduled mode where interfaces such as get_workload_id() will not return the
+     * original separate inputs but rather the new inputs as seen by the scheduler which
+     * are a single workload with one input per core.  Use the modified #memref_t tid and
+     * pid fields with the helpers workload_from_memref_pid() and
+     * workload_from_memref_tid() to obtain the workload in this case.
      */
     OFFLINE_FILE_TYPE_CORE_SHARDED = 0x10000,
     /**

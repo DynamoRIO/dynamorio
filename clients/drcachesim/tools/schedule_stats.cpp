@@ -361,8 +361,10 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     // We use <workload,tid> to detect switches (instead of input_id) to handle
     // core-sharded-on-disk.  However, we still prefer the input_id ordinal
     // for the letters.
-    int64_t workload_id = shard->stream->get_workload_id();
     int64_t tid = shard->stream->get_tid();
+    int64_t workload_id = TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype)
+        ? workload_from_memref_tid(tid)
+        : shard->stream->get_workload_id();
     int64_t letter_ord =
         (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) || input_id < 0)
         ? tid
@@ -473,7 +475,7 @@ schedule_stats_t::print_counters(const counters_t &counters)
         std::cerr << ": ";
         auto it = counters.threads.begin();
         while (it != counters.threads.end()) {
-            std::cerr << "W" << it->workload_id << ".T" << it->tid;
+            std::cerr << "W" << it->workload_id << ".T" << tid_from_memref_tid(it->tid);
             ++it;
             if (it != counters.threads.end())
                 std::cerr << ", ";

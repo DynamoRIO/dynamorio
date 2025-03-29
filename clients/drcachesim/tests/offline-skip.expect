@@ -1,16 +1,16 @@
 Output format:
-<--record#-> <--instr#->: <---tid---> <record details>
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
-         114          62:     1992554 <marker: timestamp 13352268558646596>
-         114          62:     1992554 <marker: tid 1992554 on core 10>
-         115          63:     1992554 ifetch       2 byte(s) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
-         116          63:     1992554 <marker: timestamp 13352268558646600>
-         117          63:     1992554 <marker: tid 1992554 on core 10>
-         118          63:     1992554 <marker: system call 1>
-         119          63:     1992554 <marker: maybe-blocking system call>
-         120          63:     1992554 <marker: timestamp 13352268558646604>
-         121          63:     1992554 <marker: tid 1992554 on core 10>
-         122          64:     1992554 ifetch       4 byte(s) @ 0x0000000000401028 48 83 eb 01          sub    $0x0000000000000001 %rbx -> %rbx
+         114          62: W0.T1992554 <marker: timestamp 13352268558646596>
+         114          62: W0.T1992554 <marker: W0.T1992554 on core 10>
+         115          63: W0.T1992554 ifetch       2 byte(s) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+         116          63: W0.T1992554 <marker: timestamp 13352268558646600>
+         117          63: W0.T1992554 <marker: W0.T1992554 on core 10>
+         118          63: W0.T1992554 <marker: system call 1>
+         119          63: W0.T1992554 <marker: maybe-blocking system call>
+         120          63: W0.T1992554 <marker: timestamp 13352268558646604>
+         121          63: W0.T1992554 <marker: W0.T1992554 on core 10>
+         122          64: W0.T1992554 ifetch       4 byte(s) @ 0x0000000000401028 48 83 eb 01          sub    $0x0000000000000001 %rbx -> %rbx
 View tool results:
               2 : total instructions
 
