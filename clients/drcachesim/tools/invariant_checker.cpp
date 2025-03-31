@@ -1027,7 +1027,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (shard->signal_stack_.empty()) {
                 // This can happen if tracing started in the middle of a signal.
                 // Try to continue by skipping the checks.
-                shard->last_signal_context_ = { 0, {}, false };
+                shard->last_signal_context_ = { 0, {} };
                 // We have not seen any instr in the outermost scope that we just
                 // discovered.
                 shard->last_instr_in_cur_context_ = {};
@@ -1071,9 +1071,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     report_if_false(shard, discontinuity.empty(),
                                     discontinuity + error_msg_suffix);
                 }
-                shard->signal_stack_.push({ memref.marker.marker_value,
-                                            shard->last_instr_in_cur_context_,
-                                            shard->saw_rseq_abort_ });
+                shard->signal_stack_.push(
+                    { memref.marker.marker_value, shard->last_instr_in_cur_context_ });
                 // XXX: if last_instr_in_cur_context_ is {} currently, it means this is
                 // either a signal that arrived before the first instr in the trace, or
                 // it's a nested signal without any intervening instr after its
