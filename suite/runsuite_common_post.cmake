@@ -32,7 +32,7 @@
 # Test suite post-processing
 # See instructions in runsuite_common_pre.cmake
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.14)
 
 # Caller should set build_package boolean and should
 # have included runsuite_common_pre.cmake which sets
