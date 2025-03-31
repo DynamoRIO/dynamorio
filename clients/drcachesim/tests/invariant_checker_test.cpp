@@ -3067,7 +3067,8 @@ check_kernel_syscall_trace(void)
 #    elif defined(AARCHXX)
     instr_t *sys =
         INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-    instr_t *sysret = INSTR_CREATE_eret(GLOBAL_DCONTEXT);
+    // Use a different instruction because INSTR_CREATE_eret isn't available.
+    instr_t *sysret = XINST_CREATE_return(GLOBAL_DCONTEXT);
 #    elif defined(RISCV64)
     instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
     instr_t *sysret = INSTR_CREATE_eret(GLOBAL_DCONTEXT);
