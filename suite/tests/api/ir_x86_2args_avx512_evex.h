@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -109,12 +109,12 @@ OPCODE(vmovntdq_mylo, vmovntdq, vmovntdq, 0, MEMARG(OPSZ_32), REGARG(YMM0))
 OPCODE(vmovntdq_myhi, vmovntdq, vmovntdq, X64_ONLY, MEMARG(OPSZ_32), REGARG(YMM16))
 OPCODE(vmovntdq_mzlo, vmovntdq, vmovntdq, 0, MEMARG(OPSZ_64), REGARG(ZMM0))
 OPCODE(vmovntdq_mzhi, vmovntdq, vmovntdq, X64_ONLY, MEMARG(OPSZ_64), REGARG(ZMM16))
-OPCODE(vmovntdqa_mxlo, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_16), REGARG(XMM0))
-OPCODE(vmovntdqa_mxhi, vmovntdqa, vmovntdqa, X64_ONLY, MEMARG(OPSZ_16), REGARG(XMM16))
-OPCODE(vmovntdqa_mylo, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_32), REGARG(YMM0))
-OPCODE(vmovntdqa_myhi, vmovntdqa, vmovntdqa, X64_ONLY, MEMARG(OPSZ_32), REGARG(YMM16))
-OPCODE(vmovntdqa_mzlo, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_64), REGARG(ZMM0))
-OPCODE(vmovntdqa_mzhi, vmovntdqa, vmovntdqa, X64_ONLY, MEMARG(OPSZ_64), REGARG(ZMM16))
+OPCODE(vmovntdqa_mxlo, vmovntdqa, vmovntdqa, 0, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(vmovntdqa_mxhi, vmovntdqa, vmovntdqa, X64_ONLY, REGARG(XMM16), MEMARG(OPSZ_16))
+OPCODE(vmovntdqa_mylo, vmovntdqa, vmovntdqa, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vmovntdqa_myhi, vmovntdqa, vmovntdqa, X64_ONLY, REGARG(YMM16), MEMARG(OPSZ_32))
+OPCODE(vmovntdqa_mzlo, vmovntdqa, vmovntdqa, 0, REGARG(ZMM0), MEMARG(OPSZ_64))
+OPCODE(vmovntdqa_mzhi, vmovntdqa, vmovntdqa, X64_ONLY, REGARG(ZMM16), MEMARG(OPSZ_64))
 OPCODE(vcvtss2usi_r32m, vcvtss2usi, vcvtss2usi, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(vcvtss2usi_r64m, vcvtss2usi, vcvtss2usi, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_4))
 OPCODE(vcvtss2usi_r32xlo, vcvtss2usi, vcvtss2usi, 0, REGARG(EAX),
