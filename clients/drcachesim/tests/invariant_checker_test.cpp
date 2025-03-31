@@ -3063,15 +3063,15 @@ check_kernel_syscall_trace(void)
     // and it turns out there is no simple cross-platform way.
 #    ifdef X86
     instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
-    instr_t *sysret = INSTR_CREATE_sysret(GLOBAL_DCONTEXT);
+    instr_t *sysend = INSTR_CREATE_sysret(GLOBAL_DCONTEXT);
 #    elif defined(AARCHXX)
     instr_t *sys =
         INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
     // Use a different instruction because INSTR_CREATE_eret isn't available.
-    instr_t *sysret = XINST_CREATE_return(GLOBAL_DCONTEXT);
+    instr_t *sysend = XINST_CREATE_return(GLOBAL_DCONTEXT);
 #    elif defined(RISCV64)
     instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
-    instr_t *sysret = INSTR_CREATE_eret(GLOBAL_DCONTEXT);
+    instr_t *sysend = INSTR_CREATE_eret(GLOBAL_DCONTEXT);
 #    else
 #        error Unsupported architecture.
 #    endif
@@ -3079,7 +3079,7 @@ check_kernel_syscall_trace(void)
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *move2 =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG2), opnd_create_reg(REG1));
-    instr_t *sysret_fallthrough =
+    instr_t *sysend_fallthrough =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG2), opnd_create_reg(REG2));
     instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
                                       OPND_CREATE_MEMPTR(REG1, /*disp=*/0));
@@ -3088,8 +3088,8 @@ check_kernel_syscall_trace(void)
     instrlist_append(ilist, move);
     instrlist_append(ilist, load);
     instrlist_append(ilist, move2);
-    instrlist_append(ilist, sysret);
-    instrlist_append(ilist, sysret_fallthrough);
+    instrlist_append(ilist, sysend);
+    instrlist_append(ilist, sysend_fallthrough);
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr uintptr_t FILE_TYPE = OFFLINE_FILE_TYPE_ENCODINGS |
         OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY;
@@ -3124,7 +3124,7 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move2 },
-            { gen_instr(TID_A), sysret },
+            { gen_instr(TID_A), sysend },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             // The value of the kernel_event marker is set to the move instruction which
             // is the next instruction in the outer-most trace context (the context
@@ -3132,15 +3132,15 @@ check_kernel_syscall_trace(void)
             // The above syscall should be recognized as a different trace context by
             // the invariant checker, so that move (which is the next instruction after
             // sys) is recognized as the expected signal continuation point, instead of
-            // sysret_fallthrough (which is the next instruction after the last actual
-            // sysret instruction seen).
+            // sysend_fallthrough (which is the next instruction after the last actual
+            // sysend instruction seen).
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED), move },
             // To simplify test setup, we reuse the instrs from the syscall for the
             // signal.
             { gen_instr(TID_A), move2 },
-            { gen_instr(TID_A), sysret },
+            { gen_instr(TID_A), sysend },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED),
-              sysret_fallthrough },
+              sysend_fallthrough },
             { gen_instr(TID_A), move },
             { gen_exit(TID_A), nullptr }
         };
@@ -3159,18 +3159,18 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move2 },
-            { gen_instr(TID_A), sysret },
+            { gen_instr(TID_A), sysend },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             // The value of the kernel_event marker is incorrectly set to the
-            // sysret_fallthrough instruction.
+            // sysend_fallthrough instruction.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED),
-              sysret_fallthrough },
+              sysend_fallthrough },
             // To simplify test setup, we reuse the instrs from the syscall for the
             // signal.
             { gen_instr(TID_A), move2 },
-            { gen_instr(TID_A), sysret },
+            { gen_instr(TID_A), sysend },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED),
-              sysret_fallthrough },
+              sysend_fallthrough },
             { gen_exit(TID_A), nullptr }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
