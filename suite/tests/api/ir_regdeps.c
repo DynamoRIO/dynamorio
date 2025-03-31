@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -216,7 +216,7 @@ test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    const char *expected_disasm_str_xchg = " 00000022 020a0204 uncategorized [4byte]     "
+    const char *expected_disasm_str_xchg = " 00010022 020a0204 move [4byte]     "
                                            "  %rv0 %rv8 -> %rv0 %rv8\n 0000000a\n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_xchg);
 
