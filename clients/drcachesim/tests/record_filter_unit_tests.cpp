@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -306,7 +306,7 @@ test_encodings2regdeps_filter()
     constexpr addr_t ENCODING_REAL_ISA_2_PART2 = 0x0;
     constexpr addr_t ENCODING_REAL_ISA_3 = 0xab48f3;
     constexpr addr_t ENCODING_REGDEPS_ISA = 0x0006090600010011;
-    constexpr addr_t ENCODING_REGDEPS_ISA_2 = 0x0000020400004010;
+    constexpr addr_t ENCODING_REGDEPS_ISA_2 = 0x0000020400080010;
     constexpr addr_t ENCODING_REGDEPS_ISA_3_PART1 = 0x0209030600001042;
     constexpr addr_t ENCODING_REGDEPS_ISA_3_PART2 = 0x0000000000220903;
     std::vector<test_case_t> entries = {
