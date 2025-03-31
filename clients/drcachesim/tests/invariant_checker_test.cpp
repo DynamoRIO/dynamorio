@@ -3063,28 +3063,39 @@ check_kernel_syscall_trace(void)
     // and it turns out there is no simple cross-platform way.
 #    ifdef X86
     instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
+    instr_t *sysret = INSTR_CREATE_sysret(GLOBAL_DCONTEXT);
 #    elif defined(AARCHXX)
     instr_t *sys =
         INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+    instr_t *sysret = INSTR_CREATE_eret(GLOBAL_DCONTEXT);
 #    elif defined(RISCV64)
     instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
+    instr_t *sysret = INSTR_CREATE_eret(GLOBAL_DCONTEXT);
 #    else
 #        error Unsupported architecture.
 #    endif
     instr_t *move =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move2 =
+        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instr_t *sysret_fallthrough =
+        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG2), opnd_create_reg(REG2));
     instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
                                       OPND_CREATE_MEMPTR(REG1, /*disp=*/0));
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, sys);
     instrlist_append(ilist, move);
     instrlist_append(ilist, load);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, sysret);
+    instrlist_append(ilist, sysret_fallthrough);
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr uintptr_t FILE_TYPE = OFFLINE_FILE_TYPE_ENCODINGS |
         OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY;
     static constexpr uintptr_t FILE_TYPE_FULL_SYSCALL_TRACE =
         OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
         OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
+    static constexpr int WILL_BE_REPLACED = 0;
     bool res = true;
     {
         std::vector<memref_with_IR_t> memref_setup = {
@@ -3100,6 +3111,76 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, false))
+            res = false;
+    }
+    // With a signal immediately following syscall trace.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move2 },
+            { gen_instr(TID_A), sysret },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // The value of the kernel_event marker is set to the move instruction which
+            // is the next instruction in the outer-most trace context (the context
+            // outside the syscall and signal trace).
+            // The above syscall should be recognized as a different trace context by
+            // the invariant checker, so that move (which is the next instruction after
+            // sys) is recognized as the expected signal continuation point, instead of
+            // sysret_fallthrough (which is the next instruction after the last actual
+            // sysret instruction seen).
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED), move },
+            // To simplify test setup, we reuse the instrs from the syscall for the
+            // signal.
+            { gen_instr(TID_A), move2 },
+            { gen_instr(TID_A), sysret },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED),
+              sysret_fallthrough },
+            { gen_instr(TID_A), move },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    // With a signal immediately following syscall trace but a wrong kernel_event
+    // marker value.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move2 },
+            { gen_instr(TID_A), sysret },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // The value of the kernel_event marker is incorrectly set to the
+            // sysret_fallthrough instruction.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED),
+              sysret_fallthrough },
+            // To simplify test setup, we reuse the instrs from the syscall for the
+            // signal.
+            { gen_instr(TID_A), move2 },
+            { gen_instr(TID_A), sysret },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED),
+              sysret_fallthrough },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(
+                memrefs, true,
+                { "Non-explicit control flow has no marker @ kernel_event marker",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/10, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/3 },
+                "Failed to catch incorrect kernel_event marker value after syscall "
+                "trace"))
             res = false;
     }
     {

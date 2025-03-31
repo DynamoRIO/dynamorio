@@ -173,13 +173,13 @@ protected:
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
         instr_info_t prev_instr_;
 #ifdef UNIX
-        // We keep track of some state per nested signal depth.
-        struct signal_context {
+        // We keep track of some state per nested signal depth, or per syscall.
+        struct trace_context_t {
             addr_t xfer_int_pc;
-            instr_info_t pre_signal_instr;
+            instr_info_t pre_trace_instr;
         };
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
-        std::stack<signal_context> signal_stack_;
+        std::stack<trace_context_t> trace_context_stack_;
 
         // When we see a TRACE_MARKER_TYPE_KERNEL_XFER we pop the top entry from
         // the above stack into the following. This is required because some of
@@ -188,7 +188,7 @@ protected:
         // The defaults are set to skip various signal-related checks in case we
         // see a signal-return before a signal-start (which happens when the trace
         // starts inside the app signal handler).
-        signal_context last_signal_context_ = { 0, {} };
+        trace_context_t last_trace_context_ = { 0, {} };
 
         // For the outer-most scope, like other nested signal scopes, we start with an
         // empty memref_t to denote absence of any pre-signal instr.
