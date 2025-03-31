@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,18 +48,25 @@ using ::dynamorio::droption::droption_t;
 // XXX i#4021: -syntax option not yet supported on ARM.
 #ifdef X86
 #    ifdef X86_64
-droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
-                                "Decodes using the specified mode: 'x64' or 'x86'.",
-                                "Decodes using the specified mode: 'x64' or 'x86'.");
+droption_t<std::string>
+    op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
+            "Decodes using the specified mode: 'x64', 'x86', or 'regdeps'.",
+            "Decodes using the specified mode: 'x64', 'x86', or 'regdeps'.");
 #    endif
-droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "intel",
+droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "",
                                   "Uses the specified syntax: 'intel', 'att' or 'dr'.",
-                                  "Uses the specified syntax: 'intel', 'att' or 'dr'.");
+                                  "Uses the specified syntax: 'intel', 'att' or 'dr'.  "
+                                  "Defaults to 'intel' for 'x64' or 'x86' modes.");
 #elif defined(ARM)
-droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
-                                "Decodes using the specified mode: 'arm' or 'thumb'.",
-                                "Decodes using the specified mode: 'arm' or 'thumb'.");
+droption_t<std::string>
+    op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
+            "Decodes using the specified mode: 'arm', 'thumb', or 'regdeps'.",
+            "Decodes using the specified mode: 'arm', 'thumb', or 'regdeps'.");
 #elif defined(AARCH64)
+droption_t<std::string>
+    op_mode(DROPTION_SCOPE_FRONTEND, "mode", "aarch64",
+            "Decodes using the specified mode: 'aarch64' or 'regdeps'.",
+            "Decodes using the specified mode: 'aarch64' or 'regdeps'.");
 droption_t<unsigned int>
     op_vl(DROPTION_SCOPE_FRONTEND, "vl", 128,
           "Sets the SVE vector length to one of: 128 256 384 512 640 768 896 1024 "
@@ -67,10 +74,16 @@ droption_t<unsigned int>
           "Sets the SVE vector length to one of: 128 256 384 512 640 768 896 1024 "
           "1152 1280 1408 1536 1664 1792 1920 2048.");
 #elif defined(RISCV64)
+droption_t<std::string>
+    op_mode(DROPTION_SCOPE_FRONTEND, "mode", "riscv64",
+            "Decodes using the specified mode: 'riscv64' or 'regdeps'.",
+            "Decodes using the specified mode: 'riscv64' or 'regdeps'.");
 droption_t<unsigned int>
     op_vl(DROPTION_SCOPE_FRONTEND, "vl", 128,
           "Sets the RVV vector length from 64 to 65536 in the power of 2.",
           "Sets the RVV vector length from 64 to 65536 in the power of 2.");
+#else
+#    error Unsupported ISA.
 #endif
 
 droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
@@ -125,22 +138,45 @@ main(int argc, const char *argv[])
 
     void *dcontext = GLOBAL_DCONTEXT;
 
-#if defined(X86_64) || defined(ARM)
+#ifdef X86
+    dr_disasm_flags_t syntax = DR_DISASM_DR;
+#endif
+
     // Set the ISA mode if supplied.
     if (!op_mode.get_value().empty()) {
-#    ifdef X86_64
+#ifdef X86_64
         dr_isa_mode_t mode = DR_ISA_AMD64;
-        if (op_mode.get_value() == "x86")
+        if (op_mode.get_value() == "x86") {
             mode = DR_ISA_IA32;
-        else if (op_mode.get_value() == "x64")
+            syntax = DR_DISASM_INTEL;
+        } else if (op_mode.get_value() == "x64") {
             mode = DR_ISA_AMD64;
-#    elif defined(ARM)
+            syntax = DR_DISASM_INTEL;
+        } else if (op_mode.get_value() == "regdeps")
+            mode = DR_ISA_REGDEPS;
+#elif defined(ARM)
         dr_isa_mode_t mode = DR_ISA_ARM_A32;
         if (op_mode.get_value() == "arm")
             mode = DR_ISA_ARM_A32;
         else if (op_mode.get_value() == "thumb")
             mode = DR_ISA_ARM_THUMB;
-#    endif
+        else if (op_mode.get_value() == "regdeps")
+            mode = DR_ISA_REGDEPS;
+#elif defined(AARCH64)
+        dr_isa_mode_t mode = DR_ISA_ARM_A64;
+        if (op_mode.get_value() == "aarch64")
+            mode = DR_ISA_ARM_A64;
+        else if (op_mode.get_value() == "regdeps")
+            mode = DR_ISA_REGDEPS;
+#elif defined(AARCH64)
+        dr_isa_mode_t mode = DR_ISA_RV64;
+        if (op_mode.get_value() == "aarch64")
+            mode = DR_ISA_ARM_A64;
+        else if (op_mode.get_value() == "regdeps")
+            mode = DR_ISA_REGDEPS;
+#else
+#    error Unsupported ISA
+#endif
         else {
             std::cerr << "Unknown mode '" << op_mode.get_value() << "'\n";
             return 1;
@@ -150,6 +186,10 @@ main(int argc, const char *argv[])
             return 1;
         }
     }
+#ifdef X86
+    else {
+        syntax = DR_DISASM_INTEL;
+    }
 #endif
 
 #if defined(AARCH64) || defined(RISCV64)
@@ -158,7 +198,6 @@ main(int argc, const char *argv[])
 
     // XXX i#4021: arm not yet supported.
 #ifdef X86
-    dr_disasm_flags_t syntax = DR_DISASM_DR;
     // Set the syntax if supplied.
     if (!op_syntax.get_value().empty()) {
         if (op_syntax.get_value() == "intel")
@@ -171,8 +210,8 @@ main(int argc, const char *argv[])
             std::cerr << "Unknown syntax '" << op_syntax.get_value() << "'\n";
             return 1;
         }
-        disassemble_set_syntax(syntax);
     }
+    disassemble_set_syntax(syntax);
 #endif
 
 #ifdef RISCV64
