@@ -2955,6 +2955,7 @@ check_exit_found(void)
 bool
 check_kernel_trace(bool for_syscall)
 {
+#ifdef UNIX
     trace_marker_type_t start_marker;
     trace_marker_type_t end_marker;
     uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
@@ -2994,7 +2995,32 @@ check_kernel_trace(bool for_syscall)
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Extra kernel_xfer in the kernel trace.
+    // Extra signal kernel_event in the kernel trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            gen_marker(TID_A, start_marker, 1),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
+            gen_instr(TID_A, /*pc=*/101),
+            gen_marker(TID_A, end_marker, 1),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { test_type + " trace has extra kernel_event marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/10, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch extra kernel_event marker in " + test_type +
+                             " trace"))
+            return false;
+    }
+    // Extra signal kernel_xfer in the kernel trace.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
@@ -3079,6 +3105,7 @@ check_kernel_trace(bool for_syscall)
                     " trace"))
             return false;
     }
+#endif
     return true;
 }
 
