@@ -26,37 +26,39 @@
 #include "drsyscall.h"
 #include <string.h>
 #ifdef WINDOWS
-# include <windows.h>
-# define IF_WINDOWS_ELSE(x,y) x
+#    include <windows.h>
+#    define IF_WINDOWS_ELSE(x, y) x
 #else
-# define IF_WINDOWS_ELSE(x,y) y
-# include <sys/types.h>
-# include <sys/socket.h>
+#    define IF_WINDOWS_ELSE(x, y) y
+#    include <sys/types.h>
+#    include <sys/socket.h>
 #endif
 
 #define TEST(mask, var) (((mask) & (var)) != 0)
 
 #undef ASSERT /* we don't want msgbox */
-#define ASSERT(cond, msg) \
-    ((void)((!(cond)) ? \
-     (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", \
-                 __FILE__,  __LINE__, #cond, msg), \
-      dr_abort(), 0) : 0))
+#define ASSERT(cond, msg)                                                               \
+    ((void)((!(cond)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
+                                    __LINE__, #cond, msg),                              \
+                         dr_abort(), 0)                                                 \
+                      : 0))
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
+#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 #ifdef WINDOWS
 /* TODO i#2279: Make it easier for clients to auto-generate! */
-# define SYSNUM_FILE IF_X64_ELSE("syscalls_x64.txt", "syscalls_x86.txt")
-# define SYSNUM_FILE_WOW64 "syscalls_wow64.txt"
+#    define SYSNUM_FILE IF_X64_ELSE("syscalls_x64.txt", "syscalls_x86.txt")
+#    define SYSNUM_FILE_WOW64 "syscalls_wow64.txt"
 #endif
 
 static bool verbose;
 #ifdef WINDOWS
-static dr_os_version_info_t os_version = {sizeof(os_version),};
+static dr_os_version_info_t os_version = {
+    sizeof(os_version),
+};
 #endif
 
 static void
@@ -68,17 +70,17 @@ check_mcontext(void *drcontext)
     if (drsys_get_mcontext(drcontext, &mc) != DRMF_SUCCESS)
         ASSERT(false, "drsys_get_mcontext failed");
     mc_DR.size = sizeof(mc_DR);
-    mc_DR.flags = DR_MC_INTEGER|DR_MC_CONTROL;
+    mc_DR.flags = DR_MC_INTEGER | DR_MC_CONTROL;
     dr_get_mcontext(drcontext, &mc_DR);
     /* i#2016 aarch64: TODO: add more asserts for aarch64? */
-    ASSERT(mc->IF_AARCHXX_ELSE(r7,xdi) == mc_DR.IF_AARCHXX_ELSE(r7,xdi), "mc check");
-    ASSERT(mc->IF_AARCHXX_ELSE(r6,xsi) == mc_DR.IF_AARCHXX_ELSE(r6,xsi), "mc check");
-    ASSERT(mc->IF_AARCHXX_ELSE(r5,xbp) == mc_DR.IF_AARCHXX_ELSE(r5,xbp), "mc check");
-    ASSERT(mc->IF_AARCHXX_ELSE(r4,xsp) == mc_DR.IF_AARCHXX_ELSE(r4,xsp), "mc check");
-    ASSERT(mc->IF_AARCHXX_ELSE(r3,xbx) == mc_DR.IF_AARCHXX_ELSE(r3,xbx), "mc check");
-    ASSERT(mc->IF_AARCHXX_ELSE(r2,xdx) == mc_DR.IF_AARCHXX_ELSE(r2,xdx), "mc check");
-    ASSERT(mc->IF_AARCHXX_ELSE(r1,xcx) == mc_DR.IF_AARCHXX_ELSE(r1,xcx), "mc check");
-    ASSERT(mc->IF_AARCHXX_ELSE(r0,xax) == mc_DR.IF_AARCHXX_ELSE(r0,xax), "mc check");
+    ASSERT(mc->IF_AARCHXX_ELSE(r7, xdi) == mc_DR.IF_AARCHXX_ELSE(r7, xdi), "mc check");
+    ASSERT(mc->IF_AARCHXX_ELSE(r6, xsi) == mc_DR.IF_AARCHXX_ELSE(r6, xsi), "mc check");
+    ASSERT(mc->IF_AARCHXX_ELSE(r5, xbp) == mc_DR.IF_AARCHXX_ELSE(r5, xbp), "mc check");
+    ASSERT(mc->IF_AARCHXX_ELSE(r4, xsp) == mc_DR.IF_AARCHXX_ELSE(r4, xsp), "mc check");
+    ASSERT(mc->IF_AARCHXX_ELSE(r3, xbx) == mc_DR.IF_AARCHXX_ELSE(r3, xbx), "mc check");
+    ASSERT(mc->IF_AARCHXX_ELSE(r2, xdx) == mc_DR.IF_AARCHXX_ELSE(r2, xdx), "mc check");
+    ASSERT(mc->IF_AARCHXX_ELSE(r1, xcx) == mc_DR.IF_AARCHXX_ELSE(r1, xcx), "mc check");
+    ASSERT(mc->IF_AARCHXX_ELSE(r0, xax) == mc_DR.IF_AARCHXX_ELSE(r0, xax), "mc check");
     ASSERT(mc->xflags == mc_DR.xflags, "mc check");
 }
 
@@ -93,7 +95,7 @@ drsys_iter_memarg_cb(drsys_arg_t *arg, void *user_data)
     /* the app deliberately trips i#1119 w/ a too-small sockaddr */
     if (arg->type == DRSYS_TYPE_SOCKADDR && !arg->pre) {
         static bool first = true;
-        ASSERT(!first || arg->size == sizeof(struct sockaddr)/2, "i#1119 test");
+        ASSERT(!first || arg->size == sizeof(struct sockaddr) / 2, "i#1119 test");
         first = false;
     }
 #endif
@@ -125,13 +127,13 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
 
     if (arg->reg == DR_REG_NULL && !TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT((byte *)arg->start_addr >= (byte *)arg->mc->xsp &&
-               (byte *)arg->start_addr < (byte *)arg->mc->xsp + PAGE_SIZE,
+                   (byte *)arg->start_addr < (byte *)arg->mc->xsp + dr_page_size(),
                "mem args should be on stack");
     }
 
     if (TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT(arg->pre ||
-               arg->value == dr_syscall_get_result(dr_get_current_drcontext()),
+                   arg->value == dr_syscall_get_result(dr_get_current_drcontext()),
                "return val wrong");
     } else {
         if (drsys_pre_syscall_arg(arg->drcontext, arg->ordinal, &val) != DRMF_SUCCESS)
@@ -215,8 +217,8 @@ event_post_syscall(void *drcontext, int sysnum)
     if (drsys_iterate_args(drcontext, drsys_iter_arg_cb, NULL) != DRMF_SUCCESS)
         ASSERT(false, "drsys_iterate_args failed");
 
-    if (drsys_cur_syscall_result(drcontext, &success, NULL, NULL) !=
-        DRMF_SUCCESS || !success) {
+    if (drsys_cur_syscall_result(drcontext, &success, NULL, NULL) != DRMF_SUCCESS ||
+        !success) {
         /* With the new early injector on Linux, we see access, open, + stat64 fail,
          * And on Win10, several syscalls fail.
          */
@@ -236,7 +238,7 @@ static void
 test_static_queries(void)
 {
     drsys_syscall_t *syscall;
-    drsys_sysnum_t num = {4,4};
+    drsys_sysnum_t num = { 4, 4 };
     drmf_status_t res;
     bool known;
     drsys_syscall_type_t type;
@@ -314,10 +316,11 @@ test_static_queries(void)
     if (drsys_number_to_syscall(num, &syscall) != DRMF_SUCCESS)
         ASSERT(false, "drsys_number_to_syscall failed");
     res = drsys_syscall_name(syscall, &name);
-    ASSERT(res == DRMF_SUCCESS &&
-           ((secondary_zero && strcmp(name, "NtUserCallNoParam.CREATEMENU") == 0) ||
-            (!secondary_zero && strcmp(name, "NtUserCallNoParam.DESTROY_CARET") == 0)),
-           "drsys_syscall_name failed");
+    ASSERT(
+        res == DRMF_SUCCESS &&
+            ((secondary_zero && strcmp(name, "NtUserCallNoParam.CREATEMENU") == 0) ||
+             (!secondary_zero && strcmp(name, "NtUserCallNoParam.DESTROY_CARET") == 0)),
+        "drsys_syscall_name failed");
 #endif
 }
 
@@ -343,8 +346,7 @@ static_iter_cb(drsys_sysnum_t num, drsys_syscall_t *syscall, void *user_data)
                    name);
     }
 
-    if (drsys_iterate_arg_types(syscall, static_iter_arg_cb, NULL) !=
-        DRMF_SUCCESS)
+    if (drsys_iterate_arg_types(syscall, static_iter_arg_cb, NULL) != DRMF_SUCCESS)
         ASSERT(false, "drsys_iterate_arg_types failed");
     return true; /* keep going */
 }
@@ -372,13 +374,16 @@ exit_event(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drsys_options_t ops = { sizeof(ops), 0, };
+    drsys_options_t ops = {
+        sizeof(ops),
+        0,
+    };
 #ifdef WINDOWS
     if (argc > 1) {
         /* Takes an optional argument pointing at the base dir for a sysnum file. */
         char sysnum_path[MAXIMUM_PATH];
-        dr_snprintf(sysnum_path, BUFFER_SIZE_ELEMENTS(sysnum_path),
-                    "%s\\%s", argv[1], SYSNUM_FILE);
+        dr_snprintf(sysnum_path, BUFFER_SIZE_ELEMENTS(sysnum_path), "%s\\%s", argv[1],
+                    SYSNUM_FILE);
         NULL_TERMINATE_BUFFER(sysnum_path);
         ops.sysnum_file = sysnum_path;
     }

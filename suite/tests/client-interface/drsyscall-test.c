@@ -24,21 +24,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef UNIX
-# include <sys/types.h>
-# include <sys/stat.h>
-# include <fcntl.h>
-# include <unistd.h>
-# include <sys/socket.h>
-# ifdef MACOS
-#  include <netinet/in.h>
-#  include <sys/un.h>
-# else
-#  include <linux/in.h>
-#  include <linux/un.h>
-#  include <linux/in6.h>
-# endif
+#    include <sys/types.h>
+#    include <sys/stat.h>
+#    include <fcntl.h>
+#    include <unistd.h>
+#    include <sys/socket.h>
+#    ifdef MACOS
+#        include <netinet/in.h>
+#        include <sys/un.h>
+#    else
+#        include <linux/in.h>
+#        include <linux/un.h>
+#        include <linux/in6.h>
+#    endif
 #else
-# include <windows.h>
+#    include <windows.h>
 #endif
 
 static void
@@ -46,12 +46,12 @@ syscall_test(void)
 {
 #ifdef UNIX
     int fd = open("/dev/null", O_WRONLY);
-    int *uninit = (int *) malloc(sizeof(*uninit));
+    int *uninit = (int *)malloc(sizeof(*uninit));
     write(fd, uninit, sizeof(*uninit));
     free(uninit);
 #else
     MEMORY_BASIC_INFORMATION mbi;
-    void **uninit = (void **) malloc(sizeof(*uninit));
+    void **uninit = (void **)malloc(sizeof(*uninit));
     VirtualQuery(*uninit, &mbi, sizeof(mbi));
     free(uninit);
 #endif
@@ -67,22 +67,22 @@ socket_test(void)
 
     s = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in sa;
-    addrlen = sizeof(sa)/2; /* test i#1119 */
-    getsockname(s, (struct sockaddr*)&sa, &addrlen);
+    addrlen = sizeof(sa) / 2; /* test i#1119 */
+    getsockname(s, (struct sockaddr *)&sa, &addrlen);
 
     s = socket(AF_INET, SOCK_STREAM, 0);
     addrlen = sizeof(sa);
-    getsockname(s, (struct sockaddr*)&sa, &addrlen);
+    getsockname(s, (struct sockaddr *)&sa, &addrlen);
 
     s = socket(AF_UNIX, SOCK_STREAM, 0);
     struct sockaddr_un sa2;
     addrlen = sizeof(sa2);
-    getsockname(s, (struct sockaddr*)&sa2, &addrlen);
+    getsockname(s, (struct sockaddr *)&sa2, &addrlen);
 
     s = socket(AF_INET6, SOCK_STREAM, 0);
     struct sockaddr_in6 sa3;
     addrlen = sizeof(sa3);
-    getsockname(s, (struct sockaddr*)&sa3, &addrlen);
+    getsockname(s, (struct sockaddr *)&sa3, &addrlen);
 }
 #endif
 
