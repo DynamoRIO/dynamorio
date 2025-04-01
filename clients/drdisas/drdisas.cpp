@@ -211,8 +211,8 @@ main(int argc, const char *argv[])
             return 1;
         }
     }
-    disassemble_set_syntax(syntax);
 #endif
+    disassemble_set_syntax(syntax);
 
     // Turn the arguments into a series of hex values.
     std::vector<byte> bytes;
