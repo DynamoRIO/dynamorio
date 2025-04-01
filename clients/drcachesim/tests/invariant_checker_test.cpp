@@ -2953,7 +2953,7 @@ check_exit_found(void)
 }
 
 bool
-check_kernel_trace(bool for_syscall)
+check_kernel_trace_and_signal_markers(bool for_syscall)
 {
 #ifdef UNIX
     trace_marker_type_t start_marker;
@@ -3938,8 +3938,8 @@ test_main(int argc, const char *argv[])
         check_read_write_records_match_operands() && check_exit_found() &&
         check_kernel_syscall_trace() && check_has_instructions() &&
         check_kernel_context_switch_trace() &&
-        check_kernel_trace(/*for_syscall=*/false) &&
-        check_kernel_trace(/*for_syscall=*/true) && check_regdeps()) {
+        check_kernel_trace_and_signal_markers(/*for_syscall=*/false) &&
+        check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
