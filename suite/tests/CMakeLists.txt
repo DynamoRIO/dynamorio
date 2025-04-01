@@ -2167,6 +2167,9 @@ if (BUILD_CLIENTS)
   endif ()
   torunonly_api(tool.drdisas drdisas
     "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON OFF)
+  torunonly_api(tool.drdisas_regdeps drdisas
+    "../../clients/drdisas/test_regdeps.template" ""
+    "-mode;regdeps;00001931;04020204;00000026" ON OFF)
   if (ARM)
     torunonly_api(tool.drdisas_thumb drdisas
       # Pass -thumb as a "DR op" to define it in the .template file.
