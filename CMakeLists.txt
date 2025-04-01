@@ -45,8 +45,7 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-# Visual Studio 2017 requires 3.7.
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
