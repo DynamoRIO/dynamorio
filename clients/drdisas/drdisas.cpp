@@ -57,10 +57,11 @@ droption_t<std::string>
             "Decodes using the specified mode: 'x64', 'x86', or 'regdeps'.",
             "Decodes using the specified mode: 'x64', 'x86', or 'regdeps' ('x64' only "
             "supported in 64-bit builds).");
-droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "",
-                                  "Uses the specified syntax: 'intel', 'att' or 'dr'.",
-                                  "Uses the specified syntax: 'intel', 'att' or 'dr'.  "
-                                  "Defaults to 'intel' for 'x64' or 'x86' modes.");
+droption_t<std::string>
+    op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "",
+              "Uses the specified syntax: 'intel', 'att' or 'dr'.",
+              "Uses the specified syntax: 'intel', 'att' or 'dr'. Defaults to 'intel' "
+              "for 'x64' or 'x86' modes; is always 'dr' for 'regdeps' modes.");
 #elif defined(ARM)
 droption_t<std::string>
     op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
@@ -142,22 +143,30 @@ main(int argc, const char *argv[])
 
     void *dcontext = GLOBAL_DCONTEXT;
 
-    dr_disasm_flags_t syntax = DR_DISASM_DR;
+    dr_disasm_flags_t syntax =
+#ifdef X86
+        DR_DISASM_INTEL
+#elif defined(RISCV64)
+        DR_DISASM_RISCV
+#else
+        DR_DISASM_DR
+#endif
+        ;
 
     // Set the ISA mode if supplied.
     if (!op_mode.get_value().empty()) {
 #ifdef X86
         dr_isa_mode_t mode = DR_ISA_AMD64;
-        if (op_mode.get_value() == "x86") {
+        if (op_mode.get_value() == "x86")
             mode = DR_ISA_IA32;
-            syntax = DR_DISASM_INTEL;
 #    ifdef X86_64
-        } else if (op_mode.get_value() == "x64") {
+        else if (op_mode.get_value() == "x64")
             mode = DR_ISA_AMD64;
-            syntax = DR_DISASM_INTEL;
 #    endif
-        } else if (op_mode.get_value() == "regdeps")
+        else if (op_mode.get_value() == "regdeps") {
             mode = DR_ISA_REGDEPS;
+            syntax = DR_DISASM_DR;
+        }
 #elif defined(ARM)
         dr_isa_mode_t mode = DR_ISA_ARM_A32;
         if (op_mode.get_value() == "arm")
@@ -176,8 +185,10 @@ main(int argc, const char *argv[])
         dr_isa_mode_t mode = DR_ISA_RV64;
         if (op_mode.get_value() == "riscv64")
             mode = DR_ISA_RV64;
-        else if (op_mode.get_value() == "regdeps")
+        else if (op_mode.get_value() == "regdeps") {
             mode = DR_ISA_REGDEPS;
+            syntax = DR_DISASM_DR;
+        }
 #else
 #    error Unsupported ISA
 #endif
@@ -189,12 +200,6 @@ main(int argc, const char *argv[])
             std::cerr << "Failed to set ISA mode.\n";
             return 1;
         }
-    } else {
-#ifdef X86
-        syntax = DR_DISASM_INTEL;
-#elif defined(RISCV64)
-        syntax = DR_DISASM_RISCV;
-#endif
     }
 
 #if defined(AARCH64) || defined(RISCV64)
