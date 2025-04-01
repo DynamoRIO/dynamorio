@@ -175,7 +175,7 @@ main(int argc, const char *argv[])
 #elif defined(RISCV64)
         dr_isa_mode_t mode = DR_ISA_RV64;
         if (op_mode.get_value() == "riscv64")
-            mode = DR_ISA_ARM_A64;
+            mode = DR_ISA_RV64;
         else if (op_mode.get_value() == "regdeps")
             mode = DR_ISA_REGDEPS;
 #else
