@@ -61,7 +61,7 @@ droption_t<std::string>
     op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "",
               "Uses the specified syntax: 'intel', 'att' or 'dr'.",
               "Uses the specified syntax: 'intel', 'att' or 'dr'. Defaults to 'intel' "
-              "for 'x64' or 'x86' modes; is always 'dr' for 'regdeps' modes.");
+              "for 'x64' or 'x86' modes; is always 'dr' for 'regdeps' mode.");
 #elif defined(ARM)
 droption_t<std::string>
     op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
@@ -143,6 +143,7 @@ main(int argc, const char *argv[])
 
     void *dcontext = GLOBAL_DCONTEXT;
 
+    // Set the default syntax based on build architecture.
     dr_disasm_flags_t syntax =
 #ifdef X86
         DR_DISASM_INTEL
@@ -153,7 +154,8 @@ main(int argc, const char *argv[])
 #endif
         ;
 
-    // Set the ISA mode if supplied.
+    // Set the ISA mode if supplied. Override the default syntax to become DR_DISASM_DR
+    // when the user asks for 'regdeps'.
     if (!op_mode.get_value().empty()) {
 #ifdef X86
         dr_isa_mode_t mode = DR_ISA_AMD64;
@@ -210,11 +212,19 @@ main(int argc, const char *argv[])
 #ifdef X86
     // Set the syntax if supplied.
     if (!op_syntax.get_value().empty()) {
-        if (op_syntax.get_value() == "intel")
+        if (op_syntax.get_value() == "intel") {
             syntax = DR_DISASM_INTEL;
-        else if (op_syntax.get_value() == "att")
+            if (op_mode.get_value() == "regdeps") {
+                std::cerr << "'regdeps' mode does not support 'intel' syntax\n";
+                return 1;
+            }
+        } else if (op_syntax.get_value() == "att") {
             syntax = DR_DISASM_ATT;
-        else if (op_syntax.get_value() == "dr")
+            if (op_mode.get_value() == "regdeps") {
+                std::cerr << "'regdeps' mode does not support 'intel' syntax\n";
+                return 1;
+            }
+        } else if (op_syntax.get_value() == "dr")
             syntax = DR_DISASM_DR;
         else {
             std::cerr << "Unknown syntax '" << op_syntax.get_value() << "'\n";
