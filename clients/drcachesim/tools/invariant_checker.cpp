@@ -592,6 +592,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         shard->pre_syscall_trace_instr_ = shard->prev_instr_;
         shard->between_kernel_syscall_trace_markers_ = true;
+#ifdef UNIX
+        shard->signal_stack_depth_at_syscall_trace_start_ = shard->signal_stack_.size();
+#endif
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
@@ -603,6 +606,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
                                     shard->file_type_),
                         "Mismatching syscall num in trace end and syscall marker");
+#ifdef UNIX
+        if (shard->between_kernel_syscall_trace_markers_) {
+            // Protected by above if-condition to avoid noise from another invariant
+            // error due to a missing start marker.
+            report_if_false(shard,
+                            shard->signal_stack_depth_at_syscall_trace_start_ ==
+                                static_cast<int>(shard->signal_stack_.size()),
+                            "Syscall trace has extra kernel_event marker");
+        }
+        shard->signal_stack_depth_at_syscall_trace_start_ = -1;
+#endif
         shard->between_kernel_syscall_trace_markers_ = false;
         // For future checks, pretend that the previous instr was the instr just
         // before the system call trace start.
@@ -615,7 +629,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // trace that need to be removed. Also check the kernel-to-user transition
             // when that is fixed.
             shard->prev_instr_ = shard->pre_syscall_trace_instr_;
-            shard->pre_syscall_trace_instr_ = {};
+#ifdef UNIX
+            shard->last_instr_in_cur_context_ = shard->pre_syscall_trace_instr_;
+#endif
         }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -624,17 +640,34 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Nested kernel context switch traces are not expected");
         shard->pre_context_switch_trace_instr_ = shard->prev_instr_;
         shard->between_kernel_context_switch_markers_ = true;
+#ifdef UNIX
+        shard->signal_stack_depth_at_context_switch_trace_start_ =
+            shard->signal_stack_.size();
+#endif
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
         report_if_false(shard, shard->between_kernel_context_switch_markers_,
                         "Found kernel context switch trace end without start");
+#ifdef UNIX
+        if (shard->between_kernel_context_switch_markers_) {
+            // Protected by above if-condition to avoid noise from another invariant
+            // error due to a missing start marker.
+            report_if_false(shard,
+                            shard->signal_stack_depth_at_context_switch_trace_start_ ==
+                                static_cast<int>(shard->signal_stack_.size()),
+                            "Context switch trace has extra kernel_event marker");
+        }
+        shard->signal_stack_depth_at_context_switch_trace_start_ = -1;
+#endif
         shard->between_kernel_context_switch_markers_ = false;
         // For future checks, pretend that the previous instr was the instr just
         // before the context switch trace start.
         if (shard->pre_context_switch_trace_instr_.memref.instr.addr > 0) {
             shard->prev_instr_ = shard->pre_context_switch_trace_instr_;
-            shard->pre_context_switch_trace_instr_ = {};
+#ifdef UNIX
+            shard->last_instr_in_cur_context_ = shard->pre_context_switch_trace_instr_;
+#endif
         }
     }
     if (!is_a_unit_test(shard)) {
@@ -761,6 +794,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        // We wait until we see an actual non-kernel instruction to reset the following
+        // fields. We cannot do this on seeing the respective TRACE_MARKER_TYPE_*_END
+        // marker because we may need it again if there's a consecutive syscall/switch.
+        if (!shard->between_kernel_syscall_trace_markers_) {
+            shard->pre_syscall_trace_instr_ = {};
+        }
+        if (!shard->between_kernel_context_switch_markers_) {
+            shard->pre_context_switch_trace_instr_ = {};
+        }
         // We'd prefer to report this error at the syscall instr but it is easier
         // to wait until here:
         report_if_false(shard,
@@ -1022,6 +1064,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
+            // We expect a proper pairing of TRACE_MARKER_TYPE_KERNEL_EVENT and
+            // TRACE_MARKER_TYPE_KERNEL_XFER markers inside the kernel system call
+            // and context switch traces that are used for trace injection.
+            // XXX: Note that we do not make an effort to add these markers at all
+            // to the PT syscall traces today.
+            report_if_false(shard,
+                            shard->signal_stack_depth_at_syscall_trace_start_ <
+                                static_cast<int>(shard->signal_stack_.size()),
+                            "Syscall trace has extra kernel_xfer marker");
+            report_if_false(shard,
+                            shard->signal_stack_depth_at_context_switch_trace_start_ <
+                                static_cast<int>(shard->signal_stack_.size()),
+                            "Context switch trace has extra kernel_xfer marker");
             // We assume paired signal entry-exit (so no longjmp and no rseq
             // inside signal handlers).
             if (shard->signal_stack_.empty()) {
