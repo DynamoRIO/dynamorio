@@ -47,12 +47,11 @@ using ::dynamorio::droption::droption_t;
 // AArchXX and x86.  For now, a separate build is needed.
 // XXX i#4021: -syntax option not yet supported on ARM.
 #ifdef X86
-#    ifdef X86_64
 droption_t<std::string>
     op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
             "Decodes using the specified mode: 'x64', 'x86', or 'regdeps'.",
-            "Decodes using the specified mode: 'x64', 'x86', or 'regdeps'.");
-#    endif
+            "Decodes using the specified mode: 'x64', 'x86', or 'regdeps' ('x64' only "
+            "supported in 64-bit builds).");
 droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "",
                                   "Uses the specified syntax: 'intel', 'att' or 'dr'.",
                                   "Uses the specified syntax: 'intel', 'att' or 'dr'.  "
@@ -144,14 +143,16 @@ main(int argc, const char *argv[])
 
     // Set the ISA mode if supplied.
     if (!op_mode.get_value().empty()) {
-#ifdef X86_64
+#ifdef X86
         dr_isa_mode_t mode = DR_ISA_AMD64;
         if (op_mode.get_value() == "x86") {
             mode = DR_ISA_IA32;
             syntax = DR_DISASM_INTEL;
+#    ifdef X86_64
         } else if (op_mode.get_value() == "x64") {
             mode = DR_ISA_AMD64;
             syntax = DR_DISASM_INTEL;
+#    endif
         } else if (op_mode.get_value() == "regdeps")
             mode = DR_ISA_REGDEPS;
 #elif defined(ARM)
@@ -168,7 +169,7 @@ main(int argc, const char *argv[])
             mode = DR_ISA_ARM_A64;
         else if (op_mode.get_value() == "regdeps")
             mode = DR_ISA_REGDEPS;
-#elif defined(AARCH64)
+#elif defined(RISCV64)
         dr_isa_mode_t mode = DR_ISA_RV64;
         if (op_mode.get_value() == "aarch64")
             mode = DR_ISA_ARM_A64;
@@ -185,12 +186,13 @@ main(int argc, const char *argv[])
             std::cerr << "Failed to set ISA mode.\n";
             return 1;
         }
-    }
+    } else {
 #ifdef X86
-    else {
         syntax = DR_DISASM_INTEL;
-    }
+#elif defined(RISCV64)
+        syntax = DR_DISASM_RISCV;
 #endif
+    }
 
 #if defined(AARCH64) || defined(RISCV64)
     dr_set_vector_length(op_vl.get_value());
@@ -212,10 +214,6 @@ main(int argc, const char *argv[])
         }
     }
     disassemble_set_syntax(syntax);
-#endif
-
-#ifdef RISCV64
-    disassemble_set_syntax(DR_DISASM_RISCV);
 #endif
 
     // Turn the arguments into a series of hex values.
