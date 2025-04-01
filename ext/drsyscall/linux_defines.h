@@ -44,6 +44,7 @@
 #include <sys/time.h>      /* struct timezone */
 #include <sys/sysinfo.h>   /* struct sysinfo */
 #include <sys/timex.h>     /* struct timex */
+#include <linux/stat.h>    /* struct statx */
 #include <linux/utsname.h> /* struct new_utsname */
 #include <sched.h>         /* struct sched_param */
 

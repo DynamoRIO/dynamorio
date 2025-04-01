@@ -62,11 +62,6 @@ foreach rule $rules {
         sideline.c
         symtab.c
         # tools/* in this category is excluded via regex.
-        # TODO i#7303: Remove the following files when formatting issues are fixed.
-        drsyscall_app.c
-        drsyscall_client.c
-        strace_client.c
-        strace.c
     }
 }
 

@@ -31,36 +31,38 @@
 #include "drsyscall.h"
 #include <string.h>
 #ifdef WINDOWS
-# include <windows.h>
-# define IF_WINDOWS_ELSE(x,y) x
+#    include <windows.h>
+#    define IF_WINDOWS_ELSE(x, y) x
 #else
-# define IF_WINDOWS_ELSE(x,y) y
+#    define IF_WINDOWS_ELSE(x, y) y
 #endif
 
 #define TEST(mask, var) (((mask) & (var)) != 0)
 
 #undef ASSERT /* we don't want msgbox */
-#define ASSERT(cond, msg) \
-    ((void)((!(cond)) ? \
-     (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", \
-                 __FILE__,  __LINE__, #cond, msg), \
-      dr_abort(), 0) : 0))
+#define ASSERT(cond, msg)                                                               \
+    ((void)((!(cond)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
+                                    __LINE__, #cond, msg),                              \
+                         dr_abort(), 0)                                                 \
+                      : 0))
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
+#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 #ifdef WINDOWS
 /* TODO i#2279: Make it easier for clients to auto-generate! */
-# define SYSNUM_FILE IF_X64_ELSE("syscalls_x64.txt", "syscalls_x86.txt")
-# define SYSNUM_FILE_WOW64 "syscalls_wow64.txt"
+#    define SYSNUM_FILE IF_X64_ELSE("syscalls_x64.txt", "syscalls_x86.txt")
+#    define SYSNUM_FILE_WOW64 "syscalls_wow64.txt"
 #endif
 
 static bool verbose = true;
 
 #ifdef WINDOWS
-static dr_os_version_info_t os_version = {sizeof(os_version),};
+static dr_os_version_info_t os_version = {
+    sizeof(os_version),
+};
 #endif
 
 static bool
@@ -71,10 +73,10 @@ drsys_iter_memarg_cb(drsys_arg_t *arg, void *user_data)
     ASSERT(arg->drcontext == dr_get_current_drcontext(), "dc check");
 
     if (verbose) {
-        dr_fprintf(STDERR, "\tmemarg %d: name=%s, type=%d %s, start="PFX", size="PIFX"\n",
-                   arg->ordinal, arg->arg_name == NULL ? "\"\"" : arg->arg_name,
-                   arg->type, arg->type_name == NULL ? "\"\"" : arg->type_name,
-                   arg->start_addr, arg->size);
+        dr_fprintf(
+            STDERR, "\tmemarg %d: name=%s, type=%d %s, start=" PFX ", size=" PIFX "\n",
+            arg->ordinal, arg->arg_name == NULL ? "\"\"" : arg->arg_name, arg->type,
+            arg->type_name == NULL ? "\"\"" : arg->type_name, arg->start_addr, arg->size);
     }
 
     return true; /* keep going */
@@ -104,13 +106,14 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
 
     if (arg->reg == DR_REG_NULL && !TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT((byte *)arg->start_addr >= (byte *)arg->mc->xsp &&
-               (byte *)arg->start_addr < (byte *)arg->mc->xsp + PAGE_SIZE,
+                   (byte *)arg->start_addr < (byte *)arg->mc->xsp + dr_page_size(),
                "mem args should be on stack");
     }
 
     if (verbose) {
-        dr_fprintf(STDERR, "\targ %d: name=%s, type=%d %s, value=0x"
-                   HEX64_FORMAT_STRING", size="PIFX"\n",
+        dr_fprintf(STDERR,
+                   "\targ %d: name=%s, type=%d %s, value=0x" HEX64_FORMAT_STRING
+                   ", size=" PIFX "\n",
                    arg->ordinal, arg->arg_name == NULL ? "\"\"" : arg->arg_name,
                    arg->type, arg->type_name == NULL ? "\"\"" : arg->type_name,
                    arg->value64, arg->size);
@@ -118,11 +121,11 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
 
     if (TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT(arg->pre ||
-               arg->value == dr_syscall_get_result(dr_get_current_drcontext()),
+                   arg->value == dr_syscall_get_result(dr_get_current_drcontext()),
                "return val wrong");
         if (!arg->pre &&
-            drsys_cur_syscall_result(dr_get_current_drcontext(), NULL, &val64, NULL)
-            == DRMF_SUCCESS)
+            drsys_cur_syscall_result(dr_get_current_drcontext(), NULL, &val64, NULL) ==
+                DRMF_SUCCESS)
             ASSERT(arg->value64 == val64, "return val wrong");
     } else {
         if (drsys_pre_syscall_arg(arg->drcontext, arg->ordinal, &val) != DRMF_SUCCESS)
@@ -202,7 +205,7 @@ event_post_syscall(void *drcontext, int sysnum)
         ASSERT(false, "drsys_iterate_args failed");
 
     if (verbose) {
-        dr_fprintf(STDERR, "\tsyscall returned "PFX"\n",
+        dr_fprintf(STDERR, "\tsyscall returned " PFX "\n",
                    dr_syscall_get_result(drcontext));
     }
     if (drsys_cur_syscall_result(drcontext, &success, NULL, NULL) != DRMF_SUCCESS ||
@@ -233,13 +236,16 @@ exit_event(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drsys_options_t ops = { sizeof(ops), 0, };
+    drsys_options_t ops = {
+        sizeof(ops),
+        0,
+    };
 #ifdef WINDOWS
     if (argc > 1) {
         /* Takes an optional argument pointing at the base dir for a sysnum file. */
         char sysnum_path[MAXIMUM_PATH];
-        dr_snprintf(sysnum_path, BUFFER_SIZE_ELEMENTS(sysnum_path),
-                    "%s\\%s", argv[1], SYSNUM_FILE);
+        dr_snprintf(sysnum_path, BUFFER_SIZE_ELEMENTS(sysnum_path), "%s\\%s", argv[1],
+                    SYSNUM_FILE);
         NULL_TERMINATE_BUFFER(sysnum_path);
         ops.sysnum_file = sysnum_path;
     }

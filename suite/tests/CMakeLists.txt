@@ -6297,6 +6297,36 @@ if (vera++_FOUND)
   set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
 endif ()
 
+# TODO i#7399: Add Aarch64, Android, MUSL, RISCV64 support to DrSyscall.
+# Windows tests fail due to Syscall mismatch for NtGetContextThread with wrapper
+# 236 vs table 235.
+IF (NOT AARCH64 AND NOT ANDROID AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
+  tobuild_ci(client.drsyscall-test client-interface/drsyscall-test.c "" "" "")
+  get_target_path_for_execution(drsyscall_libpath client.drsyscall-test.dll
+    "${location_suffix}")
+  get_target_path_for_execution(app_path client.drsyscall-test "${location_suffix}")
+  add_test(drsyscall_test ${drrun_path} -s 90 -quiet
+    -client ${drsyscall_libpath} 0 "" ${dr_test_ops} -- ${app_path})
+  use_DynamoRIO_extension(client.drsyscall-test.dll drmgr)
+  use_DynamoRIO_extension(client.drsyscall-test.dll drsyscall)
+
+  tobuild_ci(client.strace-test client-interface/drsyscall-test.c "" "" "")
+  get_target_path_for_execution(strace_test_libpath client.strace-test.dll
+    "${location_suffix}")
+  add_test(strace_test ${drrun_path} -s 90 -quiet
+    -client ${strace_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
+  use_DynamoRIO_extension(client.strace-test.dll drmgr)
+  use_DynamoRIO_extension(client.strace-test.dll drsyscall)
+
+  tobuild_ci(sample.strace client-interface/drsyscall-test.c "" "" "")
+  get_target_path_for_execution(strace_sample_test_libpath sample.strace.dll
+    "${location_suffix}")
+  add_test(strace_sample ${drrun_path} -s 90 -quiet
+    -client ${strace_sample_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
+  use_DynamoRIO_extension(sample.strace.dll drmgr)
+  use_DynamoRIO_extension(sample.strace.dll drsyscall)
+endif ()
+
 ###########################################################################
 
 # Remember that we do not reach this point for DR_HOST_NOT_TARGET, so do not
