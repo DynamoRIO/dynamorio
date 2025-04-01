@@ -1064,6 +1064,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
+            // We expect a proper pairing of TRACE_MARKER_TYPE_KERNEL_EVENT and
+            // TRACE_MARKER_TYPE_KERNEL_XFER markers inside the kernel system call
+            // and context switch traces that are used for trace injection.
+            // XXX: Note that we do not make an effort to add these markers at all
+            // to the PT syscall traces today.
             report_if_false(shard,
                             shard->signal_stack_depth_at_syscall_trace_start_ <
                                 static_cast<int>(shard->signal_stack_.size()),

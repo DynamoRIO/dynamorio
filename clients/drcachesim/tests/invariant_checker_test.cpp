@@ -2956,6 +2956,9 @@ bool
 check_kernel_trace_and_signal_markers(bool for_syscall)
 {
 #ifdef UNIX
+    // This is the syscall num when for_syscall is true, otherwise
+    // it is the context switch type.
+    constexpr static int KERNEL_TRACE_TYPE = 1;
     trace_marker_type_t start_marker;
     trace_marker_type_t end_marker;
     uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
@@ -2971,7 +2974,7 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
         test_type = "Context switch";
     }
     std::cerr << "Testing kernel trace for " << test_type << "\n";
-    // Matching kernel_event and kernel_xfer in the kernel trace.
+    // Matching interrupt kernel_event and kernel_xfer in the kernel trace.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
@@ -2981,33 +2984,33 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             // The syscall marker is needed for the syscall test but doesn't
             // make any difference for the context switch test. We keep it
             // for both to simplify test setup.
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
-            gen_marker(TID_A, start_marker, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
+            gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/10),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
             gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(TID_A, /*pc=*/11),
-            gen_marker(TID_A, end_marker, 1),
+            gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Extra signal kernel_event in the kernel trace.
+    // Extra interrupt kernel_event in the kernel trace.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
-            gen_marker(TID_A, start_marker, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
+            gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/10),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
             gen_instr(TID_A, /*pc=*/101),
-            gen_marker(TID_A, end_marker, 1),
+            gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
@@ -3020,19 +3023,19 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
                              " trace"))
             return false;
     }
-    // Extra signal kernel_xfer in the kernel trace.
+    // Extra interrupt kernel_xfer in the kernel trace.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
-            gen_marker(TID_A, start_marker, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
+            gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(TID_A, /*pc=*/102),
-            gen_marker(TID_A, end_marker, 1),
+            gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -3051,15 +3054,15 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
-            gen_marker(TID_A, start_marker, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
+            gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/10),
-            gen_marker(TID_A, end_marker, 1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             // Consecutive kernel trace, for a stronger test.
-            gen_marker(TID_A, start_marker, 1),
+            gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/10),
-            gen_marker(TID_A, end_marker, 1),
+            gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             // The value of the kernel_event marker is set to pc=2, which is the next
             // instruction in the outer-most trace context (the context outside the
             // kernel and signal trace).
@@ -3079,15 +3082,15 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
-            gen_marker(TID_A, start_marker, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
+            gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/10),
-            gen_marker(TID_A, end_marker, 1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             // Consecutive kernel trace, for a stronger test.
-            gen_marker(TID_A, start_marker, 1),
+            gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/10),
-            gen_marker(TID_A, end_marker, 1),
+            gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             // The value of the kernel_event marker is incorrectly set to pc=11,
             // which is actually the next instruction in the kernel trace.
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
