@@ -3126,6 +3126,11 @@ check_kernel_syscall_trace(void)
             { gen_instr(TID_A), move2 },
             { gen_instr(TID_A), sysend },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // Consecutive system call trace, for a stronger test.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move2 },
+            { gen_instr(TID_A), sysend },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             // The value of the kernel_event marker is set to the move instruction which
             // is the next instruction in the outer-most trace context (the context
             // outside the syscall and signal trace).
@@ -3161,6 +3166,11 @@ check_kernel_syscall_trace(void)
             { gen_instr(TID_A), move2 },
             { gen_instr(TID_A), sysend },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // Consecutive system call trace, for a stronger test.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move2 },
+            { gen_instr(TID_A), sysend },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             // The value of the kernel_event marker is incorrectly set to the
             // sysend_fallthrough instruction.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED),
@@ -3178,8 +3188,8 @@ check_kernel_syscall_trace(void)
                 memrefs, true,
                 { "Non-explicit control flow has no marker @ kernel_event marker",
                   /*tid=*/TID_A,
-                  /*ref_ordinal=*/10, /*last_timestamp=*/0,
-                  /*instrs_since_last_timestamp=*/3 },
+                  /*ref_ordinal=*/14, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/5 },
                 "Failed to catch incorrect kernel_event marker value after syscall "
                 "trace"))
             res = false;

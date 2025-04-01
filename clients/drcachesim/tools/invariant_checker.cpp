@@ -590,7 +590,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                 shard->prev_instr_.decoding.is_syscall_,
                             "prev_instr at syscall trace start is not a syscall");
         }
-        shard->pre_syscall_trace_instr_ = shard->prev_instr_;
         shard->between_kernel_syscall_trace_markers_ = true;
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -604,19 +603,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                     shard->file_type_),
                         "Mismatching syscall num in trace end and syscall marker");
         shard->between_kernel_syscall_trace_markers_ = false;
-        // For future checks, pretend that the previous instr was the instr just
-        // before the system call trace start.
-        if (shard->pre_syscall_trace_instr_.memref.instr.addr > 0) {
-            // TODO i#5505: Ideally the last instruction in the system call PT trace
-            // or the system call trace template would be an indirect CTI with a
-            // TRACE_MARKER_TYPE_BRANCH_TARGET marker pointing to the next user-space
-            // instr. For PT traces on x86, as also mentioned in the comment in
-            // ir2trace.cpp, there are noise instructions at the end of the PT syscall
-            // trace that need to be removed. Also check the kernel-to-user transition
-            // when that is fixed.
-            shard->prev_instr_ = shard->pre_syscall_trace_instr_;
-            shard->pre_syscall_trace_instr_ = {};
-        }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
@@ -889,12 +875,28 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->file_type_),
                 "Branch target not immediately after branch");
         }
+        per_shard_t::instr_info_t &prior_instr_for_check = shard->prev_instr_;
+        if (shard->prev_xfer_marker_.marker.marker_type ==
+            TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
+            // Pretend that the previous instr was the instr before the system call
+            // trace start.
+            prior_instr_for_check = shard->last_instr_in_cur_context_;
+            // TODO i#5505: Check that the last instruction in the system call PT trace
+            // or the system call trace template is an eret (on AArch64), or
+            // iret/sysret (on x86).
+            // For PT traces on x86, as also mentioned in the comment in
+            // ir2trace.cpp, there are noise instructions at the end of the PT syscall
+            // trace that need to be removed.
+        }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
-        // by markers. We are using prev_instr_ here instead of last_instr_in_cur_context_
-        // because after a signal the interruption and resumption checks are done
+        // by markers.
+        // Note that after a signal the interruption and resumption checks are done
         // elsewhere.
+        // For system call traces, we want to check continuity with
+        // last_instr_in_cur_context_ instead of prev_instr_ (which would be inside the
+        // system call trace).
         const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
-            shard, shard->prev_instr_, cur_instr_info, expect_encoding,
+            shard, prior_instr_for_check, cur_instr_info, expect_encoding,
             /*at_kernel_event=*/false);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
                         non_explicit_flow_violation_msg);
