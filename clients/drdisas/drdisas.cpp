@@ -137,9 +137,7 @@ main(int argc, const char *argv[])
 
     void *dcontext = GLOBAL_DCONTEXT;
 
-#ifdef X86
     dr_disasm_flags_t syntax = DR_DISASM_DR;
-#endif
 
     // Set the ISA mode if supplied.
     if (!op_mode.get_value().empty()) {
