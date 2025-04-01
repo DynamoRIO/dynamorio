@@ -48,7 +48,12 @@ using ::dynamorio::droption::droption_t;
 // XXX i#4021: -syntax option not yet supported on ARM.
 #ifdef X86
 droption_t<std::string>
-    op_mode(DROPTION_SCOPE_FRONTEND, "mode", "x64",
+    op_mode(DROPTION_SCOPE_FRONTEND, "mode",
+#    ifdef X86_64
+            "x64",
+#    else
+            "x86",
+#    endif
             "Decodes using the specified mode: 'x64', 'x86', or 'regdeps'.",
             "Decodes using the specified mode: 'x64', 'x86', or 'regdeps' ('x64' only "
             "supported in 64-bit builds).");
@@ -169,7 +174,7 @@ main(int argc, const char *argv[])
             mode = DR_ISA_REGDEPS;
 #elif defined(RISCV64)
         dr_isa_mode_t mode = DR_ISA_RV64;
-        if (op_mode.get_value() == "aarch64")
+        if (op_mode.get_value() == "riscv64")
             mode = DR_ISA_ARM_A64;
         else if (op_mode.get_value() == "regdeps")
             mode = DR_ISA_REGDEPS;
