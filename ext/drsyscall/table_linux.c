@@ -1421,6 +1421,7 @@ syscall_info_t syscall_info[] = {
     }, /* == accept4 */
     {{PACKNUM(332,383,397,AARCH64_statx),0},"statx", OK, RLONG, 5,
      {
+         {1,0, R|CT, CSTRING},
          {4,sizeof(struct statx),W},
      }
     },
