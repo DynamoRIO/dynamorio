@@ -794,6 +794,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        // We wait until we see an actual non-kernel instruction to reset the following
+        // fields. We cannot do this on seeing the respective TRACE_MARKER_TYPE_*_END
+        // marker because we may need it again if there's a consecutive syscall/switch.
+        if (!shard->between_kernel_syscall_trace_markers_) {
+            shard->pre_syscall_trace_instr_ = {};
+        }
+        if (!shard->between_kernel_context_switch_markers_) {
+            shard->pre_context_switch_trace_instr_ = {};
+        }
         // We'd prefer to report this error at the syscall instr but it is easier
         // to wait until here:
         report_if_false(shard,
@@ -980,12 +989,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->last_instr_in_cur_context_ = cur_instr_info;
 #endif
         shard->prev_instr_ = cur_instr_info;
-        if (!shard->between_kernel_syscall_trace_markers_) {
-            shard->pre_syscall_trace_instr_ = {};
-        }
-        if (!shard->between_kernel_context_switch_markers_) {
-            shard->pre_context_switch_trace_instr_ = {};
-        }
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
         // prior (i#3937).
