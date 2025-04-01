@@ -242,6 +242,8 @@ protected:
         bool between_kernel_context_switch_markers_ = false;
         instr_info_t pre_syscall_trace_instr_;
         instr_info_t pre_context_switch_trace_instr_;
+        int signal_stack_depth_at_syscall_trace_start_ = -1;
+        int signal_stack_depth_at_context_switch_trace_start_ = -1;
         // Relevant when -no_abort_on_invariant_error.
         uint64_t error_count_ = 0;
     };

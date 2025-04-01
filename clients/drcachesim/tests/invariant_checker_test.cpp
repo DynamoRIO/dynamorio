@@ -2953,6 +2953,136 @@ check_exit_found(void)
 }
 
 bool
+check_kernel_trace(bool for_syscall)
+{
+    trace_marker_type_t start_marker;
+    trace_marker_type_t end_marker;
+    uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
+    std::string test_type;
+    if (for_syscall) {
+        start_marker = TRACE_MARKER_TYPE_SYSCALL_TRACE_START;
+        end_marker = TRACE_MARKER_TYPE_SYSCALL_TRACE_END;
+        file_type |= OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
+        test_type = "Syscall";
+    } else {
+        start_marker = TRACE_MARKER_TYPE_CONTEXT_SWITCH_START;
+        end_marker = TRACE_MARKER_TYPE_CONTEXT_SWITCH_END;
+        test_type = "Context switch";
+    }
+    std::cerr << "Testing kernel trace for " << test_type << "\n";
+    // Matching kernel_event and kernel_xfer in the kernel trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            // The syscall marker is needed for the syscall test but doesn't
+            // make any difference for the context switch test. We keep it
+            // for both to simplify test setup.
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            gen_marker(TID_A, start_marker, 1),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
+            gen_instr(TID_A, /*pc=*/101),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID_A, /*pc=*/11),
+            gen_marker(TID_A, end_marker, 1),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Extra kernel_xfer in the kernel trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            gen_marker(TID_A, start_marker, 1),
+            gen_instr(TID_A, /*pc=*/101),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID_A, /*pc=*/102),
+            gen_marker(TID_A, end_marker, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { test_type + " trace has extra kernel_xfer marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/8, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch extra kernel_xfer marker in " + test_type +
+                             " trace"))
+            return false;
+    }
+    // Signal immediately after kernel trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            gen_marker(TID_A, start_marker, 1),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, end_marker, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            // Consecutive kernel trace, for a stronger test.
+            gen_marker(TID_A, start_marker, 1),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, end_marker, 1),
+            // The value of the kernel_event marker is set to pc=2, which is the next
+            // instruction in the outer-most trace context (the context outside the
+            // kernel and signal trace).
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/101),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Signal immediately after kernel trace, with incorrect kernel_event marker value.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            gen_marker(TID_A, start_marker, 1),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, end_marker, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            // Consecutive kernel trace, for a stronger test.
+            gen_marker(TID_A, start_marker, 1),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, end_marker, 1),
+            // The value of the kernel_event marker is incorrectly set to pc=11,
+            // which is actually the next instruction in the kernel trace.
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
+            gen_instr(TID_A, /*pc=*/101),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Non-explicit control flow has no marker @ kernel_event marker",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/3 },
+                "Failed to catch incorrect kernel_event marker value after " + test_type +
+                    " trace"))
+            return false;
+    }
+    return true;
+}
+
+bool
 check_kernel_context_switch_trace(void)
 {
     std::cerr << "Testing kernel context switch traces\n";
@@ -3780,7 +3910,9 @@ test_main(int argc, const char *argv[])
         check_timestamps_increase_monotonically() &&
         check_read_write_records_match_operands() && check_exit_found() &&
         check_kernel_syscall_trace() && check_has_instructions() &&
-        check_kernel_context_switch_trace() && check_regdeps()) {
+        check_kernel_context_switch_trace() &&
+        check_kernel_trace(/*for_syscall=*/false) &&
+        check_kernel_trace(/*for_syscall=*/true) && check_regdeps()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
