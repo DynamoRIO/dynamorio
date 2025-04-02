@@ -44,7 +44,6 @@
 #include <sys/time.h>      /* struct timezone */
 #include <sys/sysinfo.h>   /* struct sysinfo */
 #include <sys/timex.h>     /* struct timex */
-#include <linux/stat.h>    /* struct statx */
 #include <linux/utsname.h> /* struct new_utsname */
 #include <sched.h>         /* struct sched_param */
 
@@ -264,5 +263,48 @@ struct ustat {
     char f_fpack[6];
 };
 #endif
+
+/* Syscall statx was introduced in Linux Kernel 4.11. struct statx and
+ * statx_timestamp are not defined in older versions.
+ */
+struct statx_timestamp {
+    uint32_t tv_sec;
+    uint32_t tv_nsec;
+    int32_t __reserved;
+};
+
+struct statx {
+    /* 0x00 */
+    uint32_t stx_mask;       /* What results were written [uncond] */
+    uint32_t stx_blksize;    /* Preferred general I/O size [uncond] */
+    uint64_t stx_attributes; /* Flags conveying information about the file [uncond] */
+    /* 0x10 */
+    uint32_t stx_nlink; /* Number of hard links */
+    uint32_t stx_uid;   /* User ID of owner */
+    uint32_t stx_gid;   /* Group ID of owner */
+    __u16 stx_mode;     /* File mode */
+    __u16 __spare0[1];
+    /* 0x20 */
+    uint64_t stx_ino;             /* Inode number */
+    uint64_t stx_size;            /* File size */
+    uint64_t stx_blocks;          /* Number of 512-byte blocks allocated */
+    uint64_t stx_attributes_mask; /* Mask to show what's supported in stx_attributes */
+    /* 0x40 */
+    struct statx_timestamp stx_atime; /* Last access time */
+    struct statx_timestamp stx_btime; /* File creation time */
+    struct statx_timestamp stx_ctime; /* Last attribute change time */
+    struct statx_timestamp stx_mtime; /* Last data modification time */
+    /* 0x80 */
+    uint32_t stx_rdev_major; /* Device ID of special file [if bdev/cdev] */
+    uint32_t stx_rdev_minor;
+    uint32_t stx_dev_major; /* ID of device containing file [uncond] */
+    uint32_t stx_dev_minor;
+    /* 0x90 */
+    uint64_t stx_mnt_id;
+    uint64_t __spare2;
+    /* 0xa0 */
+    uint64_t __spare3[12]; /* Spare space for future expansion */
+                           /* 0x100 */
+};
 
 #endif /* _LINUX_DEFINES_H */
