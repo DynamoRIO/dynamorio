@@ -3125,11 +3125,14 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             // In some cases, control re-enters the function with a simple
-            // branch (instead of a call).
+            // branch (instead of a call), but the invariant_checker does
+            // not push anything to retaddr_stack_ on such instructions.
             // XXX: Not tracking such non-call instructions is likely a
-            // bigger issue in retaddr_stack_ logic. This test verifies
-            // correct operation in a very specific case, where the
-            // retaddr_stack_ is empty at this point which causes the
+            // bigger issue in retaddr_stack_ logic which can manifest more
+            // easily if the trace records functions that may be nested, and
+            // the later function is invoked with a non-call branch. This
+            // test verifies correct operation in the non-nested case, where
+            // the retaddr_stack_ is empty at this point which causes the
             // retaddr_stack_.top() == TRACE_MARKER_TYPE_FUNC_RETADDR.value
             // check to be skipped.
             gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID_A, /*pc=*/2),
