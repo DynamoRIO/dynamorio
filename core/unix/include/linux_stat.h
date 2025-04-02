@@ -10,8 +10,8 @@
  ****************************************************************************
  ****************************************************************************/
 
-#ifndef _STAT_H
-#define _STAT_H
+#ifndef _CORE_UNIX_INCLUDE_STAT
+#define _CORE_UNIX_INCLUDE_STAT
 
 #include <linux/types.h>
 
@@ -55,4 +55,4 @@ struct statx {
                         /* 0x100 */
 };
 
-#endif /* _STAT_H */
+#endif /* _CORE_UNIX_INCLUDE_STAT */

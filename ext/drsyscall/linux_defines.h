@@ -231,7 +231,7 @@
 /* For syscall statx which was introduced in Linux Kernel 4.11. struct statx and
  * statx_timestamp are not defined in older versions.
  */
-#include "stat.h"
+#include "linux_stat.h"
 
 typedef struct _kernel_sigset_t {
     unsigned long sig[_NSIG_WORDS];
