@@ -902,6 +902,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // return markers; these are only user-space.
         if (!(shard->between_kernel_context_switch_markers_ ||
               shard->between_kernel_syscall_trace_markers_)) {
+            // Tail calls are non-call CTIs. Even though the tail-called function will have
+            // the usual function markers, we intentionally do not push anything for
+            // tail calls here. The later function return address marker check will simply
+            // reuse the top-of-stack address which is indeed the return address of the
+            // tail call also.
             if (memref.instr.type == TRACE_TYPE_INSTR_DIRECT_CALL ||
                 memref.instr.type == TRACE_TYPE_INSTR_INDIRECT_CALL) {
                 shard->retaddr_stack_.push(memref.instr.addr + memref.instr.size);

@@ -3109,41 +3109,37 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             return false;
     }
     {
+        static constexpr uintptr_t FUNC_ID = 1;
+        static constexpr uintptr_t START_PC = 1;
+        static constexpr uintptr_t FUNC_PC = 10;
+        static constexpr uintptr_t SYSCALL_LAST_PC = 100;
+        static constexpr uintptr_t INTERRUPT_HANDLER_LAST_PC = 1000;
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID_A, START_PC),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ID, FUNC_ID),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_RETADDR, START_PC + 1),
+            gen_instr(TID_A, FUNC_PC),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             // Below we have an interrupt inside a kernel trace.
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             // If not for the enclosing kernel trace markers, the
             // following would add a zero entry to retaddr_stack_.
-            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, SYSCALL_LAST_PC),
             // If not for the enclosing kernel trace markers, the
             // following would pop the zero entry from the retaddr_stack_.
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A, /*pc=*/102),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A, INTERRUPT_HANDLER_LAST_PC),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER,
+                       INTERRUPT_HANDLER_LAST_PC + 1),
+            gen_instr(TID_A, SYSCALL_LAST_PC),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
-            // In some cases, control re-enters the function with a simple
-            // branch (instead of a call), but the invariant_checker does
-            // not push anything to retaddr_stack_ on such instructions.
-            // XXX: Not tracking such non-call instructions is likely a
-            // bigger issue in retaddr_stack_ logic which can manifest more
-            // easily if the trace records functions that may be nested, and
-            // the later function is invoked with a non-call branch. This
-            // test verifies correct operation in the non-nested case, where
-            // the retaddr_stack_ is empty at this point which causes the
-            // retaddr_stack_.top() == TRACE_MARKER_TYPE_FUNC_RETADDR.value
-            // check to be skipped.
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID_A, /*pc=*/2),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ID, /*func_id*/ 1),
-            // Points to pc=3 as the return address, which is correct.
-            // For the non-call branch above, nothing is added to the
-            // retaddr stack, which causes the return address == top-of-stack
-            // check to be skipped. But the check failed before we made sure
-            // to not add a zero entry to retaddr_stack_ at the kernel_event
-            // inside the syscall trace.
-            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_RETADDR, /*pc=*/3),
+            // For tail calls, we see function markers following a non-call instr.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID_A, FUNC_PC + 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ID, FUNC_ID),
+            // Same return address as the original direct_call above.
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_RETADDR, START_PC + 1),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false))
