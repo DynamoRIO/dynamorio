@@ -122,6 +122,8 @@ private:
  */
 template <typename RecordType, typename ReaderType> class noise_generator_factory_t {
 public:
+    virtual ~noise_generator_factory_t() = default;
+
     std::string
     get_error_string();
 
