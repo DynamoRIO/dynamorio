@@ -126,6 +126,10 @@ macro(configure_drsyscall_target target)
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/common)
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/framework)
 
+  IF (UNIX)
+    include_directories(${PROJECT_SOURCE_DIR}/core/unix/include)
+  endif ()
+
   IF (WIN32)
     add_dependencies(${target} ntdll_imports)
     add_definitions(${asm_defs})
