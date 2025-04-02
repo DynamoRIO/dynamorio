@@ -1052,10 +1052,17 @@ typedef enum {
      * The individual traces are enclosed within a pair of
      * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END
      * markers which also specify what system call the contained trace belongs to. This
-     * file can be used with -syscall_template_file to raw2trace to create an
-     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace. See the sample file written by the
-     * burst_syscall_inject.cpp test for more details on the expected format for the
-     * system call template file.
+     * file can be used to create an #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace with
+     * -syscall_template_file to raw2trace, with -sched_syscall_file to the
+     * drmemtrace analyzer framework, and also with #dynamorio::drmemtrace::
+     * scheduler_tmpl_t::scheduler_options_t.kernel_syscall_trace_path and #dynamorio::
+     * drmemtrace::scheduler_tmpl_t::scheduler_options_t.kernel_syscall_reader to the
+     * scheduler. Each system call trace template uses the regular drmemtrace format,
+     * including using paired #TRACE_MARKER_TYPE_KERNEL_EVENT and
+     * #TRACE_MARKER_TYPE_KERNEL_XFER markers to represent kernel interrupts during
+     * system call execution. See the sample file written by the burst_syscall_inject.cpp
+     * test for more details on the expected format for the system call template file.
+     *
      * TODO i#6495: Add support for reading a zipfile where each trace template is in
      * a separate component. This will make it easier to manually append, update, or
      * inspect the individual templates, and also allow streaming the component with the

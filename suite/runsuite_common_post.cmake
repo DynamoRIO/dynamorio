@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -32,11 +32,7 @@
 # Test suite post-processing
 # See instructions in runsuite_common_pre.cmake
 
-cmake_minimum_required(VERSION 3.7)
-if (COMMAND cmake_policy)
-  # avoid warnings on include()
-  cmake_policy(VERSION 3.7)
-endif()
+cmake_minimum_required(VERSION 3.14)
 
 # Caller should set build_package boolean and should
 # have included runsuite_common_pre.cmake which sets

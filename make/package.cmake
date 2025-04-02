@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -41,7 +41,7 @@
 # For example:
 # ctest -V -S /my/path/to/dynamorio/src/make/package.cmake,build=1\;version=5.0.0\;invoke=/my/path/to/drmemory/src/package.cmake\;drmem_only\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.6.0
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
 
 # arguments are a ;-separated list (must escape as \; from ctest_run_script())

@@ -23,7 +23,7 @@ if (RISCV64 OR AARCH64 OR ANDROID OR MUSL)
   return()
 endif ()
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 include(${PROJECT_SOURCE_DIR}/make/policies.cmake NO_POLICY_SCOPE)
 
@@ -126,7 +126,11 @@ macro(configure_drsyscall_target target)
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/common)
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/framework)
 
-  IF (WIN32)
+  if (UNIX)
+    include_directories(${PROJECT_SOURCE_DIR}/core/unix/include)
+  endif ()
+
+  if (WIN32)
     add_dependencies(${target} ntdll_imports)
     add_definitions(${asm_defs})
     # We can't include directly from DDK b/c the DDK include dir and VS include
