@@ -1052,7 +1052,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Zero is pushed as a sentinel. This push matches the return used by post
         // signal handler to run the restorer code. It is assumed that all signal
         // handlers return normally and longjmp is not used.
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
+            // retaddr_stack_ tracking is only for user-space code where we do
+            // function tracing.
+            !(shard->between_kernel_syscall_trace_markers_ ||
+              shard->between_kernel_context_switch_markers_)) {
             // If the marker is preceded by an RSEQ ABORT marker, do not push the sentinel
             // since there will not be a corresponding return.
             if (shard->prev_entry_.marker.type != TRACE_TYPE_MARKER ||
