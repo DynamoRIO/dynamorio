@@ -3137,16 +3137,17 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             // check to be skipped.
             gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID_A, /*pc=*/2),
             gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ID, /*func_id*/ 1),
-            // Points to pc=3 as the return address, which is correct. This
-            // failed before we made sure to not add a zero entry to
-            // retaddr_stack_ at the kernel_event inside the syscall trace.
+            // Points to pc=3 as the return address, which is correct.
+            // For the non-call branch above, nothing is added to the
+            // retaddr stack, which causes the return address == top-of-stack
+            // check to be skipped. But the check failed before we made sure
+            // to not add a zero entry to retaddr_stack_ at the kernel_event
+            // inside the syscall trace.
             gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_RETADDR, /*pc=*/3),
             gen_exit(TID_A),
         };
-        std::cerr << "AAA in test\n";
         if (!run_checker(memrefs, false))
             return false;
-        std::cerr << "AAA done test\n";
     }
 #endif
     return true;
