@@ -2860,10 +2860,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         }
         break;
     }
+    update_next_record(output, record);
     VPRINT(this, 4, "next_record[%d]: from %d @%" PRId64 ": ", output, input->index,
            cur_time);
     VDO(this, 4, print_record(record););
-    update_next_record(output, record);
 
     outputs_[output].last_record = record;
     record_type_has_tid(record, input->last_record_tid);
