@@ -64,7 +64,7 @@ struct memref_with_IR_t {
 inline memref_t
 gen_addr(memref_tid_t tid, trace_type_t type, addr_t addr, size_t size = 1)
 {
-    memref_t memref = {};
+    memref_t memref = { .instr = {} };
     memref.instr.type = type;
     memref.instr.tid = tid;
     memref.instr.addr = addr;
@@ -75,7 +75,7 @@ gen_addr(memref_tid_t tid, trace_type_t type, addr_t addr, size_t size = 1)
 inline memref_t
 gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 {
-    memref_t memref = {};
+    memref_t memref = { .instr = {} };
     memref.instr.type = load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE;
     memref.instr.tid = tid;
     memref.instr.addr = addr;
@@ -87,7 +87,7 @@ inline memref_t
 gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc = 1, size_t size = 1,
                addr_t indirect_branch_target = 0, memref_pid_t pid = 0)
 {
-    memref_t memref = {};
+    memref_t memref = { .instr = {} };
     memref.instr.type = type;
     memref.instr.tid = tid;
     memref.instr.pid = pid;
@@ -158,7 +158,7 @@ gen_branch_encoded(memref_tid_t tid, addr_t pc, const std::vector<char> &encodin
 inline memref_t
 gen_marker(memref_tid_t tid, trace_marker_type_t type, uintptr_t val)
 {
-    memref_t memref = {};
+    memref_t memref = { .marker = {} };
     memref.marker.type = TRACE_TYPE_MARKER;
     memref.marker.tid = tid;
     memref.marker.marker_type = type;
@@ -169,7 +169,7 @@ gen_marker(memref_tid_t tid, trace_marker_type_t type, uintptr_t val)
 inline memref_t
 gen_exit(memref_tid_t tid)
 {
-    memref_t memref = {};
+    memref_t memref = { .instr = {} };
     memref.instr.type = TRACE_TYPE_THREAD_EXIT;
     memref.instr.tid = tid;
     return memref;
