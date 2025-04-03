@@ -5942,7 +5942,8 @@ test_unscheduled()
 static std::vector<std::string>
 run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                                        memref_tid_t tid_base, int syscall_base,
-                                       std::vector<std::vector<memref_t>> &refs)
+                                       std::vector<std::vector<memref_t>> &refs,
+                                       bool for_syscall_seq)
 {
     // We have a custom version of run_lockstep_simulation here for more precise
     // testing of the markers and instructions and interfaces.
@@ -5964,6 +5965,12 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
         for (int i = 0; i < num_outputs; i++) {
             if (eof[i])
                 continue;
+            if (for_syscall_seq) {
+                // Ensure that the stream returns the correct value. The marker value is
+                // recorded in refs and will be checked separately.
+                assert(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS,
+                               outputs[i]->get_filetype()));
+            }
             memref_t memref;
             scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
             if (status == scheduler_t::STATUS_EOF) {
@@ -6027,6 +6034,7 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
             else if (memref.marker.type == TRACE_TYPE_MARKER) {
                 switch (memref.marker.marker_type) {
                 case TRACE_MARKER_TYPE_VERSION: sched_as_string[i] += 'v'; break;
+                case TRACE_MARKER_TYPE_FILETYPE: sched_as_string[i] += 'f'; break;
                 case TRACE_MARKER_TYPE_TIMESTAMP: sched_as_string[i] += '0'; break;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
                     in_switch[i] = false;
@@ -6141,7 +6149,8 @@ test_kernel_switch_sequences()
 
     std::vector<std::vector<memref_t>> refs;
     std::vector<std::string> sched_as_string =
-        run_lockstep_simulation_for_kernel_seq(scheduler, NUM_OUTPUTS, TID_BASE, 0, refs);
+        run_lockstep_simulation_for_kernel_seq(scheduler, NUM_OUTPUTS, TID_BASE, 0, refs,
+                                               /*for_syscall_seq*/ false);
     // Check the high-level strings.
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
@@ -6261,6 +6270,8 @@ test_kernel_syscall_sequences()
     static constexpr addr_t SYSCALL_PC_START = 0xfeed101;
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr offline_file_type_t FILE_TYPE =
+        offline_file_type_t::OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
     {
         std::vector<trace_entry_t> syscall_sequence = {
             /* clang-format off */
@@ -6300,6 +6311,9 @@ test_kernel_syscall_sequences()
             inputs.push_back(make_thread(tid));
             inputs.push_back(make_pid(1));
             inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(
+                // Just a non-zero filetype.
+                make_marker(TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE));
             inputs.push_back(make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 inputs.push_back(make_instr(42 + instr_idx * 4));
@@ -6327,7 +6341,8 @@ test_kernel_syscall_sequences()
             assert(false);
         std::vector<std::vector<memref_t>> refs;
         std::vector<std::string> sched_as_string = run_lockstep_simulation_for_kernel_seq(
-            scheduler, NUM_OUTPUTS, TID_BASE, SYSCALL_BASE, refs);
+            scheduler, NUM_OUTPUTS, TID_BASE, SYSCALL_BASE, refs,
+            /*for_syscall_seq=*/true);
         // Check the high-level strings.
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
@@ -6335,10 +6350,10 @@ test_kernel_syscall_sequences()
         // The instrs in the injected syscall sequence count towards the #instr
         // quantum, but no context switch happens in the middle of the syscall seq.
         assert(sched_as_string[0] ==
-               "Av0is1ii1,Cv0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
+               "Avf0is1ii1,Cvf0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
                "Ciis2iii2,Aiis1ii1,Ciis1ii1");
         assert(sched_as_string[1] ==
-               "Bv0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1____________________________"
+               "Bvf0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1_____________________________"
                "___________");
 
         // Zoom in and check the first few syscall sequences on the first output record
@@ -6348,6 +6363,9 @@ test_kernel_syscall_sequences()
         res = res &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FILETYPE,
+                      FILE_TYPE | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
@@ -6364,6 +6382,9 @@ test_kernel_syscall_sequences()
 
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FILETYPE,
+                      FILE_TYPE | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&

@@ -978,6 +978,10 @@ protected:
     get_statistic(output_ordinal_t output,
                   memtrace_stream_t::schedule_statistic_t stat) const;
 
+    // Adds bits to the filetype if required by the scheduler config.
+    offline_file_type_t
+    adjust_filetype(offline_file_type_t orig_filetype) const;
+
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;
     const char *output_prefix_ = "[scheduler]";
