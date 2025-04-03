@@ -6150,7 +6150,7 @@ test_kernel_switch_sequences()
     std::vector<std::vector<memref_t>> refs;
     std::vector<std::string> sched_as_string =
         run_lockstep_simulation_for_kernel_seq(scheduler, NUM_OUTPUTS, TID_BASE, 0, refs,
-                                               /*for_syscall_seq=*/ false);
+                                               /*for_syscall_seq=*/false);
     // Check the high-level strings.
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
