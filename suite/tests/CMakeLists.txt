@@ -6308,10 +6308,10 @@ if (vera++_FOUND)
   set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
 endif ()
 
-# TODO i#7399: Add Aarch64, Android, MUSL, RISCV64 support to DrSyscall.
+# TODO i#7399: Add Android, MUSL, RISCV64 support to DrSyscall.
 # Windows tests fail due to Syscall mismatch for NtGetContextThread with wrapper
 # 236 vs table 235.
-IF (NOT AARCH64 AND NOT ANDROID AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
+IF (NOT ANDROID AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
   tobuild_ci(client.drsyscall-test client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(drsyscall_libpath client.drsyscall-test.dll
     "${location_suffix}")
