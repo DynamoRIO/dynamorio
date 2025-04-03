@@ -1540,6 +1540,13 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
  */
 #define DRMEMTRACE_V2P_FILENAME "v2p.textproto"
 
+/**
+ * The name of the directory inside the trace directory that contains auxiliary trace
+ * files or directories that are not required to read, analyze, or schedule a trace
+ * (e.g., the human-consumption-only info.textproto file).
+ */
+#define DRMEMTRACE_AUX_DIRNAME "aux"
+
 } // namespace drmemtrace
 } // namespace dynamorio
 
