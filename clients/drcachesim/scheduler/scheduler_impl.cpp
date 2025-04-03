@@ -2426,7 +2426,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
         stream->version_ = inputs_[input].reader->get_version();
         stream->last_timestamp_ = inputs_[input].reader->get_last_timestamp();
         stream->first_timestamp_ = inputs_[input].reader->get_first_timestamp();
-        stream->filetype_ = inputs_[input].reader->get_filetype();
+        stream->filetype_ = adjust_filetype(
+            static_cast<offline_file_type_t>(inputs_[input].reader->get_filetype()));
         stream->cache_line_size_ = inputs_[input].reader->get_cache_line_size();
         stream->chunk_instr_count_ = inputs_[input].reader->get_chunk_instr_count();
         stream->page_size_ = inputs_[input].reader->get_page_size();
@@ -2859,9 +2860,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         }
         break;
     }
+    update_next_record(output, record);
     VPRINT(this, 4, "next_record[%d]: from %d @%" PRId64 ": ", output, input->index,
            cur_time);
-    update_next_record(output, record);
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
@@ -2904,6 +2905,14 @@ void
 scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal_t output,
                                                                   RecordType &record)
 {
+    // Initialize to zero to prevent uninit use errors.
+    trace_marker_type_t marker_type = trace_marker_type_t::TRACE_MARKER_TYPE_KERNEL_EVENT;
+    uintptr_t marker_value = 0;
+    bool is_marker = record_type_is_marker(record, marker_type, marker_value);
+    if (is_marker && marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        record_type_set_marker_value(
+            record, adjust_filetype(static_cast<offline_file_type_t>(marker_value)));
+    }
     if (options_.mapping != sched_type_t::MAP_TO_ANY_OUTPUT &&
         options_.mapping != sched_type_t::MAP_AS_PREVIOUSLY)
         return; // Nothing to do.
@@ -2933,11 +2942,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
     // For a dynamic schedule, the as-traced cpuids and timestamps no longer
     // apply and are just confusing (causing problems like interval analysis
     // failures), so we replace them.
-    trace_marker_type_t type;
-    uintptr_t value;
-    if (!record_type_is_marker(record, type, value))
+    if (!is_marker)
         return; // Nothing to do.
-    if (type == TRACE_MARKER_TYPE_TIMESTAMP) {
+    if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         if (outputs_[output].base_timestamp == 0) {
             // Record the first input's first timestamp, as a base value.
 #ifndef NDEBUG
@@ -2962,7 +2969,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
 #endif
             record_type_set_marker_value(record, new_time);
         assert(ok);
-    } else if (type == TRACE_MARKER_TYPE_CPU_ID) {
+    } else if (marker_type == TRACE_MARKER_TYPE_CPU_ID) {
 #ifndef NDEBUG
         bool ok =
 #endif
@@ -3102,6 +3109,21 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_statistic(
     if (stat >= memtrace_stream_t::SCHED_STAT_TYPE_COUNT)
         return -1;
     return static_cast<double>(outputs_[output].stats[stat]);
+}
+
+template <typename RecordType, typename ReaderType>
+offline_file_type_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::adjust_filetype(
+    offline_file_type_t orig_filetype) const
+{
+    uintptr_t filetype = static_cast<uintptr_t>(orig_filetype);
+    if (!syscall_sequence_.empty()) {
+        // If the read syscall_sequence_ does not have any trace for the
+        // syscalls actually present in the trace, we may end up without any
+        // syscall trace despite the following filetype bit set.
+        filetype |= OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
+    }
+    return static_cast<offline_file_type_t>(filetype);
 }
 
 template class scheduler_impl_tmpl_t<memref_t, reader_t>;
