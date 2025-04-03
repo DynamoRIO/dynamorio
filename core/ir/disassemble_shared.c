@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1315,6 +1315,12 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT
         SYSLOG_INTERNAL_WARNING_ONCE("Selected disassembly style is not implemented for "
                                      "AArch64: no operands will be printed.");
 #endif
+        if (instr_get_isa_mode(instr) == DR_ISA_REGDEPS) {
+            SYSLOG_INTERNAL_WARNING_ONCE(
+                "Selected disassembly style is not implemented "
+                "for DR_ISA_REGDEPS: no operands will be printed.");
+            return;
+        }
         instr_disassemble_opnds_noimplicit(buf, bufsz, sofar, dcontext, instr);
         /* we avoid trailing spaces if no operands */
         if (*sofar == offs_pre_opnds) {

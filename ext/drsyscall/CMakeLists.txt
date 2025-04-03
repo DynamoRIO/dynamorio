@@ -126,11 +126,11 @@ macro(configure_drsyscall_target target)
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/common)
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/framework)
 
-  IF (UNIX)
+  if (UNIX)
     include_directories(${PROJECT_SOURCE_DIR}/core/unix/include)
   endif ()
 
-  IF (WIN32)
+  if (WIN32)
     add_dependencies(${target} ntdll_imports)
     add_definitions(${asm_defs})
     # We can't include directly from DDK b/c the DDK include dir and VS include

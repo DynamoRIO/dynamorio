@@ -281,6 +281,7 @@ set(drcachesim_srcs
   scheduler/scheduler_replay.cpp
   scheduler/scheduler_fixed.cpp
   scheduler/speculator.cpp
+  scheduler/noise_generator.cpp
   analyzer.cpp
   analyzer_multi.cpp
   ${client_and_sim_srcs}
@@ -348,6 +349,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   scheduler/scheduler_replay.cpp
   scheduler/scheduler_fixed.cpp
   scheduler/speculator.cpp
+  scheduler/noise_generator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
   reader/config_reader.cpp
@@ -401,6 +403,7 @@ install_client_nonDR_header(drmemtrace tools/filter/record_filter.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace_shared.h)
 install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
+install_client_nonDR_header(drmemtrace scheduler/noise_generator.h)
 install_client_nonDR_header(drmemtrace scheduler/flexible_queue.h)
 install_client_nonDR_header(drmemtrace scheduler/speculator.h)
 
