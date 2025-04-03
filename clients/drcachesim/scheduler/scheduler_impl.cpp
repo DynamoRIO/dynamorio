@@ -2876,9 +2876,8 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
     output_ordinal_t output, const RecordType &record, input_info_t *input)
 {
-    // Initialize to zero to prevent uninit use errors.
-    trace_marker_type_t marker_type = trace_marker_type_t::TRACE_MARKER_TYPE_KERNEL_EVENT;
-    uintptr_t marker_value = 0;
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value;
     // Good to queue the injected records at this point, because we now surely will
     // be done with TRACE_MARKER_TYPE_SYSCALL.
     if (record_type_is_marker(record, marker_type, marker_value) &&
@@ -2906,8 +2905,9 @@ void
 scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal_t output,
                                                                   RecordType &record)
 {
-    trace_marker_type_t marker_type;
-    uintptr_t marker_value;
+    // Initialize to zero to prevent uninit use errors.
+    trace_marker_type_t marker_type = trace_marker_type_t::TRACE_MARKER_TYPE_KERNEL_EVENT;
+    uintptr_t marker_value = 0;
     bool is_marker = record_type_is_marker(record, marker_type, marker_value);
     if (is_marker && marker_type == TRACE_MARKER_TYPE_FILETYPE) {
         record_type_set_marker_value(
