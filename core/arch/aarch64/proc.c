@@ -273,6 +273,9 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_DPB2);
         LOG_FEATURE(FEATURE_JSCVT);
         LOG_FEATURE(FEATURE_PAUTH);
+        LOG_FEATURE(FEATURE_LS64);
+        LOG_FEATURE(FEATURE_LS64V);
+        LOG_FEATURE(FEATURE_LS64ACCDATA);
 
         LOG(GLOBAL, LOG_TOP, 1, "ID_AA64PFR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64PFR0]);
@@ -325,17 +328,18 @@ void
 enable_all_test_cpu_features()
 {
     const feature_bit_t features[] = {
-        FEATURE_LSE,    FEATURE_RDM,         FEATURE_FP16,          FEATURE_DotProd,
-        FEATURE_SVE,    FEATURE_LOR,         FEATURE_FHM,           FEATURE_SM3,
-        FEATURE_SM4,    FEATURE_SHA512,      FEATURE_SHA3,          FEATURE_RAS,
-        FEATURE_SPE,    FEATURE_PAUTH,       FEATURE_LRCPC,         FEATURE_LRCPC2,
-        FEATURE_BF16,   FEATURE_I8MM,        FEATURE_F64MM,         FEATURE_FlagM,
-        FEATURE_JSCVT,  FEATURE_DPB,         FEATURE_DPB2,          FEATURE_SVE2,
-        FEATURE_SVEAES, FEATURE_SVEBitPerm,  FEATURE_SVESHA3,       FEATURE_SVESM4,
-        FEATURE_MTE,    FEATURE_BTI,         FEATURE_FRINTTS,       FEATURE_PAUTH2,
-        FEATURE_MTE2,   FEATURE_FlagM2,      FEATURE_CONSTPACFIELD, FEATURE_SSBS,
-        FEATURE_SSBS2,  FEATURE_DIT,         FEATURE_LSE2,          FEATURE_WFxT,
-        FEATURE_FPAC,   FEATURE_FPACCOMBINE,
+        FEATURE_LSE,        FEATURE_RDM,         FEATURE_FP16,          FEATURE_DotProd,
+        FEATURE_SVE,        FEATURE_LOR,         FEATURE_FHM,           FEATURE_SM3,
+        FEATURE_SM4,        FEATURE_SHA512,      FEATURE_SHA3,          FEATURE_RAS,
+        FEATURE_SPE,        FEATURE_PAUTH,       FEATURE_LRCPC,         FEATURE_LRCPC2,
+        FEATURE_BF16,       FEATURE_I8MM,        FEATURE_F64MM,         FEATURE_FlagM,
+        FEATURE_JSCVT,      FEATURE_DPB,         FEATURE_DPB2,          FEATURE_SVE2,
+        FEATURE_SVEAES,     FEATURE_SVEBitPerm,  FEATURE_SVESHA3,       FEATURE_SVESM4,
+        FEATURE_MTE,        FEATURE_BTI,         FEATURE_FRINTTS,       FEATURE_PAUTH2,
+        FEATURE_MTE2,       FEATURE_FlagM2,      FEATURE_CONSTPACFIELD, FEATURE_SSBS,
+        FEATURE_SSBS2,      FEATURE_DIT,         FEATURE_LSE2,          FEATURE_WFxT,
+        FEATURE_FPAC,       FEATURE_FPACCOMBINE, FEATURE_LS64,          FEATURE_LS64V,
+        FEATURE_LS64ACCDATA
     };
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);
