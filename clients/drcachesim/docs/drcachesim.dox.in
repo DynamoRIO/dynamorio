@@ -1120,7 +1120,7 @@ the same v2p.textproto format.
 The info.textproto file provides users with additional, human-readable information about
 a trace.  This file is not intended to be used with any DynamoRIO tool.
 
-These traces are supported starting from DynamoRIO 11.3.
+These traces are supported starting from DynamoRIO 11.4.
 
 \section sec_google_get Getting the Traces
 
