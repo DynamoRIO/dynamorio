@@ -988,6 +988,7 @@ function(add_api_exe test source use_decoder use_static_DR)
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drsyms.dll"
         VERBATIM)
       add_custom_target(drcopy DEPENDS "${drcopy_stamp}")
+      add_dependencies(drcopy drconfiglib)
       set(created_drcopy_target ON PARENT_SCOPE)
     endif ()
     add_dependencies(${test} drcopy)
