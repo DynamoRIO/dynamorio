@@ -280,7 +280,7 @@ opnd_t
 opnd_inc_reg(opnd_t opnd, int amount)
 {
     opnd_t new_opnd = opnd;
-    reg_id_t r = opnd.value.reg_and_element_size.reg + amount;
+    reg_id_t r = (reg_id_t)(opnd.value.reg_and_element_size.reg + amount);
     CLIENT_ASSERT(r < DR_REG_AFTER_LAST_VALID_ENUM && r != DR_REG_INVALID,
                   "opnd_inc_reg: invalid register");
     new_opnd.value.reg_and_element_size.reg = r;
