@@ -1109,7 +1109,7 @@ Also, we preserved the following markers, but only for SYS_futex functions:
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETADDR
 
-Every trace has a v2p.textproto and an info.textproto file associated to it.
+Every trace has a v2p.textproto and an info.textproto file associated with it.
 
 The v2p.textproto file provides a plausible virtual to physical mapping of the virtual
 addresses present in a trace for more realistic TLB simulations.  This is a static
@@ -1118,7 +1118,7 @@ virtual to physical mapping with 2 MB pages. Users can generate different mappin
 the same v2p.textproto format.
 
 The info.textproto file provides users with additional, human-readable information about
-a trace.  This file is not intended to be used with any DynamoRIO's tool.
+a trace.  This file is not intended to be used with any DynamoRIO tool.
 
 These traces are supported starting from DynamoRIO 11.3.
 
