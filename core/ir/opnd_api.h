@@ -2430,6 +2430,10 @@ INSTR_INLINE
 /**
  * Returns a copy of a register operand with the reg number increased
  * by \p amount.
+ *
+ * This only makes sense with numbered and ordered register sets,
+ * such as the AARCH64 X registers. Be sure not to exceed the
+ * last register in the set e.g. DR_REG_X30
  */
 opnd_t
 opnd_inc_reg(opnd_t opnd, int amount);

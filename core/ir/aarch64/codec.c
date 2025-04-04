@@ -2163,13 +2163,13 @@ encode_opnd_w0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_w0p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(false, 0, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/false, /*plus=*/0, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_w0p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(false, 0, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/false, /*plus=*/0, /*pos=*/0, opnd, enc_out);
 }
 
 /* w0p1: even-numbered W register or WZR at bit position 0, add 1 */
@@ -2177,13 +2177,13 @@ encode_opnd_w0p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_w0p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(false, 1, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/false, /*plus=*/1, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_w0p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(false, 1, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/false, /*plus=*/1, /*pos=*/0, opnd, enc_out);
 }
 
 /* x0: X register or XZR at bit position 0 */
@@ -2243,13 +2243,13 @@ encode_opnd_memx0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 static inline bool
 decode_opnd_x0p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 0, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/0, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x0p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 0, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/0, /*pos=*/0, opnd, enc_out);
 }
 
 /* x0p1: even-numbered X register or XZR at bit position 0, add 1 */
@@ -2257,85 +2257,85 @@ encode_opnd_x0p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_x0p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 1, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/1, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x0p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 1, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/1, /*pos=*/0, opnd, enc_out);
 }
 
 static inline bool
-decode_opnd_x0p2(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+pusha(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 2, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/2, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x0p2(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 2, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/2, /*pos=*/0, opnd, enc_out);
 }
 
 static inline bool
 decode_opnd_x0p3(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 3, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/3, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x0p3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 3, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/3, /*pos=*/0, opnd, enc_out);
 }
 
 static inline bool
 decode_opnd_x0p4(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 4, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/4, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x0p4(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 4, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/4, /*pos=*/0, opnd, enc_out);
 }
 
 static inline bool
 decode_opnd_x0p5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 5, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/5, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x0p5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 5, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/5, /*pos=*/0, opnd, enc_out);
 }
 
 static inline bool
 decode_opnd_x0p6(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 6, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/6, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x0p6(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 6, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/6, /*pos=*/0, opnd, enc_out);
 }
 
 static inline bool
 decode_opnd_x0p7(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 7, 0, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/7, /*pos=*/0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x0p7(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 7, 0, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/7, /*pos=*/0, opnd, enc_out);
 }
 
 /* b0: B register at bit position 0 */
@@ -4552,13 +4552,13 @@ encode_opnd_w16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_w16p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(false, 0, 16, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/false, /*plus=*/0, /*pos=*/16, enc, opnd);
 }
 
 static inline bool
 encode_opnd_w16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(false, 0, 16, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/false, /*plus=*/0, /*pos=*/16, opnd, enc_out);
 }
 
 /* w16p1: even-numbered W register or WZR at bit position 16, add 1 */
@@ -4566,13 +4566,13 @@ encode_opnd_w16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 static inline bool
 decode_opnd_w16p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(false, 1, 16, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/false, /*plus=*/1, /*pos=*/16, enc, opnd);
 }
 
 static inline bool
 encode_opnd_w16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(false, 1, 16, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/false, /*plus=*/1, /*pos=*/16, opnd, enc_out);
 }
 
 /* x16: X register or XZR at bit position 16 */
@@ -4608,13 +4608,13 @@ encode_opnd_x16sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 static inline bool
 decode_opnd_x16p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 0, 16, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/0, /*pos=*/16, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 0, 16, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/0, /*pos=*/16, opnd, enc_out);
 }
 
 /* x16p1: even-numbered X register or XZR at bit position 16, add 1 */
@@ -4622,13 +4622,13 @@ encode_opnd_x16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 static inline bool
 decode_opnd_x16p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(true, 1, 16, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/false, /*plus=*/1, /*pos=*/16, enc, opnd);
 }
 
 static inline bool
 encode_opnd_x16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_wxnp(true, 1, 16, opnd, enc_out);
+    return encode_opnd_wxnp(/*is_x=*/true, /*plus=*/1, /*pos=*/16, opnd, enc_out);
 }
 
 /* d16: D register at bit position 16 */
