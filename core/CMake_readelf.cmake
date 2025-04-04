@@ -138,7 +138,7 @@ if (check_libc)
   # To determine the minimum version of glibc that we should support for packaging, we
   # should check the Linux distributions that are known not to be rolling releases and
   # offer long support, and then check the oldest option available that is not yet EOL.
-  # As June 2025, these are:
+  # As of June 2025, these are:
   #  * Debian Bullseye, which is on glibc 2.31
   #  * RHEL 8, which is on glibc 2.28
   #  * Ubuntu 22.04, which is on glibc 2.35
