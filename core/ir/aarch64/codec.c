@@ -4622,7 +4622,7 @@ encode_opnd_x16p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 static inline bool
 decode_opnd_x16p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_wxnp(/*is_x=*/false, /*plus=*/1, /*pos=*/16, enc, opnd);
+    return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/1, /*pos=*/16, enc, opnd);
 }
 
 static inline bool
