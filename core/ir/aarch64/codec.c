@@ -2267,7 +2267,7 @@ encode_opnd_x0p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 }
 
 static inline bool
-pusha(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_x0p2(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_wxnp(/*is_x=*/true, /*plus=*/2, /*pos=*/0, enc, opnd);
 }
