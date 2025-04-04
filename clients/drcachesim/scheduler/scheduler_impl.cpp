@@ -218,14 +218,6 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_set_tid(memref_t &record,
 }
 
 template <>
-void
-scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_set_pid(memref_t &record,
-                                                               memref_pid_t pid)
-{
-    record.marker.pid = pid;
-}
-
-template <>
 bool
 scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_instr(memref_t record)
 {
@@ -434,16 +426,6 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_set_tid(
     if (record.type != TRACE_TYPE_THREAD)
         return;
     record.addr = static_cast<addr_t>(tid);
-}
-
-template <>
-void
-scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_set_pid(
-    trace_entry_t &record, memref_pid_t pid)
-{
-    if (record.type != TRACE_TYPE_PID)
-        return;
-    record.addr = static_cast<addr_t>(pid);
 }
 
 template <>
@@ -2426,8 +2408,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
         stream->version_ = inputs_[input].reader->get_version();
         stream->last_timestamp_ = inputs_[input].reader->get_last_timestamp();
         stream->first_timestamp_ = inputs_[input].reader->get_first_timestamp();
-        stream->filetype_ = adjust_filetype(
-            static_cast<offline_file_type_t>(inputs_[input].reader->get_filetype()));
+        stream->filetype_ = inputs_[input].reader->get_filetype();
         stream->cache_line_size_ = inputs_[input].reader->get_cache_line_size();
         stream->chunk_instr_count_ = inputs_[input].reader->get_chunk_instr_count();
         stream->page_size_ = inputs_[input].reader->get_page_size();
@@ -2860,9 +2841,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         }
         break;
     }
-    update_next_record(output, record);
     VPRINT(this, 4, "next_record[%d]: from %d @%" PRId64 ": ", output, input->index,
            cur_time);
+    update_next_record(output, record);
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
@@ -2905,14 +2886,6 @@ void
 scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal_t output,
                                                                   RecordType &record)
 {
-    // Initialize to zero to prevent uninit use errors.
-    trace_marker_type_t marker_type = trace_marker_type_t::TRACE_MARKER_TYPE_KERNEL_EVENT;
-    uintptr_t marker_value = 0;
-    bool is_marker = record_type_is_marker(record, marker_type, marker_value);
-    if (is_marker && marker_type == TRACE_MARKER_TYPE_FILETYPE) {
-        record_type_set_marker_value(
-            record, adjust_filetype(static_cast<offline_file_type_t>(marker_value)));
-    }
     if (options_.mapping != sched_type_t::MAP_TO_ANY_OUTPUT &&
         options_.mapping != sched_type_t::MAP_AS_PREVIOUSLY)
         return; // Nothing to do.
@@ -2921,30 +2894,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
         // sched_type_t::MAP_AS_PREVIOUSLY).
         return;
     }
-    // We modify the tid and pid fields to ensure uniqueness across multiple workloads for
-    // core-sharded-on-disk and with analyzers that look at the tid instead of using our
-    // workload identifiers (and since the workload API is not there for
-    // core-sharded-on-disk it may not be worth updating these analyzers).  To maintain
-    // the original values, we write the workload ordinal into the top 32 bits.  We don't
-    // support distinguishing for 32-bit-build record_filter.  We also ignore complexities
-    // on Mac with its 64-bit tid type.
-    int64_t workload = get_workload_ordinal(output);
-    memref_tid_t cur_tid;
-    if (record_type_has_tid(record, cur_tid) && workload > 0) {
-        memref_tid_t new_tid = (workload << MEMREF_ID_WORKLOAD_SHIFT) | cur_tid;
-        record_type_set_tid(record, new_tid);
-    }
-    memref_pid_t cur_pid;
-    if (record_type_has_pid(record, cur_pid) && workload > 0) {
-        memref_tid_t new_pid = (workload << MEMREF_ID_WORKLOAD_SHIFT) | cur_pid;
-        record_type_set_pid(record, new_pid);
-    }
     // For a dynamic schedule, the as-traced cpuids and timestamps no longer
     // apply and are just confusing (causing problems like interval analysis
     // failures), so we replace them.
-    if (!is_marker)
+    trace_marker_type_t type;
+    uintptr_t value;
+    if (!record_type_is_marker(record, type, value))
         return; // Nothing to do.
-    if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+    if (type == TRACE_MARKER_TYPE_TIMESTAMP) {
         if (outputs_[output].base_timestamp == 0) {
             // Record the first input's first timestamp, as a base value.
 #ifndef NDEBUG
@@ -2969,7 +2926,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
 #endif
             record_type_set_marker_value(record, new_time);
         assert(ok);
-    } else if (marker_type == TRACE_MARKER_TYPE_CPU_ID) {
+    } else if (type == TRACE_MARKER_TYPE_CPU_ID) {
 #ifndef NDEBUG
         bool ok =
 #endif
@@ -3109,21 +3066,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_statistic(
     if (stat >= memtrace_stream_t::SCHED_STAT_TYPE_COUNT)
         return -1;
     return static_cast<double>(outputs_[output].stats[stat]);
-}
-
-template <typename RecordType, typename ReaderType>
-offline_file_type_t
-scheduler_impl_tmpl_t<RecordType, ReaderType>::adjust_filetype(
-    offline_file_type_t orig_filetype) const
-{
-    uintptr_t filetype = static_cast<uintptr_t>(orig_filetype);
-    if (!syscall_sequence_.empty()) {
-        // If the read syscall_sequence_ does not have any trace for the
-        // syscalls actually present in the trace, we may end up without any
-        // syscall trace despite the following filetype bit set.
-        filetype |= OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
-    }
-    return static_cast<offline_file_type_t>(filetype);
 }
 
 template class scheduler_impl_tmpl_t<memref_t, reader_t>;
