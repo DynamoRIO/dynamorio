@@ -135,19 +135,24 @@ if (check_libc)
     OUTPUT_VARIABLE file_header_result
     )
 
-  # To determine the minimum version of glibc that we should support for packaging, we should
-  # check the Linux distributions that are known not to be rolling releases and offer long
-  # support, and then check the oldest option available that is not yet EOL. As of writing,
-  # these are:
-  #  * Debian Stretch, which is on glibc 2.24
-  #  * CentOS 7/RHEL 7, which is on glibc 2.17
-  #  * Ubuntu 16.04 LTS (Xenial), which is on glibc 2.23
+  # To determine the minimum version of glibc that we should support for packaging, we
+  # should check the Linux distributions that are known not to be rolling releases and
+  # offer long support, and then check the oldest option available that is not yet EOL.
+  # As June 2025, these are:
+  #  * Debian Bullseye, which is on glibc 2.31
+  #  * RHEL 8, which is on glibc 2.28
+  #  * Ubuntu 22.04, which is on glibc 2.35
   #
-  # Therefore, we want to support at least glibc 2.17.
-  #
-  # The glibc version is independent of the architecture. For instance, RHEL 7 for AArch64 also
-  # ships glibc 2.17 as of writing.
-  set (glibc_version "2.17")
+  # Therefore, we want to support at least glibc 2.28.
+  # Unfortunately, there is a compatibility break where glibc 2.34 contains
+  # `__libc_start_main@GLIBC_2.34` and non-trivial changes such that any binary
+  # built with 2.34+ will not run on a system with 2.33 or older.
+  # Since the oldest glibc Github Actions provides is Ubuntu 22.04's 2.35,
+  # we cannot easily build a pre-2.34 version.  For now we make 2.34 the minimum
+  # so our Github Actions docs and package builds succeed.
+  # XXX i#5860: Set up a pre-2.34 build somewhere such as Travis so our binary
+  # releases will work on RHEL8 and Debian Bullseye.
+  set (glibc_version "2.34")
 
   set (glibc_version_regexp " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_([0-9]+\\.[0-9]+)")
   string(REGEX MATCHALL "${glibc_version_regexp}" imports "${string}")
