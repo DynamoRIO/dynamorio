@@ -1132,8 +1132,9 @@ Directory structure:
 \verbatim
 workload_name/
   <uuid>.<tid>.memtrace.zip
-  info.textproto
   v2p.textproto
+  aux/
+    info.textproto
 \endverbatim
 
 \section sec_google_help Getting Help and Reporting Bugs
