@@ -176,6 +176,8 @@ Further non-compatibility-affecting changes include:
       workloads of #dynamorio::drmemtrace::scheduler_tmpl_t.
     - the flag -add_noise_generator to the drmemtrace framework that enables noise
       generation alongside the scheduled traces.
+ - Added AUX_SUBDIR (== "aux") to the subdirs in which get_aux_file_path() looks for
+   auxiliary files (e.g., v2p.textproto).
 
 **************************************************
 <hr>

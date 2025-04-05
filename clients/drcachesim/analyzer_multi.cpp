@@ -813,13 +813,17 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::get_aux_file_path(
             trace_dir += std::string(DIRSEP) + "..";
         }
         file_path = trace_dir + std::string(DIRSEP) + default_filename;
-        /* Support the aux file in either raw/ or trace/. */
+        /* Support the aux file in either trace/, raw/, or aux/. */
         if (!std::ifstream(file_path.c_str()).good()) {
             file_path = trace_dir + std::string(DIRSEP) + TRACE_SUBDIR +
                 std::string(DIRSEP) + default_filename;
         }
         if (!std::ifstream(file_path.c_str()).good()) {
             file_path = trace_dir + std::string(DIRSEP) + OUTFILE_SUBDIR +
+                std::string(DIRSEP) + default_filename;
+        }
+        if (!std::ifstream(file_path.c_str()).good()) {
+            file_path = trace_dir + std::string(DIRSEP) + AUX_SUBDIR +
                 std::string(DIRSEP) + default_filename;
         }
     }
