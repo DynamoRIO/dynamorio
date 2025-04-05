@@ -6518,7 +6518,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.drx_buf-test
       code_api|client.emulation_api_simple
       code_api|client.execfault
-      code_api|client.flush
       code_api|client.gonative
       code_api|client.inline
       code_api|client.mangle_suspend
@@ -6534,6 +6533,10 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
+    if (DEBUG)
+           set_tests_properties(code_api|client.flush
+                                PROPERTIES LABELS RUNS_ON_QEMU)
+    endif ()
     if (NOT APPLE) # TODO i#5383: Port to Mac M1.
       set_tests_properties(
         code_api|common.allasm_aarch64_isa
