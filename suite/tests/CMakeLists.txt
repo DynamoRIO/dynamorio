@@ -6518,6 +6518,7 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.drx_buf-test
       code_api|client.emulation_api_simple
       code_api|client.execfault
+      code_api|client.flush
       code_api|client.gonative
       code_api|client.inline
       code_api|client.mangle_suspend
