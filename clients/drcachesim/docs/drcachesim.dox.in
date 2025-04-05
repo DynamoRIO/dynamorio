@@ -1119,10 +1119,8 @@ the same v2p.textproto format.
 
 To run the TLB_simulator tool leveraging the provided v2p.textproto, use:
 \verbatim
-drrun -t drmemtrace -tool TLB_simulator -indir ${PATH_TO_TRACE} -use_physical
+drrun -t drmemtrace -tool TLB_simulator -indir ${PATH_TO_TRACE} -use_physical -v2p_file ${PATH_TO_TRACE}/aux/v2p.textproto
 \endverbatim
-
-To use a different v2p.textproto file, use the "-v2p_file ${PATH_TO_YOUR_V2P}" option.
 
 The info.textproto file provides users with additional, human-readable information about
 a trace.  Unlike v2p.textproto, this file is currently not intended to be used with any
