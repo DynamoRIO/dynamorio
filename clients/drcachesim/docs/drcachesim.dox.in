@@ -1117,10 +1117,22 @@ virtual to physical mapping with 2 MB pages. Users can generate different mappin
 (e.g., smaller page size) by modifying this file, or create their own mapping following
 the same v2p.textproto format.
 
-The info.textproto file provides users with additional, human-readable information about
-a trace.  This file is not intended to be used with any DynamoRIO tool.
+To run the TLB_simulator tool leveraging the provided v2p.textproto, use:
+\verbatim
+drrun -t drmemtrace -tool TLB_simulator -indir ${PATH_TO_TRACE} -use_physical
+\endverbatim
 
-These traces are supported starting from DynamoRIO 11.4.
+To use a different v2p.textproto file, use the "-v2p_file ${PATH_TO_YOUR_V2P}" option.
+
+The info.textproto file provides users with additional, human-readable information about
+a trace.  Unlike v2p.textproto, this file is currently not intended to be used with any
+DynamoRIO tool.  The file contains information on phases of the underlying workload and
+the number of peak live cores (i.e., the maximum number of cores used at the same time
+during the executon of the traced workload).  We recommend users to set their trace
+simulations to use the provided number of peak live cores and scale the LLC accordingly,
+if the peak live cores is not the whole socket.
+
+These traces are supported starting from DynamoRIO 11.3.
 
 \section sec_google_get Getting the Traces
 
@@ -1130,11 +1142,16 @@ The Google Workload Traces can be downloaded from:
 
 Directory structure:
 \verbatim
+CHANGELOG.txt
+CONTRIBUTING.txt
+LICENSE.txt
+README.txt
 workload_name/
-  <uuid>.<tid>.memtrace.zip
-  v2p.textproto
+  trace/
+    <uuid>.<tid>.memtrace.zip
   aux/
     info.textproto
+    v2p.textproto
 \endverbatim
 
 \section sec_google_help Getting Help and Reporting Bugs
