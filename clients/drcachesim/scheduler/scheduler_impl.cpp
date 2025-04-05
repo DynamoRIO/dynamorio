@@ -154,7 +154,7 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::get_reader(const std::string &path,
         }
         for (; iter != end; ++iter) {
             const std::string fname = *iter;
-            if (fname == "." || fname == ".." ||
+            if (fname == "." || fname == ".." || fname == DRMEMTRACE_AUX_DIRNAME ||
                 starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
                 fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
                 continue;
@@ -1823,7 +1823,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_readers(
     std::vector<std::string> files;
     for (; iter != end; ++iter) {
         const std::string fname = *iter;
-        if (fname == "." || fname == ".." ||
+        if (fname == "." || fname == ".." || fname == DRMEMTRACE_AUX_DIRNAME ||
             starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
             fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
             continue;

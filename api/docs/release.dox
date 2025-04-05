@@ -145,6 +145,13 @@ compatibility changes:
  - Added the workload to the top bits of the tid for multi-workload drmemtrace
    scheduling.  The drmemtrace view tool now prints the workload and tid in
    the form "Wn.Tmmm".
+ - Added a new directory: `aux` to the scheduler's ignore list when going through the
+   files of the trace directory.  This allows to add additional auxiliary files in the
+   trace directory (under `aux`) without increasing DynamoRIO's versions. Since the
+   scheduler can safely ignore all files under `aux` when creating the necessary readers
+   for the trace, it doesn't need to output an error, which would have forced us to
+   release a new DynamoRIO's minor version in order to support the traces with additional
+   files.
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
