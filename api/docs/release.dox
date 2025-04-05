@@ -154,6 +154,8 @@ Further non-compatibility-affecting changes include:
    templates. Added similar options for the drmemtrace scheduler: #dynamorio::drmemtrace::
    scheduler_tmpl_t::scheduler_options_t::kernel_syscall_trace_path, and #dynamorio::
    drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
+ - Added AUX_SUBDIR (== "aux") to the subdirs in which get_aux_file_path() looks for
+   auxiliary files (e.g., v2p.textproto).
 
 **************************************************
 <hr>
