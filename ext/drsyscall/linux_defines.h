@@ -228,6 +228,11 @@
 #    define _NSIG_WORDS 1 /* avoid 0 */
 #endif
 
+/* For syscall statx which was introduced in Linux Kernel 4.11. struct statx and
+ * statx_timestamp are not defined in older versions.
+ */
+#include "linux_stat.h"
+
 typedef struct _kernel_sigset_t {
     unsigned long sig[_NSIG_WORDS];
 } kernel_sigset_t;

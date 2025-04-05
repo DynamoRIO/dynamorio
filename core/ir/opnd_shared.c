@@ -2799,7 +2799,7 @@ reg_get_size(reg_id_t reg)
     }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
         return OPSZ_SVE_PREDLEN_BYTES;
-    if (reg >= DR_REG_CNTVCT_EL0 && reg <= DR_REG_TPIDR_EL1)
+    if (reg >= DR_REG_CNTVCT_EL0 && reg <= DR_REG_ACCDATA_EL1)
         return OPSZ_8;
 #    endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)

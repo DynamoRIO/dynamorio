@@ -53,6 +53,7 @@
 #include "mock_reader.h"
 #include "memref.h"
 #include "trace_entry.h"
+#include "noise_generator.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
@@ -5942,7 +5943,8 @@ test_unscheduled()
 static std::vector<std::string>
 run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                                        memref_tid_t tid_base, int syscall_base,
-                                       std::vector<std::vector<memref_t>> &refs)
+                                       std::vector<std::vector<memref_t>> &refs,
+                                       bool for_syscall_seq)
 {
     // We have a custom version of run_lockstep_simulation here for more precise
     // testing of the markers and instructions and interfaces.
@@ -5964,6 +5966,12 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
         for (int i = 0; i < num_outputs; i++) {
             if (eof[i])
                 continue;
+            if (for_syscall_seq) {
+                // Ensure that the stream returns the correct value. The marker value is
+                // recorded in refs and will be checked separately.
+                assert(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS,
+                               outputs[i]->get_filetype()));
+            }
             memref_t memref;
             scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
             if (status == scheduler_t::STATUS_EOF) {
@@ -6027,6 +6035,7 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
             else if (memref.marker.type == TRACE_TYPE_MARKER) {
                 switch (memref.marker.marker_type) {
                 case TRACE_MARKER_TYPE_VERSION: sched_as_string[i] += 'v'; break;
+                case TRACE_MARKER_TYPE_FILETYPE: sched_as_string[i] += 'f'; break;
                 case TRACE_MARKER_TYPE_TIMESTAMP: sched_as_string[i] += '0'; break;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
                     in_switch[i] = false;
@@ -6141,7 +6150,8 @@ test_kernel_switch_sequences()
 
     std::vector<std::vector<memref_t>> refs;
     std::vector<std::string> sched_as_string =
-        run_lockstep_simulation_for_kernel_seq(scheduler, NUM_OUTPUTS, TID_BASE, 0, refs);
+        run_lockstep_simulation_for_kernel_seq(scheduler, NUM_OUTPUTS, TID_BASE, 0, refs,
+                                               /*for_syscall_seq=*/false);
     // Check the high-level strings.
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
@@ -6158,6 +6168,8 @@ test_kernel_switch_sequences()
     // Zoom in and check the first sequence record by record with value checks.
     int idx = 0;
     bool res = true;
+    memref_tid_t workload1_tid1_final =
+        (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4);
     res = res &&
         check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
@@ -6185,24 +6197,24 @@ test_kernel_switch_sequences()
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
         check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
         // Process switch.
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   // Verify that the timestamp is updated.
                   TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS) &&
         // We now see the headers for this thread.
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_MARKER,
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                   TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
         // The 3-instr quantum should not count the 2 switch instrs.
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 4, TRACE_TYPE_INSTR);
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR);
     assert(res);
 
     {
@@ -6259,6 +6271,8 @@ test_kernel_syscall_sequences()
     static constexpr addr_t SYSCALL_PC_START = 0xfeed101;
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr offline_file_type_t FILE_TYPE =
+        offline_file_type_t::OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
     {
         std::vector<trace_entry_t> syscall_sequence = {
             /* clang-format off */
@@ -6298,6 +6312,9 @@ test_kernel_syscall_sequences()
             inputs.push_back(make_thread(tid));
             inputs.push_back(make_pid(1));
             inputs.push_back(make_version(TRACE_ENTRY_VERSION));
+            inputs.push_back(
+                // Just a non-zero filetype.
+                make_marker(TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE));
             inputs.push_back(make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 inputs.push_back(make_instr(42 + instr_idx * 4));
@@ -6325,7 +6342,8 @@ test_kernel_syscall_sequences()
             assert(false);
         std::vector<std::vector<memref_t>> refs;
         std::vector<std::string> sched_as_string = run_lockstep_simulation_for_kernel_seq(
-            scheduler, NUM_OUTPUTS, TID_BASE, SYSCALL_BASE, refs);
+            scheduler, NUM_OUTPUTS, TID_BASE, SYSCALL_BASE, refs,
+            /*for_syscall_seq=*/true);
         // Check the high-level strings.
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
@@ -6333,10 +6351,10 @@ test_kernel_syscall_sequences()
         // The instrs in the injected syscall sequence count towards the #instr
         // quantum, but no context switch happens in the middle of the syscall seq.
         assert(sched_as_string[0] ==
-               "Av0is1ii1,Cv0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
+               "Avf0is1ii1,Cvf0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
                "Ciis2iii2,Aiis1ii1,Ciis1ii1");
         assert(sched_as_string[1] ==
-               "Bv0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1____________________________"
+               "Bvf0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1_____________________________"
                "___________");
 
         // Zoom in and check the first few syscall sequences on the first output record
@@ -6346,6 +6364,9 @@ test_kernel_syscall_sequences()
         res = res &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FILETYPE,
+                      FILE_TYPE | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
@@ -6362,6 +6383,9 @@ test_kernel_syscall_sequences()
 
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FILETYPE,
+                      FILE_TYPE | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
@@ -6971,7 +6995,7 @@ test_exit_early()
 static void
 test_marker_updates()
 {
-    std::cerr << "\n----------------\nTesting marker updates\n";
+    std::cerr << "\n----------------\nTesting marker and tid/pid updates\n";
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
@@ -6983,6 +7007,7 @@ test_marker_updates()
     const int NUM_INSTRS =
         static_cast<int>(sched_ops.time_units_per_us) * TIMESTAMP_GAP_US;
     static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_pid_t PID_BASE = 200;
     static constexpr uint64_t TIMESTAMP_BASE = 12340000;
 
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
@@ -6991,9 +7016,10 @@ test_marker_updates()
     rand_gen.seed(static_cast<int>(reinterpret_cast<int64_t>(&inputs[0])));
 
     for (int i = 0; i < NUM_INPUTS; i++) {
-        memref_tid_t tid = TID_BASE + i;
+        // Each input is a separate workload with the same pid and tid.
+        memref_tid_t tid = TID_BASE;
         inputs[i].push_back(make_thread(tid));
-        inputs[i].push_back(make_pid(1));
+        inputs[i].push_back(make_pid(PID_BASE));
         inputs[i].push_back(make_version(TRACE_ENTRY_VERSION));
         // Add a randomly-increasing-value timestamp.
         uint64_t cur_timestamp = TIMESTAMP_BASE;
@@ -7016,7 +7042,7 @@ test_marker_updates()
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()),
-                             TID_BASE + i);
+                             TID_BASE);
         sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t scheduler;
@@ -7044,6 +7070,12 @@ test_marker_updates()
             if (status == scheduler_t::STATUS_IDLE)
                 continue;
             assert(status == scheduler_t::STATUS_OK);
+            assert(
+                memref.marker.tid ==
+                ((outputs[i]->get_workload_id() << MEMREF_ID_WORKLOAD_SHIFT) | TID_BASE));
+            assert(
+                memref.marker.pid ==
+                ((outputs[i]->get_workload_id() << MEMREF_ID_WORKLOAD_SHIFT) | PID_BASE));
             if (memref.marker.type != TRACE_TYPE_MARKER)
                 continue;
             // Make sure the random values have some order now, satisfying invariants.
@@ -7086,6 +7118,168 @@ test_options_match()
     std::cerr << "\n----------------\nTesting option matching\n";
     test_options_t test;
     test.check_options();
+}
+
+// A mock noise generator that only generates TRACE_TYPE_READ records with
+// address 0xdeadbeef and instruction fetches.
+class mock_noise_generator_t : public noise_generator_t {
+public:
+    mock_noise_generator_t(noise_generator_info_t &info, const addr_t addr_to_generate)
+        : noise_generator_t(info)
+        , addr_to_generate_(addr_to_generate) {};
+
+protected:
+    trace_entry_t
+    generate_trace_entry() override
+    {
+        trace_entry_t generated_entry;
+        // We alternate between read and instruction fetch records.
+        // We need to generate instructions to have the scheduler interleave noise
+        // records with the rest of the input workloads. Instructions are what the
+        // scheduler uses to estimate time quants to switch from one input workload
+        // to another. Generating only read records does not advance the scheduler
+        // time, which means all noise read records are scheduled altogether in the
+        // same time quant, no matter how many.
+        if (record_counter_ % 2) {
+            generated_entry = { TRACE_TYPE_READ, 4, { addr_to_generate_ } };
+        } else {
+            generated_entry = { TRACE_TYPE_INSTR,
+                                1,
+                                { static_cast<addr_t>(record_counter_) } };
+        }
+        ++record_counter_;
+        return generated_entry;
+    }
+
+private:
+    addr_t addr_to_generate_ = 0x0;
+    uint64_t record_counter_ = 0;
+};
+
+// A mock noise generator factory that creates mock_noise_generator_t.
+class mock_noise_generator_factory_t
+    : public noise_generator_factory_t<memref_t, reader_t> {
+public:
+    mock_noise_generator_factory_t(const addr_t addr_to_generate)
+        : addr_to_generate_(addr_to_generate) {};
+
+protected:
+    std::unique_ptr<reader_t>
+    create_noise_generator_begin(noise_generator_info_t &info) override
+    {
+        return std::unique_ptr<mock_noise_generator_t>(
+            new mock_noise_generator_t(info, addr_to_generate_));
+    };
+
+    std::unique_ptr<reader_t>
+    create_noise_generator_end() override
+    {
+        noise_generator_info_t info;
+        info.num_records_to_generate = 0;
+        return std::unique_ptr<mock_noise_generator_t>(
+            new mock_noise_generator_t(info, 0));
+    };
+
+private:
+    addr_t addr_to_generate_ = 0x0;
+};
+
+static void
+test_noise_generator()
+{
+    std::cerr << "\n----------------\nTesting noise generator\n";
+    static constexpr addr_t ADDR_TO_GENERATE = 0xdeadbeef;
+    static constexpr uint64_t TIMESTAMP_BASE = 1;
+    static constexpr memref_tid_t TID_BASE = 1;
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int NUM_INSTRS = 1000;
+
+    // Make some input workloads.
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        // Add a timestamp after the PID as required by the scheduler.
+        uint64_t cur_timestamp = TIMESTAMP_BASE + i * 10;
+        inputs[i].push_back(make_timestamp(cur_timestamp));
+        // Add instruction fetches.
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(make_instr(42 + j * 4));
+            inputs[i].push_back(make_memref(0xaaaaaaaa, TRACE_TYPE_READ));
+        }
+        inputs[i].push_back(make_exit(tid));
+    }
+    std::vector<scheduler_t::input_reader_t> readers;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()),
+                             TID_BASE + i);
+    }
+
+    // Create a noise generator.
+    noise_generator_info_t noise_generator_info;
+    noise_generator_info.pid = TID_BASE + NUM_INPUTS;
+    noise_generator_info.tid = TID_BASE + NUM_INPUTS;
+    noise_generator_info.num_records_to_generate = NUM_INSTRS;
+    mock_noise_generator_factory_t noise_generator_factory(ADDR_TO_GENERATE);
+    scheduler_t::input_reader_t noise_generator_reader =
+        noise_generator_factory.create_noise_generator(noise_generator_info);
+    // Check for errors.
+    assert(noise_generator_factory.get_error_string().empty());
+    // Add the noise generator to a separate input_reader_t vector like we do in an
+    // analyzer.
+    std::vector<scheduler_t::input_reader_t> noise_generator_readers;
+    noise_generator_readers.emplace_back(std::move(noise_generator_reader));
+
+    // Add input workloads and noise to the inputs to schedule.
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    // Input ordinal 0.
+    sched_inputs.emplace_back(std::move(readers));
+    // Input ordinal 1.
+    sched_inputs.emplace_back(std::move(noise_generator_readers));
+
+    // Create custom scheduler options.
+    // MAP_TO_ANY_OUTPUT selects dynamic scheduling, which is what we currently support
+    // for the noise generator.
+    scheduler_t::scheduler_options_t sched_ops(
+        scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+        scheduler_t::SCHEDULER_DEFAULTS, /*verbose=*/4);
+    // This is the default quantum_unit, but we specify it anyway in case it changes in
+    // the future.
+    sched_ops.quantum_unit = scheduler_t::QUANTUM_INSTRUCTIONS;
+    // We shorten quantum_duration_instrs from the default since we only generate 1000
+    // instructions. This is needed to have the scheduler interleave the input workloads
+    // and the noise together in the same output. The default value is too large and
+    // allows all records of each input to be scheduled together in a single time quant,
+    // so there is no interleaving of records.
+    sched_ops.quantum_duration_instrs = 5;
+
+    // Initialize the scheduler.
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS) {
+        assert(false);
+    }
+
+    memref_t memref;
+    bool found_at_least_one_noise_generator_read = false;
+    // We only have a single output.
+    auto *stream = scheduler.get_stream(0);
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        // Check that all read records generated by the noise generator have address
+        // ADDR_TO_GENERATE.
+        if (stream->get_input_workload_ordinal() == 1) {
+            if (memref.data.type == TRACE_TYPE_READ) {
+                assert(memref.data.addr == static_cast<addr_t>(ADDR_TO_GENERATE));
+                found_at_least_one_noise_generator_read = true;
+            }
+        }
+    }
+    assert(found_at_least_one_noise_generator_read);
 }
 
 int
@@ -7136,6 +7330,7 @@ test_main(int argc, const char *argv[])
     test_exit_early();
     test_marker_updates();
     test_options_match();
+    test_noise_generator();
 
     dr_standalone_exit();
     return 0;

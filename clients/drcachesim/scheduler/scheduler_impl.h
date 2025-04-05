@@ -828,6 +828,10 @@ protected:
     void
     record_type_set_tid(RecordType &record, memref_tid_t tid);
 
+    // For trace_entry_t, only sets the pid for record types that have it.
+    void
+    record_type_set_pid(RecordType &record, memref_pid_t pid);
+
     // Returns whether the given record is an instruction.
     bool
     record_type_is_instr(RecordType record);
@@ -973,6 +977,10 @@ protected:
     double
     get_statistic(output_ordinal_t output,
                   memtrace_stream_t::schedule_statistic_t stat) const;
+
+    // Adds bits to the filetype if required by the scheduler config.
+    offline_file_type_t
+    adjust_filetype(offline_file_type_t orig_filetype) const;
 
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;

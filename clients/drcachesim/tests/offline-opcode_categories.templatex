@@ -25,8 +25,7 @@ Opcode mix tool results:
              16 :       lea
               1 :       and
 
-              4 : sets of categories
+              3 : sets of categories
              51 :      move
+             49 :      math
              33 :    branch
-             33 :      math
-             16 :      load

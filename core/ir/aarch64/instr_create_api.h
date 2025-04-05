@@ -18494,4 +18494,82 @@
  */
 #define INSTR_CREATE_wfit(dc, Rt) instr_create_0dst_1src(dc, OP_wfit, Rt)
 
+/**
+ * Creates a LD64B instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD64B <Xt>, [<Xn|SP> {, #0}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt0  The first of the eight destination registers. (Extended, 64 bits).
+ *             The next seven registers are created automatically.
+ * \param Rn   The source register, X (Extended, 64 bits). Contains the address
+ *             to start reading at.
+ */
+#define INSTR_CREATE_ld64b(dc, Rt0, Rn)                                                \
+    instr_create_Ndst_Msrc_vardst(                                                     \
+        dc, OP_ld64b, 0, 1, 8, 0, Rn, Rt0, opnd_inc_reg(Rt0, 1), opnd_inc_reg(Rt0, 2), \
+        opnd_inc_reg(Rt0, 3), opnd_inc_reg(Rt0, 4), opnd_inc_reg(Rt0, 5),              \
+        opnd_inc_reg(Rt0, 6), opnd_inc_reg(Rt0, 7))
+
+/**
+ * Creates a ST64B instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ST64B <Xt>, [<Xn|SP> {, #0}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The destination register, X (Extended, 64 bits). Contains the address
+ *             to start writing to.
+ * \param Rt0  The first of the eight source registers. (Extended, 64 bits).
+ *             The next seven registers are created automatically.
+ */
+#define INSTR_CREATE_st64b(dc, Rn, Rt0)                                                \
+    instr_create_Ndst_Msrc_varsrc(                                                     \
+        dc, OP_st64b, 1, 0, 8, 0, Rn, Rt0, opnd_inc_reg(Rt0, 1), opnd_inc_reg(Rt0, 2), \
+        opnd_inc_reg(Rt0, 3), opnd_inc_reg(Rt0, 4), opnd_inc_reg(Rt0, 5),              \
+        opnd_inc_reg(Rt0, 6), opnd_inc_reg(Rt0, 7))
+
+/**
+ * Creates a ST64BV instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ST64BV <Xs>, <Xt>, [<Xn|SP>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The destination register, X (Extended, 64 bits). Contains the address
+ *             to start writing to.
+ * \param Rs   The status register, X (Extended, 64 bits).
+ * \param Rt0  The first of the eight source registers. (Extended, 64 bits).
+ *             The next seven registers are created automatically.
+ */
+#define INSTR_CREATE_st64bv(dc, Rn, Rs, Rt0)                              \
+    instr_create_Ndst_Msrc_varsrc(                                        \
+        dc, OP_st64bv, 2, 0, 8, 0, Rn, Rs, Rt0, opnd_inc_reg(Rt0, 1),     \
+        opnd_inc_reg(Rt0, 2), opnd_inc_reg(Rt0, 3), opnd_inc_reg(Rt0, 4), \
+        opnd_inc_reg(Rt0, 5), opnd_inc_reg(Rt0, 6), opnd_inc_reg(Rt0, 7))
+
+/**
+ * Creates a ST64BV0 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ST64BV0 <Xs>, <Xt>, [<Xn|SP>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The destination register, X (Extended, 64 bits). Contains the address
+ *             to start writing to.
+ * \param Rs   The status register, X (Extended, 64 bits).
+ * \param Rt0  The first of the eight source registers. (Extended, 64 bits).
+ *             The next seven registers are created automatically.
+ */
+#define INSTR_CREATE_st64bv0(dc, Rn, Rs, Rt0)                             \
+    instr_create_Ndst_Msrc_varsrc(                                        \
+        dc, OP_st64bv0, 2, 0, 8, 0, Rn, Rs, Rt0, opnd_inc_reg(Rt0, 1),    \
+        opnd_inc_reg(Rt0, 2), opnd_inc_reg(Rt0, 3), opnd_inc_reg(Rt0, 4), \
+        opnd_inc_reg(Rt0, 5), opnd_inc_reg(Rt0, 6), opnd_inc_reg(Rt0, 7))
+
 #endif /* DR_IR_MACROS_AARCH64_H */

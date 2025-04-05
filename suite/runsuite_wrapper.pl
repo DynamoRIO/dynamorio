@@ -450,6 +450,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             $ignore_failures_64{'code_api|client.drx_buf-test'} = 1;
             $ignore_failures_64{'code_api|sample.memval_simple'} = 1;
             $ignore_failures_64{'code_api|client.drreg-test'} = 1;
+            $ignore_failures_64{'code_api|linux.signal_racesys'} = 1; # i#7371
             $issue_no = "#6260";
         } elsif ($is_macos) {
             %ignore_failures_32 = ('code_api|common.decode-bad' => 1, # i#3127

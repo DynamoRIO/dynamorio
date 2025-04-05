@@ -177,7 +177,6 @@ protected:
         struct signal_context {
             addr_t xfer_int_pc;
             instr_info_t pre_signal_instr;
-            bool xfer_aborted_rseq;
         };
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
         std::stack<signal_context> signal_stack_;
@@ -189,7 +188,7 @@ protected:
         // The defaults are set to skip various signal-related checks in case we
         // see a signal-return before a signal-start (which happens when the trace
         // starts inside the app signal handler).
-        signal_context last_signal_context_ = { 0, {}, false };
+        signal_context last_signal_context_ = { 0, {} };
 
         // For the outer-most scope, like other nested signal scopes, we start with an
         // empty memref_t to denote absence of any pre-signal instr.
@@ -243,6 +242,10 @@ protected:
         bool between_kernel_context_switch_markers_ = false;
         instr_info_t pre_syscall_trace_instr_;
         instr_info_t pre_context_switch_trace_instr_;
+#ifdef UNIX
+        int signal_stack_depth_at_syscall_trace_start_ = -1;
+        int signal_stack_depth_at_context_switch_trace_start_ = -1;
+#endif
         // Relevant when -no_abort_on_invariant_error.
         uint64_t error_count_ = 0;
     };

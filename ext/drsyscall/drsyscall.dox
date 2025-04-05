@@ -134,4 +134,11 @@ constants).  The user can access the raw eax register in the pre-syscall
 event to view the unmodified number, whose encoding varies depending on the
 bitwidth and interrupt vector used.
 
+\section sec_ci_test_coverage CI Test Coverage
+
+The current Continuous Integration (CI) tests only cover the Linux x86
+architecture. On Windows, the drsyscall_test, strace_sample, and strace_test
+are failing during drsyscall_os_init(). This failure occurs due to a spot check
+detecting a syscall mismatch for the NtGetContextThread syscall.
+
 */
