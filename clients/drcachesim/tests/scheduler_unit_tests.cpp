@@ -953,6 +953,83 @@ test_regions_too_far()
 }
 
 static void
+test_regions_core_sharded()
+{
+    std::cerr << "\n----------------\nTesting region on core-sharded-on-disk trace\n";
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr memref_tid_t TID_B = 99;
+    static constexpr addr_t PC_POST_FOOTER = 101;
+    std::vector<trace_entry_t> memrefs = {
+        /* clang-format off */
+        make_thread(TID_A),
+        make_pid(1),
+        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        make_timestamp(10),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        make_instr(1),
+        make_instr(2),
+        make_exit(TID_A),
+        // Test skipping across a footer.
+        make_footer(),
+        make_thread(TID_B),
+        make_pid(1),
+        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        make_timestamp(10),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        make_instr(PC_POST_FOOTER),
+        make_instr(PC_POST_FOOTER + 1),
+        make_exit(TID_B),
+        make_footer(),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+
+    std::vector<scheduler_t::range_t> regions;
+    // Start beyond the footer.
+    regions.emplace_back(3, 0);
+
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/5)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    int ordinal = 0;
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        // Because we skipped, even if not very far, we do not see the page marker.
+        switch (ordinal) {
+        case 0:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
+            break;
+        case 1:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
+            break;
+        case 2:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == PC_POST_FOOTER);
+            break;
+        case 3:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == PC_POST_FOOTER + 1);
+            break;
+        default: assert(ordinal == 4); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        }
+        ++ordinal;
+    }
+    assert(ordinal == 5);
+}
+
+static void
 test_regions()
 {
     test_regions_timestamps();
@@ -960,6 +1037,7 @@ test_regions()
     test_regions_bare_no_marker();
     test_regions_start();
     test_regions_too_far();
+    test_regions_core_sharded();
 }
 
 static void
