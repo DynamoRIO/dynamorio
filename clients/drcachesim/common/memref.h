@@ -225,7 +225,7 @@ typedef union _memref_t {
 } memref_t;
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,
-              "MEMREF_T_SIZE_BYTES does not match sizeof(memref_t).");
+              "Update MEMREF_T_SIZE_BYTES to match sizeof(memref_t).");
 
 } // namespace drmemtrace
 } // namespace dynamorio
