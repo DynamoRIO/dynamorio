@@ -195,9 +195,12 @@ public:
     };
 
     /**
-     * Specifies details about one set of input trace files from one workload,
-     * each input file representing a single software thread.
-     * It is assumed that there is no thread id duplication within one workload.
+     * Specifies details about one set of  input trace files from one workload.  Each
+     * input file typically represents  either one software thread ("thread-sharded")
+     * or one hardware thread ("core-sharded").  The  details in this struct apply to
+     * the inputs listed in the 'tids' (for thread-sharded, if identifying by tid) or
+     * 'shards' (for any sharding, if identifying  by ordinal).  When using 'tids' it
+     * is assumed that there is no thread id duplication within one workload.
      */
     struct input_thread_info_t {
         /** Convenience constructor for common usage. */
@@ -234,10 +237,13 @@ public:
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(input_thread_info_t);
         /**
-         * Which threads the details in this structure apply to.
-         * If empty, the details apply to all not-yet-mentioned (by other 'tids'
-         * vectors in prior entries for this workload) threads in the
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
+         * Which input threads the details in this structure apply to.  Only one of
+         * 'tids' and 'shards' can be non-empty.  If 'tids' is empty and 'shards' is
+         * empty, the details apply to all not-yet-mentioned (by other 'tids' or
+         * 'shards' vectors in prior entries for this workload) inputs in the
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.  When using
+         * 'tids' it is assumed that there is no thread id duplication within one
+         * workload.
          */
         std::vector<memref_tid_t> tids;
         /**
@@ -274,6 +280,17 @@ public:
          * #dynamorio::drmemtrace::memtrace_stream_t API instead.
          */
         std::vector<range_t> regions_of_interest;
+        /**
+         * Which inputs the details in this structure apply to, expressed as 0-based
+         * ordinals in the 'readers' vector or in the files opened at 'path' (which
+         * are sorted lexicographically by path) in the containing
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.  Only one of
+         * 'tids' and 'shards' can be non-empty.  If 'tids' is empty and 'shards' is
+         * empty, the details apply to all not-yet-mentioned (by other 'tids' or
+         * 'shards' vectors in prior entries for this workload) inputs in the
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
+         */
+        std::vector<int> shards;
     };
 
     /** Specifies an input that is already opened by a reader. */
@@ -293,11 +310,13 @@ public:
         /** The end reader for 'reader'. */
         std::unique_ptr<ReaderType> end;
         /**
-         * A unique identifier to distinguish from other readers for this workload.
-         * Typically this will be the thread id but it does not need to be, so long
-         * as it is not 0 (DynamoRIO's INVALID_THREAD_ID sentinel).
-         * This allows the 'thread_modifiers' field of 'input_workload_t'
-         * to refer to this input.
+         * An optional identifier to distinguish from other readers for this
+         * workload.  Typically this will be the thread id but it does not need to
+         * be, so long as it is not 0 (DynamoRIO's INVALID_THREAD_ID sentinel).  If a
+         * unique (across the workload) identifier per input reader is provided, then
+         * the 'thread_modifiers.tids' field of 'input_workload_t' can be used to
+         * refer to this input.  Otherwise, the 'thread_modifiers.shards' field
+         * should be used.
          */
         memref_tid_t tid = INVALID_THREAD_ID;
     };
@@ -385,6 +404,9 @@ public:
          * precise due to the coarse-grained timestamps and the elision of adjacent
          * timestamps in the istream.  Interpolation is used to estimate instruction
          * ordinals when timestamps fall in between recorded points.
+         *
+         * This field is only supported for thread-sharded inputs, as core-sharded
+         * do not have an automatically generated replay-as-traced file.
          */
         std::vector<timestamp_range_t> times_of_interest;
 

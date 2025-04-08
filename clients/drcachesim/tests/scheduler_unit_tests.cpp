@@ -181,7 +181,8 @@ verify_scheduler_stats(scheduler_t::stream_t *stream, int64_t switch_input_to_in
 // count for simpler small tests.
 static std::vector<std::string>
 run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t tid_base,
-                        bool send_time = false, bool print_markers = true)
+                        bool send_time = false, bool print_markers = true,
+                        bool skip_simultaenous_checks = false)
 {
     // Walk the outputs in lockstep for crude but deterministic concurrency.
     std::vector<scheduler_t::stream_t *> outputs(num_outputs, nullptr);
@@ -247,18 +248,20 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
         }
     }
     // Ensure we never see the same output on multiple cores in the same timestep.
-    size_t max_size = 0;
-    for (int i = 0; i < num_outputs; ++i)
-        max_size = std::max(max_size, sched_as_string[i].size());
-    for (int step = 0; step < static_cast<int>(max_size); ++step) {
-        std::set<char> inputs;
-        for (int out = 0; out < num_outputs; ++out) {
-            if (static_cast<int>(sched_as_string[out].size()) <= step)
-                continue;
-            if (sched_as_string[out][step] < 'A' || sched_as_string[out][step] > 'Z')
-                continue;
-            assert(inputs.find(sched_as_string[out][step]) == inputs.end());
-            inputs.insert(sched_as_string[out][step]);
+    if (!skip_simultaenous_checks) {
+        size_t max_size = 0;
+        for (int i = 0; i < num_outputs; ++i)
+            max_size = std::max(max_size, sched_as_string[i].size());
+        for (int step = 0; step < static_cast<int>(max_size); ++step) {
+            std::set<char> inputs;
+            for (int out = 0; out < num_outputs; ++out) {
+                if (static_cast<int>(sched_as_string[out].size()) <= step)
+                    continue;
+                if (sched_as_string[out][step] < 'A' || sched_as_string[out][step] > 'Z')
+                    continue;
+                assert(inputs.find(sched_as_string[out][step]) == inputs.end());
+                inputs.insert(sched_as_string[out][step]);
+            }
         }
     }
     if (!print_markers) {
@@ -1031,6 +1034,76 @@ test_regions_core_sharded()
 }
 
 static void
+test_regions_by_shard()
+{
+    std::cerr << "\n----------------\nTesting ROI specified by shard\n";
+    static constexpr int NUM_WORKLOADS = 2;
+    static constexpr int NUM_CORES_PER_WORKLOAD = 2;
+    static constexpr int NUM_OUTPUTS = NUM_WORKLOADS * NUM_CORES_PER_WORKLOAD;
+    static constexpr int NUM_ORIGINAL_INPUTS = 3;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    // This is core-sharded with interleaved threads on each core.
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int core_idx = 0; core_idx < NUM_CORES_PER_WORKLOAD; core_idx++) {
+            std::vector<trace_entry_t> inputs;
+            for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
+                inputs.push_back(make_thread(TID_BASE + input_idx));
+                inputs.push_back(make_pid(1));
+            }
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
+                    inputs.push_back(make_thread(TID_BASE + input_idx));
+                    inputs.push_back(make_instr(42 + instr_idx * 4));
+                }
+            }
+            for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
+                inputs.push_back(make_exit(TID_BASE + input_idx));
+            }
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), -1 /*sentinel*/);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    // Set up different skips on each input, increasing by one as we go.
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int core_idx = 0; core_idx < NUM_CORES_PER_WORKLOAD; core_idx++) {
+            std::vector<scheduler_t::range_t> regions;
+            regions.emplace_back(
+                1 /*1-based*/ + workload_idx * NUM_CORES_PER_WORKLOAD + core_idx, 0);
+            scheduler_t::input_thread_info_t mod(regions);
+            mod.shards = std::vector<int>(1, core_idx);
+            sched_inputs[workload_idx].thread_modifiers.push_back(mod);
+        }
+    }
+    // Now run pre-scheduled.
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_CONSISTENT_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/1);
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string = run_lockstep_simulation(
+        scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/false, /*print_markers=*/true,
+        /*skip_simultaenous_checks=*/true);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // Each core was the same length but we've skipped ahead further in each
+    // so they get shorter as the output ordinal increases:
+    assert(sched_as_string[0] == "BCABCABCABCABCABCABCABCABC...");
+    assert(sched_as_string[1] == "CABCABCABCABCABCABCABCABC...");
+    assert(sched_as_string[2] == "ABCABCABCABCABCABCABCABC...");
+    assert(sched_as_string[3] == "BCABCABCABCABCABCABCABC...");
+}
+
+static void
 test_regions()
 {
     test_regions_timestamps();
@@ -1039,6 +1112,7 @@ test_regions()
     test_regions_start();
     test_regions_too_far();
     test_regions_core_sharded();
+    test_regions_by_shard();
 }
 
 static void
