@@ -571,6 +571,8 @@ protected:
         // The count of original pre-filtered inputs (might not match
         // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
         uint64_t input_count = 0;
+        // The index into inputs_ at which this workload's inputs begin.
+        input_ordinal_t first_input_ordinal = 0;
     };
 
     // We assume a 2GHz clock and IPC=0.5 to match
