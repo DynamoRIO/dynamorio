@@ -840,12 +840,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
             // non-standard-layout types.  So we ignore struct_size and only
             // provide source compatibility.
             // Vector of ordinals into input for this workload.
-            std::vector<int> which_inputs;
+            std::vector<int> which_workload_inputs;
             if (modifiers.tids.empty() && modifiers.shards.empty()) {
                 // Apply to all inputs that have not already been modified.
                 for (int i = 0; i < static_cast<int>(reader_info.input_count); ++i) {
                     if (!inputs_[reader_info.first_input_ordinal + i].has_modifier)
-                        which_inputs.push_back(i);
+                        which_workload_inputs.push_back(i);
                 }
             } else if (!modifiers.tids.empty()) {
                 if (!modifiers.shards.empty()) {
@@ -860,15 +860,16 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                             "Cannot find tid " + std::to_string(tid) + " for modifier";
                         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
                     }
-                    which_inputs.push_back(it->second - reader_info.first_input_ordinal);
+                    which_workload_inputs.push_back(it->second -
+                                                    reader_info.first_input_ordinal);
                 }
             } else if (!modifiers.shards.empty()) {
-                which_inputs = modifiers.shards;
+                which_workload_inputs = modifiers.shards;
             }
 
             // We assume the overhead of copying the modifiers for every thread is
             // not high and the simplified code is worthwhile.
-            for (int local_index : which_inputs) {
+            for (int local_index : which_workload_inputs) {
                 int index = local_index + reader_info.first_input_ordinal;
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;

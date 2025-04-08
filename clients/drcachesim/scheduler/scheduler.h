@@ -234,18 +234,36 @@ public:
             , output_binding(output_binding)
         {
         }
-        /** Size of the struct for binary-compatible additions. */
+        /**
+         * Size of the struct.  Not used as this structure cannot support
+         * binary-compatible additions due to limits of C++ offsetof support: thus,
+         * changes here require recompiling tools using this code.
+         */
         size_t struct_size = sizeof(input_thread_info_t);
         /**
          * Which input threads the details in this structure apply to.  Only one of
          * 'tids' and 'shards' can be non-empty.  If 'tids' is empty and 'shards' is
-         * empty, the details apply to all not-yet-mentioned (by other 'tids' or
-         * 'shards' vectors in prior entries for this workload) inputs in the
+         * empty, the details apply to all unmentioned (by other 'tids' or
+         * 'shards' vectors in other entries for this workload) inputs in the
          * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.  When using
          * 'tids' it is assumed that there is no thread id duplication within one
-         * workload.
+         * workload.  If multiple entries list the same tid, only the last one
+         * is honored.
          */
         std::vector<memref_tid_t> tids;
+        /**
+         * Which inputs the details in this structure apply to, expressed as 0-based
+         * ordinals in the 'readers' vector or in the files opened at 'path' (which
+         * are sorted lexicographically by path) in the containing
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.  Only one of
+         * 'tids' and 'shards' can be non-empty.  If 'tids' is empty and 'shards' is
+         * empty, the details apply to all not-yet-mentioned (by other 'tids' or
+         * 'shards' vectors in prior entries for this workload) inputs in the
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
+         * If multiple entries list the same shard ordinal, only the last one is
+         * honored.
+         */
+        std::vector<int> shards;
         /**
          * Limits these threads to this set of output streams, which are specified by
          * ordinal 0 through the output count minus oner.  They will not be scheduled
@@ -280,17 +298,6 @@ public:
          * #dynamorio::drmemtrace::memtrace_stream_t API instead.
          */
         std::vector<range_t> regions_of_interest;
-        /**
-         * Which inputs the details in this structure apply to, expressed as 0-based
-         * ordinals in the 'readers' vector or in the files opened at 'path' (which
-         * are sorted lexicographically by path) in the containing
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.  Only one of
-         * 'tids' and 'shards' can be non-empty.  If 'tids' is empty and 'shards' is
-         * empty, the details apply to all not-yet-mentioned (by other 'tids' or
-         * 'shards' vectors in prior entries for this workload) inputs in the
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
-         */
-        std::vector<int> shards;
     };
 
     /** Specifies an input that is already opened by a reader. */
@@ -310,13 +317,16 @@ public:
         /** The end reader for 'reader'. */
         std::unique_ptr<ReaderType> end;
         /**
-         * An optional identifier to distinguish from other readers for this
-         * workload.  Typically this will be the thread id but it does not need to
-         * be, so long as it is not 0 (DynamoRIO's INVALID_THREAD_ID sentinel).  If a
-         * unique (across the workload) identifier per input reader is provided, then
-         * the 'thread_modifiers.tids' field of 'input_workload_t' can be used to
-         * refer to this input.  Otherwise, the 'thread_modifiers.shards' field
-         * should be used.
+         * A unique identifier to distinguish from other readers for this workload.  This
+         * value is used to fill in the #memref_t "tid" field for synthesized context
+         * switch records in dynamic schedules, for synthesized thread exits when skipping
+         * beyond the end of an input, and for synthesized region separator markers when
+         * skipping.  It is also used to refer to this input in the
+         * 'thread_modifiers.tids' field of 'input_workload_t' (though an alternative is
+         * to use the 'thread_modifiers.shards' field).
+         *
+         * This identifier can be non-unique if the aforementioned uses are not
+         * relevant: which would typically only be in non-dynamically-scheduled modes.
          */
         memref_tid_t tid = INVALID_THREAD_ID;
     };

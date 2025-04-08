@@ -1051,8 +1051,9 @@ test_regions_by_shard()
             std::vector<trace_entry_t> inputs;
             for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
                 inputs.push_back(make_thread(TID_BASE + input_idx));
-                inputs.push_back(make_pid(1));
+                inputs.push_back(make_pid(1)); // Test the same pid across workloads.
             }
+            // Deliberately interleave all threads on every core.
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
                     inputs.push_back(make_thread(TID_BASE + input_idx));
@@ -1076,7 +1077,7 @@ test_regions_by_shard()
             regions.emplace_back(
                 1 /*1-based*/ + workload_idx * NUM_CORES_PER_WORKLOAD + core_idx, 0);
             scheduler_t::input_thread_info_t mod(regions);
-            mod.shards = std::vector<int>(1, core_idx);
+            mod.shards = { core_idx };
             sched_inputs[workload_idx].thread_modifiers.push_back(mod);
         }
     }
@@ -2403,6 +2404,72 @@ test_synthetic_with_bindings_invalid()
 }
 
 static void
+test_synthetic_with_bindings_overrides()
+{
+    std::cerr << "\n----------------\nTesting modifer overrides\n";
+    static constexpr int NUM_INPUTS = 4;
+    static constexpr int NUM_OUTPUTS = 3;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    std::vector<scheduler_t::input_reader_t> readers;
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_BASE + input_idx;
+        std::vector<trace_entry_t> inputs;
+        inputs.push_back(make_thread(tid));
+        inputs.push_back(make_pid(1));
+        inputs.push_back(make_timestamp(10 + input_idx));
+        for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+            inputs.push_back(make_instr(42 + instr_idx * 4));
+        }
+        inputs.push_back(make_exit(tid));
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    }
+    sched_inputs.emplace_back(std::move(readers));
+
+    // Test modifier tids colliding.
+    std::set<scheduler_t::output_ordinal_t> core0 = { 0 };
+    std::set<scheduler_t::output_ordinal_t> core1 = { 1 };
+    std::set<scheduler_t::output_ordinal_t> core2 = { 2 };
+    // First, put the 1st 3 threads (A,B,C) on core0.
+    scheduler_t::input_thread_info_t infoA(core0);
+    infoA.tids = { TID_BASE + 0, TID_BASE + 1, TID_BASE + 2 };
+    sched_inputs.back().thread_modifiers.push_back(infoA);
+    // Try to put the same tids onto a different core: should override.
+    scheduler_t::input_thread_info_t infoB(core1);
+    infoB.tids = { TID_BASE + 0, TID_BASE + 1, TID_BASE + 2 };
+    sched_inputs.back().thread_modifiers.push_back(infoB);
+    // Set a default which should apply to just the 4th input (D) as the other
+    // 3 appear in modifiers (the 3rd below).
+    scheduler_t::input_thread_info_t infoC(core2);
+    sched_inputs.back().thread_modifiers.push_back(infoC);
+    // Put the 3rd thread (C) onto core0: should override.
+    scheduler_t::input_thread_info_t infoD(core0);
+    infoD.tids = { TID_BASE + 2 };
+    sched_inputs.back().thread_modifiers.push_back(infoD);
+
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_duration_instrs = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // C is alone on core0; D alone on core2; and A+B are on core1.
+    assert(sched_as_string[0] == ".CCCCCCCCC.____________");
+    assert(sched_as_string[1] == ".AAA.BBBAAABBBAAA.BBB.");
+    assert(sched_as_string[2] == ".DDDDDDDDD.___________");
+}
+
+static void
 test_synthetic_with_bindings()
 {
     test_synthetic_with_bindings_time(/*time_deps=*/true);
@@ -2410,6 +2477,7 @@ test_synthetic_with_bindings()
     test_synthetic_with_bindings_more_out();
     test_synthetic_with_bindings_weighted();
     test_synthetic_with_bindings_invalid();
+    test_synthetic_with_bindings_overrides();
 }
 
 static void
