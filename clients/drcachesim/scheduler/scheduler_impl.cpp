@@ -868,8 +868,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
 
             // We assume the overhead of copying the modifiers for every thread is
             // not high and the simplified code is worthwhile.
-            for (int i : which_inputs) {
-                int index = i + reader_info.first_input_ordinal;
+            for (int local_index : which_inputs) {
+                int index = local_index + reader_info.first_input_ordinal;
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;
                 // Check for valid bindings.
