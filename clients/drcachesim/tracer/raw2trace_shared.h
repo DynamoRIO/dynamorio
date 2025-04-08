@@ -73,6 +73,8 @@ namespace drmemtrace {
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 #define TRACE_CHUNK_PREFIX "chunk."
+// Dir for auxiliary files. Same level as TRACE_SUBDIR and OUTFILE_SUBDIR.
+#define AUX_SUBDIR "aux"
 
 // Versioning for our drmodtrack custom module fields.
 #define CUSTOM_MODULE_VERSION 1

@@ -56,6 +56,7 @@
 #endif
 #include "reader.h"
 #include "record_file_reader.h"
+#include "noise_generator.h"
 #include "trace_entry.h"
 #ifdef HAS_ZIP
 #    include "reader/zipfile_file_reader.h"
@@ -295,6 +296,30 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     std::vector<typename sched_type_t::input_workload_t> &workloads,
     typename sched_type_t::scheduler_options_t options)
 {
+    // Add noise generator to input workloads.
+    if (add_noise_generator_) {
+        // TODO i#7216: here can be a good place to analyze the workloads in order to
+        // tweak noise_generator_info_t parameters. For now we use noise_generator_info_t
+        // default values.
+        noise_generator_info_t noise_generator_info;
+        // TODO i#7216: currently we only create a single-process, single-thread noise
+        // generator. We plan to add more in the future (multi-process and/or
+        // multi-thread noise generators).
+        typename sched_type_t::input_reader_t noise_generator_reader =
+            noise_generator_factory_.create_noise_generator(noise_generator_info);
+        // Check for errors.
+        error_string_ += noise_generator_factory_.get_error_string();
+        if (!error_string_.empty()) {
+            return false;
+        }
+        // input_workload_t needs a vector of input_reader_t, so we create a vector with
+        // a single input_reader_t (the noise generator).
+        std::vector<typename sched_type_t::input_reader_t> readers;
+        readers.emplace_back(std::move(noise_generator_reader));
+        // Add the noise generator to the scheduler's input workloads.
+        workloads.emplace_back(std::move(readers));
+    }
+
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
             parallel_ = false;

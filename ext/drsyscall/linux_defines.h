@@ -44,7 +44,6 @@
 #include <sys/time.h>      /* struct timezone */
 #include <sys/sysinfo.h>   /* struct sysinfo */
 #include <sys/timex.h>     /* struct timex */
-#include <linux/stat.h>    /* struct statx */
 #include <linux/utsname.h> /* struct new_utsname */
 #include <sched.h>         /* struct sched_param */
 
@@ -228,6 +227,11 @@
 #else
 #    define _NSIG_WORDS 1 /* avoid 0 */
 #endif
+
+/* For syscall statx which was introduced in Linux Kernel 4.11. struct statx and
+ * statx_timestamp are not defined in older versions.
+ */
+#include "linux_stat.h"
 
 typedef struct _kernel_sigset_t {
     unsigned long sig[_NSIG_WORDS];

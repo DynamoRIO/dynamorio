@@ -161,6 +161,23 @@ Further non-compatibility-affecting changes include:
    templates. Added similar options for the drmemtrace scheduler: #dynamorio::drmemtrace::
    scheduler_tmpl_t::scheduler_options_t::kernel_syscall_trace_path, and #dynamorio::
    drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
+ - Added initial implementation of a noise generator in the drmemtrace framework. The
+   noise generator produces synthetic records to schedule with one or more target traces.
+   These synthetic records are interleaved with real trace records by the dynamic
+   scheduler. We currently don't support mixing of noise and trace records in non-dynamic
+   modes.
+   To produce noise generation we implemented:
+    - #dynamorio::drmemtrace::noise_generator_t scaffolding as a
+      #dynamorio::drmemtrace::reader_t to produce synthetic trace records.
+    - #dynamorio::drmemtrace::noise_generator_info_t, which contains the metadata
+      information to drive the generation of synthetic records.
+    - #dynamorio::drmemtrace::noise_generator_factory_t that creates
+      #dynamorio::drmemtrace::noise_generator_t, which can then be added to the input
+      workloads of #dynamorio::drmemtrace::scheduler_tmpl_t.
+    - the flag -add_noise_generator to the drmemtrace framework that enables noise
+      generation alongside the scheduled traces.
+ - Added AUX_SUBDIR (== "aux") to the subdirs in which get_aux_file_path() looks for
+   auxiliary files (e.g., v2p.textproto).
 
 **************************************************
 <hr>

@@ -18,8 +18,8 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# TODO i#7399: Add Aarch64, Android, MUSL, and RISCV64 support to DrSyscall.
-if (RISCV64 OR AARCH64 OR ANDROID OR MUSL)
+# TODO i#7399: Add Android, MUSL, and RISCV64 support to DrSyscall.
+if (RISCV64 OR ANDROID OR MUSL)
   return()
 endif ()
 
@@ -39,7 +39,7 @@ if (SYSCALL_DRIVER)
   include_directories(${SYSCALL_DRIVER_SRCDIR})
 endif (SYSCALL_DRIVER)
 
-add_ext_asm_target("../drmf/common/asm_utils_arm.asm" "" ""
+add_ext_asm_target("../drmf/common/asm_utils_arm.asm" "../drmf/common/asm_utils_aarch64.asm" ""
   "../drmf/common/asm_utils_x86.asm" asm_utils_src asm_utils_tgt)
 
 # TODO i#7303: Use DynanmoRIO version instead of DRMF_VERSION.
@@ -126,7 +126,11 @@ macro(configure_drsyscall_target target)
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/common)
   include_directories(${PROJECT_SOURCE_DIR}/ext/drmf/framework)
 
-  IF (WIN32)
+  if (UNIX)
+    include_directories(${PROJECT_SOURCE_DIR}/core/unix/include)
+  endif ()
+
+  if (WIN32)
     add_dependencies(${target} ntdll_imports)
     add_definitions(${asm_defs})
     # We can't include directly from DDK b/c the DDK include dir and VS include
