@@ -221,7 +221,7 @@ typedef union _memref_t {
     struct _memref_marker_t marker;    /**< A marker holding metadata. */
     // A byte array for the purpose of default initialization.  It is NOT
     // intended for user access to the memref_t data.
-    uint8_t _raw_bytes[MEMREF_T_SIZE_BYTES] = {};  /* Do not use: for init only. */
+    uint8_t _raw_bytes[MEMREF_T_SIZE_BYTES] = {}; /* Do not use: for init only. */
 } memref_t;
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,
