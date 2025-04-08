@@ -145,6 +145,8 @@ compatibility changes:
  - Added the workload to the top bits of the tid for multi-workload drmemtrace
    scheduling.  The drmemtrace view tool now prints the workload and tid in
    the form "Wn.Tmmm".
+ - Changed the #dynamorio::drmemtrace::scheduler_tmpl_t::input_thread_info_t.
+   regions_of_interest structure layout, requiring recompiling using code.
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`

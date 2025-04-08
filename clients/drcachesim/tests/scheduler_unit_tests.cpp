@@ -181,7 +181,8 @@ verify_scheduler_stats(scheduler_t::stream_t *stream, int64_t switch_input_to_in
 // count for simpler small tests.
 static std::vector<std::string>
 run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t tid_base,
-                        bool send_time = false, bool print_markers = true)
+                        bool send_time = false, bool print_markers = true,
+                        bool skip_simultaenous_checks = false)
 {
     // Walk the outputs in lockstep for crude but deterministic concurrency.
     std::vector<scheduler_t::stream_t *> outputs(num_outputs, nullptr);
@@ -247,18 +248,20 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
         }
     }
     // Ensure we never see the same output on multiple cores in the same timestep.
-    size_t max_size = 0;
-    for (int i = 0; i < num_outputs; ++i)
-        max_size = std::max(max_size, sched_as_string[i].size());
-    for (int step = 0; step < static_cast<int>(max_size); ++step) {
-        std::set<char> inputs;
-        for (int out = 0; out < num_outputs; ++out) {
-            if (static_cast<int>(sched_as_string[out].size()) <= step)
-                continue;
-            if (sched_as_string[out][step] < 'A' || sched_as_string[out][step] > 'Z')
-                continue;
-            assert(inputs.find(sched_as_string[out][step]) == inputs.end());
-            inputs.insert(sched_as_string[out][step]);
+    if (!skip_simultaenous_checks) {
+        size_t max_size = 0;
+        for (int i = 0; i < num_outputs; ++i)
+            max_size = std::max(max_size, sched_as_string[i].size());
+        for (int step = 0; step < static_cast<int>(max_size); ++step) {
+            std::set<char> inputs;
+            for (int out = 0; out < num_outputs; ++out) {
+                if (static_cast<int>(sched_as_string[out].size()) <= step)
+                    continue;
+                if (sched_as_string[out][step] < 'A' || sched_as_string[out][step] > 'Z')
+                    continue;
+                assert(inputs.find(sched_as_string[out][step]) == inputs.end());
+                inputs.insert(sched_as_string[out][step]);
+            }
         }
     }
     if (!print_markers) {
@@ -1031,6 +1034,77 @@ test_regions_core_sharded()
 }
 
 static void
+test_regions_by_shard()
+{
+    std::cerr << "\n----------------\nTesting ROI specified by shard\n";
+    static constexpr int NUM_WORKLOADS = 2;
+    static constexpr int NUM_CORES_PER_WORKLOAD = 2;
+    static constexpr int NUM_OUTPUTS = NUM_WORKLOADS * NUM_CORES_PER_WORKLOAD;
+    static constexpr int NUM_ORIGINAL_INPUTS = 3;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    // This is core-sharded with interleaved threads on each core.
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int core_idx = 0; core_idx < NUM_CORES_PER_WORKLOAD; core_idx++) {
+            std::vector<trace_entry_t> inputs;
+            for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
+                inputs.push_back(make_thread(TID_BASE + input_idx));
+                inputs.push_back(make_pid(1)); // Test the same pid across workloads.
+            }
+            // Deliberately interleave all threads on every core.
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
+                    inputs.push_back(make_thread(TID_BASE + input_idx));
+                    inputs.push_back(make_instr(42 + instr_idx * 4));
+                }
+            }
+            for (int input_idx = 0; input_idx < NUM_ORIGINAL_INPUTS; input_idx++) {
+                inputs.push_back(make_exit(TID_BASE + input_idx));
+            }
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), -1 /*sentinel*/);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    // Set up different skips on each input, increasing by one as we go.
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int core_idx = 0; core_idx < NUM_CORES_PER_WORKLOAD; core_idx++) {
+            std::vector<scheduler_t::range_t> regions;
+            regions.emplace_back(
+                1 /*1-based*/ + workload_idx * NUM_CORES_PER_WORKLOAD + core_idx, 0);
+            scheduler_t::input_thread_info_t mod(regions);
+            mod.shards = { core_idx };
+            sched_inputs[workload_idx].thread_modifiers.push_back(mod);
+        }
+    }
+    // Now run pre-scheduled.
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_CONSISTENT_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/1);
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string = run_lockstep_simulation(
+        scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/false, /*print_markers=*/true,
+        /*skip_simultaenous_checks=*/true);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // Each core was the same length but we've skipped ahead further in each
+    // so they get shorter as the output ordinal increases:
+    assert(sched_as_string[0] == "BCABCABCABCABCABCABCABCABC...");
+    assert(sched_as_string[1] == "CABCABCABCABCABCABCABCABC...");
+    assert(sched_as_string[2] == "ABCABCABCABCABCABCABCABC...");
+    assert(sched_as_string[3] == "BCABCABCABCABCABCABCABC...");
+}
+
+static void
 test_regions()
 {
     test_regions_timestamps();
@@ -1039,6 +1113,7 @@ test_regions()
     test_regions_start();
     test_regions_too_far();
     test_regions_core_sharded();
+    test_regions_by_shard();
 }
 
 static void
@@ -2329,6 +2404,72 @@ test_synthetic_with_bindings_invalid()
 }
 
 static void
+test_synthetic_with_bindings_overrides()
+{
+    std::cerr << "\n----------------\nTesting modifer overrides\n";
+    static constexpr int NUM_INPUTS = 4;
+    static constexpr int NUM_OUTPUTS = 3;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    std::vector<scheduler_t::input_reader_t> readers;
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_BASE + input_idx;
+        std::vector<trace_entry_t> inputs;
+        inputs.push_back(make_thread(tid));
+        inputs.push_back(make_pid(1));
+        inputs.push_back(make_timestamp(10 + input_idx));
+        for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+            inputs.push_back(make_instr(42 + instr_idx * 4));
+        }
+        inputs.push_back(make_exit(tid));
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    }
+    sched_inputs.emplace_back(std::move(readers));
+
+    // Test modifier tids colliding.
+    std::set<scheduler_t::output_ordinal_t> core0 = { 0 };
+    std::set<scheduler_t::output_ordinal_t> core1 = { 1 };
+    std::set<scheduler_t::output_ordinal_t> core2 = { 2 };
+    // First, put the 1st 3 threads (A,B,C) on core0.
+    scheduler_t::input_thread_info_t infoA(core0);
+    infoA.tids = { TID_BASE + 0, TID_BASE + 1, TID_BASE + 2 };
+    sched_inputs.back().thread_modifiers.push_back(infoA);
+    // Try to put the same tids onto a different core: should override.
+    scheduler_t::input_thread_info_t infoB(core1);
+    infoB.tids = { TID_BASE + 0, TID_BASE + 1, TID_BASE + 2 };
+    sched_inputs.back().thread_modifiers.push_back(infoB);
+    // Set a default which should apply to just the 4th input (D) as the other
+    // 3 appear in modifiers (the 3rd below).
+    scheduler_t::input_thread_info_t infoC(core2);
+    sched_inputs.back().thread_modifiers.push_back(infoC);
+    // Put the 3rd thread (C) onto core0: should override.
+    scheduler_t::input_thread_info_t infoD(core0);
+    infoD.tids = { TID_BASE + 2 };
+    sched_inputs.back().thread_modifiers.push_back(infoD);
+
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_duration_instrs = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // C is alone on core0; D alone on core2; and A+B are on core1.
+    assert(sched_as_string[0] == ".CCCCCCCCC.____________");
+    assert(sched_as_string[1] == ".AAA.BBBAAABBBAAA.BBB.");
+    assert(sched_as_string[2] == ".DDDDDDDDD.___________");
+}
+
+static void
 test_synthetic_with_bindings()
 {
     test_synthetic_with_bindings_time(/*time_deps=*/true);
@@ -2336,6 +2477,7 @@ test_synthetic_with_bindings()
     test_synthetic_with_bindings_more_out();
     test_synthetic_with_bindings_weighted();
     test_synthetic_with_bindings_invalid();
+    test_synthetic_with_bindings_overrides();
 }
 
 static void

@@ -775,6 +775,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
         input_reader_info_t reader_info;
         reader_info.only_threads = workload.only_threads;
         reader_info.only_shards = workload.only_shards;
+        reader_info.first_input_ordinal = static_cast<input_ordinal_t>(inputs_.size());
         if (workload.path.empty()) {
             if (workload.readers.empty())
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
@@ -834,25 +835,42 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         }
         for (const auto &modifiers : workload.thread_modifiers) {
-            if (modifiers.struct_size != sizeof(input_thread_info_t))
-                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            const std::vector<memref_tid_t> *which_tids;
-            std::vector<memref_tid_t> workload_tid_vector;
-            if (modifiers.tids.empty()) {
-                // Apply to all tids that have not already been modified.
-                for (const auto entry : reader_info.tid2input) {
-                    if (!inputs_[entry.second].has_modifier)
-                        workload_tid_vector.push_back(entry.first);
+            // We can't actually use modifiers.struct_size to provide binary
+            // backward compatibility due to C++ not supporting offsetof with
+            // non-standard-layout types.  So we ignore struct_size and only
+            // provide source compatibility.
+            // Vector of ordinals into input for this workload.
+            std::vector<int> which_workload_inputs;
+            if (modifiers.tids.empty() && modifiers.shards.empty()) {
+                // Apply to all inputs that have not already been modified.
+                for (int i = 0; i < static_cast<int>(reader_info.input_count); ++i) {
+                    if (!inputs_[reader_info.first_input_ordinal + i].has_modifier)
+                        which_workload_inputs.push_back(i);
                 }
-                which_tids = &workload_tid_vector;
-            } else
-                which_tids = &modifiers.tids;
+            } else if (!modifiers.tids.empty()) {
+                if (!modifiers.shards.empty()) {
+                    error_string_ =
+                        "Cannot set both tids and shards in input_thread_info_t";
+                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                }
+                for (memref_tid_t tid : modifiers.tids) {
+                    auto it = reader_info.tid2input.find(tid);
+                    if (it == reader_info.tid2input.end()) {
+                        error_string_ =
+                            "Cannot find tid " + std::to_string(tid) + " for modifier";
+                        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                    }
+                    which_workload_inputs.push_back(it->second -
+                                                    reader_info.first_input_ordinal);
+                }
+            } else if (!modifiers.shards.empty()) {
+                which_workload_inputs = modifiers.shards;
+            }
+
             // We assume the overhead of copying the modifiers for every thread is
             // not high and the simplified code is worthwhile.
-            for (memref_tid_t tid : *which_tids) {
-                if (reader_info.tid2input.find(tid) == reader_info.tid2input.end())
-                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-                int index = reader_info.tid2input[tid];
+            for (int local_index : which_workload_inputs) {
+                int index = local_index + reader_info.first_input_ordinal;
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;
                 // Check for valid bindings.
