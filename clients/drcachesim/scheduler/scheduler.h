@@ -236,7 +236,8 @@ public:
         }
         /**
          * Size of the struct.  Not used as this structure cannot support
-         * binary-compatible additions due to limits of C++ offsetof support: thus,
+         * binary-compatible additions due to limits of C++ offsetof support with some
+         * implementations of std::set where it is not a standard-layout class: thus,
          * changes here require recompiling tools using this code.
          */
         size_t struct_size = sizeof(input_thread_info_t);
