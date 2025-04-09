@@ -191,6 +191,13 @@ struct _memref_marker_t {
 };
 
 /**
+ * To enable memref_t to be default initialized, a byte array with an initializer
+ * is defined with the same length as the largest member of the union.  A subsequent
+ * static_assert makes sure the chosen size is truly the largest.
+ */
+constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
+
+/**
  * Each trace entry is one of the structures in this union.
  * Each entry identifies the originating process and thread.
  * Although the pc of each data reference is provided, the trace also guarantees that
@@ -203,12 +210,7 @@ struct _memref_marker_t {
  * without a thread switch intervening, to make it simpler to identify branch
  * targets (again, unless the trace is filtered by an online first-level cache).
  * Online traces do not currently guarantee this.
- *
- * To enable memref_t to be default initialized, a byte array with an initializer
- * is defined with the same length as the largest member of the union.  A subsequent
- * static_assert makes sure the chosen size is correct.
  */
-constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
     // addr and size fields of data, instr, or flush generically if known to be one
