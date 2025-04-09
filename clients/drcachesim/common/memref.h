@@ -209,7 +209,6 @@ struct _memref_marker_t {
  * static_assert makes sure the chosen size is correct.
  */
 constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
-
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
     // addr and size fields of data, instr, or flush generically if known to be one
@@ -219,9 +218,7 @@ typedef union _memref_t {
     struct _memref_flush_t flush;      /**< A software-initiated cache flush. */
     struct _memref_thread_exit_t exit; /**< A thread exit. */
     struct _memref_marker_t marker;    /**< A marker holding metadata. */
-    // A byte array for the purpose of default initialization.  It is NOT
-    // intended for user access to the memref_t data.
-    uint8_t _raw_bytes[MEMREF_T_SIZE_BYTES] = {}; /* Do not use: for init only. */
+    uint8_t _raw_bytes[MEMREF_T_SIZE_BYTES] = {}; /**< Do not use: for init only. */
 } memref_t;
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,
