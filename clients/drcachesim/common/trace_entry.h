@@ -218,7 +218,12 @@ typedef enum {
     // match TRACE_ENTRY_VERSION) in the addr field.  Unused for pipes.
     TRACE_TYPE_HEADER,
 
-    /** The final entry in an offline file or a pipe.  Not exposed to tools. */
+    /**
+     * The final entry in an offline file or a pipe.  Not exposed to tools.
+     * This can be in the middle of a derived trace when existing traces are
+     * combined into a new trace, as happens with core-sharded-on-disk traces
+     * produced by the record_filter tool in core-sharded mode.
+     */
     TRACE_TYPE_FOOTER,
 
     /** A hardware-issued prefetch (generated after tracing by a cache simulator). */
