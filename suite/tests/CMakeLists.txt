@@ -6533,6 +6533,7 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
+    # XXX i#1806: client.flush currently fails in release build.
     if (DEBUG)
       set_tests_properties(code_api|client.flush
                            PROPERTIES LABELS RUNS_ON_QEMU)
