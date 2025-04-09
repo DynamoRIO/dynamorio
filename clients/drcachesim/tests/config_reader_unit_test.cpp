@@ -96,7 +96,6 @@ unit_test_config_reader(const std::string &testdir)
         knobs.warmup_refs != 0 || !fp_near(knobs.warmup_fraction, 0.8, 0.001) ||
         knobs.sim_refs != 8888888 || knobs.cpu_scheduling != true || knobs.verbose != 0 ||
         knobs.model_coherence != true || knobs.use_physical != true) {
-
         std::cerr << "drcachesim config_reader_test failed (common params)\n";
         exit(1);
     }
