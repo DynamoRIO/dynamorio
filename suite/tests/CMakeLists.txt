@@ -6534,8 +6534,8 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
     if (DEBUG)
-           set_tests_properties(code_api|client.flush
-                                PROPERTIES LABELS RUNS_ON_QEMU)
+      set_tests_properties(code_api|client.flush
+                           PROPERTIES LABELS RUNS_ON_QEMU)
     endif ()
     if (NOT APPLE) # TODO i#5383: Port to Mac M1.
       set_tests_properties(
