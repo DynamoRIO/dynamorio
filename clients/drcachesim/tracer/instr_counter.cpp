@@ -550,9 +550,9 @@ compute_irregular_trace_windows(std::vector<instr_interval_t> &instr_intervals)
     // must have a duration long enough to cover the end of the program.
     irregular_window_ptr =
         (irregular_window_t *)dr_global_alloc(sizeof(irregular_window_t));
-    // DELAY_FOREVER_THRESHOLD might be too small for long traces, but it doesn't matter
-    // because we trace_for_instrs = 0, so no window is created anyway.
-    irregular_window_ptr->no_trace_for_instrs = DELAY_FOREVER_THRESHOLD;
+    // This results in has_instr_count_threshold_to_enable_tracing() returning 0, which
+    // in turns makes hit_instr_count_threshold() return without creating a new window.
+    irregular_window_ptr->no_trace_for_instrs = 0;
     irregular_window_ptr->trace_for_instrs = 0;
     drvector_set_entry(&irregular_windows_list, num_intervals, irregular_window_ptr);
 }
