@@ -67,8 +67,9 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
 // Return true if <a> and <b> are within epsilon of one-another.
 // Assumes epsilon is non-negative.
 bool
-fp_near(double a, double b, double epsilon) {
-  return (a - b < epsilon) && (b - a < epsilon);
+fp_near(double a, double b, double epsilon)
+{
+    return (a - b < epsilon) && (b - a < epsilon);
 }
 
 void
