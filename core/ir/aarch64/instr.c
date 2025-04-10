@@ -111,6 +111,7 @@ instr_branch_type(instr_t *cti_instr)
     case OP_braaz:
     case OP_brabz: return LINK_INDIRECT | LINK_JMP;
     case OP_ret:
+    case OP_eret:
     case OP_retaa:
     case OP_retab: return LINK_INDIRECT | LINK_RETURN;
     }
@@ -178,7 +179,7 @@ bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_ret || opc == OP_retaa || opc == OP_retab);
+    return (opc == OP_ret || opc == OP_retaa || opc == OP_retab || opc == OP_eret);
 }
 
 bool
@@ -206,6 +207,7 @@ instr_is_mbr_arch(instr_t *instr)
     case OP_blraaz:
     case OP_blrabz:
     case OP_ret:
+    case OP_eret:
     case OP_retaa:
     case OP_retab: return true;
     default: return false;
