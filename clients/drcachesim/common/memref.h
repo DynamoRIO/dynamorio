@@ -191,8 +191,8 @@ struct _memref_marker_t {
 };
 
 /**
- * To enable #memref_t to be default initialized, a byte array with an initializer
- * is defined with the same length as the largest member of the union.  A subsequent
+ * To enable #memref_t to be default initialized reliably, a byte array is defined
+ * with the same length as the largest member of the union.  A subsequent
  * static_assert makes sure the chosen size is truly the largest.
  */
 constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
@@ -210,10 +210,12 @@ constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
  * without a thread switch intervening, to make it simpler to identify branch
  * targets (again, unless the trace is filtered by an online first-level cache).
  * Online traces do not currently guarantee this.
- * Note that the _raw_bytes array is added to the union specifically to provide
- * a default initializer, and it must be the only default inialized member of
- * the #memref_t union.  An array is used rather than an existing member struct
- * to ensure full inialization with no field padding or alignment concernts.
+ *
+ * Note that the _raw_bytes array is added to the union as its first member
+ * specifically to make sure a #memref_t object can be robustly initialized
+ * using an empty aggregate initializer, e.g. `memref_t memref = {};`
+ * An array is used rather than an existing member struct to ensure full
+ * inialization with no field padding or alignment concerns.
  */
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
