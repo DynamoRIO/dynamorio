@@ -213,7 +213,7 @@ constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
  *
  * Note that #memref_t is **not** initialized by default.  The _raw_bytes array
  * is added to the union as its first member to make sure a #memref_t object
- * can be fully initialized if desired, for example `memref_t memref = {};`
+ * can be fully initialized if desired, for example `memref_t memref = {};`.
  */
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
