@@ -222,11 +222,11 @@ typedef union _memref_t {
     // The _raw_bytes entry is for initialization purposes and must be first in
     // this list.  It is not intended to be used for memref_t access.
     uint8_t _raw_bytes[MEMREF_T_SIZE_BYTES]; /**< Do not use: for init only. */
-    struct _memref_data_t data;        /**< A data load or store. */
-    struct _memref_instr_t instr;      /**< An instruction fetch. */
-    struct _memref_flush_t flush;      /**< A software-initiated cache flush. */
-    struct _memref_thread_exit_t exit; /**< A thread exit. */
-    struct _memref_marker_t marker;    /**< A marker holding metadata. */
+    struct _memref_data_t data;              /**< A data load or store. */
+    struct _memref_instr_t instr;            /**< An instruction fetch. */
+    struct _memref_flush_t flush;            /**< A software-initiated cache flush. */
+    struct _memref_thread_exit_t exit;       /**< A thread exit. */
+    struct _memref_marker_t marker;          /**< A marker holding metadata. */
 } memref_t;
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,
