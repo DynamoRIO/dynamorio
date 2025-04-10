@@ -213,14 +213,16 @@ constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
  *
  * Note that #memref_t is **not** initialized by default.  The _raw_bytes array
  * is added to the union as its first member to make sure a #memref_t object
- * can be easily initialized if desired, for example `memref_t memref = {};`
+ * can be fully initialized if desired, for example `memref_t memref = {};`
  */
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
     // addr and size fields of data, instr, or flush generically if known to be one
     // of those types, due to the shared fields in our union of structs.
     // The _raw_bytes entry is for initialization purposes and must be first in
-    // this list.  It is not intended to be used for memref_t access.
+    // this list.  A byte array is used for initialization rather than an existing struct
+    // to avoid incomplete initialization due to padding or alignment constraints within a
+    // struct.  This array is not intended to be used for memref_t access.
     uint8_t _raw_bytes[MEMREF_T_SIZE_BYTES]; /**< Do not use: for init only. */
     struct _memref_data_t data;              /**< A data load or store. */
     struct _memref_instr_t instr;            /**< An instruction fetch. */
@@ -230,7 +232,8 @@ typedef union _memref_t {
 } memref_t;
 
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,
-              "Update MEMREF_T_SIZE_BYTES to match sizeof(memref_t).");
+              "Update MEMREF_T_SIZE_BYTES to match sizeof(memref_t).  Did the largest "
+              "union member change?");
 
 } // namespace drmemtrace
 } // namespace dynamorio
