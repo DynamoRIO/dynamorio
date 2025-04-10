@@ -211,11 +211,9 @@ constexpr int MEMREF_T_SIZE_BYTES = sizeof(_memref_instr_t);
  * targets (again, unless the trace is filtered by an online first-level cache).
  * Online traces do not currently guarantee this.
  *
- * Note that the _raw_bytes array is added to the union as its first member
- * specifically to make sure a #memref_t object can be robustly initialized
- * using an empty aggregate initializer, e.g. `memref_t memref = {};`
- * An array is used rather than an existing member struct to ensure full
- * inialization with no field padding or alignment concerns.
+ * Note that #memref_t is **not** initialized by default.  The _raw_bytes array
+ * is added to the union as its first member to make sure a #memref_t object
+ * can be easily initialized if desired, for example `memref_t memref = {};`
  */
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
