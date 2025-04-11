@@ -736,7 +736,7 @@ protected:
         uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
-        app_pc last_pc_if_syscall_ = 0;
+        app_pc last_pc_fallthrough_if_syscall_ = 0;
 
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;

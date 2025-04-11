@@ -3380,13 +3380,13 @@ void
 raw2trace_t::set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata,
                                                 app_pc value)
 {
-    tdata->last_pc_if_syscall_ = value;
+    tdata->last_pc_fallthrough_if_syscall_ = value;
 }
 
 app_pc
 raw2trace_t::get_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata)
 {
-    return tdata->last_pc_if_syscall_;
+    return tdata->last_pc_fallthrough_if_syscall_;
 }
 
 void
