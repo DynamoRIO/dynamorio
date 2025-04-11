@@ -606,10 +606,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
                                     shard->file_type_),
                         "Mismatching syscall num in trace end and syscall marker");
-#ifdef UNIX
         if (shard->between_kernel_syscall_trace_markers_) {
             // Protected by above if-condition to avoid noise from another invariant
             // error due to a missing start marker.
+#ifdef UNIX
             report_if_false(shard,
                             shard->signal_stack_depth_at_syscall_trace_start_ ==
                                 static_cast<int>(shard->signal_stack_.size()),
