@@ -185,8 +185,9 @@ gen_exit(memref_tid_t tid)
  * though the final instruction list were located at base_addr.
  * Markers with instr fields will have their values replaced with the instr's PC.
  * TRACE_MARKER_TYPE_BRANCH_TARGET markers specified in the input ilist are not
- * included in the returned memref_t list, but if an instr is specified with those
- * markers, their pc is added to the next indirect branch instr memref_t.
+ * included in the returned memref_t list, but if an instr_t* is specified with
+ * those markers, its pc is added to the next indirect branch instr's
+ * memref_t.instr.indirect_branch_target field.
  */
 std::vector<memref_t>
 add_encodings_to_memrefs(instrlist_t *ilist,
@@ -223,6 +224,8 @@ add_encodings_to_memrefs(instrlist_t *ilist,
             }
         } else if (pair.memref.marker.type == TRACE_TYPE_MARKER) {
             if (pair.memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
+                // TRACE_MARKER_TYPE_BRANCH_TARGET markers are not presented in the
+                // memref_t stream.
                 skip = true;
                 if (pair.instr != nullptr) {
                     next_indirect_branch_target =
