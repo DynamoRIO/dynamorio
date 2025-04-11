@@ -738,13 +738,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                          shard->last_instr_in_cur_context_.memref.instr.type))),
             "Function marker should be after a branch");
 #else
-    report_if_false(
-        shard,
-        shard->prev_func_id_ >=
-                static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
-            type_is_instr_branch(shard->prev_instr_.memref.instr.type) ||
-            shard->instr_count_ == 0,
-        "Function marker should be after a branch");
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.memref.instr.type) ||
+                shard->instr_count_ == 0,
+            "Function marker should be after a branch");
 #endif
     }
 
@@ -1049,8 +1049,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Timestamp does not increase monotonically");
         }
 #else
-    report_if_false(shard, memref.marker.marker_value >= shard->last_timestamp_,
-                    "Timestamp does not increase monotonically");
+        report_if_false(shard, memref.marker.marker_value >= shard->last_timestamp_,
+                        "Timestamp does not increase monotonically");
 #endif
         shard->last_timestamp_ = memref.marker.marker_value;
         shard->saw_timestamp_but_no_instr_ = true;
