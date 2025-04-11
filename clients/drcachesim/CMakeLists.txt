@@ -1157,7 +1157,7 @@ if (BUILD_TESTS)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_syscall_inject drmemtrace_static)
       target_link_libraries(tool.drcacheoff.burst_syscall_inject drmemtrace_raw2trace
         drmemtrace_analyzer test_helpers drmemtrace_basic_counts
-        drmemtrace_syscall_mix)
+        drmemtrace_syscall_mix drmemtrace_invariant_checker)
       add_win32_flags(tool.drcacheoff.burst_syscall_inject)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_syscall_inject)
     endif ()

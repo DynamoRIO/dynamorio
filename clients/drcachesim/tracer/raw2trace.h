@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1104,9 +1104,9 @@ private:
                             app_pc orig, bool write, int memop_index,
                             bool use_remembered_base, bool remember_base);
     void
-    set_last_pc_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
+    set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
     app_pc
-    get_last_pc_if_syscall(raw2trace_thread_data_t *tdata);
+    get_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata);
 
     // Sets a per-traced-thread cached flag that is read by was_prev_instr_rep_string().
     void
@@ -1332,7 +1332,12 @@ private:
 
     // For inserting system call traces from provided templates.
     std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader_;
-    std::unordered_map<int, std::vector<trace_entry_t>> syscall_trace_templates_;
+
+    struct trace_template_t {
+        std::vector<trace_entry_t> entries;
+        int instr_count = 0;
+    };
+    std::unordered_map<int, trace_template_t> syscall_trace_templates_;
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
 

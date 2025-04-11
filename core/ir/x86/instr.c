@@ -508,6 +508,7 @@ instr_branch_type(instr_t *cti_instr)
         return LINK_INDIRECT | LINK_CALL | LINK_FAR;
     case OP_call_far_ind: return LINK_INDIRECT | LINK_CALL | LINK_FAR;
     case OP_ret_far:
+    case OP_sysret:
     case OP_iret: return LINK_INDIRECT | LINK_RETURN | LINK_FAR;
     default:
         LOG(THREAD_GET, LOG_ALL, 0, "branch_type: unknown opcode: %d\n",
@@ -559,7 +560,7 @@ bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_ret || opc == OP_ret_far || opc == OP_iret);
+    return (opc == OP_ret || opc == OP_ret_far || opc == OP_iret || opc == OP_sysret);
 }
 
 /*** WARNING!  The following rely on ordering of opcodes! ***/
@@ -585,7 +586,7 @@ instr_is_mbr_arch(instr_t *instr) /* multi-way branch */
     int opc = instr->opcode; /* caller ensures opcode is valid */
     return (opc == OP_jmp_ind || opc == OP_call_ind || opc == OP_ret ||
             opc == OP_jmp_far_ind || opc == OP_call_far_ind || opc == OP_ret_far ||
-            opc == OP_iret);
+            opc == OP_sysret || opc == OP_iret);
 }
 
 bool
