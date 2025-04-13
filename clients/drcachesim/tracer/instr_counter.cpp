@@ -470,6 +470,13 @@ parse_instr_intervals_file(std::string path_to_file)
         if (!std::getline(ss, elem, ','))
             FATAL("Fatal error: instruction duration not found.\n");
         uint64 duration = std::stoull(elem);
+        if (duration == 0) {
+            NOTIFY(0,
+                   "Instruction interval starting at %" PRIu64
+                   " has duration of 0. Removing interval.\n",
+                   start);
+            continue;
+        }
         // Ignore the remaining comma-separated elements, if any.
 
         instr_intervals.emplace_back(start, duration);
@@ -488,13 +495,19 @@ parse_instr_intervals_file(std::string path_to_file)
     // 2) Overlapping intervals must be merged.
     std::vector<instr_interval_t> instr_intervals_merged;
     instr_intervals_merged.emplace_back(instr_intervals[0]);
-    for (instr_interval_t &interval : instr_intervals) {
+    for (size_t i = 1; i < instr_intervals.size(); ++i) {
+        instr_interval_t &interval = instr_intervals[i];
         uint64 end = interval.start + interval.duration;
         instr_interval_t &last_interval = instr_intervals_merged.back();
         uint64 last_end = last_interval.start + last_interval.duration;
         if (interval.start <= last_end) {
             uint64 max_end = last_end > end ? last_end : end;
             last_interval.duration = max_end - last_interval.start;
+            NOTIFY(0,
+                   "Instruction interval starting at %" PRIu64
+                   " has been merged with instruction interval starting at %" PRIu64
+                   ".\n",
+                   last_interval.start, interval.start);
         } else {
             instr_intervals_merged.emplace_back(interval);
         }
@@ -550,8 +563,8 @@ compute_irregular_trace_windows(std::vector<instr_interval_t> &instr_intervals)
     // must have a duration long enough to cover the end of the program.
     irregular_window_ptr =
         (irregular_window_t *)dr_global_alloc(sizeof(irregular_window_t));
-    // This results in has_instr_count_threshold_to_enable_tracing() returning 0, which
-    // in turns makes hit_instr_count_threshold() return without creating a new window.
+    // A no_trace_for_instrs window of 0 means: delay forever, don't start a tracing
+    // window.
     irregular_window_ptr->no_trace_for_instrs = 0;
     irregular_window_ptr->trace_for_instrs = 0;
     drvector_set_entry(&irregular_windows_list, num_intervals, irregular_window_ptr);
