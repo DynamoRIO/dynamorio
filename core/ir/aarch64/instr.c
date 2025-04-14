@@ -179,7 +179,7 @@ bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_ret || opc == OP_retaa || opc == OP_retab || opc == OP_eret);
+    return (opc == OP_ret || opc == OP_eret || opc == OP_retaa || opc == OP_retab);
 }
 
 bool
