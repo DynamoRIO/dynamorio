@@ -14226,9 +14226,7 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  */
-#define INSTR_CREATE_eret(dc)                                        \
-    instr_create_0dst_2src(dc, OP_eret, opnd_create_reg(DR_REG_X30), \
-                           opnd_create_reg(DR_REG_SP))
+#define INSTR_CREATE_eret(dc) instr_create_0dst_0src(dc, OP_eret)
 
 /**
  * Creates an ERETAA instruction.

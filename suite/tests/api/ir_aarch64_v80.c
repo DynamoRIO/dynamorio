@@ -344,8 +344,7 @@ TEST_INSTR(wfi)
 TEST_INSTR(eret)
 {
     /* Testing ERET */
-    TEST_LOOP_EXPECT(eret, 1, INSTR_CREATE_eret(dc),
-                     EXPECT_DISASSEMBLY("eret   %x30 %sp"));
+    TEST_LOOP_EXPECT(eret, 1, INSTR_CREATE_eret(dc), EXPECT_DISASSEMBLY("eret"));
 }
 
 TEST_INSTR(orr)
