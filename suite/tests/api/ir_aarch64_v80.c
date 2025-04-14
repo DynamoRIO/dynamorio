@@ -344,7 +344,7 @@ TEST_INSTR(wfi)
 TEST_INSTR(eret)
 {
     /* Testing ERET */
-    TEST_LOOP_EXPECT(eret, 1, INSTR_CREATE_eret(dc), EXPECT_DISASSEMBLY("eret"));
+    TEST_LOOP_EXPECT(eret, 1, INSTR_CREATE_eret(dc), EXPECT_DISASSEMBLY("eret   %x30 %sp"));
 }
 
 TEST_INSTR(orr)
@@ -680,6 +680,7 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(wfe);
     RUN_INSTR_TEST(wfi);
+    RUN_INSTR_TEST(eret);
 
     RUN_INSTR_TEST(orr);
     RUN_INSTR_TEST(orr_shift);

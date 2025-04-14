@@ -249,7 +249,7 @@ x1001010xx1xxxxxxxxxxxxxxxxxxxxx  n   89   BASE        eon            wx0 : wx5 
 x10100100xxxxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor      logic_imm
 x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 wx16 shift4 imm6
 0x101110001xxxxx000111xxxxxxxxxx  n   90   BASE        eor            dq0 : dq5 dq16
-11010110100111110000001111100000  n   91   BASE       eret                :
+11010110100111110000001111100000  n   91   BASE       eret                : impx30 impsp
 0x101110000xxxxx0xxxx0xxxxxxxxxx  n   92   BASE        ext            dq0 : dq5 dq16 imm4idx
 00010011100xxxxxxxxxxxxxxxxxxxxx  n   93   BASE       extr             w0 : w5 w16 imms
 10010011110xxxxxxxxxxxxxxxxxxxxx  n   93   BASE       extr             x0 : x5 x16 imms
