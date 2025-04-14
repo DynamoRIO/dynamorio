@@ -560,7 +560,7 @@ bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_ret || opc == OP_ret_far || opc == OP_iret || opc == OP_sysret);
+    return (opc == OP_ret || opc == OP_ret_far || opc == OP_sysret || opc == OP_iret);
 }
 
 /*** WARNING!  The following rely on ordering of opcodes! ***/
