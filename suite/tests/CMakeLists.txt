@@ -6337,6 +6337,13 @@ IF (NOT ANDROID AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     -client ${strace_sample_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(sample.strace.dll drmgr)
   use_DynamoRIO_extension(sample.strace.dll drsyscall)
+
+  add_exe(linux.file_io linux/file-io.c)
+  tobuild_ci(client.syscall-file-io-test client-interface/syscall-file-io-test.c "" "" "")
+  torunonly_ci(client.syscall-file-io-test linux.file_io client.syscall-file-io-test.dll
+     linux/file-io.c "" "" "")
+  use_DynamoRIO_extension(client.syscall-file-io-test.dll drmgr)
+  use_DynamoRIO_extension(client.syscall-file-io-test.dll drsyscall)
 endif ()
 
 ###########################################################################

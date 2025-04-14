@@ -1,0 +1,109 @@
+.*
+#ifdef X86
+syscall 257\(openat\) start
+#elif defined(AARCH64)
+syscall 56\(openat\) start
+#else
+NYI
+#endif
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=1, mode=0x1, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=2, mode=0x1, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=3, mode=0x1, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=1, mode=0x1, start_addr=0x[0-9a-f]+, size=0x[0-9a-f]+
+memory hex dump: [0-9a-f]+
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, ordinal=1, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, ordinal=2, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, ordinal=3, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, return value=0x[0-9a-f]+, size=0x8
+#ifdef X86
+syscall 257 end
+#elif defined(AARCH64)
+syscall 56 end
+#else
+NYI
+#endif
+#ifdef X86
+syscall 1\(write\) start
+#elif defined(AARCH64)
+syscall 64\(write\) start
+#else
+NYI
+#endif
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=1, mode=0x1, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=2, mode=0x1, value=0xd, size=0x8
+pre-syscall, ordinal=1, mode=0x1, start_addr=0x[0-9a-f]+, size=0xd
+memory hex dump: 48656c6c6f20576f726c642100
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, ordinal=1, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, ordinal=2, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, return value=0xd, size=0x8
+#ifdef X86
+syscall 1 end
+#elif defined(AARCH64)
+syscall 64 end
+#else
+NYI
+#endif
+#ifdef X86
+syscall 0\(read\) start
+#elif defined(AARCH64)
+syscall 63\(read\) start
+#else
+NYI
+#endif
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=1, mode=0x2, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=2, mode=0x1, value=0xd, size=0x8
+pre-syscall, ordinal=1, mode=0x2, start_addr=0x[0-9a-f]+, size=0xd
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, ordinal=1, mode=0x2, value=0x[0-9a-f]+, size=0x8
+post-syscall, ordinal=2, mode=0x1, value=0xd, size=0x8
+post-syscall, return value=0xd, size=0x8
+post-syscall, ordinal=1, mode=0x2, start_addr=0x[0-9a-f]+, size=0xd
+memory hex dump: 48656c6c6f20576f726c642100
+#ifdef X86
+syscall 0 end
+#elif defined(AARCH64)
+syscall 63 end
+#else
+NYI
+#endif
+#ifdef X86
+syscall 3\(close\) start
+#elif defined(AARCH64)
+syscall 57\(close\) start
+#else
+NYI
+#endif
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, return value=0x0, size=0x8
+#ifdef X86
+syscall 3 end
+#elif defined(AARCH64)
+syscall 57 end
+#else
+NYI
+#endif
+#ifdef X86
+syscall 87\(unlink\) start
+#elif defined(AARCH64)
+syscall XX
+#else
+NYI
+#endif
+pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+pre-syscall, ordinal=0, mode=0x1, start_addr=0x[0-9a-f]+, size=0x[0-9a-f]+
+memory hex dump: [0-9a-f]+
+post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
+post-syscall, return value=0x0, size=0x8
+#ifdef X86
+syscall 87 end
+#elif defined(AARCH64)
+syscall XX end
+#else
+NYI
+#endif
