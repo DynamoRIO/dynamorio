@@ -1604,7 +1604,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // TODO i#6102: This actually does the wrong thing for SIG_IGN interrupting
         // an auto-restart syscall; we live with that until we remove it after fixing
         // the incorrect duplicate syscall error.
-        if (instr->is_syscall() && get_last_pc_if_syscall(tdata) == orig_pc &&
+        if (instr->is_syscall() &&
+            get_last_pc_fallthrough_if_syscall(tdata) == orig_pc + instr->length() &&
             instr_count == 1) {
             // Also remove the syscall marker.  It could be after a timestamp+cpuid
             // pair; we're fine removing those too and having the prior timestamp
@@ -1727,9 +1728,9 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             } else
                 set_prev_instr_rep_string(tdata, false);
             if (instr->is_syscall())
-                set_last_pc_if_syscall(tdata, orig_pc);
+                set_last_pc_fallthrough_if_syscall(tdata, orig_pc + instr->length());
             else
-                set_last_pc_if_syscall(tdata, 0);
+                set_last_pc_fallthrough_if_syscall(tdata, 0);
             buf->size = (ushort)(skip_icache ? 0 : instr->length());
             buf->addr = (addr_t)orig_pc;
             ++buf;
@@ -3357,15 +3358,16 @@ raw2trace_t::log_instruction(uint level, app_pc decode_pc, app_pc orig_pc)
 }
 
 void
-raw2trace_t::set_last_pc_if_syscall(raw2trace_thread_data_t *tdata, app_pc value)
+raw2trace_t::set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata,
+                                                app_pc value)
 {
-    tdata->last_pc_if_syscall_ = value;
+    tdata->last_pc_fallthrough_if_syscall_ = value;
 }
 
 app_pc
-raw2trace_t::get_last_pc_if_syscall(raw2trace_thread_data_t *tdata)
+raw2trace_t::get_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata)
 {
-    return tdata->last_pc_if_syscall_;
+    return tdata->last_pc_fallthrough_if_syscall_;
 }
 
 void
