@@ -567,7 +567,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Found kernel syscall trace without corresponding file type");
         report_if_false(shard, !shard->between_kernel_syscall_trace_markers_,
                         "Nested kernel syscall traces are not expected");
-        shard->prev_syscall_end_branch_target_ = 0;
+        report_if_false(shard, !shard->found_syscall_trace_after_last_userspace_instr_,
+                        "Found multiple syscall traces after a user-space instr");
         // PT kernel syscall traces are inserted at the TRACE_MARKER_TYPE_SYSCALL_IDX
         // marker. The marker is deliberately added to the trace in the post-syscall
         // callback to ensure it is emitted together with the actual PT trace and not
@@ -606,6 +607,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
                                     shard->file_type_),
                         "Mismatching syscall num in trace end and syscall marker");
+        shard->found_syscall_trace_after_last_userspace_instr_ = true;
         // TODO i#5505: Ideally the last instruction in the system call PT trace
         // also would be an indirect CTI with a TRACE_MARKER_TYPE_BRANCH_TARGET
         // marker pointing to the next user-space instr. But, as also mentioned
@@ -810,6 +812,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // marker because we may need it again if there's a consecutive syscall/switch.
         if (!shard->between_kernel_syscall_trace_markers_) {
             shard->pre_syscall_trace_instr_ = {};
+            shard->found_syscall_trace_after_last_userspace_instr_ = false;
         }
         if (!shard->between_kernel_context_switch_markers_) {
             shard->pre_context_switch_trace_instr_ = {};

@@ -3060,18 +3060,19 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             // Consecutive kernel trace, for a stronger test.
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             // The value of the kernel_event marker is set to pc=2, which is the next
             // instruction in the outer-most trace context (the context outside the
             // kernel and signal trace).
-            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
             gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(TID_A, /*pc=*/2),
+            gen_instr(TID_A, /*pc=*/3),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false))
@@ -3088,8 +3089,9 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             // Consecutive kernel trace, for a stronger test.
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
@@ -3104,8 +3106,8 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
                 memrefs, true,
                 { "Non-explicit control flow has no marker @ kernel_event marker",
                   /*tid=*/TID_A,
-                  /*ref_ordinal=*/13, /*last_timestamp=*/0,
-                  /*instrs_since_last_timestamp=*/3 },
+                  /*ref_ordinal=*/14, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/4 },
                 "Failed to catch incorrect kernel_event marker value after " + test_type +
                     " trace"))
             return false;
@@ -3635,6 +3637,42 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, false))
+            res = false;
+    }
+    // Consecutive system call trace after the same user-space instr.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // Another trace for the same system call.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(
+                memrefs, true,
+                { "Found multiple syscall traces after a user-space instr",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/4 },
+                "Failed to catch multiple syscall traces after a user-space instr"))
             res = false;
     }
     // Unexpected instr at the end of a syscall trace template.
