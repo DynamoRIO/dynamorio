@@ -14218,6 +14218,17 @@
                            opnd_create_reg(DR_REG_X30))
 
 /**
+ * Creates an ERET instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ERET
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_eret(dc) instr_create_0dst_0src(dc, OP_eret)
+
+/**
  * Creates an ERETAA instruction.
  *
  * This macro is used to encode the forms:
