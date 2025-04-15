@@ -606,9 +606,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
                                     shard->file_type_),
                         "Mismatching syscall num in trace end and syscall marker");
+        if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, shard->file_type_)) {
+            report_if_false(
+                shard,
+                // E.g., iret/sysret/sysexit for x86, and eret for aarch64.
+                type_is_instr_branch(shard->prev_instr_.memref.instr.type) &&
+                    !type_is_instr_direct_branch(shard->prev_instr_.memref.instr.type),
+                "System call trace template ends with unexpected instr");
+        }
+        // Various checks are guarded by the following if-condition to avoid noise from
+        // multiple invariant checks due to the same reason (a missing start marker).
         if (shard->between_kernel_syscall_trace_markers_) {
-            // Protected by above if-condition to avoid noise from another invariant
-            // error due to a missing start marker.
 #ifdef UNIX
             report_if_false(shard,
                             shard->signal_stack_depth_at_syscall_trace_start_ ==
@@ -620,23 +628,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
             if (shard->pre_syscall_trace_instr_.memref.instr.addr > 0 &&
                 // TODO i#5505: Ideally the last instruction in the system call PT trace
-                // also would be an indirect CTI with a
-                // TRACE_MARKER_TYPE_BRANCH_TARGET marker pointing to the next user-space
-                // instr. But, as also mentioned in the comment in ir2trace.cpp, there are
-                // noise instructions at the end of PT trace that need to be removed.
+                // also would be an indirect CTI with a TRACE_MARKER_TYPE_BRANCH_TARGET
+                // marker pointing to the next user-space instr. But, as also mentioned
+                // in the comment in ir2trace.cpp, there are noise instructions at the
+                // end of PT trace that don't allow us to add that check yet.
                 !TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
                          shard->file_type_)) {
-                report_if_false(
-                    shard,
-                    // iret/sysret for x86, and eret for aarch64.
-                    type_is_instr_branch(shard->prev_instr_.memref.instr.type) &&
-                        !type_is_instr_direct_branch(
-                            shard->prev_instr_.memref.instr.type),
-                    "System call trace template ends with unexpected instr");
-                // We do not handle control-transferring system calls as they are
-                // not traced using PT or QEMU today. There are challenges in
-                // determining the post-syscall resumption point that make it
-                // difficult.
+                // TODO #6495, #7157: We do not handle control-transferring system calls
+                // like sigreturn as they are not traced using PT or QEMU today. There
+                // are challenges in determining the post-syscall resumption point that
+                // make it difficult.
                 report_if_false(
                     shard,
                     !knob_offline_ ||
@@ -650,9 +651,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // Pretend the prev instruction to be the last user-space instruction,
             // so that later PC discontinuity checks make sense for the user-space
             // view of the trace.
-            // PC continuity from the last user-space instruction to the PC specified in
-            // the indirect branch target marker at the end of the syscall trace is
-            // already done above.
+            // Fallthrough PC continuity from the last user-space instruction to the PC
+            // specified in the indirect branch target marker at the end of the syscall
+            // trace is already done above.
             shard->prev_instr_ = shard->pre_syscall_trace_instr_;
 #ifdef UNIX
             shard->last_instr_in_cur_context_ = shard->pre_syscall_trace_instr_;
