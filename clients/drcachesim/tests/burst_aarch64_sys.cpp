@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,10 @@
  * a "burst" of execution in the middle of the application.  It then detaches.
  * It then post-processes the acquired trace and confirms various assertions.
  */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
+
 #include "scheduler.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"

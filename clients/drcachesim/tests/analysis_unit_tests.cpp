@@ -32,6 +32,9 @@
 
 /* Unit tests for trace analysis APIs. */
 
+// Enable asserts in release build testing too.
+#undef NDEBUG
+
 #include <assert.h>
 
 #include <atomic>

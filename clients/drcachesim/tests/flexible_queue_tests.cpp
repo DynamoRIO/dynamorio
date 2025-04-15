@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,9 @@
  */
 
 /* Unit tests for flexible_queue. */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include "scheduler/flexible_queue.h"
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,9 @@
  * Linked into the burst_traceopts executable which covers trace optimizations
  * (fewer executables reduces the limited-resource CI time).
  */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include <assert.h>
 #include "tracer/instru.h"

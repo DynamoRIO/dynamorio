@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,10 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
+
+// Enable asserts in release build testing too.
+#    undef NDEBUG
+
 #    include "dr_api.h"
 #    include "drmemtrace/drmemtrace.h"
 #    include "drcovlib.h"
