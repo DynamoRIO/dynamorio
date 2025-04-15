@@ -51,7 +51,6 @@
 #include "raw2trace_directory.h"
 #include "scheduler.h"
 
-#include <cassert>
 #include <errno.h>
 #include <unistd.h>
 #include <fstream>
@@ -82,6 +81,12 @@ static instr_t *instr_in_gettid = nullptr;
         exit(1);                                            \
     } while (0)
 
+#define CHECK(cond)  \
+    do {             \
+        if (!(cond)) \
+            exit(1); \
+    } while (0)
+
 static pid_t
 gettid(void)
 {
@@ -103,14 +108,14 @@ do_some_syscalls()
     struct sigaction act;
     int res =
         syscall(SYS_rt_sigaction, /*too large*/ 1280, &act, nullptr, KERNEL_SIGSET_SIZE);
-    assert(res != 0 && errno == EINVAL);
+    CHECK(res != 0 && errno == EINVAL);
     res =
         syscall(SYS_rt_sigaction, /*too large*/ 12800, &act, nullptr, KERNEL_SIGSET_SIZE);
-    assert(res != 0 && errno == EINVAL);
+    CHECK(res != 0 && errno == EINVAL);
     res = syscall(SYS_rt_sigaction, SIGUSR1, nullptr,
                   /*bad address*/ reinterpret_cast<struct sigaction *>(4),
                   KERNEL_SIGSET_SIZE);
-    assert(res != 0 && errno == EFAULT);
+    CHECK(res != 0 && errno == EFAULT);
 
     std::cerr << "Done with system calls\n";
     return 1;
@@ -120,10 +125,10 @@ do_some_syscalls()
 static void
 check_syscall_stats(syscall_mix_t::statistics_t &syscall_stats)
 {
-    assert(syscall_stats.syscall_errno_counts.size() == 1);
-    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction].size() == 2);
-    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EINVAL] == 2);
-    assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EFAULT] == 1);
+    CHECK(syscall_stats.syscall_errno_counts.size() == 1);
+    CHECK(syscall_stats.syscall_errno_counts[SYS_rt_sigaction].size() == 2);
+    CHECK(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EINVAL] == 2);
+    CHECK(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EFAULT] == 1);
 }
 
 static void
@@ -201,7 +206,7 @@ write_system_call_template(void *dr_context)
     // Get path to write the template and an ostream to it.
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
-    assert(mem_res == DRMEMTRACE_SUCCESS);
+    CHECK(mem_res == DRMEMTRACE_SUCCESS);
     std::string syscall_trace_template_file =
         std::string(raw_dir) + DIRSEP + "syscall_trace_template";
     auto writer =
@@ -252,7 +257,7 @@ postprocess(void *dr_context, std::string syscall_trace_template_file,
     // Get path to write the final trace to.
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
-    assert(mem_res == DRMEMTRACE_SUCCESS);
+    CHECK(mem_res == DRMEMTRACE_SUCCESS);
     std::string outdir = std::string(raw_dir) + DIRSEP + "post_processed." + suffix;
 
     raw2trace_directory_t dir;
@@ -260,7 +265,7 @@ postprocess(void *dr_context, std::string syscall_trace_template_file,
         FATAL_ERROR("Failed to create output dir.");
     std::string dir_err = dir.initialize(raw_dir, outdir, DEFAULT_TRACE_COMPRESSION_TYPE,
                                          syscall_trace_template_file);
-    assert(dir_err.empty());
+    CHECK(dir_err.empty());
     raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
                           dir.out_archives_, dir.encoding_file_,
                           dir.serial_schedule_file_, dir.cpu_schedule_file_, dr_context,
@@ -314,7 +319,7 @@ gather_trace()
     if (setenv("DYNAMORIO_OPTIONS", ops.c_str(), 1 /*override*/) != 0)
         std::cerr << "failed to set env var!\n";
     dr_app_setup();
-    assert(!dr_app_running_under_dynamorio());
+    CHECK(!dr_app_running_under_dynamorio());
     dr_app_start();
     do_some_syscalls();
     dr_app_stop_and_cleanup();
@@ -325,13 +330,13 @@ gather_trace()
 static bool
 check_instr_same(void *dr_context, memref_t &memref, instr_t *expected_instr)
 {
-    assert(type_is_instr(memref.instr.type));
+    CHECK(type_is_instr(memref.instr.type));
     instr_t instr;
     instr_init(dr_context, &instr);
     app_pc next_pc =
         decode_from_copy(dr_context, memref.instr.encoding,
                          reinterpret_cast<byte *>(memref.instr.addr), &instr);
-    assert(next_pc != nullptr && instr_valid(&instr));
+    CHECK(next_pc != nullptr && instr_valid(&instr));
     bool res = true;
     if (!instr_same(expected_instr, &instr)) {
         std::cerr << "Unexpected instruction: |";
@@ -366,7 +371,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     int prev_syscall_num_marker = -1;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
-        assert(status == scheduler_t::STATUS_OK);
+        CHECK(status == scheduler_t::STATUS_OK);
         int prev_syscall_num_marker_saved = prev_syscall_num_marker;
         prev_syscall_num_marker = -1;
         if (memref.marker.type == TRACE_TYPE_MARKER) {
@@ -408,7 +413,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
         switch (syscall_trace_num) {
         case SYS_gettid:
             if (is_instr) {
-                assert(!found_gettid_instr);
+                CHECK(!found_gettid_instr);
                 found_gettid_instr = true;
                 if (memref.instr.addr != PC_SYSCALL_GETTID) {
                     std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
@@ -420,7 +425,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                     return false;
                 }
             } else {
-                assert(!found_gettid_read);
+                CHECK(!found_gettid_read);
                 found_gettid_read = true;
                 if (memref.data.type != TRACE_TYPE_READ ||
                     memref.data.size != opnd_size_in_bytes(OPSZ_PTR) ||
@@ -436,7 +441,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             break;
         case SYS_getpid:
             if (is_instr) {
-                assert(!found_getpid_instr);
+                CHECK(!found_getpid_instr);
                 found_getpid_instr = true;
                 if (memref.instr.addr != PC_SYSCALL_GETPID) {
                     std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
@@ -477,7 +482,7 @@ write_system_call_template_with_repstr(void *dr_context)
     // Get path to write the template and an ostream to it.
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
-    assert(mem_res == DRMEMTRACE_SUCCESS);
+    CHECK(mem_res == DRMEMTRACE_SUCCESS);
     std::string syscall_trace_template_file =
         std::string(raw_dir) + DIRSEP + "syscall_trace_template_repstr";
     auto writer =
@@ -531,7 +536,7 @@ test_template_with_repstr(void *dr_context)
                   << ", #stores: " << template_counts.stores << "\n";
         return 1;
     }
-    assert(syscall_stats.syscall_errno_counts.empty());
+    CHECK(syscall_stats.syscall_errno_counts.empty());
 
     std::string trace_dir = postprocess(dr_context, syscall_trace_template,
                                         /*expected_injected_syscall_count=*/1, "repstr");
@@ -578,7 +583,7 @@ test_trace_templates(void *dr_context)
                   << template_counts.syscall_number_markers << "\n";
         return 1;
     }
-    assert(syscall_stats.syscall_errno_counts.empty());
+    CHECK(syscall_stats.syscall_errno_counts.empty());
 
     std::string trace_dir = postprocess(dr_context, syscall_trace_template,
                                         /*expected_injected_syscall_count=*/2, "");
