@@ -3066,7 +3066,7 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
-            // The value of the kernel_event marker is set to pc=2, which is the next
+            // The value of the kernel_event marker is set to pc=3, which is the next
             // instruction in the outer-most trace context (the context outside the
             // kernel and signal trace).
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
@@ -3281,8 +3281,8 @@ check_kernel_syscall_trace(void)
     sys_return = XINST_CREATE_return(GLOBAL_DCONTEXT);
 #    endif
 
-    instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
     instr_t *post_sys = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+    instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
     instr_t *move =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
@@ -3435,8 +3435,8 @@ check_kernel_syscall_trace(void)
                          "syscall trace"))
             res = false;
     }
-    // Control resumes at the kernel_event marker with the pc specified in the syscall-end
-    // branch target marker.
+    // Control resumes at the kernel_event marker with the pc value specified in the
+    // syscall-end branch target marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3654,7 +3654,7 @@ check_kernel_syscall_trace(void)
             { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
-            // Another trace for the same system call.
+            // Another trace for the same system call instr.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },

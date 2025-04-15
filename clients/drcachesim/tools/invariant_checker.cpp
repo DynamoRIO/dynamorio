@@ -567,7 +567,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Found kernel syscall trace without corresponding file type");
         report_if_false(shard, !shard->between_kernel_syscall_trace_markers_,
                         "Nested kernel syscall traces are not expected");
-        report_if_false(shard, !shard->found_syscall_trace_after_last_userspace_instr_,
+        report_if_false(shard,
+                        TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                                shard->file_type_) ||
+                            !shard->found_syscall_trace_after_last_userspace_instr_,
                         "Found multiple syscall traces after a user-space instr");
         // PT kernel syscall traces are inserted at the TRACE_MARKER_TYPE_SYSCALL_IDX
         // marker. The marker is deliberately added to the trace in the post-syscall
@@ -637,9 +640,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // Pretend the prev instruction to be the last user-space instruction,
             // so that later PC discontinuity checks make sense for the user-space
             // view of the trace.
-            // Fallthrough PC continuity from the last user-space instruction to the PC
-            // specified in the indirect branch target marker at the end of the syscall
-            // trace is already done above.
+            // PC equality between the syscall-end branch target marker value and the
+            // next instruction PC (or the next kernel_event marker PC if a signal is
+            // next) is also verified in check_for_pc_discontinuity.
             shard->prev_instr_ = shard->pre_syscall_trace_instr_;
 #ifdef UNIX
             shard->last_instr_in_cur_context_ = shard->pre_syscall_trace_instr_;
@@ -1090,7 +1093,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // There should generally be a sigreturn just before the
             // TRACE_MARKER_TYPE_KERNEL_XFER marker, and we do not inject any traces for
             // control-altering system calls like sigreturn.
-            report_if_false(shard, shard->prev_syscall_end_branch_target_ == 0,
+            report_if_false(shard,
+                            !shard->found_syscall_trace_after_last_userspace_instr_,
                             "Unexpected signal return kernel_xfer marker immedidately "
                             "after syscall trace");
             // We expect a proper pairing of TRACE_MARKER_TYPE_KERNEL_EVENT and
