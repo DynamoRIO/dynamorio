@@ -513,7 +513,7 @@ instr_branch_type(instr_t *cti_instr)
      * the user-mode DynamoRIO instrumentation does not need to treat them
      * as such. sysexit and sysret are typically found in the kernel traces
      * generated using other methods (like QEMU). It is useful to treat them
-     * as such to show proper continuity in the injected traces
+     * as such to show proper PC continuity in the injected traces
      * (i#6495, i#7157).
      */
     case OP_sysexit:
@@ -596,7 +596,7 @@ instr_is_mbr_arch(instr_t *instr) /* multi-way branch */
      * the user-mode DynamoRIO instrumentation does not need to treat them
      * as such. sysexit and sysret are typically found in the kernel traces
      * generated using other methods (like QEMU). It is useful to treat them
-     * as such to show proper continuity in the injected traces
+     * as such to show proper PC continuity in the injected traces
      * (i#6495, i#7157).
      */
     return (opc == OP_jmp_ind || opc == OP_call_ind || opc == OP_ret ||
