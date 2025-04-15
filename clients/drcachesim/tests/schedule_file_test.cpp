@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,9 @@
  */
 
 /* Unit tests for the schedule_file_t library. */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include <cassert>
 #include <cstdint>

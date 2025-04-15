@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,9 @@
  */
 
 /* Multi-process test */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include "tools.h"
 

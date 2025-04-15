@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,9 @@
  * XXX: We use ptrace as opposed to running under memtrace with replaced file operations
  * because raw2trace uses drmodtrack, which doesn't isolate under static memtrace.
  */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include "droption.h"
 #include "tracer/raw2trace.h"

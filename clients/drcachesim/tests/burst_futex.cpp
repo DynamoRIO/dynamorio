@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,9 @@
  * a "burst" of execution during which SYS_futex is called.  The resulting
  * trace is analyzed to confirm that futex parameters were included.
  */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,9 @@
  * detaches multiple times. Its purpose is to detect issues of using
  * statically linked DR with a very high number of re-attaches.
  */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 /* Like burst_static we deliberately do not include configure.h here */
 #include "dr_api.h"

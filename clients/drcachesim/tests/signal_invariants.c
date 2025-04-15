@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,6 +37,9 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
+
+/* Enable asserts in release build testing too. */
+#    undef NDEBUG
 
 #    include "tools.h"
 #    include <stdio.h>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,9 @@
  * checks that the timestamp for second buffer in a new window is closer to the
  * previous timestamp than the sleep time.
  */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include <assert.h>
 #include <chrono>

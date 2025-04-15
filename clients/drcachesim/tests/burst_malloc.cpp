@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,9 @@
  */
 
 /* Like burst_static we deliberately do not include configure.h here */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
