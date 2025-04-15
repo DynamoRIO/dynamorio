@@ -3279,6 +3279,7 @@ check_kernel_syscall_trace(void)
     sys_return = XINST_CREATE_return(GLOBAL_DCONTEXT);
 #    endif
 
+    instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
     instr_t *post_sys = XINST_CREATE_nop(GLOBAL_DCONTEXT);
     instr_t *move =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
@@ -3287,6 +3288,7 @@ check_kernel_syscall_trace(void)
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, sys);
     instrlist_append(ilist, post_sys);
+    instrlist_append(ilist, nop);
     instrlist_append(ilist, move);
     instrlist_append(ilist, load);
     instrlist_append(ilist, sys_return);
@@ -3326,6 +3328,7 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
+    // Missing indirect branch target at the syscall trace end.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3354,9 +3357,10 @@ check_kernel_syscall_trace(void)
                   /*tid=*/TID_A,
                   /*ref_ordinal=*/11, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/4 },
-                "Failed to detect missing indirect branch target in syscall trace"))
+                "Failed to detect missing indirect branch target at syscall trace end"))
             res = false;
     }
+    // Incorrect indirect branch target at the syscall trace end.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3391,6 +3395,44 @@ check_kernel_syscall_trace(void)
                 "Failed to detect incorrect branch target marker at syscall trace end"))
             res = false;
     }
+    // Seemingly correct indirect branch target at the syscall trace end. But there's a
+    // PC discontinuity vs the pre-syscall instr.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            // Specifies a seemingly correct branch target because it is same as the
+            // post-syscall-trace move instruction.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), move },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // PC discontinuity vs the pre-syscall instr.
+            { gen_instr(TID_A), move },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Non-explicit control flow has no marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/5 },
+                         "Failed to detect user-space PC discontinuity after injected "
+                         "syscall trace"))
+            res = false;
+    }
     // Control resumes at the kernel_event marker with the pc specified in the syscall-end
     // branch target marker.
     {
@@ -3423,6 +3465,8 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
+    // Incorrect indirect branch target at the syscall trace end as it mismatches with
+    // the subsequence kernel_event marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3459,6 +3503,45 @@ check_kernel_syscall_trace(void)
                            /*instrs_since_last_timestamp=*/4 },
                          "Failed to detect incorrect branch target marker at syscall "
                          "trace end @ kernel_event marker"))
+            res = false;
+    }
+    // Seemingly correct indirect branch target at the syscall trace end. But there's a
+    // PC discontinuity at the signal resumption point.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), post_sys },
+            { gen_instr(TID_A), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 0), load },
+            // PC discontinuity at signal resumption point.
+            { gen_instr(TID_A), nop },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Signal handler return point incorrect",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/16, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/6 },
+                         "Failed to detect PC discontinuity at signal resumption after "
+                         "syscall trace"))
             res = false;
     }
     // Instr-only kernel syscall trace.
@@ -3690,7 +3773,7 @@ check_kernel_syscall_trace(void)
             { gen_instr(TID_A), sys },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_instr(TID_A), post_sys },
-            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), nop },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
