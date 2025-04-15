@@ -43,6 +43,7 @@
 
 #include "analyzer.h"
 #include "tools/basic_counts.h"
+#include "tools/invariant_checker.h"
 #include "tools/syscall_mix.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
@@ -112,7 +113,10 @@ do_some_syscalls()
                   KERNEL_SIGSET_SIZE);
     assert(res != 0 && errno == EFAULT);
 
-    std::cerr << "Done with system calls\n";
+    // XXX i#6490: Printing to stderr here causes flakiness in the test
+    // output due to garbage, presumably caused by some DynamoRIO transparency violation.
+    // Since the prior message printed here in the past was not essential to the test, we
+    // were able to simply remove it. But this needs more investigation.
     return 1;
 }
 
@@ -290,9 +294,12 @@ get_tool_results(const std::string &trace_dir, basic_counts_t::counters_t &basic
         std::unique_ptr<basic_counts_t>(new basic_counts_t(/*verbose=*/0));
     auto syscall_mix_tool =
         std::unique_ptr<syscall_mix_t>(new syscall_mix_t(/*verbose=*/0));
+    auto invariant_checker_tool =
+        std::unique_ptr<invariant_checker_t>(new invariant_checker_t());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(basic_counts_tool.get());
     tools.push_back(syscall_mix_tool.get());
+    tools.push_back(invariant_checker_tool.get());
     analyzer_t analyzer(trace_dir, &tools[0], static_cast<int>(tools.size()));
     if (!analyzer) {
         FATAL_ERROR("failed to initialize analyzer: %s",
