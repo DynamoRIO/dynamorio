@@ -60,7 +60,7 @@ event_filter_syscall(void *drcontext, int sysnum)
 #ifdef X86
     case SYS_unlink:
 #endif
-      return true;
+        return true;
     default: return false;
     }
 }
