@@ -3640,6 +3640,8 @@ check_kernel_syscall_trace(void)
             res = false;
     }
     // Consecutive system call trace after the same user-space instr.
+    // XXX: Do we want to similarly disallow consecutive context switch traces
+    // injected without an intervening user-space instruction?
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
