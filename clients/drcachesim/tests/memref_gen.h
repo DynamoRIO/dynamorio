@@ -62,25 +62,21 @@ struct memref_with_IR_t {
 };
 
 inline memref_t
-gen_addr(memref_tid_t tid, trace_type_t type, addr_t addr, size_t size = 1)
+gen_data_type(memref_tid_t tid, trace_type_t type, addr_t addr, size_t size = 1)
 {
     memref_t memref = {};
-    memref.instr.type = type;
-    memref.instr.tid = tid;
-    memref.instr.addr = addr;
-    memref.instr.size = size;
+    memref.data.type = type;
+    memref.data.tid = tid;
+    memref.data.addr = addr;
+    memref.data.size = size;
     return memref;
 }
 
 inline memref_t
 gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 {
-    memref_t memref = {};
-    memref.instr.type = load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE;
-    memref.instr.tid = tid;
-    memref.instr.addr = addr;
-    memref.instr.size = size;
-    return memref;
+    trace_type_t type = load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE;
+    return gen_data_type(tid, type, addr, size);
 }
 
 inline memref_t
@@ -170,8 +166,8 @@ inline memref_t
 gen_exit(memref_tid_t tid)
 {
     memref_t memref = {};
-    memref.instr.type = TRACE_TYPE_THREAD_EXIT;
-    memref.instr.tid = tid;
+    memref.exit.type = TRACE_TYPE_THREAD_EXIT;
+    memref.exit.tid = tid;
     return memref;
 }
 

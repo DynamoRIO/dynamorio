@@ -64,6 +64,14 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
     }
 }
 
+// Return true if <a> and <b> are within epsilon of one-another.
+// Assumes epsilon is non-negative.
+bool
+fp_near(double a, double b, double epsilon)
+{
+    return (a - b < epsilon) && (b - a < epsilon);
+}
+
 void
 unit_test_config_reader(const std::string &testdir)
 {
@@ -85,7 +93,7 @@ unit_test_config_reader(const std::string &testdir)
     }
 
     if (knobs.num_cores != 1 || knobs.line_size != 64 || knobs.skip_refs != 1000000 ||
-        knobs.warmup_refs != 0 || knobs.warmup_fraction != 0.8 ||
+        knobs.warmup_refs != 0 || !fp_near(knobs.warmup_fraction, 0.8, 0.001) ||
         knobs.sim_refs != 8888888 || knobs.cpu_scheduling != true || knobs.verbose != 0 ||
         knobs.model_coherence != true || knobs.use_physical != true) {
         std::cerr << "drcachesim config_reader_test failed (common params)\n";

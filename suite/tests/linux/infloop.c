@@ -125,6 +125,10 @@ main(int argc, const char *argv[])
             if (res == -1 && errno != EINTR)
                 perror("select error");
 
+            // If the select timed out, exit.
+            if (res == 0)
+                break;
+
             /* XXX i#38: We may want a test of an auto-restart syscall as well
              * once the injector handles that.
              */
