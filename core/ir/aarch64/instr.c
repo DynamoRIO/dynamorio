@@ -113,6 +113,12 @@ instr_branch_type(instr_t *cti_instr)
     case OP_ret:
     case OP_retaa:
     case OP_retab: return LINK_INDIRECT | LINK_RETURN;
+    /* We don't mark svc as an indirect branch because the user-mode DynamoRIO
+     * instrumentation does not need to treat it as such. eret is typically
+     * found in the kernel traces generated using other methods (like QEMU). It
+     * is useful to treat it as such to show proper continuity in the injected
+     * traces (i#6495, i#7157).
+     */
     case OP_eret: return LINK_INDIRECT;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
