@@ -567,9 +567,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Found kernel syscall trace without corresponding file type");
         report_if_false(shard, !shard->between_kernel_syscall_trace_markers_,
                         "Nested kernel syscall traces are not expected");
-        report_if_false(
-            shard, shard->prev_syscall_end_branch_target_ == 0,
-            "Found consecutive injected syscall traces without any intervening instr");
+        shard->prev_syscall_end_branch_target_ = 0;
         // PT kernel syscall traces are inserted at the TRACE_MARKER_TYPE_SYSCALL_IDX
         // marker. The marker is deliberately added to the trace in the post-syscall
         // callback to ensure it is emitted together with the actual PT trace and not

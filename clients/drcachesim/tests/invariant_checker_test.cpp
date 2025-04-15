@@ -3573,6 +3573,46 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
+    // Signal return immediately after syscall trace.
+    // This case shouldn't be possible because there must be a sigreturn before the
+    // signal returns, and we don't currently inject sigreturn traces. This is relevant
+    // to test because this is an example where our heuristic to set the syscall-trace-end
+    // TRACE_MARKER_TYPE_BRANCH_TARGET to the fallthrough of the prior syscall doesn't
+    // work.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 42), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Unexpected signal return kernel_xfer marker immedidately "
+                           "after syscall trace",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
+                         "Failed to catch signal return immedately after syscall trace"))
+            res = false;
+    }
     // No version marker so branch target marker is not expected.
     // This test is also a baseline for later test cases where we simplify test setup
     // by not including the branch target marker at syscall trace end.
@@ -3595,42 +3635,6 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, false))
-            res = false;
-    }
-    // Signal return immediately after syscall trace.
-    {
-        std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
-                         TRACE_ENTRY_VERSION_BRANCH_INFO),
-              nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
-              nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
-            { gen_instr(TID_A), sys },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
-            { gen_instr(TID_A), move },
-            { gen_instr(TID_A), load },
-            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
-            // add_encodings_to_memrefs removes this from the memref list and adds it
-            // to memref_t.instr.indirect_branch_target instead for the following instr.
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
-            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), sys_return },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 42), nullptr },
-            { gen_instr(TID_A), post_sys },
-            { gen_exit(TID_A), nullptr }
-        };
-
-        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        if (!run_checker(memrefs, true,
-                         { "Unexpected signal return kernel_xfer marker immedidately "
-                           "after syscall trace",
-                           /*tid=*/TID_A,
-                           /*ref_ordinal=*/13, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/4 },
-                         "Failed to catch signal return immedately after syscall trace"))
             res = false;
     }
     // Unexpected instr at the end of a syscall trace template.
@@ -3663,6 +3667,7 @@ check_kernel_syscall_trace(void)
                          "Failed to catch unexpected instr at tne end of syscall trace"))
             res = false;
     }
+    // Missing read records even though it's not an instr-only syscall trace.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
