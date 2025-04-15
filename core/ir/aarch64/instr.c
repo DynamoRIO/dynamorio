@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -111,9 +111,9 @@ instr_branch_type(instr_t *cti_instr)
     case OP_braaz:
     case OP_brabz: return LINK_INDIRECT | LINK_JMP;
     case OP_ret:
-    case OP_eret:
     case OP_retaa:
     case OP_retab: return LINK_INDIRECT | LINK_RETURN;
+    case OP_eret: return LINK_INDIRECT;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -179,7 +179,7 @@ bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_ret || opc == OP_eret || opc == OP_retaa || opc == OP_retab);
+    return (opc == OP_ret || opc == OP_retaa || opc == OP_retab);
 }
 
 bool
@@ -207,6 +207,12 @@ instr_is_mbr_arch(instr_t *instr)
     case OP_blraaz:
     case OP_blrabz:
     case OP_ret:
+    /* We don't mark svc as an indirect branch because the user-mode DynamoRIO
+     * instrumentation does not need to treat it as such. eret is typically
+     * found in the kernel traces generated using other methods (like QEMU). It
+     * is useful to treat it as such to show proper continuity in the injected
+     * traces (i#6495, i#7157).
+     */
     case OP_eret:
     case OP_retaa:
     case OP_retab: return true;
