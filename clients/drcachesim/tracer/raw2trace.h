@@ -736,7 +736,7 @@ protected:
         uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
-        app_pc last_pc_if_syscall_ = 0;
+        app_pc last_pc_fallthrough_if_syscall_ = 0;
 
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
@@ -1104,9 +1104,9 @@ private:
                             app_pc orig, bool write, int memop_index,
                             bool use_remembered_base, bool remember_base);
     void
-    set_last_pc_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
+    set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
     app_pc
-    get_last_pc_if_syscall(raw2trace_thread_data_t *tdata);
+    get_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata);
 
     // Sets a per-traced-thread cached flag that is read by was_prev_instr_rep_string().
     void
