@@ -517,7 +517,7 @@ instr_branch_type(instr_t *cti_instr)
      * (i#6495, i#7157).
      */
     case OP_sysexit:
-    case OP_sysret: return LINK_INDIRECT;
+    case OP_sysret: return LINK_INDIRECT | LINK_FAR;
     default:
         LOG(THREAD_GET, LOG_ALL, 0, "branch_type: unknown opcode: %d\n",
             instr_get_opcode(cti_instr));
