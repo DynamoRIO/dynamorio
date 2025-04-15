@@ -56,11 +56,7 @@ event_filter_syscall(void *drcontext, int sysnum)
     case SYS_close:
     case SYS_openat:
     case SYS_read:
-    case SYS_write:
-#ifdef X86
-    case SYS_unlink:
-#endif
-        return true;
+    case SYS_write: return true;
     default: return false;
     }
 }

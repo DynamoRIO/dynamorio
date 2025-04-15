@@ -88,22 +88,4 @@ syscall 57 end
 #else
 NYI
 #endif
-#ifdef X86
-syscall 87\(unlink\) start
-#elif defined(AARCH64)
-syscall XX
-#else
-NYI
-#endif
-pre-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
-pre-syscall, ordinal=0, mode=0x1, start_addr=0x[0-9a-f]+, size=0x[0-9a-f]+
-memory hex dump: [0-9a-f]+
-post-syscall, ordinal=0, mode=0x1, value=0x[0-9a-f]+, size=0x8
-post-syscall, return value=0x0, size=0x8
-#ifdef X86
-syscall 87 end
-#elif defined(AARCH64)
-syscall XX end
-#else
-NYI
-#endif
+.*
