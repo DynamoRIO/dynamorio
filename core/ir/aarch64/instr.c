@@ -111,7 +111,6 @@ instr_branch_type(instr_t *cti_instr)
     case OP_braaz:
     case OP_brabz: return LINK_INDIRECT | LINK_JMP;
     case OP_ret:
-    case OP_eret:
     case OP_retaa:
     case OP_retab: return LINK_INDIRECT | LINK_RETURN;
     /* We don't mark svc as an indirect branch because the user-mode DynamoRIO
@@ -186,7 +185,7 @@ bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_ret || opc == OP_retaa || opc == OP_retab || opc == OP_eret);
+    return (opc == OP_ret || opc == OP_retaa || opc == OP_retab);
 }
 
 bool

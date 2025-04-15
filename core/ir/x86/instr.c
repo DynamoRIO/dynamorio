@@ -508,7 +508,6 @@ instr_branch_type(instr_t *cti_instr)
         return LINK_INDIRECT | LINK_CALL | LINK_FAR;
     case OP_call_far_ind: return LINK_INDIRECT | LINK_CALL | LINK_FAR;
     case OP_ret_far:
-    case OP_sysret:
     case OP_iret: return LINK_INDIRECT | LINK_RETURN | LINK_FAR;
     /* We don't mark sysenter and syscall as indirect branches because
      * the user-mode DynamoRIO instrumentation does not need to treat them
@@ -569,7 +568,7 @@ bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_ret || opc == OP_ret_far || opc == OP_iret || opc == OP_sysret);
+    return (opc == OP_ret || opc == OP_ret_far || opc == OP_iret);
 }
 
 /*** WARNING!  The following rely on ordering of opcodes! ***/
