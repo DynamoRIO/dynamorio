@@ -1809,6 +1809,16 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
             set_branch_target_marker = false;
             if (!saw_any_instr) {
                 saw_any_instr = true;
+                // If the last to-be-injected instruction is an indirect branch, set its
+                // indirect_branch_target field to the fallthrough pc of the last
+                // returned instruction from this input (for syscall injection, it would
+                // be the syscall for which we're injecting the trace). This is simpler
+                // than trying to get the actual post-syscall instruction for which we
+                // would need to read-ahead.
+                // XXX i#6495, i#7157: The above strategy does not work for syscalls that
+                // transfer control (like sigreturn), but we do not trace those anyway
+                // today (neither using Intel-PT, nor QEMU) as there are challenges in
+                // determining the post-syscall resumption point.
                 if (record_type_is_indirect_branch_instr(record,
                                                          input->last_pc_fallthrough)) {
                     // For memref_t we do not see a separate branch_target marker, so

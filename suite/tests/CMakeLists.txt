@@ -4121,7 +4121,8 @@ if (BUILD_CLIENTS)
         set(tool.syscall_insertion_invariants_rawtemp ON) # no preprocessor
 
         torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
-          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded "
+          "-sched_quantum 1000 -sched_syscall_file ${syscall_file}"
           "")
         set(tool.syscall_insertion_core_sharded_rawtemp ON) # no preprocessor
 
