@@ -6549,7 +6549,7 @@ test_kernel_syscall_sequences()
                 make_marker(TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE));
             inputs.push_back(make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                inputs.push_back(make_instr(42 * tid + instr_idx));
+                inputs.push_back(make_instr(static_cast<addr_t>(42 * tid + instr_idx)));
                 if (instr_idx % 2 == 0) {
                     inputs.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL,
                                                  SYSCALL_BASE + (instr_idx / 2) % 2));
