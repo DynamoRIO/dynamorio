@@ -1615,7 +1615,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
         }
         break;
     }
-#ifdef X86
+#if defined(X86) || !defined(X64)
     case SYS_open: {
         /* 3rd arg is sometimes required.  glibc open() wrapper passes
          * a constant 0 as mode if no O_CREAT, but opendir() bypasses
@@ -1666,7 +1666,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
     case SYS_select: /* fall-through */
 #endif
     case SYS_pselect6: handle_pre_select(drcontext, pt, ii); break;
-#ifdef X86
+#if defined(X86) || !defined(X64)
     case SYS_poll:
 #endif
     case SYS_ppoll: {
