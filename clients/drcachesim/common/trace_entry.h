@@ -564,9 +564,10 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
-    // Internal marker present just before each indirect branch instruction in offline
-    // non-i-filtered traces.  The marker value holds the actual target of the
-    // branch.  The reader converts this to the memref_t "indirect_branch_target" field.
+    /* Internal marker present just before each indirect branch instruction in offline
+     * non-i-filtered traces.  The marker value holds the actual target of the
+     * branch.  The reader converts this to the memref_t "indirect_branch_target" field.
+     */
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 
     // Although it is only for Mac that syscall success requires more than the
