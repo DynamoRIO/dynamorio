@@ -3435,6 +3435,7 @@ check_kernel_syscall_trace(void)
                          "syscall trace"))
             res = false;
     }
+#    ifdef UNIX
     // Control resumes at the kernel_event marker with the pc value specified in the
     // syscall-end branch target marker.
     {
@@ -3546,6 +3547,7 @@ check_kernel_syscall_trace(void)
                          "syscall trace"))
             res = false;
     }
+#    endif
     // Instr-only kernel syscall trace.
     {
         std::vector<memref_with_IR_t> memref_setup = {
@@ -3575,6 +3577,7 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
+#    ifdef UNIX
     // Signal return immediately after syscall trace.
     // This case shouldn't be possible because there must be a sigreturn before the
     // signal returns, and we don't currently inject sigreturn traces. This is relevant
@@ -3615,6 +3618,7 @@ check_kernel_syscall_trace(void)
                          "Failed to catch signal return immedately after syscall trace"))
             res = false;
     }
+#    endif
     // No version marker so branch target marker is not expected.
     // This test is also a baseline for later test cases where we simplify test setup
     // by not including the branch target marker at syscall trace end.
