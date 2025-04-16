@@ -93,7 +93,9 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
     // ordinal is set to -1 for return value.
     if (arg->ordinal == -1) {
         if (!arg->pre) {
-            dr_fprintf(STDERR, "post-syscall, return value=0x%x, size=" PIFX "\n",
+            dr_fprintf(STDERR,
+                       "post-syscall, return value=0x" HEX64_FORMAT_STRING ", size=" PIFX
+                       "\n",
                        arg->value64, arg->size);
         }
         return true;
