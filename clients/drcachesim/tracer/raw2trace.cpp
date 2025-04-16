@@ -268,13 +268,22 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
             // We want to write out at each repstr instance so that we do not accumulate
             // too many buffered entries.
             entry.type == TRACE_TYPE_INSTR_NO_FETCH) {
-            if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
-                if (inserted_instr_count ==
-                        syscall_trace_templates_[syscall_num].instr_count - 1 &&
-                    buf_last_branch_target_marker != nullptr) {
-                    buf_last_branch_target_marker->addr = reinterpret_cast<addr_t>(
-                        get_last_pc_fallthrough_if_syscall(tdata));
-                }
+            // If this is the last instruction and an indirect branch, and there was a
+            // branch target marker just before it, set it to the fallthrough pc of
+            // the syscall instruction for which we're injecting the trace. This is
+            // simpler than trying to get the actual post-syscall instruction for which
+            // we would perhaps even need to read-ahead to the next raw trace buffer.
+            // XXX i#6495, i#7157: The above strategy does not work for syscalls that
+            // transfer control (like sigreturn), but we do not trace those anyway today
+            // (neither using Intel-PT, nor QEMU) as there are challenges in determining
+            // the post-syscall resumption point.
+            if (type_is_instr_branch(static_cast<trace_type_t>(entry.type)) &&
+                !type_is_instr_direct_branch(static_cast<trace_type_t>(entry.type)) &&
+                inserted_instr_count ==
+                    syscall_trace_templates_[syscall_num].instr_count - 1 &&
+                buf_last_branch_target_marker != nullptr) {
+                buf_last_branch_target_marker->addr =
+                    reinterpret_cast<addr_t>(get_last_pc_fallthrough_if_syscall(tdata));
             }
             if (buf != buf_base) {
                 if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
