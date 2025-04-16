@@ -1813,8 +1813,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
                 // indirect_branch_target field to the fallthrough pc of the last
                 // returned instruction from this input (for syscall injection, it would
                 // be the syscall for which we're injecting the trace). This is simpler
-                // than trying to get the actual post-syscall instruction for which we
-                // would need to read-ahead.
+                // than trying to get the actual next instruction on this input for which
+                // we would need to read-ahead.
                 // XXX i#6495, i#7157: The above strategy does not work for syscalls that
                 // transfer control (like sigreturn), but we do not trace those anyway
                 // today (neither using Intel-PT, nor QEMU) as there are challenges in
