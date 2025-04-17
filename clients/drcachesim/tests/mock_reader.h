@@ -42,6 +42,7 @@
 
 namespace dynamorio {
 namespace drmemtrace {
+namespace mock_reader {
 
 // A mock reader that iterates over a vector of records.
 class mock_reader_t : public reader_t {
@@ -235,6 +236,7 @@ make_encoding(unsigned short size, addr_t encoding)
     return entry;
 }
 
+} // namespace mock_reader
 } // namespace drmemtrace
 } // namespace dynamorio
 

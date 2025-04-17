@@ -152,8 +152,9 @@ write_instr_entry(void *dr_context, std::unique_ptr<std::ostream> &writer, instr
     }
     instr_encode_to_copy(dr_context, instr, encoding.encoding, instr_app_pc);
     write_trace_entry(writer, encoding);
-    write_trace_entry(writer,
-                      make_instr(reinterpret_cast<addr_t>(instr_app_pc), type, len));
+    write_trace_entry(
+        writer,
+        mock_reader::make_instr(reinterpret_cast<addr_t>(instr_app_pc), type, len));
 }
 
 static void
@@ -180,13 +181,15 @@ write_header_entries(std::unique_ptr<std::ostream> &writer)
         trace_entry_t to_write = *reinterpret_cast<trace_entry_t *>(buf_at);
         write_trace_entry(writer, to_write);
     }
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64));
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
+    write_trace_entry(writer,
+                      mock_reader::make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64));
+    write_trace_entry(writer,
+                      mock_reader::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
     // Some header read-ahead logic uses the timestamp marker to know when
     // to stop. It is important to not read-ahead any kernel syscall trace
     // content, as then is_record_kernel() starts returning true on the stream.
     // Also, some scheduler logic wants non-zero timestamps.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1));
+    write_trace_entry(writer, mock_reader::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1));
 }
 
 static void
@@ -196,7 +199,7 @@ write_footer_entries(std::unique_ptr<std::ostream> &writer)
         dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT, 0, { /*tid=*/1 }
     };
     write_trace_entry(writer, thread_exit);
-    write_trace_entry(writer, make_footer());
+    write_trace_entry(writer, mock_reader::make_footer());
 }
 
 static std::string
@@ -214,18 +217,21 @@ write_system_call_template(void *dr_context)
     write_header_entries(writer);
 
     // Write the trace template for SYS_getpid.
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_getpid));
+    write_trace_entry(
+        writer,
+        mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_getpid));
     // Just a random instruction.
     instr_in_getpid = XINST_CREATE_nop(dr_context);
     write_instr_entry(dr_context, writer, instr_in_getpid,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETPID));
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+    write_trace_entry(
+        writer,
+        mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
 
     // Write the trace template for SYS_gettid.
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
+    write_trace_entry(
+        writer,
+        mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
     // Just a random instruction.
 #ifdef X86
 #    define TEST_REG DR_REG_XDX
@@ -239,11 +245,12 @@ write_system_call_template(void *dr_context)
                           opnd_create_base_disp(TEST_REG, DR_REG_NULL, 0, 0, OPSZ_PTR));
     write_instr_entry(dr_context, writer, instr_in_gettid,
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETTID));
+    write_trace_entry(writer,
+                      mock_reader::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
+                                               opnd_size_in_bytes(OPSZ_PTR)));
     write_trace_entry(
         writer,
-        make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ, opnd_size_in_bytes(OPSZ_PTR)));
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
+        mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
 
     write_footer_entries(writer);
     return syscall_trace_template_file;
@@ -492,23 +499,25 @@ write_system_call_template_with_repstr(void *dr_context)
 
     write_header_entries(writer);
 
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
+    write_trace_entry(
+        writer,
+        mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
     instr_t *rep_movs = INSTR_CREATE_rep_movs_1(GLOBAL_DCONTEXT);
     for (int i = 0; i < REP_MOVS_COUNT; ++i) {
         write_instr_entry(dr_context, writer, rep_movs,
                           reinterpret_cast<app_pc>(PC_SYSCALL_GETTID),
                           i == 0 ? TRACE_TYPE_INSTR : TRACE_TYPE_INSTR_NO_FETCH);
         write_trace_entry(writer,
-                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
-                                      opnd_size_in_bytes(OPSZ_PTR)));
+                          mock_reader::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
+                                                   opnd_size_in_bytes(OPSZ_PTR)));
         write_trace_entry(writer,
-                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_WRITE,
-                                      opnd_size_in_bytes(OPSZ_PTR)));
+                          mock_reader::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_WRITE,
+                                                   opnd_size_in_bytes(OPSZ_PTR)));
     }
     instr_destroy(dr_context, rep_movs);
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+    write_trace_entry(
+        writer,
+        mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
 
     write_footer_entries(writer);
 
