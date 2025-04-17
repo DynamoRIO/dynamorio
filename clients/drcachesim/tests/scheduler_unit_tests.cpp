@@ -6592,13 +6592,13 @@ test_kernel_switch_sequences()
         mock_reader::make_thread(TID_IN_SWITCHES),
         mock_reader::make_pid(TID_IN_SWITCHES),
         mock_reader::make_version(TRACE_ENTRY_VERSION),
-        mock_reader::make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-            scheduler_t::SWITCH_PROCESS),
+        mock_reader::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
         mock_reader::make_timestamp(PROCESS_SWITCH_TIMESTAMP),
         mock_reader::make_instr(PROCESS_SWITCH_PC_START),
         mock_reader::make_instr(PROCESS_SWITCH_PC_START + 1),
-        mock_reader::make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-            scheduler_t::SWITCH_PROCESS),
+        mock_reader::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
         mock_reader::make_exit(TID_IN_SWITCHES),
         mock_reader::make_footer(),
         // Test a complete trace after the first one, which is how we plan to store
@@ -6607,13 +6607,13 @@ test_kernel_switch_sequences()
         mock_reader::make_thread(TID_IN_SWITCHES),
         mock_reader::make_pid(TID_IN_SWITCHES),
         mock_reader::make_version(TRACE_ENTRY_VERSION),
-        mock_reader::make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-            scheduler_t::SWITCH_THREAD),
+        mock_reader::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_THREAD),
         mock_reader::make_timestamp(THREAD_SWITCH_TIMESTAMP),
         mock_reader::make_instr(THREAD_SWITCH_PC_START),
         mock_reader::make_instr(THREAD_SWITCH_PC_START+1),
-        mock_reader::make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-            scheduler_t::SWITCH_THREAD),
+        mock_reader::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_THREAD),
         mock_reader::make_exit(TID_IN_SWITCHES),
         mock_reader::make_footer(),
         /* clang-format on */
@@ -6741,21 +6741,21 @@ test_kernel_switch_sequences()
         mock_reader::make_header(TRACE_ENTRY_VERSION),
         mock_reader::make_thread(TID_IN_SWITCHES),
         mock_reader::make_pid(TID_IN_SWITCHES),
-        mock_reader::make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-            scheduler_t::SWITCH_PROCESS),
+        mock_reader::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
         mock_reader::make_instr(PROCESS_SWITCH_PC_START),
-        mock_reader::make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-            scheduler_t::SWITCH_PROCESS),
+        mock_reader::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
         mock_reader::make_footer(),
         mock_reader::make_header(TRACE_ENTRY_VERSION),
         mock_reader::make_thread(TID_IN_SWITCHES),
         mock_reader::make_pid(TID_IN_SWITCHES),
         // Error: duplicate type.
-        mock_reader::make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-            scheduler_t::SWITCH_PROCESS),
+        mock_reader::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
         mock_reader::make_instr(PROCESS_SWITCH_PC_START),
-        mock_reader::make_marker(TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-            scheduler_t::SWITCH_PROCESS),
+        mock_reader::make_marker(
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
         mock_reader::make_footer(),
             /* clang-format on */
         };
@@ -6811,13 +6811,13 @@ test_kernel_syscall_sequences()
             mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE),
             // XXX: Currently all syscall traces are concatenated. We may change
             // this to use an archive file instead.
-            mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                SYSCALL_BASE + 1),
+            mock_reader::make_marker(
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE + 1),
             mock_reader::make_instr(SYSCALL_PC_START + 10),
             mock_reader::make_instr(SYSCALL_PC_START + 11),
             mock_reader::make_instr(SYSCALL_PC_START + 12),
-            mock_reader::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                SYSCALL_BASE + 1),
+            mock_reader::make_marker(
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1),
             mock_reader::make_exit(TID_IN_SYSCALLS),
             mock_reader::make_footer(),
             /* clang-format on */
@@ -7693,7 +7693,7 @@ class mock_noise_generator_t : public noise_generator_t {
 public:
     mock_noise_generator_t(noise_generator_info_t &info, const addr_t addr_to_generate)
         : noise_generator_t(info)
-        , addr_to_generate_(addr_to_generate) { };
+        , addr_to_generate_(addr_to_generate) {};
 
 protected:
     trace_entry_t
@@ -7728,7 +7728,7 @@ class mock_noise_generator_factory_t
     : public noise_generator_factory_t<memref_t, reader_t> {
 public:
     mock_noise_generator_factory_t(const addr_t addr_to_generate)
-        : addr_to_generate_(addr_to_generate) { };
+        : addr_to_generate_(addr_to_generate) {};
 
 protected:
     std::unique_ptr<reader_t>
