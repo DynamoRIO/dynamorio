@@ -452,7 +452,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
         switch (syscall_trace_num) {
         case SYS_gettid:
             if (is_instr) {
-                assert(gettid_instr_found <= SYSCALL_INSTR_COUNT);
+                assert(gettid_instr_found < SYSCALL_INSTR_COUNT);
                 if (memref.instr.addr != PC_SYSCALL_GETTID + gettid_instr_len) {
                     std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
                               << " vs expected " << PC_SYSCALL_GETTID + gettid_instr_len
@@ -482,7 +482,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             break;
         case SYS_getpid:
             if (is_instr) {
-                assert(getpid_instr_found <= SYSCALL_INSTR_COUNT);
+                assert(getpid_instr_found < SYSCALL_INSTR_COUNT);
                 if (memref.instr.addr != PC_SYSCALL_GETPID + getpid_instr_len) {
                     std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
                               << " vs expected " << PC_SYSCALL_GETPID + getpid_instr_len
@@ -585,7 +585,7 @@ test_template_with_repstr(void *dr_context)
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
     if (!(template_counts.instrs == SYSCALL_INSTR_COUNT &&
           template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
-          template_counts.encodings == REP_MOVS_COUNT + 1 &&
+          template_counts.encodings == REP_MOVS_COUNT + (SYSCALL_INSTR_COUNT - 1) &&
           template_counts.loads == REP_MOVS_COUNT &&
           template_counts.stores == REP_MOVS_COUNT)) {
         std::cerr << "Unexpected counts in system call trace template with repstr ("

@@ -3381,7 +3381,7 @@ check_kernel_syscall_trace(void)
             { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             // add_encodings_to_memrefs removes this from the memref list and adds it
             // to memref_t.instr.indirect_branch_target instead for the following instr.
-            // Specifies incorrect branch target.
+            // Specifies incorrect branch target instr.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), move },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
@@ -3391,7 +3391,7 @@ check_kernel_syscall_trace(void)
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(
                 memrefs, true,
-                { "Syscall trace template return branch marker incorrect",
+                { "Syscall trace-end branch marker incorrect",
                   /*tid=*/TID_A,
                   /*ref_ordinal=*/13, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/5 },
@@ -3488,6 +3488,8 @@ check_kernel_syscall_trace(void)
             { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             // add_encodings_to_memrefs removes this from the memref list and adds it
             // to memref_t.instr.indirect_branch_target instead for the following instr.
+            // Specifies incorrect branch target instr, which is not the same as what
+            // the next kernel_event marker holds.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
@@ -3500,7 +3502,7 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "Syscall trace template return branch marker incorrect @ "
+                         { "Syscall trace-end branch marker incorrect @ "
                            "kernel_event marker",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/13, /*last_timestamp=*/0,
@@ -3580,11 +3582,12 @@ check_kernel_syscall_trace(void)
     }
 #    ifdef UNIX
     // Signal return immediately after syscall trace.
-    // This case shouldn't be possible because there must be a sigreturn before the
-    // signal returns, and we don't currently inject sigreturn traces. This is relevant
-    // to test because this is an example where our heuristic to set the syscall-trace-end
-    // TRACE_MARKER_TYPE_BRANCH_TARGET to the fallthrough of the prior syscall doesn't
-    // work.
+    // This case shouldn't be possible because there must be an instr for sigreturn before
+    // the signal returns, and we don't currently inject sigreturn traces. This is
+    // relevant to test because this is an example where our heuristic to set the
+    // syscall-trace-end TRACE_MARKER_TYPE_BRANCH_TARGET to the fallthrough of the prior
+    // syscall doesn't work. This will need to be handled if we ever want to inject a
+    // syscall trace for sigreturn or other control-transferring syscalls.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3705,7 +3708,7 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "System call trace template ends with unexpected instr",
+                         { "System call trace does not end with indirect branch",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/10, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/3 },

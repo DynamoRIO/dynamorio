@@ -34,7 +34,6 @@
 
 #include "dr_api.h"
 #include "memref_gen.h"
-#include "record_file_reader.h"
 #include "mock_reader.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
@@ -108,7 +107,7 @@ public:
                       drcontext,
                       // The sequences are small so we print everything for easier
                       // debugging and viewing of what's going on.
-                      4)
+                      /*verbosity=*/4)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
             new test_module_mapper_t(&instrs, drcontext));
@@ -122,7 +121,10 @@ public:
                       drcontext,
                       // The sequences are small so we print everything for easier
                       // debugging and viewing of what's going on.
-                      4, /*worker_count=*/-1, /*alt_module_dir=*/"",
+                      /*verbosity=*/4,
+                      // Reusing the default values, as we need to set the
+                      // syscall_template_file arg later.
+                      /*worker_count=*/-1, /*alt_module_dir=*/"",
                       /*chunk_instr_count=*/10 * 1000 * 1000,
                       /*kthread_files_map=*/ {}, /*kcore_path=*/ {},
                       /*kallsyms_path=*/ {}, std::move(syscall_template_file))
@@ -138,7 +140,8 @@ public:
                       drcontext,
                       // The sequences are small so we print everything for easier
                       // debugging and viewing of what's going on.
-                      4, /*worker_count=*/-1, /*alt_module_dir=*/"", chunk_instr_count)
+                      /*verbosity=*/4, /*worker_count=*/-1, /*alt_module_dir=*/"",
+                      chunk_instr_count)
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
             new test_module_mapper_t(&instrs, drcontext));
@@ -3498,33 +3501,35 @@ test_syscall_injection(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
-    static constexpr memref_tid_t TID_IN_SYSCALLS = 1;
+    static constexpr memref_tid_t TID_IN_SYSCALL = 1;
     static constexpr addr_t SYSCALL_PC_START = 0xfeed101;
     static constexpr addr_t ENCODING_SIZE = 1;
     static constexpr addr_t ENCODING_IGNORE = 0xfe;
     std::vector<trace_entry_t> syscall_sequence = {
         /* clang-format off */
         test_util::make_header(TRACE_ENTRY_VERSION),
-        test_util::make_thread(TID_IN_SYSCALLS),
-        test_util::make_pid(TID_IN_SYSCALLS),
+        test_util::make_thread(TID_IN_SYSCALL),
+        test_util::make_pid(TID_IN_SYSCALL),
         test_util::make_version(TRACE_ENTRY_VERSION),
         test_util::make_timestamp(0),
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM),
         test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         test_util::make_instr(SYSCALL_PC_START),
+        // The actual branch_target marker value is set during injection; verified
+        // below.
         test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
         test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         test_util::make_instr(SYSCALL_PC_START + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM),
-        test_util::make_exit(TID_IN_SYSCALLS)
+        test_util::make_exit(TID_IN_SYSCALL)
         /* clang-format on */
     };
     auto syscall_tmpl = std::unique_ptr<record_reader_t>(
         new test_util::mock_record_reader_t(syscall_sequence));
     std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats, 0, {},
-                       std::move(syscall_tmpl)))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats, /*chunk_instr_count=*/0,
+                       /*modules=*/ {}, std::move(syscall_tmpl)))
         return false;
     int idx = 0;
     return (
