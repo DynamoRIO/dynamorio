@@ -93,10 +93,10 @@ test_queries()
 {
     std::cerr << "\n----------------\nTesting queries\n";
     std::vector<trace_entry_t> input_sequence = {
-        mock_reader::make_thread(/*tid=*/1),
-        mock_reader::make_pid(/*pid=*/1),
-        mock_reader::make_instr(/*pc=*/42),
-        mock_reader::make_exit(/*tid=*/1),
+        test_util::make_thread(/*tid=*/1),
+        test_util::make_pid(/*pid=*/1),
+        test_util::make_instr(/*pc=*/42),
+        test_util::make_exit(/*tid=*/1),
     };
     static constexpr int NUM_INPUTS = 3;
     static constexpr int NUM_OUTPUTS = 2;
@@ -112,9 +112,9 @@ test_queries()
         }
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(
-            std::unique_ptr<mock_reader::mock_reader_t>(
-                new mock_reader::mock_reader_t(inputs[i])),
-            std::unique_ptr<mock_reader::mock_reader_t>(new mock_reader::mock_reader_t()),
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
             tid);
         sched_inputs.emplace_back(std::move(readers));
     }
@@ -207,14 +207,14 @@ test_wait_records()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(mock_reader::make_thread(tid));
-        inputs[i].push_back(mock_reader::make_pid(1));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
         // The last input will be earlier than all others. It will execute
         // 3 instrs on each core. This is to test the case when an output
         // begins in the wait state.
         for (int j = 0; j < (i == NUM_INPUTS - 1 ? 6 : NUM_INSTRS); j++)
-            inputs[i].push_back(mock_reader::make_instr(42 + j * 4));
-        inputs[i].push_back(mock_reader::make_exit(tid));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
 
     // Synthesize a cpu-schedule file with some waits in it, if run in lockstep.
@@ -264,9 +264,9 @@ test_wait_records()
         memref_tid_t tid = TID_BASE + i;
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(
-            std::unique_ptr<mock_reader::mock_reader_t>(
-                new mock_reader::mock_reader_t(inputs[i])),
-            std::unique_ptr<mock_reader::mock_reader_t>(new mock_reader::mock_reader_t()),
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
             tid);
         sched_inputs.emplace_back(std::move(readers));
     }
@@ -388,15 +388,15 @@ test_tool_errors()
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = TID_BASE + i;
-        inputs[i].push_back(mock_reader::make_thread(tid));
-        inputs[i].push_back(mock_reader::make_pid(1));
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
         for (int j = 0; j < NUM_INSTRS; j++)
-            inputs[i].push_back(mock_reader::make_instr(42 + j * 4));
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
         if (i == 4) {
             // This one input will trigger an error in our error_tool_t.
-            inputs[i].push_back(mock_reader::make_marker(TRACE_MARKER_TYPE_CPU_ID, 4));
+            inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 4));
         }
-        inputs[i].push_back(mock_reader::make_exit(tid));
+        inputs[i].push_back(test_util::make_exit(tid));
     }
 
     std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -404,9 +404,9 @@ test_tool_errors()
         memref_tid_t tid = TID_BASE + i;
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(
-            std::unique_ptr<mock_reader::mock_reader_t>(
-                new mock_reader::mock_reader_t(inputs[i])),
-            std::unique_ptr<mock_reader::mock_reader_t>(new mock_reader::mock_reader_t()),
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
             tid);
         sched_inputs.emplace_back(std::move(readers));
     }
