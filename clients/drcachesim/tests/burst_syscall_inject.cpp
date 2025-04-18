@@ -231,14 +231,15 @@ write_system_call_template(void *dr_context)
     instrs_in_getpid[1] = INSTR_CREATE_eret(dr_context);
 #endif
     // The value doesn't really matter as it will be replaced during trace injection.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
     write_instr_entry(
         dr_context, writer, instrs_in_getpid[1],
         reinterpret_cast<app_pc>(PC_SYSCALL_GETPID +
                                  instr_length(dr_context, instrs_in_getpid[0])),
         TRACE_TYPE_INSTR_INDIRECT_JUMP);
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+    write_trace_entry(
+        writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
 
     // Write the trace template for SYS_gettid.
     write_trace_entry(
@@ -257,9 +258,9 @@ write_system_call_template(void *dr_context)
                           opnd_create_base_disp(TEST_REG, DR_REG_NULL, 0, 0, OPSZ_PTR));
     write_instr_entry(dr_context, writer, instrs_in_gettid[0],
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETTID));
-    write_trace_entry(
-        writer,
-        make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ, opnd_size_in_bytes(OPSZ_PTR)));
+    write_trace_entry(writer,
+                      test_util::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
+                                             opnd_size_in_bytes(OPSZ_PTR)));
 
 #ifdef X86
     instrs_in_gettid[1] = INSTR_CREATE_sysret(dr_context);
@@ -267,7 +268,8 @@ write_system_call_template(void *dr_context)
     instrs_in_gettid[1] = INSTR_CREATE_eret(dr_context);
 #endif
     // The value doesn't really matter as it will be replaced during trace injection.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
     write_instr_entry(
         dr_context, writer, instrs_in_gettid[1],
         reinterpret_cast<app_pc>(PC_SYSCALL_GETTID +
@@ -556,14 +558,15 @@ write_system_call_template_with_repstr(void *dr_context)
     sys_return = INSTR_CREATE_eret(dr_context);
 #    endif
 
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
     write_instr_entry(
         dr_context, writer, sys_return,
         reinterpret_cast<app_pc>(PC_SYSCALL_GETTID + instr_length(dr_context, rep_movs)),
         TRACE_TYPE_INSTR_INDIRECT_JUMP);
 
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+    write_trace_entry(
+        writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
 
     write_footer_entries(writer);
 
