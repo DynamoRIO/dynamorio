@@ -567,7 +567,9 @@ typedef enum {
     /**
      * Internal marker present just before each indirect branch instruction in offline
      * non-i-filtered traces.  The marker value holds the actual target of the
-     * branch.  The reader converts this to the memref_t "indirect_branch_target" field.
+     * branch.  The reader converts this to the instr.indirect_branch_target field in
+     * #memref_t and does not pass it on, so #memref_t analysis tools never see this
+     * marker.
      */
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 

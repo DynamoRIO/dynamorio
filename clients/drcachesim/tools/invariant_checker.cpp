@@ -634,14 +634,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // also would be an indirect CTI with a TRACE_MARKER_TYPE_BRANCH_TARGET
         // marker pointing to the next user-space instr. But, as also mentioned
         // in the comment in ir2trace.cpp, there are noise instructions at the
-        // end of PT trace that don't allow us to add that check yet.
+        // end of the PT traces that don't allow us to add that check yet.
         if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY, shard->file_type_)) {
             // E.g., iret/sysret/sysexit for x86, and eret for aarch64.
             report_if_false(
                 shard,
                 type_is_instr_branch(shard->prev_instr_.memref.instr.type) &&
                     !type_is_instr_direct_branch(shard->prev_instr_.memref.instr.type),
-                "System call trace template ends with unexpected instr");
+                "System call trace does not end with indirect branch");
+            // When we reach the next user-space instr, we check its PC equality with
+            // the value specified in the field below.
             shard->prev_syscall_end_branch_target_ =
                 shard->prev_instr_.memref.instr.indirect_branch_target;
         }
@@ -656,10 +658,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->signal_stack_depth_at_syscall_trace_start_ = -1;
 #endif
             shard->between_kernel_syscall_trace_markers_ = false;
-
             // Pretend the prev instruction to be the last user-space instruction,
-            // so that later PC discontinuity checks make sense for the user-space
-            // view of the trace.
+            // so that later PC continuity checks properly verify the user-space view
+            // of the trace.
             // PC equality between the syscall-end branch target marker value and the
             // next instruction PC (or the next kernel_event marker PC if a signal is
             // next) is also verified in check_for_pc_discontinuity.
@@ -1110,9 +1111,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
-            // There should generally be a sigreturn just before the
+            // There should generally be an instr for sigreturn just before the
             // TRACE_MARKER_TYPE_KERNEL_XFER marker, and we do not inject any traces for
-            // control-altering system calls like sigreturn.
+            // control-transferring system calls like sigreturn.
             report_if_false(shard,
                             !shard->found_syscall_trace_after_last_userspace_instr_,
                             "Unexpected signal return kernel_xfer marker immedidately "
@@ -1504,7 +1505,7 @@ invariant_checker_t::check_for_pc_discontinuity(
         const addr_t syscall_end_branch_target = shard->prev_syscall_end_branch_target_;
         shard->prev_syscall_end_branch_target_ = 0;
         if (syscall_end_branch_target != cur_pc)
-            return "Syscall trace template return branch marker incorrect";
+            return "Syscall trace-end branch marker incorrect";
     }
     if (prev_instr_trace_pc == 0 /*first*/) {
         return "";

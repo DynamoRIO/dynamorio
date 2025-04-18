@@ -68,13 +68,14 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-static instr_t *instrs_in_getpid[2];
-static instr_t *instrs_in_gettid[2];
-
 #define PC_SYSCALL_GETPID 0xdeadbe00
 #define PC_SYSCALL_GETTID 0x8badf000
 #define READ_MEMADDR_GETTID 0xdecafbad
 #define REP_MOVS_COUNT 1024
+#define SYSCALL_INSTR_COUNT 2
+
+static instr_t *instrs_in_getpid[SYSCALL_INSTR_COUNT];
+static instr_t *instrs_in_gettid[SYSCALL_INSTR_COUNT];
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -152,8 +153,8 @@ write_instr_entry(void *dr_context, std::unique_ptr<std::ostream> &writer, instr
     }
     instr_encode_to_copy(dr_context, instr, encoding.encoding, instr_app_pc);
     write_trace_entry(writer, encoding);
-    write_trace_entry(writer,
-                      make_instr(reinterpret_cast<addr_t>(instr_app_pc), type, len));
+    write_trace_entry(
+        writer, test_util::make_instr(reinterpret_cast<addr_t>(instr_app_pc), type, len));
 }
 
 static void
@@ -180,13 +181,14 @@ write_header_entries(std::unique_ptr<std::ostream> &writer)
         trace_entry_t to_write = *reinterpret_cast<trace_entry_t *>(buf_at);
         write_trace_entry(writer, to_write);
     }
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64));
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64));
+    write_trace_entry(writer, test_util::make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
     // Some header read-ahead logic uses the timestamp marker to know when
     // to stop. It is important to not read-ahead any kernel syscall trace
     // content, as then is_record_kernel() starts returning true on the stream.
     // Also, some scheduler logic wants non-zero timestamps.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1));
+    write_trace_entry(writer, test_util::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1));
 }
 
 static void
@@ -196,7 +198,7 @@ write_footer_entries(std::unique_ptr<std::ostream> &writer)
         dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT, 0, { /*tid=*/1 }
     };
     write_trace_entry(writer, thread_exit);
-    write_trace_entry(writer, make_footer());
+    write_trace_entry(writer, test_util::make_footer());
 }
 
 static std::string
@@ -214,8 +216,9 @@ write_system_call_template(void *dr_context)
     write_header_entries(writer);
 
     // Write the trace template for SYS_getpid.
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_getpid));
+    write_trace_entry(
+        writer,
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_getpid));
     // Just a random instruction.
     instrs_in_getpid[0] = XINST_CREATE_nop(dr_context);
     write_instr_entry(dr_context, writer, instrs_in_getpid[0],
@@ -228,18 +231,20 @@ write_system_call_template(void *dr_context)
     instrs_in_getpid[1] = INSTR_CREATE_eret(dr_context);
 #endif
     // The value doesn't really matter as it will be replaced during trace injection.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
     write_instr_entry(
         dr_context, writer, instrs_in_getpid[1],
         reinterpret_cast<app_pc>(PC_SYSCALL_GETPID +
                                  instr_length(dr_context, instrs_in_getpid[0])),
-        TRACE_TYPE_INSTR_RETURN);
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+        TRACE_TYPE_INSTR_INDIRECT_JUMP);
+    write_trace_entry(
+        writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
 
     // Write the trace template for SYS_gettid.
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
+    write_trace_entry(
+        writer,
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
     // Just a random instruction.
 #ifdef X86
 #    define TEST_REG DR_REG_XDX
@@ -253,9 +258,9 @@ write_system_call_template(void *dr_context)
                           opnd_create_base_disp(TEST_REG, DR_REG_NULL, 0, 0, OPSZ_PTR));
     write_instr_entry(dr_context, writer, instrs_in_gettid[0],
                       reinterpret_cast<app_pc>(PC_SYSCALL_GETTID));
-    write_trace_entry(
-        writer,
-        make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ, opnd_size_in_bytes(OPSZ_PTR)));
+    write_trace_entry(writer,
+                      test_util::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
+                                             opnd_size_in_bytes(OPSZ_PTR)));
 
 #ifdef X86
     instrs_in_gettid[1] = INSTR_CREATE_sysret(dr_context);
@@ -263,14 +268,16 @@ write_system_call_template(void *dr_context)
     instrs_in_gettid[1] = INSTR_CREATE_eret(dr_context);
 #endif
     // The value doesn't really matter as it will be replaced during trace injection.
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
     write_instr_entry(
         dr_context, writer, instrs_in_gettid[1],
         reinterpret_cast<app_pc>(PC_SYSCALL_GETTID +
                                  instr_length(dr_context, instrs_in_gettid[0])),
-        TRACE_TYPE_INSTR_RETURN);
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
+        TRACE_TYPE_INSTR_INDIRECT_JUMP);
+
+    write_trace_entry(
+        writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
 
     write_footer_entries(writer);
     return syscall_trace_template_file;
@@ -445,7 +452,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
         switch (syscall_trace_num) {
         case SYS_gettid:
             if (is_instr) {
-                assert(gettid_instr_found <= 2);
+                assert(gettid_instr_found < SYSCALL_INSTR_COUNT);
                 if (memref.instr.addr != PC_SYSCALL_GETTID + gettid_instr_len) {
                     std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
                               << " vs expected " << PC_SYSCALL_GETTID + gettid_instr_len
@@ -475,7 +482,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             break;
         case SYS_getpid:
             if (is_instr) {
-                assert(getpid_instr_found <= 2);
+                assert(getpid_instr_found < SYSCALL_INSTR_COUNT);
                 if (memref.instr.addr != PC_SYSCALL_GETPID + getpid_instr_len) {
                     std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
                               << " vs expected " << PC_SYSCALL_GETPID + getpid_instr_len
@@ -497,9 +504,9 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     }
     if (!have_syscall_trace_type) {
         std::cerr << "Trace did not have the expected file type\n";
-    } else if (gettid_instr_found != 2) {
+    } else if (gettid_instr_found != SYSCALL_INSTR_COUNT) {
         std::cerr << "Did not find all instrs in gettid trace\n";
-    } else if (getpid_instr_found != 2) {
+    } else if (getpid_instr_found != SYSCALL_INSTR_COUNT) {
         std::cerr << "Did not find all instrs in getpid trace\n";
     } else if (!found_gettid_read) {
         std::cerr << "Did not find read data memref in gettid trace\n";
@@ -525,19 +532,20 @@ write_system_call_template_with_repstr(void *dr_context)
 
     write_header_entries(writer);
 
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
+    write_trace_entry(
+        writer,
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_gettid));
     instr_t *rep_movs = INSTR_CREATE_rep_movs_1(GLOBAL_DCONTEXT);
     for (int i = 0; i < REP_MOVS_COUNT; ++i) {
         write_instr_entry(dr_context, writer, rep_movs,
                           reinterpret_cast<app_pc>(PC_SYSCALL_GETTID),
                           i == 0 ? TRACE_TYPE_INSTR : TRACE_TYPE_INSTR_NO_FETCH);
         write_trace_entry(writer,
-                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
-                                      opnd_size_in_bytes(OPSZ_PTR)));
+                          test_util::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
+                                                 opnd_size_in_bytes(OPSZ_PTR)));
         write_trace_entry(writer,
-                          make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_WRITE,
-                                      opnd_size_in_bytes(OPSZ_PTR)));
+                          test_util::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_WRITE,
+                                                 opnd_size_in_bytes(OPSZ_PTR)));
     }
 
     constexpr uintptr_t SOME_VAL = 0xf00d;
@@ -548,14 +556,15 @@ write_system_call_template_with_repstr(void *dr_context)
     sys_return = INSTR_CREATE_eret(dr_context);
 #    endif
 
-    write_trace_entry(writer, make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
     write_instr_entry(
         dr_context, writer, sys_return,
         reinterpret_cast<app_pc>(PC_SYSCALL_GETTID + instr_length(dr_context, rep_movs)),
-        TRACE_TYPE_INSTR_RETURN);
+        TRACE_TYPE_INSTR_INDIRECT_JUMP);
 
-    write_trace_entry(writer,
-                      make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+    write_trace_entry(
+        writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
 
     write_footer_entries(writer);
 
@@ -574,9 +583,9 @@ test_template_with_repstr(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
-    if (!(template_counts.instrs == 2 &&
+    if (!(template_counts.instrs == SYSCALL_INSTR_COUNT &&
           template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
-          template_counts.encodings == REP_MOVS_COUNT + 1 &&
+          template_counts.encodings == REP_MOVS_COUNT + (SYSCALL_INSTR_COUNT - 1) &&
           template_counts.loads == REP_MOVS_COUNT &&
           template_counts.stores == REP_MOVS_COUNT)) {
         std::cerr << "Unexpected counts in system call trace template with repstr ("
@@ -594,7 +603,7 @@ test_template_with_repstr(void *dr_context)
 
     basic_counts_t::counters_t final_trace_counts;
     get_tool_results(trace_dir, final_trace_counts, syscall_stats);
-    if (final_trace_counts.kernel_instrs != 2 ||
+    if (final_trace_counts.kernel_instrs != SYSCALL_INSTR_COUNT ||
         final_trace_counts.kernel_nofetch_instrs != REP_MOVS_COUNT - 1) {
         std::cerr << "Unexpected counts in the final trace with repstr (#instr="
                   << final_trace_counts.kernel_instrs
@@ -619,9 +628,10 @@ test_trace_templates(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
-    if (!(template_counts.instrs == 4 && template_counts.instrs_nofetch == 0 &&
-          template_counts.encodings == 4 && template_counts.loads == 1 &&
-          template_counts.stores == 0 &&
+    if (!(template_counts.instrs == SYSCALL_INSTR_COUNT * 2 &&
+          template_counts.instrs_nofetch == 0 &&
+          template_counts.encodings == SYSCALL_INSTR_COUNT * 2 &&
+          template_counts.loads == 1 && template_counts.stores == 0 &&
           // We only have trace start and end markers, no syscall number markers.
           template_counts.syscall_number_markers == 0)) {
         std::cerr << "Unexpected counts in system call trace template ("
@@ -639,7 +649,7 @@ test_trace_templates(void *dr_context)
     std::string trace_dir = postprocess(dr_context, syscall_trace_template,
                                         /*expected_injected_syscall_count=*/2, "");
     bool success = look_for_syscall_trace(dr_context, trace_dir);
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < SYSCALL_INSTR_COUNT; ++i) {
         instr_destroy(dr_context, instrs_in_getpid[i]);
         instr_destroy(dr_context, instrs_in_gettid[i]);
     }
@@ -648,7 +658,7 @@ test_trace_templates(void *dr_context)
     }
     basic_counts_t::counters_t final_trace_counts;
     get_tool_results(trace_dir, final_trace_counts, syscall_stats);
-    if (final_trace_counts.kernel_instrs != 4) {
+    if (final_trace_counts.kernel_instrs != SYSCALL_INSTR_COUNT * 2) {
         std::cerr << "Unexpected kernel instr count in the final trace ("
                   << final_trace_counts.kernel_instrs << ")\n";
         return 1;
