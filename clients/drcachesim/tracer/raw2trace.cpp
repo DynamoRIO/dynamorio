@@ -199,8 +199,8 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address,
 app_pc
 raw2trace_t::get_first_app_pc_for_syscall_template(int syscall_num)
 {
-    auto it = syscall_trace_templates_[syscall_num].begin();
-    while (it != syscall_trace_templates_[syscall_num].end()) {
+    auto it = syscall_trace_templates_[syscall_num].entries.begin();
+    while (it != syscall_trace_templates_[syscall_num].entries.end()) {
         if (type_is_instr(static_cast<trace_type_t>(it->type))) {
             return reinterpret_cast<app_pc>(it->addr);
         }
@@ -257,21 +257,40 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     buf = buf_base;
     buf_in = reinterpret_cast<byte *>(buf_base); // Defensive: update the returned buf.
 
+    trace_entry_t *buf_last_branch_target_marker = nullptr;
     app_pc saved_decode_pc;
     int inserted_instr_count = 0;
     // XXX i#6495: For now we write out the template as-is to the output trace. But we can
     // potentially customize some properties of the trace. E.g. the start address for the
     // kernel code section.
-    for (const auto &entry : syscall_trace_templates_[syscall_num]) {
+    for (const auto &entry : syscall_trace_templates_[syscall_num].entries) {
         if (type_is_instr(static_cast<trace_type_t>(entry.type)) ||
             // We want to write out at each repstr instance so that we do not accumulate
             // too many buffered entries.
             entry.type == TRACE_TYPE_INSTR_NO_FETCH) {
+            // If this is the last instruction and an indirect branch, and there was a
+            // branch target marker just before it, set it to the fallthrough pc of
+            // the syscall instruction for which we're injecting the trace. This is
+            // simpler than trying to get the actual post-syscall instruction for which
+            // we would perhaps even need to read-ahead to the next raw trace buffer.
+            // XXX i#6495, i#7157: The above strategy does not work for syscalls that
+            // transfer control (like sigreturn), but we do not trace those anyway today
+            // (neither using Intel-PT, nor QEMU) as there are challenges in determining
+            // the post-syscall resumption point.
+            if (type_is_instr_branch(static_cast<trace_type_t>(entry.type)) &&
+                !type_is_instr_direct_branch(static_cast<trace_type_t>(entry.type)) &&
+                inserted_instr_count ==
+                    syscall_trace_templates_[syscall_num].instr_count - 1 &&
+                buf_last_branch_target_marker != nullptr) {
+                buf_last_branch_target_marker->addr =
+                    reinterpret_cast<addr_t>(get_last_pc_fallthrough_if_syscall(tdata));
+            }
             if (buf != buf_base) {
                 if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
                     return false;
                 }
                 buf = buf_base;
+                buf_last_branch_target_marker = nullptr;
             }
             if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
                 ++inserted_instr_count;
@@ -287,6 +306,9 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
             } else {
                 record_encoding_emitted(tdata, saved_decode_pc);
             }
+        } else if (entry.type == TRACE_TYPE_MARKER &&
+                   entry.size == TRACE_MARKER_TYPE_BRANCH_TARGET) {
+            buf_last_branch_target_marker = buf;
         }
         size_t size = buf - buf_base;
         if ((uint)size >= WRITE_BUFFER_SIZE) {
@@ -1159,8 +1181,14 @@ raw2trace_t::read_syscall_template_file()
             continue;
         // We expect at most one template per system call for now.
         DR_ASSERT(!first_entry_for_syscall ||
-                  syscall_trace_templates_[last_syscall_num].empty());
-        syscall_trace_templates_[last_syscall_num].push_back(entry);
+                  syscall_trace_templates_[last_syscall_num].entries.empty());
+        if (first_entry_for_syscall) {
+            syscall_trace_templates_[last_syscall_num] = {};
+        }
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            ++syscall_trace_templates_[last_syscall_num].instr_count;
+        }
+        syscall_trace_templates_[last_syscall_num].entries.push_back(entry);
         first_entry_for_syscall = false;
     }
     return "";

@@ -207,6 +207,7 @@ protected:
         bool found_syscall_marker_ = false;
         bool prev_was_syscall_marker_ = false;
         int last_syscall_marker_value_ = 0;
+        bool found_syscall_trace_after_last_userspace_instr_ = false;
         bool found_blocking_marker_ = false;
         uint64_t syscall_count_ = 0;
         uint64_t last_instr_count_marker_ = 0;
@@ -246,6 +247,7 @@ protected:
         int signal_stack_depth_at_syscall_trace_start_ = -1;
         int signal_stack_depth_at_context_switch_trace_start_ = -1;
 #endif
+        addr_t prev_syscall_end_branch_target_ = 0;
         // Relevant when -no_abort_on_invariant_error.
         uint64_t error_count_ = 0;
     };

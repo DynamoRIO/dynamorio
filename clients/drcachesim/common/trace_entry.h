@@ -564,9 +564,13 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
-    // Internal marker present just before each indirect branch instruction in offline
-    // non-i-filtered traces.  The marker value holds the actual target of the
-    // branch.  The reader converts this to the memref_t "indirect_branch_target" field.
+    /**
+     * Internal marker present just before each indirect branch instruction in offline
+     * non-i-filtered traces.  The marker value holds the actual target of the
+     * branch.  The reader converts this to the instr.indirect_branch_target field in
+     * #memref_t and does not pass it on, so #memref_t analysis tools never see this
+     * marker.
+     */
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 
     // Although it is only for Mac that syscall success requires more than the
@@ -1065,8 +1069,13 @@ typedef enum {
      * scheduler. Each system call trace template uses the regular drmemtrace format,
      * including using paired #TRACE_MARKER_TYPE_KERNEL_EVENT and
      * #TRACE_MARKER_TYPE_KERNEL_XFER markers to represent kernel interrupts during
-     * system call execution. See the sample file written by the burst_syscall_inject.cpp
-     * test for more details on the expected format for the system call template file.
+     * system call execution. Each system call trace should end with an indirect
+     * branch instruction (e.g., iret/sysret/sysexit on x86, or eret on AArch64) which
+     * must be preceded by a #TRACE_MARKER_TYPE_BRANCH_TARGET marker with any value;
+     * the marker's value will be appropriately set to point to the next trace
+     * instruction during syscall injection. See the sample file written by the
+     * burst_syscall_inject.cpp test for more details on the expected format for the
+     * system call template file.
      *
      * TODO i#6495: Add support for reading a zipfile where each trace template is in
      * a separate component. This will make it easier to manually append, update, or
