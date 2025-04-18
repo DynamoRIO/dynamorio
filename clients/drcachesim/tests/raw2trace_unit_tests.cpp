@@ -34,6 +34,8 @@
 
 #include "dr_api.h"
 #include "memref_gen.h"
+#include "record_file_reader.h"
+#include "mock_reader.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
 #include <iostream>
@@ -107,6 +109,23 @@ public:
                       // The sequences are small so we print everything for easier
                       // debugging and viewing of what's going on.
                       4)
+    {
+        module_mapper_ = std::unique_ptr<module_mapper_t>(
+            new test_module_mapper_t(&instrs, drcontext));
+        set_modmap_(module_mapper_.get());
+    }
+    raw2trace_test_t(const std::vector<std::istream *> &input,
+                     const std::vector<std::ostream *> &output, instrlist_t &instrs,
+                     void *drcontext,
+                     std::unique_ptr<record_reader_t> syscall_template_file)
+        : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
+                      drcontext,
+                      // The sequences are small so we print everything for easier
+                      // debugging and viewing of what's going on.
+                      4, /*worker_count=*/-1, /*alt_module_dir=*/"",
+                      /*chunk_instr_count=*/10 * 1000 * 1000,
+                      /*kthread_files_map=*/ {}, /*kcore_path=*/ {},
+                      /*kallsyms_path=*/ {}, std::move(syscall_template_file))
     {
         module_mapper_ = std::unique_ptr<module_mapper_t>(
             new test_module_mapper_t(&instrs, drcontext));
@@ -317,7 +336,8 @@ bool
 run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist_t *ilist,
               std::vector<trace_entry_t> &entries, std::vector<uint64_t> *stats = nullptr,
               int chunk_instr_count = 0,
-              const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {})
+              const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {},
+              std::unique_ptr<record_reader_t> syscall_tmpl = nullptr)
 {
     // We need an istream so we use istringstream.
     std::ostringstream raw_out;
@@ -341,6 +361,20 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         // Run raw2trace with our subclass supplying our decodings.
         // Pass in our chunk instr count.
         raw2trace_test_t raw2trace(input, output, *ilist, drcontext, chunk_instr_count);
+        std::string error = raw2trace.do_conversion();
+        CHECK(error.empty(), error);
+        result = result_stream.str();
+        populate_all_stats(raw2trace, stats);
+    } else if (syscall_tmpl != nullptr) {
+        // We need an ostream to capture out.
+        std::ostringstream result_stream;
+        std::vector<std::ostream *> output;
+        output.push_back(&result_stream);
+
+        CHECK(syscall_tmpl->init(), "Failed to init syscall tmpl reader");
+        // Run raw2trace with our subclass supplying module bounds.
+        raw2trace_test_t raw2trace(input, output, *ilist, drcontext,
+                                   std::move(syscall_tmpl));
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
@@ -3409,6 +3443,138 @@ test_asynchronous_signal(void *drcontext)
     return res;
 }
 
+bool
+test_syscall_injection(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting syscall injection\n";
+    // Our synthetic test first constructs a list of instructions to be encoded into
+    // a buffer for decoding by raw2trace.
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
+    // complexities (xref create_syscall_instr()).
+#ifdef X86
+    instr_t *sys = INSTR_CREATE_syscall(drcontext);
+#elif defined(AARCHXX)
+    instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+#elif defined(RISCV64)
+    instr_t *sys = INSTR_CREATE_ecall(drcontext);
+#else
+#    error Unsupported architecture.
+#endif
+
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, sys);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_sys = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_sys + instr_length(drcontext, sys);
+
+    // Now we synthesize our raw trace itself, including a valid header sequence.
+    static constexpr int SYSCALL_NUM = 42; // Doesn't really matter.
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp(1));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move1, 1));
+    raw.push_back(make_timestamp(2));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_sys, 1));
+    raw.push_back(make_timestamp(3));
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    raw.push_back(make_timestamp(4));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    static constexpr memref_tid_t TID_IN_SYSCALLS = 1;
+    static constexpr addr_t SYSCALL_PC_START = 0xfeed101;
+    static constexpr addr_t ENCODING_SIZE = 1;
+    static constexpr addr_t ENCODING_IGNORE = 0xfe;
+    std::vector<trace_entry_t> syscall_sequence = {
+        /* clang-format off */
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID_IN_SYSCALLS),
+        test_util::make_pid(TID_IN_SYSCALLS),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(SYSCALL_PC_START),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(SYSCALL_PC_START + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_NUM),
+        test_util::make_exit(TID_IN_SYSCALLS)
+        /* clang-format on */
+    };
+    auto syscall_tmpl = std::unique_ptr<record_reader_t>(
+        new test_util::mock_record_reader_t(syscall_sequence));
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats, 0, {},
+                       std::move(syscall_tmpl)))
+        return false;
+    int idx = 0;
+    return (
+        stats[RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED] == 1 &&
+        stats[RAW2TRACE_STAT_KERNEL_INSTR_COUNT] == 2 &&
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 2) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The sys instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_sys) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 3) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
+        // Injected syscall trace.
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, SYSCALL_PC_START) &&
+        // Indirect branch at the end of the injected syscall trace that should point to
+        // the move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1,
+                    SYSCALL_PC_START + 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                    SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 4) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -3431,7 +3597,7 @@ test_main(int argc, const char *argv[])
         !test_branch_decoration(drcontext) ||
         !test_stats_timestamp_instr_count(drcontext) ||
         !test_is_maybe_blocking_syscall(drcontext) || !test_ifiltered(drcontext) ||
-        !test_asynchronous_signal(drcontext))
+        !test_asynchronous_signal(drcontext) || !test_syscall_injection(drcontext))
         return 1;
     return 0;
 }
