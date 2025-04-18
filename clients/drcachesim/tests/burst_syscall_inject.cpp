@@ -275,9 +275,7 @@ write_system_call_template(void *dr_context)
         reinterpret_cast<app_pc>(PC_SYSCALL_GETTID +
                                  instr_length(dr_context, instrs_in_gettid[0])),
         TRACE_TYPE_INSTR_INDIRECT_JUMP);
-    write_trace_entry(writer,
-                      test_util::make_memref(READ_MEMADDR_GETTID, TRACE_TYPE_READ,
-                                             opnd_size_in_bytes(OPSZ_PTR)));
+
     write_trace_entry(
         writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
 
