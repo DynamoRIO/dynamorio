@@ -197,6 +197,7 @@ protected:
         // We use a deque so we can iterate over it.
         std::deque<RecordType> queue;
         bool cur_from_queue;
+        addr_t last_pc_fallthrough = 0;
 
         std::set<output_ordinal_t> binding;
         int priority = 0;
@@ -836,7 +837,14 @@ protected:
 
     // Returns whether the given record is an instruction.
     bool
-    record_type_is_instr(RecordType record);
+    record_type_is_instr(RecordType record, addr_t *pc = nullptr, size_t *size = nullptr);
+
+    // Returns whether the given record is an indirect branch, and if it is such a
+    // memref_t, sets the indirect branch target field to the given value if it's
+    // non-zero.
+    bool
+    record_type_is_indirect_branch_instr(RecordType &record,
+                                         addr_t set_indirect_branch_target = 0);
 
     // If the given record is a marker, returns true and its fields.
     bool

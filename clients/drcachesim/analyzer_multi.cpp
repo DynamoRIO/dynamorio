@@ -176,10 +176,10 @@ analyzer_multi_t::create_invariant_checker()
             }
         }
     }
-    return new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
-                                   op_test_mode_name.get_value(),
-                                   serial_schedule_file_.get(), cpu_schedule_file_.get(),
-                                   op_abort_on_invariant_error.get_value());
+    return new invariant_checker_t(
+        op_offline.get_value(), op_verbose.get_value(), op_test_mode_name.get_value(),
+        serial_schedule_file_.get(), cpu_schedule_file_.get(),
+        op_abort_on_invariant_error.get_value(), op_sched_syscall_file.get_value() != "");
 }
 
 template <>
