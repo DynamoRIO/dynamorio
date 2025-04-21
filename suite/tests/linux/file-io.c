@@ -35,12 +35,13 @@
 #include <fcntl.h>
 #include <stdio.h>
 
-const char filename[] = "syscall_file_io_test.txt";
 const char hello_world[] = "Hello World!";
 
 int
 main(int argc, char **argv)
 {
+    char filename[MAXIMUM_PATH];
+    sprintf(filename, "syscall_file_io_test.%d.txt", getpid());
     int fd = open(filename, O_CREAT | O_RDWR);
     if (fd < 0) {
         print("failed to open file %s to write\n", filename);

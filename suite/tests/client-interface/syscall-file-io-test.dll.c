@@ -39,10 +39,7 @@
 static void
 write_hexdump(char *hex_buf, char *addr, size_t size)
 {
-    int i;
-    char *hexstring = hex_buf;
-
-    for (i = 0; i < size; ++i, ++addr) {
+    for (int i = 0; i < size; ++i, ++addr) {
         dr_snprintf(hex_buf, 2, "%02x", *addr);
         hex_buf += 2;
     }
