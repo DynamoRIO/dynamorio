@@ -2181,8 +2181,10 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
     // denote a memref but looks like some other type. It is reasonable to relax the
     // following check just for prefetches where we do expect to see a following
     // memref, unlike predicated instructions where such a memref is not guaranteed.
-    // XXX: This does not handle cases where the application issues a non-prefetch
-    // load/store with such an invalid address, expecting to handle the fault.
+    // TODO i#7364: This does not handle cases where the application issues a
+    // non-prefetch load/store with such an invalid address, expecting to handle the
+    // fault. This also does not handle non-prefetch addresses with tags in the higher
+    // bits for use with features like the ARM Memory Tagging Extension.
     bool may_have_malformed_memref = instr->is_prefetch();
     if (!have_addr &&
         (in_entry == nullptr ||
