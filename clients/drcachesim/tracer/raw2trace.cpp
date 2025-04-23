@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -2171,9 +2171,22 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             return false;
         }
     }
+    // i#7464: Prefetch instructions may access an invalid address and yet not fault,
+    // so the application may take the liberty of not ensuring its a valid address.
+    // Particularly, the accessed address may break our assumption that there must be
+    // either all zeroes or all ones in the top 3 bits of the address. We make this
+    // assumption because we need the 3 bits for offline_entry_t.addr.type. We do not
+    // have any online tracer check that ensures that the address fits in 31 bits. So
+    // its possible that the raw trace may have a malformed entry that is supposed to
+    // denote a memref but looks like some other type. It is reasonable to relax the
+    // following check just for prefetches where we do expect to see a following
+    // memref, unlike predicated instructions where such a memref is not guaranteed.
+    // XXX: This does not handle cases where the application issues a non-prefetch
+    // load/store with such an invalid address, expecting to handle the fault.
+    bool may_have_malformed_memref = instr->is_prefetch();
     if (!have_addr &&
         (in_entry == nullptr ||
-         (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
+         (!may_have_malformed_memref && in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
           in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH))) {
         // This happens when there are predicated memrefs in the bb, or for a
         // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
@@ -2213,7 +2226,10 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
     }
     if (!have_addr) {
         DR_ASSERT(in_entry != nullptr);
-        // We take the full value, to handle low or high.
+        // We take the full value, to handle low (where the top 3 bits are 0) or
+        // high (where the top 3 bits are 1), or even the malformed-memref case
+        // (where the top bits may be something else entirely) which may happen
+        // when may_have_malformed_memref is true.
         buf->addr = (addr_t)in_entry->combined_value;
     }
     if (memref.remember_base &&
