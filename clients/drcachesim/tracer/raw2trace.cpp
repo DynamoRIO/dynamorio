@@ -2037,7 +2037,7 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
     const offline_entry_t *in_entry = get_next_entry(tdata);
     std::vector<offline_entry_t> saved;
     while (in_entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP ||
-           (is_marker_type(in_entry, TRACE_MARKER_TYPE_CPU_ID))) {
+           is_marker_type(in_entry, TRACE_MARKER_TYPE_CPU_ID)) {
         saved.push_back(*in_entry);
         in_entry = get_next_entry(tdata);
     }
