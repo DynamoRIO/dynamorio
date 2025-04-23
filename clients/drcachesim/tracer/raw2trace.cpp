@@ -2050,7 +2050,7 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
 #endif
 }
 
-bool
+inline bool
 raw2trace_t::is_marker_type(const offline_entry_t *entry, trace_marker_type_t marker_type)
 {
     return entry->extended.type == OFFLINE_TYPE_EXTENDED &&
