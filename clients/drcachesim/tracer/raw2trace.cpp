@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -593,9 +593,7 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
         tdata->error = "Failed to read header from input file";
         return false;
     }
-    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-        in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-        in_entry->extended.valueB == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
+    if (is_marker_type(in_entry, TRACE_MARKER_TYPE_CACHE_LINE_SIZE)) {
         header->cache_line_size = in_entry->extended.valueA;
     } else {
         log(2,
@@ -975,9 +973,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             continue;
         }
 #ifdef BUILD_PT_POST_PROCESSOR
-        if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
-            entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            entry.extended.valueB == TRACE_MARKER_TYPE_SYSCALL_IDX) {
+        if (is_marker_type(&entry, TRACE_MARKER_TYPE_SYSCALL_IDX)) {
             if (!process_syscall_pt(tdata, entry.extended.valueA))
                 return false;
             continue;
@@ -998,8 +994,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             // Get the next instr's pc from the interruption value in the marker
             // (a record for the next instr itself won't appear until the signal
             // returns, if that happens).
-            if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            if (is_marker_type(&entry, TRACE_MARKER_TYPE_KERNEL_EVENT)) {
                 uintptr_t marker_val = 0;
                 if (!get_marker_value(tdata, &in_entry, &marker_val))
                     return false;
@@ -1012,8 +1007,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             if (!append_delayed_branch(tdata, next_pc))
                 return false;
         }
-        if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
+        if (is_marker_type(&entry, TRACE_MARKER_TYPE_WINDOW_ID))
             tdata->last_window = entry.extended.valueA;
         bool flush_decode_cache = false;
         bool success = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
@@ -1642,15 +1636,11 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 const offline_entry_t *entry = get_next_entry(tdata);
                 if (entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
                     entry = get_next_entry(tdata);
-                    if (entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                        entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                        entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID) {
+                    if (is_marker_type(entry, TRACE_MARKER_TYPE_CPU_ID)) {
                         entry = get_next_entry(tdata);
                     }
                 }
-                if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
-                    entry->extended.ext != OFFLINE_EXT_TYPE_MARKER ||
-                    entry->extended.valueB != TRACE_MARKER_TYPE_SYSCALL) {
+                if (!is_marker_type(entry, TRACE_MARKER_TYPE_SYSCALL)) {
                     tdata->error = "Syscall without marker should have been removed";
                     return false;
                 }
@@ -1796,7 +1786,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     // possible for a given scatter/gather instr.
                     if (!append_memref(
                             tdata, &buf, instr,
-                            // These memrefs were output by multiple store/lo0ad instrs in
+                            // These memrefs were output by multiple store/load instrs in
                             // the expanded scatter/gather sequence. In raw2trace we see
                             // only the original app instr though. So we use the 0th
                             // dest/src of the original scatter/gather instr for all.
@@ -1820,7 +1810,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             }
         } else {
             // Flush memref entries. We do not try to indicate which memref
-            // might have casued a fault, we omit them all along with the
+            // might have caused a fault, we omit them all along with the
             // instruction fetch.
             if (interrupted) {
                 const offline_entry_t *next_entry = get_next_entry(tdata);
@@ -2047,24 +2037,25 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
     const offline_entry_t *in_entry = get_next_entry(tdata);
     std::vector<offline_entry_t> saved;
     while (in_entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP ||
-           (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            in_entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID)) {
+           (is_marker_type(in_entry, TRACE_MARKER_TYPE_CPU_ID))) {
         saved.push_back(*in_entry);
         in_entry = get_next_entry(tdata);
     }
-    bool omit = false;
-    if (in_entry->extended.type != OFFLINE_TYPE_EXTENDED ||
-        in_entry->extended.ext != OFFLINE_EXT_TYPE_MARKER ||
-        in_entry->extended.valueB != TRACE_MARKER_TYPE_SYSCALL) {
-        omit = true;
-    }
+    bool omit = !is_marker_type(in_entry, TRACE_MARKER_TYPE_SYSCALL);
     saved.push_back(*in_entry);
     for (auto &entry : saved) {
         queue_entry(tdata, entry);
     }
     return omit;
 #endif
+}
+
+bool
+raw2trace_t::is_marker_type(const offline_entry_t *entry, trace_marker_type_t marker_type)
+{
+    return entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+        entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+        entry->extended.valueB == marker_type;
 }
 
 bool

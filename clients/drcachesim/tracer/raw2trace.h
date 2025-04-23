@@ -1199,6 +1199,9 @@ private:
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
 
+    bool
+    is_marker_type(const offline_entry_t *entry, trace_marker_type_t marker_type);
+
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
 
