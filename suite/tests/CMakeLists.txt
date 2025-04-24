@@ -6344,6 +6344,18 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
      linux/file-io.c "" "" "")
   use_DynamoRIO_extension(client.syscall-file-io-test.dll drmgr)
   use_DynamoRIO_extension(client.syscall-file-io-test.dll drsyscall)
+
+  add_exe(linux.syscall_records linux/syscall-records.c)
+  set(client.syscall-records-test_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  set(client.syscall-records-test_precmd "rm@${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
+  set(client.syscall-records-test_postcmd
+      "${PROJECT_BINARY_DIR}/ext/drsyscall_record_reader@${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
+  set(client.syscall-records-test_expectbase "syscall-records")
+  tobuild_ci(client.syscall-records-test client-interface/syscall-records-test.c "" "" "")
+  torunonly_ci(client.syscall-records-test linux.syscall_records client.syscall-records-test.dll
+     linux/syscall-records.c "" "" "")
+  use_DynamoRIO_extension(client.syscall-records-test.dll drmgr)
+  use_DynamoRIO_extension(client.syscall-records-test.dll drsyscall)
 endif ()
 
 ###########################################################################
