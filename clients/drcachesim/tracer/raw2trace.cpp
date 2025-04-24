@@ -2063,14 +2063,6 @@ raw2trace_t::is_marker_type(const offline_entry_t *entry, trace_marker_type_t ma
 }
 
 bool
-raw2trace_t::is_marker_type(const offline_entry_t *entry, trace_marker_type_t marker_type)
-{
-    return entry != nullptr && entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-        entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-        entry->extended.valueB == marker_type;
-}
-
-bool
 raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
                               DR_PARAM_INOUT const offline_entry_t **entry,
                               DR_PARAM_OUT uintptr_t *value)
@@ -2197,7 +2189,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
                  get_file_type(tdata)) &&
         // We don't handle memrefs possibly malformed into an rseq_abort as the
         // rseq_abort marker may actually show up in the middle like such.
-        !is_marker_type(in_entry, TRACE_MARKER_TYPE_RSEQ_ABORT);
+        (in_entry == nullptr || !is_marker_type(in_entry, TRACE_MARKER_TYPE_RSEQ_ABORT));
     if (!have_addr &&
         (in_entry == nullptr ||
          (!may_have_malformed_memref && in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
