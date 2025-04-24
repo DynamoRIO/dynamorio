@@ -52,7 +52,7 @@ main(int argc, char *argv[])
             break;
         case DRSYS_PRECALL_PARAM:
         case DRSYS_POSTCALL_PARAM:
-            fprintf(stdout, "%s-syscall ordinal %d, value 0x" HEX64_FORMAT_STRING "\n",
+            fprintf(stdout, "%s-syscall ordinal %d, value " PIFX "\n",
                     (record.type == DRSYS_PRECALL_PARAM ? "pre" : "post"),
                     record.param.ordinal, record.param.value);
             break;
@@ -88,8 +88,7 @@ main(int argc, char *argv[])
             fprintf(stdout, "\n");
             break;
         case DRSYS_RETURN_VALUE:
-            fprintf(stdout, "return value 0x" HEX64_FORMAT_STRING "\n",
-                    record.return_value);
+            fprintf(stdout, "return value " PIFX "\n", record.return_value);
             break;
         case DRSYS_RECORD_END:
             fprintf(stdout, "syscall end: %d\n", record.syscall_number);
