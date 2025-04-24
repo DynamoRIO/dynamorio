@@ -1814,13 +1814,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // instruction fetch.
             if (interrupted) {
                 const offline_entry_t *next_entry = get_next_entry(tdata);
-                // i#7464: We won't get here for prefetches as they don't fault.
-                // If the prefetch was interrupted by an async signal, there may or
-                // may not be a memref depending on whether the signal was received
-                // before or after the memref was output to the raw trace. Since
-                // we cannot assume there must be a memref, we cannot handle
-                // malformed memrefs here. This case is highly unlikely because we
-                // do not expect async signals mid-block (i#7081).
+                // i#7464: We won't get here for a faulting prefetch (as they don't
+                // fault). However, if the prefetch was interrupted by an async signal,
+                // there may or may not be a memref depending on whether the signal was
+                // received after or before the memref was output to the raw trace. Since
+                // we cannot assume there must be a memref, we cannot handle malformed
+                // memrefs here. This case is highly unlikely because we do not expect
+                // async signals mid-block (i#7081).
                 while (next_entry != nullptr &&
                        (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
                         next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH)) {
@@ -2170,23 +2170,26 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         }
     }
     // i#7464: Prefetch instructions may access an invalid address and yet not fault,
-    // so the application may take the liberty of not ensuring its a valid address.
+    // so the application may take the liberty of not ensuring it's a valid address.
     // Particularly, the accessed address may not be a canonical one as required by
-    // the hardware (either all 0s or all 1s in the top 3 bits). We make this
-    // assumption because we need the 3 bits for offline_entry_t.addr.type. We do not
-    // have any online tracer check that ensures that the address fits in 61 bits. So
-    // it's possible that the raw trace may have a malformed entry that is supposed to
-    // denote a memref but looks like some other type. It is reasonable to relax the
-    // following check just for prefetches where we do expect to always see a following
-    // memref, unlike predicated instructions where such a memref is not guaranteed.
-    // We assume that prefetches cannot be predicated on x86-64 and AArch64.
+    // the hardware (either all 0s or all 1s in the top bits). Generally we assume all
+    // memref entries (OFFLINE_TYPE_MEMREF and OFFLINE_TYPE_MEMREF_HIGH) have canonical
+    // top 3 bits because we need the 3 bits for offline_entry_t.addr.type. But we do
+    // not have any online tracer check that ensures that this is true. So it's possible
+    // that the raw trace may have a malformed entry that is supposed to denote a memref
+    // but looks like some other type.
+    // It is reasonable to modify the following check just for prefetches where we do
+    // expect to always see a following memref, therefore can force later logic to
+    // process it like a memref even if it doesn't look like one, unlike predicated
+    // instructions where such a memref is not guaranteed. We assume that prefetches
+    // cannot be predicated on x86-64 and AArch64.
     // TODO i#7364: This does not handle the following cases:
     // - the application issues a non-prefetch load/store with such an invalid address,
     //   expecting to handle the fault.
     // - non-prefetch addresses with tags in the higher bits for use with features like
     //   the ARM Memory Tagging Extension.
     // - a malformed memref that appears like a kernel_event marker that interrupted
-    //   the prefetch instruction, therefore never even entering append_memref.
+    //   the prefetch instruction, which would avoid entering append_memref altogether.
     bool may_have_malformed_memref = instr->is_prefetch() &&
         // XXX: We don't handle PC-with-memref configs for now though this may
         // be simpler to handle.
