@@ -2168,31 +2168,25 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
     }
     // i#7464: Prefetch instructions may access an invalid address and yet not fault,
     // so the application may take the liberty of not ensuring its a valid address.
-    // Particularly, the accessed address may break our assumption that there must be
-    // either all zeroes or all ones in the top 3 bits of the address. We make this
+    // Particularly, the accessed address may not be a canonical one as required by
+    // the hardware (either all 0s or all 1s in the top 3 bits). We make this
     // assumption because we need the 3 bits for offline_entry_t.addr.type. We do not
-    // have any online tracer check that ensures that the address fits in 31 bits. So
-    // its possible that the raw trace may have a malformed entry that is supposed to
+    // have any online tracer check that ensures that the address fits in 61 bits. So
+    // it's possible that the raw trace may have a malformed entry that is supposed to
     // denote a memref but looks like some other type. It is reasonable to relax the
     // following check just for prefetches where we do expect to see a following
     // memref, unlike predicated instructions where such a memref is not guaranteed.
-    // We assume that prefetches cannot be predicated.
+    // We assume that prefetches cannot be predicated on x86-64 and AArch64.
     // TODO i#7364: This does not handle cases where the application issues a
     // non-prefetch load/store with such an invalid address, expecting to handle the
     // fault. This also does not handle non-prefetch addresses with tags in the higher
     // bits for use with features like the ARM Memory Tagging Extension.
     bool may_have_malformed_memref = instr->is_prefetch() &&
-        // Can't tell for sure if the next entry must be a memref if the trace is
-        // filtered.
+        // XXX: We don't handle PC-with-memref configs for now though this may
+        // be simpler to handle.
         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                      OFFLINE_FILE_TYPE_DFILTERED,
-                 get_file_type(tdata)) &&
-        // An rseq_abort marker may show up even if we expect a memref for the prefetch.
-        // It is impossible to distinguish between a real rseq_abort marker entry vs
-        // a memref with just the right address that was malformed into an rseq_abort
-        // marker. We assume its a real rseq_abort as that is highly likely.
-        // TODO i#7364: Handle this case better.
-        (in_entry == nullptr || !is_marker_type(in_entry, TRACE_MARKER_TYPE_RSEQ_ABORT));
+                 get_file_type(tdata));
     if (!have_addr &&
         (in_entry == nullptr ||
          (!may_have_malformed_memref && in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
