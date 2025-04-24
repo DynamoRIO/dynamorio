@@ -2187,8 +2187,11 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                      OFFLINE_FILE_TYPE_DFILTERED,
                  get_file_type(tdata)) &&
-        // We don't handle memrefs possibly malformed into an rseq_abort as the
-        // rseq_abort marker may actually show up in the middle like such.
+        // An rseq_abort marker may show up even if we expect a memref for the prefetch.
+        // It is impossible to distinguish between a real rseq_abort marker entry vs
+        // a memref with just the right address that was malformed into an rseq_abort
+        // marker. We assume its a real rseq_abort as that is highly likely.
+        // TODO i#7364: Handle this case better.
         (in_entry == nullptr || !is_marker_type(in_entry, TRACE_MARKER_TYPE_RSEQ_ABORT));
     if (!have_addr &&
         (in_entry == nullptr ||
