@@ -2153,7 +2153,10 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         }
         in_entry = get_next_entry(tdata);
     }
-    if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                    OFFLINE_FILE_TYPE_DFILTERED,
+                get_file_type(tdata)) &&
+        in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
         in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
         // For -L0_filter we have to store the type for multi-memref instrs where
         // we can't tell which memref it is (we'll still come here for the subsequent
