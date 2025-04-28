@@ -1909,7 +1909,7 @@ raw2trace_t::handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
                 // can simply be ignored here.
                 tdata->error = "";
                 unread_last_entry(tdata);
-                return true;
+                continue;
             } else {
                 return false;
             }
