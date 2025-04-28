@@ -1902,8 +1902,18 @@ raw2trace_t::handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
         // if present to get to the type.  There is support for unreading
         // both.
         uintptr_t marker_val = 0;
-        if (!get_marker_value(tdata, &in_entry, &marker_val))
-            return false;
+        bool split_error = false;
+        if (!get_marker_value(tdata, &in_entry, &marker_val, &split_error)) {
+            if (split_error) {
+                // i#7464: The split_value marker may have been a malformed memref, which
+                // can simply be ignored here.
+                tdata->error = "";
+                unread_last_entry(tdata);
+                return true;
+            } else {
+                return false;
+            }
+        }
         // An abort always ends a block.
         if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
             // A signal/exception marker in the next entry could be at any point
@@ -2068,7 +2078,8 @@ raw2trace_t::is_marker_type(const offline_entry_t *entry, trace_marker_type_t ma
 bool
 raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
                               DR_PARAM_INOUT const offline_entry_t **entry,
-                              DR_PARAM_OUT uintptr_t *value)
+                              DR_PARAM_OUT uintptr_t *value,
+                              DR_PARAM_OUT bool *split_error)
 {
     uintptr_t marker_val = static_cast<uintptr_t>((*entry)->extended.valueA);
     if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_SPLIT_VALUE) {
@@ -2077,6 +2088,8 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
         const offline_entry_t *next = get_next_entry_keep_prior(tdata);
         if (next == nullptr || next->extended.ext != OFFLINE_EXT_TYPE_MARKER) {
             tdata->error = "SPLIT_VALUE marker is not adjacent to 2nd entry";
+            if (split_error != nullptr)
+                *split_error = true;
             return false;
         }
         marker_val = (marker_val << 32) | static_cast<uintptr_t>(next->extended.valueA);
@@ -2834,12 +2847,12 @@ void
 raw2trace_t::unread_last_entry(raw2trace_thread_data_t *tdata)
 {
     VPRINT(5, "Unreading last entry\n");
+    tdata->pre_read.push_front(tdata->last_entry);
     if (tdata->last_entry_is_split) {
         VPRINT(4, "Unreading both parts of split entry at once\n");
         tdata->pre_read.push_front(tdata->last_split_first_entry);
         tdata->last_entry_is_split = false;
     }
-    tdata->pre_read.push_front(tdata->last_entry);
 }
 
 void
