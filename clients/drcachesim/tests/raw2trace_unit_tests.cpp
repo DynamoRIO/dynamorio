@@ -457,6 +457,11 @@ test_branch_delays(void *drcontext)
     size_t offs_jump_reg = offs_mov + instr_length(drcontext, move);
     size_t offs_mov2 = offs_jump_reg + instr_length(drcontext, jump_reg);
 
+#ifdef X86_32
+    constexpr uint32_t kernel_event_value = 0x12345678;
+#else
+    constexpr uint64_t kernel_event_value = 0x9abc12345678;
+#endif
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
     raw.push_back(make_header());
@@ -470,9 +475,10 @@ test_branch_delays(void *drcontext)
     raw.push_back(make_block(offs_mov, 1));
     raw.push_back(make_block(offs_jump_reg, 1));
 #ifndef X86_32
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_SPLIT_VALUE, 0x9abc));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SPLIT_VALUE, (kernel_event_value >> 32)));
 #endif
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, 0x12345678));
+    raw.push_back(
+        make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, (kernel_event_value & 0xffffffff)));
     raw.push_back(make_block(offs_mov2, 1));
     raw.push_back(make_exit());
 
@@ -509,7 +515,7 @@ test_branch_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #ifdef X86_32
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
-                    0x12345678) &&
+                    kernel_event_value) &&
 #else
         // TODO i#7469: This is a bug. When looking for the kernel_event marker,
         // raw2trace doesn't look for the ones preceded by the split_value marker
@@ -519,13 +525,8 @@ test_branch_delays(void *drcontext)
                     offs_mov2) &&
 #endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1) &&
-#ifdef X86_32
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
-                    0x12345678) &&
-#else
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
-                    0x9abc12345678) &&
-#endif
+                    kernel_event_value) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
