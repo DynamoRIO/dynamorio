@@ -457,10 +457,10 @@ test_branch_delays(void *drcontext)
     size_t offs_jump_reg = offs_mov + instr_length(drcontext, move);
     size_t offs_mov2 = offs_jump_reg + instr_length(drcontext, jump_reg);
 
-#ifdef X86_32
-    constexpr uint32_t kernel_event_value = 0x12345678;
-#else
+#ifdef X64
     constexpr uint64_t kernel_event_value = 0x9abc12345678;
+#else
+    constexpr uint32_t kernel_event_value = 0x12345678;
 #endif
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
@@ -474,7 +474,7 @@ test_branch_delays(void *drcontext)
     raw.push_back(make_block(offs_jmp, 1));
     raw.push_back(make_block(offs_mov, 1));
     raw.push_back(make_block(offs_jump_reg, 1));
-#ifndef X86_32
+#ifdef X64
     raw.push_back(make_marker(TRACE_MARKER_TYPE_SPLIT_VALUE, (kernel_event_value >> 32)));
 #endif
     raw.push_back(
@@ -513,16 +513,16 @@ test_branch_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#ifdef X86_32
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
-                    kernel_event_value) &&
-#else
+#ifdef X64
         // TODO i#7469: This is a bug. When looking for the kernel_event marker,
         // raw2trace doesn't look for the ones preceded by the split_value marker
         // because the address was too large for a single marker. Some other marker
         // related logic also needs to expect the split_value marker.
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
                     offs_mov2) &&
+#else
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    kernel_event_value) &&
 #endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
