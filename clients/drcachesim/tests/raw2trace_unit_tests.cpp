@@ -37,6 +37,7 @@
 #include "mock_reader.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
+#include <iostream>
 #include <sstream>
 
 namespace dynamorio {
