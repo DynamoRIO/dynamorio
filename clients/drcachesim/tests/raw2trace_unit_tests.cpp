@@ -37,7 +37,6 @@
 #include "mock_reader.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
-#include <iostream>
 #include <sstream>
 
 namespace dynamorio {
@@ -471,7 +470,9 @@ test_branch_delays(void *drcontext)
     raw.push_back(make_block(offs_mov, 1));
     raw.push_back(make_block(offs_jump_mem, 1));
     // No memref needed for jump_mem because it is considered elided.
+#ifndef X86_32
     raw.push_back(make_marker(TRACE_MARKER_TYPE_SPLIT_VALUE, 0x9abc));
+#endif
     raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, 0x12345678));
     raw.push_back(make_block(offs_mov2, 1));
     raw.push_back(make_exit());
@@ -511,12 +512,26 @@ test_branch_delays(void *drcontext)
         // An extra encoding entry is needed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
+#ifdef X86_32
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    0x12345678) &&
+#else
+        // TODO i#7469: This is a bug. When looking for the kernel_event marker,
+        // raw2trace doesn't look for the ones preceded by the split_value marker
+        // because the address was too large for a single marker. Some other marker
+        // related logic also needs to expect the split_value marker.
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
                     offs_mov2) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1) &&
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+#ifdef X86_32
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                    0x12345678) &&
+#else
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
                     0x9abc12345678) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
