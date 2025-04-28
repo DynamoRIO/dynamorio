@@ -441,14 +441,22 @@ test_branch_delays(void *drcontext)
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(move));
     instr_t *jcc = XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(jmp));
+    instr_t *jump_mem =
+        XINST_CREATE_jump_mem(drcontext, opnd_create_mem_instr(jcc, 0, OPSZ_PTR));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instrlist_append(ilist, nop);
     instrlist_append(ilist, jcc);
     instrlist_append(ilist, jmp);
     instrlist_append(ilist, move);
+    instrlist_append(ilist, jump_mem);
+    instrlist_append(ilist, move2);
     size_t offs_nop = 0;
     size_t offs_jz = offs_nop + instr_length(drcontext, nop);
     size_t offs_jmp = offs_jz + instr_length(drcontext, jcc);
     size_t offs_mov = offs_jmp + instr_length(drcontext, jmp);
+    size_t offs_jump_mem = offs_mov + instr_length(drcontext, move);
+    size_t offs_mov2 = offs_jump_mem + instr_length(drcontext, jump_mem);
 
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
@@ -461,6 +469,11 @@ test_branch_delays(void *drcontext)
     raw.push_back(make_core());
     raw.push_back(make_block(offs_jmp, 1));
     raw.push_back(make_block(offs_mov, 1));
+    raw.push_back(make_block(offs_jump_mem, 1));
+    // No memref needed for jump_mem because it is considered elided.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SPLIT_VALUE, 0x9abc));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, 0x12345678));
+    raw.push_back(make_block(offs_mov2, 1));
     raw.push_back(make_exit());
 
     std::vector<trace_entry_t> entries;
@@ -491,6 +504,19 @@ test_branch_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    offs_mov2) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                    0x9abc12345678) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
