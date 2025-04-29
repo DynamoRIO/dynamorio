@@ -69,16 +69,15 @@ drsyscall_read_record_file(DR_PARAM_IN FILE *output_stream,
                 return -1;
             }
             char *ptr = buffer;
-            size_t count = 0;
-            for (; count + sizeof(uint32_t) <= record.content.size;
-                 count += sizeof(uint32_t), ptr += sizeof(int32_t)) {
-                fprintf(output_stream, "%08x ", *(uint32_t *)ptr);
-                if ((count + 4) % 16 == 0) {
-                    fprintf(output_stream, "\n    ");
-                }
-            }
-            for (++ptr; count < record.content.size; ++count, ++ptr) {
+            for (size_t count = 0; count < record.content.size; ++count, ++ptr) {
                 fprintf(output_stream, "%02x", *ptr);
+                if ((count + 1) % 16 == 0) {
+                    fprintf(output_stream, "\n    ");
+                    continue;
+                }
+                if ((count + 1) % 4 == 0) {
+                    fprintf(output_stream, " ");
+                }
             }
             free(buffer);
             fprintf(output_stream, "\n");

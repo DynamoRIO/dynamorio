@@ -35,7 +35,7 @@ pre-syscall ordinal 0, value 0x[0-9a-f]+
 pre-syscall ordinal 1, value 0x[0-9a-f]+
 pre-syscall ordinal 2, value 0xd
 memory content address 0x[0-9a-f]+, size 0xd
-    6c6c6548 6f57206f 21646c72 00
+    48656c6c 6f20576f 726c6421 00
 post-syscall ordinal 0, value 0x[0-9a-f]+
 post-syscall ordinal 1, value 0x[0-9a-f]+
 post-syscall ordinal 2, value 0xd
@@ -50,7 +50,7 @@ post-syscall ordinal 1, value 0x[0-9a-f]+
 post-syscall ordinal 2, value 0xd
 return value 0xd
 memory content address 0x[0-9a-f]+, size 0xd
-    6c6c6548 6f57206f 21646c72 00
+    48656c6c 6f20576f 726c6421 00
 syscall end: SYSCALL_READ
 syscall: SYSCALL_CLOSE
 pre-syscall ordinal 0, value 0x[0-9a-f]+
