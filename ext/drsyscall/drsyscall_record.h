@@ -30,16 +30,32 @@
  * DAMAGE.
  */
 
+#ifndef _DRSYSCALL_RECORD_H_
+#define _DRSYSCALL_RECORD_H_ 1
+
 #include <stdint.h>
 #include "dr_api.h"
 
+#ifdef WINDOWS
+/* START_PACKED_STRUCTURE can't be used after typedef (b/c MSVC compiler
+ * has bug where it accepts #pragma but not __pragma there) and thus the
+ * struct have to be typedef-ed in two steps.
+ * see example struct _packed_frame_t at common/callstack.c
+ */
+#    define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
+#    define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
+#else                              /* UNIX */
+#    define START_PACKED_STRUCTURE /* nothing */
+#    define END_PACKED_STRUCTURE __attribute__((__packed__))
+#endif
+
 typedef enum {
-    DRSYS_SYSCALL_NUMBER = 1,
-    DRSYS_PRECALL_PARAM,
-    DRSYS_POSTCALL_PARAM,
-    DRSYS_MEMORY_CONTENT,
-    DRSYS_RETURN_VALUE,
-    DRSYS_RECORD_END,
+    DRSYS_SYSCALL_NUMBER = 1, /**< Start of a syscall. */
+    DRSYS_PRECALL_PARAM,      /**< Pre-syscall parameter. */
+    DRSYS_POSTCALL_PARAM,     /**< Post-syscall parameter. */
+    DRSYS_MEMORY_CONTENT,     /**< Memory address, size, and content. */
+    DRSYS_RETURN_VALUE,       /**< Return value of the syscall. */
+    DRSYS_RECORD_END,         /**< End of a syscall. */
 } syscall_record_type_t;
 
 /**
@@ -48,6 +64,7 @@ typedef enum {
  */
 #define SYSCALL_RECORD_UNION_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
 
+START_PACKED_STRUCTURE
 typedef struct syscall_record_t_ {
     // type is one of syscall_record_type_t.
     uint16_t type;
@@ -59,20 +76,24 @@ typedef struct syscall_record_t_ {
         // syscall_record_t access.
         uint8_t _raw_bytes[SYSCALL_RECORD_UNION_SIZE_BYTES]; /**< Do not use: for init
                                                                 only. */
-        // syscall_number is used when the type is DRSYS_SYSCALL_NUMBER or
-        // DRSYS_RECORD_END.
+        // syscall_number is used when the type is #DRSYS_SYSCALL_NUMBER or
+        // #DRSYS_RECORD_END.
         uint16_t syscall_number;
-        // param is used for type DRSYS_PRECALL_PARAM and DRSYS_POSTCALL_PARAM.
+        START_PACKED_STRUCTURE
+        // param is used for type #DRSYS_PRECALL_PARAM and #DRSYS_POSTCALL_PARAM.
         struct {
             uint16_t ordinal;
             reg_t value;
-        } param;
-        // content is used for type DRSYS_MEMORY_CONTENT.
+        } END_PACKED_STRUCTURE param;
+        START_PACKED_STRUCTURE
+        // content is used for type #DRSYS_MEMORY_CONTENT.
         struct {
             uint8_t *address;
             size_t size;
-        } content;
-        // return_value is used for type DRSYS_RETURN_VALUE.
+        } END_PACKED_STRUCTURE content;
+        // return_value is used for type #DRSYS_RETURN_VALUE.
         reg_t return_value;
     };
-} __attribute__((__packed__)) syscall_record_t;
+} END_PACKED_STRUCTURE syscall_record_t;
+
+#endif /* _DRSYSCALL_RECORD_H_ */

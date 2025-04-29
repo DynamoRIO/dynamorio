@@ -175,12 +175,25 @@ use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatuc)
 use_DynamoRIO_extension(drsyscall_drstatic drmgr_static)
 configure_drsyscall_target(drsyscall_drstatic)
 
-install_ext_header(drsyscall.h)
-
 if (UNIX)
+  set(drsyscall_record_lib_srcs
+    drsyscall_record_lib.c
+  )
+
+  add_library(drsyscall_record_lib STATIC ${drsyscall_record_lib_srcs})
+  configure_extension(drsyscall_record_lib ON OFF)
+  configure_DynamoRIO_client(drsyscall_record_lib)
+  append_property_string(TARGET drsyscall_record_lib COMPILE_FLAGS "-fno-exceptions")
+  set_target_properties(drsyscall_record_lib PROPERTIES INTERFACE_LINK_LIBRARIES "")
+  use_DynamoRIO_extension(drutil_static drmgr_static)
+
+  install_ext_header(drsyscall_record.h)
+  install_ext_header(drsyscall_record_lib.h)
+
   add_executable(drsyscall_record_reader drsyscall_record_reader.c)
   configure_DynamoRIO_standalone(drsyscall_record_reader)
-  # we don't want drsyscall_record_reader installed so we avoid the standard location
+  use_DynamoRIO_extension(drsyscall_record_reader drsyscall_record_lib)
+  # We don't want drsyscall_record_reader installed so we avoid the standard location.
   set_target_properties(drsyscall_record_reader PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/ext")
 endif ()

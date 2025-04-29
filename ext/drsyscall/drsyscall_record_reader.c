@@ -32,69 +32,22 @@
 
 #include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
 
-#include "drsyscall_record.h"
+#include "drsyscall_record_lib.h"
 
 int
 main(int argc, char *argv[])
 {
+    if (argc < 2) {
+        fprintf(stderr, "The name of the syscall record file is required.\n");
+        return -1;
+    }
+
     int record_file = open(argv[1], O_RDONLY);
     if (record_file == -1) {
         fprintf(stderr, "unable to open file %s\n", argv[1]);
         return -1;
     }
-    syscall_record_t record = {};
-    while (read(record_file, &record, sizeof(record)) == sizeof(record)) {
-        switch (record.type) {
-        case DRSYS_SYSCALL_NUMBER:
-            fprintf(stdout, "syscall: %d\n", record.syscall_number);
-            break;
-        case DRSYS_PRECALL_PARAM:
-        case DRSYS_POSTCALL_PARAM:
-            fprintf(stdout, "%s-syscall ordinal %d, value " PIFX "\n",
-                    (record.type == DRSYS_PRECALL_PARAM ? "pre" : "post"),
-                    record.param.ordinal, record.param.value);
-            break;
-        case DRSYS_MEMORY_CONTENT:
-            fprintf(stdout, "memory content address " PFX ", size " PIFX "\n    ",
-                    record.content.address, record.content.size);
-            uint32_t buffer;
-            size_t count = 0;
-            for (; count + sizeof(buffer) <= record.content.size;
-                 count += sizeof(buffer)) {
-                if (read(record_file, &buffer, sizeof(buffer)) != sizeof(buffer)) {
-                    fprintf(stderr,
-                            "failed to read " PIFX " bytes from the record file.\n",
-                            sizeof(buffer));
-                    return -1;
-                }
-                fprintf(stdout, "%08x ", buffer);
-                if ((count + 4) % 16 == 0) {
-                    fprintf(stdout, "\n    ");
-                }
-            }
-            if (count < record.content.size) {
-                buffer = 0;
-                if (read(record_file, &buffer, record.content.size - count) !=
-                    record.content.size - count) {
-                    fprintf(stderr,
-                            "failed to read " PIFX " bytes from the record file.\n",
-                            record.content.size - count);
-                    return -1;
-                }
-                fprintf(stdout, "%08x", buffer);
-            }
-            fprintf(stdout, "\n");
-            break;
-        case DRSYS_RETURN_VALUE:
-            fprintf(stdout, "return value " PIFX "\n", record.return_value);
-            break;
-        case DRSYS_RECORD_END:
-            fprintf(stdout, "syscall end: %d\n", record.syscall_number);
-            break;
-        default: fprintf(stderr, "unknown record type %d\n", record.type); return -1;
-        }
-    }
-    return 0;
+
+    return drsyscall_read_record_file(stdout, stderr, record_file);
 }

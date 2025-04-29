@@ -37,7 +37,8 @@
 #include "client_tools.h"
 #include "drmgr.h"
 #include "drsyscall.h"
-#include "../../../ext/drsyscall/drsyscall_record.h"
+#include "drsyscall_record.h"
+#include "drsyscall_record_lib.h"
 #include "syscall.h"
 
 static file_t record_file;
@@ -57,46 +58,15 @@ event_filter_syscall(void *drcontext, int sysnum)
 static bool
 drsys_iter_memarg_cb(drsys_arg_t *arg, void *user_data)
 {
-    if (!arg->valid) {
-        return true; /* keep going */
-    }
-
-    if ((arg->pre && arg->mode & DRSYS_PARAM_IN) ||
-        (!arg->pre && arg->mode & DRSYS_PARAM_OUT)) {
-        syscall_record_t record = {};
-        record.type = DRSYS_MEMORY_CONTENT;
-        record.content.address = arg->start_addr;
-        record.content.size = arg->size;
-        dr_write_file(record_file, &record, sizeof(record));
-        dr_write_file(record_file, arg->start_addr, arg->size);
-    }
-
+    drsyscall_write_memarg_record(record_file, arg);
     return true;
 }
 
 static bool
 drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
 {
-    if (!arg->valid) {
-        return true; /* keep going */
-    }
-
-    // ordinal is set to -1 for return value.
-    if (arg->ordinal == -1) {
-        if (!arg->pre) {
-            syscall_record_t record = {};
-            record.type = DRSYS_RETURN_VALUE;
-            record.return_value = arg->value64;
-            dr_write_file(record_file, &record, sizeof(record));
-        }
-        return true;
-    }
-    syscall_record_t record = {};
-    record.type = arg->pre ? DRSYS_PRECALL_PARAM : DRSYS_POSTCALL_PARAM;
-    record.param.ordinal = arg->ordinal;
-    record.param.value = arg->value64;
-    dr_write_file(record_file, &record, sizeof(record));
-    return true; /* keep going */
+    drsyscall_write_param_record(record_file, arg);
+    return true;
 }
 
 static bool
@@ -132,10 +102,10 @@ event_pre_syscall(void *drcontext, int sysnum)
         return false;
     }
 
-    syscall_record_t record = {};
-    record.type = DRSYS_SYSCALL_NUMBER;
-    record.syscall_number = sysnum;
-    dr_write_file(record_file, &record, sizeof(record));
+    if (drsyscall_write_syscall_number_record(record_file, sysnum) == 0) {
+        dr_fprintf(STDERR, "failed to write syscall number record, sysnum = %d", sysnum);
+        return false;
+    }
 
     if (drsys_iterate_args(drcontext, drsys_iter_arg_cb, NULL) != DRMF_SUCCESS) {
         dr_fprintf(STDERR, "drsys_iterate_args failed, sysnum = %d", sysnum);
@@ -177,10 +147,10 @@ event_post_syscall(void *drcontext, int sysnum)
         dr_fprintf(STDERR, "drsys_iterate_memargs failed, sysnum = %d", sysnum);
         return;
     }
-    syscall_record_t record = {};
-    record.type = DRSYS_RECORD_END;
-    record.syscall_number = sysnum;
-    dr_write_file(record_file, &record, sizeof(record));
+    if (drsyscall_write_syscall_end_record(record_file, sysnum) == 0) {
+        dr_fprintf(STDERR, "failed to write syscall end record, sysnum = %d", sysnum);
+        return;
+    }
 }
 
 static void
