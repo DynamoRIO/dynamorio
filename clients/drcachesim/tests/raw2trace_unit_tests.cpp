@@ -514,7 +514,7 @@ test_branch_delays(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #ifdef X64
-        // TODO i#7469: This is a bug. When looking for the kernel_event marker,
+        // TODO i#7470: This is a bug. When looking for the kernel_event marker,
         // raw2trace doesn't look for the ones preceded by the split_value marker
         // because the address was too large for a single marker. Some other marker
         // related logic also needs to expect the split_value marker.
