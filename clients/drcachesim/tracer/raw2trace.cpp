@@ -2794,12 +2794,12 @@ void
 raw2trace_t::unread_last_entry(raw2trace_thread_data_t *tdata)
 {
     VPRINT(5, "Unreading last entry\n");
+    tdata->pre_read.push_front(tdata->last_entry);
     if (tdata->last_entry_is_split) {
         VPRINT(4, "Unreading both parts of split entry at once\n");
         tdata->pre_read.push_front(tdata->last_split_first_entry);
         tdata->last_entry_is_split = false;
     }
-    tdata->pre_read.push_front(tdata->last_entry);
 }
 
 void
