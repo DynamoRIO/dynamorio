@@ -243,10 +243,16 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_instr(memref_t record,
 template <>
 bool
 scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_indirect_branch_instr(
-    memref_t &record, addr_t set_indirect_branch_target)
+    memref_t &record, bool &has_indirect_branch_target, addr_t set_indirect_branch_target)
 {
+    has_indirect_branch_target = false;
     if (type_is_instr_branch(record.instr.type) &&
         !type_is_instr_direct_branch(record.instr.type)) {
+        has_indirect_branch_target = true;
+        // XXX: Zero may not be the perfect sentinel value as an app may have instrs that
+        // jump to pc=0 (and later handle the fault). But current uses of
+        // record_type_is_indirect_branch_instr use only non-zero values for
+        // set_indirect_branch_target based on actual pcs seen in the trace.
         if (set_indirect_branch_target != 0) {
             record.instr.indirect_branch_target = set_indirect_branch_target;
         }
@@ -488,8 +494,10 @@ template <>
 bool
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::
     record_type_is_indirect_branch_instr(trace_entry_t &record,
+                                         bool &has_indirect_branch_target,
                                          addr_t set_indirect_branch_target_unused)
 {
+    has_indirect_branch_target = false;
     // Cannot set the provided indirect branch target here because
     // a prior trace_entry_t would have it.
     return type_is_instr_branch(static_cast<trace_type_t>(record.type)) &&
@@ -1809,6 +1817,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
             set_branch_target_marker = false;
             if (!saw_any_instr) {
                 saw_any_instr = true;
+                bool has_indirect_branch_target = false;
                 // If the last to-be-injected instruction is an indirect branch, set its
                 // indirect_branch_target field to the fallthrough pc of the last
                 // returned instruction from this input (for syscall injection, it would
@@ -1819,11 +1828,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
                 // transfer control (like sigreturn), but we do not trace those anyway
                 // today (neither using Intel-PT, nor QEMU) as there are challenges in
                 // determining the post-syscall resumption point.
-                if (record_type_is_indirect_branch_instr(record,
-                                                         input->last_pc_fallthrough)) {
-                    // For memref_t we do not see a separate branch_target marker, so
-                    // the following does not have any affect and will simply be
-                    // reset at the next instr.
+                if (record_type_is_indirect_branch_instr(
+                        record, has_indirect_branch_target, input->last_pc_fallthrough) &&
+                    !has_indirect_branch_target) {
+                    // trace_entry_t instr records do not hold the indirect branch target;
+                    // instead a separate marker prior to the indirect branch instr holds
+                    // it, which must be set separately.
                     set_branch_target_marker = true;
                 }
             }
