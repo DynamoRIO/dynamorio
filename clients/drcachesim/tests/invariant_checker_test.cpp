@@ -4364,7 +4364,7 @@ check_regdeps(void)
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/0 },
-                         "Failed to catch non-allowed TRACE_MARKER_TYPE_FUNC_ID "marker"))
+                         "Failed to catch non-allowed TRACE_MARKER_TYPE_FUNC_ID marker"))
             return false;
     }
 
