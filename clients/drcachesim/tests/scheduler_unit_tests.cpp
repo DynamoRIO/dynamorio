@@ -2794,12 +2794,22 @@ static bool
 check_ref(std::vector<memref_t> &refs, int &idx, memref_tid_t expected_tid,
           trace_type_t expected_type,
           trace_marker_type_t expected_marker = TRACE_MARKER_TYPE_RESERVED_END,
-          uintptr_t expected_marker_value = 0)
+          uintptr_t expected_marker_or_branch_target_value = 0)
 {
     if (expected_tid != refs[idx].instr.tid || expected_type != refs[idx].instr.type) {
         std::cerr << "Record " << idx << " has tid " << refs[idx].instr.tid
                   << " and type " << refs[idx].instr.type << " != expected tid "
                   << expected_tid << " and expected type " << expected_type << "\n";
+        return false;
+    }
+    if (type_is_instr_branch(expected_type) &&
+        !type_is_instr_direct_branch(expected_type) &&
+        expected_marker_or_branch_target_value != 0 &&
+        refs[idx].instr.indirect_branch_target !=
+            expected_marker_or_branch_target_value) {
+        std::cerr << "Record " << idx << " has ib target value "
+                  << refs[idx].instr.indirect_branch_target << " but expected "
+                  << expected_marker_or_branch_target_value << "\n";
         return false;
     }
     if (expected_type == TRACE_TYPE_MARKER) {
@@ -2809,11 +2819,11 @@ check_ref(std::vector<memref_t> &refs, int &idx, memref_tid_t expected_tid,
                       << expected_marker << "\n";
             return false;
         }
-        if (expected_marker_value != 0 &&
-            expected_marker_value != refs[idx].marker.marker_value) {
+        if (expected_marker_or_branch_target_value != 0 &&
+            expected_marker_or_branch_target_value != refs[idx].marker.marker_value) {
             std::cerr << "Record " << idx << " has marker value "
                       << refs[idx].marker.marker_value << " but expected "
-                      << expected_marker_value << "\n";
+                      << expected_marker_or_branch_target_value << "\n";
             return false;
         }
     }
@@ -6768,7 +6778,8 @@ test_kernel_syscall_sequences()
             test_util::make_timestamp(0),
             test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE),
             test_util::make_instr(SYSCALL_PC_START),
-            test_util::make_instr(SYSCALL_PC_START + 1),
+            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+            test_util::make_instr(SYSCALL_PC_START + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
             test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE),
             // XXX: Currently all syscall traces are concatenated. We may change
             // this to use an archive file instead.
@@ -6776,7 +6787,8 @@ test_kernel_syscall_sequences()
                 TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE + 1),
             test_util::make_instr(SYSCALL_PC_START + 10),
             test_util::make_instr(SYSCALL_PC_START + 11),
-            test_util::make_instr(SYSCALL_PC_START + 12),
+            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+            test_util::make_instr(SYSCALL_PC_START + 12, TRACE_TYPE_INSTR_INDIRECT_JUMP),
             test_util::make_marker(
                 TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1),
             test_util::make_exit(TID_IN_SYSCALLS),
@@ -6805,7 +6817,9 @@ test_kernel_syscall_sequences()
                 test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(
+                    static_cast<addr_t>(42 * tid + instr_idx * 4), TRACE_TYPE_INSTR,
+                    /*size=*/4));
                 if (instr_idx % 2 == 0) {
                     inputs.push_back(test_util::make_marker(
                         TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 2));
@@ -6867,7 +6881,8 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR_INDIRECT_JUMP,
+                      TRACE_MARKER_TYPE_RESERVED_END, 42 * TID_BASE + 1 * 4) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
@@ -6886,7 +6901,8 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR_INDIRECT_JUMP,
+                      TRACE_MARKER_TYPE_RESERVED_END, 42 * (TID_BASE + 2) + 1 * 4) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
@@ -6899,7 +6915,8 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE + 1) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR_INDIRECT_JUMP,
+                      TRACE_MARKER_TYPE_RESERVED_END, 42 * TID_BASE + 3 * 4) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1);
         assert(res);
