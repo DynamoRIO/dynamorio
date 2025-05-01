@@ -474,12 +474,18 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Stream interface version != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER &&
-        !shard->skipped_instrs_) {
-        report_if_false(shard,
-                        static_cast<int64_t>(memref.marker.marker_value) ==
-                            1 + shard->last_chunk_ordinal_,
-                        "Chunks do not increase monotonically");
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER) {
+        if (shard->skipped_instrs_) {
+            report_if_false(shard,
+                            static_cast<int64_t>(memref.marker.marker_value) >=
+                                1 + shard->last_chunk_ordinal_,
+                            "Chunks do not increase");
+        } else {
+            report_if_false(shard,
+                            static_cast<int64_t>(memref.marker.marker_value) ==
+                                1 + shard->last_chunk_ordinal_,
+                            "Chunks do not increase monotonically");
+        }
         shard->last_chunk_ordinal_ = memref.marker.marker_value;
     }
     // Ensure each syscall instruction has a marker immediately afterward.  An
