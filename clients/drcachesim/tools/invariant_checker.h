@@ -250,6 +250,7 @@ protected:
         addr_t prev_syscall_end_branch_target_ = 0;
         // Relevant when -no_abort_on_invariant_error.
         uint64_t error_count_ = 0;
+        int64_t last_chunk_ordinal_ = -1;
     };
 
     // We provide this for subclasses to run these invariants with custom

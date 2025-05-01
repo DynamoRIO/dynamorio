@@ -4389,6 +4389,74 @@ check_regdeps(void)
     return true;
 }
 
+bool
+check_chunk_order(void)
+{
+    std::cerr << "Testing chunk order\n";
+    // Correct: monotonic increase.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: skip.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 3),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Chunks do not increase monotonically",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch chunk ordinal skip"))
+            return false;
+    }
+    // Incorrect: no increase.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Chunks do not increase monotonically",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch chunk ordinal skip"))
+            return false;
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -4402,7 +4470,8 @@ test_main(int argc, const char *argv[])
         check_kernel_syscall_trace() && check_has_instructions() &&
         check_kernel_context_switch_trace() &&
         check_kernel_trace_and_signal_markers(/*for_syscall=*/false) &&
-        check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps()) {
+        check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps() &&
+        check_chunk_order()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
