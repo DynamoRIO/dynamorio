@@ -31,6 +31,7 @@
  */
 
 #include <stdint.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "dr_api.h"
@@ -41,7 +42,11 @@
 #include "drsyscall_record_lib.h"
 #include "syscall.h"
 
+#define WRITE_BUFFER_SIZE 8192
+
+static int offset = 0;
 static file_t record_file;
+static char buffer[WRITE_BUFFER_SIZE];
 
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
@@ -55,17 +60,48 @@ event_filter_syscall(void *drcontext, int sysnum)
     }
 }
 
+static size_t
+write_file(char *buf, size_t size)
+{
+    size_t byte_written = 0;
+    size_t remaining = size;
+
+    while (remaining + offset >= WRITE_BUFFER_SIZE) {
+        memcpy(&buffer[offset], buf, WRITE_BUFFER_SIZE - offset);
+        write(record_file, buffer, WRITE_BUFFER_SIZE);
+        remaining -= WRITE_BUFFER_SIZE - offset;
+        buf += WRITE_BUFFER_SIZE - offset;
+        byte_written += WRITE_BUFFER_SIZE - offset;
+        offset = 0;
+    }
+    if (remaining > 0) {
+        memcpy(&buffer[offset], buf, remaining);
+        offset += remaining;
+        byte_written += remaining;
+    }
+    return byte_written;
+}
+
+static size_t
+flush_file()
+{
+    if (offset > 0) {
+        write(record_file, buffer, offset);
+    }
+    return offset;
+}
+
 static bool
 drsys_iter_memarg_cb(drsys_arg_t *arg, void *user_data)
 {
-    drsyscall_write_memarg_record(record_file, arg);
+    drsyscall_write_memarg_record(write_file, arg);
     return true;
 }
 
 static bool
 drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
 {
-    drsyscall_write_param_record(record_file, arg);
+    drsyscall_write_param_record(write_file, arg);
     return true;
 }
 
@@ -102,7 +138,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         return false;
     }
 
-    if (drsyscall_write_syscall_number_record(record_file, sysnum) == 0) {
+    if (drsyscall_write_syscall_number_record(write_file, sysnum) == 0) {
         dr_fprintf(STDERR, "failed to write syscall number record, sysnum = %d", sysnum);
         return false;
     }
@@ -147,7 +183,7 @@ event_post_syscall(void *drcontext, int sysnum)
         dr_fprintf(STDERR, "drsys_iterate_memargs failed, sysnum = %d", sysnum);
         return;
     }
-    if (drsyscall_write_syscall_end_record(record_file, sysnum) == 0) {
+    if (drsyscall_write_syscall_end_record(write_file, sysnum) == 0) {
         dr_fprintf(STDERR, "failed to write syscall end record, sysnum = %d", sysnum);
         return;
     }
@@ -156,6 +192,7 @@ event_post_syscall(void *drcontext, int sysnum)
 static void
 exit_event(void)
 {
+    flush_file();
     dr_close_file(record_file);
     if (drsys_exit() != DRMF_SUCCESS) {
         dr_fprintf(STDERR, "drsys failed to exit");

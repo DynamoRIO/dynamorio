@@ -190,10 +190,10 @@ if (UNIX)
   install_ext_header(drsyscall_record.h)
   install_ext_header(drsyscall_record_lib.h)
 
-  add_executable(drsyscall_record_reader drsyscall_record_reader.c)
-  configure_DynamoRIO_standalone(drsyscall_record_reader)
-  use_DynamoRIO_extension(drsyscall_record_reader drsyscall_record_lib)
-  # We don't want drsyscall_record_reader installed so we avoid the standard location.
-  set_target_properties(drsyscall_record_reader PROPERTIES
+  add_executable(drsyscall_record_viewer drsyscall_record_viewer.c)
+  configure_DynamoRIO_standalone(drsyscall_record_viewer)
+  use_DynamoRIO_extension(drsyscall_record_viewer drsyscall_record_lib)
+  # We don't want drsyscall_record_viewer installed so we avoid the standard location.
+  set_target_properties(drsyscall_record_viewer PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/ext")
 endif ()

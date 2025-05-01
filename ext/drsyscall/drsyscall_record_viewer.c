@@ -35,6 +35,63 @@
 
 #include "drsyscall_record_lib.h"
 
+int record_file;
+
+static size_t
+read_func(char *buffer, size_t size)
+{
+    return read(record_file, buffer, size);
+}
+
+static bool
+record_cb(syscall_record_t *record)
+{
+    switch (record->type) {
+    case DRSYS_SYSCALL_NUMBER:
+        fprintf(stdout, "syscall: %d\n", record->syscall_number);
+        break;
+    case DRSYS_PRECALL_PARAM:
+    case DRSYS_POSTCALL_PARAM:
+        fprintf(stdout, "%s-syscall ordinal %d, value " PIFX "\n",
+                (record->type == DRSYS_PRECALL_PARAM ? "pre" : "post"),
+                record->param.ordinal, record->param.value);
+        break;
+    case DRSYS_MEMORY_CONTENT:
+        fprintf(stdout, "memory content address " PFX ", size " PIFX "\n    ",
+                record->content.address, record->content.size);
+        break;
+    case DRSYS_RETURN_VALUE:
+        fprintf(stdout, "return value " PIFX "\n", record->return_value);
+        break;
+    case DRSYS_RECORD_END:
+        fprintf(stdout, "syscall end: %d\n", record->syscall_number);
+        break;
+    default: fprintf(stderr, "unknown record type %d\n", record->type); return false;
+    }
+    return true;
+}
+
+static bool
+memory_cb(char *buffer, size_t size, bool last_buffer)
+{
+    static size_t count = 0;
+    for (char *ptr = buffer; count < size; ++count, ++ptr) {
+        fprintf(stdout, "%02x", *ptr);
+        if ((count + 1) % 16 == 0) {
+            fprintf(stdout, "\n    ");
+            continue;
+        }
+        if ((count + 1) % 4 == 0) {
+            fprintf(stdout, " ");
+        }
+    }
+    if (last_buffer) {
+        count = 0;
+        fprintf(stdout, "\n");
+    }
+    return true;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -43,11 +100,11 @@ main(int argc, char *argv[])
         return -1;
     }
 
-    int record_file = open(argv[1], O_RDONLY);
+    record_file = open(argv[1], O_RDONLY);
     if (record_file == -1) {
         fprintf(stderr, "unable to open file %s\n", argv[1]);
         return -1;
     }
 
-    return drsyscall_read_record_file(stdout, stderr, record_file);
+    drsyscall_iterate_records(read_func, record_cb, memory_cb);
 }

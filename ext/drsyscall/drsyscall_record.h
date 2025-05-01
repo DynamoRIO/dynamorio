@@ -36,11 +36,17 @@
 #include <stdint.h>
 #include "dr_api.h"
 
+// XXX i#7472: Move definitions of START_PACKED_STRUCTURE and
+// END_PACKED_STRUCTURE to core.
 #ifdef WINDOWS
-/* START_PACKED_STRUCTURE can't be used after typedef (b/c MSVC compiler
- * has bug where it accepts #pragma but not __pragma there) and thus the
- * struct have to be typedef-ed in two steps.
- * see example struct _packed_frame_t at common/callstack.c
+/* Use special C99 operator _Pragma to generate a pragma from a macro */
+#    if _MSC_VER <= 1200
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
+#    else
+#        define ACTUAL_PRAGMA(p) __pragma(p)
+#    endif
+/* Usage: if planning to typedef, that must be done separately, as MSVC will
+ * not take _pragma after typedef.
  */
 #    define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
 #    define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
@@ -49,6 +55,7 @@
 #    define END_PACKED_STRUCTURE __attribute__((__packed__))
 #endif
 
+/** The type of the syscall record. */
 typedef enum {
     DRSYS_SYSCALL_NUMBER = 1, /**< Start of a syscall. */
     DRSYS_PRECALL_PARAM,      /**< Pre-syscall parameter. */
@@ -64,6 +71,10 @@ typedef enum {
  */
 #define SYSCALL_RECORD_UNION_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
 
+/**
+ * Describes a system call number, parameter, memory region, or the return
+ * value.
+ */
 START_PACKED_STRUCTURE
 typedef struct syscall_record_t_ {
     // type is one of syscall_record_type_t.

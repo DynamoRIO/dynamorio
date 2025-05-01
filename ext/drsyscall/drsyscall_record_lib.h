@@ -38,51 +38,106 @@
 #include "drsyscall.h"
 #include "drsyscall_record.h"
 
-DR_EXPORT
 /**
- * Reads system call records from \p record_file and outputs the content to \p
- * output_stream. Any errors encountered during this process are reported to the
- * \p error_stream.
- * @return 0 on success, or -1 if an error occurs.
+ * A user provoided function to read syscall records. Returns the number of bytes read.
+ * Returns 0 if there are no more records.
  */
-int
-drsyscall_read_record_file(DR_PARAM_IN FILE *output_stream,
-                           DR_PARAM_IN FILE *error_stream, DR_PARAM_IN int record_file);
+typedef size_t (*drsyscall_record_read_t)(DR_PARAM_IN char *buffer,
+                                          DR_PARAM_IN size_t size);
+
+/**
+ * A user provoided function to write syscall records. Returns the number of bytes
+ * written.
+ */
+typedef size_t (*drsyscall_record_write_t)(DR_PARAM_IN char *buffer,
+                                           DR_PARAM_IN size_t size);
+
+/**
+ * Callback function to invoke for each syscall record. Returns true to continue, false to
+ * stop.
+ */
+typedef bool (*drsyscall_iter_record_cb_t)(DR_PARAM_IN syscall_record_t *record);
+
+/**
+ * Callback function to invoke for each memory region. The callback function
+ * might be invoked multiple times for a memory region. If \p last_buffer is
+ * false, it indicates more data is available, true otherwise.
+ */
+typedef bool (*drsyscall_iter_memory_cb_t)(DR_PARAM_IN char *buffer,
+                                           DR_PARAM_IN size_t size,
+                                           DR_PARAM_IN bool last_buffer);
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_PRECALL_PARAM or #DRSYS_PRECALL_PARAM to \p
- * record_file based on \p arg.
- * @return the actual number of bytes written, or -1 if an error occues.
+ * Dynamically iterates over all syscall records.
+ *
+ * @param[in] read_func  A user provided function to read syscall records.
+ * @param[in] record_cb  The callback to invoke for each syscall record.
+ * @param[in] memory_cb  The callback to invoke for memory region content. The
+ *                       callback may be invoke multiple times for a memory
+ *                       region. last_buffer is set to true for the last call of
+ *                       a memory region.
+ *
+ * \return true on success, or false if an error occurs.
  */
-int
-drsyscall_write_param_record(DR_PARAM_IN int record_file, DR_PARAM_IN drsys_arg_t *arg);
+bool
+drsyscall_iterate_records(DR_PARAM_IN drsyscall_record_read_t read_func,
+                          DR_PARAM_IN drsyscall_iter_record_cb_t record_cb,
+                          DR_PARAM_IN drsyscall_iter_memory_cb_t memory_cb);
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_MEMORY_CONTENT to \p record_file based on \p
+ * Write a #syscall_record_t of type #DRSYS_PRECALL_PARAM or #DRSYS_PRECALL_PARAM
+ * based on \p arg.
+ *
+ * @param[in] write_func  A user provided function to write syscall record.
+ * @param[in] arg         System call parameter or memory region.
+ *
+ * \return the actual number of bytes written, or -1 if an error occurs.
+ */
+int
+drsyscall_write_param_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+                             DR_PARAM_IN drsys_arg_t *arg);
+
+DR_EXPORT
+/**
+ * Write a #syscall_record_t of type #DRSYS_MEMORY_CONTENT record_file based on \p
  * arg.
- * @return the actual number of bytes written, or -1 if an error occues.
+ *
+ * @param[in] write_func  A user provided function to write syscall record.
+ * @param[in] arg         System call parameter or memory region.
+ *
+ * @return the actual number of bytes written, or -1 if an error occurs.
  */
 int
-drsyscall_write_memarg_record(DR_PARAM_IN int record_file, DR_PARAM_IN drsys_arg_t *arg);
+drsyscall_write_memarg_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+                              DR_PARAM_IN drsys_arg_t *arg);
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_SYSCALL_NUMBER to \p record_file based on \p
+ * Write a #syscall_record_t of type #DRSYS_SYSCALL_NUMBER based on \p
  * arg.
+ *
+ * @param[in] write_func  A user provided function to write syscall record.
+ * @param[in] arg         System call parameter or memory region.
+ *
  * @return the actual number of bytes written.
  */
 int
-drsyscall_write_syscall_number_record(DR_PARAM_IN int record_file,
+drsyscall_write_syscall_number_record(DR_PARAM_IN drsyscall_record_write_t write_func,
                                       DR_PARAM_IN int sysnum);
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_RECORD_END to \p record_file based on \p arg.
+ * Write a #syscall_record_t of type #DRSYS_RECORD_END based on \p arg.
+ *
+ * @param[in] write_func  A user provided function to write syscall record.
+ * @param[in] arg         System call parameter or memory region.
+ *
  * @return the actual number of bytes written.
  */
 int
-drsyscall_write_syscall_end_record(DR_PARAM_IN int record_file, DR_PARAM_IN int sysnum);
+drsyscall_write_syscall_end_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+                                   DR_PARAM_IN int sysnum);
 
 #endif /* _DRSYSCALL_RECORD_LIB_H_ */

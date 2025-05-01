@@ -30,75 +30,102 @@
  * DAMAGE.
  */
 
-#include <stdio.h>
-#include <unistd.h>
+#include <string.h>
 
 #include "drsyscall.h"
 #include "drsyscall_record.h"
+#include "drsyscall_record_lib.h"
+
+#define MAX_BUFFER_SIZE 8192
 
 DR_EXPORT
-int
-drsyscall_read_record_file(DR_PARAM_IN FILE *output_stream,
-                           DR_PARAM_IN FILE *error_stream, DR_PARAM_IN int record_file)
+bool
+drsyscall_iterate_records(drsyscall_record_read_t read_func,
+                          drsyscall_iter_record_cb_t record_cb,
+                          drsyscall_iter_memory_cb_t memory_cb)
 {
-    syscall_record_t record = {};
-    while (read(record_file, &record, sizeof(record)) == sizeof(record)) {
-        switch (record.type) {
-        case DRSYS_SYSCALL_NUMBER:
-            fprintf(output_stream, "syscall: %d\n", record.syscall_number);
-            break;
-        case DRSYS_PRECALL_PARAM:
-        case DRSYS_POSTCALL_PARAM:
-            fprintf(output_stream, "%s-syscall ordinal %d, value " PIFX "\n",
-                    (record.type == DRSYS_PRECALL_PARAM ? "pre" : "post"),
-                    record.param.ordinal, record.param.value);
-            break;
-        case DRSYS_MEMORY_CONTENT:
-            fprintf(output_stream, "memory content address " PFX ", size " PIFX "\n    ",
-                    record.content.address, record.content.size);
-            char *buffer = (char *)malloc(record.content.size);
-            if (buffer == NULL) {
-                fprintf(error_stream,
-                        "failed to allocate buffer to read the record file.\n");
-                return -1;
-            }
-            if (read(record_file, buffer, record.content.size) != record.content.size) {
-                fprintf(error_stream,
-                        "failed to read " PIFX " bytes from the record file.\n",
-                        sizeof(buffer));
-                return -1;
-            }
-            char *ptr = buffer;
-            for (size_t count = 0; count < record.content.size; ++count, ++ptr) {
-                fprintf(output_stream, "%02x", *ptr);
-                if ((count + 1) % 16 == 0) {
-                    fprintf(output_stream, "\n    ");
-                    continue;
-                }
-                if ((count + 1) % 4 == 0) {
-                    fprintf(output_stream, " ");
-                }
-            }
+    if (read_func == NULL) {
+        return false;
+    }
+    const size_t buffer_size = MAX_BUFFER_SIZE;
+    char *buffer = (char *)malloc(buffer_size);
+    int offset = 0;
+    size_t remaining = 0;
+    while (true) {
+        if (remaining > 0) {
+            // Move the remaining bytes to the beginning of the buffer and read more to
+            // fill the buffer.
+            memcpy(buffer, buffer + offset, remaining);
+            remaining += read_func(buffer + remaining, buffer_size - remaining);
+            offset = 0;
+        } else {
+            remaining += read_func(buffer + offset, buffer_size - offset);
+        }
+        if (remaining == 0) {
             free(buffer);
-            fprintf(output_stream, "\n");
-            break;
-        case DRSYS_RETURN_VALUE:
-            fprintf(output_stream, "return value " PIFX "\n", record.return_value);
-            break;
-        case DRSYS_RECORD_END:
-            fprintf(output_stream, "syscall end: %d\n", record.syscall_number);
-            break;
-        default:
-            fprintf(error_stream, "unknown record type %d\n", record.type);
-            return -1;
+            return true;
+        }
+        while (remaining >= sizeof(syscall_record_t)) {
+            syscall_record_t *record = (syscall_record_t *)(buffer + offset);
+            switch (record->type) {
+            case DRSYS_SYSCALL_NUMBER:
+            case DRSYS_PRECALL_PARAM:
+            case DRSYS_POSTCALL_PARAM:
+            case DRSYS_RETURN_VALUE:
+            case DRSYS_RECORD_END:
+                if (!record_cb(record)) {
+                    free(buffer);
+                    return false;
+                }
+                offset += sizeof(syscall_record_t);
+                remaining -= sizeof(syscall_record_t);
+                break;
+            case DRSYS_MEMORY_CONTENT:
+                if (!record_cb(record)) {
+                    free(buffer);
+                    return false;
+                }
+                offset += sizeof(syscall_record_t);
+                remaining -= sizeof(syscall_record_t);
+                size_t remaining_content_size = record->content.size;
+                while (remaining_content_size > 0) {
+                    if (remaining >= remaining_content_size) {
+                        if (!memory_cb(buffer + offset, remaining_content_size,
+                                       /*last_buffer=*/true)) {
+                            free(buffer);
+                            return false;
+                        }
+                        offset += remaining_content_size;
+                        remaining -= remaining_content_size;
+                        remaining_content_size = 0;
+                        break;
+                    }
+                    if (!memory_cb(buffer + offset, remaining,
+                                   /*last_buffer=*/false)) {
+                        free(buffer);
+                        return false;
+                    }
+                    remaining_content_size -= remaining;
+                    offset = 0;
+                    remaining = read_func(buffer, buffer_size);
+                    if (remaining < 0) {
+                        free(buffer);
+                        return true;
+                    }
+                }
+                break;
+            default: free(buffer); return false;
+            }
         }
     }
-    return 0;
+    free(buffer);
+    return true;
 }
 
 DR_EXPORT
 int
-drsyscall_write_param_record(DR_PARAM_IN int record_file, DR_PARAM_IN drsys_arg_t *arg)
+drsyscall_write_param_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+                             DR_PARAM_IN drsys_arg_t *arg)
 {
     if (!arg->valid) {
         return 0;
@@ -113,18 +140,19 @@ drsyscall_write_param_record(DR_PARAM_IN int record_file, DR_PARAM_IN drsys_arg_
         syscall_record_t record = {};
         record.type = DRSYS_RETURN_VALUE;
         record.return_value = arg->value64;
-        return write(record_file, &record, sizeof(record));
+        return write_func((char *)&record, sizeof(record));
     }
     syscall_record_t record = {};
     record.type = arg->pre ? DRSYS_PRECALL_PARAM : DRSYS_POSTCALL_PARAM;
     record.param.ordinal = arg->ordinal;
     record.param.value = arg->value64;
-    return write(record_file, &record, sizeof(record));
+    return write_func((char *)&record, sizeof(record));
 }
 
 DR_EXPORT
 int
-drsyscall_write_memarg_record(DR_PARAM_IN int record_file, DR_PARAM_IN drsys_arg_t *arg)
+drsyscall_write_memarg_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+                              DR_PARAM_IN drsys_arg_t *arg)
 {
     if (!arg->valid) {
         return 0;
@@ -136,30 +164,32 @@ drsyscall_write_memarg_record(DR_PARAM_IN int record_file, DR_PARAM_IN drsys_arg
         record.type = DRSYS_MEMORY_CONTENT;
         record.content.address = arg->start_addr;
         record.content.size = arg->size;
-        if (write(record_file, &record, sizeof(record)) != sizeof(record)) {
+        if (write_func((char *)&record, sizeof(record)) != sizeof(record)) {
             return -1;
         }
-        return write(record_file, arg->start_addr, arg->size);
+        return write_func((char *)arg->start_addr, arg->size);
     }
     return 0;
 }
 
 DR_EXPORT
 int
-drsyscall_write_syscall_number_record(DR_PARAM_IN int record_file, DR_PARAM_IN int sysnum)
+drsyscall_write_syscall_number_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+                                      DR_PARAM_IN int sysnum)
 {
     syscall_record_t record = {};
     record.type = DRSYS_SYSCALL_NUMBER;
     record.syscall_number = sysnum;
-    return write(record_file, &record, sizeof(record));
+    return write_func((char *)&record, sizeof(record));
 }
 
 DR_EXPORT
 int
-drsyscall_write_syscall_end_record(DR_PARAM_IN int record_file, DR_PARAM_IN int sysnum)
+drsyscall_write_syscall_end_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+                                   DR_PARAM_IN int sysnum)
 {
     syscall_record_t record = {};
     record.type = DRSYS_RECORD_END;
     record.syscall_number = sysnum;
-    return write(record_file, &record, sizeof(record));
+    return write_func((char *)&record, sizeof(record));
 }
