@@ -227,9 +227,38 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_set_pid(memref_t &record,
 
 template <>
 bool
-scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_instr(memref_t record)
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_instr(memref_t record,
+                                                                addr_t *pc, size_t *size)
 {
-    return type_is_instr(record.instr.type);
+    if (type_is_instr(record.instr.type)) {
+        if (pc != nullptr)
+            *pc = record.instr.addr;
+        if (size != nullptr)
+            *size = record.instr.size;
+        return true;
+    }
+    return false;
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_indirect_branch_instr(
+    memref_t &record, bool &has_indirect_branch_target, addr_t set_indirect_branch_target)
+{
+    has_indirect_branch_target = false;
+    if (type_is_instr_branch(record.instr.type) &&
+        !type_is_instr_direct_branch(record.instr.type)) {
+        has_indirect_branch_target = true;
+        // XXX: Zero may not be the perfect sentinel value as an app may have instrs that
+        // jump to pc=0 (and later handle the fault). But current uses of
+        // record_type_is_indirect_branch_instr use only non-zero values for
+        // set_indirect_branch_target based on actual pcs seen in the trace.
+        if (set_indirect_branch_target != 0) {
+            record.instr.indirect_branch_target = set_indirect_branch_target;
+        }
+        return true;
+    }
+    return false;
 }
 
 template <>
@@ -449,9 +478,30 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_set_pid(
 template <>
 bool
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr(
-    trace_entry_t record)
+    trace_entry_t record, addr_t *pc, size_t *size)
 {
-    return type_is_instr(static_cast<trace_type_t>(record.type));
+    if (type_is_instr(static_cast<trace_type_t>(record.type))) {
+        if (pc != nullptr)
+            *pc = record.addr;
+        if (size != nullptr)
+            *size = record.size;
+        return true;
+    }
+    return false;
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::
+    record_type_is_indirect_branch_instr(trace_entry_t &record,
+                                         bool &has_indirect_branch_target,
+                                         addr_t set_indirect_branch_target_unused)
+{
+    has_indirect_branch_target = false;
+    // Cannot set the provided indirect branch target here because
+    // a prior trace_entry_t would have it.
+    return type_is_instr_branch(static_cast<trace_type_t>(record.type)) &&
+        !type_is_instr_direct_branch(static_cast<trace_type_t>(record.type));
 }
 
 template <>
@@ -1756,9 +1806,43 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     // odd to have regular records with the new tid before the top headers.
     if (sequence.empty())
         return stream_status_t::STATUS_EOF;
+    bool saw_any_instr = false;
+    bool set_branch_target_marker = false;
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value = 0;
     for (int i = static_cast<int>(sequence.size()) - 1; i >= 0; --i) {
         RecordType record = sequence[i];
         record_type_set_tid(record, input->tid);
+        if (record_type_is_instr(record)) {
+            set_branch_target_marker = false;
+            if (!saw_any_instr) {
+                saw_any_instr = true;
+                bool has_indirect_branch_target = false;
+                // If the last to-be-injected instruction is an indirect branch, set its
+                // indirect_branch_target field to the fallthrough pc of the last
+                // returned instruction from this input (for syscall injection, it would
+                // be the syscall for which we're injecting the trace). This is simpler
+                // than trying to get the actual next instruction on this input for which
+                // we would need to read-ahead.
+                // XXX i#6495, i#7157: The above strategy does not work for syscalls that
+                // transfer control (like sigreturn), but we do not trace those anyway
+                // today (neither using Intel-PT, nor QEMU) as there are challenges in
+                // determining the post-syscall resumption point.
+                if (record_type_is_indirect_branch_instr(
+                        record, has_indirect_branch_target, input->last_pc_fallthrough) &&
+                    !has_indirect_branch_target) {
+                    // trace_entry_t instr records do not hold the indirect branch target;
+                    // instead a separate marker prior to the indirect branch instr holds
+                    // it, which must be set separately.
+                    set_branch_target_marker = true;
+                }
+            }
+        } else if (set_branch_target_marker &&
+                   record_type_is_marker(record, marker_type, marker_value) &&
+                   marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
+            record_type_set_marker_value(record, input->last_pc_fallthrough);
+            set_branch_target_marker = false;
+        }
         input->queue.push_front(record);
     }
     return stream_status_t::STATUS_OK;
@@ -2896,6 +2980,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
 {
     trace_marker_type_t marker_type;
     uintptr_t marker_value;
+    addr_t instr_pc;
+    size_t instr_size;
     // Good to queue the injected records at this point, because we now surely will
     // be done with TRACE_MARKER_TYPE_SYSCALL.
     if (record_type_is_marker(record, marker_type, marker_value) &&
@@ -2914,6 +3000,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         } else if (res != stream_status_t::STATUS_EOF) {
             return res;
         }
+    } else if (record_type_is_instr(record, &instr_pc, &instr_size)) {
+        input->last_pc_fallthrough = instr_pc + instr_size;
     }
     return stream_status_t::STATUS_OK;
 }
