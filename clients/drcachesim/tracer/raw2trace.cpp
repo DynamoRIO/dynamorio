@@ -3036,8 +3036,8 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     }
 
     std::ostringstream stream;
-    stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
-           << tdata->chunk_count_;
+    stream << TRACE_CHUNK_PREFIX << std::setfill('0')
+           << std::setw(TRACE_CHUNK_SUFFIX_WIDTH) << tdata->chunk_count_;
     tdata->error = tdata->out_archive->open_new_component(stream.str());
     if (!tdata->error.empty())
         return false;
