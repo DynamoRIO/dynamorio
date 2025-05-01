@@ -74,13 +74,15 @@ invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
                                          std::string test_name,
                                          std::istream *serial_schedule_file,
                                          std::istream *cpu_schedule_file,
-                                         bool abort_on_invariant_error)
+                                         bool abort_on_invariant_error,
+                                         bool dynamic_syscall_trace_injection)
     : knob_offline_(offline)
     , knob_verbose_(verbose)
     , knob_test_name_(test_name)
     , serial_schedule_file_(serial_schedule_file)
     , cpu_schedule_file_(cpu_schedule_file)
     , abort_on_invariant_error_(abort_on_invariant_error)
+    , dynamic_syscall_trace_injection_(dynamic_syscall_trace_injection)
 {
     if (knob_test_name_ == "kernel_xfer_app" || knob_test_name_ == "rseq_app")
         has_annotations_ = true;
@@ -276,6 +278,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         ++shard->instr_count_;
         ++shard->instr_count_since_last_timestamp_;
     }
+    if (dynamic_syscall_trace_injection_ &&
+        (shard->between_kernel_syscall_trace_markers_ ||
+         (memref.marker.type == TRACE_TYPE_MARKER &&
+          memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START))) {
+        ++shard->dyn_injected_syscall_ref_count_;
+        if (type_is_instr(memref.instr.type)) {
+            ++shard->dyn_injected_syscall_instr_count_;
+        }
+    }
     // XXX: We also can't verify counts with a skip invoked from the middle, but
     // we have no simple way to detect that here.
     if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && !is_a_unit_test(shard) &&
@@ -288,10 +299,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (!shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         (shard->stream != serial_stream_ || shard_map_.size() == 1)) {
-        report_if_false(shard, shard->ref_count_ == shard->stream->get_record_ordinal(),
+        report_if_false(shard,
+                        shard->ref_count_ - shard->dyn_injected_syscall_ref_count_ ==
+                            shard->stream->get_record_ordinal(),
                         "Stream record ordinal inaccurate");
         report_if_false(shard,
-                        shard->instr_count_ == shard->stream->get_instruction_ordinal(),
+                        shard->instr_count_ - shard->dyn_injected_syscall_instr_count_ ==
+                            shard->stream->get_instruction_ordinal(),
                         "Stream instr ordinal inaccurate");
     }
     bool prev_was_syscall_marker_saved = shard->prev_was_syscall_marker_;
@@ -1334,7 +1348,8 @@ invariant_checker_t::process_memref(const memref_t &memref)
 void
 invariant_checker_t::check_schedule_data(per_shard_t *global)
 {
-    if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
+    if (dynamic_syscall_trace_injection_ ||
+        (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr))
         return;
     // Check that the scheduling data in the files written by raw2trace match
     // the data in the trace.
