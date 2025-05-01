@@ -94,6 +94,15 @@ public:
         return true;
     }
 
+    // Pretend we skipped (this is far easier than adding a lot of logic to
+    // default_memtrace_stream_t and handling is_a_unit_test() in the checker).
+    void
+    set_skipped(void *void_shard)
+    {
+        per_shard_t *shard = reinterpret_cast<per_shard_t *>(void_shard);
+        shard->skipped_instrs_ = true;
+    }
+
 protected:
     void
     report_if_false(per_shard_t *shard, bool condition,
@@ -121,10 +130,13 @@ bool
 run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             const error_info_t &expected_error_info = {},
             const std::string &toprint_if_fail = "",
-            std::istream *serial_schedule_file = nullptr)
+            std::istream *serial_schedule_file = nullptr,
+            // If set_skipped is true we only test parallel as it's more
+            // complex to set skipped for serial.
+            bool set_skipped = false)
 {
     // Serial.
-    {
+    if (!set_skipped) {
         checker_no_abort_t checker(/*offline=*/true, /*serial=*/true,
                                    serial_schedule_file);
         default_memtrace_stream_t stream;
@@ -171,6 +183,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 if (shardA == nullptr) {
                     shardA =
                         checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                    if (set_skipped)
+                        checker.set_skipped(shardA);
                 }
                 checker.parallel_shard_memref(shardA, memref);
                 break;
@@ -178,6 +192,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 if (shardB == nullptr) {
                     shardB =
                         checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                    if (set_skipped)
+                        checker.set_skipped(shardB);
                 }
                 checker.parallel_shard_memref(shardB, memref);
                 break;
@@ -185,6 +201,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 if (shardC == nullptr) {
                     shardC =
                         checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                    if (set_skipped)
+                        checker.set_skipped(shardC);
                 }
                 checker.parallel_shard_memref(shardC, memref);
                 break;
@@ -4389,6 +4407,92 @@ check_regdeps(void)
     return true;
 }
 
+bool
+check_chunk_order(void)
+{
+    std::cerr << "Testing chunk order\n";
+    // Correct: monotonic increase.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: skip.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 3),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Chunks do not increase monotonically",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch chunk ordinal skip"))
+            return false;
+    }
+    // Incorrect: no increase.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Chunks do not increase monotonically",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch chunk ordinal skip"))
+            return false;
+    }
+    // Correct: skip when we did an explicit skip.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 7),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 8),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 9),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false, {}, "", /*serial_schedule_file=*/nullptr,
+                         /*set_skipped=*/true))
+            return false;
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -4402,7 +4506,8 @@ test_main(int argc, const char *argv[])
         check_kernel_syscall_trace() && check_has_instructions() &&
         check_kernel_context_switch_trace() &&
         check_kernel_trace_and_signal_markers(/*for_syscall=*/false) &&
-        check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps()) {
+        check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps() &&
+        check_chunk_order()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
