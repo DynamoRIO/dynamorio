@@ -474,7 +474,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Stream interface version != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER &&
+        !shard->skipped_instrs_) {
         report_if_false(shard,
                         static_cast<int64_t>(memref.marker.marker_value) ==
                             1 + shard->last_chunk_ordinal_,
