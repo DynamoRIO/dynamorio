@@ -40,7 +40,7 @@
 
 /**
  * A user provided function to read syscall records. Returns the number of bytes read.
- * Returns 0 if there are no more records.
+ * Returns 0 if there are no more bytes.
  */
 typedef size_t (*drsyscall_record_read_t)(DR_PARAM_IN char *buffer,
                                           DR_PARAM_IN size_t size);
@@ -71,7 +71,8 @@ DR_EXPORT
  * @param[in] read_func  A user provided function to read syscall records.
  * @param[in] record_cb  The callback to invoke for each syscall record.
  *
- * \return true on success, or false if an error occurs.
+ * \return true when read_func returns 0 or record_cb returns false. Return false if an
+ * error occurs.
  */
 bool
 drsyscall_iterate_records(DR_PARAM_IN drsyscall_record_read_t read_func,
