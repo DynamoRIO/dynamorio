@@ -570,9 +570,9 @@ compute_irregular_trace_windows(std::vector<instr_interval_t> &instr_intervals)
     // must have a duration long enough to cover the end of the program.
     irregular_window_ptr =
         (irregular_window_t *)dr_global_alloc(sizeof(irregular_window_t));
-    // A no_trace_for_instrs window of 0 means: delay forever, don't start a tracing
-    // window.
-    irregular_window_ptr->no_trace_for_instrs = 0;
+    // We assume that a no_trace_for_instrs of UINT64_MAX is a long enough period that we
+    // stop tracing for the remaining execution of the traced program.
+    irregular_window_ptr->no_trace_for_instrs = UINT64_MAX;
     irregular_window_ptr->trace_for_instrs = 0;
     drvector_set_entry(&irregular_windows_list, num_intervals, irregular_window_ptr);
 }
