@@ -90,14 +90,14 @@ typedef struct syscall_record_t_ {
         uint8_t _raw_bytes[SYSCALL_RECORD_UNION_SIZE_BYTES]; /**< Do not use: for init
                                                                 only. */
         /**
-         * The syscall number. It is used for type #DRSYS_SYSCALL_NUMBER or
-         * #DRSYS_RECORD_END.
+         * The syscall number. It is used for type DRSYS_SYSCALL_NUMBER or
+         * DRSYS_RECORD_END.
          */
         uint16_t syscall_number;
         START_PACKED_STRUCTURE
         /**
-         * The parameter of a syscall. It is used for type #DRSYS_PRECALL_PARAM and
-         * #DRSYS_POSTCALL_PARAM.
+         * The parameter of a syscall. It is used for type DRSYS_PRECALL_PARAM and
+         * DRSYS_POSTCALL_PARAM.
          */
         struct {
             uint16_t ordinal; /**< The ordinal of the parameter. Set to -1 for a return
@@ -107,12 +107,12 @@ typedef struct syscall_record_t_ {
         START_PACKED_STRUCTURE
         /**
          * The memory address and the size of a syscall parameter. It is used for
-         * type #DRSYS_MEMORY_CONTENT. */
+         * type DRSYS_MEMORY_CONTENT. */
         struct {
             uint8_t *address; /**< The address of the memory region. */
             size_t size;      /**< The size of the memory region. */
         } END_PACKED_STRUCTURE content;
-        /** The return value of the syscall. It is used for type #DRSYS_RETURN_VALUE. */
+        /** The return value of the syscall. It is used for type DRSYS_RETURN_VALUE. */
         reg_t return_value;
     };
 } END_PACKED_STRUCTURE syscall_record_t;

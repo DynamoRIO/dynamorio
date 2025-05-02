@@ -175,7 +175,7 @@ use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatuc)
 use_DynamoRIO_extension(drsyscall_drstatic drmgr_static)
 configure_drsyscall_target(drsyscall_drstatic)
 
-if (UNIX)
+if (LINUX)
   set(drsyscall_record_lib_srcs
     drsyscall_record_lib.c
   )
