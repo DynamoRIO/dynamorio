@@ -41,6 +41,7 @@
 #include <stddef.h>
 #include <atomic>
 #include <cstdint>
+#include <inttypes.h>
 
 // These libraries are safe to use during initialization only.
 // See api/docs/deployment.dox sec_static_DR.
@@ -512,7 +513,7 @@ parse_instr_intervals_file(std::string path_to_file)
             last_interval.duration = max_end - last_interval.start;
             NOTIFY(0,
                    "Instruction interval starting at %" PRIu64 " has been merged with "
-                   "instruction interval starting at %" PRIu64 ".\n",
+                   "instruction interval starting at %" PRIu64 " .\n",
                    last_interval.start, interval.start);
         } else {
             instr_intervals_merged.emplace_back(interval);
