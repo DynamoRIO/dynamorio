@@ -157,13 +157,8 @@ get_current_no_trace_for_instrs_value()
     return 0;
 }
 
-// This function returns true if there exists an instruction count threshold to enable
-// tracing. A value of 0 from get_current_no_trace_for_instrs_value() means the
-// instruction count threshold is infinite, so no tracing will be enabled after.
-// This does not apply for the first "no_trace" window, where
-// get_initial_no_trace_for_instrs_value() returning 0 means: start tracing immediately.
-// We handle this special case setting the initial value of reached_trace_after_instrs to
-// false, and then setting it to true after the first "trace" window starts.
+// This function returns true if, at the current no-trace window, there exists an
+// instruction count threshold to enable tracing.
 static bool
 has_instr_count_threshold_to_enable_tracing()
 {
