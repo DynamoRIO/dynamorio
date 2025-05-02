@@ -41,7 +41,7 @@
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif
@@ -80,29 +80,39 @@ typedef struct syscall_record_t_ {
     // type is one of syscall_record_type_t.
     uint16_t type;
     union {
-        // The _raw_bytes entry is for initialization purposes and must be first in
-        // this list.  A byte array is used for initialization rather than an existing
-        // struct to avoid incomplete initialization due to padding or alignment
-        // constraints within a struct.  This array is not intended to be used for
-        // syscall_record_t access.
+        /**
+         * The _raw_bytes entry is for initialization purposes and must be first in
+         * this list.  A byte array is used for initialization rather than an existing
+         * struct to avoid incomplete initialization due to padding or alignment
+         * constraints within a struct.  This array is not intended to be used for
+         * syscall_record_t access.
+         */
         uint8_t _raw_bytes[SYSCALL_RECORD_UNION_SIZE_BYTES]; /**< Do not use: for init
                                                                 only. */
-        // syscall_number is used when the type is #DRSYS_SYSCALL_NUMBER or
-        // #DRSYS_RECORD_END.
+        /**
+         * The syscall number. It is used for type #DRSYS_SYSCALL_NUMBER or
+         * #DRSYS_RECORD_END.
+         */
         uint16_t syscall_number;
         START_PACKED_STRUCTURE
-        // param is used for type #DRSYS_PRECALL_PARAM and #DRSYS_POSTCALL_PARAM.
+        /**
+         * The parameter of a syscall. It is used for type #DRSYS_PRECALL_PARAM and
+         * #DRSYS_POSTCALL_PARAM.
+         */
         struct {
-            uint16_t ordinal;
-            reg_t value;
+            uint16_t ordinal; /**< The ordinal of the parameter. Set to -1 for a return
+                                 value */
+            reg_t value;      /**< The value of the parameter. */
         } END_PACKED_STRUCTURE param;
         START_PACKED_STRUCTURE
-        // content is used for type #DRSYS_MEMORY_CONTENT.
+        /**
+         * The memory address and the size of a syscall parameter. It is used for
+         * type #DRSYS_MEMORY_CONTENT. */
         struct {
-            uint8_t *address;
-            size_t size;
+            uint8_t *address; /**< The address of the memory region. */
+            size_t size;      /**< The size of the memory region. */
         } END_PACKED_STRUCTURE content;
-        // return_value is used for type #DRSYS_RETURN_VALUE.
+        /** The return value of the syscall. It is used for type #DRSYS_RETURN_VALUE. */
         reg_t return_value;
     };
 } END_PACKED_STRUCTURE syscall_record_t;

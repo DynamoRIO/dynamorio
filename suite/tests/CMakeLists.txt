@@ -6351,7 +6351,7 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
   set(client.syscall-records-test_precmd
     "rm@${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
   string(CONCAT client.syscall-records-test_postcmd
-    "${PROJECT_BINARY_DIR}/ext/drsyscall_record_viewer@"
+    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
     "${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
   set(client.syscall-records-test_expectbase "syscall-records")
   tobuild_ci(client.syscall-records-test

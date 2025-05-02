@@ -39,33 +39,30 @@
 #include "drsyscall_record.h"
 
 /**
- * A user provoided function to read syscall records. Returns the number of bytes read.
+ * A user provided function to read syscall records. Returns the number of bytes read.
  * Returns 0 if there are no more records.
  */
 typedef size_t (*drsyscall_record_read_t)(DR_PARAM_IN char *buffer,
                                           DR_PARAM_IN size_t size);
 
 /**
- * A user provoided function to write syscall records. Returns the number of bytes
+ * A user provided function to write syscall records. Returns the number of bytes
  * written.
  */
 typedef size_t (*drsyscall_record_write_t)(DR_PARAM_IN char *buffer,
                                            DR_PARAM_IN size_t size);
 
 /**
- * Callback function to invoke for each syscall record. Returns true to continue, false to
- * stop.
+ * Callback function to invoke for each syscall record. For record type
+ * #DRSYS_MEMORY_CONTENT, \p buffer points to the beginning of the buffer and
+ * \p size is the size of the buffer. \p buffer is NULL and \p size is 0 for
+ * other types.
+ *
+ * Returns true to continue, false to stop.
  */
-typedef bool (*drsyscall_iter_record_cb_t)(DR_PARAM_IN syscall_record_t *record);
-
-/**
- * Callback function to invoke for each memory region. The callback function
- * might be invoked multiple times for a memory region. If \p last_buffer is
- * false, it indicates more data is available, true otherwise.
- */
-typedef bool (*drsyscall_iter_memory_cb_t)(DR_PARAM_IN char *buffer,
-                                           DR_PARAM_IN size_t size,
-                                           DR_PARAM_IN bool last_buffer);
+typedef bool (*drsyscall_iter_record_cb_t)(DR_PARAM_IN syscall_record_t *record,
+                                           DR_PARAM_IN char *buffer,
+                                           DR_PARAM_IN size_t size);
 
 DR_EXPORT
 /**
@@ -73,17 +70,12 @@ DR_EXPORT
  *
  * @param[in] read_func  A user provided function to read syscall records.
  * @param[in] record_cb  The callback to invoke for each syscall record.
- * @param[in] memory_cb  The callback to invoke for memory region content. The
- *                       callback may be invoke multiple times for a memory
- *                       region. last_buffer is set to true for the last call of
- *                       a memory region.
  *
  * \return true on success, or false if an error occurs.
  */
 bool
 drsyscall_iterate_records(DR_PARAM_IN drsyscall_record_read_t read_func,
-                          DR_PARAM_IN drsyscall_iter_record_cb_t record_cb,
-                          DR_PARAM_IN drsyscall_iter_memory_cb_t memory_cb);
+                          DR_PARAM_IN drsyscall_iter_record_cb_t record_cb);
 
 DR_EXPORT
 /**

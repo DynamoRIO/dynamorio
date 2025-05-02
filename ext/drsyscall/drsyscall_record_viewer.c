@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 
+#include "dr_api.h"
 #include "drsyscall_record_lib.h"
 
 int record_file;
@@ -44,50 +45,37 @@ read_func(char *buffer, size_t size)
 }
 
 static bool
-record_cb(syscall_record_t *record)
+record_cb(syscall_record_t *record, char *buffer, size_t size)
 {
     switch (record->type) {
-    case DRSYS_SYSCALL_NUMBER:
-        fprintf(stdout, "syscall: %d\n", record->syscall_number);
-        break;
+    case DRSYS_SYSCALL_NUMBER: dr_printf("syscall: %d\n", record->syscall_number); break;
     case DRSYS_PRECALL_PARAM:
     case DRSYS_POSTCALL_PARAM:
-        fprintf(stdout, "%s-syscall ordinal %d, value " PIFX "\n",
-                (record->type == DRSYS_PRECALL_PARAM ? "pre" : "post"),
-                record->param.ordinal, record->param.value);
+        dr_printf("%s-syscall ordinal %d, value " PIFX "\n",
+                  (record->type == DRSYS_PRECALL_PARAM ? "pre" : "post"),
+                  record->param.ordinal, record->param.value);
         break;
     case DRSYS_MEMORY_CONTENT:
-        fprintf(stdout, "memory content address " PFX ", size " PIFX "\n    ",
-                record->content.address, record->content.size);
+        dr_printf("memory content address " PFX ", size " PIFX "\n    ",
+                  record->content.address, record->content.size);
+        size_t count = 0;
+        for (char *ptr = buffer; count < size; ++count, ++ptr) {
+            dr_printf("%02x", *ptr);
+            if ((count + 1) % 16 == 0) {
+                dr_printf("\n    ");
+                continue;
+            }
+            if ((count + 1) % 4 == 0) {
+                dr_printf(" ");
+            }
+        }
+        dr_printf("\n");
         break;
     case DRSYS_RETURN_VALUE:
-        fprintf(stdout, "return value " PIFX "\n", record->return_value);
+        dr_printf("return value " PIFX "\n", record->return_value);
         break;
-    case DRSYS_RECORD_END:
-        fprintf(stdout, "syscall end: %d\n", record->syscall_number);
-        break;
-    default: fprintf(stderr, "unknown record type %d\n", record->type); return false;
-    }
-    return true;
-}
-
-static bool
-memory_cb(char *buffer, size_t size, bool last_buffer)
-{
-    static size_t count = 0;
-    for (char *ptr = buffer; count < size; ++count, ++ptr) {
-        fprintf(stdout, "%02x", *ptr);
-        if ((count + 1) % 16 == 0) {
-            fprintf(stdout, "\n    ");
-            continue;
-        }
-        if ((count + 1) % 4 == 0) {
-            fprintf(stdout, " ");
-        }
-    }
-    if (last_buffer) {
-        count = 0;
-        fprintf(stdout, "\n");
+    case DRSYS_RECORD_END: dr_printf("syscall end: %d\n", record->syscall_number); break;
+    default: dr_printf("unknown record type %d\n", record->type); return false;
     }
     return true;
 }
@@ -96,15 +84,15 @@ int
 main(int argc, char *argv[])
 {
     if (argc < 2) {
-        fprintf(stderr, "The name of the syscall record file is required.\n");
+        dr_printf("The name of the syscall record file is required.\n");
         return -1;
     }
 
     record_file = open(argv[1], O_RDONLY);
     if (record_file == -1) {
-        fprintf(stderr, "unable to open file %s\n", argv[1]);
+        dr_printf("unable to open file %s\n", argv[1]);
         return -1;
     }
 
-    drsyscall_iterate_records(read_func, record_cb, memory_cb);
+    drsyscall_iterate_records(read_func, record_cb);
 }

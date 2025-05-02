@@ -35,20 +35,20 @@
 #include "drsyscall.h"
 #include "drsyscall_record.h"
 #include "drsyscall_record_lib.h"
+#include "utils.h"
 
 #define MAX_BUFFER_SIZE 8192
 
 DR_EXPORT
 bool
 drsyscall_iterate_records(drsyscall_record_read_t read_func,
-                          drsyscall_iter_record_cb_t record_cb,
-                          drsyscall_iter_memory_cb_t memory_cb)
+                          drsyscall_iter_record_cb_t record_cb)
 {
     if (read_func == NULL) {
         return false;
     }
     const size_t buffer_size = MAX_BUFFER_SIZE;
-    char *buffer = (char *)malloc(buffer_size);
+    char *buffer = (char *)global_alloc(buffer_size, HEAPSTAT_MISC);
     int offset = 0;
     size_t remaining = 0;
     while (true) {
@@ -62,7 +62,7 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
             remaining += read_func(buffer + offset, buffer_size - offset);
         }
         if (remaining == 0) {
-            free(buffer);
+            global_free(buffer, buffer_size, HEAPSTAT_MISC);
             return true;
         }
         while (remaining >= sizeof(syscall_record_t)) {
@@ -73,52 +73,45 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
             case DRSYS_POSTCALL_PARAM:
             case DRSYS_RETURN_VALUE:
             case DRSYS_RECORD_END:
-                if (!record_cb(record)) {
-                    free(buffer);
+                if (!record_cb(record, NULL, 0)) {
+                    global_free(buffer, buffer_size, HEAPSTAT_MISC);
                     return false;
                 }
                 offset += sizeof(syscall_record_t);
                 remaining -= sizeof(syscall_record_t);
                 break;
             case DRSYS_MEMORY_CONTENT:
-                if (!record_cb(record)) {
-                    free(buffer);
-                    return false;
-                }
-                offset += sizeof(syscall_record_t);
-                remaining -= sizeof(syscall_record_t);
-                size_t remaining_content_size = record->content.size;
-                while (remaining_content_size > 0) {
-                    if (remaining >= remaining_content_size) {
-                        if (!memory_cb(buffer + offset, remaining_content_size,
-                                       /*last_buffer=*/true)) {
-                            free(buffer);
-                            return false;
-                        }
-                        offset += remaining_content_size;
-                        remaining -= remaining_content_size;
-                        remaining_content_size = 0;
-                        break;
-                    }
-                    if (!memory_cb(buffer + offset, remaining,
-                                   /*last_buffer=*/false)) {
-                        free(buffer);
+                const size_t content_size = record->content.size;
+                if (remaining >= content_size) {
+                    if (!record_cb(record, buffer + offset + sizeof(syscall_record_t),
+                                   content_size)) {
                         return false;
                     }
-                    remaining_content_size -= remaining;
-                    offset = 0;
-                    remaining = read_func(buffer, buffer_size);
-                    if (remaining < 0) {
-                        free(buffer);
-                        return true;
-                    }
+                    offset += sizeof(syscall_record_t) + content_size;
+                    remaining -= sizeof(syscall_record_t) + content_size;
+                    break;
                 }
+                const size_t remaining_bytes = content_size - remaining;
+                char *content = (char *)global_alloc(remaining_bytes, HEAPSTAT_MISC);
+                memcpy(content, buffer + offset + sizeof(syscall_record_t), remaining);
+                if (read_func(content + remaining, remaining_bytes) < remaining_bytes) {
+                    global_free(content, remaining_bytes, HEAPSTAT_MISC);
+                    return false;
+                }
+                if (!record_cb(record, content, remaining_bytes)) {
+                    global_free(content, remaining_bytes, HEAPSTAT_MISC);
+                    global_free(buffer, buffer_size, HEAPSTAT_MISC);
+                    return false;
+                }
+                global_free(content, remaining_bytes, HEAPSTAT_MISC);
+                offset = 0;
+                remaining = buffer_size;
                 break;
-            default: free(buffer); return false;
+            default: global_free(buffer, buffer_size, HEAPSTAT_MISC); return false;
             }
         }
     }
-    free(buffer);
+    global_free(buffer, buffer_size, HEAPSTAT_MISC);
     return true;
 }
 

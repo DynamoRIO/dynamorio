@@ -180,11 +180,14 @@ if (UNIX)
     drsyscall_record_lib.c
   )
 
-  add_library(drsyscall_record_lib STATIC ${drsyscall_record_lib_srcs})
-  configure_extension(drsyscall_record_lib ON OFF)
+  set(drsyscall_record_lib_external_srcs
+    ../drmf/framework/drmf_utils.c
+  )
+
+  add_library(drsyscall_record_lib STATIC ${drsyscall_record_lib_srcs}
+    ${drsyscall_record_lib_external_srcs})
+  configure_extension(drsyscall_record_lib ON ON)
   configure_DynamoRIO_client(drsyscall_record_lib)
-  append_property_string(TARGET drsyscall_record_lib COMPILE_FLAGS "-fno-exceptions")
-  set_target_properties(drsyscall_record_lib PROPERTIES INTERFACE_LINK_LIBRARIES "")
   use_DynamoRIO_extension(drutil_static drmgr_static)
 
   install_ext_header(drsyscall_record.h)
@@ -192,8 +195,8 @@ if (UNIX)
 
   add_executable(drsyscall_record_viewer drsyscall_record_viewer.c)
   configure_DynamoRIO_standalone(drsyscall_record_viewer)
+  configure_DynamoRIO_static(drsyscall_record_viewer)
   use_DynamoRIO_extension(drsyscall_record_viewer drsyscall_record_lib)
-  # We don't want drsyscall_record_viewer installed so we avoid the standard location.
   set_target_properties(drsyscall_record_viewer PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/ext")
+    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
 endif ()
