@@ -47,7 +47,8 @@ typedef size_t (*drsyscall_record_read_t)(DR_PARAM_IN char *buffer,
 
 /**
  * A user provided function to write syscall records. Returns the number of bytes
- * written.
+ * written. For performance optimization, the function should implement buffering
+ * to write records in bulk.
  */
 typedef size_t (*drsyscall_record_write_t)(DR_PARAM_IN char *buffer,
                                            DR_PARAM_IN size_t size);
