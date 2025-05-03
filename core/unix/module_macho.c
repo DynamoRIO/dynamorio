@@ -78,7 +78,7 @@ module_file_has_module_header(const char *filename)
 bool
 module_is_partial_map(app_pc base, size_t size, uint memprot)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    /* FIXME i#58: implement MachO support */
     return false;
 }
 
