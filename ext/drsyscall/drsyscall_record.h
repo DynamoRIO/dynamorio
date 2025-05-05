@@ -36,6 +36,14 @@
 #include <stdint.h>
 #include "dr_api.h"
 
+/**************************************************
+ * TOP-LEVEL ROUTINES
+ */
+/**
+ * @file drsyscall_record.h
+ * @brief Header for Dr. Syscall system call records.
+ */
+
 // XXX i#7472: Move definitions of START_PACKED_STRUCTURE and
 // END_PACKED_STRUCTURE to core.
 #ifdef WINDOWS
@@ -88,10 +96,9 @@ typedef struct syscall_record_t_ {
     union {
         /**
          * The _raw_bytes entry is for initialization purposes and must be first in
-         * this list.  A byte array is used for initialization rather than an existing
+         * this list. A byte array is used for initialization rather than an existing
          * struct to avoid incomplete initialization due to padding or alignment
-         * constraints within a struct.  This array is not intended to be used for
-         * #syscall_record_t access.
+         * constraints within a struct. This array is not intended to be used.
          */
         uint8_t _raw_bytes[SYSCALL_RECORD_UNION_SIZE_BYTES];
         /**
