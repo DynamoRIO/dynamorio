@@ -57,12 +57,18 @@
 
 /** The type of the syscall record. */
 typedef enum {
-    DRSYS_SYSCALL_NUMBER = 1, /**< Start of a syscall. */
-    DRSYS_PRECALL_PARAM,      /**< Pre-syscall parameter. */
-    DRSYS_POSTCALL_PARAM,     /**< Post-syscall parameter. */
-    DRSYS_MEMORY_CONTENT,     /**< Memory address, size, and content. */
-    DRSYS_RETURN_VALUE,       /**< Return value of the syscall. */
-    DRSYS_RECORD_END,         /**< End of a syscall. */
+    /** Start of a syscall. */
+    DRSYS_SYSCALL_NUMBER = 1,
+    /** Pre-syscall parameter.*/
+    DRSYS_PRECALL_PARAM,
+    /** Post-syscall parameter. */
+    DRSYS_POSTCALL_PARAM,
+    /** Memory address, size, and content. */
+    DRSYS_MEMORY_CONTENT,
+    /** Return value of the syscall. */
+    DRSYS_RETURN_VALUE,
+    /** End of a syscall. */
+    DRSYS_RECORD_END,
 } syscall_record_type_t;
 
 /**
