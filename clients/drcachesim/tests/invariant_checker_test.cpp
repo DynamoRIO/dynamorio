@@ -3487,8 +3487,8 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
-    // Control resumes at the kernel_event marker with the the sys pc, instead of the
-    // pc specified in the syscall-end branch target marker which is sys+len(sys).
+    // Control resumes at the kernel_event marker with the sys instr pc, instead of the
+    // pc specified in the syscall-trace-end branch_target marker which is sys+len(sys).
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
