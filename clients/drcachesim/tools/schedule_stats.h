@@ -374,7 +374,7 @@ protected:
     bool
     update_state_time(per_shard_t *shard, state_t state);
 
-    void
+    virtual void
     record_context_switch(per_shard_t *shard, int64_t workload_id, int64_t tid,
                           int64_t input_id, int64_t letter_ord);
 
