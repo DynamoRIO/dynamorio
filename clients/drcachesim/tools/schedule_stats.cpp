@@ -211,8 +211,11 @@ schedule_stats_t::update_state_time(per_shard_t *shard, state_t state)
     return true;
 }
 
+// shard->prev_workload_id and shard->prev_tid are cleared when this is called,
+// so we pass in the preserved values so there's no confusion.
 void
-schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t workload_id,
+schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workload_id,
+                                        int64_t prev_tid, int64_t workload_id,
                                         int64_t tid, int64_t input_id, int64_t letter_ord)
 {
     // We convert to letters which only works well for <=26 inputs.
@@ -372,7 +375,8 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
         // See XXX comment in get_scheduler_stats(): this measures swap-ins, while
         // "perf" measures swap-outs.
-        record_context_switch(shard, workload_id, tid, input_id, letter_ord);
+        record_context_switch(shard, prev_workload_id, prev_tid, workload_id, tid,
+                              input_id, letter_ord);
     }
     shard->prev_workload_id = workload_id;
     shard->prev_tid = tid;
