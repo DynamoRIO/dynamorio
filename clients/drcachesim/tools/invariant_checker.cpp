@@ -1520,7 +1520,16 @@ invariant_checker_t::check_for_pc_discontinuity(
     if (shard->prev_syscall_end_branch_target_ != 0) {
         const addr_t syscall_end_branch_target = shard->prev_syscall_end_branch_target_;
         shard->prev_syscall_end_branch_target_ = 0;
-        if (syscall_end_branch_target != cur_pc)
+        if (!(syscall_end_branch_target == cur_pc ||
+              // XXX i#7157, i#6495: For auto-restart syscalls interrupted by a signal,
+              // the kernel_event marker will hold the syscall pc itself. However, the
+              // kernel syscall injection logic sets the syscall-trace-end branch_target
+              // marker to the fallthrough pc of the syscall. We bail on trying to
+              // read-ahead and figure this out during injection, since the kernel_event
+              // marker already holds the correct next pc. Also, for such interrupted
+              // syscalls, maybe we shouldn't inject the full syscall trace anyway.
+              (at_kernel_event &&
+               syscall_end_branch_target == cur_pc + prev_instr_info.memref.instr.size)))
             return "Syscall trace-end branch marker incorrect";
     }
     if (prev_instr_trace_pc == 0 /*first*/) {
