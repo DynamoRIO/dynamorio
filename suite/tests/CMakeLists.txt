@@ -1568,8 +1568,16 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     endif ()
     get_filename_component(toolbindir ${toolbindir} DIRECTORY)
     add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${toolbindir}
-      -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
-      -D clear=${clear_arg} -D pidfile=${pidfile}
+      -D precmd=${${key}_precmd}
+      -D cmd=${cmd_with_at}
+      -D postcmd=${${key}_postcmd}
+      -D postcmd2=${${key}_postcmd2}
+      -D postcmd3=${${key}_postcmd3}
+      -D postcmd4=${${key}_postcmd4}
+      -D out=${tmpfile}
+      -D nudge=${nudge_arg}
+      -D clear=${clear_arg}
+      -D pidfile=${pidfile}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
   elseif (is_runcmp)
     # Some apps have enough output that ctest runs out of memory when
@@ -6366,6 +6374,23 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     linux/syscall-records.c "" "" "")
   use_DynamoRIO_extension(client.syscall-records-test.dll drsyscall)
   use_DynamoRIO_extension(client.syscall-records-test.dll drsyscall_record_lib)
+
+  add_exe(linux.syscall_records_attach linux/syscall-records-attach.c)
+  set(client.attach-memory-dump-syscall-test_precmd
+    "rm@${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
+  string(CONCAT client.attach-memory-dump-syscall-test_postcmd
+    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
+    "${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
+  tobuild_ci(client.attach-memory-dump-syscall-test
+    client-interface/attach-memory-dump-syscall-test.c "" "" "")
+  torunonly_ci(client.attach-memory-dump-syscall-test linux.syscall_records_attach
+    client.attach-memory-dump-syscall-test.dll
+    client-interface/attach-memory-dump-syscall-test.runall "" "" "")
+  use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
+    drsyscall)
+  use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
+    drsyscall_record_lib)
+
 endif ()
 
 ###########################################################################
