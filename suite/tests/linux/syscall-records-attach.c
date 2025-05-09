@@ -49,6 +49,13 @@ signal_handler(int sig)
     exit(1);
 }
 
+/*
+ * This test captures a memory dump mid-run and records syscall arguments
+ * along with memory regions to a file. Syscalls are invoked by open(),
+ * write(), lseek(), read(), print(),  close() and remove(). Given the non-deterministic
+ * termination of the while loop, our verification is limited to the syscall write()
+ * invoked by print("done\n") in signal_handler().
+ */
 int
 main(int argc, char **argv)
 {
@@ -58,7 +65,9 @@ main(int argc, char **argv)
 
     intercept_signal(SIGTERM, (handler_3_t)signal_handler, /*sigstack=*/false);
 
-    sprintf(filename, "syscall_record_attach_test.%d.txt", getpid());
+    snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
+             "syscall_record_attach_test.%d.txt", getpid());
+    NULL_TERMINATE_BUFFER(filename);
     int fd = open(filename, O_CREAT | O_RDWR);
     if (fd < 0) {
         print("failed to open file %s to write\n", filename);

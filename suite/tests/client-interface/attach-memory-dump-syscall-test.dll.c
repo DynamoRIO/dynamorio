@@ -45,7 +45,7 @@
 #define NUDGE_ARG_DUMP_MEMORY 1
 #define WRITE_BUFFER_SIZE 8192
 
-static char path[MAXIMUM_PATH];
+static char memory_dump_file_path[MAXIMUM_PATH];
 static client_id_t client_id = 0;
 static thread_id_t thread_id = 0;
 static bool saw_thread_init_event = false;
@@ -206,17 +206,18 @@ event_nudge(void *drcontext, uint64 arg)
         dr_memory_dump_spec_t spec;
         spec.size = sizeof(dr_memory_dump_spec_t);
         spec.flags = DR_MEMORY_DUMP_ELF;
-        spec.elf_path = (char *)&path;
-        spec.elf_path_size = MAXIMUM_PATH;
+        spec.elf_path = (char *)&memory_dump_file_path;
+        spec.elf_path_size = BUFFER_SIZE_ELEMENTS(memory_dump_file_path);
 
         if (!dr_create_memory_dump(&spec)) {
             dr_fprintf(STDERR, "Error: failed to create memory dump.\n");
             return;
         }
 
-        file_t memory_dump_file = dr_open_file(path, DR_FILE_READ);
+        // Open the memory dump file to validate the size is larger than zero.
+        file_t memory_dump_file = dr_open_file(memory_dump_file_path, DR_FILE_READ);
         if (memory_dump_file < 0) {
-            dr_fprintf(STDERR, "Error: failed to read memory dump file: %s.\n", path);
+            dr_fprintf(STDERR, "Error: failed to read memory dump file: %s.\n", memory_dump_file_path);
             return;
         }
 
@@ -224,13 +225,13 @@ event_nudge(void *drcontext, uint64 arg)
         if (!dr_file_size(memory_dump_file, &file_size)) {
             dr_fprintf(STDERR,
                        "Error: failed to read the size of the memory dump file: %s.\n",
-                       path);
+                       memory_dump_file_path);
             dr_close_file(memory_dump_file);
             return;
         }
 
         if (file_size == 0)
-            dr_fprintf(STDERR, "Error: memory dump file %s is empty.\n", path);
+            dr_fprintf(STDERR, "Error: memory dump file %s is empty.\n", memory_dump_file_path);
 
         dr_close_file(memory_dump_file);
         return;
@@ -274,7 +275,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
            sizeof(syscall_record_t));
 
     char filename[MAXIMUM_PATH];
-    sprintf(filename, "attach_syscall_record_file.%d", getpid());
+    snprintf(filename, BUFFER_SIZE_ELEMENTS(filename), "attach_syscall_record_file.%d",
+             getpid());
+    NULL_TERMINATE_BUFFER(filename);
     record_file = dr_open_file(filename, DR_FILE_WRITE_OVERWRITE);
     if (record_file == INVALID_FILE) {
         dr_fprintf(STDERR, "Error opening file %d\n", filename);
