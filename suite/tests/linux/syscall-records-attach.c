@@ -90,6 +90,7 @@ main(int argc, char **argv)
         for (int i = 0; i < sizeof(hello_world); ++i) {
             sum += hello_world[i];
         }
+        sleep(1);
     }
     if (close(fd) != 0) {
         print("failed to close file %s after reading\n", filename);
