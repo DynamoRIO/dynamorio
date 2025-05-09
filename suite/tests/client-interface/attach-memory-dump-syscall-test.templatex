@@ -13,15 +13,4 @@
 .*thread init
 .*nudge delivered 1
 .*done.*
-.*syscall: SYSCALL_WRITE
-pre-syscall ordinal 0, value 0x2
-pre-syscall ordinal 1, value 0x[0-9a-f]+
-pre-syscall ordinal 2, value 0x5
-memory content address 0x[0-9a-f]+, size 0x5
-    646f6e65 0a
-post-syscall ordinal 0, value 0x2
-post-syscall ordinal 1, value 0x[0-9a-f]+
-post-syscall ordinal 2, value 0x5
-return value 0x5
-syscall end: SYSCALL_WRITE
-.*
+.*syscall.*

@@ -6381,10 +6381,8 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
   string(CONCAT client.attach-memory-dump-syscall-test_postcmd
     "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
     "${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
+  set(client.attach-memory-dump-syscall-test_realtest linux.syscall_records_attach)
   tobuild_ci(client.attach-memory-dump-syscall-test
-    client-interface/attach-memory-dump-syscall-test.c "" "" "")
-  torunonly_ci(client.attach-memory-dump-syscall-test linux.syscall_records_attach
-    client.attach-memory-dump-syscall-test.dll
     client-interface/attach-memory-dump-syscall-test.runall "" "" "")
   use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
     drsyscall)
