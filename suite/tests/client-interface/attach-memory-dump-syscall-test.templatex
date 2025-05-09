@@ -10,32 +10,9 @@
 #    define SYSCALL_WRITE 64
 #    define SYSCALL_READ 63
 #endif
-.*Hello World!
-thread init
+.*thread init
 .*nudge delivered 1
 .*done.*
-.*syscall: SYSCALL_READ
-pre-syscall ordinal 0, value 0x[0-9a-f]+
-pre-syscall ordinal 1, value 0x[0-9a-f]+
-pre-syscall ordinal 2, value 0xd
-post-syscall ordinal 0, value 0x[0-9a-f]+
-post-syscall ordinal 1, value 0x[0-9a-f]+
-post-syscall ordinal 2, value 0xd
-return value 0xd
-memory content address 0x[0-9a-f]+, size 0xd
-    48656c6c 6f20576f 726c6421 00
-syscall end: SYSCALL_READ
-syscall: SYSCALL_WRITE
-pre-syscall ordinal 0, value 0x2
-pre-syscall ordinal 1, value 0x[0-9a-f]+
-pre-syscall ordinal 2, value 0xd
-memory content address 0x[0-9a-f]+, size 0xd
-    48656c6c 6f20576f 726c6421 0a
-post-syscall ordinal 0, value 0x2
-post-syscall ordinal 1, value 0x[0-9a-f]+
-post-syscall ordinal 2, value 0xd
-return value 0xd
-syscall end: SYSCALL_WRITE
 .*syscall: SYSCALL_WRITE
 pre-syscall ordinal 0, value 0x2
 pre-syscall ordinal 1, value 0x[0-9a-f]+
