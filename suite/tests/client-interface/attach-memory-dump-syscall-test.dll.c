@@ -217,7 +217,8 @@ event_nudge(void *drcontext, uint64 arg)
         // Open the memory dump file to validate the size is larger than zero.
         file_t memory_dump_file = dr_open_file(memory_dump_file_path, DR_FILE_READ);
         if (memory_dump_file < 0) {
-            dr_fprintf(STDERR, "Error: failed to read memory dump file: %s.\n", memory_dump_file_path);
+            dr_fprintf(STDERR, "Error: failed to read memory dump file: %s.\n",
+                       memory_dump_file_path);
             return;
         }
 
@@ -231,7 +232,8 @@ event_nudge(void *drcontext, uint64 arg)
         }
 
         if (file_size == 0)
-            dr_fprintf(STDERR, "Error: memory dump file %s is empty.\n", memory_dump_file_path);
+            dr_fprintf(STDERR, "Error: memory dump file %s is empty.\n",
+                       memory_dump_file_path);
 
         dr_close_file(memory_dump_file);
         return;
