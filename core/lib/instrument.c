@@ -6398,6 +6398,8 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
     ptr_uint_t address, target;
     reg_id_t dir = DR_REG_NULL;
     reg_id_t flags = DR_REG_NULL;
+    reg_id_t temp = DR_REG_X0;
+    bool temp_used = false;
     int opc;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_insert_cbr_instrumentation: drcontext cannot be NULL");
@@ -6414,6 +6416,18 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
         /* XXX: which is faster, additional conditional branch or cmp + csinc? */
         opnd_t reg_op = instr_get_src(instr, 1);
         reg_id_t reg = opnd_get_reg(reg_op);
+        /* If the register is stolen, we need to read the actual value first. */
+        if (reg_is_stolen(reg)) {
+            /* Save old value of temp register to SPILL_SLOT_3. */
+            dr_save_reg(dcontext, ilist, instr, temp, SPILL_SLOT_3);
+            /* Read actual register value if stolen */
+            dr_insert_get_stolen_reg_value(dcontext, ilist, instr, temp);
+            /* Use temp register to access actual register value. */
+            temp_used = true;
+            reg = reg_resize_to_opsz(temp, reg_get_size(reg));
+            reg_op = opnd_create_reg(reg);
+        }
+
         /* Use dir register to compute direction. */
         dir = (reg_to_pointer_sized(reg) == DR_REG_X0) ? DR_REG_X1 : DR_REG_X0;
         /* Save old value of dir register to SPILL_SLOT_1. */
@@ -6438,6 +6452,17 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
         opnd_t reg_op = instr_get_src(instr, 1);
         reg_id_t reg = opnd_get_reg(reg_op);
         reg_id_t dir_same_width = DR_REG_NULL;
+        /* If the register is stolen, we need to read the actual value first. */
+        if (reg_is_stolen(reg)) {
+            /* Save old value of temp register to SPILL_SLOT_3. */
+            dr_save_reg(dcontext, ilist, instr, temp, SPILL_SLOT_3);
+            /* Read actual register value if stolen */
+            dr_insert_get_stolen_reg_value(dcontext, ilist, instr, temp);
+            /* Use temp register to access actual register value. */
+            temp_used = true;
+            reg = reg_resize_to_opsz(temp, reg_get_size(reg));
+            reg_op = opnd_create_reg(reg);
+        }
 
         /* Use dir register to compute direction. */
         dir = (reg_to_pointer_sized(reg) == DR_REG_X0) ? DR_REG_X1 : DR_REG_X0;
@@ -6525,6 +6550,10 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
         dr_restore_reg(dcontext, ilist, instr, dir, SPILL_SLOT_1);
     } else {
         CLIENT_ASSERT(false, "unknown conditional branch type");
+    }
+    if (temp_used) {
+        /* Restore old value of temp register. */
+        dr_restore_reg(dcontext, ilist, instr, temp, SPILL_SLOT_3);
     }
 #endif /* X86/ARM/RISCV64/AARCH64 */
 }
