@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,9 @@
 
 // This is set globally in CMake for other tests so easier to undef here.
 #undef DR_REG_ENUM_COMPATIBILITY
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 #include "analyzer.h"
 #include "tools/basic_counts.h"

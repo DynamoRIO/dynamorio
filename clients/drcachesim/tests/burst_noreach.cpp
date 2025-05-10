@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,9 @@
  * it allocates a lot of heap, preventing the statically linked client from
  * being 32-bit reachable from any available space for the code cache.
  */
+
+// Enable asserts in release build testing too.
+#undef NDEBUG
 
 /* Like burst_static we deliberately do not include configure.h here. */
 #include "dr_api.h"
