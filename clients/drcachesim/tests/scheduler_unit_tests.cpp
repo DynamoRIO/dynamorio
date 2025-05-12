@@ -6844,14 +6844,18 @@ test_kernel_syscall_sequences()
                     if (instr_idx == 0) {
                         // If the syscall was specified in -record_syscall, we'll have
                         // additional markers.
-                        inputs.push_back(
-                            test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID,
-                                                   /*value=*/0x100000000 + SYSCALL_BASE));
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_FUNC_ID,
+                            static_cast<uintptr_t>(
+                                func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                                SYSCALL_BASE));
                         inputs.push_back(test_util::make_marker(
                             TRACE_MARKER_TYPE_FUNC_ARG, /*value=*/10));
-                        inputs.push_back(
-                            test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID,
-                                                   /*value=*/0x100000000 + SYSCALL_BASE));
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_FUNC_ID,
+                            static_cast<uintptr_t>(
+                                func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                                SYSCALL_BASE));
                         inputs.push_back(test_util::make_marker(
                             TRACE_MARKER_TYPE_FUNC_RETVAL, /*value=*/1));
                         inputs.push_back(test_util::make_marker(
@@ -6916,11 +6920,15 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_FUNC_ID, 0x100000000 + SYSCALL_BASE) &&
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_FUNC_ARG, 10) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_FUNC_ID, 0x100000000 + SYSCALL_BASE) &&
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_FUNC_RETVAL, 1) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
@@ -6953,11 +6961,15 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_FUNC_ID, 0x100000000 + SYSCALL_BASE) &&
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_FUNC_ARG, 10) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_FUNC_ID, 0x100000000 + SYSCALL_BASE) &&
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_FUNC_RETVAL, 1) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
