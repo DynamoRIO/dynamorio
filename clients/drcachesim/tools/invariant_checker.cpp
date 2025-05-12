@@ -639,13 +639,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
         report_if_false(shard, shard->between_kernel_syscall_trace_markers_,
                         "Found kernel syscall trace end without start");
-        report_if_false(shard,
-                        shard->last_syscall_marker_value_ ==
-                                static_cast<int>(memref.marker.marker_value) ||
-                            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
-                                    shard->file_type_),
-                        "Mismatching syscall num in trace end and syscall marker");
-        shard->found_syscall_trace_after_last_userspace_instr_ = true;
+        if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                     shard->file_type_)) {
+            report_if_false(shard,
+                            shard->last_syscall_marker_value_ ==
+                                static_cast<int>(memref.marker.marker_value),
+                            "Mismatching syscall num in trace end and syscall marker");
+            // Syscall trace templates do not have any user-space instr.
+            shard->found_syscall_trace_after_last_userspace_instr_ = true;
+        }
         // TODO i#5505: Ideally the last instruction in the system call PT trace
         // also would be an indirect CTI with a TRACE_MARKER_TYPE_BRANCH_TARGET
         // marker pointing to the next user-space instr. But, as also mentioned
@@ -888,7 +890,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #ifdef X86
             if (cur_instr_info.decoding.opcode_ == OP_sti)
                 shard->instrs_since_sti = 0;
-            else
+            else if (shard->instrs_since_sti >= 0)
                 ++shard->instrs_since_sti;
 #endif
             if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
@@ -1613,7 +1615,6 @@ invariant_checker_t::check_for_pc_discontinuity(
                   // of 2-instrs was found empirically on some x86 QEMU system call
                   // trace templates.
                   (shard->instrs_since_sti > 0 && shard->instrs_since_sti <= 2))));
-
     if (!valid_nonbranch_flow) {
         // Check if the type is a branch instruction and there is a branch target
         // mismatch.

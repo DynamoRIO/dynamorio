@@ -140,7 +140,7 @@ protected:
         uintptr_t trace_version_ = 0;
         // Struct to store decoding related attributes.
 #ifdef X86
-        uint64_t instrs_since_sti = 0;
+        int64_t instrs_since_sti = -1;
 #endif
         class decoding_info_t : public decode_info_base_t {
         public:
