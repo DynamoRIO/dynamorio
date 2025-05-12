@@ -365,7 +365,7 @@ gather_trace()
     std::string ops = "-stderr_mask 0xc -client_lib ';;-offline -record_syscall " +
         // TODO i#7482: Specifying 0 args for any syscall to -record_syscall crashes.
         // We specify 1 arg for gettid just to get around this, which is okay for this
-        // test.
+        // test as we'd like some func_arg markers.
         std::to_string(SYS_rt_sigaction) + "|4&" + std::to_string(SYS_gettid) + "|1";
     if (setenv("DYNAMORIO_OPTIONS", ops.c_str(), 1 /*override*/) != 0)
         std::cerr << "failed to set env var!\n";
@@ -414,17 +414,22 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     }
     auto *stream = scheduler.get_stream(0);
     memref_t memref;
-    bool membarrier_saw_trace_start = false;
     int membarrier_instr_found = 0;
     int gettid_instr_found = 0;
     int membarrier_instr_len = 0;
     int gettid_instr_len = 0;
-
     bool found_gettid_read = false;
     bool have_syscall_trace_type = false;
+    // Non-sentinel only when we're actually between the syscall_trace_start and
+    // syscall_trace_end markers.
     int syscall_trace_num = -1;
+    // Non-sentinel only when we've seen a syscall marker without any intervening
+    // instr or any marker except syscall related ones.
     int prev_syscall_num_marker = -1;
+    // Always holds the last seen syscall number.
     int last_syscall = -1;
+    bool saw_aux_syscall_markers_for_membarrier = false;
+    bool saw_aux_syscall_markers_for_gettid = false;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
@@ -440,9 +445,6 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 break;
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
                 syscall_trace_num = memref.marker.marker_value;
-                if (syscall_trace_num == SYS_membarrier) {
-                    membarrier_saw_trace_start = true;
-                }
                 if (syscall_trace_num != prev_syscall_num_marker_saved ||
                     prev_syscall_num_marker_saved == -1) {
                     std::cerr << "Found unexpected trace for system call "
@@ -458,17 +460,29 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 prev_syscall_num_marker = memref.marker.marker_value;
                 last_syscall = prev_syscall_num_marker;
                 break;
-            // The following markers are expected to be seen between the syscall
-            // marker and the injected trace, so we preserve prev_syscall_num_marker.
             case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
             case TRACE_MARKER_TYPE_FUNC_ID:
             case TRACE_MARKER_TYPE_FUNC_ARG:
             case TRACE_MARKER_TYPE_FUNC_RETVAL:
-                if (last_syscall == SYS_membarrier && membarrier_saw_trace_start) {
-                    std::cerr << "Found syscall function marker or maybe_blocking marker "
-                              << "after the membarrier trace.";
-                    return false;
+                if (last_syscall == SYS_gettid) {
+                    if (gettid_instr_found > 0) {
+                        std::cerr
+                            << "Found syscall function marker or maybe_blocking marker "
+                            << "after the gettid trace.";
+                        return false;
+                    }
+                    saw_aux_syscall_markers_for_gettid = true;
+                } else if (last_syscall == SYS_membarrier) {
+                    if (membarrier_instr_found > 0) {
+                        std::cerr
+                            << "Found syscall function marker or maybe_blocking marker "
+                            << "after the membarrier trace.";
+                        return false;
+                    }
+                    saw_aux_syscall_markers_for_membarrier = true;
                 }
+                // The above markers are expected to be seen between the syscall
+                // marker and the injected trace, so we preserve prev_syscall_num_marker.
                 prev_syscall_num_marker = prev_syscall_num_marker_saved;
                 break;
             }
@@ -545,6 +559,12 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
         std::cerr << "Did not find all instrs in membarrier trace\n";
     } else if (!found_gettid_read) {
         std::cerr << "Did not find read data memref in gettid trace\n";
+    } else if (!saw_aux_syscall_markers_for_membarrier) {
+        std::cerr << "Did not see any auxillary syscall markers for membarrier. "
+                  << "Ensure test is setup properly\n";
+    } else if (!saw_aux_syscall_markers_for_gettid) {
+        std::cerr << "Did not see any auxillary syscall markers for gettid. "
+                  << "Ensure test is setup properly\n";
     } else {
         return true;
     }

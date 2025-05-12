@@ -198,6 +198,7 @@ protected:
         std::deque<RecordType> queue;
         bool cur_from_queue;
         addr_t last_pc_fallthrough = 0;
+        // Whether we're in the middle of returning injected syscall records.
         bool in_syscall_injection = false;
 
         std::set<output_ordinal_t> binding;
@@ -263,8 +264,8 @@ protected:
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
-        // Will be injected at next timestamp entry, which is after all syscall related
-        // markers (including the syscall function tracing ones).
+        // Will be injected at the next timestamp entry after all syscall
+        // related markers (including the syscall function tracing ones).
         int to_inject_syscall = -1;
     };
 

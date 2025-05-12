@@ -1803,7 +1803,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
     assert(!input->in_syscall_injection);
     assert(input->to_inject_syscall != -1);
     if (!record_type_is_invalid(record)) {
-        // May be invalid if we're at input eof.
+        // May be invalid if we're at input eof, in which case we do not need to
+        // save it.
         input->queue.push_front(record);
     }
     int syscall_num = input->to_inject_syscall;
@@ -2900,24 +2901,24 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 record = **input->reader;
             }
         }
-        uintptr_t timestamp;
+        uintptr_t timestamp_unused;
         if (input->to_inject_syscall != -1 &&
             // Each system call instruction is followed by the syscall marker, and various
-            // optional ones (maybe_blocking_syscall, syscall_failed, syscall function
-            // tracing), followed by a timestamp. We wait until the timestamp to inject
-            // the trace. The function tracing markers related to the syscall can be
-            // useful in injecting different syscall trace templates based on the syscall
-            // args or return value.
-            record_type_is_timestamp(record, timestamp)) {
+            // optional ones (maybe_blocking_syscall, syscall_failed, various syscall
+            // function tracing markers), followed by a timestamp. We wait until the
+            // timestamp to inject the syscall trace. The function tracing markers related
+            // to the syscall can potentially be useful in injecting different syscall
+            // trace templates based on the syscall args or return value.
+            record_type_is_timestamp(record, timestamp_unused)) {
             stream_status_t res = inject_pending_syscall_sequence(output, input, record);
             if (res != stream_status_t::STATUS_OK)
                 return res;
         }
         trace_marker_type_t marker_type;
-        uintptr_t marker_value;
+        uintptr_t marker_value_unused;
         if (input->in_syscall_injection &&
             record_type_is_marker(outputs_[output].last_record, marker_type,
-                                  marker_value) &&
+                                  marker_value_unused) &&
             marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
             input->in_syscall_injection = false;
         }
@@ -3056,11 +3057,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         marker_type == TRACE_MARKER_TYPE_SYSCALL &&
         syscall_sequence_.find(static_cast<int>(marker_value)) !=
             syscall_sequence_.end()) {
-        int syscall_num = static_cast<int>(marker_value);
         assert(!input->in_syscall_injection);
         // The actual injection of the syscall trace happens just prior to the
-        // timestamp marker after the syscall.
-        input->to_inject_syscall = syscall_num;
+        // timestamp marker after all syscall related markers.
+        input->to_inject_syscall = static_cast<int>(marker_value);
     } else if (record_type_is_instr(record, &instr_pc, &instr_size)) {
         input->last_pc_fallthrough = instr_pc + instr_size;
     }

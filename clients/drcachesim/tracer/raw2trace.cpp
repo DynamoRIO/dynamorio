@@ -397,6 +397,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 if (syscall_template_file_reader_ != nullptr &&
                     marker_type == TRACE_MARKER_TYPE_SYSCALL) {
                     assert(tdata->to_inject_syscall_ == -1);
+                    // The actual injection of the syscall trace is done just prior to
+                    // the timestamp marker after all syscall related markers.
                     tdata->to_inject_syscall_ = static_cast<int>(marker_val);
                 }
                 if (delayed_branches_exist(tdata)) {

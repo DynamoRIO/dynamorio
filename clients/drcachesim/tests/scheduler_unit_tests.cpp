@@ -6509,6 +6509,9 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                 // input ordinals, but does toward output ordinals.
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
                            prev_in_ord[i] ||
+                       // We readahead by one record to decide when to inject the
+                       // syscall trace, so the input interface record ordinal will
+                       // be advanced by one at trace start.
                        is_trace_start);
                 assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
             } else
@@ -6824,16 +6827,14 @@ test_kernel_syscall_sequences()
                 test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-
-                // Every other instr is a syscall.
-                if (instr_idx % 2 == 0) {
-                    inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
-                }
                 inputs.push_back(test_util::make_instr(
                     static_cast<addr_t>(42 * tid + instr_idx * 4), TRACE_TYPE_INSTR,
                     /*size=*/4));
                 // Every other instr is a syscall.
                 if (instr_idx % 2 == 0) {
+                    // The markers after the syscall instr are supposed to be bracketed
+                    // by timestamp markers.
+                    inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
                     inputs.push_back(test_util::make_marker(
                         TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 2));
                     // Every other syscall is a blocking syscall.
@@ -6895,10 +6896,10 @@ test_kernel_syscall_sequences()
         // The instrs in the injected syscall sequence count towards the #instr
         // quantum, but no context switch happens in the middle of the syscall seq.
         assert(sched_as_string[0] ==
-               "Avf00iSsffffs1ii10,Cvf00iSsffffs1ii10,Ai0iS2iii20,Ci0iS2iii20,"
-               "Ai0iSs1ii10,Ci0iSs1ii10,Ai0iS2iii20,Ci0iS2iii20,Ai0iSs1ii10,Ci0iSs1ii10");
+               "Avf0i0Ssffffs1ii10,Cvf0i0Ssffffs1ii10,Aii0S2iii20,Cii0S2iii20,"
+               "Aii0Ss1ii10,Cii0Ss1ii10,Aii0S2iii20,Cii0S2iii20,Aii0Ss1ii10,Cii0Ss1ii10");
         assert(sched_as_string[1] ==
-               "Bvf00iSsffffs1ii10i0iS2iii20i0iSs1ii10i0iS2iii20i0iSs1ii10______________"
+               "Bvf0i0Ssffffs1ii10ii0S2iii20ii0Ss1ii10ii0S2iii20ii0Ss1ii10______________"
                "____________________________________________");
         // Zoom in and check the first few syscall sequences on the first output record
         // by record with value checks.
@@ -6912,9 +6913,9 @@ test_kernel_syscall_sequences()
                       FILE_TYPE | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
@@ -6943,8 +6944,9 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
+            // Post syscall timestamp.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_TIMESTAMP) &&
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
 
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
@@ -6952,10 +6954,10 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_FILETYPE,
                       FILE_TYPE | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_TIMESTAMP) &&
-            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_TIMESTAMP) &&
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
@@ -6984,12 +6986,14 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
+            // Post syscall timestamp.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_TIMESTAMP) &&
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_TIMESTAMP) &&
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + 1) &&
             // Syscall_2 trace on first thread.
@@ -7002,8 +7006,9 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1) &&
 
+            // Post syscall timestamp.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_TIMESTAMP);
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP);
         assert(res);
     }
     {
