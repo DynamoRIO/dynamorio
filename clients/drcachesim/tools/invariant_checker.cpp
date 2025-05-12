@@ -279,6 +279,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         ++shard->instr_count_;
         ++shard->instr_count_since_last_timestamp_;
     }
+    // These markers are allowed between the syscall marker and a possible
+    // syscall trace.
+    bool prev_was_syscall_marker_saved = shard->prev_was_syscall_marker_;
+    if (!(memref.marker.type == TRACE_TYPE_MARKER &&
+          (marker_type_is_function_marker(memref.marker.marker_type) ||
+           memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_FAILED ||
+           memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL))) {
+        shard->prev_was_syscall_marker_ = false;
+    }
     if (dynamic_syscall_trace_injection_ &&
         (shard->between_kernel_syscall_trace_markers_ ||
          (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -309,8 +318,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->stream->get_instruction_ordinal(),
                         "Stream instr ordinal inaccurate");
     }
-    bool prev_was_syscall_marker_saved = shard->prev_was_syscall_marker_;
-    shard->prev_was_syscall_marker_ = false;
 #ifdef UNIX
     if (has_annotations_) {
         // Check conditions specific to the signal_invariants app, where it
@@ -541,9 +548,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
         shard->found_blocking_marker_ = true;
-        // Re-assign the saved value to the shard state to allow this intervening
-        // maybe_blocking marker.
-        shard->prev_was_syscall_marker_ = prev_was_syscall_marker_saved;
         report_if_false(
             shard,
             (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
@@ -555,6 +559,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             "Maybe-blocking marker not preceded by syscall marker");
     }
 
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_FAILED ||
+         memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL)) {
+        report_if_false(shard, !shard->found_syscall_trace_after_last_userspace_instr_,
+                        "Found injected syscall trace before syscall markers");
+    }
     // Invariant: each chunk's instruction count must be identical and equal to
     // the value in the top-level marker.
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -731,6 +741,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
+        report_if_false(shard, !shard->found_syscall_trace_after_last_userspace_instr_,
+                        "Found injected syscall trace before function markers");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
             shard->prev_func_id_ = memref.marker.marker_value;
         }

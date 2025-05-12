@@ -198,6 +198,7 @@ protected:
         std::deque<RecordType> queue;
         bool cur_from_queue;
         addr_t last_pc_fallthrough = 0;
+        bool in_syscall_injection = false;
 
         std::set<output_ordinal_t> binding;
         int priority = 0;
@@ -262,6 +263,9 @@ protected:
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
+        // Will be injected at next timestamp entry, which is after all syscall related
+        // markers (including the syscall function tracing ones).
+        int to_inject_syscall = -1;
     };
 
     // XXX i#6831: Should this live entirely inside the dynamic subclass?
@@ -895,6 +899,10 @@ protected:
 
     stream_status_t
     inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
+
+    stream_status_t
+    inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
+                                    RecordType &record);
 
     // Actions that must be taken only when we know for sure that the given record
     // is going to be the next record for some output stream.

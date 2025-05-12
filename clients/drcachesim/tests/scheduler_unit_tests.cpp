@@ -6497,17 +6497,19 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                             TRACE_MARKER_TYPE_CONTEXT_SWITCH_START));
                 assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
             } else if (in_syscall[i]) {
+                bool is_trace_start = memref.marker.type == TRACE_TYPE_MARKER &&
+                    memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START;
+                bool is_trace_end = memref.marker.type == TRACE_TYPE_MARKER &&
+                    memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END;
                 // Test that syscall code is marked synthetic.
                 assert(outputs[i]->is_record_synthetic());
                 // Test that it's marked as kernel, unless it's the end marker.
-                assert(
-                    outputs[i]->is_record_kernel() ||
-                    (memref.marker.type == TRACE_TYPE_MARKER &&
-                     memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END));
+                assert(outputs[i]->is_record_kernel() || is_trace_end);
                 // Test that dynamically injected syscall code doesn't count toward
                 // input ordinals, but does toward output ordinals.
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
-                       prev_in_ord[i]);
+                           prev_in_ord[i] ||
+                       is_trace_start);
                 assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
             } else
                 assert(!outputs[i]->is_record_synthetic());
@@ -6529,7 +6531,12 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     else
                         assert(false && "unknown context switch type");
                     break;
-                case TRACE_MARKER_TYPE_SYSCALL: sched_as_string[i] += 's'; break;
+                case TRACE_MARKER_TYPE_FUNC_ID:
+                case TRACE_MARKER_TYPE_FUNC_ARG:
+                case TRACE_MARKER_TYPE_FUNC_RETVAL: sched_as_string[i] += 'f'; break;
+                case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+                case TRACE_MARKER_TYPE_SYSCALL_FAILED: sched_as_string[i] += 's'; break;
+                case TRACE_MARKER_TYPE_SYSCALL: sched_as_string[i] += 'S'; break;
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
                     in_syscall[i] = false;
                     ANNOTATE_FALLTHROUGH;
@@ -6817,12 +6824,41 @@ test_kernel_syscall_sequences()
                 test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+
+                // Every other instr is a syscall.
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
+                }
                 inputs.push_back(test_util::make_instr(
                     static_cast<addr_t>(42 * tid + instr_idx * 4), TRACE_TYPE_INSTR,
                     /*size=*/4));
+                // Every other instr is a syscall.
                 if (instr_idx % 2 == 0) {
                     inputs.push_back(test_util::make_marker(
                         TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 2));
+                    // Every other syscall is a blocking syscall.
+                    if (instr_idx % 4 == 0) {
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, /*value=*/0));
+                    }
+                    if (instr_idx == 0) {
+                        // If the syscall was specified in -record_syscall, we'll have
+                        // additional markers.
+                        inputs.push_back(
+                            test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID,
+                                                   /*value=*/0x100000000 + SYSCALL_BASE));
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_FUNC_ARG, /*value=*/10));
+                        inputs.push_back(
+                            test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID,
+                                                   /*value=*/0x100000000 + SYSCALL_BASE));
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_FUNC_RETVAL, /*value=*/1));
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_SYSCALL_FAILED, /*value=*/1));
+                    }
+                    inputs.push_back(
+                        test_util::make_timestamp(TIMESTAMP + instr_idx + 1));
                 }
             }
             inputs.push_back(test_util::make_exit(tid));
@@ -6855,12 +6891,11 @@ test_kernel_syscall_sequences()
         // The instrs in the injected syscall sequence count towards the #instr
         // quantum, but no context switch happens in the middle of the syscall seq.
         assert(sched_as_string[0] ==
-               "Avf0is1ii1,Cvf0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
-               "Ciis2iii2,Aiis1ii1,Ciis1ii1");
+               "Avf00iSsffffs1ii10,Cvf00iSsffffs1ii10,Ai0iS2iii20,Ci0iS2iii20,"
+               "Ai0iSs1ii10,Ci0iSs1ii10,Ai0iS2iii20,Ci0iS2iii20,Ai0iSs1ii10,Ci0iSs1ii10");
         assert(sched_as_string[1] ==
-               "Bvf0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1_____________________________"
-               "___________");
-
+               "Bvf00iSsffffs1ii10i0iS2iii20i0iSs1ii10i0iS2iii20i0iSs1ii10______________"
+               "____________________________________________");
         // Zoom in and check the first few syscall sequences on the first output record
         // by record with value checks.
         int idx = 0;
@@ -6873,9 +6908,23 @@ test_kernel_syscall_sequences()
                       FILE_TYPE | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID, 0x100000000 + SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ARG, 10) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID, 0x100000000 + SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_RETVAL, 1) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_FAILED, 1) &&
 
             // Syscall_1 trace on first thread.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
@@ -6886,16 +6935,33 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP) &&
+
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_FILETYPE,
                       FILE_TYPE | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+                      TRACE_MARKER_TYPE_TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID, 0x100000000 + SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ARG, 10) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID, 0x100000000 + SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_RETVAL, 1) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_FAILED, 1) &&
 
             // Syscall_1 trace on second thread.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
@@ -6906,7 +6972,11 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + 1) &&
@@ -6918,7 +6988,10 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR_INDIRECT_JUMP,
                       TRACE_MARKER_TYPE_RESERVED_END, 42 * TID_BASE + 3 * 4) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1);
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1) &&
+
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP);
         assert(res);
     }
     {
@@ -7824,6 +7897,8 @@ test_main(int argc, const char *argv[])
     assert(argc == 2);
     // Avoid races with lazy drdecode init (b/279350357).
     dr_standalone_init();
+    test_kernel_syscall_sequences();
+    return 0;
 
     test_serial();
     test_parallel();

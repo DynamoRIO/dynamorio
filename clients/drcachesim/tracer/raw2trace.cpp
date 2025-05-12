@@ -396,10 +396,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
                 if (syscall_template_file_reader_ != nullptr &&
                     marker_type == TRACE_MARKER_TYPE_SYSCALL) {
-                    // Also writes out the delayed branches if any.
-                    if (!write_syscall_template(tdata, buf, buf_base,
-                                                static_cast<int>(marker_val)))
-                        return false;
+                    assert(tdata->to_inject_syscall_ == -1);
+                    tdata->to_inject_syscall_ = static_cast<int>(marker_val);
                 }
                 if (delayed_branches_exist(tdata)) {
                     return write_delayed_branches(tdata, buf_base,
@@ -952,10 +950,17 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // when it calls get_next_entry() on its own.
         offline_entry_t entry = *in_entry;
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+            byte *buf = buf_base;
+            // Also writes out the delayed branches if any.
+            if (tdata->to_inject_syscall_ &&
+                !write_syscall_template(tdata, buf,
+                                        reinterpret_cast<trace_entry_t *>(buf_base),
+                                        tdata->to_inject_syscall_))
+                return false;
+            tdata->to_inject_syscall_ = -1;
             // Give subclasses a chance for further action on a timestamp by
             // putting our processing as thought it were a marker at the raw level.
             bool flush_decode_cache = false;
-            byte *buf = buf_base;
             uintptr_t value = static_cast<uintptr_t>(entry.timestamp.usec);
             if (!process_marker(tdata, TRACE_MARKER_TYPE_TIMESTAMP, value, buf,
                                 &flush_decode_cache)) {

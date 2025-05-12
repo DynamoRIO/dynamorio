@@ -1623,6 +1623,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
                 error_string_ += sequence_type + " marker values mismatched";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
+            if (sequence[sequence_key].empty()) {
+                error_string_ += sequence_type + " sequence empty";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
             VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
                    sequence[sequence_key].size(), sequence_type.c_str(), sequence_key);
             sequence_key = INVALID_SEQ_KEY;
@@ -1793,6 +1797,38 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
+    output_ordinal_t output, input_info_t *input, RecordType &record)
+{
+    assert(!input->in_syscall_injection);
+    assert(input->to_inject_syscall != -1);
+    if (!record_type_is_invalid(record)) {
+        // May be invalid if we're at input eof.
+        input->queue.push_front(record);
+    }
+    int syscall_num = input->to_inject_syscall;
+    input->to_inject_syscall = -1;
+    assert(syscall_sequence_.find(syscall_num) != syscall_sequence_.end());
+    stream_status_t res = inject_kernel_sequence(syscall_sequence_[syscall_num], input);
+    if (res != stream_status_t::STATUS_OK)
+        return res;
+    ++outputs_[output]
+          .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS];
+    VPRINT(this, 3, "Inserted %zu syscall records for syscall %d to %d.%d\n",
+           syscall_sequence_[syscall_num].size(), syscall_num, input->workload,
+           input->index);
+
+    // Return the first injected record.
+    assert(!input->queue.empty());
+    record = input->queue.front();
+    input->queue.pop_front();
+    input->cur_from_queue = true;
+    input->in_syscall_injection = true;
+    return stream_status_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     std::vector<RecordType> &sequence, input_info_t *input)
 {
@@ -1804,8 +1840,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     // not affect input stream ordinals.
     // XXX: These will appear before the top headers of a new thread which is slightly
     // odd to have regular records with the new tid before the top headers.
-    if (sequence.empty())
-        return stream_status_t::STATUS_EOF;
+    assert(!sequence.empty());
     bool saw_any_instr = false;
     bool set_branch_target_marker = false;
     trace_marker_type_t marker_type;
@@ -2071,6 +2106,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_record_ordinal(
         // If this gets any more complex, the scheduler stream should track its
         // own counts for every input and just ignore the input stream's tracking.
         ord -= inputs_[index].queue.size() + (inputs_[index].cur_from_queue ? 1 : 0);
+    }
+    if (inputs_[index].in_syscall_injection) {
+        // We readahead by one record when injecting syscalls.
+        --ord;
     }
     return ord;
 }
@@ -2732,6 +2771,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                                                            input_info_t *&input,
                                                            uint64_t cur_time)
 {
+    record = create_invalid_record();
     // We do not enforce a globally increasing time to avoid the synchronization cost; we
     // do return an error on a time smaller than an input's current start time when we
     // check for quantum end.
@@ -2830,7 +2870,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             } else {
                 input->needs_advance = true;
             }
-            if (input->at_eof || *input->reader == *input->reader_end) {
+            bool input_at_eof = input->at_eof || *input->reader == *input->reader_end;
+            if (input_at_eof && input->to_inject_syscall != -1) {
+                // The input's at eof but we have a syscall trace yet to be injected.
+                stream_status_t res =
+                    inject_pending_syscall_sequence(output, input, record);
+                if (res != stream_status_t::STATUS_OK)
+                    return res;
+            } else if (input_at_eof) {
                 if (!input->at_eof) {
                     stream_status_t status = mark_input_eof(*input);
                     if (status != sched_type_t::STATUS_OK)
@@ -2852,6 +2899,27 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             } else {
                 record = **input->reader;
             }
+        }
+        uintptr_t timestamp;
+        if (input->to_inject_syscall != -1 &&
+            // Each system call instruction is followed by the syscall marker, and various
+            // optional ones (maybe_blocking_syscall, syscall_failed, syscall function
+            // tracing), followed by a timestamp. We wait until the timestamp to inject
+            // the trace. The function tracing markers related to the syscall can be
+            // useful in injecting different syscall trace templates based on the syscall
+            // args or return value.
+            record_type_is_timestamp(record, timestamp)) {
+            stream_status_t res = inject_pending_syscall_sequence(output, input, record);
+            if (res != stream_status_t::STATUS_OK)
+                return res;
+        }
+        trace_marker_type_t marker_type;
+        uintptr_t marker_value;
+        if (input->in_syscall_injection &&
+            record_type_is_marker(outputs_[output].last_record, marker_type,
+                                  marker_value) &&
+            marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
+            input->in_syscall_injection = false;
         }
         VPRINT(this, 5,
                "next_record[%d]: candidate record from %d (@%" PRId64 "): ", output,
@@ -2989,17 +3057,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         syscall_sequence_.find(static_cast<int>(marker_value)) !=
             syscall_sequence_.end()) {
         int syscall_num = static_cast<int>(marker_value);
-        stream_status_t res =
-            inject_kernel_sequence(syscall_sequence_[syscall_num], input);
-        if (res == stream_status_t::STATUS_OK) {
-            ++outputs_[output].stats
-                  [memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS];
-            VPRINT(this, 3, "Inserted %zu syscall records for syscall %d to %d.%d\n",
-                   syscall_sequence_[syscall_num].size(), syscall_num, input->workload,
-                   input->index);
-        } else if (res != stream_status_t::STATUS_EOF) {
-            return res;
-        }
+        assert(!input->in_syscall_injection);
+        // The actual injection of the syscall trace happens just prior to the
+        // timestamp marker after the syscall.
+        input->to_inject_syscall = syscall_num;
     } else if (record_type_is_instr(record, &instr_pc, &instr_size)) {
         input->last_pc_fallthrough = instr_pc + instr_size;
     }
