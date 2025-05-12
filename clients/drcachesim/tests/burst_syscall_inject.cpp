@@ -424,6 +424,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     bool have_syscall_trace_type = false;
     int syscall_trace_num = -1;
     int prev_syscall_num_marker = -1;
+    int last_syscall = -1;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
@@ -438,8 +439,10 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 }
                 break;
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-                membarrier_saw_trace_start = true;
                 syscall_trace_num = memref.marker.marker_value;
+                if (syscall_trace_num == SYS_membarrier) {
+                    membarrier_saw_trace_start = true;
+                }
                 if (syscall_trace_num != prev_syscall_num_marker_saved ||
                     prev_syscall_num_marker_saved == -1) {
                     std::cerr << "Found unexpected trace for system call "
@@ -453,6 +456,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: syscall_trace_num = -1; break;
             case TRACE_MARKER_TYPE_SYSCALL:
                 prev_syscall_num_marker = memref.marker.marker_value;
+                last_syscall = prev_syscall_num_marker;
                 break;
             // The following markers are expected to be seen between the syscall
             // marker and the injected trace, so we preserve prev_syscall_num_marker.
@@ -460,7 +464,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             case TRACE_MARKER_TYPE_FUNC_ID:
             case TRACE_MARKER_TYPE_FUNC_ARG:
             case TRACE_MARKER_TYPE_FUNC_RETVAL:
-                if (membarrier_saw_trace_start) {
+                if (last_syscall == SYS_membarrier && membarrier_saw_trace_start) {
                     std::cerr << "Found syscall function marker or maybe_blocking marker "
                               << "after the membarrier trace.";
                     return false;
