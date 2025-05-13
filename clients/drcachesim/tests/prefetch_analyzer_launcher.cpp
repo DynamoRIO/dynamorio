@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,6 @@
 #include "../analyzer.h"
 #include "prefetch_analyzer.h"
 #include "test_helpers.h"
-
 
 using ::dynamorio::drmemtrace::analysis_tool_t;
 using ::dynamorio::drmemtrace::analyzer_t;
