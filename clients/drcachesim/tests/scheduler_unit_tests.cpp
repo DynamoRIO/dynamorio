@@ -31,7 +31,6 @@
  */
 
 #define NOMINMAX // Avoid windows.h messing up std::min.
-#undef NDEBUG
 #include <assert.h>
 #include <algorithm>
 #include <cctype>
@@ -58,6 +57,7 @@
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
 #endif
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -38,9 +38,7 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 
-// Enable asserts in release build testing too.
-#    undef NDEBUG
-
+#    include "test_helpers.h"
 #    include "dr_api.h"
 #    include "drmemtrace/drmemtrace.h"
 #    include "drcovlib.h"

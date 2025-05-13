@@ -36,9 +36,7 @@
  * being 32-bit reachable from any available space for the code cache.
  */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 /* Like burst_static we deliberately do not include configure.h here. */
 #include "dr_api.h"
 #include <assert.h>

@@ -38,9 +38,7 @@
 
 /* Like burst_static we deliberately do not include configure.h here */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
 #include "scheduler.h"

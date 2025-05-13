@@ -35,9 +35,7 @@
  * previous timestamp than the sleep time.
  */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include <assert.h>
 #include <chrono>
 #include <iostream>

@@ -35,9 +35,7 @@
  * It tests the thread filtering feature.
  */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 /* We deliberately do not include configure.h here to simulate what an
  * actual app will look like.  configure_DynamoRIO_static sets DR_APP_EXPORTS
  * for us.

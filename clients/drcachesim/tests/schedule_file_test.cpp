@@ -32,9 +32,7 @@
 
 /* Unit tests for the schedule_file_t library. */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include <cassert>
 #include <cstdint>
 #include <cstring>

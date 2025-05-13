@@ -35,9 +35,7 @@
  * It then post-processes the acquired trace and confirms various assertions.
  */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "scheduler.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"

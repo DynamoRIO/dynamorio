@@ -32,9 +32,7 @@
 
 /* Unit tests for the trace interval analysis APIs in analysis_tool_t. */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "analyzer.h"
 #include "memref_gen.h"
 

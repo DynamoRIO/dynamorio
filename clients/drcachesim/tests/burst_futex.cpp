@@ -35,9 +35,7 @@
  * trace is analyzed to confirm that futex parameters were included.
  */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
 #include "analysis_tool.h"

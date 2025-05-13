@@ -38,9 +38,7 @@
  * because raw2trace uses drmodtrack, which doesn't isolate under static memtrace.
  */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "droption.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"

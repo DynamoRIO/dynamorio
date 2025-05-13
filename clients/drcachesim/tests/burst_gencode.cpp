@@ -36,9 +36,7 @@
 // This is set globally in CMake for other tests so easier to undef here.
 #undef DR_REG_ENUM_COMPATIBILITY
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "configure.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"

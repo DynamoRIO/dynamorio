@@ -32,9 +32,7 @@
 
 /* Unit tests for the view_t tool. */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include <algorithm>
 #include <iostream>
 #include <regex>

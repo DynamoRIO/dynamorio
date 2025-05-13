@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,12 @@
 #ifndef _TEST_HELPERS_H_
 #define _TEST_HELPERS_H_ 1
 
+#ifdef NDEBUG
+#    error NDEBUG should not be set for tests.
+#endif
+
+#ifdef __cplusplus
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -45,5 +51,7 @@ disable_popups();
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
+#endif
 
 #endif /* _TEST_HELPERS_H_ */

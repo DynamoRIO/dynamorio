@@ -38,6 +38,7 @@
 #include "prefetch_analyzer.h"
 #include "test_helpers.h"
 
+
 using ::dynamorio::drmemtrace::analysis_tool_t;
 using ::dynamorio::drmemtrace::analyzer_t;
 using ::dynamorio::drmemtrace::disable_popups;

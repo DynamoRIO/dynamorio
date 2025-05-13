@@ -32,9 +32,7 @@
 
 /* Unit tests for flexible_queue. */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "scheduler/flexible_queue.h"
 
 #include <assert.h>

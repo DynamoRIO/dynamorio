@@ -36,9 +36,7 @@
  * statically linked DR with a very high number of re-attaches.
  */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 /* Like burst_static we deliberately do not include configure.h here */
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"

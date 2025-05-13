@@ -35,9 +35,7 @@
  * (fewer executables reduces the limited-resource CI time).
  */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include <assert.h>
 #include "tracer/instru.h"
 

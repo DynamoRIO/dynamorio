@@ -32,9 +32,7 @@
 
 /* Multi-process test */
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "tools.h"
 
 #ifdef UNIX
