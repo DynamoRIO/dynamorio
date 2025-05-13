@@ -55,6 +55,18 @@ main(void)
     __builtin_prefetch(&d, 1, 2);
     // L3
     __builtin_prefetch(&d, 1, 1);
+
+    // Prefetch with bad address.
+    // i#7464: We deliberately set one of the top 3 bits in the prefetched
+    // address. Note that even though this is an invalid address, hardware
+    // does not fault as it is only a prefetch. However, the address would
+    // overflow the 31 bits earmarked for the access address in the
+    // offline_entry_t.addr.addr raw trace entry, which would
+    // cause offline_entry_t.addr.type to be non-zero and non-all-1,
+    // therefore appearing like some other OFFLINE_TYPE_* type. raw2trace
+    // should be able to handle this discrepancy.
+    int *ptr = (int *)(1ULL << 62);
+    __builtin_prefetch(ptr);
     fprintf(stderr, "Hello, world!\n");
     return 0;
 }
