@@ -473,17 +473,15 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             case TRACE_MARKER_TYPE_FUNC_ARG:
                 if (last_syscall == SYS_gettid) {
                     if (gettid_instr_found > 0) {
-                        std::cerr
-                            << "Found func_arg marker or maybe_blocking marker "
-                            << "after the gettid trace.";
+                        std::cerr << "Found func_arg marker or maybe_blocking marker "
+                                  << "after the gettid trace.";
                         return false;
                     }
                     saw_aux_syscall_markers_for_gettid = true;
                 } else if (last_syscall == SYS_membarrier) {
                     if (membarrier_instr_found > 0) {
-                        std::cerr
-                            << "Found func_arg marker or maybe_blocking marker "
-                            << "after the membarrier trace.";
+                        std::cerr << "Found func_arg marker or maybe_blocking marker "
+                                  << "after the membarrier trace.";
                         return false;
                     }
                     saw_aux_syscall_markers_for_membarrier = true;
