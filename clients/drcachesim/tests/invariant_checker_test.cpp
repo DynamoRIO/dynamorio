@@ -4014,7 +4014,7 @@ check_kernel_syscall_trace(void)
             // Only one template, which has a PC discontinuity.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 41), nullptr },
             { gen_instr(TID_A), move },
-            // Missing load instruction.
+            // Missing load instruction from the PC order in setup 'ilist' above.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 41), nullptr },
