@@ -267,6 +267,7 @@ protected:
         // Will be injected at the next timestamp entry after all syscall
         // related markers (including the syscall function tracing ones).
         int to_inject_syscall = -1;
+        bool saw_first_func_id_for_syscall = false;
     };
 
     // XXX i#6831: Should this live entirely inside the dynamic subclass?
@@ -878,6 +879,9 @@ protected:
 
     bool
     record_type_is_instr_boundary(RecordType record, RecordType prev_record);
+
+    bool
+    record_type_is_thread_exit(RecordType record);
 
     // Creates the marker we insert between regions of interest.
     RecordType

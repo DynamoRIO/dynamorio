@@ -283,9 +283,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // syscall trace.
     bool prev_was_syscall_marker_saved = shard->prev_was_syscall_marker_;
     if (!(memref.marker.type == TRACE_TYPE_MARKER &&
-          (marker_type_is_function_marker(memref.marker.marker_type) ||
-           memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_FAILED ||
-           memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL))) {
+          (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID ||
+           (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ARG ||
+            memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL)))) {
+        // Also lets us detect syscall traces that were injected too late (after a
+        // marker not on the list above, like syscall_failed).
         shard->prev_was_syscall_marker_ = false;
     }
     if (dynamic_syscall_trace_injection_ &&
@@ -559,12 +561,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             "Maybe-blocking marker not preceded by syscall marker");
     }
 
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        (memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_FAILED ||
-         memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL)) {
-        report_if_false(shard, !shard->found_syscall_trace_after_last_userspace_instr_,
-                        "Found injected syscall trace before syscall markers");
-    }
     // Invariant: each chunk's instruction count must be identical and equal to
     // the value in the top-level marker.
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -739,10 +735,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->stream->is_record_kernel(),
                         "Stream is_record_kernel() inaccurate");
     }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        report_if_false(
+            shard,
+            (memref.marker.marker_type != TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL &&
+             // We don't check for func_id because it may be present both before
+             // and after the injected syscall trace.
+             memref.marker.marker_type != TRACE_MARKER_TYPE_FUNC_ARG) ||
+                !shard->found_syscall_trace_after_last_userspace_instr_,
+            "Found func_arg or maybe_blocking marker after injected syscall trace");
+    }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
-        report_if_false(shard, !shard->found_syscall_trace_after_last_userspace_instr_,
-                        "Found injected syscall trace before function markers");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
             shard->prev_func_id_ = memref.marker.marker_value;
         }

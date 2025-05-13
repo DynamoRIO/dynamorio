@@ -460,14 +460,21 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 prev_syscall_num_marker = memref.marker.marker_value;
                 last_syscall = prev_syscall_num_marker;
                 break;
-            case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
-            case TRACE_MARKER_TYPE_FUNC_ID:
-            case TRACE_MARKER_TYPE_FUNC_ARG:
             case TRACE_MARKER_TYPE_FUNC_RETVAL:
+                if (last_syscall == SYS_gettid && gettid_instr_found == 0) {
+                    std::cerr << "gettid trace not injected before func_retval marker.";
+                    return false;
+                } else if (last_syscall == SYS_membarrier) {
+                    std::cerr << "Did not expect func_retval marker for membarrier.";
+                    return false;
+                }
+                break;
+            case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+            case TRACE_MARKER_TYPE_FUNC_ARG:
                 if (last_syscall == SYS_gettid) {
                     if (gettid_instr_found > 0) {
                         std::cerr
-                            << "Found syscall function marker or maybe_blocking marker "
+                            << "Found func_arg marker or maybe_blocking marker "
                             << "after the gettid trace.";
                         return false;
                     }
@@ -475,16 +482,16 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 } else if (last_syscall == SYS_membarrier) {
                     if (membarrier_instr_found > 0) {
                         std::cerr
-                            << "Found syscall function marker or maybe_blocking marker "
+                            << "Found func_arg marker or maybe_blocking marker "
                             << "after the membarrier trace.";
                         return false;
                     }
                     saw_aux_syscall_markers_for_membarrier = true;
                 }
+            case TRACE_MARKER_TYPE_FUNC_ID:
                 // The above markers are expected to be seen between the syscall
                 // marker and the injected trace, so we preserve prev_syscall_num_marker.
                 prev_syscall_num_marker = prev_syscall_num_marker_saved;
-                break;
             }
             continue;
         }

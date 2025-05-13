@@ -280,6 +280,13 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_instr_boundary(
 
 template <>
 bool
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_thread_exit(memref_t record)
+{
+    return record.exit.type == TRACE_TYPE_THREAD_EXIT;
+}
+
+template <>
+bool
 scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_marker(
     memref_t record, trace_marker_type_t &type, uintptr_t &value)
 {
@@ -554,6 +561,14 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boun
     return (record_type_is_instr(record) ||
             record_reader_t::record_is_pre_instr(&record)) &&
         !record_reader_t::record_is_pre_instr(&prev_record);
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_thread_exit(
+    trace_entry_t record)
+{
+    return record.type == TRACE_TYPE_THREAD_EXIT;
 }
 
 template <>
@@ -2901,21 +2916,46 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 record = **input->reader;
             }
         }
-        uintptr_t timestamp_unused;
-        if (input->to_inject_syscall != -1 &&
-            // Each system call instruction is followed by the syscall marker, and various
-            // optional ones (maybe_blocking_syscall, syscall_failed, various syscall
-            // function tracing markers), followed by a timestamp. We wait until the
-            // timestamp to inject the syscall trace. The function tracing markers related
-            // to the syscall can potentially be useful in injecting different syscall
-            // trace templates based on the syscall args or return value.
-            record_type_is_timestamp(record, timestamp_unused)) {
-            stream_status_t res = inject_pending_syscall_sequence(output, input, record);
-            if (res != stream_status_t::STATUS_OK)
-                return res;
-        }
         trace_marker_type_t marker_type;
         uintptr_t marker_value_unused;
+        uintptr_t timestamp_unused;
+
+        // If there's a syscall trace yet to be injected, see if we can do it now.
+        if (input->to_inject_syscall != -1) {
+            bool is_marker =
+                record_type_is_marker(record, marker_type, marker_value_unused);
+            bool is_injection_point = false;
+            if (
+                // For syscalls not specified in -record_syscall, which do not have
+                // the func_id-func_retval markers.
+                record_type_is_timestamp(record, timestamp_unused) ||
+                // For syscalls that did not have a post-event because the trace ended.
+                record_type_is_thread_exit(record) ||
+                // For syscalls interrupted by a signal and did not have a post-syscall
+                // event.
+                (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
+                is_injection_point = true;
+            } else if (is_marker && marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+                if (!input->saw_first_func_id_for_syscall) {
+                    // XXX i#7482: If we allow recording zero args for syscalls in
+                    // -record_syscall, we would need to update this logic.
+                    input->saw_first_func_id_for_syscall = true;
+                } else {
+                    // For syscalls specified in -record_syscall, for which we inject
+                    // after the func_id-func_arg markers (if any) but before the
+                    // func_id-func_retval markers.
+                    is_injection_point = true;
+                }
+            }
+            if (is_injection_point) {
+                stream_status_t res =
+                    inject_pending_syscall_sequence(output, input, record);
+                if (res != stream_status_t::STATUS_OK)
+                    return res;
+                input->saw_first_func_id_for_syscall = false;
+            }
+        }
+        // Check whether we're done with the injection.
         if (input->in_syscall_injection &&
             record_type_is_marker(outputs_[output].last_record, marker_type,
                                   marker_value_unused) &&
