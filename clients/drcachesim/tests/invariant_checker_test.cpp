@@ -4070,7 +4070,7 @@ check_kernel_syscall_trace(void)
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
                          { "System call trace found without prior syscall marker or "
-                            "unexpected intervening records",
+                           "unexpected intervening records",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/7, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
