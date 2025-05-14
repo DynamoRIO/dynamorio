@@ -401,6 +401,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     // The actual injection of the syscall trace is done just prior to
                     // the timestamp marker after all syscall related markers.
                     tdata->to_inject_syscall_ = static_cast<int>(marker_val);
+                    tdata->saw_first_func_id_marker_after_syscall_ = false;
                 }
                 if (delayed_branches_exist(tdata)) {
                     return write_delayed_branches(tdata, buf_base,
@@ -970,17 +971,15 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                 (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
                 is_injection_point = true;
             } else if (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_FUNC_ID) {
-                const offline_entry_t *next_entry = get_next_entry(tdata);
-                // For syscalls specified in -record_syscall, for which we inject after
-                // the func_id-func_arg markers (if any) but before the
-                // func_id-func_retval markers.
-                if (next_entry != nullptr &&
-                    next_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                    next_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                    next_entry->extended.valueB == TRACE_MARKER_TYPE_FUNC_RETVAL) {
+                if (!tdata->saw_first_func_id_marker_after_syscall_) {
+                    tdata->saw_first_func_id_marker_after_syscall_ = true;
+                } else {
+                    // For syscalls specified in -record_syscall, for which we inject
+                    // just before the func_id-func_retval markers.
+                    // XXX i#7482: If we allow recording zero args for syscalls in
+                    // -record_syscall, we would need to update this logic.
                     is_injection_point = true;
                 }
-                unread_last_entry(tdata);
             }
 
             byte *buf = buf_base;

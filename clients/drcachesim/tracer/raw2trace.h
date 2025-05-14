@@ -754,6 +754,7 @@ protected:
         // Will be injected at next timestamp entry after all syscall
         // related markers (including the syscall function tracing ones).
         int to_inject_syscall_ = -1;
+        bool saw_first_func_id_marker_after_syscall_ = false;
         std::vector<trace_entry_t> rseq_buffer_;
         int rseq_commit_idx_ = -1; // Index into rseq_buffer_.
         std::vector<branch_info_t> rseq_branch_targets_;
