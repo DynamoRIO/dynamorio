@@ -38,7 +38,10 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 
-/* Enable asserts in release build testing too. */
+/* Enable asserts in release build testing too.
+ * XXX: We should remove NDEBUG from suite/tests/CMakeLists-created binaries;
+ * we already do this for clients/drcachesim/CMakeLists-created binaries.
+ */
 #    undef NDEBUG
 
 #    include "tools.h"

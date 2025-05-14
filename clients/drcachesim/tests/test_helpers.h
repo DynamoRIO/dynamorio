@@ -30,7 +30,9 @@
  * DAMAGE.
  */
 
-/* helpers.h: utilities for tests. */
+/* helpers.h: utilities for tests, along with compile-time checking for NDEBUG
+ * for which we include this even in tests that do not use the other utilities here.
+ */
 
 #ifndef _TEST_HELPERS_H_
 #define _TEST_HELPERS_H_ 1
