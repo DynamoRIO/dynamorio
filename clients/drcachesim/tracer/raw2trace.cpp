@@ -395,7 +395,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // check for it here.
             if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
                 if (marker_type == TRACE_MARKER_TYPE_SYSCALL &&
-                    syscall_trace_templates_.find(marker_val) !=
+                    syscall_trace_templates_.find(static_cast<int>(marker_val)) !=
                         syscall_trace_templates_.end()) {
                     assert(tdata->to_inject_syscall_ == -1);
                     // The actual injection of the syscall trace is done just prior to
