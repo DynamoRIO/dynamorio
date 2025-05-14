@@ -3098,8 +3098,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         syscall_sequence_.find(static_cast<int>(marker_value)) !=
             syscall_sequence_.end()) {
         assert(!input->in_syscall_injection);
-        // The actual injection of the syscall trace happens just prior to the
-        // timestamp marker after all syscall related markers.
+        // The actual injection of the syscall trace happens later at the intended
+        // point between the syscall function tracing markers.
         input->to_inject_syscall = static_cast<int>(marker_value);
     } else if (record_type_is_instr(record, &instr_pc, &instr_size)) {
         input->last_pc_fallthrough = instr_pc + instr_size;

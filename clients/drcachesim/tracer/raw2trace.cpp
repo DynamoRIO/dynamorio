@@ -398,8 +398,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     syscall_trace_templates_.find(static_cast<int>(marker_val)) !=
                         syscall_trace_templates_.end()) {
                     assert(tdata->to_inject_syscall_ == -1);
-                    // The actual injection of the syscall trace is done just prior to
-                    // the timestamp marker after all syscall related markers.
+                    // The actual injection of the syscall trace happens later at the
+                    // intended point between the syscall function tracing markers
                     tdata->to_inject_syscall_ = static_cast<int>(marker_val);
                     tdata->saw_first_func_id_marker_after_syscall_ = false;
                 }
@@ -972,12 +972,12 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                 is_injection_point = true;
             } else if (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_FUNC_ID) {
                 if (!tdata->saw_first_func_id_marker_after_syscall_) {
+                    // XXX i#7482: If we allow recording zero args for syscalls in
+                    // -record_syscall, we would need to update this logic.
                     tdata->saw_first_func_id_marker_after_syscall_ = true;
                 } else {
                     // For syscalls specified in -record_syscall, for which we inject
                     // just before the func_id-func_retval markers.
-                    // XXX i#7482: If we allow recording zero args for syscalls in
-                    // -record_syscall, we would need to update this logic.
                     is_injection_point = true;
                 }
             }
@@ -998,8 +998,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             // Give subclasses a chance for further action on a timestamp by
             // putting our processing as thought it were a marker at the raw level.
             bool flush_decode_cache = false;
-            uintptr_t value = static_cast<uintptr_t>(entry.timestamp.usec);
             byte *buf = buf_base;
+            uintptr_t value = static_cast<uintptr_t>(entry.timestamp.usec);
             if (!process_marker(tdata, TRACE_MARKER_TYPE_TIMESTAMP, value, buf,
                                 &flush_decode_cache)) {
                 return false;

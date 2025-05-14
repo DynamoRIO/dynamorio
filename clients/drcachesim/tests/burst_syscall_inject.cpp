@@ -104,7 +104,8 @@ do_some_syscalls()
 {
     // Considered as a "maybe blocking" syscall by raw2trace.
     do_membarrier();
-    // Considered as a regular non-blocking syscall by raw2trace.
+    // Considered as a regular non-blocking syscall by raw2trace; we also
+    // specify it in -record_syscall for this test.
     do_gettid();
 
     // Make some failing sigaction syscalls, which we record such that
@@ -424,7 +425,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     // syscall_trace_end markers.
     int syscall_trace_num = -1;
     // Non-sentinel only when we've seen a syscall marker without any intervening
-    // instr or any marker except syscall related ones.
+    // instr or any marker except the allowed ones till now.
     int prev_syscall_num_marker = -1;
     // Always holds the last seen syscall number.
     int last_syscall = -1;

@@ -264,8 +264,6 @@ protected:
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
-        // Will be injected at the next timestamp entry after all syscall
-        // related markers (including the syscall function tracing ones).
         int to_inject_syscall = -1;
         bool saw_first_func_id_for_syscall = false;
     };

@@ -3348,6 +3348,7 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, 1), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, 1), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, 1), nullptr },
+
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },
             { gen_instr(TID_A), load },
@@ -3430,10 +3431,6 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
-            { gen_marker(
-                  TID_A, TRACE_MARKER_TYPE_FUNC_ID,
-                  static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
-              nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, 1), nullptr },
             { gen_instr(TID_A), post_sys },
             { gen_exit(TID_A), nullptr }
@@ -3443,7 +3440,7 @@ check_kernel_syscall_trace(void)
                          { "Found unexpected func_arg or syscall marker after injected "
                            "syscall trace",
                            /*tid=*/TID_A,
-                           /*ref_ordinal=*/14, /*last_timestamp=*/0,
+                           /*ref_ordinal=*/13, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/4 },
                          "Failed to detect func_arg marker after injected syscall trace"))
             res = false;
@@ -3484,7 +3481,8 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "System call trace found without prior syscall marker",
+                         { "System call trace found without prior syscall marker or "
+                           "unexpected intervening records",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/11, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
@@ -4071,7 +4069,8 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "System call trace found without prior syscall marker",
+                         { "System call trace found without prior syscall marker or "
+                            "unexpected intervening records",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/7, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },

@@ -289,14 +289,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // provide their own implementation of raw2trace_t::process_marker.
         // raw2trace_t::process_marker may prepend or append these additional
         // markers on processing the syscall's TRACE_MARKER_TYPE_FUNC_ARGs. It
-        // would have been cleaner if the syscall trace were injected before the
+        // may have been cleaner if the syscall trace were injected before the
         // following four, but it gets messy trying to inject the trace between
         // the last TRACE_MARKER_TYPE_FUNC_ARG and one of the following added
-        // by raw2trace_t::process_marker.
+        // by raw2trace_t::process_marker. In any case, the dynamic scheduler
+        // waits until the next user-space instr before making any scheduling
+        // decisions, so the order doesn't matter functionally.
         case TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE:
         case TRACE_MARKER_TYPE_SYSCALL_SCHEDULE:
         case TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT:
         case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH:
+        // Marking end of context for the above comment.
         case TRACE_MARKER_TYPE_FUNC_ARG:
         case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
             report_if_false(shard,
@@ -651,7 +654,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                          OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
                      shard->file_type_)) {
             report_if_false(shard, prev_was_syscall_marker_saved,
-                            "System call trace found without prior syscall marker");
+                            "System call trace found without prior syscall marker or "
+                            "unexpected intervening records");
             report_if_false(shard,
                             shard->last_syscall_marker_value_ ==
                                 static_cast<int>(memref.marker.marker_value),

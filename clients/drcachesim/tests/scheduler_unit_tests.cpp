@@ -6836,6 +6836,7 @@ test_kernel_syscall_sequences()
                 if (instr_idx % 2 == 0) {
                     // The markers after the syscall instr are supposed to be bracketed
                     // by timestamp markers.
+                    bool add_post_timestamp = true;
                     inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
                     inputs.push_back(test_util::make_marker(
                         TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 2));
@@ -6845,8 +6846,8 @@ test_kernel_syscall_sequences()
                             TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, /*value=*/0));
                     }
                     if (instr_idx == 0) {
-                        // If the syscall was specified in -record_syscall, we'll have
-                        // additional markers.
+                        // Assuming the first syscall was specified in -record_syscall,
+                        // so we'll have additional markers.
                         inputs.push_back(test_util::make_marker(
                             TRACE_MARKER_TYPE_FUNC_ID,
                             static_cast<uintptr_t>(
@@ -6854,11 +6855,14 @@ test_kernel_syscall_sequences()
                                 SYSCALL_BASE));
                         inputs.push_back(test_util::make_marker(
                             TRACE_MARKER_TYPE_FUNC_ARG, /*value=*/10));
+                        // First syscall on first input was interrupted by a signal,
+                        // so no post-syscall event.
                         if (input_idx == 0) {
                             inputs.push_back(test_util::make_marker(
                                 TRACE_MARKER_TYPE_KERNEL_EVENT, /*value=*/1));
                             inputs.push_back(test_util::make_marker(
                                 TRACE_MARKER_TYPE_KERNEL_XFER, /*value=*/1));
+                            add_post_timestamp = false;
                         } else {
                             inputs.push_back(test_util::make_marker(
                                 TRACE_MARKER_TYPE_FUNC_ID,
@@ -6871,8 +6875,10 @@ test_kernel_syscall_sequences()
                                 TRACE_MARKER_TYPE_SYSCALL_FAILED, /*value=*/1));
                         }
                     }
-                    inputs.push_back(
-                        test_util::make_timestamp(TIMESTAMP + instr_idx + 1));
+                    if (add_post_timestamp) {
+                        inputs.push_back(
+                            test_util::make_timestamp(TIMESTAMP + instr_idx + 1));
+                    }
                 }
             }
             inputs.push_back(test_util::make_exit(tid));
@@ -6905,16 +6911,17 @@ test_kernel_syscall_sequences()
         // The instrs in the injected syscall sequence count towards the #instr
         // quantum, but no context switch happens in the middle of the syscall seq.
         assert(sched_as_string[0] ==
-               "Avf0i0SsFF1ii1kk0,Cvf0i0SsFF1ii1FFs0,Aii0S2iii20,Cii0S2iii20,"
+               "Avf0i0SsFF1ii1kk,Cvf0i0SsFF1ii1FFs0,Aii0S2iii20,Cii0S2iii20,"
                "Aii0Ss1ii10,Cii0Ss1ii10,Aii0S2iii20,Cii0S2iii20,Aii0Ss1ii10,Cii0Ss1ii10");
         assert(sched_as_string[1] ==
                "Bvf0i0SsFF1ii1FFs0ii0S2iii20ii0Ss1ii10ii0S2iii20ii0Ss1ii10______________"
-               "___________________________________________");
+               "__________________________________________");
         // Zoom in and check the first few syscall sequences on the first output record
         // by record with value checks.
         int idx = 0;
         bool res = true;
         res = res &&
+            // First thread.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
@@ -6945,15 +6952,13 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
-            // Post syscall markers.
+            // Signal interruption on first thread.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_KERNEL_EVENT, 1) &&
-
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_KERNEL_XFER, 1) &&
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
 
+            // Second thread.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
@@ -7757,7 +7762,7 @@ class mock_noise_generator_t : public noise_generator_t {
 public:
     mock_noise_generator_t(noise_generator_info_t &info, const addr_t addr_to_generate)
         : noise_generator_t(info)
-        , addr_to_generate_(addr_to_generate) {};
+        , addr_to_generate_(addr_to_generate) { };
 
 protected:
     trace_entry_t
@@ -7792,7 +7797,7 @@ class mock_noise_generator_factory_t
     : public noise_generator_factory_t<memref_t, reader_t> {
 public:
     mock_noise_generator_factory_t(const addr_t addr_to_generate)
-        : addr_to_generate_(addr_to_generate) {};
+        : addr_to_generate_(addr_to_generate) { };
 
 protected:
     std::unique_ptr<reader_t>

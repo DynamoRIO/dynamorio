@@ -3557,7 +3557,6 @@ test_syscall_injection(void *drcontext)
     raw.push_back(make_timestamp(3));
     raw.push_back(make_core());
     raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
-    // raw.push_back(make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, FUNC_ID_SYSCALL));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 1));
     // Entries added by post-syscall event.
