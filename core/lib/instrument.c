@@ -43,7 +43,6 @@
 #include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 #include "instrument.h"
-#include "globals_api.h"
 #include "instr.h"
 #include "instr_create_shared.h"
 #include "instrlist.h"
