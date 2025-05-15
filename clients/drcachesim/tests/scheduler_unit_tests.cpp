@@ -1308,6 +1308,10 @@ test_only_threads()
         int idle_count = 0;
         for (scheduler_t::stream_status_t status = stream->next_record(memref);
              status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            if (status == scheduler_t::STATUS_IDLE) {
+                ++idle_count;
+                continue;
+            }
             assert(status == scheduler_t::STATUS_OK);
             assert(memref.instr.tid == TID_A || memref.instr.tid == IDLE_THREAD_ID ||
                    // In 32-bit the -1 is unsigned so the 64-bit .tid field is not
@@ -1315,9 +1319,6 @@ test_only_threads()
                    static_cast<uint64_t>(memref.instr.tid) ==
                        static_cast<addr_t>(IDLE_THREAD_ID) ||
                    memref.instr.tid == INVALID_THREAD_ID);
-            if (memref.marker.type == TRACE_TYPE_MARKER &&
-                memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
-                ++idle_count;
         }
         assert(idle_count == 3);
     }
@@ -7626,7 +7627,7 @@ test_exit_early()
 }
 
 static void
-test_marker_updates()
+test_dynamic_marker_updates()
 {
     std::cerr << "\n----------------\nTesting marker and tid/pid updates\n";
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
@@ -7734,6 +7735,98 @@ test_marker_updates()
         assert(last_timestamp[i] - first_timestamp[i] >= TIMESTAMP_GAP_US);
     }
     assert(instrs_seen == NUM_INPUTS * NUM_INSTRS);
+}
+
+static void
+test_static_marker_updates()
+{
+    std::cerr << "\n----------------\nTesting static marker updates\n";
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_CONSISTENT_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/2);
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 2;
+    const int NUM_INSTRS = 12;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_pid_t PID_BASE = 200;
+    static constexpr uint64_t TIMESTAMP_BASE = 12340000;
+
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE;
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(PID_BASE));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        uint64_t cur_timestamp = TIMESTAMP_BASE + i;
+        inputs[i].push_back(test_util::make_timestamp(cur_timestamp));
+        inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1));
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+            // Include idle and wait markers, which should get transformed.
+            inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0));
+            inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CORE_WAIT, 0));
+        }
+        inputs[i].push_back(test_util::make_exit(tid));
+    }
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_BASE);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+    std::vector<bool> eof(NUM_OUTPUTS, false);
+    for (int i = 0; i < NUM_OUTPUTS; i++)
+        outputs[i] = scheduler.get_stream(i);
+    int num_eof = 0, num_idle = 0, num_wait = 0, num_instr = 0;
+    while (num_eof < NUM_OUTPUTS) {
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            if (eof[i])
+                continue;
+            memref_t memref;
+            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+            if (status == scheduler_t::STATUS_EOF) {
+                ++num_eof;
+                eof[i] = true;
+                continue;
+            }
+            if (status == scheduler_t::STATUS_IDLE) {
+                ++num_idle;
+                continue;
+            }
+            if (status == scheduler_t::STATUS_WAIT) {
+                ++num_wait;
+                continue;
+            }
+            assert(status == scheduler_t::STATUS_OK);
+            // The idle and wait markers should have turned into statuses above.
+            assert(memref.marker.type != TRACE_TYPE_MARKER ||
+                   (memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_IDLE &&
+                    memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_WAIT));
+            if (type_is_instr(memref.instr.type))
+                ++num_instr;
+        }
+    }
+    assert(num_instr == NUM_INSTRS * NUM_INPUTS);
+    assert(num_instr == num_idle);
+    assert(num_instr == num_wait);
+}
+
+static void
+test_marker_updates()
+{
+    test_dynamic_marker_updates();
+    test_static_marker_updates();
 }
 
 class test_options_t : public scheduler_fixed_tmpl_t<memref_t, reader_t> {
