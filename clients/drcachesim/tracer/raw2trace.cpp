@@ -927,7 +927,6 @@ raw2trace_t::maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdat
                                                    const offline_entry_t &entry,
                                                    byte *buf_base)
 {
-
     if (tdata->to_inject_syscall_ == raw2trace_thread_data_t::INJECT_NONE)
         return true;
     bool is_marker = entry.extended.type == OFFLINE_TYPE_EXTENDED &&

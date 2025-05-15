@@ -766,7 +766,7 @@ protected:
 #endif
 
         // Sentinel value for to_inject_syscall.
-        static constexpr int INJECT_NONE = 0;
+        static constexpr int INJECT_NONE = -1;
     };
 
 #ifdef BUILD_PT_POST_PROCESSOR

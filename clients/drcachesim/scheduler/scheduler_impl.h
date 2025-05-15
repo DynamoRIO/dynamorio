@@ -268,7 +268,7 @@ protected:
         bool saw_first_func_id_marker_after_syscall = false;
 
         // Sentinel value for to_inject_syscall.
-        static constexpr int INJECT_NONE = 0;
+        static constexpr int INJECT_NONE = -1;
     };
 
     // XXX i#6831: Should this live entirely inside the dynamic subclass?
