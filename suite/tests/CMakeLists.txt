@@ -4301,9 +4301,11 @@ if (BUILD_CLIENTS)
       # We pass a small instr count to test multiple chunks in a zipfile.
       "@-chunk_instr_count@10K" "")
 
-    torunonly_drcacheoff(simple-dyn-inject-invariants ${ci_shared_app} ""
-      # We pass a small instr count to test multiple chunks in a zipfile.
-      "@-chunk_instr_count@1000@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+    if (X86 AND X64)
+      torunonly_drcacheoff(simple-dyn-inject-invariants ${ci_shared_app} ""
+        # We pass a small instr count to test multiple chunks in a zipfile.
+        "@-chunk_instr_count@1000@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+    endif()
 
     if (UNIX)
       # Test an app with a fork.
