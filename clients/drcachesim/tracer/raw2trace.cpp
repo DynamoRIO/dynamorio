@@ -394,12 +394,15 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // process_next_thread_buffer() so there is no need to have a separate
             // check for it here.
             if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
-                if (syscall_template_file_reader_ != nullptr &&
-                    marker_type == TRACE_MARKER_TYPE_SYSCALL) {
-                    // Also writes out the delayed branches if any.
-                    if (!write_syscall_template(tdata, buf, buf_base,
-                                                static_cast<int>(marker_val)))
-                        return false;
+                if (marker_type == TRACE_MARKER_TYPE_SYSCALL &&
+                    syscall_trace_templates_.find(static_cast<int>(marker_val)) !=
+                        syscall_trace_templates_.end()) {
+                    assert(tdata->to_inject_syscall_ ==
+                           raw2trace_thread_data_t::INJECT_NONE);
+                    // The actual injection of the syscall trace happens later at the
+                    // intended point between the syscall function tracing markers
+                    tdata->to_inject_syscall_ = static_cast<int>(marker_val);
+                    tdata->saw_first_func_id_marker_after_syscall_ = false;
                 }
                 if (delayed_branches_exist(tdata)) {
                     return write_delayed_branches(tdata, buf_base,
@@ -920,6 +923,54 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 #endif
 
 bool
+raw2trace_t::maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdata,
+                                                   const offline_entry_t &entry,
+                                                   byte *buf_base)
+{
+    if (tdata->to_inject_syscall_ == raw2trace_thread_data_t::INJECT_NONE)
+        return true;
+    bool is_marker = entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+        entry.extended.ext == OFFLINE_EXT_TYPE_MARKER;
+    bool is_injection_point = false;
+    // We inject the syscall trace after all markers added in the
+    // pre-syscall event.
+    if (
+        // For syscalls not specified in -record_syscall, which do not have
+        // the func_id-func_retval markers.
+        entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP ||
+        // For syscalls that did not have a post-event because the trace ended.
+        (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+         entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) ||
+        // For syscalls interrupted by a signal and did not have a post-syscall
+        // event.
+        (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
+        is_injection_point = true;
+    } else if (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_FUNC_ID) {
+        if (!tdata->saw_first_func_id_marker_after_syscall_) {
+            // XXX i#7482: If we allow recording zero args for syscalls in
+            // -record_syscall, we would need to update this logic.
+            tdata->saw_first_func_id_marker_after_syscall_ = true;
+        } else {
+            // For syscalls specified in -record_syscall, for which we inject
+            // just before the func_id-func_retval markers.
+            is_injection_point = true;
+        }
+    }
+
+    byte *buf = buf_base;
+    // Also writes out the delayed branches if any.
+    if (is_injection_point) {
+        if (!write_syscall_template(tdata, buf,
+                                    reinterpret_cast<trace_entry_t *>(buf_base),
+                                    tdata->to_inject_syscall_)) {
+            return false;
+        }
+        tdata->to_inject_syscall_ = raw2trace_thread_data_t::INJECT_NONE;
+        tdata->saw_first_func_id_marker_after_syscall_ = false;
+    }
+    return true;
+}
+bool
 raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                         DR_PARAM_OUT bool *end_of_record)
 {
@@ -951,6 +1002,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // Make a copy to avoid clobbering the entry we pass to process_offline_entry()
         // when it calls get_next_entry() on its own.
         offline_entry_t entry = *in_entry;
+        if (!maybe_inject_pending_syscall_sequence(tdata, entry, buf_base))
+            return false;
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             // Give subclasses a chance for further action on a timestamp by
             // putting our processing as thought it were a marker at the raw level.

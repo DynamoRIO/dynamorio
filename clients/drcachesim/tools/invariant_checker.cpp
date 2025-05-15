@@ -279,6 +279,46 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         ++shard->instr_count_;
         ++shard->instr_count_since_last_timestamp_;
     }
+
+    // These markers are allowed between the syscall marker and a possible
+    // syscall trace.
+    bool prev_was_syscall_marker_saved = shard->prev_was_syscall_marker_;
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        switch (memref.marker.marker_type) {
+        // XXX: The following four markers may be added by sub-classes that
+        // provide their own implementation of raw2trace_t::process_marker.
+        // raw2trace_t::process_marker may prepend or append these additional
+        // markers on processing the syscall's TRACE_MARKER_TYPE_FUNC_ARGs. It
+        // may have been cleaner if the syscall trace were injected before the
+        // following four, but it gets messy trying to inject the trace between
+        // the last TRACE_MARKER_TYPE_FUNC_ARG and one of the following added
+        // by raw2trace_t::process_marker. In any case, the dynamic scheduler
+        // waits until the next user-space instr before making any scheduling
+        // decisions, so the order doesn't matter functionally.
+        case TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE:
+        case TRACE_MARKER_TYPE_SYSCALL_SCHEDULE:
+        case TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT:
+        case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH:
+        // Marking end of context for the above comment.
+        case TRACE_MARKER_TYPE_FUNC_ARG:
+        case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+            report_if_false(shard,
+                            !shard->found_syscall_trace_after_last_userspace_instr_,
+                            "Found unexpected func_arg or syscall marker after injected "
+                            "syscall trace");
+            break;
+        case TRACE_MARKER_TYPE_FUNC_ID:
+            // This may be present both before and after the injected syscall trace,
+            // from the pre- and post-syscall callback.
+            break;
+        default:
+            // Remaining markers are not allowed to intervene TRACE_MARKER_TYPE_SYSCALL
+            // and a possible TRACE_MARKER_TYPE_SYSCALL_TRACE_START.
+            // Also lets us detect syscall traces that were injected too late (after a
+            // marker not on the list above, like syscall_failed).
+            shard->prev_was_syscall_marker_ = false;
+        }
+    }
     if (dynamic_syscall_trace_injection_ &&
         (shard->between_kernel_syscall_trace_markers_ ||
          (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -309,8 +349,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->stream->get_instruction_ordinal(),
                         "Stream instr ordinal inaccurate");
     }
-    bool prev_was_syscall_marker_saved = shard->prev_was_syscall_marker_;
-    shard->prev_was_syscall_marker_ = false;
 #ifdef UNIX
     if (has_annotations_) {
         // Check conditions specific to the signal_invariants app, where it
@@ -541,9 +579,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
         shard->found_blocking_marker_ = true;
-        // Re-assign the saved value to the shard state to allow this intervening
-        // maybe_blocking marker.
-        shard->prev_was_syscall_marker_ = prev_was_syscall_marker_saved;
         report_if_false(
             shard,
             (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
@@ -622,7 +657,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                          OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY,
                      shard->file_type_)) {
             report_if_false(shard, prev_was_syscall_marker_saved,
-                            "System call trace found without prior syscall marker");
+                            "System call trace found without prior syscall marker or "
+                            "unexpected intervening records");
             report_if_false(shard,
                             shard->last_syscall_marker_value_ ==
                                 static_cast<int>(memref.marker.marker_value),

@@ -4036,6 +4036,9 @@ if (BUILD_CLIENTS)
         "-tool basic_counts" "")
     endif ()
 
+    set(syscall_file
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
+
     if (X86 AND X64) # We only bother with a sample trace for x86_64.
       # We test with a fixed trace file so we can test exact numeric results.
       set(small_trace_file
@@ -4114,9 +4117,6 @@ if (BUILD_CLIENTS)
           "-infile ${switch_file} -tool invariant_checker"
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
-
-        set(syscall_file
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
 
         torunonly_simtool(syscall_insertion ${ci_shared_app}
           "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -sched_syscall_file ${syscall_file}"
@@ -4901,6 +4901,12 @@ if (BUILD_CLIENTS)
       # Test -record_syscall on SYS_write == #1 with 3 args.
       torunonly_drcacheoff(allasm-record-syscall allasm_repstr
         "-record_syscall 1|3" "@-tool@view" "")
+
+      torunonly_drcacheoff(allasm-dyn-inject-view allasm_repstr
+        "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@view" "")
+
+      torunonly_drcacheoff(allasm-dyn-inject-invariants allasm_repstr
+        "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
