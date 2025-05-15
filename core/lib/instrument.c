@@ -43,6 +43,7 @@
 #include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 #include "instrument.h"
+#include "globals_api.h"
 #include "instr.h"
 #include "instr_create_shared.h"
 #include "instrlist.h"
@@ -6131,7 +6132,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     ASSERT_NOT_IMPLEMENTED(false);
 #elif defined(AARCH64)
     ptr_uint_t address;
-    reg_id_t target = DR_REG_NULL;
+    opnd_t target;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_insert_mbr_instrumentation: drcontext cannot be NULL");
     address = (ptr_uint_t)instr_get_translation(instr);
@@ -6140,9 +6141,8 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     CLIENT_ASSERT(instr_is_mbr(instr),
                   "dr_insert_mbr_instrumentation must be applied to a mbr");
 
-    /* For all known mbr instructions on aarch64, the first source register saves the
-     * target. */
-    target = opnd_get_reg(instr_get_src(instr, 0));
+    /* Retrieve target address. */
+    target = instr_get_target(instr);
 
     dr_insert_clean_call_ex(
         drcontext, ilist, instr, callee,
@@ -6154,7 +6154,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
         /* Address of mbr is 1st param. */
         OPND_CREATE_INTPTR(address),
         /* Indirect target is 2nd param. */
-        opnd_create_reg(target));
+        target);
 #endif /* X86/ARM/RISCV64 */
 }
 
