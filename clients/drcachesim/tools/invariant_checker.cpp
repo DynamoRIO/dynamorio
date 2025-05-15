@@ -765,7 +765,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->stream->is_record_kernel(),
                         "Stream is_record_kernel() inaccurate");
     }
-
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {

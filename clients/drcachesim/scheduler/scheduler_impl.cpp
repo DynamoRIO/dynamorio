@@ -1816,14 +1816,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
     output_ordinal_t output, input_info_t *input, RecordType &record)
 {
     assert(!input->in_syscall_injection);
-    assert(input->to_inject_syscall != -1);
+    assert(input->to_inject_syscall != input_info_t::INJECT_NONE);
     if (!record_type_is_invalid(record)) {
         // May be invalid if we're at input eof, in which case we do not need to
         // save it.
         input->queue.push_front(record);
     }
     int syscall_num = input->to_inject_syscall;
-    input->to_inject_syscall = -1;
+    input->to_inject_syscall = input_info_t::INJECT_NONE;
     assert(syscall_sequence_.find(syscall_num) != syscall_sequence_.end());
     stream_status_t res = inject_kernel_sequence(syscall_sequence_[syscall_num], input);
     if (res != stream_status_t::STATUS_OK)
@@ -1840,6 +1840,50 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
     input->queue.pop_front();
     input->cur_from_queue = true;
     input->in_syscall_injection = true;
+    return stream_status_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::maybe_inject_pending_syscall_sequence(
+    output_ordinal_t output, input_info_t *input, RecordType &record)
+{
+    if (input->to_inject_syscall == input_info_t::INJECT_NONE)
+        return stream_status_t::STATUS_OK;
+
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value_unused;
+    uintptr_t timestamp_unused;
+    bool is_marker = record_type_is_marker(record, marker_type, marker_value_unused);
+    bool is_injection_point = false;
+    if (
+        // For syscalls not specified in -record_syscall, which do not have
+        // the func_id-func_retval markers.
+        record_type_is_timestamp(record, timestamp_unused) ||
+        // For syscalls that did not have a post-event because the trace ended.
+        record_type_is_thread_exit(record) ||
+        // For syscalls interrupted by a signal and did not have a post-syscall
+        // event.
+        (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
+        is_injection_point = true;
+    } else if (is_marker && marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+        if (!input->saw_first_func_id_marker_after_syscall) {
+            // XXX i#7482: If we allow recording zero args for syscalls in
+            // -record_syscall, we would need to update this logic.
+            input->saw_first_func_id_marker_after_syscall = true;
+        } else {
+            // For syscalls specified in -record_syscall, for which we inject
+            // after the func_id-func_arg markers (if any) but before the
+            // func_id-func_retval markers.
+            is_injection_point = true;
+        }
+    }
+    if (is_injection_point) {
+        stream_status_t res = inject_pending_syscall_sequence(output, input, record);
+        if (res != stream_status_t::STATUS_OK)
+            return res;
+        input->saw_first_func_id_marker_after_syscall = false;
+    }
     return stream_status_t::STATUS_OK;
 }
 
@@ -2887,7 +2931,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 input->needs_advance = true;
             }
             bool input_at_eof = input->at_eof || *input->reader == *input->reader_end;
-            if (input_at_eof && input->to_inject_syscall != -1) {
+            if (input_at_eof && input->to_inject_syscall != input_info_t::INJECT_NONE) {
                 // The input's at eof but we have a syscall trace yet to be injected.
                 stream_status_t res =
                     inject_pending_syscall_sequence(output, input, record);
@@ -2916,46 +2960,16 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 record = **input->reader;
             }
         }
+
+        stream_status_t res =
+            maybe_inject_pending_syscall_sequence(output, input, record);
+        if (res != stream_status_t::STATUS_OK)
+            return res;
+
+        // Check whether all syscall injected records have been passed along
+        // to the caller.
         trace_marker_type_t marker_type;
         uintptr_t marker_value_unused;
-        uintptr_t timestamp_unused;
-
-        // If there's a syscall trace yet to be injected, see if we can do it now.
-        if (input->to_inject_syscall != -1) {
-            bool is_marker =
-                record_type_is_marker(record, marker_type, marker_value_unused);
-            bool is_injection_point = false;
-            if (
-                // For syscalls not specified in -record_syscall, which do not have
-                // the func_id-func_retval markers.
-                record_type_is_timestamp(record, timestamp_unused) ||
-                // For syscalls that did not have a post-event because the trace ended.
-                record_type_is_thread_exit(record) ||
-                // For syscalls interrupted by a signal and did not have a post-syscall
-                // event.
-                (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
-                is_injection_point = true;
-            } else if (is_marker && marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
-                if (!input->saw_first_func_id_for_syscall) {
-                    // XXX i#7482: If we allow recording zero args for syscalls in
-                    // -record_syscall, we would need to update this logic.
-                    input->saw_first_func_id_for_syscall = true;
-                } else {
-                    // For syscalls specified in -record_syscall, for which we inject
-                    // after the func_id-func_arg markers (if any) but before the
-                    // func_id-func_retval markers.
-                    is_injection_point = true;
-                }
-            }
-            if (is_injection_point) {
-                stream_status_t res =
-                    inject_pending_syscall_sequence(output, input, record);
-                if (res != stream_status_t::STATUS_OK)
-                    return res;
-                input->saw_first_func_id_for_syscall = false;
-            }
-        }
-        // Check whether we're done with the injection.
         if (input->in_syscall_injection &&
             record_type_is_marker(outputs_[output].last_record, marker_type,
                                   marker_value_unused) &&
@@ -2977,8 +2991,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         bool preempt = false;
         uint64_t blocked_time = 0;
         uint64_t prev_time_in_quantum = input->prev_time_in_quantum;
-        stream_status_t res = check_for_input_switch(
-            output, record, input, cur_time, need_new_input, preempt, blocked_time);
+        res = check_for_input_switch(output, record, input, cur_time, need_new_input,
+                                     preempt, blocked_time);
         if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_SKIPPED)
             return res;
         if (need_new_input) {
@@ -3101,6 +3115,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         // The actual injection of the syscall trace happens later at the intended
         // point between the syscall function tracing markers.
         input->to_inject_syscall = static_cast<int>(marker_value);
+        input->saw_first_func_id_marker_after_syscall = false;
     } else if (record_type_is_instr(record, &instr_pc, &instr_size)) {
         input->last_pc_fallthrough = instr_pc + instr_size;
     }

@@ -264,8 +264,11 @@ protected:
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
-        int to_inject_syscall = -1;
-        bool saw_first_func_id_for_syscall = false;
+        int to_inject_syscall = INJECT_NONE;
+        bool saw_first_func_id_marker_after_syscall = false;
+
+        // Sentinel value for to_inject_syscall.
+        static constexpr int INJECT_NONE = 0;
     };
 
     // XXX i#6831: Should this live entirely inside the dynamic subclass?
@@ -900,12 +903,22 @@ protected:
     void
     update_next_record(output_ordinal_t output, RecordType &record);
 
+    // Performs the actual injection of the kernel sequence.
     stream_status_t
     inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
 
+    // Performs the actual injection of a kernel syscall sequence, using
+    // inject_kernel_sequence as helper.
     stream_status_t
     inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
                                     RecordType &record);
+
+    // Checks whether we're at a suitable injection point for a yet to be injected
+    // syscall sequence, and performs the injection using
+    // inject_pending_syscall_sequence as helper.
+    stream_status_t
+    maybe_inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
+                                          RecordType &record);
 
     // Actions that must be taken only when we know for sure that the given record
     // is going to be the next record for some output stream.
