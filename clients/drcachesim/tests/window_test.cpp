@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
  * previous timestamp than the sleep time.
  */
 
+#include "test_helpers.h"
 #include <assert.h>
 #include <chrono>
 #include <iostream>

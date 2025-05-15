@@ -32,6 +32,7 @@
 
 /* Unit tests for trace analysis APIs. */
 
+#include "test_helpers.h"
 #include <assert.h>
 
 #include <atomic>

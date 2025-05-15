@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,6 @@
 #include <random>
 #include <regex>
 
-#undef NDEBUG
 #include <assert.h>
 #include "config_reader_unit_test.h"
 #include "v2p_reader_unit_test.h"
@@ -50,6 +49,7 @@
 #include "simulator/prefetcher.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,12 +31,12 @@
  */
 
 #include <iostream>
-#undef NDEBUG
 #include <assert.h>
 
 #include "../tools/reuse_distance.h"
 #include "../tools/reuse_distance_create.h"
 #include "../common/memref.h"
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {
