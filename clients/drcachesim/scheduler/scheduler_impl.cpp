@@ -3105,10 +3105,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
     uintptr_t marker_value;
     addr_t instr_pc;
     size_t instr_size;
+    bool is_marker = record_type_is_marker(record, marker_type, marker_value);
     // Good to queue the injected records at this point, because we now surely will
     // be done with TRACE_MARKER_TYPE_SYSCALL.
-    if (record_type_is_marker(record, marker_type, marker_value) &&
-        marker_type == TRACE_MARKER_TYPE_SYSCALL &&
+    if (is_marker && marker_type == TRACE_MARKER_TYPE_SYSCALL &&
         syscall_sequence_.find(static_cast<int>(marker_value)) !=
             syscall_sequence_.end()) {
         assert(!input->in_syscall_injection);
@@ -3118,6 +3118,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         input->saw_first_func_id_marker_after_syscall = false;
     } else if (record_type_is_instr(record, &instr_pc, &instr_size)) {
         input->last_pc_fallthrough = instr_pc + instr_size;
+    }
+    if (is_marker) {
+        // Turn idle+wait markers back into their respective status codes.
+        if (marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
+            return stream_status_t::STATUS_IDLE;
+        else if (marker_type == TRACE_MARKER_TYPE_CORE_WAIT)
+            return stream_status_t::STATUS_WAIT;
     }
     return stream_status_t::STATUS_OK;
 }
