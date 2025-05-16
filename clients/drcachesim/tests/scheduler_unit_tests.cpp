@@ -7765,6 +7765,7 @@ test_static_marker_updates()
         for (int j = 0; j < NUM_INSTRS; j++) {
             inputs[i].push_back(test_util::make_instr(42 + j * 4));
             // Include idle and wait markers, which should get transformed.
+            // We have one idle and one wait for every instruction.
             inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0));
             inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CORE_WAIT, 0));
         }
@@ -7818,6 +7819,7 @@ test_static_marker_updates()
         }
     }
     assert(num_instr == NUM_INSTRS * NUM_INPUTS);
+    // We should have one idle and one wait for every instruction.
     assert(num_instr == num_idle);
     assert(num_instr == num_wait);
 }
