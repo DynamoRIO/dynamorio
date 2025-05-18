@@ -102,6 +102,9 @@ START_FILE
 #define FUNCNAME test_jecxz
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        /* begin roi via nop; nop; add; nop */
+        nop; nop; add x0, x0, 0; nop
+
         mov      x1, ARG1
         END_PROLOG
 
@@ -207,11 +210,14 @@ GLOBAL_LABEL(FUNCNAME:)
         beq      beq_taken
         nop
      beq_taken:
-        cmp      x1, 1
-        bne      bne_taken
+        cmp      x1, 0
+        bne      bne_not_taken
         nop
-     bne_taken:
+     bne_not_taken:
         nop
+
+        /* end roi via nop; nop; add; nop */
+        nop; nop; add x0, x0, 0; nop
 
         /* test x0 being preserved */
         ldr      x1, =0xabcd1234
