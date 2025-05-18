@@ -42,7 +42,7 @@ uint num_jump_ind = 0;
 uint num_br_cond = 0;
 uint num_ret = 0;
 #if defined(AARCH64)
-bool in_roi = false; /* Within our region of interest? */
+bool in_roi = false;   /* Within our region of interest? */
 bool cbr_taken = true; /* Next cbr should be taken or not-taken? */
 #endif
 
@@ -170,7 +170,6 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             dr_insert_clean_call(drcontext, bb, instr, at_nops, false, 0);
         }
 #endif
-
     }
     return DR_EMIT_DEFAULT;
 }
