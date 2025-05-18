@@ -104,8 +104,10 @@ at_ret(app_pc src, app_pc dst)
 static void
 at_nops()
 {
+#if defined(AARCH64)
     /* Enter or exit region of interest. */
     in_roi = !in_roi;
+#endif
 }
 
 static dr_emit_flags_t
