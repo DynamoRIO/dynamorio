@@ -84,7 +84,7 @@ GLOBAL_LABEL(marker:)
         yield
         ret
 #elif defined (RISCV64)
-        addi zero, zero, 0
+        nop
         .option arch, +c
         c.nop
         c.nop
