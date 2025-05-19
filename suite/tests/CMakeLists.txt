@@ -2832,12 +2832,12 @@ if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
-if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+if (X86 OR AARCH64 OR RISCV64) # FIXME i#1551: port asm to ARM
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
-endif (X86 OR AARCH64)
+endif (X86 OR AARCH64 OR RISCV64)
 if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
@@ -6674,6 +6674,7 @@ if (RISCV64)
     code_api|client.crashmsg
     code_api|client.drwrap-test-callconv
     code_api|client.execfault
+    code_api|client.flush
     code_api|client.mangle_suspend
     code_api|client.null_instrument
     code_api|client.option_parse
