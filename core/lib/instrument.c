@@ -6129,6 +6129,31 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
 #elif defined(RISCV64)
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
+#elif defined(AARCH64)
+    ptr_uint_t address;
+    opnd_t target;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_insert_mbr_instrumentation: drcontext cannot be NULL");
+    address = (ptr_uint_t)instr_get_translation(instr);
+    CLIENT_ASSERT(address != 0,
+                  "dr_insert_mbr_instrumentation: can't determine app address");
+    CLIENT_ASSERT(instr_is_mbr(instr),
+                  "dr_insert_mbr_instrumentation must be applied to a mbr");
+
+    /* Retrieve target address. */
+    target = instr_get_target(instr);
+
+    dr_insert_clean_call_ex(
+        drcontext, ilist, instr, callee,
+        /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+         * asking the user to pass in a flag: if they're using this they are not
+         * super concerned about overhead.
+         */
+        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 2,
+        /* Address of mbr is 1st param. */
+        OPND_CREATE_INTPTR(address),
+        /* Indirect target is 2nd param. */
+        target);
 #endif /* X86/ARM/RISCV64 */
 }
 
@@ -6367,7 +6392,169 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
 #elif defined(RISCV64)
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM/RISCV64 */
+#elif defined(AARCH64)
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    ptr_uint_t address, target;
+    reg_id_t dir = DR_REG_NULL;
+    reg_id_t flags = DR_REG_NULL;
+    reg_id_t temp = DR_REG_X0;
+    bool temp_used = false;
+    int opc;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_insert_cbr_instrumentation: drcontext cannot be NULL");
+    address = (ptr_uint_t)instr_get_translation(instr);
+    CLIENT_ASSERT(address != 0,
+                  "dr_insert_cbr_instrumentation: can't determine app address");
+    CLIENT_ASSERT(instr_is_cbr(instr),
+                  "dr_insert_cbr_instrumentation must be applied to a cbr");
+    target = (ptr_uint_t)opnd_get_pc(instr_get_target(instr));
+
+    /* Compute branch direction. */
+    opc = instr_get_opcode(instr);
+    if (opc == OP_cbnz || opc == OP_cbz) {
+        /* XXX: which is faster, additional conditional branch or cmp + csinc? */
+        opnd_t reg_op = instr_get_src(instr, 1);
+        reg_id_t reg = opnd_get_reg(reg_op);
+        /* If the register is stolen, we need to read the actual value first. */
+        if (reg_is_stolen(reg)) {
+            /* Save old value of temp register to SPILL_SLOT_3. */
+            dr_save_reg(dcontext, ilist, instr, temp, SPILL_SLOT_3);
+            /* Read actual register value if stolen */
+            dr_insert_get_stolen_reg_value(dcontext, ilist, instr, temp);
+            /* Use temp register to access actual register value. */
+            temp_used = true;
+            reg = reg_resize_to_opsz(temp, reg_get_size(reg));
+            reg_op = opnd_create_reg(reg);
+        }
+
+        /* Use dir register to compute direction. */
+        dir = (reg_to_pointer_sized(reg) == DR_REG_X0) ? DR_REG_X1 : DR_REG_X0;
+        /* Save old value of dir register to SPILL_SLOT_1. */
+        dr_save_reg(dcontext, ilist, instr, dir, SPILL_SLOT_1);
+        /* Use flags register to save nzcv. */
+        flags = (reg_to_pointer_sized(reg) == DR_REG_X2) ? DR_REG_X3 : DR_REG_X2;
+        /* Save old value of flags register to SPILL_SLOT_2. */
+        dr_save_reg(dcontext, ilist, instr, flags, SPILL_SLOT_2);
+        /* Save flags to flags register. */
+        dr_save_arith_flags_to_reg(dcontext, ilist, instr, flags);
+
+        /* Compare reg against zero. */
+        instr_t *cmp = INSTR_CREATE_cmp(dcontext, reg_op, OPND_CREATE_INT(0));
+        MINSERT(ilist, instr, cmp);
+        /* Compute branch direction. */
+        opnd_t dir_op = opnd_create_reg(dir);
+        instr_t *cset = INSTR_CREATE_csinc(
+            dcontext, dir_op, OPND_CREATE_ZR(dir_op), OPND_CREATE_ZR(dir_op),
+            opnd_create_cond(opc == OP_cbnz ? DR_PRED_EQ : DR_PRED_NE));
+        MINSERT(ilist, instr, cset);
+    } else if (opc == OP_tbnz || opc == OP_tbz) {
+        opnd_t reg_op = instr_get_src(instr, 1);
+        reg_id_t reg = opnd_get_reg(reg_op);
+        reg_id_t dir_same_width = DR_REG_NULL;
+        /* If the register is stolen, we need to read the actual value first. */
+        if (reg_is_stolen(reg)) {
+            /* Save old value of temp register to SPILL_SLOT_3. */
+            dr_save_reg(dcontext, ilist, instr, temp, SPILL_SLOT_3);
+            /* Read actual register value if stolen */
+            dr_insert_get_stolen_reg_value(dcontext, ilist, instr, temp);
+            /* Use temp register to access actual register value. */
+            temp_used = true;
+            reg = reg_resize_to_opsz(temp, reg_get_size(reg));
+            reg_op = opnd_create_reg(reg);
+        }
+
+        /* Use dir register to compute direction. */
+        dir = (reg_to_pointer_sized(reg) == DR_REG_X0) ? DR_REG_X1 : DR_REG_X0;
+        dir_same_width = reg_resize_to_opsz(dir, reg_get_size(reg));
+        /* Save old value of dir register to SPILL_SLOT_1. */
+        dr_save_reg(dcontext, ilist, instr, dir, SPILL_SLOT_1);
+
+        /* Extract tst_bit from reg. */
+        int tst_bit = opnd_get_immed_int(instr_get_src(instr, 2));
+        opnd_t dir_same_width_op = opnd_create_reg(dir_same_width);
+        instr_t *ubfm =
+            INSTR_CREATE_ubfm(dcontext, dir_same_width_op, reg_op,
+                              OPND_CREATE_INT(tst_bit), OPND_CREATE_INT(tst_bit));
+        MINSERT(ilist, instr, ubfm);
+
+        /* Invert result if tbz. */
+        if (opc == OP_tbz) {
+            instr_t *eor =
+                INSTR_CREATE_eor(dcontext, dir_same_width_op, OPND_CREATE_INT(1));
+            MINSERT(ilist, instr, eor);
+        }
+    } else if (opc == OP_bcond) {
+        /* Use dir register to compute direction. */
+        dir = SCRATCH_REG0;
+        /* Save old value of dir register to SPILL_SLOT_1. */
+        dr_save_reg(dcontext, ilist, instr, dir, SPILL_SLOT_1);
+        /* Compute branch direction. */
+        dr_pred_type_t pred = instr_get_predicate(instr);
+        opnd_t dir_op = opnd_create_reg(dir);
+        instr_t *cset = INSTR_CREATE_csinc(
+            dcontext, dir_op, OPND_CREATE_ZR(dir_op), OPND_CREATE_ZR(dir_op),
+            opnd_create_cond(instr_invert_predicate(pred)));
+        MINSERT(ilist, instr, cset);
+    } else {
+        CLIENT_ASSERT(false, "unknown conditional branch type");
+        return;
+    }
+
+    if (has_fallthrough) {
+        ptr_uint_t fallthrough = address + instr_length(drcontext, instr);
+        CLIENT_ASSERT(fallthrough > address, "wrong fallthrough address");
+        dr_insert_clean_call_ex(
+            drcontext, ilist, instr, callee,
+            /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+             * asking the user to pass in a flag: if they're using this they are not
+             * super concerned about overhead.
+             */
+            DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 5,
+            /* Address of cbr is 1st parameter. */
+            OPND_CREATE_INTPTR(address),
+            /* Target is 2nd parameter. */
+            OPND_CREATE_INTPTR(target),
+            /* Fall-through is 3rd parameter. */
+            OPND_CREATE_INTPTR(fallthrough),
+            /* Branch direction is 4th parameter. */
+            opnd_create_reg(dir),
+            /* User defined data is 5th parameter. */
+            opnd_is_null(user_data) ? OPND_CREATE_INT32(0) : user_data);
+    } else {
+        dr_insert_clean_call_ex(
+            drcontext, ilist, instr, callee,
+            /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+             * asking the user to pass in a flag: if they're using this they are not
+             * super concerned about overhead.
+             */
+            DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 3,
+            /* Address of cbr is 1st parameter. */
+            OPND_CREATE_INTPTR(address),
+            /* Target is 2nd parameter. */
+            OPND_CREATE_INTPTR(target),
+            /* Branch direction is 3rd parameter. */
+            opnd_create_reg(dir));
+    }
+
+    /* Restore state */
+    if (opc == OP_cbnz || opc == OP_cbz) {
+        /* Restore arith flags. */
+        dr_restore_arith_flags_from_reg(dcontext, ilist, instr, flags);
+        /* Restore old value of flags register. */
+        dr_restore_reg(dcontext, ilist, instr, flags, SPILL_SLOT_2);
+        /* Restore old value of dir register. */
+        dr_restore_reg(dcontext, ilist, instr, dir, SPILL_SLOT_1);
+    } else if (opc == OP_bcond || opc == OP_tbnz || opc == OP_tbz) {
+        /* Restore old value of dir register. */
+        dr_restore_reg(dcontext, ilist, instr, dir, SPILL_SLOT_1);
+    } else {
+        CLIENT_ASSERT(false, "unknown conditional branch type");
+    }
+    if (temp_used) {
+        /* Restore old value of temp register. */
+        dr_restore_reg(dcontext, ilist, instr, temp, SPILL_SLOT_3);
+    }
+#endif /* X86/ARM/RISCV64/AARCH64 */
 }
 
 DR_API void
