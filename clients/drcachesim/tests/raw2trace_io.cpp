@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,7 @@
  * because raw2trace uses drmodtrack, which doesn't isolate under static memtrace.
  */
 
+#include "test_helpers.h"
 #include "droption.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"

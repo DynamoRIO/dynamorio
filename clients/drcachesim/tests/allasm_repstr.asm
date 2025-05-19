@@ -1,5 +1,5 @@
  /* **********************************************************
- * Copyright (c) 2021-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,6 +52,17 @@ _start:
         lea      edi, hello_str
         cld
         rep      movsb
+
+        // Make a getpid syscall, which is a non-blocking one.
+        mov      eax, 39          // SYS_getpid
+        syscall
+
+        // Make a membarrier syscall, which is a blocking one.
+        mov      rdi, 0           // MEMBARRIER_CMD_QUERY
+        mov      rsi, 0           // flags
+        mov      rdx, 0           // cpuid
+        mov      eax, 324         // SYS_membarrier
+        syscall
 
         // Test page-spanning accesses.
         lea      rcx, page_str

@@ -9,26 +9,43 @@ Adios world!
 Adios world!
 Adios world!
 .*
-          43          20:   .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
-          44          20:   .* <marker: timestamp .*>
-          45          20:   .* <marker: .* on core .*>
-          46          20:   .* <marker: system call 1>
-          47          20:   .* <marker: maybe-blocking system call>
-          48          20:   .* <marker: function==syscall #1>
-          49          20:   .* <marker: function argument 0x2>
-          50          20:   .* <marker: function argument 0x.*>
-          51          20:   .* <marker: function argument 0xd>
-          52          20:   .* <marker: function==syscall #1>
-          53          20:   .* <marker: function return value 0xd>
-          54          20:   .* <marker: timestamp .*>
+          34          13: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+          35          13: .* <marker: timestamp .*>
+          36          13: .* <marker: .* on core .*>
+          37          13: .* <marker: system call 39>
+          38          13: .* <marker: timestamp .*>
 .*
-         246         100:   .* <marker: system call 1>
-         247         100:   .* <marker: maybe-blocking system call>
-         248         100:   .* <marker: function==syscall #1>
-         249         100:   .* <marker: function argument 0x2a>
-         250         100:   .* <marker: function argument 0x.*>
-         251         100:   .* <marker: function argument 0xd>
-         252         100:   .* <marker: function==syscall #1>
-         253         100:   .* <marker: function return value 0xfffffffffffffff7>
-         254         100:   .* <marker: system call failed: 9>
+          44          18: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+          45          18: .* <marker: timestamp .*>
+          46          18: .* <marker: .* on core .*>
+          47          18: .* <marker: system call 324>
+          48          18: .* <marker: maybe-blocking system call>
+          49          18: .* <marker: timestamp .*>
+.*
+          61          27: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+          62          27: .* <marker: timestamp .*>
+          63          27: .* <marker: .* on core .*>
+          64          27: .* <marker: system call 1>
+          65          27: .* <marker: maybe-blocking system call>
+          66          27: .* <marker: function==syscall #1>
+          67          27: .* <marker: function argument 0x2>
+          68          27: .* <marker: function argument 0x.*>
+          69          27: .* <marker: function argument 0xd>
+          70          27: .* <marker: function==syscall #1>
+          71          27: .* <marker: function return value 0xd>
+          72          27: .* <marker: timestamp .*>
+.*
+         261         107: .* ifetch       2 byte\(s\) @ 0x.* 0f 05                syscall
+         262         107: .* <marker: timestamp .*>
+         263         107: .* <marker: .* on core .*>
+         264         107: .* <marker: system call 1>
+         265         107: .* <marker: maybe-blocking system call>
+         266         107: .* <marker: function==syscall #1>
+         267         107: .* <marker: function argument 0x2a>
+         268         107: .* <marker: function argument 0x.*>
+         269         107: .* <marker: function argument 0xd>
+         270         107: .* <marker: function==syscall #1>
+         271         107: .* <marker: function return value 0xfffffffffffffff7>
+         272         107: .* <marker: system call failed: 9>
+         273         107: .* <marker: timestamp .*>
 .*

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,6 +32,7 @@
 
 /* Unit tests for flexible_queue. */
 
+#include "test_helpers.h"
 #include "scheduler/flexible_queue.h"
 
 #include <assert.h>

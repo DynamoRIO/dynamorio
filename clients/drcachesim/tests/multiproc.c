@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,6 +32,7 @@
 
 /* Multi-process test */
 
+#include "test_helpers.h"
 #include "tools.h"
 
 #ifdef UNIX

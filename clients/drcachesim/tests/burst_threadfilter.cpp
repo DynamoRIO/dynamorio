@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
  * It tests the thread filtering feature.
  */
 
+#include "test_helpers.h"
 /* We deliberately do not include configure.h here to simulate what an
  * actual app will look like.  configure_DynamoRIO_static sets DR_APP_EXPORTS
  * for us.

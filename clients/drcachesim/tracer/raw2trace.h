@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -736,7 +736,7 @@ protected:
         uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
-        app_pc last_pc_if_syscall_ = 0;
+        app_pc last_pc_fallthrough_if_syscall_ = 0;
 
         bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
@@ -751,6 +751,8 @@ protected:
         addr_t rseq_commit_pc_ = 0;
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
+        int to_inject_syscall_ = INJECT_NONE;
+        bool saw_first_func_id_marker_after_syscall_ = false;
         std::vector<trace_entry_t> rseq_buffer_;
         int rseq_commit_idx_ = -1; // Index into rseq_buffer_.
         std::vector<branch_info_t> rseq_branch_targets_;
@@ -762,6 +764,9 @@ protected:
         bool pt_metadata_processed = false;
         pt2ir_t pt2ir;
 #endif
+
+        // Sentinel value for to_inject_syscall.
+        static constexpr int INJECT_NONE = -1;
     };
 
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -880,6 +885,10 @@ protected:
     bool
     process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                DR_PARAM_OUT bool *end_of_record);
+
+    bool
+    maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdata,
+                                          const offline_entry_t &entry, byte *buf_base);
 
     std::string
     aggregate_and_write_schedule_files();
@@ -1104,9 +1113,9 @@ private:
                             app_pc orig, bool write, int memop_index,
                             bool use_remembered_base, bool remember_base);
     void
-    set_last_pc_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
+    set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata, app_pc value);
     app_pc
-    get_last_pc_if_syscall(raw2trace_thread_data_t *tdata);
+    get_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata);
 
     // Sets a per-traced-thread cached flag that is read by was_prev_instr_rep_string().
     void
@@ -1198,6 +1207,9 @@ private:
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
+
+    bool
+    is_marker_type(const offline_entry_t *entry, trace_marker_type_t marker_type);
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
@@ -1332,7 +1344,12 @@ private:
 
     // For inserting system call traces from provided templates.
     std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader_;
-    std::unordered_map<int, std::vector<trace_entry_t>> syscall_trace_templates_;
+
+    struct trace_template_t {
+        std::vector<trace_entry_t> entries;
+        int instr_count = 0;
+    };
+    std::unordered_map<int, trace_template_t> syscall_trace_templates_;
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
 

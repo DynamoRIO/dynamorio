@@ -2,8 +2,8 @@ Schedule stats tool results:
 Total counts:
            4 cores
 .*
-      650849 instructions
+      650604 instructions
 .*
            0 context switch sequence injections
-         273 system call sequence injections
+          14 system call sequence injections
 .*

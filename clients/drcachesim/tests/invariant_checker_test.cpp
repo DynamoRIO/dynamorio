@@ -94,6 +94,15 @@ public:
         return true;
     }
 
+    // Pretend we skipped (this is far easier than adding a lot of logic to
+    // default_memtrace_stream_t and handling is_a_unit_test() in the checker).
+    void
+    set_skipped(void *void_shard)
+    {
+        per_shard_t *shard = reinterpret_cast<per_shard_t *>(void_shard);
+        shard->skipped_instrs_ = true;
+    }
+
 protected:
     void
     report_if_false(per_shard_t *shard, bool condition,
@@ -121,10 +130,13 @@ bool
 run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             const error_info_t &expected_error_info = {},
             const std::string &toprint_if_fail = "",
-            std::istream *serial_schedule_file = nullptr)
+            std::istream *serial_schedule_file = nullptr,
+            // If set_skipped is true we only test parallel as it's more
+            // complex to set skipped for serial.
+            bool set_skipped = false)
 {
     // Serial.
-    {
+    if (!set_skipped) {
         checker_no_abort_t checker(/*offline=*/true, /*serial=*/true,
                                    serial_schedule_file);
         default_memtrace_stream_t stream;
@@ -171,6 +183,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 if (shardA == nullptr) {
                     shardA =
                         checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                    if (set_skipped)
+                        checker.set_skipped(shardA);
                 }
                 checker.parallel_shard_memref(shardA, memref);
                 break;
@@ -178,6 +192,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 if (shardB == nullptr) {
                     shardB =
                         checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                    if (set_skipped)
+                        checker.set_skipped(shardB);
                 }
                 checker.parallel_shard_memref(shardB, memref);
                 break;
@@ -185,6 +201,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 if (shardC == nullptr) {
                     shardC =
                         checker.parallel_shard_init_stream(shard_index, nullptr, &stream);
+                    if (set_skipped)
+                        checker.set_skipped(shardC);
                 }
                 checker.parallel_shard_memref(shardC, memref);
                 break;
@@ -2837,10 +2855,12 @@ check_read_write_records_match_operands()
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), clflush },
-            { gen_addr(TID_A, /*type=*/TRACE_TYPE_DATA_FLUSH, /*addr=*/0, /*size=*/0),
+            { gen_data_type(TID_A, /*type=*/TRACE_TYPE_DATA_FLUSH, /*addr=*/0,
+                            /*size=*/0),
               nullptr },
             { gen_instr(TID_A), clflushopt },
-            { gen_addr(TID_A, /*type=*/TRACE_TYPE_DATA_FLUSH, /*addr=*/0, /*size=*/0),
+            { gen_data_type(TID_A, /*type=*/TRACE_TYPE_DATA_FLUSH, /*addr=*/0,
+                            /*size=*/0),
               nullptr },
             { gen_exit(TID_A), nullptr },
         };
@@ -2990,7 +3010,7 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
             gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(TID_A, /*pc=*/11),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
@@ -3009,7 +3029,7 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/10),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 11),
-            gen_instr(TID_A, /*pc=*/101),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/101),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
@@ -3034,7 +3054,7 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
             gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(TID_A, /*pc=*/102),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/102),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             gen_exit(TID_A),
         };
@@ -3056,20 +3076,21 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
-            gen_instr(TID_A, /*pc=*/10),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             // Consecutive kernel trace, for a stronger test.
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
-            gen_instr(TID_A, /*pc=*/10),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
-            // The value of the kernel_event marker is set to pc=2, which is the next
+            // The value of the kernel_event marker is set to pc=3, which is the next
             // instruction in the outer-most trace context (the context outside the
             // kernel and signal trace).
-            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
             gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(TID_A, /*pc=*/2),
+            gen_instr(TID_A, /*pc=*/3),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false))
@@ -3084,12 +3105,13 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
-            gen_instr(TID_A, /*pc=*/10),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             // Consecutive kernel trace, for a stronger test.
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, KERNEL_TRACE_TYPE),
             gen_marker(TID_A, start_marker, KERNEL_TRACE_TYPE),
-            gen_instr(TID_A, /*pc=*/10),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             // The value of the kernel_event marker is incorrectly set to pc=11,
             // which is actually the next instruction in the kernel trace.
@@ -3102,8 +3124,8 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
                 memrefs, true,
                 { "Non-explicit control flow has no marker @ kernel_event marker",
                   /*tid=*/TID_A,
-                  /*ref_ordinal=*/13, /*last_timestamp=*/0,
-                  /*instrs_since_last_timestamp=*/3 },
+                  /*ref_ordinal=*/14, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/4 },
                 "Failed to catch incorrect kernel_event marker value after " + test_type +
                     " trace"))
             return false;
@@ -3130,10 +3152,11 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, SYSCALL_LAST_PC),
             // If not for the enclosing kernel trace markers, the
             // following would pop the zero entry from the retaddr_stack_.
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A, INTERRUPT_HANDLER_LAST_PC),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A,
+                           INTERRUPT_HANDLER_LAST_PC),
             gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER,
                        INTERRUPT_HANDLER_LAST_PC + 1),
-            gen_instr(TID_A, SYSCALL_LAST_PC),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, SYSCALL_LAST_PC),
             gen_marker(TID_A, end_marker, KERNEL_TRACE_TYPE),
             // For tail calls, we see function markers following a non-call instr.
             gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID_A, FUNC_PC + 1),
@@ -3268,14 +3291,28 @@ check_kernel_syscall_trace(void)
 #    else
 #        error Unsupported architecture.
 #    endif
+    instr_t *sys_return;
+#    ifdef X86
+    sys_return = INSTR_CREATE_sysret(GLOBAL_DCONTEXT);
+#    elif defined(AARCHXX)
+    sys_return = INSTR_CREATE_eret(GLOBAL_DCONTEXT);
+#    elif defined(RISCV64)
+    sys_return = XINST_CREATE_return(GLOBAL_DCONTEXT);
+#    endif
+
+    instr_t *post_sys = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+    instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
     instr_t *move =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
                                       OPND_CREATE_MEMPTR(REG1, /*disp=*/0));
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, sys);
+    instrlist_append(ilist, post_sys);
+    instrlist_append(ilist, nop);
     instrlist_append(ilist, move);
     instrlist_append(ilist, load);
+    instrlist_append(ilist, sys_return);
     static constexpr addr_t BASE_ADDR = 0x123450;
     static constexpr uintptr_t FILE_TYPE = OFFLINE_FILE_TYPE_ENCODINGS |
         OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY;
@@ -3283,47 +3320,64 @@ check_kernel_syscall_trace(void)
         OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
         OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
     bool res = true;
+    // Control resumes at the instruction at the pc specified in the syscall-end branch
+    // target marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                         FILE_TYPE_FULL_SYSCALL_TRACE |
+                             OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS),
+              nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), sys },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
-            { gen_instr(TID_A), move },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
-            { gen_exit(TID_A), nullptr }
-        };
-        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        if (!run_checker(memrefs, false))
-            res = false;
-    }
-    {
-        std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
-            { gen_instr(TID_A), sys },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 42), nullptr },
+            { gen_marker(
+                  TID_A, TRACE_MARKER_TYPE_FUNC_ID,
+                  static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ARG, 1), nullptr },
+
+            // These markers may be added based on the syscall's func tracing markers.
+            // All of them are not present at the same time in a real trace.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 1), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, 1), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, 1), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, 1), nullptr },
+
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },
             { gen_instr(TID_A), load },
-            // No data memref for the above load, but it should not be an invariant
-            // violation because the trace type is
-            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY.
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(
+                  TID_A, TRACE_MARKER_TYPE_FUNC_ID,
+                  static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_RETVAL, 1), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_FAILED, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
             { gen_exit(TID_A), nullptr }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, false))
             res = false;
     }
+    // Syscall trace injected before func_arg marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
-                         OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
-                             OFFLINE_FILE_TYPE_KERNEL_SYSCALLS),
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
               nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
@@ -3332,6 +3386,555 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },
             { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(
+                  TID_A, TRACE_MARKER_TYPE_FUNC_ID,
+                  static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ARG, 1), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Found unexpected func_arg or syscall marker after injected "
+                           "syscall trace",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/14, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
+                         "Failed to detect func_arg marker after injected syscall trace"))
+            res = false;
+    }
+    // Syscall trace injected before syscall_schedule marker.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_SCHEDULE, 1), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Found unexpected func_arg or syscall marker after injected "
+                           "syscall trace",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
+                         "Failed to detect func_arg marker after injected syscall trace"))
+            res = false;
+    }
+    // Syscall trace injected after func_retval marker.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(
+                  TID_A, TRACE_MARKER_TYPE_FUNC_ID,
+                  static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ARG, 1), nullptr },
+            { gen_marker(
+                  TID_A, TRACE_MARKER_TYPE_FUNC_ID,
+                  static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_RETVAL, 1), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "System call trace found without prior syscall marker or "
+                           "unexpected intervening records",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/11, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to detect func_retval marker before injected trace"))
+            res = false;
+    }
+    // Missing indirect branch target at the syscall trace end.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // Missing TRACE_MARKER_TYPE_BRANCH_TARGET marker.
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(
+                memrefs, true,
+                { "Indirect branches must contain targets",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/11, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/4 },
+                "Failed to detect missing indirect branch target at syscall trace end"))
+            res = false;
+    }
+    // Incorrect indirect branch target at the syscall trace end.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            // Specifies incorrect branch target instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), move },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(
+                memrefs, true,
+                { "Syscall trace-end branch marker incorrect",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/5 },
+                "Failed to detect incorrect branch target marker at syscall trace end"))
+            res = false;
+    }
+    // Seemingly correct indirect branch target at the syscall trace end. But there's a
+    // PC discontinuity vs the pre-syscall instr.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            // Specifies a seemingly correct branch target because it is same as the
+            // post-syscall-trace move instruction.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), move },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // PC discontinuity vs the pre-syscall instr.
+            { gen_instr(TID_A), move },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Non-explicit control flow has no marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/5 },
+                         "Failed to detect user-space PC discontinuity after injected "
+                         "syscall trace"))
+            res = false;
+    }
+#    ifdef UNIX
+    // Control resumes at the kernel_event marker with the pc value specified in the
+    // syscall-end branch target marker.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                         FILE_TYPE_FULL_SYSCALL_TRACE |
+                             OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 42), nullptr },
+            { gen_marker(
+                  TID_A, TRACE_MARKER_TYPE_FUNC_ID,
+                  static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_ARG, 1), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(
+                  TID_A, TRACE_MARKER_TYPE_FUNC_ID,
+                  static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FUNC_RETVAL, 1), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_FAILED, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), post_sys },
+            { gen_instr(TID_A), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 0), load },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    // Control resumes at the kernel_event marker with the sys instr pc, instead of the
+    // pc specified in the syscall-trace-end branch_target marker which is sys+len(sys).
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            // Specifies post_sys, but really the next instr is the auto-restarted sys.
+            // This is a documented case where the TRACE_MARKER_TYPE_KERNEL_EVENT value
+            // takes precedence.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), sys },
+            { gen_instr(TID_A), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 0), load },
+            { gen_instr(TID_A), sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    // Incorrect indirect branch target at the syscall trace end as it mismatches with
+    // the subsequence kernel_event marker.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            // Specifies incorrect branch target instr, which is not the same as what
+            // the next kernel_event marker holds.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), load },
+            { gen_instr(TID_A), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 0), load },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Syscall trace-end branch marker incorrect @ "
+                           "kernel_event marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
+                         "Failed to detect incorrect branch target marker at syscall "
+                         "trace end @ kernel_event marker"))
+            res = false;
+    }
+    // Seemingly correct indirect branch target at the syscall trace end. But there's a
+    // PC discontinuity at the signal resumption point.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), post_sys },
+            { gen_instr(TID_A), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 0), load },
+            // PC discontinuity at signal resumption point.
+            { gen_instr(TID_A), nop },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Signal handler return point incorrect",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/16, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/6 },
+                         "Failed to detect PC discontinuity at signal resumption after "
+                         "syscall trace"))
+            res = false;
+    }
+#    endif
+    // Instr-only kernel syscall trace.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            // No data memref for the above load, but it should not be an invariant
+            // violation because the trace type is
+            // OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+#    ifdef UNIX
+    // Signal return immediately after syscall trace.
+    // This case shouldn't be possible because there must be an instr for sigreturn before
+    // the signal returns, and we don't currently inject sigreturn traces. This is
+    // relevant to test because this is an example where our heuristic to set the
+    // syscall-trace-end TRACE_MARKER_TYPE_BRANCH_TARGET to the fallthrough of the prior
+    // syscall doesn't work. This will need to be handled if we ever want to inject a
+    // syscall trace for sigreturn or other control-transferring syscalls.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 42), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Unexpected signal return kernel_xfer marker immedidately "
+                           "after syscall trace",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
+                         "Failed to catch signal return immedately after syscall trace"))
+            res = false;
+    }
+#    endif
+    // No version marker so branch target marker is not expected.
+    // This test is also a baseline for later test cases where we simplify test setup
+    // by not including the branch target marker at syscall trace end.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    // Consecutive system call trace after the same user-space instr.
+    // XXX: Do we want to similarly disallow consecutive context switch traces
+    // injected without an intervening user-space instruction?
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // Another trace for the same system call instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(
+                memrefs, true,
+                { "Found multiple syscall traces after a user-space instr",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/13, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/4 },
+                "Failed to catch multiple syscall traces after a user-space instr"))
+            res = false;
+    }
+    // Unexpected instr at the end of a syscall trace template.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            // This test requires FILE_TYPE_FULL_SYSCALL_TRACE, as the check is disabled
+            // for instr-only traces (there are noise instructions at the end of PT
+            // traces).
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // Missing return instruction.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_instr(TID_A), post_sys },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "System call trace does not end with indirect branch",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/10, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch unexpected instr at tne end of syscall trace"))
+            res = false;
+    }
+    // Missing read records even though it's not an instr-only syscall trace.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3339,8 +3942,8 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, true,
                          { "Missing read records",
                            /*tid=*/TID_A,
-                           /*ref_ordinal=*/10, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/3 },
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
                          "Failed to catch missing data ref"))
             res = false;
     }
@@ -3355,6 +3958,9 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3381,6 +3987,9 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 41), nullptr },
             { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3402,6 +4011,8 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 41), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3409,8 +4020,8 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, true,
                          { "Mismatching syscall num in trace end and syscall marker",
                            /*tid=*/TID_A,
-                           /*ref_ordinal=*/8, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/2 },
+                           /*ref_ordinal=*/10, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
                          "Failed to catch mismatching trace end marker value"))
             res = false;
     }
@@ -3421,7 +4032,8 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
             { gen_instr(TID_A), sys },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
-            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), post_sys },
+            { gen_instr(TID_A), nop },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3429,8 +4041,8 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, true,
                          { "Found kernel syscall trace end without start",
                            /*tid=*/TID_A,
-                           /*ref_ordinal=*/7, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/2 },
+                           /*ref_ordinal=*/8, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
                          "Failed to catch missing kernel trace start marker"))
             res = false;
     }
@@ -3449,12 +4061,16 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, 11), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "System call trace found without prior syscall marker",
+                         { "System call trace found without prior syscall marker or "
+                           "unexpected intervening records",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/7, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
@@ -3474,6 +4090,8 @@ check_kernel_syscall_trace(void)
             // OFFLINE_FILE_TYPE_KERNEL_SYSCALLS.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3492,6 +4110,8 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
             { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -3502,6 +4122,66 @@ check_kernel_syscall_trace(void)
                            /*ref_ordinal=*/8, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch nested syscall traces"))
+            res = false;
+    }
+    // Verify a syscall template file.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES |
+                             OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 0), nullptr },
+            // First template.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            // Second template.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 41), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), load },
+            { gen_instr(TID_A), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 0), load },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 41), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES |
+                             OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 0), nullptr },
+            // Only one template, which has a PC discontinuity.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 41), nullptr },
+            { gen_instr(TID_A), move },
+            // Missing load instruction from the PC order in setup 'ilist' above.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 41), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Non-explicit control flow has no marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/7, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch PC discontinuity in syscall trace template"))
             res = false;
     }
 #    ifdef X86
@@ -3577,7 +4257,8 @@ check_kernel_syscall_trace(void)
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
                 { gen_instr(TID_A), move1 },
-                { gen_instr(TID_A), iret },
+                { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), iret },
+                { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
                 // Multiple reads. Acceptable because of the prior iret.
                 { gen_data(TID_A, true, 4000, 8), nullptr },
                 { gen_data(TID_A, true, 4008, 8), nullptr },
@@ -3608,7 +4289,7 @@ check_kernel_syscall_trace(void)
                 // Missing nop3. Acceptable because of the prior hlt.
                 { gen_instr(TID_A), prefetch },
                 // Missing reads. Acceptable because of the prior prefetch.
-                { gen_instr(TID_A), sysret },
+                { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sysret },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
                 // Continues after sys1.
                 { gen_instr(TID_A), nop5 },
@@ -3616,6 +4297,8 @@ check_kernel_syscall_trace(void)
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 41), nullptr },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 41), nullptr },
                 { gen_instr(TID_A), move1 },
+                { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), iret },
+                { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 41), nullptr },
                 // Continues after sys2.
                 { gen_instr(TID_A), nop6 },
@@ -3637,7 +4320,10 @@ check_kernel_syscall_trace(void)
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
                 { gen_instr(TID_A), move1 },
+                { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), iret },
+                { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+                { gen_instr(TID_A), sti },
                 { gen_exit(TID_A), nullptr }
             };
             auto memrefs = add_encodings_to_memrefs(ilist2, memref_instr_vec, BASE_ADDR);
@@ -3662,12 +4348,12 @@ check_kernel_syscall_trace(void)
                 gen_instr(TID_A),
                 gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42),
                 gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42),
-                gen_instr(TID_A),
+                gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A),
                 gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42),
                 gen_exit(TID_A),
             };
             if (!run_checker(memrefs, false))
-                return false;
+                res = false;
         }
         {
             std::vector<memref_with_IR_t> memref_instr_vec = {
@@ -3682,6 +4368,8 @@ check_kernel_syscall_trace(void)
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 42), nullptr },
                 { gen_instr(TID_A), move1 },
+                { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), iret },
+                { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
                 { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
                 // Missing instrs.
                 { gen_instr(TID_A), nop6 },
@@ -3691,8 +4379,8 @@ check_kernel_syscall_trace(void)
             if (!run_checker(memrefs, true,
                              { "Non-explicit control flow has no marker",
                                /*tid=*/TID_A,
-                               /*ref_ordinal=*/9, /*last_timestamp=*/0,
-                               /*instrs_since_last_timestamp=*/3 },
+                               /*ref_ordinal=*/11, /*last_timestamp=*/0,
+                               /*instrs_since_last_timestamp=*/4 },
                              "Failed to catch discontinuity on return from syscall"))
                 res = false;
         }
@@ -3709,6 +4397,8 @@ check_kernel_syscall_trace(void)
             { gen_instr(TID_A), move1 },
             // Missing instrs.
             { gen_instr(TID_A), sti },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID_A), iret },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_instr(TID_A), nop5 },
             { gen_exit(TID_A), nullptr }
@@ -3762,12 +4452,13 @@ check_has_instructions(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_exit(TID_A),
         };
-        if (!run_checker(memrefs, true,
-                         { "An unfiltered thread should have at least 1 instruction",
-                           /*tid=*/TID_A,
-                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/0 },
-                         "Failed to catch missing instructions"))
+        if (!run_checker(
+                memrefs, true,
+                { "An unfiltered thread should have at least 1 user-space instruction",
+                  /*tid=*/TID_A,
+                  /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/0 },
+                "Failed to catch missing instructions"))
             return false;
     }
     return true;
@@ -3966,6 +4657,92 @@ check_regdeps(void)
     return true;
 }
 
+bool
+check_chunk_order(void)
+{
+    std::cerr << "Testing chunk order\n";
+    // Correct: monotonic increase.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: skip.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 3),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Chunks do not increase monotonically",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch chunk ordinal skip"))
+            return false;
+    }
+    // Incorrect: no increase.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Chunks do not increase monotonically",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch chunk ordinal skip"))
+            return false;
+    }
+    // Correct: skip when we did an explicit skip.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 7),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 8),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 9),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false, {}, "", /*serial_schedule_file=*/nullptr,
+                         /*set_skipped=*/true))
+            return false;
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -3979,7 +4756,8 @@ test_main(int argc, const char *argv[])
         check_kernel_syscall_trace() && check_has_instructions() &&
         check_kernel_context_switch_trace() &&
         check_kernel_trace_and_signal_markers(/*for_syscall=*/false) &&
-        check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps()) {
+        check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps() &&
+        check_chunk_order()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

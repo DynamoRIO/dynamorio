@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -386,6 +386,13 @@ reader_t::process_input_entry()
             this, 2,
             "Assuming header is part of concatenated or on-disk-core-sharded traces\n");
         break;
+    case TRACE_TYPE_FOOTER:
+        // We support core-sharded-on-disk traces where an originally-thread-sharded
+        // input ends but the core-sharded new trace continues.
+        VPRINT(
+            this, 2,
+            "Assuming footer is part of concatenated or on-disk-core-sharded traces\n");
+        break;
     default:
         ERRMSG("Unknown trace entry type %s (%d)\n", trace_type_names[input_entry_->type],
                input_entry_->type);
@@ -484,7 +491,7 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             entry_copy_ = *input_entry_;
         trace_entry_t *next = read_next_entry();
-        if (next == nullptr || next->type == TRACE_TYPE_FOOTER) {
+        if (next == nullptr) {
             VPRINT(this, 1,
                    next == nullptr ? "Failed to read next entry\n" : "Hit EOF\n");
             at_eof_ = true;

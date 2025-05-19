@@ -1568,8 +1568,16 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     endif ()
     get_filename_component(toolbindir ${toolbindir} DIRECTORY)
     add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${toolbindir}
-      -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
-      -D clear=${clear_arg} -D pidfile=${pidfile}
+      -D precmd=${${key}_precmd}
+      -D cmd=${cmd_with_at}
+      -D postcmd=${${key}_postcmd}
+      -D postcmd2=${${key}_postcmd2}
+      -D postcmd3=${${key}_postcmd3}
+      -D postcmd4=${${key}_postcmd4}
+      -D out=${tmpfile}
+      -D nudge=${nudge_arg}
+      -D clear=${clear_arg}
+      -D pidfile=${pidfile}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
   elseif (is_runcmp)
     # Some apps have enough output that ctest runs out of memory when
@@ -4028,6 +4036,9 @@ if (BUILD_CLIENTS)
         "-tool basic_counts" "")
     endif ()
 
+    set(syscall_file
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
+
     if (X86 AND X64) # We only bother with a sample trace for x86_64.
       # We test with a fixed trace file so we can test exact numeric results.
       set(small_trace_file
@@ -4107,13 +4118,15 @@ if (BUILD_CLIENTS)
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
-        set(syscall_file
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
-
         torunonly_simtool(syscall_insertion ${ci_shared_app}
           "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -sched_syscall_file ${syscall_file}"
           "")
         set(tool.syscall_insertion_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(syscall_insertion_invariants ${ci_shared_app}
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool invariant_checker -sched_syscall_file ${syscall_file}"
+          "")
+        set(tool.syscall_insertion_invariants_rawtemp ON) # no preprocessor
 
         torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
           "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
@@ -4287,6 +4300,12 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(simple ${ci_shared_app} ""
       # We pass a small instr count to test multiple chunks in a zipfile.
       "@-chunk_instr_count@10K" "")
+
+    if (X86 AND X64)
+      torunonly_drcacheoff(simple-dyn-inject-invariants ${ci_shared_app} ""
+        # We pass a small instr count to test multiple chunks in a zipfile.
+        "@-chunk_instr_count@1000@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+    endif()
 
     if (UNIX)
       # Test an app with a fork.
@@ -4882,6 +4901,12 @@ if (BUILD_CLIENTS)
       # Test -record_syscall on SYS_write == #1 with 3 args.
       torunonly_drcacheoff(allasm-record-syscall allasm_repstr
         "-record_syscall 1|3" "@-tool@view" "")
+
+      torunonly_drcacheoff(allasm-dyn-inject-view allasm_repstr
+        "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@view" "")
+
+      torunonly_drcacheoff(allasm-dyn-inject-invariants allasm_repstr
+        "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
@@ -6309,10 +6334,10 @@ if (vera++_FOUND)
   set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
 endif ()
 
-# TODO i#7399: Add Android, MUSL, RISCV64 support to DrSyscall.
+# TODO i#7399: Add Android, MacOS, MUSL, RISCV64 support to DrSyscall.
 # Windows tests fail due to Syscall mismatch for NtGetContextThread with wrapper
 # 236 vs table 235.
-IF (NOT ANDROID AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
+IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
   tobuild_ci(client.drsyscall-test client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(drsyscall_libpath client.drsyscall-test.dll
     "${location_suffix}")
@@ -6337,6 +6362,45 @@ IF (NOT ANDROID AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     -client ${strace_sample_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(sample.strace.dll drmgr)
   use_DynamoRIO_extension(sample.strace.dll drsyscall)
+
+  add_exe(linux.file_io linux/file-io.c)
+  tobuild_ci(client.syscall-file-io-test client-interface/syscall-file-io-test.c "" "" "")
+  torunonly_ci(client.syscall-file-io-test linux.file_io client.syscall-file-io-test.dll
+     linux/file-io.c "" "" "")
+  use_DynamoRIO_extension(client.syscall-file-io-test.dll drmgr)
+  use_DynamoRIO_extension(client.syscall-file-io-test.dll drsyscall)
+
+  add_exe(linux.syscall_records linux/syscall-records.c)
+  set(client.syscall-records-test_runcmp
+    "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  set(client.syscall-records-test_precmd
+    "rm@${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
+  string(CONCAT client.syscall-records-test_postcmd
+    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
+    "${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
+  set(client.syscall-records-test_expectbase "syscall-records")
+  tobuild_ci(client.syscall-records-test
+    client-interface/syscall-records-test.c "" "" "")
+  torunonly_ci(client.syscall-records-test linux.syscall_records
+    client.syscall-records-test.dll
+    linux/syscall-records.c "" "" "")
+  use_DynamoRIO_extension(client.syscall-records-test.dll drsyscall)
+  use_DynamoRIO_extension(client.syscall-records-test.dll drsyscall_record_lib)
+
+  add_exe(linux.syscall_records_attach linux/syscall-records-attach.c)
+  set(client.attach-memory-dump-syscall-test_precmd
+    "rm@${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
+  string(CONCAT client.attach-memory-dump-syscall-test_postcmd
+    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
+    "${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
+  set(client.attach-memory-dump-syscall-test_realtest linux.syscall_records_attach)
+  tobuild_ci(client.attach-memory-dump-syscall-test
+    client-interface/attach-memory-dump-syscall-test.runall "" "" "")
+  use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
+    drsyscall)
+  use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
+    drsyscall_record_lib)
+
 endif ()
 
 ###########################################################################
@@ -6533,6 +6597,11 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
+    # XXX i#1806: client.flush currently fails in release build.
+    if (DEBUG)
+      set_tests_properties(code_api|client.flush
+                           PROPERTIES LABELS RUNS_ON_QEMU)
+    endif ()
     if (NOT APPLE) # TODO i#5383: Port to Mac M1.
       set_tests_properties(
         code_api|common.allasm_aarch64_isa
