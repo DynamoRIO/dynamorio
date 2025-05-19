@@ -2837,7 +2837,7 @@ if (X86 OR AARCH64 OR RISCV64) # FIXME i#1551: port asm to ARM
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
-endif (X86 OR AARCH64)
+endif (X86 OR AARCH64 OR RISCV64)
 if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
