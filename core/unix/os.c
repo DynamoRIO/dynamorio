@@ -806,6 +806,10 @@ check_address_readable(void *addr)
  *         envp
  *         NULL (end of envp)
  *         auxv
+ *
+ * But the stack pointer has gone much farther towards the low-end of address
+ * space, so it's hard to reliably locate the address of auxvector.
+ *
  * search_auxvector() walks towards the higher address and locate one of the
  * auxvector entry, then walk backwards and find the beginning of auxvector. */
 static void *
