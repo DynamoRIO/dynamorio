@@ -132,7 +132,7 @@ read_thread_register(reg_id_t reg)
 #ifdef DR_HOST_NOT_TARGET
     ptr_uint_t sel = 0;
     ASSERT_NOT_REACHED();
-#elif defined(MACOS64) && !defined(AARCH64)
+#elif defined(MACOS64) && defined(X86)
     ptr_uint_t sel;
     if (reg == SEG_GS) {
         asm volatile("mov %%gs:%1, %0" : "=r"(sel) : "m"(*(void **)0));
@@ -202,6 +202,12 @@ read_thread_register(reg_id_t reg)
 }
 
 #if defined(AARCHXX) || defined(RISCV64)
+
+#    ifdef MACOS
+extern kern_return_t
+_thread_set_tsd_base(void *);
+#    endif
+
 static inline bool
 write_thread_register(void *val)
 {
@@ -209,7 +215,11 @@ write_thread_register(void *val)
     ASSERT_NOT_REACHED();
     return false;
 #    elif defined(AARCH64)
+#        ifdef MACOS
+    _thread_set_tsd_base(val);
+#        else
     asm volatile("msr " IF_MACOS_ELSE("tpidrro_el0", "tpidr_el0") ", %0" : : "r"(val));
+#        endif
     return true;
 #    elif defined(RISCV64)
     asm volatile("mv tp, %0" : : "r"(val));

@@ -39,10 +39,33 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "tls.h"
+#include <mach/mach.h>
+#include "dr_tools.h"
+
+/* clang-only I think */
+#include <ptrauth.h>
 
 /****************************************************************************
  * Thread Local Storage
+ * This file currently only implements private macOS TLS for ARM64
  */
+
+/* from XNU: libsyscall/os/tsd.h */
+#define TSD_THREAD_SELF 0
+#define TSD_ERRNO 1
+#define TSD_MIG_REPLY 2
+#define TSD_MACH_THREAD_SELF 3
+#define TSD_PTR_MUNGE 7
+
+/* at least on macOS aarch64 we have 16K pages */
+
+/* we just put it at the end of the mapping */
+#define ERRNO_OFFSET (PAGE_SIZE - 8)
+#define PTHREAD_TLS_OFFSET 0xe0
+
+#ifdef AARCH64
+static uintptr_t pthread_ptr_munge_token;
+#endif
 
 void
 privload_mod_tls_init(privmod_t *mod)
@@ -54,13 +77,67 @@ privload_mod_tls_init(privmod_t *mod)
 void *
 privload_tls_init(void *app_tls)
 {
+#if defined(AARCH64)
+    void **cur_tls = (void **)read_thread_register(TLS_REG_LIB);
+    if (cur_tls && !pthread_ptr_munge_token) {
+        pthread_ptr_munge_token = (uintptr_t) * (cur_tls + TSD_PTR_MUNGE);
+    }
+
     /* XXX i#1285: implement MacOS private loader */
+    byte *pthread = NULL;
+
+    /* We use the mach vm_allocate API here since client threads may need
+     * a valid TLS even after the heap has been cleaned up.
+     */
+    IF_DEBUG(kern_return_t res =)
+    vm_allocate(mach_task_self(), (vm_address_t *)&pthread, PAGE_SIZE,
+                true /* anywhere */);
+    ASSERT(res == KERN_SUCCESS);
+
+    memset(pthread, 0, PAGE_SIZE);
+
+    ASSERT(ALIGNED(pthread, PAGE_SIZE));
+
+    uint64_t *tls = (uint64_t *)(pthread + PTHREAD_TLS_OFFSET);
+    tls[TSD_MACH_THREAD_SELF] = mach_thread_self();
+    tls[TSD_ERRNO] = (uint64_t)(pthread + ERRNO_OFFSET);
+    tls[TSD_THREAD_SELF] = (uint64_t)(pthread);
+
+    /* pthread->_sig */
+    void *sig = pthread;
+    if (proc_has_feature(FEATURE_PAUTH)) { /* XXX: what is the equivalent of
+                                              __has_feature(ptrauth_calls)? */
+        uint64_t modifier = 0x5b9;
+        __asm__ volatile("pacdb %[ptr], %[mod]"
+                         : [ptr] "=r"(sig)
+                         : "0"(sig), [mod] "r"(modifier)
+                         : /* no clobbers needed */
+        );
+    }
+
+    *(uint64_t *)(pthread) = (uintptr_t)sig ^ pthread_ptr_munge_token;
+    return tls;
+#else
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
+#endif
 }
 
 void
 privload_tls_exit(void *dr_tp)
 {
-    /* nothing to do */
+#if defined(AARCH64)
+    ASSERT(ALIGNED(dr_tp - PTHREAD_TLS_OFFSET, PAGE_SIZE));
+
+    IF_DEBUG(kern_return_t res =)
+    vm_deallocate(mach_task_self(), (vm_address_t)(dr_tp - PTHREAD_TLS_OFFSET),
+                  PAGE_SIZE);
+
+    ASSERT(res == KERN_SUCCESS);
+    if (read_thread_register(TLS_REG_LIB) == (uint64_t)dr_tp) {
+        write_thread_register(NULL);
+    }
+#else
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
 }

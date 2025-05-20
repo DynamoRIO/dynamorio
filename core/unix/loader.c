@@ -174,10 +174,10 @@ privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc);
 static void
 privload_delete_os_privmod_data(privmod_t *privmod);
 
-#ifdef LINUX
 void
 privload_mod_tls_init(privmod_t *mod);
 
+#ifdef LINUX
 void
 privload_mod_tls_primary_thread_init(privmod_t *mod);
 #endif
@@ -1406,8 +1406,8 @@ privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
 static void
 privload_relocate_mod(privmod_t *mod)
 {
-#ifdef LINUX
     os_privmod_data_t *opd = (os_privmod_data_t *)mod->os_privmod_data;
+#ifdef LINUX
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
@@ -1428,7 +1428,8 @@ privload_relocate_mod(privmod_t *mod)
     if (opd->tls_block_size != 0)
         privload_mod_tls_primary_thread_init(mod);
 #else
-    /* XXX i#1285: implement MacOS private loader */
+    if (opd->tls_block_size != 0)
+        privload_mod_tls_init(mod);
 #endif
 }
 
