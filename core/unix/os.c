@@ -794,13 +794,6 @@ static init_fn_t
  */
 
 #    if defined(MUSL)
-static int
-check_address_readable(void *addr)
-{
-    return dynamorio_syscall(SYS_rt_sigprocmask, ~0L, addr, NULL,
-                             sizeof(kernel_sigset_t)) != EFAULT;
-}
-
 static ELF_WORD get_auxv_value(ELF_WORD type)
 {
     /* Currently no architecture defines more than 60 auxvector keys */
@@ -837,13 +830,11 @@ search_auxvector(void *sp)
 
     for (size_t offset = 0; offset < PAGE_SIZE * 64; offset += sizeof(ulong)) {
         ELF_AUXV_TYPE *p = sp + offset;
+	ELF_AUXV_TYPE entry;
 
-        if (((uintptr_t)(&p->a_un) & (PAGE_SIZE - 1)) == 0 &&
-            !check_address_readable(&p->a_un))
-            return NULL;
+        if (!d_r_safe_read(p, sizeof(ELF_AUXV_TYPE), &entry))
+	    return NULL;
 
-        /* Check for AT_EXECFN entry in the auxvector, which contains pathname
-         * of the program and should be a readable address. */
         if (p->a_type == AT_PHDR && p->a_un.a_val == phdr) {
             for (; (void *)p > sp; p--) {
                 /* The maximum key in auxvector is much smaller than 0x400.
@@ -885,7 +876,7 @@ search_kernel_args_on_stack(int *argc, char ***argv, char ***envp)
     *argc = 0;
     *argv = NULL;
 }
-#    endif
+#    endif /* MUSL */
 
 INITIALIZER_ATTRIBUTES int
 _init(int argc, char **argv, char **envp)
