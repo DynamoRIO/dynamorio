@@ -804,7 +804,7 @@ get_auxv_value(ELF_WORD type)
 
     for (int i = 0; auxv[i].a_type != AT_NULL; i++) {
         if (auxv[i].a_type == type)
-	    return auxv[i].a_un.a_val;
+            return auxv[i].a_un.a_val;
     }
 
     ASSERT_NOT_REACHED();
@@ -832,10 +832,10 @@ search_auxvector(void *sp)
 
     for (size_t offset = 0; offset < PAGE_SIZE * 64; offset += sizeof(ulong)) {
         ELF_AUXV_TYPE *p = sp + offset;
-	ELF_AUXV_TYPE entry;
+        ELF_AUXV_TYPE entry;
 
         if (!d_r_safe_read(p, sizeof(ELF_AUXV_TYPE), &entry))
-	    return NULL;
+            return NULL;
 
         if (p->a_type == AT_PHDR && p->a_un.a_val == phdr) {
             for (; (void *)p > sp; p--) {
