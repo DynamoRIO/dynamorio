@@ -218,6 +218,8 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
                                         int64_t prev_tid, int64_t workload_id,
                                         int64_t tid, int64_t input_id, int64_t letter_ord)
 {
+    // We're not expected to switch in the middle of a kernel trace.
+    assert(!shard->stream->is_record_kernel());
     // We convert to letters which only works well for <=26 inputs.
     if (shard->thread_sequence.empty()) {
         std::lock_guard<std::mutex> lock(prev_core_mutex_);
