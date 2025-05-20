@@ -261,7 +261,6 @@ test_basic_stats_with_syscall_trace()
             gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1100),
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL, 0),
             gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1600),
-
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 0),
             gen_instr(TID_B),
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0),
@@ -565,7 +564,6 @@ test_syscall_latencies_with_syscall_trace()
             gen_instr(TID_B),
             gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1100),
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
-
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM_X),
             gen_instr(TID_B),
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_X),
@@ -608,7 +606,6 @@ test_syscall_latencies_with_syscall_trace()
         {
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3400),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
-
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM_X),
             gen_instr(TID_C),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_X),
