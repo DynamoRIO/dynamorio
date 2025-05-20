@@ -794,7 +794,8 @@ static init_fn_t
  */
 
 #    if defined(MUSL)
-static ELF_WORD get_auxv_value(ELF_WORD type)
+static ELF_WORD
+get_auxv_value(ELF_WORD type)
 {
     /* Currently no architecture defines more than 60 auxvector keys */
     ELF_AUXV_TYPE auxv[64];
@@ -821,8 +822,9 @@ static ELF_WORD get_auxv_value(ELF_WORD type)
  * But the stack pointer has gone much farther towards the low-end of address
  * space, so it's hard to reliably locate the address of auxvector.
  *
- * search_auxvector() walks towards the higher address and locate one of the
- * auxvector entry, then walk backwards and find the beginning of auxvector. */
+ * search_auxvector() walks towards the higher address and locates one of the
+ * auxvector entries, then walks backwards and finds the beginning of auxvector.
+ */
 static void *
 search_auxvector(void *sp)
 {
@@ -863,7 +865,7 @@ search_kernel_args_on_stack(int *argc, char ***argv, char ***envp)
     ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find auxv", auxv != NULL);
 
     ulong *p = &auxv[-2];
-    for (; p[-1] && &p[-1] > sp; p--)
+    for (; p[-1] != 0 && &p[-1] > sp; p--)
         ;
 
     ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find envp", p != sp);
