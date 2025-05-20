@@ -794,6 +794,12 @@ static init_fn_t
  */
 
 #    if defined(MUSL)
+/* We rely on PR_GET_AUXV to obtain a copy of auxvector and take one of the
+ * pointer entries as marker when searching through the address space.
+ *
+ * TODO: PR_GET_AUXV is relatively new (introduced in Linux 6.4), implement a
+ * fallback when it's unavailable.
+ */
 static ELF_WORD
 get_auxv_value(ELF_WORD type)
 {
@@ -812,6 +818,7 @@ get_auxv_value(ELF_WORD type)
 }
 
 /* When entering the entry point, the stack layout looks like
+ *
  *   sp => argc
  *         argv
  *         NULL (end of argv)
