@@ -115,6 +115,8 @@ typedef struct rlimit64 rlimit64_t;
 #endif
 
 #ifdef LINUX
+/* Definitions for PR_GET_AUXV */
+#    include <linux/prctl.h>
 /* For clone and its flags, the manpage says to include sched.h with _GNU_SOURCE
  * defined.  _GNU_SOURCE brings in unwanted extensions and causes name
  * conflicts.  Instead, we include unix/sched.h which comes from the Linux
@@ -799,6 +801,22 @@ check_address_readable(void *addr)
                              sizeof(kernel_sigset_t)) != EFAULT;
 }
 
+static ELF_WORD get_auxv_value(ELF_WORD type)
+{
+    /* Currently no architecture defines more than 60 auxvector keys */
+    ELF_AUXV_TYPE auxv[64];
+
+    dynamorio_syscall(SYS_prctl, 5, PR_GET_AUXV, auxv, sizeof(auxv), 0, 0);
+
+    for (int i = 0; auxv[i].a_type != AT_NULL; i++) {
+        if (auxv[i].a_type == type)
+	    return auxv[i].a_un.a_val;
+    }
+
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
 /* When entering the entry point, the stack layout looks like
  *   sp => argc
  *         argv
@@ -815,7 +833,8 @@ check_address_readable(void *addr)
 static void *
 search_auxvector(void *sp)
 {
-    /* XXX: Check whether 64 * PAGE_SIZE is an appropriate limit */
+    ELF_WORD phdr = get_auxv_value(AT_PHDR);
+
     for (size_t offset = 0; offset < PAGE_SIZE * 64; offset += sizeof(ulong)) {
         ELF_AUXV_TYPE *p = sp + offset;
 
@@ -825,7 +844,7 @@ search_auxvector(void *sp)
 
         /* Check for AT_EXECFN entry in the auxvector, which contains pathname
          * of the program and should be a readable address. */
-        if (p->a_type == AT_EXECFN && check_address_readable((void *)p->a_un.a_val)) {
+        if (p->a_type == AT_PHDR && p->a_un.a_val == phdr) {
             for (; (void *)p > sp; p--) {
                 /* The maximum key in auxvector is much smaller than 0x400.
                  * This assumes envp contains much higher addresses. An auxvector
