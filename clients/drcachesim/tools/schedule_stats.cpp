@@ -389,7 +389,6 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                 THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(letter_ord % 26);
             shard->cur_segment_instrs = 0;
         }
-        shard->direct_switch_target = INVALID_THREAD_ID;
         if (shard->last_syscall_number >= 0 && !shard->stream->is_record_kernel()) {
             // Since we clear last_syscall_number on detecting a context switch prior to
             // here, if it's still set and we've found a regular instruction, we just
@@ -414,7 +413,13 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             shard->pre_syscall_timestamp = 0;
             shard->post_syscall_timestamp = 0;
         }
-        shard->saw_syscall = false;
+        if (!shard->stream->is_record_kernel()) {
+            // We wait until the next user-space instruction after the syscall trace
+            // so that we've seen all syscall related trace entries (like the post-
+            // syscall timestamp).
+            shard->saw_syscall = false;
+            shard->direct_switch_target = INVALID_THREAD_ID;
+        }
         shard->saw_exit = false;
     }
     if (memref.instr.tid != INVALID_THREAD_ID)
@@ -434,6 +439,8 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             shard->filetype = static_cast<intptr_t>(memref.marker.marker_value);
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+            // Kernel syscall traces are not expected to have timestamps.
+            assert(!shard->stream->is_record_kernel());
             if (shard->last_syscall_number < 0) {
                 // We use get_input_interface() to get the original timestamp
                 // instead of the scheduler-normalized one.
