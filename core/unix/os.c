@@ -183,6 +183,7 @@ char **our_environ;
 #include "decode_fast.h" /* decode_cti: maybe os_handle_mov_seg should be ifdef X86? */
 
 #include <dlfcn.h>
+#include <elf.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
@@ -791,8 +792,6 @@ static init_fn_t
  */
 
 #    if defined(MUSL)
-#        define EFAULT 14
-#        define AT_EXECFN 31
 static int
 check_address_readable(void *addr)
 {
