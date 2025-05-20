@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
   set(DEBUG ON)
@@ -264,11 +264,14 @@ if (X86) # FIXME i#1551, i#1569, i#3544: port to ARM/AArch64/RISCV64
   # dr_insert_mbr_instrumentation is NYI
   add_sample_client(modxfer     "modxfer.c;utils.c"     "drmgr;drreg;drx")
   add_sample_client(modxfer_app2lib "modxfer_app2lib.c" "drmgr")
+  add_sample_client(hot_bbcount "hot_bbcount.c"         "drmgr;drreg;drbbdup;drx")
+endif (X86)
+if (X86 OR AARCH64)
+  # dr_insert_mbr_instrumentation is NYI
   add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
   # dr_insert_cbr_instrument_ex is NYI
   add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx")
-  add_sample_client(hot_bbcount "hot_bbcount.c"         "drmgr;drreg;drbbdup;drx")
-endif (X86)
+endif (X86 OR AARCH64)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")

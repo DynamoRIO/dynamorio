@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,7 @@
 
 /* Like burst_static we deliberately do not include configure.h here */
 
+#include "test_helpers.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
 #include "scheduler.h"

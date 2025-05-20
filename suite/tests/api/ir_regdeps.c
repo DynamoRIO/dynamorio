@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -216,7 +216,7 @@ test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
     instr_encode(dc, instr, buf);
     instr_reset(dc, instr);
     decode(dc, buf, instr);
-    const char *expected_disasm_str_xchg = " 00000022 020a0204 uncategorized [4byte]     "
+    const char *expected_disasm_str_xchg = " 00010022 020a0204 move [4byte]     "
                                            "  %rv0 %rv8 -> %rv0 %rv8\n 0000000a\n";
     test_instr_encode_decode_disassemble_synthetic(dc, instr, expected_disasm_str_xchg);
 
@@ -732,6 +732,34 @@ check_virtual_register_enum_values(void)
     CHECK_VIRTUAL_REGISTER_IDS;
 }
 
+static void
+test_invalid_disasm(void *dcontext)
+{
+    // Synthesize a regdeps instr.
+    instr_t *instr = instr_build(dcontext, OP_UNDECODED, 1, 1);
+    instr_set_isa_mode(instr, DR_ISA_REGDEPS);
+    instr_set_dst(instr, 0, opnd_create_reg(DR_REG_VIRT2));
+    instr_set_src(instr, 0, opnd_create_reg(DR_REG_VIRT5));
+    instr_set_operation_size(instr, OPSZ_8);
+
+    // Make sure it doesn't crash if we select a not-fully-supported disasm style
+    // and try to print it out.
+    disassemble_set_syntax(DR_DISASM_INTEL);
+    char buf[128];
+    size_t len =
+        instr_disassemble_to_buffer(dcontext, instr, buf, BUFFER_SIZE_ELEMENTS(buf));
+    ASSERT(len > 0);
+    disassemble_set_syntax(DR_DISASM_ATT);
+    len = instr_disassemble_to_buffer(dcontext, instr, buf, BUFFER_SIZE_ELEMENTS(buf));
+    ASSERT(len > 0);
+    disassemble_set_syntax(DR_DISASM_ARM);
+    len = instr_disassemble_to_buffer(dcontext, instr, buf, BUFFER_SIZE_ELEMENTS(buf));
+    ASSERT(len > 0);
+
+    instr_destroy(dcontext, instr);
+    disassemble_set_syntax(DR_DISASM_DR);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -757,6 +785,8 @@ main(int argc, char *argv[])
     test_virtual_register_names(dcontext);
 
     check_virtual_register_enum_values();
+
+    test_invalid_disasm(dcontext);
 
     print("All DR_ISA_REGDEPS tests are done.\n");
     dr_standalone_exit();

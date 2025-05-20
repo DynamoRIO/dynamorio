@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -143,6 +144,7 @@ static const reg_id_t systemreg[] = {
     DR_REG_ELR_EL1,
     DR_REG_SPSR_EL1,
     DR_REG_TPIDR_EL1,
+    DR_REG_ACCDATA_EL1,
 };
 static const size_t sysreg_count = sizeof(systemreg) / sizeof(systemreg[0]);
 
@@ -156,54 +158,54 @@ TEST_INSTR(mrs)
         {
             EXPECT_DISASSEMBLY(
                 /* clang-format off */
-                "mrs    %nzcv -> %x0",             "mrs    %fpcr -> %x1",
-                "mrs    %fpsr -> %x2",             "mrs    %mdccsr_el0 -> %x3",
-                "mrs    %dbgdtr_el0 -> %x4",       "mrs    %dbgdtrrx_el0 -> %x5",
-                "mrs    %sp_el0 -> %x6",           "mrs    %spsel -> %x7",
-                "mrs    %currentel -> %x8",        "mrs    %pan -> %x9",
-                "mrs    %uao -> %x10",             "mrs    %ctr_el0 -> %x11",
-                "mrs    %dczid_el0 -> %x12",       "mrs    %rndr -> %x13",
-                "mrs    %rndrrs -> %x14",          "mrs    %daif -> %x15",
-                "mrs    %dit -> %x16",             "mrs    %ssbs -> %x17",
-                "mrs    %tco -> %x18",             "mrs    %dspsr_el0 -> %x19",
-                "mrs    %dlr_el0 -> %x20",         "mrs    %pmcr_el0 -> %x21",
-                "mrs    %pmcntenset_el0 -> %x22",  "mrs    %pmcntenclr_el0 -> %x23",
-                "mrs    %pmovsclr_el0 -> %x24",    "mrs    %pmswinc_el0 -> %x25",
-                "mrs    %pmselr_el0 -> %x26",      "mrs    %pmceid0_el0 -> %x27",
-                "mrs    %pmceid1_el0 -> %x28",     "mrs    %pmccntr_el0 -> %x29",
-                "mrs    %pmxevtyper_el0 -> %x30",  "mrs    %pmxevcntr_el0 -> %x0",
-                "mrs    %pmuserenr_el0 -> %x1",    "mrs    %pmovsset_el0 -> %x2",
-                "mrs    %scxtnum_el0 -> %x3",      "mrs    %cntfrq_el0 -> %x4",
-                "mrs    %cntpct_el0 -> %x5",       "mrs    %cntp_tval_el0 -> %x6",
-                "mrs    %cntp_ctl_el0 -> %x7",     "mrs    %cntp_cval_el0 -> %x8",
-                "mrs    %cntv_tval_el0 -> %x9",    "mrs    %cntv_ctl_el0 -> %x10",
-                "mrs    %cntv_cval_el0 -> %x11",   "mrs    %pmevtyper0_el0 -> %x12",
-                "mrs    %pmevtyper1_el0 -> %x13",  "mrs    %pmevtyper2_el0 -> %x14",
-                "mrs    %pmevtyper3_el0 -> %x15",  "mrs    %pmevtyper4_el0 -> %x16",
-                "mrs    %pmevtyper5_el0 -> %x17",  "mrs    %pmevtyper6_el0 -> %x18",
-                "mrs    %pmevtyper7_el0 -> %x19",  "mrs    %pmevtyper8_el0 -> %x20",
-                "mrs    %pmevtyper9_el0 -> %x21",  "mrs    %pmevtyper10_el0 -> %x22",
-                "mrs    %pmevtyper11_el0 -> %x23", "mrs    %pmevtyper12_el0 -> %x24",
-                "mrs    %pmevtyper13_el0 -> %x25", "mrs    %pmevtyper14_el0 -> %x26",
-                "mrs    %pmevtyper15_el0 -> %x27", "mrs    %pmevtyper16_el0 -> %x28",
-                "mrs    %pmevtyper17_el0 -> %x29", "mrs    %pmevtyper18_el0 -> %x30",
-                "mrs    %pmevtyper19_el0 -> %x0",  "mrs    %pmevtyper20_el0 -> %x1",
-                "mrs    %pmevtyper21_el0 -> %x2",  "mrs    %pmevtyper22_el0 -> %x3",
-                "mrs    %pmevtyper23_el0 -> %x4",  "mrs    %pmevtyper24_el0 -> %x5",
-                "mrs    %pmevtyper25_el0 -> %x6",  "mrs    %pmevtyper26_el0 -> %x7",
-                "mrs    %pmevtyper27_el0 -> %x8",  "mrs    %pmevtyper28_el0 -> %x9",
-                "mrs    %pmevtyper29_el0 -> %x10", "mrs    %pmevtyper30_el0 -> %x11",
-                "mrs    %pmccfiltr_el0 -> %x12",   "mrs    %spsr_irq -> %x13",
-                "mrs    %spsr_abt -> %x14",        "mrs    %spsr_und -> %x15",
-                "mrs    %spsr_fiq -> %x16",        "mrs    %id_aa64isar0_el1 -> %x17",
-                "mrs    %id_aa64isar1_el1 -> %x18","mrs    %id_aa64isar2_el1 -> %x19",
-                "mrs    %id_aa64pfr0_el1 -> %x20", "mrs    %id_aa64mmfr1_el1 -> %x21",
-                "mrs    %id_aa64dfr0_el1 -> %x22", "mrs    %id_aa64zfr0_el1 -> %x23",
-                "mrs    %id_aa64pfr1_el1 -> %x24", "mrs    %id_aa64mmfr2_el1 -> %x25",
-                "mrs    %midr_el1 -> %x26",        "mrs    %mpidr_el1 -> %x27",
-                "mrs    %revidr_el1 -> %x28",      "mrs    %contextidr_el1 -> %x29",
-                "mrs    %elr_el1 -> %x30",         "mrs    %spsr_el1 -> %x0",
-                "mrs    %tpidr_el1 -> %x1"
+                "mrs    %nzcv -> %x0",              "mrs    %fpcr -> %x1",
+                "mrs    %fpsr -> %x2",              "mrs    %mdccsr_el0 -> %x3",
+                "mrs    %dbgdtr_el0 -> %x4",        "mrs    %dbgdtrrx_el0 -> %x5",
+                "mrs    %sp_el0 -> %x6",            "mrs    %spsel -> %x7",
+                "mrs    %currentel -> %x8",         "mrs    %pan -> %x9",
+                "mrs    %uao -> %x10",              "mrs    %ctr_el0 -> %x11",
+                "mrs    %dczid_el0 -> %x12",        "mrs    %rndr -> %x13",
+                "mrs    %rndrrs -> %x14",           "mrs    %daif -> %x15",
+                "mrs    %dit -> %x16",              "mrs    %ssbs -> %x17",
+                "mrs    %tco -> %x18",              "mrs    %dspsr_el0 -> %x19",
+                "mrs    %dlr_el0 -> %x20",          "mrs    %pmcr_el0 -> %x21",
+                "mrs    %pmcntenset_el0 -> %x22",   "mrs    %pmcntenclr_el0 -> %x23",
+                "mrs    %pmovsclr_el0 -> %x24",     "mrs    %pmswinc_el0 -> %x25",
+                "mrs    %pmselr_el0 -> %x26",       "mrs    %pmceid0_el0 -> %x27",
+                "mrs    %pmceid1_el0 -> %x28",      "mrs    %pmccntr_el0 -> %x29",
+                "mrs    %pmxevtyper_el0 -> %x30",   "mrs    %pmxevcntr_el0 -> %x0",
+                "mrs    %pmuserenr_el0 -> %x1",     "mrs    %pmovsset_el0 -> %x2",
+                "mrs    %scxtnum_el0 -> %x3",       "mrs    %cntfrq_el0 -> %x4",
+                "mrs    %cntpct_el0 -> %x5",        "mrs    %cntp_tval_el0 -> %x6",
+                "mrs    %cntp_ctl_el0 -> %x7",      "mrs    %cntp_cval_el0 -> %x8",
+                "mrs    %cntv_tval_el0 -> %x9",     "mrs    %cntv_ctl_el0 -> %x10",
+                "mrs    %cntv_cval_el0 -> %x11",    "mrs    %pmevtyper0_el0 -> %x12",
+                "mrs    %pmevtyper1_el0 -> %x13",   "mrs    %pmevtyper2_el0 -> %x14",
+                "mrs    %pmevtyper3_el0 -> %x15",   "mrs    %pmevtyper4_el0 -> %x16",
+                "mrs    %pmevtyper5_el0 -> %x17",   "mrs    %pmevtyper6_el0 -> %x18",
+                "mrs    %pmevtyper7_el0 -> %x19",   "mrs    %pmevtyper8_el0 -> %x20",
+                "mrs    %pmevtyper9_el0 -> %x21",   "mrs    %pmevtyper10_el0 -> %x22",
+                "mrs    %pmevtyper11_el0 -> %x23",  "mrs    %pmevtyper12_el0 -> %x24",
+                "mrs    %pmevtyper13_el0 -> %x25",  "mrs    %pmevtyper14_el0 -> %x26",
+                "mrs    %pmevtyper15_el0 -> %x27",  "mrs    %pmevtyper16_el0 -> %x28",
+                "mrs    %pmevtyper17_el0 -> %x29",  "mrs    %pmevtyper18_el0 -> %x30",
+                "mrs    %pmevtyper19_el0 -> %x0",   "mrs    %pmevtyper20_el0 -> %x1",
+                "mrs    %pmevtyper21_el0 -> %x2",   "mrs    %pmevtyper22_el0 -> %x3",
+                "mrs    %pmevtyper23_el0 -> %x4",   "mrs    %pmevtyper24_el0 -> %x5",
+                "mrs    %pmevtyper25_el0 -> %x6",   "mrs    %pmevtyper26_el0 -> %x7",
+                "mrs    %pmevtyper27_el0 -> %x8",   "mrs    %pmevtyper28_el0 -> %x9",
+                "mrs    %pmevtyper29_el0 -> %x10",  "mrs    %pmevtyper30_el0 -> %x11",
+                "mrs    %pmccfiltr_el0 -> %x12",    "mrs    %spsr_irq -> %x13",
+                "mrs    %spsr_abt -> %x14",         "mrs    %spsr_und -> %x15",
+                "mrs    %spsr_fiq -> %x16",         "mrs    %id_aa64isar0_el1 -> %x17",
+                "mrs    %id_aa64isar1_el1 -> %x18", "mrs    %id_aa64isar2_el1 -> %x19",
+                "mrs    %id_aa64pfr0_el1 -> %x20",  "mrs    %id_aa64mmfr1_el1 -> %x21",
+                "mrs    %id_aa64dfr0_el1 -> %x22",  "mrs    %id_aa64zfr0_el1 -> %x23",
+                "mrs    %id_aa64pfr1_el1 -> %x24",  "mrs    %id_aa64mmfr2_el1 -> %x25",
+                "mrs    %midr_el1 -> %x26",         "mrs    %mpidr_el1 -> %x27",
+                "mrs    %revidr_el1 -> %x28",       "mrs    %contextidr_el1 -> %x29",
+                "mrs    %elr_el1 -> %x30",          "mrs    %spsr_el1 -> %x0",
+                "mrs    %tpidr_el1 -> %x1",         "mrs    %accdata_el1 -> %x2"
                 /* clang-format on */
             );
             switch (systemreg[i]) {
@@ -239,54 +241,54 @@ TEST_INSTR(msr)
         {
             EXPECT_DISASSEMBLY(
                 /* clang-format off */
-                "msr    %x0 -> %nzcv",             "msr    %x1 -> %fpcr",
-                "msr    %x2 -> %fpsr",             "msr    %x3 -> %mdccsr_el0",
-                "msr    %x4 -> %dbgdtr_el0",       "msr    %x5 -> %dbgdtrrx_el0",
-                "msr    %x6 -> %sp_el0",           "msr    %x7 -> %spsel",
-                "msr    %x8 -> %currentel",        "msr    %x9 -> %pan",
-                "msr    %x10 -> %uao",             "msr    %x11 -> %ctr_el0",
-                "msr    %x12 -> %dczid_el0",       "msr    %x13 -> %rndr",
-                "msr    %x14 -> %rndrrs",          "msr    %x15 -> %daif",
-                "msr    %x16 -> %dit",             "msr    %x17 -> %ssbs",
-                "msr    %x18 -> %tco",             "msr    %x19 -> %dspsr_el0",
-                "msr    %x20 -> %dlr_el0",         "msr    %x21 -> %pmcr_el0",
-                "msr    %x22 -> %pmcntenset_el0",  "msr    %x23 -> %pmcntenclr_el0",
-                "msr    %x24 -> %pmovsclr_el0",    "msr    %x25 -> %pmswinc_el0",
-                "msr    %x26 -> %pmselr_el0",      "msr    %x27 -> %pmceid0_el0",
-                "msr    %x28 -> %pmceid1_el0",     "msr    %x29 -> %pmccntr_el0",
-                "msr    %x30 -> %pmxevtyper_el0",  "msr    %x0 -> %pmxevcntr_el0",
-                "msr    %x1 -> %pmuserenr_el0",    "msr    %x2 -> %pmovsset_el0",
-                "msr    %x3 -> %scxtnum_el0",      "msr    %x4 -> %cntfrq_el0",
-                "msr    %x5 -> %cntpct_el0",       "msr    %x6 -> %cntp_tval_el0",
-                "msr    %x7 -> %cntp_ctl_el0",     "msr    %x8 -> %cntp_cval_el0",
-                "msr    %x9 -> %cntv_tval_el0",    "msr    %x10 -> %cntv_ctl_el0",
-                "msr    %x11 -> %cntv_cval_el0",   "msr    %x12 -> %pmevtyper0_el0",
-                "msr    %x13 -> %pmevtyper1_el0",  "msr    %x14 -> %pmevtyper2_el0",
-                "msr    %x15 -> %pmevtyper3_el0",  "msr    %x16 -> %pmevtyper4_el0",
-                "msr    %x17 -> %pmevtyper5_el0",  "msr    %x18 -> %pmevtyper6_el0",
-                "msr    %x19 -> %pmevtyper7_el0",  "msr    %x20 -> %pmevtyper8_el0",
-                "msr    %x21 -> %pmevtyper9_el0",  "msr    %x22 -> %pmevtyper10_el0",
-                "msr    %x23 -> %pmevtyper11_el0", "msr    %x24 -> %pmevtyper12_el0",
-                "msr    %x25 -> %pmevtyper13_el0", "msr    %x26 -> %pmevtyper14_el0",
-                "msr    %x27 -> %pmevtyper15_el0", "msr    %x28 -> %pmevtyper16_el0",
-                "msr    %x29 -> %pmevtyper17_el0", "msr    %x30 -> %pmevtyper18_el0",
-                "msr    %x0 -> %pmevtyper19_el0",  "msr    %x1 -> %pmevtyper20_el0",
-                "msr    %x2 -> %pmevtyper21_el0",  "msr    %x3 -> %pmevtyper22_el0",
-                "msr    %x4 -> %pmevtyper23_el0",  "msr    %x5 -> %pmevtyper24_el0",
-                "msr    %x6 -> %pmevtyper25_el0",  "msr    %x7 -> %pmevtyper26_el0",
-                "msr    %x8 -> %pmevtyper27_el0",  "msr    %x9 -> %pmevtyper28_el0",
-                "msr    %x10 -> %pmevtyper29_el0", "msr    %x11 -> %pmevtyper30_el0",
-                "msr    %x12 -> %pmccfiltr_el0",   "msr    %x13 -> %spsr_irq",
-                "msr    %x14 -> %spsr_abt",        "msr    %x15 -> %spsr_und",
-                "msr    %x16 -> %spsr_fiq",        "msr    %x17 -> %id_aa64isar0_el1",
-                "msr    %x18 -> %id_aa64isar1_el1","msr    %x19 -> %id_aa64isar2_el1",
-                "msr    %x20 -> %id_aa64pfr0_el1", "msr    %x21 -> %id_aa64mmfr1_el1",
-                "msr    %x22 -> %id_aa64dfr0_el1", "msr    %x23 -> %id_aa64zfr0_el1",
-                "msr    %x24 -> %id_aa64pfr1_el1", "msr    %x25 -> %id_aa64mmfr2_el1",
-                "msr    %x26 -> %midr_el1",        "msr    %x27 -> %mpidr_el1",
-                "msr    %x28 -> %revidr_el1",      "msr    %x29 -> %contextidr_el1",
-                "msr    %x30 -> %elr_el1",         "msr    %x0 -> %spsr_el1",
-                "msr    %x1 -> %tpidr_el1"
+                "msr    %x0 -> %nzcv",              "msr    %x1 -> %fpcr",
+                "msr    %x2 -> %fpsr",              "msr    %x3 -> %mdccsr_el0",
+                "msr    %x4 -> %dbgdtr_el0",        "msr    %x5 -> %dbgdtrrx_el0",
+                "msr    %x6 -> %sp_el0",            "msr    %x7 -> %spsel",
+                "msr    %x8 -> %currentel",         "msr    %x9 -> %pan",
+                "msr    %x10 -> %uao",              "msr    %x11 -> %ctr_el0",
+                "msr    %x12 -> %dczid_el0",        "msr    %x13 -> %rndr",
+                "msr    %x14 -> %rndrrs",           "msr    %x15 -> %daif",
+                "msr    %x16 -> %dit",              "msr    %x17 -> %ssbs",
+                "msr    %x18 -> %tco",              "msr    %x19 -> %dspsr_el0",
+                "msr    %x20 -> %dlr_el0",          "msr    %x21 -> %pmcr_el0",
+                "msr    %x22 -> %pmcntenset_el0",   "msr    %x23 -> %pmcntenclr_el0",
+                "msr    %x24 -> %pmovsclr_el0",     "msr    %x25 -> %pmswinc_el0",
+                "msr    %x26 -> %pmselr_el0",       "msr    %x27 -> %pmceid0_el0",
+                "msr    %x28 -> %pmceid1_el0",      "msr    %x29 -> %pmccntr_el0",
+                "msr    %x30 -> %pmxevtyper_el0",   "msr    %x0 -> %pmxevcntr_el0",
+                "msr    %x1 -> %pmuserenr_el0",     "msr    %x2 -> %pmovsset_el0",
+                "msr    %x3 -> %scxtnum_el0",       "msr    %x4 -> %cntfrq_el0",
+                "msr    %x5 -> %cntpct_el0",        "msr    %x6 -> %cntp_tval_el0",
+                "msr    %x7 -> %cntp_ctl_el0",      "msr    %x8 -> %cntp_cval_el0",
+                "msr    %x9 -> %cntv_tval_el0",     "msr    %x10 -> %cntv_ctl_el0",
+                "msr    %x11 -> %cntv_cval_el0",    "msr    %x12 -> %pmevtyper0_el0",
+                "msr    %x13 -> %pmevtyper1_el0",   "msr    %x14 -> %pmevtyper2_el0",
+                "msr    %x15 -> %pmevtyper3_el0",   "msr    %x16 -> %pmevtyper4_el0",
+                "msr    %x17 -> %pmevtyper5_el0",   "msr    %x18 -> %pmevtyper6_el0",
+                "msr    %x19 -> %pmevtyper7_el0",   "msr    %x20 -> %pmevtyper8_el0",
+                "msr    %x21 -> %pmevtyper9_el0",   "msr    %x22 -> %pmevtyper10_el0",
+                "msr    %x23 -> %pmevtyper11_el0",  "msr    %x24 -> %pmevtyper12_el0",
+                "msr    %x25 -> %pmevtyper13_el0",  "msr    %x26 -> %pmevtyper14_el0",
+                "msr    %x27 -> %pmevtyper15_el0",  "msr    %x28 -> %pmevtyper16_el0",
+                "msr    %x29 -> %pmevtyper17_el0",  "msr    %x30 -> %pmevtyper18_el0",
+                "msr    %x0 -> %pmevtyper19_el0",   "msr    %x1 -> %pmevtyper20_el0",
+                "msr    %x2 -> %pmevtyper21_el0",   "msr    %x3 -> %pmevtyper22_el0",
+                "msr    %x4 -> %pmevtyper23_el0",   "msr    %x5 -> %pmevtyper24_el0",
+                "msr    %x6 -> %pmevtyper25_el0",   "msr    %x7 -> %pmevtyper26_el0",
+                "msr    %x8 -> %pmevtyper27_el0",   "msr    %x9 -> %pmevtyper28_el0",
+                "msr    %x10 -> %pmevtyper29_el0",  "msr    %x11 -> %pmevtyper30_el0",
+                "msr    %x12 -> %pmccfiltr_el0",    "msr    %x13 -> %spsr_irq",
+                "msr    %x14 -> %spsr_abt",         "msr    %x15 -> %spsr_und",
+                "msr    %x16 -> %spsr_fiq",         "msr    %x17 -> %id_aa64isar0_el1",
+                "msr    %x18 -> %id_aa64isar1_el1", "msr    %x19 -> %id_aa64isar2_el1",
+                "msr    %x20 -> %id_aa64pfr0_el1",  "msr    %x21 -> %id_aa64mmfr1_el1",
+                "msr    %x22 -> %id_aa64dfr0_el1",  "msr    %x23 -> %id_aa64zfr0_el1",
+                "msr    %x24 -> %id_aa64pfr1_el1",  "msr    %x25 -> %id_aa64mmfr2_el1",
+                "msr    %x26 -> %midr_el1",         "msr    %x27 -> %mpidr_el1",
+                "msr    %x28 -> %revidr_el1",       "msr    %x29 -> %contextidr_el1",
+                "msr    %x30 -> %elr_el1",          "msr    %x0 -> %spsr_el1",
+                "msr    %x1 -> %tpidr_el1",         "msr    %x2 -> %accdata_el1",
                 /* clang-format on */
             );
             switch (systemreg[i]) {
@@ -337,6 +339,12 @@ TEST_INSTR(wfi)
 {
     /* Testing WFI */
     TEST_LOOP_EXPECT(wfi, 1, INSTR_CREATE_wfi(dc), EXPECT_DISASSEMBLY("wfi"));
+}
+
+TEST_INSTR(eret)
+{
+    /* Testing ERET */
+    TEST_LOOP_EXPECT(eret, 1, INSTR_CREATE_eret(dc), EXPECT_DISASSEMBLY("eret"));
 }
 
 TEST_INSTR(orr)
@@ -672,6 +680,7 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(wfe);
     RUN_INSTR_TEST(wfi);
+    RUN_INSTR_TEST(eret);
 
     RUN_INSTR_TEST(orr);
     RUN_INSTR_TEST(orr_shift);

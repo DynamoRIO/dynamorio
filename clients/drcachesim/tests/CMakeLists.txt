@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,7 @@
 # This is NOT a CMake file for building the various test suite executables in
 # this tests/ directory: this is only for the --build-and-test test!
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 project(DynamoRIO_drmemtrace)
 

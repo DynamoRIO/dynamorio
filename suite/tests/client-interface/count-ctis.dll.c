@@ -41,6 +41,10 @@ uint num_jump_dir = 0;
 uint num_jump_ind = 0;
 uint num_br_cond = 0;
 uint num_ret = 0;
+#if defined(AARCH64)
+bool in_roi = false;   /* Within our region of interest? */
+bool cbr_taken = true; /* Next cbr should be taken or not-taken? */
+#endif
 
 static void
 at_call_dir(app_pc src, app_pc dst)
@@ -70,6 +74,15 @@ static void
 at_br_cond(app_pc src, app_pc dst, int taken)
 {
     num_br_cond++;
+#if defined(AARCH64)
+    if (in_roi) {
+        /* In count-ctis.c, we ensure that dst - src == 0x8. */
+        ASSERT(dst == src + 0x8);
+        /* In count-ctis.c, we ensure that cbrs are taken/not taken in turns. */
+        ASSERT(cbr_taken == taken);
+        cbr_taken = !cbr_taken;
+    }
+#endif
 }
 
 static void
@@ -88,10 +101,22 @@ at_ret(app_pc src, app_pc dst)
     num_ret++;
 }
 
+static void
+at_nops()
+{
+#if defined(AARCH64)
+    /* Enter or exit region of interest. */
+    in_roi = !in_roi;
+#endif
+}
+
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
+#if defined(AARCH64)
+    instr_t *next_next_instr, *next_next_next_instr;
+#endif
 
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
@@ -130,6 +155,23 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                 ASSERT(false);
             }
         }
+#if defined(AARCH64)
+        /* Look for pattern: nop; nop; add; nop. */
+        if (next_instr != NULL)
+            next_next_instr = instr_get_next(next_instr);
+        else
+            next_next_instr = NULL;
+        if (next_next_instr != NULL)
+            next_next_next_instr = instr_get_next(next_next_instr);
+        else
+            next_next_next_instr = NULL;
+        if (instr_is_nop(instr) && next_instr != NULL && instr_is_nop(next_instr) &&
+            next_next_instr != NULL && instr_get_opcode(next_next_instr) == OP_add &&
+            next_next_next_instr != NULL && instr_is_nop(next_next_next_instr)) {
+            /* Pattern found */
+            dr_insert_clean_call(drcontext, bb, instr, at_nops, false, 0);
+        }
+#endif
     }
     return DR_EMIT_DEFAULT;
 }

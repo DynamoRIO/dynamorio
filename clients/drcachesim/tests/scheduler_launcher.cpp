@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,7 @@
 #include "scheduler.h"
 #include "trace_entry.h"
 #include "test_helpers.h"
+
 #include "utils.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
@@ -100,7 +101,7 @@ droption_t<bool> op_honor_stamps(DROPTION_SCOPE_ALL, "honor_stamps", true,
                                  "Whether to honor recorded timestamps for ordering",
                                  "Whether to honor recorded timestamps for ordering");
 
-droption_t<double> op_block_time_scale(DROPTION_SCOPE_ALL, "block_time_scale", 1.,
+droption_t<double> op_block_time_scale(DROPTION_SCOPE_ALL, "block_time_scale", 0.1,
                                        "Input block time scale factor",
                                        "A higher value here results in blocking syscalls "
                                        "keeping inputs unscheduled for longer.");

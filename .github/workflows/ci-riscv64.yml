@@ -96,6 +96,10 @@ jobs:
           sudo rsync -av ../extract/lib/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/lib/; \
         fi
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
@@ -104,6 +108,7 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
         QEMU_LD_PREFIX: /usr/riscv64-linux-gnu/
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml

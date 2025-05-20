@@ -58,14 +58,13 @@ defaults:
   # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
 
 jobs:
-  # 32-bit Linux build with gcc and run tests:
-  x86-32:
-    runs-on: ubuntu-20.04
-
+  # Ubuntu22 64-bit Linux build with gcc and run tests.
+  x86-64:
+    runs-on: ubuntu-22.04
+    steps:
     # When checking out the repository that triggered a workflow, actions/checkout
     # defaults to the reference or SHA for that event. See documentation for ref at
     # https://github.com/actions/checkout
-    steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -84,6 +83,48 @@ jobs:
     - run: git fetch --no-tags --depth=1 origin master
 
     # Install multilib for non-cross-compiling Linux build.
+    - name: Create Build Environment
+      run: |
+        sudo apt update
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          liblz4-dev g++-multilib libunwind-dev
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: '3.19.7'
+
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
+
+  # Ubuntu22 32-bit Linux build with gcc and run tests.
+  x86-32:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install multilib for non-cross-compiling Linux build.
     # GA CI uses packages.microsoft.com which is missing i386 packages, and
     # attempts at using apt with us.archive-ubuntu.com hit dep issues:
     # so we manually install the i386 packages we need.
@@ -92,7 +133,7 @@ jobs:
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           liblz4-dev g++-multilib libunwind-dev
-        sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
+        sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu jammy main'
         apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 \
           zlib1g:i386 zlib1g-dev:i386
         mkdir ../extract
@@ -108,131 +149,9 @@ jobs:
       with:
         cmake-version: '3.19.7'
 
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        CI_TRIGGER: ${{ github.event_name }}
-        CI_BRANCH: ${{ github.ref }}
-
-  # 64-bit Linux build with gcc and run tests.
-  x86-64:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    # Cancel any prior runs for a PR (but do not cancel master branch runs).
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-      if: ${{ github.event_name == 'pull_request' }}
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    # Install multilib for non-cross-compiling Linux build.
-    - name: Create Build Environment
-      run: |
-        sudo apt update
-        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev
-        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-
-    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        CI_TRIGGER: ${{ github.event_name }}
-        CI_BRANCH: ${{ github.ref }}
-
-  # Ubuntu22 64-bit Linux build with gcc and run tests.
-  # XXX: A matrix could combine this with the 20.04 but our auto-cancel
-  # step cancels the 2nd job so we need to solve that first.
-  x86-64-ubuntu22:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    # Cancel any prior runs for a PR (but do not cancel master branch runs).
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-      if: ${{ github.event_name == 'pull_request' }}
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    # Install multilib for non-cross-compiling Linux build.
-    - name: Create Build Environment
-      run: |
-        sudo apt update
-        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev
-        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-
-    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        CI_TRIGGER: ${{ github.event_name }}
-        CI_BRANCH: ${{ github.ref }}
-
-  # Ubuntu22 64-bit Linux build with gcc and run tests.
-  # XXX: A matrix could combine this with the 20.04 but our auto-cancel
-  # step cancels the 2nd job so we need to solve that first.
-  x86-32-ubuntu22:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    # Cancel any prior runs for a PR (but do not cancel master branch runs).
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-      if: ${{ github.event_name == 'pull_request' }}
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    # Install multilib for non-cross-compiling Linux build.
-    - name: Create Build Environment
-      run: |
-        sudo apt update
-        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev
-        sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
-        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 \
-          zlib1g:i386 zlib1g-dev:i386
-        mkdir ../extract
-        for i in *.deb; do dpkg-deb -x $i ../extract; done
-        sudo rsync -av ../extract/usr/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
-        sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
-        sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
-        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-
-    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -241,6 +160,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # 64-bit Linux build with gcc and musl.
   # TODO i#1973: Fix failing cases and enable tests in CI.
@@ -288,30 +208,58 @@ jobs:
           lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
           patch xz-dev zlib-dev zlib-static
 
+    # XXX: Using actions/are-format-checks-disabled here results in EACCES:
+    # permission denied,
+    # rmdir '/home/runner/work/dynamorio/dynamorio/alpine-root/bin' after
+    # actions/checkout@v4 and before gh api is called. So we call gh api here.
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        found=no
+        if ${{ github.event_name == 'pull_request' }}; then
+          commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+          if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
+            found=yes
+          fi
+        elif ${{ github.event_name == 'push' }}; then
+          if ${{ contains(toJSON(github.event.commits.*.message), 'DISABLE_FORMAT_CHECKS') }}; then
+            found=yes
+          fi
+        fi
+        if [[ "$found" == "yes" ]]; then
+          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
+          echo "format checks are disabled."
+        else
+          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
+          echo "format checks are enabled."
+        fi
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: |
-        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL \
+        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL,DISABLE_FORMAT_CHECKS \
           chroot alpine-root sh -c 'cd &&
                                     ./suite/runsuite_wrapper.pl automated_ci 64_only'
       env:
         DYNAMORIO_MUSL: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
-      needs: [x86-32, x86-64, x86-64-ubuntu22, x86-32-ubuntu22, x86-64-alpine-3_21]
+      needs: [x86-32, x86-64, x86-64-alpine-3_21]
       # By default, a failure in a job skips the jobs that need it. The
       # following expression ensures that failure-notification.yml is
       # always invoked.
       if: ${{ always() }}
       with:
-        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7} | {8} {9}',
+        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5}',
                                       'x86-32', needs.x86-32.result,
                                       'x86-64', needs.x86-64.result,
-                                      'x86-64-ubuntu22', needs.x86-64-ubuntu22.result,
-                                      'x86-32-ubuntu22', needs.x86-32-ubuntu22.result,
                                       'x86-64-alpine-3_21', needs.x86-64-alpine-3_21.result) }}
         test_suite_results_only: ${{ join(needs.*.result, ',') }}
       secrets: inherit

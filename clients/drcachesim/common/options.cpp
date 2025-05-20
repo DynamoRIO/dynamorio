@@ -502,7 +502,9 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: " REPLACE_POLICY_LFU
                           " (Least Frequently Used), " REPLACE_POLICY_BIT_PLRU
-                          " (Pseudo Least Recently Used).");
+                          " (Pseudo Least Recently Used) " REPLACE_POLICY_LRU
+                          " (Least Recently Used) " REPLACE_POLICY_FIFO
+                          " (First-In-First-Out)");
 
 droption_t<std::string>
     op_tool(DROPTION_SCOPE_FRONTEND,
@@ -715,6 +717,13 @@ droption_t<std::string>
     op_config_file(DROPTION_SCOPE_FRONTEND, "config_file", "",
                    "Cache hierarchy configuration file",
                    "The full path to the cache hierarchy configuration file.");
+
+droption_t<bool> op_add_noise_generator(
+    DROPTION_SCOPE_FRONTEND, "add_noise_generator", false, "Add noise generation.",
+    "Adds synthetic trace records produced by a noise generator as another input "
+    "workload to the scheduler. These synthetic records are interleaved by the scheduler "
+    "with the target trace(s) records. Currently it only adds a single-process, "
+    "single thread noise generator, but that may change in the future.");
 
 // XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int>

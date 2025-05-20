@@ -83,6 +83,13 @@ GLOBAL_LABEL(marker:)
         yield
         yield
         ret
+#elif defined (RISCV64)
+        nop
+        .option arch, +c
+        c.nop
+        c.nop
+        .option arch, -c
+        ret
 #endif
         END_FUNC(marker)
 END_FILE

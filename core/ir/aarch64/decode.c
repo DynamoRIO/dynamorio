@@ -48,6 +48,7 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 app_pc
 canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
 {
+    /* TODO i#7364: Strip MTE/TBI allocation tags.*/
     return pc;
 }
 

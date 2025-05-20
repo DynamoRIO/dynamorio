@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <regex>
@@ -62,9 +63,9 @@ run_analyzer(int argc, const char *args[])
     }
     analyzer_multi_t analyzer;
     assert(!!analyzer);
-    IF_DEBUG(bool res =) analyzer.run();
+    bool res = analyzer.run();
     assert(res);
-    IF_DEBUG(res =) analyzer.print_stats();
+    res = analyzer.print_stats();
     assert(res);
 
     std::cerr.rdbuf(prev_buf);
@@ -87,28 +88,33 @@ test_real_files(const char *testdir)
     // result in non-determinism so we can't do exact matches; we rely on the
     // scheduler_unit_tests and tests for the forthcoming schedule_stats tool
     // for that.
+    // This trace has some futex calls with latencies ~40ms * 1000 time_units_per_us
+    // * default scale 0.1 is 2.5M instructions which makes core-sharded runs here
+    // a little long: so we scale them all back.
+    static const char *const scale_op1 = "-sched_block_scale";
+    static const char *const scale_op2 = "0.01";
     {
         // Test thread-sharded with defaults.
         const char *args[] = { "<exe>", "-tool", "basic_counts", "-indir", dir.c_str() };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      638938 total .*
+      650576 total .*
 (.|\n)*
 Thread [0-9]+ counts:
 )DELIM")));
         std::regex count("Thread");
         assert(std::distance(std::sregex_iterator(output.begin(), output.end(), count),
-                             std::sregex_iterator()) == 8);
+                             std::sregex_iterator()) == 9);
     }
     {
         // Test core-sharded with defaults.
-        const char *args[] = { "<exe>",        "-core_sharded", "-tool",
-                               "basic_counts", "-indir",        dir.c_str() };
+        const char *args[] = { "<exe>", "-core_sharded", scale_op1, scale_op2,
+                               "-tool", "basic_counts",  "-indir",  dir.c_str() };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      638938 total .*
+      650576 total .*
 (.|\n)*
 Core [0-9] counts:
 (.|\n)*
@@ -121,12 +127,13 @@ Core [0-9] counts:
     }
     {
         // Test core-sharded with time quantum.
-        const char *args[] = { "<exe>",  "-core_sharded", "-tool",      "basic_counts",
-                               "-indir", dir.c_str(),     "-sched_time" };
+        const char *args[] = { "<exe>",   "-core_sharded", scale_op1,
+                               scale_op2, "-tool",         "basic_counts",
+                               "-indir",  dir.c_str(),     "-sched_time" };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      638938 total .*
+      650576 total .*
 (.|\n)*
 Core [0-9] counts:
 (.|\n)*
@@ -144,6 +151,8 @@ Core [0-9] counts:
         // TODO i#5694: Add more targeted checks once we have schedule_stats.
         const char *args[] = { "<exe>",
                                "-core_sharded",
+                               scale_op1,
+                               scale_op2,
                                "-tool",
                                "basic_counts",
                                "-indir",
@@ -156,7 +165,7 @@ Core [0-9] counts:
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      638938 total \(fetched\) instructions
+      650576 total \(fetched\) instructions
 (.|\n)*
 Core [0-9] counts:
 (.|\n)*
@@ -173,47 +182,17 @@ Core [0-9] counts:
             "/drmemtrace.threadsig.x64.tracedir/cpu_schedule.bin.zip";
         const char *args[] = {
             "<exe>",     "-core_sharded", "-tool", "basic_counts",       "-indir",
-            dir.c_str(), "-cores",        "7",     "-cpu_schedule_file", cpu_file.c_str()
+            dir.c_str(), "-cores",        "11",    "-cpu_schedule_file", cpu_file.c_str()
         };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
         assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      638938 total \(fetched\) instructions
+      650576 total \(fetched\) instructions
 (.|\n)*
-           8 total threads
-(.|\n)*
-Core 5 counts:
-      175765 \(fetched\) instructions
-(.|\n)*
-           2 threads
-(.|\n)*
-Core 9 counts:
-       87891 \(fetched\) instructions
-(.|\n)*
-           1 threads
-(.|\n)*
-Core 0 counts:
-       87884 \(fetched\) instructions
-(.|\n)*
-           1 threads
-(.|\n)*
-Core 10? counts:
-       87875 \(fetched\) instructions
-(.|\n)*
-           1 threads
-(.|\n)*
-Core 10? counts:
-       87875 \(fetched\) instructions
-(.|\n)*
-           1 threads
-(.|\n)*
-Core 11 counts:
-       82508 \(fetched\) instructions
-(.|\n)*
-           1 threads
+           9 total threads
 (.|\n)*
 Core 8 counts:
-       29140 \(fetched\) instructions
+      156381 \(fetched\) instructions
 (.|\n)*
            1 threads
 (.|\n)*
@@ -222,15 +201,15 @@ Core 8 counts:
     {
         // Test record-replay.
         std::string record_file = "tmp_core_sharded_replay.zip";
-        const char *record_args[] = {
-            "<exe>",     "-core_sharded", "-tool", "basic_counts", "-indir",
-            dir.c_str(), "-cores",        "3",     "-record_file", record_file.c_str()
-        };
+        const char *record_args[] = { "<exe>",   "-core_sharded", scale_op1,
+                                      scale_op2, "-tool",         "basic_counts",
+                                      "-indir",  dir.c_str(),     "-cores",
+                                      "3",       "-record_file",  record_file.c_str() };
         std::string record_out =
             run_analyzer(sizeof(record_args) / sizeof(record_args[0]), record_args);
         assert(std::regex_search(record_out, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
-      638938 total \(fetched\) instructions
+      650576 total \(fetched\) instructions
 (.|\n)*
 Core .*
 (.|\n)*

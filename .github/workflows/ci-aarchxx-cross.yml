@@ -56,7 +56,7 @@ jobs:
   # AArch64 cross-compile with gcc, with some tests run under QEMU.
   # We use a more recent Ubuntu for a more recent QEMU.
   aarch64-cross-compile:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
@@ -94,6 +94,10 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
@@ -101,11 +105,11 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # ARM cross-compile with gcc, with some tests run under QEMU.
-  # We use a more recent Ubuntu for a more recent QEMU.
   arm-cross-compile:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
@@ -143,6 +147,10 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
@@ -150,10 +158,11 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   # Android ARM cross-compile with gcc, no tests:
   android-arm-cross-compile:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
@@ -190,6 +199,10 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       env:
@@ -197,6 +210,7 @@ jobs:
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
 
   # Android AArch64 cross-compile with LLVM, no tests:
@@ -231,6 +245,10 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       env:
@@ -239,11 +257,12 @@ jobs:
         DYNAMORIO_ANDROID_API_LEVEL: 35
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
 
   # AArch64 drdecode and drmemtrace on x86:
   a64-on-x86:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
@@ -269,6 +288,10 @@ jobs:
       with:
         cmakeVersion: '3.26.4'
 
+    - name: Check if format checks are disabled
+      id: are_format_checks_disabled
+      uses: ./.github/actions/are-format-checks-disabled
+
     - name: Run Suite
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci
@@ -276,6 +299,7 @@ jobs:
         DYNAMORIO_A64_ON_X86_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml

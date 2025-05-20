@@ -51,6 +51,7 @@ main()
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
 /* clang-format off */
+#ifdef X86
 START_FILE
 
 #define FUNCNAME test_jecxz
@@ -95,5 +96,138 @@ GLOBAL_LABEL(FUNCNAME:)
 
 
 END_FILE
+#elif defined(AARCH64)
+START_FILE
+
+#define FUNCNAME test_jecxz
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* begin roi via nop; nop; add; nop */
+        nop; nop; add x0, x0, 0; nop
+
+        mov      x1, ARG1
+        END_PROLOG
+
+        /* test cbz */
+        mov      x1, 0
+        cbz      x1, cbz_taken
+        nop
+     cbz_taken:
+        mov      x1, 1
+        cbz      x1, cbz_not_taken
+        nop
+     cbz_not_taken:
+        nop
+
+        /* test cbnz */
+        mov      x1, 1
+        cbnz     x1, cbnz_taken
+        nop
+     cbnz_taken:
+        mov      x1, 0
+        cbnz     x1, cbnz_not_taken
+        nop
+     cbnz_not_taken:
+        nop
+
+        /* test cbz using stolen register x28 */
+        mov      x1, x28
+        mov      x28, 0
+        cbz      x28, cbz_x28_taken
+        nop
+     cbz_x28_taken:
+        mov      x28, 1
+        cbz      x28, cbz_x28_not_taken
+        nop
+     cbz_x28_not_taken:
+        nop
+        mov      x28, x1
+
+        /* test cbnz using stolen register x28 */
+        mov      x1, x28
+        mov      x28, 1
+        cbnz     x28, cbnz_x28_taken
+        nop
+     cbnz_x28_taken:
+        mov      x28, 0
+        cbnz     x28, cbnz_x28_not_taken
+        nop
+     cbnz_x28_not_taken:
+        nop
+        mov      x28, x1
+
+        /* test tbz */
+        mov      x1, 0
+        tbz      x1, #1, tbz_taken
+        nop
+     tbz_taken:
+        mov      x1, 2
+        tbz      x1, #1, tbz_not_taken
+        nop
+     tbz_not_taken:
+        nop
+
+        /* test tbnz */
+        mov      x1, 4
+        tbnz     x1, #2, tbnz_taken
+        nop
+     tbnz_taken:
+        mov      x1, 0
+        tbnz     x1, #2, tbnz_not_taken
+        nop
+     tbnz_not_taken:
+        nop
+
+        /* test tbz using stolen register x28 */
+        mov      x1, x28
+        mov      x28, 0
+        tbz      x28, #1, tbz_x28_taken
+        nop
+     tbz_x28_taken:
+        mov      x28, 2
+        tbz      x28, #1, tbz_x28_not_taken
+        nop
+     tbz_x28_not_taken:
+        nop
+        mov      x28, x1
+
+        /* test tbnz using stolen register x28 */
+        mov      x1, x28
+        mov      x28, 2
+        tbnz     x28, #1, tbnz_x28_taken
+        nop
+     tbnz_x28_taken:
+        mov      x28, 0
+        tbnz     x28, #1, tbnz_x28_not_taken
+        nop
+     tbnz_x28_not_taken:
+        nop
+        mov      x28, x1
+
+        /* test bcond */
+        mov      x1, 0
+        cmp      x1, 0
+        beq      beq_taken
+        nop
+     beq_taken:
+        cmp      x1, 0
+        bne      bne_not_taken
+        nop
+     bne_not_taken:
+        nop
+
+        /* end roi via nop; nop; add; nop */
+        nop; nop; add x0, x0, 0; nop
+
+        /* test x0 being preserved */
+        ldr      x1, =0xabcd1234
+        str      x1, [x0]
+
+        ret
+        END_FUNC(FUNCNAME)
+
+
+END_FILE
+#endif
 /* clang-format on */
 #endif

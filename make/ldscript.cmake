@@ -100,14 +100,18 @@ endif ()
 # PR 253624: right now our library has to be next to our heap, and our
 # heap needs to be in lower 4GB for our fallback TLS (PR 285410), so we
 # set a preferred base address via a linker script.
+# i#7360: binutils sets ELF base and __executable_start with ldscript like
+#     PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x400000));
+#     . = SEGMENT_START("text-segment", 0x400000) + SIZEOF_HEADERS;
+# since at least 2003, where adjusting the base address only requires to replace
+# the constant (default_base that we've retrieved earlier). Extra assignments
+# to currenct location counter should be avoided, which may create holes in the
+# address space, resulting in an ELF header at unexpected address and breaking
+# __executable_start.
 if (set_preferred)
   string(REGEX REPLACE
     "${default_base}"
     "${preferred_base}"
-    string "${string}")
-  string(REGEX REPLACE
-    "(\n{)"
-    "\\1\n  . = ${preferred_base};"
     string "${string}")
 endif (set_preferred)
 

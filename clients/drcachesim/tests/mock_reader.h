@@ -38,10 +38,12 @@
 #include <vector>
 
 #include "reader.h"
+#include "record_file_reader.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
+namespace test_util {
 
 // A mock reader that iterates over a vector of records.
 class mock_reader_t : public reader_t {
@@ -235,6 +237,7 @@ make_encoding(unsigned short size, addr_t encoding)
     return entry;
 }
 
+} // namespace test_util
 } // namespace drmemtrace
 } // namespace dynamorio
 
