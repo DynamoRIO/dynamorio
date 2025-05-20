@@ -644,29 +644,17 @@ test_syscall_latencies_with_syscall_trace()
     // Following are the same as test_syscall_latencies.
     auto it_x_switch = result.sysnum_switch_latency.find(SYSNUM_X);
     assert(it_x_switch != result.sysnum_switch_latency.end());
-    std::string hist_x_switch = it_x_switch->second->to_string();
-    std::cerr << "Sysnum switch latency for " << SYSNUM_X << ":\n"
-              << hist_x_switch << "\n";
-    assert(hist_x_switch ==
+    assert(it_x_switch->second->to_string() ==
            "         500..     505     1\n        1000..    1005     1\n");
     auto it_x_noswitch = result.sysnum_noswitch_latency.find(SYSNUM_X);
     assert(it_x_noswitch != result.sysnum_noswitch_latency.end());
-    std::string hist_x_noswitch = it_x_noswitch->second->to_string();
-    std::cerr << "Sysnum noswitch latency for " << SYSNUM_X << ":\n"
-              << hist_x_noswitch << "\n";
-    assert(hist_x_noswitch == "          95..     100     1\n");
+    assert(it_x_noswitch->second->to_string() == "          95..     100     1\n");
     auto it_y_switch = result.sysnum_switch_latency.find(SYSNUM_Y);
     assert(it_y_switch != result.sysnum_switch_latency.end());
-    std::string hist_y_switch = it_y_switch->second->to_string();
-    std::cerr << "Sysnum switch latency for " << SYSNUM_Y << ":\n"
-              << hist_y_switch << "\n";
-    assert(hist_y_switch == "         200..     205     1\n");
+    assert(it_y_switch->second->to_string() == "         200..     205     1\n");
     auto it_y_noswitch = result.sysnum_noswitch_latency.find(SYSNUM_Y);
     assert(it_y_noswitch != result.sysnum_noswitch_latency.end());
-    std::string hist_y_noswitch = it_y_noswitch->second->to_string();
-    std::cerr << "Sysnum noswitch latency for " << SYSNUM_Y << ":\n"
-              << hist_y_noswitch << "\n";
-    assert(hist_y_noswitch == "         200..     205     1\n");
+    assert(it_y_noswitch->second->to_string() == "         200..     205     1\n");
     return true;
 }
 
