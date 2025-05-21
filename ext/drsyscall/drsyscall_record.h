@@ -80,7 +80,7 @@ typedef enum {
 } syscall_record_type_t;
 
 /**
- * To enable #syscall_record_t to be default initialized reliably, a byte array is defined
+ * To enable syscall_record_t to be default initialized reliably, a byte array is defined
  * with the same length as the largest member of the union.
  */
 #define SYSCALL_RECORD_UNION_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
@@ -90,7 +90,7 @@ typedef enum {
  * value.
  */
 START_PACKED_STRUCTURE
-typedef struct ALIGN_VAR(8) syscall_record_t_ {
+typedef struct ALIGN_VAR(sizeof(reg_t)) syscall_record_t_ {
     // type is one of syscall_record_type_t.
     uint16_t type;
     union {
