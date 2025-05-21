@@ -186,7 +186,7 @@ char **our_environ;
 
 /* For auxvector keys (AT_*) used by search_auxvector() */
 #ifdef MUSL
-#include <elf.h>
+#    include <elf.h>
 #endif
 
 #include <dlfcn.h>
