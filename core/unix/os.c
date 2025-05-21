@@ -799,6 +799,11 @@ static init_fn_t
  *
  * TODO: PR_GET_AUXV is relatively new (introduced in Linux 6.4), implement a
  * fallback when it's unavailable.
+ * TODO i#7491: PR_GET_AUXV isn't correctly intercepted, thus executable-related
+ * auxvector entries cannot be used as target marker when searching, or
+ * applications linked to libdynamorio.so, like test client.gonative, will fail
+ * to execute when running under early injection. Switch to use a more-reliable
+ * address-related entry when the problem is resolved.
  */
 static ELF_WORD
 get_auxv_value(ELF_WORD type)
@@ -827,7 +832,7 @@ get_auxv_value(ELF_WORD type)
  *         auxv
  *
  * But the stack pointer has gone much farther towards the low-end of address
- * space, so it's hard to reliably locate the address of auxvector.
+ * space, thus it's hard to reliably locate the address of auxvector.
  *
  * search_auxvector() walks towards the higher address and locates one of the
  * auxvector entries, then walks backwards and finds the beginning of auxvector.
@@ -835,7 +840,7 @@ get_auxv_value(ELF_WORD type)
 static void *
 search_auxvector(void *sp)
 {
-    ELF_WORD phdr = get_auxv_value(AT_PHDR);
+    ELF_WORD uid = get_auxv_value(AT_UID);
 
     for (size_t offset = 0; offset < PAGE_SIZE * 64; offset += sizeof(ulong)) {
         ELF_AUXV_TYPE *p = sp + offset;
@@ -844,7 +849,7 @@ search_auxvector(void *sp)
         if (!d_r_safe_read(p, sizeof(ELF_AUXV_TYPE), &entry))
             return NULL;
 
-        if (p->a_type == AT_PHDR && p->a_un.a_val == phdr) {
+        if (p->a_type == AT_UID && p->a_un.a_val == uid) {
             for (; (void *)p > sp; p--) {
                 /* The maximum key in auxvector is much smaller than 0x400.
                  * This assumes envp contains much higher addresses. An auxvector
