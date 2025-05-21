@@ -90,7 +90,7 @@ typedef enum {
  * value.
  */
 START_PACKED_STRUCTURE
-typedef struct ALIGN_VAR(sizeof(reg_t)) syscall_record_t_ {
+typedef struct ALIGN_VAR(8) syscall_record_t_ {
     // type is one of syscall_record_type_t.
     uint16_t type;
     union {
