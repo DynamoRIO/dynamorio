@@ -184,8 +184,12 @@ char **our_environ;
 
 #include "decode_fast.h" /* decode_cti: maybe os_handle_mov_seg should be ifdef X86? */
 
-#include <dlfcn.h>
+/* For auxvector keys (AT_*) used by search_auxvector() */
+#ifdef MUSL
 #include <elf.h>
+#endif
+
+#include <dlfcn.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
