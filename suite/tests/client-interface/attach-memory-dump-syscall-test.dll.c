@@ -273,8 +273,8 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     syscall_record_t record = {};
-    ASSERT((SYSCALL_RECORD_UNION_SIZE_BYTES + sizeof(record.type)) ==
-           sizeof(syscall_record_t));
+    ASSERT(ALIGN_FORWARD(SYSCALL_RECORD_UNION_SIZE_BYTES + sizeof(record.type),
+                         sizeof(reg_t)) == sizeof(syscall_record_t));
 
     char filename[MAXIMUM_PATH];
     snprintf(filename, BUFFER_SIZE_ELEMENTS(filename), "attach_syscall_record_file.%d",
