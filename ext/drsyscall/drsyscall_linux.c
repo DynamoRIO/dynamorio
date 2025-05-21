@@ -23,7 +23,7 @@
 #include "dr_api.h"
 #include "drsyscall.h"
 #include "drsyscall_os.h"
-#include "sysnum_linux.h"
+#include "syscall.h"
 #include "asm_utils.h"
 #include <string.h> /* for strcmp */
 #include <stddef.h> /* for offsetof */
@@ -628,7 +628,8 @@ check_msghdr(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *p
     }
 }
 
-#ifndef X64 /* XXX i#1013: for mixed-mode we'll need to indirect SYS_socketcall, etc. */
+#if defined(X86) && !defined(X64) /* XXX i#1013: for mixed-mode we'll need to indirect \
+                                     SYS_socketcall, etc. */
 static void
 handle_pre_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
 {
@@ -932,7 +933,7 @@ handle_post_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
     }
     }
 }
-#endif /* !X64 */
+#endif /* !X64 && X86 */
 
 static uint
 ipc_sem_len(int semid)
@@ -942,7 +943,7 @@ ipc_sem_len(int semid)
     ctlarg.buf = &ds;
     /* FIXME PR 519781: not tested! */
     if (
-#ifdef X64
+#if defined(X64) || defined(ARM)
         raw_syscall(SYS_semctl, 4, semid, 0, IPC_STAT, (ptr_int_t)&ctlarg)
 #else
         raw_syscall(SYS_ipc, 5, SEMCTL, semid, 0, IPC_STAT, (ptr_int_t)&ctlarg)
@@ -1285,7 +1286,8 @@ check_msgbuf(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *p
                        msgsnd ? "msgsnd mtext" : "msgrcv mtext", DRSYS_TYPE_STRUCT, NULL);
 }
 
-#ifndef X64 /* XXX i#1013: for mixed-mode we'll need to indirect SYS_socketcall, etc. */
+#if defined(X86) && !defined(X64) /* XXX i#1013: for mixed-mode we'll need to indirect \
+                                     SYS_socketcall, etc. */
 static void
 handle_pre_ipc(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
 {
@@ -1440,7 +1442,7 @@ handle_post_ipc(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
     }
     /* If you add any handling here: need to check ii->abort first */
 }
-#endif /* !X64 */
+#endif /* X86 && !X64 */
 
 /* handles both select and pselect6 */
 static void
@@ -1472,9 +1474,10 @@ handle_pre_select(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
     ptr = SYSARG_AS_PTR(pt, 4, app_pc);
     if (ptr != NULL) {
         if (!report_memarg_type(ii, 4, SYSARG_READ, ptr,
-                                (ii->arg->sysnum.number == SYS_select
-                                     ? sizeof(struct timeval)
-                                     : sizeof(struct timespec)),
+                                IF_X86_ELSE(ii->arg->sysnum.number == SYS_select
+                                                ? sizeof(struct timeval)
+                                                : sizeof(struct timespec),
+                                            sizeof(struct timespec)),
                                 "select timeout", DRSYS_TYPE_STRUCT, NULL))
             return;
     }
@@ -1612,6 +1615,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
         }
         break;
     }
+#if defined(X86) || !defined(X64)
     case SYS_open: {
         /* 3rd arg is sometimes required.  glibc open() wrapper passes
          * a constant 0 as mode if no O_CREAT, but opendir() bypasses
@@ -1624,6 +1628,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
         }
         break;
     }
+#endif
     case SYS_fcntl:
 #ifndef X64
     case SYS_fcntl64:
@@ -1648,7 +1653,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
         }
     } break;
     case SYS_ioctl: handle_pre_ioctl(drcontext, pt, ii); break;
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case SYS_semctl: handle_semctl(drcontext, pt, ii, 0); break;
     case SYS_msgctl: handle_msgctl(drcontext, pt, ii, 0, 1, 2); break;
     case SYS_shmctl: handle_shmctl(drcontext, pt, ii, 0, 1, 2); break;
@@ -1657,9 +1662,14 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
     case SYS_socketcall: handle_pre_socketcall(drcontext, pt, ii); break;
     case SYS_ipc: handle_pre_ipc(drcontext, pt, ii); break;
 #endif
+#ifdef X86
     case SYS_select: /* fall-through */
+#endif
     case SYS_pselect6: handle_pre_select(drcontext, pt, ii); break;
-    case SYS_poll: {
+#if defined(X86) || !defined(X64)
+    case SYS_poll:
+#endif
+    case SYS_ppoll: {
         struct pollfd *fds = SYSARG_AS_PTR(pt, 0, struct pollfd *);
         nfds_t nfds = (nfds_t)pt->sysarg[1];
         if (fds != NULL) {
@@ -1671,6 +1681,17 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
                                         DRSYS_TYPE_STRUCT, NULL))
                     return;
             }
+        }
+        if (ii->arg->sysnum.number == SYS_ppoll) {
+            struct timespec *timeout = SYSARG_AS_PTR(pt, 2, struct timespec *);
+            if (!report_memarg_type(ii, 2, SYSARG_READ, (app_pc)timeout, sizeof(*timeout),
+                                    "timeout", DRSYS_TYPE_STRUCT, NULL))
+                return;
+            kernel_sigset_t *sigmask = SYSARG_AS_PTR(pt, 3, kernel_sigset_t *);
+            if (!report_memarg_type(ii, 3, SYSARG_READ, (app_pc)sigmask,
+                                    sizeof(kernel_sigset_t), "ppoll sigmask",
+                                    DRSYS_TYPE_STRUCT, NULL))
+                return;
         }
         break;
     }
@@ -1770,7 +1791,7 @@ os_handle_post_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
     }
 #endif
     case SYS_ioctl: handle_post_ioctl(drcontext, pt, ii); break;
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case SYS_semctl: handle_semctl(drcontext, pt, ii, 0); break;
     case SYS_msgctl: handle_msgctl(drcontext, pt, ii, 0, 1, 2); break;
     case SYS_shmctl: handle_shmctl(drcontext, pt, ii, 0, 1, 2); break;
@@ -1778,6 +1799,7 @@ os_handle_post_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
     case SYS_socketcall: handle_post_socketcall(drcontext, pt, ii); break;
     case SYS_ipc: handle_post_ipc(drcontext, pt, ii); break;
 #endif
+#ifdef X86
     case SYS_poll: {
         struct pollfd *fds = SYSARG_AS_PTR(pt, 0, struct pollfd *);
         nfds_t nfds = (nfds_t)pt->sysarg[1];
@@ -1793,6 +1815,7 @@ os_handle_post_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
         }
         break;
     }
+#endif
     case SYS_prctl: {
         handle_post_prctl(drcontext, pt, ii);
         break;
@@ -1916,8 +1939,8 @@ bool
 os_syscall_succeeded(drsys_sysnum_t sysnum, syscall_info_t *info, cls_syscall_t *pt)
 {
     ptr_int_t res = (ptr_int_t)pt->mc.IF_X86_ELSE(xax, r0);
-    if (sysnum.number == SYS_mmap ||
-        IF_NOT_X64(sysnum.number == SYS_mmap2 ||) sysnum.number == SYS_mremap)
+    if (IF_X86_OR_AARCH64(sysnum.number == SYS_mmap ||)
+            IF_NOT_X64(sysnum.number == SYS_mmap2 ||) sysnum.number == SYS_mremap)
         return (res >= 0 || res < -dr_page_size());
     else
         return (res >= 0);

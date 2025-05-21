@@ -175,4 +175,28 @@ use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatuc)
 use_DynamoRIO_extension(drsyscall_drstatic drmgr_static)
 configure_drsyscall_target(drsyscall_drstatic)
 
-install_ext_header(drsyscall.h)
+if (LINUX)
+  set(drsyscall_record_lib_srcs
+    drsyscall_record_lib.c
+  )
+
+  set(drsyscall_record_lib_external_srcs
+    ../drmf/framework/drmf_utils.c
+  )
+
+  add_library(drsyscall_record_lib STATIC ${drsyscall_record_lib_srcs}
+    ${drsyscall_record_lib_external_srcs})
+  configure_extension(drsyscall_record_lib ON ON)
+  configure_DynamoRIO_client(drsyscall_record_lib)
+  use_DynamoRIO_extension(drutil_static drmgr_static)
+
+  install_ext_header(drsyscall_record.h)
+  install_ext_header(drsyscall_record_lib.h)
+
+  add_executable(drsyscall_record_viewer drsyscall_record_viewer.c)
+  configure_DynamoRIO_standalone(drsyscall_record_viewer)
+  configure_DynamoRIO_static(drsyscall_record_viewer)
+  use_DynamoRIO_extension(drsyscall_record_viewer drsyscall_record_lib)
+  set_target_properties(drsyscall_record_viewer PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
+endif ()

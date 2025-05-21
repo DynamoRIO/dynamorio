@@ -374,9 +374,12 @@ protected:
     bool
     update_state_time(per_shard_t *shard, state_t state);
 
-    void
-    record_context_switch(per_shard_t *shard, int64_t workload_id, int64_t tid,
-                          int64_t input_id, int64_t letter_ord);
+    // shard->prev_workload_id and shard->prev_tid are cleared when this is called,
+    // so we pass in the preserved values so there's no confusion.
+    virtual void
+    record_context_switch(per_shard_t *shard, int64_t prev_workload_id, int64_t prev_tid,
+                          int64_t workload_id, int64_t tid, int64_t input_id,
+                          int64_t letter_ord);
 
     virtual void
     aggregate_results(counters_t &total);

@@ -352,8 +352,8 @@ record_filter_t::open_new_chunk(per_shard_t *shard)
     }
 
     std::ostringstream stream;
-    stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
-           << shard->chunk_ordinal;
+    stream << TRACE_CHUNK_PREFIX << std::setfill('0')
+           << std::setw(TRACE_CHUNK_SUFFIX_WIDTH) << shard->chunk_ordinal;
     err = shard->archive_writer->open_new_component(stream.str());
     if (!err.empty())
         return err;

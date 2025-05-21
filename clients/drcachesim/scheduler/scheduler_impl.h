@@ -197,6 +197,9 @@ protected:
         // We use a deque so we can iterate over it.
         std::deque<RecordType> queue;
         bool cur_from_queue;
+        addr_t last_pc_fallthrough = 0;
+        // Whether we're in the middle of returning injected syscall records.
+        bool in_syscall_injection = false;
 
         std::set<output_ordinal_t> binding;
         int priority = 0;
@@ -261,6 +264,11 @@ protected:
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
+        int to_inject_syscall = INJECT_NONE;
+        bool saw_first_func_id_marker_after_syscall = false;
+
+        // Sentinel value for to_inject_syscall.
+        static constexpr int INJECT_NONE = -1;
     };
 
     // XXX i#6831: Should this live entirely inside the dynamic subclass?
@@ -571,6 +579,8 @@ protected:
         // The count of original pre-filtered inputs (might not match
         // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
         uint64_t input_count = 0;
+        // The index into inputs_ at which this workload's inputs begin.
+        input_ordinal_t first_input_ordinal = 0;
     };
 
     // We assume a 2GHz clock and IPC=0.5 to match
@@ -834,7 +844,17 @@ protected:
 
     // Returns whether the given record is an instruction.
     bool
-    record_type_is_instr(RecordType record);
+    record_type_is_instr(RecordType record, addr_t *pc = nullptr, size_t *size = nullptr);
+
+    // Returns whether the given record is an indirect branch. Returns in
+    // has_indirect_branch_target whether the instr record type supports the indirect
+    // branch target field or not, which will be true only when RecordType is memref_t.
+    // When RecordType is memref_t, it also sets the indirect branch target field to the
+    // given value if it's non-zero.
+    bool
+    record_type_is_indirect_branch_instr(RecordType &record,
+                                         bool &has_indirect_branch_target,
+                                         addr_t set_indirect_branch_target = 0);
 
     // If the given record is a marker, returns true and its fields.
     bool
@@ -861,6 +881,9 @@ protected:
     bool
     record_type_is_instr_boundary(RecordType record, RecordType prev_record);
 
+    bool
+    record_type_is_thread_exit(RecordType record);
+
     // Creates the marker we insert between regions of interest.
     RecordType
     create_region_separator_marker(memref_tid_t tid, uintptr_t value);
@@ -880,8 +903,22 @@ protected:
     void
     update_next_record(output_ordinal_t output, RecordType &record);
 
+    // Performs the actual injection of the kernel sequence.
     stream_status_t
     inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
+
+    // Performs the actual injection of a kernel syscall sequence, using
+    // inject_kernel_sequence as helper.
+    stream_status_t
+    inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
+                                    RecordType &record);
+
+    // Checks whether we're at a suitable injection point for a yet to be injected
+    // syscall sequence, and performs the injection using
+    // inject_pending_syscall_sequence as helper.
+    stream_status_t
+    maybe_inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
+                                          RecordType &record);
 
     // Actions that must be taken only when we know for sure that the given record
     // is going to be the next record for some output stream.

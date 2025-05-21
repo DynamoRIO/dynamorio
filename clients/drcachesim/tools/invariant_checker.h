@@ -89,7 +89,8 @@ public:
                         std::string test_name = "",
                         std::istream *serial_schedule_file = nullptr,
                         std::istream *cpu_schedule_file = nullptr,
-                        bool abort_on_invariant_error = true);
+                        bool abort_on_invariant_error = true,
+                        bool dynamic_syscall_trace_injection = false);
     virtual ~invariant_checker_t();
     std::string
     initialize_shard_type(shard_type_t shard_type) override;
@@ -139,7 +140,7 @@ protected:
         uintptr_t trace_version_ = 0;
         // Struct to store decoding related attributes.
 #ifdef X86
-        uint64_t instrs_since_sti = 0;
+        int64_t instrs_since_sti = -1;
 #endif
         class decoding_info_t : public decode_info_base_t {
         public:
@@ -207,6 +208,7 @@ protected:
         bool found_syscall_marker_ = false;
         bool prev_was_syscall_marker_ = false;
         int last_syscall_marker_value_ = 0;
+        bool found_syscall_trace_after_last_userspace_instr_ = false;
         bool found_blocking_marker_ = false;
         uint64_t syscall_count_ = 0;
         uint64_t last_instr_count_marker_ = 0;
@@ -214,6 +216,7 @@ protected:
         // Track the location of errors.
         memref_tid_t tid_ = -1;
         uint64_t ref_count_ = 0;
+        uint64_t dyn_injected_syscall_ref_count_ = 0;
         // We do not expect these to vary by thread but it is simpler to keep
         // separate values per thread as we discover their values during parallel
         // operation.
@@ -224,6 +227,7 @@ protected:
         bool window_transition_ = false;
         uint64_t chunk_instr_count_ = 0;
         uint64_t instr_count_ = 0;
+        uint64_t dyn_injected_syscall_instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
         uint64_t instr_count_since_last_timestamp_ = 0;
         schedule_file_t::per_shard_t sched_data_;
@@ -246,8 +250,10 @@ protected:
         int signal_stack_depth_at_syscall_trace_start_ = -1;
         int signal_stack_depth_at_context_switch_trace_start_ = -1;
 #endif
+        addr_t prev_syscall_end_branch_target_ = 0;
         // Relevant when -no_abort_on_invariant_error.
         uint64_t error_count_ = 0;
+        int64_t last_chunk_ordinal_ = -1;
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -311,6 +317,7 @@ protected:
     memtrace_stream_t *serial_stream_ = nullptr;
 
     bool abort_on_invariant_error_ = true;
+    bool dynamic_syscall_trace_injection_ = false;
 };
 
 } // namespace drmemtrace

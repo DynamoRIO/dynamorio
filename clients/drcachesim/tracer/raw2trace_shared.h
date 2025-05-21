@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -73,6 +73,10 @@ namespace drmemtrace {
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 #define TRACE_CHUNK_PREFIX "chunk."
+// The chunk name is "chunk.nnnnnnnn" with leading 0's for the number suffix.
+// Some zip readers end up alphabetizing the component files, so be sure to have enough
+// leading zeroes to keep them in numeric order even with large component counts.
+#define TRACE_CHUNK_SUFFIX_WIDTH 8
 // Dir for auxiliary files. Same level as TRACE_SUBDIR and OUTFILE_SUBDIR.
 #define AUX_SUBDIR "aux"
 

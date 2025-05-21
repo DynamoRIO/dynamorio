@@ -36,7 +36,6 @@
  * we will notice if the literals get out of sync as the test will fail.
  */
 
-#undef NDEBUG
 #include <assert.h>
 
 #include <fstream>
@@ -47,6 +46,7 @@
 #include "../tools/schedule_stats.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {

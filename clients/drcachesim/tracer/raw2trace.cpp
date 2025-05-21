@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -199,8 +199,8 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address,
 app_pc
 raw2trace_t::get_first_app_pc_for_syscall_template(int syscall_num)
 {
-    auto it = syscall_trace_templates_[syscall_num].begin();
-    while (it != syscall_trace_templates_[syscall_num].end()) {
+    auto it = syscall_trace_templates_[syscall_num].entries.begin();
+    while (it != syscall_trace_templates_[syscall_num].entries.end()) {
         if (type_is_instr(static_cast<trace_type_t>(it->type))) {
             return reinterpret_cast<app_pc>(it->addr);
         }
@@ -257,21 +257,40 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     buf = buf_base;
     buf_in = reinterpret_cast<byte *>(buf_base); // Defensive: update the returned buf.
 
+    trace_entry_t *buf_last_branch_target_marker = nullptr;
     app_pc saved_decode_pc;
     int inserted_instr_count = 0;
     // XXX i#6495: For now we write out the template as-is to the output trace. But we can
     // potentially customize some properties of the trace. E.g. the start address for the
     // kernel code section.
-    for (const auto &entry : syscall_trace_templates_[syscall_num]) {
+    for (const auto &entry : syscall_trace_templates_[syscall_num].entries) {
         if (type_is_instr(static_cast<trace_type_t>(entry.type)) ||
             // We want to write out at each repstr instance so that we do not accumulate
             // too many buffered entries.
             entry.type == TRACE_TYPE_INSTR_NO_FETCH) {
+            // If this is the last instruction and an indirect branch, and there was a
+            // branch target marker just before it, set it to the fallthrough pc of
+            // the syscall instruction for which we're injecting the trace. This is
+            // simpler than trying to get the actual post-syscall instruction for which
+            // we would perhaps even need to read-ahead to the next raw trace buffer.
+            // XXX i#6495, i#7157: The above strategy does not work for syscalls that
+            // transfer control (like sigreturn), but we do not trace those anyway today
+            // (neither using Intel-PT, nor QEMU) as there are challenges in determining
+            // the post-syscall resumption point.
+            if (type_is_instr_branch(static_cast<trace_type_t>(entry.type)) &&
+                !type_is_instr_direct_branch(static_cast<trace_type_t>(entry.type)) &&
+                inserted_instr_count ==
+                    syscall_trace_templates_[syscall_num].instr_count - 1 &&
+                buf_last_branch_target_marker != nullptr) {
+                buf_last_branch_target_marker->addr =
+                    reinterpret_cast<addr_t>(get_last_pc_fallthrough_if_syscall(tdata));
+            }
             if (buf != buf_base) {
                 if (!write(tdata, buf_base, buf, &saved_decode_pc, 1)) {
                     return false;
                 }
                 buf = buf_base;
+                buf_last_branch_target_marker = nullptr;
             }
             if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
                 ++inserted_instr_count;
@@ -287,6 +306,9 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
             } else {
                 record_encoding_emitted(tdata, saved_decode_pc);
             }
+        } else if (entry.type == TRACE_TYPE_MARKER &&
+                   entry.size == TRACE_MARKER_TYPE_BRANCH_TARGET) {
+            buf_last_branch_target_marker = buf;
         }
         size_t size = buf - buf_base;
         if ((uint)size >= WRITE_BUFFER_SIZE) {
@@ -372,12 +394,15 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // process_next_thread_buffer() so there is no need to have a separate
             // check for it here.
             if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
-                if (syscall_template_file_reader_ != nullptr &&
-                    marker_type == TRACE_MARKER_TYPE_SYSCALL) {
-                    // Also writes out the delayed branches if any.
-                    if (!write_syscall_template(tdata, buf, buf_base,
-                                                static_cast<int>(marker_val)))
-                        return false;
+                if (marker_type == TRACE_MARKER_TYPE_SYSCALL &&
+                    syscall_trace_templates_.find(static_cast<int>(marker_val)) !=
+                        syscall_trace_templates_.end()) {
+                    assert(tdata->to_inject_syscall_ ==
+                           raw2trace_thread_data_t::INJECT_NONE);
+                    // The actual injection of the syscall trace happens later at the
+                    // intended point between the syscall function tracing markers
+                    tdata->to_inject_syscall_ = static_cast<int>(marker_val);
+                    tdata->saw_first_func_id_marker_after_syscall_ = false;
                 }
                 if (delayed_branches_exist(tdata)) {
                     return write_delayed_branches(tdata, buf_base,
@@ -571,9 +596,7 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata,
         tdata->error = "Failed to read header from input file";
         return false;
     }
-    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-        in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-        in_entry->extended.valueB == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
+    if (is_marker_type(in_entry, TRACE_MARKER_TYPE_CACHE_LINE_SIZE)) {
         header->cache_line_size = in_entry->extended.valueA;
     } else {
         log(2,
@@ -900,6 +923,54 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 #endif
 
 bool
+raw2trace_t::maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdata,
+                                                   const offline_entry_t &entry,
+                                                   byte *buf_base)
+{
+    if (tdata->to_inject_syscall_ == raw2trace_thread_data_t::INJECT_NONE)
+        return true;
+    bool is_marker = entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+        entry.extended.ext == OFFLINE_EXT_TYPE_MARKER;
+    bool is_injection_point = false;
+    // We inject the syscall trace after all markers added in the
+    // pre-syscall event.
+    if (
+        // For syscalls not specified in -record_syscall, which do not have
+        // the func_id-func_retval markers.
+        entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP ||
+        // For syscalls that did not have a post-event because the trace ended.
+        (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+         entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) ||
+        // For syscalls interrupted by a signal and did not have a post-syscall
+        // event.
+        (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
+        is_injection_point = true;
+    } else if (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_FUNC_ID) {
+        if (!tdata->saw_first_func_id_marker_after_syscall_) {
+            // XXX i#7482: If we allow recording zero args for syscalls in
+            // -record_syscall, we would need to update this logic.
+            tdata->saw_first_func_id_marker_after_syscall_ = true;
+        } else {
+            // For syscalls specified in -record_syscall, for which we inject
+            // just before the func_id-func_retval markers.
+            is_injection_point = true;
+        }
+    }
+
+    byte *buf = buf_base;
+    // Also writes out the delayed branches if any.
+    if (is_injection_point) {
+        if (!write_syscall_template(tdata, buf,
+                                    reinterpret_cast<trace_entry_t *>(buf_base),
+                                    tdata->to_inject_syscall_)) {
+            return false;
+        }
+        tdata->to_inject_syscall_ = raw2trace_thread_data_t::INJECT_NONE;
+        tdata->saw_first_func_id_marker_after_syscall_ = false;
+    }
+    return true;
+}
+bool
 raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                         DR_PARAM_OUT bool *end_of_record)
 {
@@ -931,6 +1002,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // Make a copy to avoid clobbering the entry we pass to process_offline_entry()
         // when it calls get_next_entry() on its own.
         offline_entry_t entry = *in_entry;
+        if (!maybe_inject_pending_syscall_sequence(tdata, entry, buf_base))
+            return false;
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             // Give subclasses a chance for further action on a timestamp by
             // putting our processing as thought it were a marker at the raw level.
@@ -953,9 +1026,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             continue;
         }
 #ifdef BUILD_PT_POST_PROCESSOR
-        if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
-            entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            entry.extended.valueB == TRACE_MARKER_TYPE_SYSCALL_IDX) {
+        if (is_marker_type(&entry, TRACE_MARKER_TYPE_SYSCALL_IDX)) {
             if (!process_syscall_pt(tdata, entry.extended.valueA))
                 return false;
             continue;
@@ -976,8 +1047,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             // Get the next instr's pc from the interruption value in the marker
             // (a record for the next instr itself won't appear until the signal
             // returns, if that happens).
-            if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            if (is_marker_type(&entry, TRACE_MARKER_TYPE_KERNEL_EVENT)) {
                 uintptr_t marker_val = 0;
                 if (!get_marker_value(tdata, &in_entry, &marker_val))
                     return false;
@@ -990,8 +1060,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             if (!append_delayed_branch(tdata, next_pc))
                 return false;
         }
-        if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
+        if (is_marker_type(&entry, TRACE_MARKER_TYPE_WINDOW_ID))
             tdata->last_window = entry.extended.valueA;
         bool flush_decode_cache = false;
         bool success = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
@@ -1159,8 +1228,14 @@ raw2trace_t::read_syscall_template_file()
             continue;
         // We expect at most one template per system call for now.
         DR_ASSERT(!first_entry_for_syscall ||
-                  syscall_trace_templates_[last_syscall_num].empty());
-        syscall_trace_templates_[last_syscall_num].push_back(entry);
+                  syscall_trace_templates_[last_syscall_num].entries.empty());
+        if (first_entry_for_syscall) {
+            syscall_trace_templates_[last_syscall_num] = {};
+        }
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            ++syscall_trace_templates_[last_syscall_num].instr_count;
+        }
+        syscall_trace_templates_[last_syscall_num].entries.push_back(entry);
         first_entry_for_syscall = false;
     }
     return "";
@@ -1604,7 +1679,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // TODO i#6102: This actually does the wrong thing for SIG_IGN interrupting
         // an auto-restart syscall; we live with that until we remove it after fixing
         // the incorrect duplicate syscall error.
-        if (instr->is_syscall() && get_last_pc_if_syscall(tdata) == orig_pc &&
+        if (instr->is_syscall() &&
+            get_last_pc_fallthrough_if_syscall(tdata) == orig_pc + instr->length() &&
             instr_count == 1) {
             // Also remove the syscall marker.  It could be after a timestamp+cpuid
             // pair; we're fine removing those too and having the prior timestamp
@@ -1613,15 +1689,11 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 const offline_entry_t *entry = get_next_entry(tdata);
                 if (entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
                     entry = get_next_entry(tdata);
-                    if (entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                        entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                        entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID) {
+                    if (is_marker_type(entry, TRACE_MARKER_TYPE_CPU_ID)) {
                         entry = get_next_entry(tdata);
                     }
                 }
-                if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
-                    entry->extended.ext != OFFLINE_EXT_TYPE_MARKER ||
-                    entry->extended.valueB != TRACE_MARKER_TYPE_SYSCALL) {
+                if (!is_marker_type(entry, TRACE_MARKER_TYPE_SYSCALL)) {
                     tdata->error = "Syscall without marker should have been removed";
                     return false;
                 }
@@ -1727,9 +1799,9 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             } else
                 set_prev_instr_rep_string(tdata, false);
             if (instr->is_syscall())
-                set_last_pc_if_syscall(tdata, orig_pc);
+                set_last_pc_fallthrough_if_syscall(tdata, orig_pc + instr->length());
             else
-                set_last_pc_if_syscall(tdata, 0);
+                set_last_pc_fallthrough_if_syscall(tdata, 0);
             buf->size = (ushort)(skip_icache ? 0 : instr->length());
             buf->addr = (addr_t)orig_pc;
             ++buf;
@@ -1767,7 +1839,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     // possible for a given scatter/gather instr.
                     if (!append_memref(
                             tdata, &buf, instr,
-                            // These memrefs were output by multiple store/lo0ad instrs in
+                            // These memrefs were output by multiple store/load instrs in
                             // the expanded scatter/gather sequence. In raw2trace we see
                             // only the original app instr though. So we use the 0th
                             // dest/src of the original scatter/gather instr for all.
@@ -1791,7 +1863,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             }
         } else {
             // Flush memref entries. We do not try to indicate which memref
-            // might have casued a fault, we omit them all along with the
+            // might have caused a fault, we omit them all along with the
             // instruction fetch.
             if (interrupted) {
                 const offline_entry_t *next_entry = get_next_entry(tdata);
@@ -2018,24 +2090,25 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
     const offline_entry_t *in_entry = get_next_entry(tdata);
     std::vector<offline_entry_t> saved;
     while (in_entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP ||
-           (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-            in_entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID)) {
+           is_marker_type(in_entry, TRACE_MARKER_TYPE_CPU_ID)) {
         saved.push_back(*in_entry);
         in_entry = get_next_entry(tdata);
     }
-    bool omit = false;
-    if (in_entry->extended.type != OFFLINE_TYPE_EXTENDED ||
-        in_entry->extended.ext != OFFLINE_EXT_TYPE_MARKER ||
-        in_entry->extended.valueB != TRACE_MARKER_TYPE_SYSCALL) {
-        omit = true;
-    }
+    bool omit = !is_marker_type(in_entry, TRACE_MARKER_TYPE_SYSCALL);
     saved.push_back(*in_entry);
     for (auto &entry : saved) {
         queue_entry(tdata, entry);
     }
     return omit;
 #endif
+}
+
+inline bool
+raw2trace_t::is_marker_type(const offline_entry_t *entry, trace_marker_type_t marker_type)
+{
+    return entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+        entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+        entry->extended.valueB == marker_type;
 }
 
 bool
@@ -2774,12 +2847,12 @@ void
 raw2trace_t::unread_last_entry(raw2trace_thread_data_t *tdata)
 {
     VPRINT(5, "Unreading last entry\n");
+    tdata->pre_read.push_front(tdata->last_entry);
     if (tdata->last_entry_is_split) {
         VPRINT(4, "Unreading both parts of split entry at once\n");
         tdata->pre_read.push_front(tdata->last_split_first_entry);
         tdata->last_entry_is_split = false;
     }
-    tdata->pre_read.push_front(tdata->last_entry);
 }
 
 void
@@ -3016,8 +3089,21 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     }
 
     std::ostringstream stream;
-    stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
-           << tdata->chunk_count_;
+    // Ensure we have enough digits (xref i#7474).
+    uint64_t val = tdata->chunk_count_;
+    int digits = 0;
+    while (val > 0) {
+        ++digits;
+        val /= 10;
+    }
+    if (digits > TRACE_CHUNK_SUFFIX_WIDTH) {
+        tdata->error = "Chunk count " + std::to_string(tdata->chunk_count_) +
+            " exceeds max " + std::to_string(TRACE_CHUNK_SUFFIX_WIDTH) +
+            " digits in component names";
+        return false;
+    }
+    stream << TRACE_CHUNK_PREFIX << std::setfill('0')
+           << std::setw(TRACE_CHUNK_SUFFIX_WIDTH) << tdata->chunk_count_;
     tdata->error = tdata->out_archive->open_new_component(stream.str());
     if (!tdata->error.empty())
         return false;
@@ -3357,15 +3443,16 @@ raw2trace_t::log_instruction(uint level, app_pc decode_pc, app_pc orig_pc)
 }
 
 void
-raw2trace_t::set_last_pc_if_syscall(raw2trace_thread_data_t *tdata, app_pc value)
+raw2trace_t::set_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata,
+                                                app_pc value)
 {
-    tdata->last_pc_if_syscall_ = value;
+    tdata->last_pc_fallthrough_if_syscall_ = value;
 }
 
 app_pc
-raw2trace_t::get_last_pc_if_syscall(raw2trace_thread_data_t *tdata)
+raw2trace_t::get_last_pc_fallthrough_if_syscall(raw2trace_thread_data_t *tdata)
 {
-    return tdata->last_pc_if_syscall_;
+    return tdata->last_pc_fallthrough_if_syscall_;
 }
 
 void

@@ -263,6 +263,14 @@ check_for_marker(instr_t *first_inst)
                 if (third != NULL && instr_get_opcode(third) == OP_yield)
                     return true;
             }
+#elif defined(RISCV64)
+            /* For RISCV64 look for an uncompressed nop followed by two compressed
+             * ones */
+            if (instr_get_opcode(second) == OP_c_nop) {
+                instr_t *third = instr_get_next(second);
+                if (third != NULL && instr_get_opcode(third) == OP_c_nop)
+                    return true;
+            }
 #endif
         }
     }

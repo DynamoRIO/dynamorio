@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,7 +32,6 @@
 
 // Unit tests for cache replacement policies
 #include <iostream>
-#undef NDEBUG
 #include <assert.h>
 #include <memory>
 #include <random>
@@ -43,6 +42,7 @@
 #include "simulator/policy_lfu.h"
 #include "simulator/policy_lru.h"
 #include "simulator/tlb.h"
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {

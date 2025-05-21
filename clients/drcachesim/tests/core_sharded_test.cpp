@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <regex>
@@ -62,9 +63,9 @@ run_analyzer(int argc, const char *args[])
     }
     analyzer_multi_t analyzer;
     assert(!!analyzer);
-    IF_DEBUG(bool res =) analyzer.run();
+    bool res = analyzer.run();
     assert(res);
-    IF_DEBUG(res =) analyzer.print_stats();
+    res = analyzer.print_stats();
     assert(res);
 
     std::cerr.rdbuf(prev_buf);

@@ -32,6 +32,7 @@
 
 /* Unit tests for the view_t tool. */
 
+#include "test_helpers.h"
 #include <algorithm>
 #include <iostream>
 #include <regex>

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -340,6 +341,12 @@ TEST_INSTR(wfi)
     TEST_LOOP_EXPECT(wfi, 1, INSTR_CREATE_wfi(dc), EXPECT_DISASSEMBLY("wfi"));
 }
 
+TEST_INSTR(eret)
+{
+    /* Testing ERET */
+    TEST_LOOP_EXPECT(eret, 1, INSTR_CREATE_eret(dc), EXPECT_DISASSEMBLY("eret"));
+}
+
 TEST_INSTR(orr)
 {
     /* Testing ORR     <Xd|SP>, <Xn>, #<imm> */
@@ -673,6 +680,7 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(wfe);
     RUN_INSTR_TEST(wfi);
+    RUN_INSTR_TEST(eret);
 
     RUN_INSTR_TEST(orr);
     RUN_INSTR_TEST(orr_shift);
