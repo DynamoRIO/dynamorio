@@ -437,6 +437,17 @@ public:
         workload_id_ = id;
     }
 
+    bool
+    is_record_kernel() const override
+    {
+        return in_kernel_trace_;
+    }
+    void
+    set_in_kernel_trace(bool in_kernel_trace)
+    {
+        in_kernel_trace_ = in_kernel_trace;
+    }
+
 private:
     uint64_t *record_ordinal_ = nullptr;
     int64_t cpuid_ = 0;
@@ -444,6 +455,7 @@ private:
     int64_t tid_ = 0;
     int64_t workload_id_ = 0;
     int64_t last_timestamp_ = 0;
+    bool in_kernel_trace_ = false;
     // To let a test set just the tid and get a shard index for free.
     std::unordered_map<int64_t, int> tid2shard_;
 };
