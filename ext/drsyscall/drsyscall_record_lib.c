@@ -86,18 +86,20 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
                 break;
             case DRSYS_MEMORY_CONTENT: {
                 const size_t content_size = record->content.size;
-                if (remaining >= sizeof(syscall_record_t) + content_size) {
+                const size_t content_size_aligned =
+                    ALIGN_FORWARD(content_size, sizeof(reg_t));
+                if (remaining >= sizeof(syscall_record_t) + content_size_aligned) {
                     if (!record_cb(record, (char *)record + sizeof(syscall_record_t),
                                    content_size)) {
                         return true;
                     }
-                    offset += sizeof(syscall_record_t) + content_size;
-                    remaining -= sizeof(syscall_record_t) + content_size;
+                    offset += sizeof(syscall_record_t) + content_size_aligned;
+                    remaining -= sizeof(syscall_record_t) + content_size_aligned;
                     break;
                 }
                 const size_t remaining_bytes =
-                    content_size - (remaining - sizeof(syscall_record_t));
-                char *content = (char *)global_alloc(content_size, HEAPSTAT_MISC);
+                    content_size_aligned - (remaining - sizeof(syscall_record_t));
+                char *content = (char *)global_alloc(content_size_aligned, HEAPSTAT_MISC);
                 memcpy(content, (char *)record + sizeof(syscall_record_t),
                        remaining - sizeof(syscall_record_t));
                 if (read_func(content + remaining - sizeof(syscall_record_t),
@@ -168,7 +170,13 @@ drsyscall_write_memarg_record(DR_PARAM_IN drsyscall_record_write_t write_func,
         if (write_func((char *)&record, sizeof(record)) != sizeof(record)) {
             return -1;
         }
-        return write_func((char *)arg->start_addr, arg->size);
+        const int bytes_written = write_func((char *)arg->start_addr, arg->size);
+        if (ALIGNED(bytes_written, sizeof(reg_t))) {
+            return bytes_written;
+        }
+        const reg_t buffer = 0;
+        return bytes_written +
+            write_func((char *)&buffer, PAD(bytes_written, sizeof(reg_t)));
     }
     return 0;
 }

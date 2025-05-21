@@ -186,6 +186,7 @@ extern "C" {
     ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
 #define CROSSES_ALIGNMENT(addr, size, alignment) \
     (ALIGN_MOD(addr, size, alignment) < (size)-1)
+#define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
 
 #ifndef TESTANY
 #    define TEST(mask, var) (((mask) & (var)) != 0)
