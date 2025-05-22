@@ -797,6 +797,8 @@ if (UNIX) # unlikely to be an issue on Windows
   # and set DR_DO_NOT_DEFINE_*
   # Note that for later gcc uint and ushort seem to be "soft typedefs":
   # defined, but overridable: ?!?
+  set(CMAKE_ORIG_C_FLAGS "${CMAKE_C_FLAGS}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
   include(CheckTypeSize)
   CHECK_TYPE_SIZE(uint DR_DO_NOT_DEFINE_uint)
   CHECK_TYPE_SIZE(ushort DR_DO_NOT_DEFINE_ushort)
@@ -821,6 +823,7 @@ if (UNIX) # unlikely to be an issue on Windows
       message(FATAL_ERROR "incompatible \"_Bool\" type is larger than 1 byte")
     endif (NOT ${DR__Bool_EXISTS} EQUAL 1)
   endif (DR__Bool_EXISTS)
+  set(CMAKE_C_FLAGS "${CMAKE_ORIG_C_FLAGS}")
 endif (UNIX)
 
 ###########################################################################
