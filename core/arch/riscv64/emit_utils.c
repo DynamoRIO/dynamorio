@@ -1201,8 +1201,8 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
         ASSERT(special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
         code = THREAD_GENCODE(dcontext);
     }
-    if (code == NULL)
-        return;
+    /* RV64 uses shared gencode only, thus code must be valid */
+    ASSERT(code != NULL);
     ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
     ASSERT(code->special_ibl_xfer[index] != NULL);
     pc = (uint32_t *)(code->special_ibl_xfer[index] +
