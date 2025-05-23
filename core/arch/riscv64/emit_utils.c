@@ -1215,6 +1215,13 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
      * ld a1, offs(x(stolen))
      * Relinking does not require the branch instruction to change, just the
      * target load, e.g.
+     *
+     *  31 OFFSET 20 19     rs1   15 14 width 12 11 rd 7 6 OPCODE 0
+     * |            |               |           |       |          |
+     * | tls offset | dr_reg_stolen |   0x03    |   a1  |   0x03   |
+     * | ********** |               |           |       |          |
+     *  to be changed
+     *
      * See INSTR_CREATE_ld followed by XINST_CREATE_jump_reg() calls in
      * emit_special_ibl_xfer(), where special_ibl_unlink_offs has been adjusted
      * to point to the ld.
