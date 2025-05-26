@@ -1165,6 +1165,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->retaddr_stack_.push(0);
             }
         }
+#ifdef UNIX
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER &&
             shard->found_syscall_trace_after_last_userspace_instr_ == SYS_rt_sigreturn) {
             // It is an undocumented property that the TRACE_MARKER_TYPE_KERNEL_XFER
@@ -1174,7 +1175,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // at the end of syscall traces injected for sigreturn.
             shard->prev_syscall_end_branch_target_ = 0;
         }
-#ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
