@@ -280,6 +280,13 @@ test_basic_stats_with_syscall_trace()
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0),
             gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2300),
             // Direct switch.
+            gen_marker(
+                TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_instr(TID_C),
+            gen_marker(
+                TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
             gen_instr(TID_C),
             // No switch: latency too small.
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2500),
@@ -324,7 +331,7 @@ test_basic_stats_with_syscall_trace()
         },
     };
     auto result = run_schedule_stats(memrefs);
-    assert(result.instrs == 20);
+    assert(result.instrs == 21);
     // Following are the same as test_basic_stats.
     assert(result.total_switches == 7);
     assert(result.voluntary_switches == 3);
