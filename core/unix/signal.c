@@ -1246,6 +1246,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
          * FIXME: are current pending or blocked inherited?
          */
 #ifdef MACOS
+        /* This parallels the code in create_thread_record, which NULLs out the app_thread_xsp if
+         * the clone record is heap-allocated
+         */
         if (record->app_thread_xsp == 0) {
             HEAP_TYPE_FREE(GLOBAL_DCONTEXT, record, clone_record_t, ACCT_THREAD_MGT,
                            true /*prot*/);
