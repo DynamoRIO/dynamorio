@@ -2112,7 +2112,7 @@ void
 nt_stop_profile(HANDLE profile_handle);
 #endif
 
-/* avoid needing x86_code.c from x86.asm from get_own_context_helper() */
+/* avoid needing asm_aux.c from x86.asm from get_own_context_helper() */
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 /* Executable name must be in kernel object name form
  * (e.g., \SystemRoot\System32\notepad.exe, or \??\c:\foo\bar.exe)

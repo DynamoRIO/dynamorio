@@ -36,7 +36,7 @@
 /* Copyright (c) 2001 Hewlett-Packard Company */
 
 /*
- * x86_code.c - auxiliary C routines to assembly routines in x86.asm
+ * asm_aux.c - auxiliary C routines to assembly routines in x86.asm
  */
 #include "../globals.h"
 #include "../fragment.h"
