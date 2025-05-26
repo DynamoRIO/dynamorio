@@ -4182,7 +4182,7 @@ dynamorio_clone_macos(uint flags, byte *newsp, void *ptid, void *tls, void *ctid
     return new_thread;
 #    else
     /* FIXME i#1285: Private loader NYI on macOS x86 */
-    ASSERT_NOT_IMPLEMENTED();
+    ASSERT_NOT_IMPLEMENTED(false && "i#1285 Private loader NYI for Mac x86");
     return -1;
 #    endif
 }
