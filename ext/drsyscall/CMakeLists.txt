@@ -19,7 +19,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 # TODO i#7399: Add Android, MUSL, and RISCV64 support to DrSyscall.
-if (RISCV64 OR ANDROID OR MUSL)
+# TODO i#5383: Add macOS ARM64 support to DrSyscall.
+if (RISCV64 OR ANDROID OR MUSL OR (AARCH64 AND APPLE))
   return()
 endif ()
 
