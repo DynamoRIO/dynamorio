@@ -1908,6 +1908,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     for (int i = static_cast<int>(sequence.size()) - 1; i >= 0; --i) {
         RecordType record = sequence[i];
         record_type_set_tid(record, input->tid);
+        record_type_set_pid(record, input->pid);
         if (record_type_is_instr(record)) {
             set_branch_target_marker = false;
             if (!saw_any_instr) {

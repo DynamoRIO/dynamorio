@@ -46,6 +46,7 @@
 #include "../tools/schedule_stats.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
+#include "scheduler.h"
 #include "test_helpers.h"
 
 namespace dynamorio {
@@ -142,9 +143,11 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
             if (memref.marker.type == TRACE_TYPE_MARKER) {
                 switch (memref.marker.marker_type) {
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
                     per_core[cpu].stream.set_in_kernel_trace(true);
                     break;
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
                     per_core[cpu].stream.set_in_kernel_trace(false);
                     break;
                 case TRACE_MARKER_TYPE_TIMESTAMP:
@@ -548,7 +551,7 @@ test_syscall_latencies()
 }
 
 static bool
-test_syscall_latencies_with_syscall_trace()
+test_syscall_latencies_with_kernel_trace()
 {
     static constexpr int64_t TID_A = 42;
     static constexpr int64_t TID_B = 142;
@@ -581,6 +584,13 @@ test_syscall_latencies_with_syscall_trace()
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_Y),
             gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2300),
             // Direct switch: latency 200.
+            gen_marker(
+                TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_instr(TID_C),
+            gen_marker(
+                TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
             gen_instr(TID_C),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2500),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
@@ -662,7 +672,7 @@ test_main(int argc, const char *argv[])
 {
     if (test_basic_stats() && test_basic_stats_with_syscall_trace() && test_idle() &&
         test_cpu_footprint() && test_syscall_latencies() &&
-        test_syscall_latencies_with_syscall_trace()) {
+        test_syscall_latencies_with_kernel_trace()) {
         std::cerr << "schedule_stats_test passed\n";
         return 0;
     }

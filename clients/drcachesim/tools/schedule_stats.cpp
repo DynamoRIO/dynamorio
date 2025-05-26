@@ -218,8 +218,8 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
                                         int64_t prev_tid, int64_t workload_id,
                                         int64_t tid, int64_t input_id, int64_t letter_ord)
 {
-    // We're not expected to switch in the middle of a kernel trace.
-    assert(!shard->stream->is_record_kernel());
+    // We're not expected to switch in the middle of a kernel syscall trace.
+    assert(!shard->in_syscall_trace);
     // We convert to letters which only works well for <=26 inputs.
     if (shard->thread_sequence.empty()) {
         std::lock_guard<std::mutex> lock(prev_core_mutex_);
@@ -332,6 +332,12 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         shard->cur_state = STATE_IDLE;
     else
         shard->cur_state = STATE_CPU;
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START)
+        shard->in_syscall_trace = true;
+    else if (memref.marker.type == TRACE_TYPE_MARKER &&
+             memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END)
+        shard->in_syscall_trace = false;
     if (shard->cur_state != prev_state) {
         if (!update_state_time(shard, prev_state))
             return false;
