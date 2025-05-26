@@ -303,7 +303,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         case TRACE_MARKER_TYPE_FUNC_ARG:
         case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
             report_if_false(shard,
-                            !shard->found_syscall_trace_after_last_userspace_instr_,
+                            shard->found_syscall_trace_after_last_userspace_instr_ == -1,
                             "Found unexpected func_arg or syscall marker after injected "
                             "syscall trace");
             break;
@@ -639,7 +639,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                                     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
                                 shard->file_type_) ||
-                            !shard->found_syscall_trace_after_last_userspace_instr_,
+                            shard->found_syscall_trace_after_last_userspace_instr_ == -1,
                         "Found multiple syscall traces after a user-space instr");
         // Need to reset to disable the PC continuity check for syscall trace template
         // files where we do have consecutive syscall traces without any intervening
@@ -685,7 +685,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                 static_cast<int>(memref.marker.marker_value),
                             "Mismatching syscall num in trace end and syscall marker");
             // Syscall trace templates do not have any user-space instr.
-            shard->found_syscall_trace_after_last_userspace_instr_ = true;
+            shard->found_syscall_trace_after_last_userspace_instr_ =
+                memref.marker.marker_value;
         }
         // TODO i#5505: Ideally the last instruction in the system call PT trace
         // also would be an indirect CTI with a TRACE_MARKER_TYPE_BRANCH_TARGET
@@ -893,7 +894,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // marker because we may need it again if there's a consecutive syscall/switch.
         if (!shard->between_kernel_syscall_trace_markers_) {
             shard->pre_syscall_trace_instr_ = {};
-            shard->found_syscall_trace_after_last_userspace_instr_ = false;
+            shard->found_syscall_trace_after_last_userspace_instr_ = -1;
         }
         if (!shard->between_kernel_context_switch_markers_) {
             shard->pre_context_switch_trace_instr_ = {};
@@ -1164,17 +1165,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->retaddr_stack_.push(0);
             }
         }
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER &&
+            shard->found_syscall_trace_after_last_userspace_instr_ == SYS_rt_sigreturn) {
+            // It is an undocumented property that the TRACE_MARKER_TYPE_KERNEL_XFER
+            // marker values are also set to the syscall-fallthrough pc. So it is
+            // expected that prev_syscall_end_branch_target_ == the kernel_xfer value.
+            // TODO i#7496: We skip the PC continuity check for the branch_target marker
+            // at the end of syscall traces injected for sigreturn.
+            shard->prev_syscall_end_branch_target_ = 0;
+        }
 #ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
-            // There should generally be an instr for sigreturn just before the
-            // TRACE_MARKER_TYPE_KERNEL_XFER marker, and we do not inject any traces for
-            // control-transferring system calls like sigreturn.
-            report_if_false(shard,
-                            !shard->found_syscall_trace_after_last_userspace_instr_,
-                            "Unexpected signal return kernel_xfer marker immedidately "
-                            "after syscall trace");
             // We expect a proper pairing of TRACE_MARKER_TYPE_KERNEL_EVENT and
             // TRACE_MARKER_TYPE_KERNEL_XFER markers inside the kernel system call
             // and context switch traces that are used for trace injection.

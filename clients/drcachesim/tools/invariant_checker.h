@@ -208,7 +208,7 @@ protected:
         bool found_syscall_marker_ = false;
         bool prev_was_syscall_marker_ = false;
         int last_syscall_marker_value_ = 0;
-        bool found_syscall_trace_after_last_userspace_instr_ = false;
+        int found_syscall_trace_after_last_userspace_instr_ = -1;
         bool found_blocking_marker_ = false;
         uint64_t syscall_count_ = 0;
         uint64_t last_instr_count_marker_ = 0;
