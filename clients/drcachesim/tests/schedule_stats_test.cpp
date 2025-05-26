@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2024 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,6 @@
  * we will notice if the literals get out of sync as the test will fail.
  */
 
-#undef NDEBUG
 #include <assert.h>
 
 #include <fstream>
@@ -47,6 +46,7 @@
 #include "../tools/schedule_stats.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -92,18 +92,31 @@ private:
     uint64_t global_time_ = 1;
 };
 
+class mock_stream_t : public default_memtrace_stream_t {
+public:
+    uint64_t
+    get_version() const override
+    {
+        return TRACE_ENTRY_VERSION;
+    }
+
+    memtrace_stream_t *
+    get_input_interface() const override
+    {
+        return const_cast<mock_stream_t *>(this);
+    }
+};
+
 // Bypasses the analyzer and scheduler for a controlled test sequence.
 // Alternates the per-core memref vectors in lockstep.
 static schedule_stats_t::counters_t
 run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
 {
-    // At verbosity 2+ we'd need to subclass default_memtrace_stream_t
-    // and provide a non-null get_input_interface() (point at "this").
     mock_schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
     struct per_core_t {
         void *worker_data;
         void *shard_data;
-        default_memtrace_stream_t stream;
+        mock_stream_t stream;
         bool finished = false;
         size_t memref_idx = 0;
     };
@@ -124,6 +137,10 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
             per_core[cpu].stream.set_tid(memref.instr.tid);
             per_core[cpu].stream.set_workload_id(memref.instr.pid);
             per_core[cpu].stream.set_output_cpuid(cpu);
+            if (memref.marker.type == TRACE_TYPE_MARKER &&
+                memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+                per_core[cpu].stream.set_last_timestamp(memref.marker.marker_value);
+            }
             bool res = tool.parallel_shard_memref(per_core[cpu].shard_data, memref);
             assert(res);
             ++per_core[cpu].memref_idx;
@@ -324,12 +341,116 @@ test_cpu_footprint()
     return true;
 }
 
+static bool
+test_syscall_latencies()
+{
+    static constexpr int64_t TID_A = 42;
+    static constexpr int64_t TID_B = 142;
+    static constexpr int64_t TID_C = 242;
+    static constexpr int64_t TID_D = 199;
+    static constexpr int64_t TID_E = 222;
+    static constexpr uintptr_t SYSNUM_X = 12;
+    static constexpr uintptr_t SYSNUM_Y = 167;
+    std::vector<std::vector<memref_t>> memrefs = {
+        {
+            gen_instr(TID_A),
+            // Involuntary switch: ignored for syscall latencies.
+            gen_instr(TID_B),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1100),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1600),
+            // Voluntary switch: latency 500.
+            gen_instr(TID_A),
+            gen_instr(TID_A),
+            gen_instr(TID_A),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2100),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_Y),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2300),
+            // Direct switch: latency 200.
+            gen_instr(TID_C),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2500),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2599),
+            // No switch: latency 99 too small.
+            gen_instr(TID_C),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3100),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_Y),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3300),
+            // Direct switch requested but failed: latency 200.
+            gen_instr(TID_C),
+            gen_exit(TID_C),
+            gen_exit(TID_A),
+        },
+        {
+            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3400),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 4400),
+            // Voluntary switch: latency 1000.
+            // Test a thread starting at a recorded syscall after another thread on a
+            // core.
+            gen_marker(TID_E, TRACE_MARKER_TYPE_TIMESTAMP, 4500),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_FUNC_ID, 202),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_FUNC_RETVAL, static_cast<uintptr_t>(-4)),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_SYSCALL_FAILED, 4),
+            gen_marker(TID_E, TRACE_MARKER_TYPE_TIMESTAMP, 5200),
+            // Preempt to D so no latency should be recorded here, despite
+            // there being a syscall with no regular instr records in between.
+            gen_instr(TID_D),
+            gen_exit(TID_E),
+            gen_exit(TID_B),
+        },
+        {
+            // Test a thread starting at a recorded syscall first thing on a core.
+            gen_marker(TID_D, TRACE_MARKER_TYPE_TIMESTAMP, 1500),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_FUNC_ID, 202),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_FUNC_RETVAL, static_cast<uintptr_t>(-4)),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_SYSCALL_FAILED, 4),
+            gen_marker(TID_D, TRACE_MARKER_TYPE_TIMESTAMP, 3200),
+            // Preempt to E so no latency should be recorded here.
+            gen_instr(TID_E),
+            gen_exit(TID_D),
+        },
+    };
+    auto result = run_schedule_stats(memrefs);
+    auto it_x_switch = result.sysnum_switch_latency.find(SYSNUM_X);
+    assert(it_x_switch != result.sysnum_switch_latency.end());
+    std::string hist_x_switch = it_x_switch->second->to_string();
+    std::cerr << "Sysnum switch latency for " << SYSNUM_X << ":\n"
+              << hist_x_switch << "\n";
+    assert(hist_x_switch ==
+           "         500..     505     1\n        1000..    1005     1\n");
+    auto it_x_noswitch = result.sysnum_noswitch_latency.find(SYSNUM_X);
+    assert(it_x_noswitch != result.sysnum_noswitch_latency.end());
+    std::string hist_x_noswitch = it_x_noswitch->second->to_string();
+    std::cerr << "Sysnum noswitch latency for " << SYSNUM_X << ":\n"
+              << hist_x_noswitch << "\n";
+    assert(hist_x_noswitch == "          95..     100     1\n");
+    auto it_y_switch = result.sysnum_switch_latency.find(SYSNUM_Y);
+    assert(it_y_switch != result.sysnum_switch_latency.end());
+    std::string hist_y_switch = it_y_switch->second->to_string();
+    std::cerr << "Sysnum switch latency for " << SYSNUM_Y << ":\n"
+              << hist_y_switch << "\n";
+    assert(hist_y_switch == "         200..     205     1\n");
+    auto it_y_noswitch = result.sysnum_noswitch_latency.find(SYSNUM_Y);
+    assert(it_y_noswitch != result.sysnum_noswitch_latency.end());
+    std::string hist_y_noswitch = it_y_noswitch->second->to_string();
+    std::cerr << "Sysnum noswitch latency for " << SYSNUM_Y << ":\n"
+              << hist_y_noswitch << "\n";
+    assert(hist_y_noswitch == "         200..     205     1\n");
+    return true;
+}
+
 } // namespace
 
 int
 test_main(int argc, const char *argv[])
 {
-    if (test_basic_stats() && test_idle() && test_cpu_footprint()) {
+    if (test_basic_stats() && test_idle() && test_cpu_footprint() &&
+        test_syscall_latencies()) {
         std::cerr << "schedule_stats_test passed\n";
         return 0;
     }

@@ -56,6 +56,7 @@
 #endif
 #include "reader.h"
 #include "record_file_reader.h"
+#include "noise_generator.h"
 #include "trace_entry.h"
 #ifdef HAS_ZIP
 #    include "reader/zipfile_file_reader.h"
@@ -295,6 +296,30 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     std::vector<typename sched_type_t::input_workload_t> &workloads,
     typename sched_type_t::scheduler_options_t options)
 {
+    // Add noise generator to input workloads.
+    if (add_noise_generator_) {
+        // TODO i#7216: here can be a good place to analyze the workloads in order to
+        // tweak noise_generator_info_t parameters. For now we use noise_generator_info_t
+        // default values.
+        noise_generator_info_t noise_generator_info;
+        // TODO i#7216: currently we only create a single-process, single-thread noise
+        // generator. We plan to add more in the future (multi-process and/or
+        // multi-thread noise generators).
+        typename sched_type_t::input_reader_t noise_generator_reader =
+            noise_generator_factory_.create_noise_generator(noise_generator_info);
+        // Check for errors.
+        error_string_ += noise_generator_factory_.get_error_string();
+        if (!error_string_.empty()) {
+            return false;
+        }
+        // input_workload_t needs a vector of input_reader_t, so we create a vector with
+        // a single input_reader_t (the noise generator).
+        std::vector<typename sched_type_t::input_reader_t> readers;
+        readers.emplace_back(std::move(noise_generator_reader));
+        // Add the noise generator to the scheduler's input workloads.
+        workloads.emplace_back(std::move(readers));
+    }
+
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
             parallel_ = false;
@@ -320,19 +345,22 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
             sched_ops.single_lockstep_output = true;
             worker_count_ = 1;
         }
-    } else if (parallel_) {
-        sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
-        sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
-        sched_ops.read_inputs_in_init = options.read_inputs_in_init;
-        if (worker_count_ <= 0)
-            worker_count_ = std::thread::hardware_concurrency();
-        output_count = worker_count_;
     } else {
-        sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
+        if (parallel_) {
+            sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
+            if (worker_count_ <= 0)
+                worker_count_ = std::thread::hardware_concurrency();
+            output_count = worker_count_;
+        } else {
+            sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
+            worker_count_ = 1;
+            output_count = 1;
+        }
+        // As noted in the init_scheduler_common() header comment, we preserve only
+        // some select fields.
         sched_ops.replay_as_traced_istream = options.replay_as_traced_istream;
         sched_ops.read_inputs_in_init = options.read_inputs_in_init;
-        worker_count_ = 1;
-        output_count = 1;
+        sched_ops.kernel_syscall_trace_path = options.kernel_syscall_trace_path;
     }
     sched_mapping_ = options.mapping;
     if (scheduler_.init(workloads, output_count, std::move(sched_ops)) !=

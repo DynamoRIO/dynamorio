@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -188,15 +188,15 @@ public:
     };
 
     struct counters_t {
-        counters_t()
+        explicit counters_t(schedule_stats_t *analyzer)
+            : analyzer(analyzer)
         {
             static constexpr uint64_t kSwitchBinSize = 50000;
             static constexpr uint64_t kCoresBinSize = 1;
-            instrs_per_switch =
-                std::unique_ptr<histogram_interface_t>(new histogram_t(kSwitchBinSize));
-            cores_per_thread =
-                std::unique_ptr<histogram_interface_t>(new histogram_t(kCoresBinSize));
+            instrs_per_switch = analyzer->create_histogram(kSwitchBinSize);
+            cores_per_thread = analyzer->create_histogram(kCoresBinSize);
         }
+
         counters_t &
         operator+=(const counters_t &rhs)
         {
@@ -216,6 +216,8 @@ public:
             syscalls += rhs.syscalls;
             maybe_blocking_syscalls += rhs.maybe_blocking_syscalls;
             direct_switch_requests += rhs.direct_switch_requests;
+            switch_sequence_injections += rhs.switch_sequence_injections;
+            syscall_sequence_injections += rhs.syscall_sequence_injections;
             observed_migrations += rhs.observed_migrations;
             waits += rhs.waits;
             idles += rhs.idles;
@@ -230,8 +232,19 @@ public:
             // We do not track this incrementally but for completeness we include
             // aggregation code for it.
             cores_per_thread->merge(rhs.cores_per_thread.get());
+            for (const auto &it : rhs.sysnum_switch_latency) {
+                histogram_interface_t *hist_ptr = analyzer->find_or_add_histogram(
+                    sysnum_switch_latency, it.first, kSysnumLatencyBinSize);
+                hist_ptr->merge(it.second.get());
+            }
+            for (const auto &it : rhs.sysnum_noswitch_latency) {
+                histogram_interface_t *hist_ptr = analyzer->find_or_add_histogram(
+                    sysnum_noswitch_latency, it.first, kSysnumLatencyBinSize);
+                hist_ptr->merge(it.second.get());
+            }
             return *this;
         }
+        schedule_stats_t *analyzer;
         // Statistics provided by scheduler.
         // XXX: Should we change all of these to uint64_t? Never negative: but signed
         // ints are generally recommended as better for the compiler.
@@ -252,6 +265,8 @@ public:
         int64_t syscalls = 0;
         int64_t maybe_blocking_syscalls = 0;
         int64_t direct_switch_requests = 0;
+        int64_t switch_sequence_injections = 0;
+        int64_t syscall_sequence_injections = 0;
         // Our observed migrations will be <= the scheduler's reported migrations
         // for a dynamic schedule as we don't know the initial runqueue allocation
         // and so can't see the migration of an input that didn't execute in the
@@ -271,6 +286,13 @@ public:
         // We still store it inside counters_t as this structure is assumed in
         // several places to hold all aggregated statistics.
         std::unique_ptr<histogram_interface_t> cores_per_thread;
+        // Breakdown of system calls by number (key of map) and latency (in
+        // microseconds; stored as a histogram) and whether a context switch was
+        // incurred (separate map for each).
+        std::unordered_map<int, std::unique_ptr<histogram_interface_t>>
+            sysnum_switch_latency;
+        std::unordered_map<int, std::unique_ptr<histogram_interface_t>>
+            sysnum_noswitch_latency;
     };
 
     counters_t
@@ -284,8 +306,15 @@ protected:
     static constexpr char THREAD_LETTER_SUBSEQUENT_START = 'a';
     static constexpr char WAIT_SYMBOL = '-';
     static constexpr char IDLE_SYMBOL = '_';
+    static constexpr uint64_t kSysnumLatencyBinSize = 5;
 
     struct per_shard_t {
+        per_shard_t(schedule_stats_t *analyzer)
+            : counters(analyzer)
+        {
+        }
+        // Provide a virtual destructor to allow subclassing.
+        virtual ~per_shard_t() = default;
         std::string error;
         memtrace_stream_t *stream = nullptr;
         int64_t core = 0; // We target core-sharded.
@@ -294,6 +323,9 @@ protected:
         int64_t prev_tid = INVALID_THREAD_ID;
         // These are cleared when an instruction is seen.
         bool saw_syscall = false;
+        int last_syscall_number = -1;
+        uint64_t pre_syscall_timestamp = 0;
+        uint64_t post_syscall_timestamp = 0;
         memref_tid_t direct_switch_target = INVALID_THREAD_ID;
         bool saw_exit = false;
         // A representation of the thread interleavings.
@@ -310,6 +342,26 @@ protected:
         uint64_t switch_start_instrs = 0;
     };
 
+    virtual std::unique_ptr<histogram_interface_t>
+    create_histogram(uint64_t bin_size)
+    {
+        return std::unique_ptr<histogram_interface_t>(new histogram_t(bin_size));
+    }
+
+    histogram_interface_t *
+    find_or_add_histogram(
+        std::unordered_map<int, std::unique_ptr<histogram_interface_t>> &map, int key,
+        int bin_size = 1)
+    {
+        auto find_it = map.find(key);
+        if (find_it != map.end())
+            return find_it->second.get();
+        auto new_hist = create_histogram(bin_size);
+        histogram_interface_t *hist_ptr = new_hist.get();
+        map.insert({ key, std::move(new_hist) });
+        return hist_ptr;
+    }
+
     void
     print_percentage(double numerator, double denominator, const std::string &label);
 
@@ -322,9 +374,12 @@ protected:
     bool
     update_state_time(per_shard_t *shard, state_t state);
 
-    void
-    record_context_switch(per_shard_t *shard, int64_t workload_id, int64_t tid,
-                          int64_t input_id, int64_t letter_ord);
+    // shard->prev_workload_id and shard->prev_tid are cleared when this is called,
+    // so we pass in the preserved values so there's no confusion.
+    virtual void
+    record_context_switch(per_shard_t *shard, int64_t prev_workload_id, int64_t prev_tid,
+                          int64_t workload_id, int64_t tid, int64_t input_id,
+                          int64_t letter_ord);
 
     virtual void
     aggregate_results(counters_t &total);

@@ -1,31 +1,33 @@
 Schedule stats tool results:
 Total counts:
            4 cores
-           8 threads: W0.T1257.*
-      638938 instructions
-           6 total context switches
-   0.0093906 CSPKI \(context switches per 1000 instructions\)
-      106490 instructions per context switch
-           6 voluntary context switches
+           9 threads: W0.T872.*
+      650576 instructions
+          18 total context switches
+   0.0276678 CSPKI \(context switches per 1000 instructions\)
+       36143 instructions per context switch
+          18 voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100.00% voluntary switches
         0.00% direct switches
            4 switches input-to-input
-           0 switches input-to-idle
-           0 switches idle-to-input
+           8 switches input-to-idle
+           8 switches idle-to-input
            0 switches nop-ed
            0 quantum_preempts
            0 migrations
            0 work steals
            0 rebalances
            0 output limits hit
-         161 system calls
-           2 maybe-blocking system calls
+         480 system calls
+         183 maybe-blocking system calls
            0 direct switch requests
            0 observed migrations
            0 waits
-      345686 idles
-       64.89% cpu busy by record count
+   *[0-9]* idles
+   *[0-9\.]*% cpu busy by record count
     [0-9 ]* cpu microseconds
     [0-9 ]* wait microseconds
     [0-9 ]* idle microseconds
@@ -33,10 +35,14 @@ Total counts:
     [0-9\. ]*% cpu busy by time
     [0-9\. ]*% cpu busy by time, ignoring idle past last instr
   Instructions per context switch histogram:
-           0..   50000     2
-       50000..  100000     4
+           0..   50000    13
+       50000..  100000     5
   Cores per thread:
-           1..       2     8
+           1..       2     9
+  Latencies for syscalls that incurred a switch:
+.*
+  Latencies for syscalls that did not incur a switch:
+.*
 Core #0 counts:
 .*
 Core #1 counts:
@@ -45,37 +51,37 @@ Core #2 counts:
 .*
 Core #3 counts:
 .*
-Core #0 schedule: [A-H_]*
-Core #1 schedule: [A-H_]*
-Core #2 schedule: [A-H_]*
-Core #3 schedule: [A-H_]*
+Core #0 schedule: [A-I_]*
+Core #1 schedule: [A-I_]*
+Core #2 schedule: [A-I_]*
+Core #3 schedule: [A-I_]*
 
 ===========================================================================
 Basic counts tool results:
 Total counts:
-      638938 total \(fetched\) instructions
-        5969 total unique \(fetched\) instructions
-      546585 total non-fetched instructions
+      650576 total \(fetched\) instructions
+        6360 total unique \(fetched\) instructions
+         126 total non-fetched instructions
            0 total prefetches
-      676963 total data loads
-      725896 total data stores
+      172208 total data loads
+      100150 total data stores
            0 total icache flushes
            0 total dcache flushes
-           8 total threads
-        1574 total timestamp \+ cpuid markers
-      345686 total idle markers
+           9 total threads
+        3314 total timestamp \+ cpuid markers
+   *[0-9]* total idle markers
            0 total wait markers
-         168 total kernel transfer markers
-           0 total function id markers
+         530 total kernel transfer markers
+          49 total function id markers
            0 total function return address markers
-           0 total function argument markers
-           0 total function return value markers
+         144 total function argument markers
+          25 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-         161 total system call number markers
-           2 total blocking system call markers
-          40 total other markers
-        8569 total encodings
+         480 total system call number markers
+         183 total blocking system call markers
+         316 total other markers
+       21842 total encodings
 Core [0-9] counts:
 .*
 Core [0-9] counts:

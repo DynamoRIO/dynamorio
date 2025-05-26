@@ -1191,8 +1191,47 @@ void
 relink_special_ibl_xfer(dcontext_t *dcontext, int index,
                         ibl_entry_point_type_t entry_type, ibl_branch_type_t ibl_type)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    generated_code_t *code;
+    byte *ibl_tgt;
+    uint32_t *pc;
+    if (dcontext == GLOBAL_DCONTEXT) {
+        ASSERT(!special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());
+    } else {
+        ASSERT(special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        code = THREAD_GENCODE(dcontext);
+    }
+    /* RV64 uses shared gencode only, thus code must be valid. */
+    ASSERT(code != NULL);
+    ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
+    ASSERT(code->special_ibl_xfer[index] != NULL);
+    pc = (uint32_t *)(code->special_ibl_xfer[index] +
+                      code->special_ibl_unlink_offs[index]);
+    uint32_t *write_pc = (uint32_t *)vmcode_get_writable_addr((byte *)pc);
+
+    protect_generated_code(code, WRITABLE);
+
+    /*
+     * ld a1, offs(x(stolen))
+     * Relinking does not require the branch instruction to change, just the
+     * target load, e.g.
+     *
+     *  31 OFFSET 20 19     rs1   15 14 width 12 11 rd 7 6 OPCODE 0
+     * |            |               |           |       |          |
+     * | tls offset | dr_reg_stolen |   0x03    |   a1  |   0x03   |
+     * | ********** |               |           |       |          |
+     *  to be changed
+     *
+     * See INSTR_CREATE_ld followed by XINST_CREATE_jump_reg() calls in
+     * emit_special_ibl_xfer(), where special_ibl_unlink_offs has been adjusted
+     * to point to the ld.
+     */
+    *write_pc = (uint32_t)(0x3 | (0x3 << 12) | ((SCRATCH_REG1 - DR_REG_X0) << 7) |
+                           ((dr_reg_stolen - DR_REG_X0) << 15) |
+                           (get_ibl_entry_tls_offs(dcontext, ibl_tgt) << 20));
+
+    machine_cache_sync(pc, pc + 1, true);
+    protect_generated_code(code, READONLY);
 }
 
 bool

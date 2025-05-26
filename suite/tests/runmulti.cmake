@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -49,74 +49,8 @@
 # Recognize literals in if statements.
 cmake_policy(SET CMP0012 NEW)
 
-# Intra-arg space=@@ and inter-arg space=@.
-# XXX i#1327: now that we have -c and other option passing improvements we
-# should be able to get rid of this @@ stuff.
-macro(process_cmdline line skip_empty err_and_out)
-  string(REGEX REPLACE "@@" " " ${line} "${${line}}")
-  string(REGEX REPLACE "@" ";" ${line} "${${line}}")
-  string(REGEX REPLACE "!" "\\\;" ${line} "${${line}}")
-  # Clear to avoid repeating prior command if this one isn't run.
-  set(cmd_err "")
-  set(cmd_out "")
-
-  if (${line} MATCHES "^foreach;")
-    set(each ${${line}})
-    list(REMOVE_AT each 0)
-    list(LENGTH each len)
-    math(EXPR len "${len} - 1")
-    list(REMOVE_AT each ${len})
-  endif ()
-
-  set(globempty OFF)
-  if (${line} MATCHES "\\*")
-    set(newcmd "")
-    foreach (token ${${line}})
-      if (token MATCHES "\\*")
-        file(GLOB expand ${token})
-        if (expand STREQUAL "")
-          set(globempty ON)
-        endif ()
-        if (${line} MATCHES "^foreach;")
-          foreach (item ${expand})
-            message("Running |${each} ${item}|")
-            execute_process(COMMAND ${each} ${item}
-              RESULT_VARIABLE cmd_result
-              ERROR_VARIABLE cmd_err
-              OUTPUT_VARIABLE cmd_out)
-            if (cmd_result)
-              message(FATAL_ERROR
-                "*** ${${line}} failed (${cmd_result}): ${cmd_err}***\n")
-            endif (cmd_result)
-          endforeach ()
-        elseif (${line} MATCHES "^firstglob;")
-          list(GET expand 0 head)
-          set(newcmd ${newcmd} ${head})
-        else ()
-          set(newcmd ${newcmd} ${expand})
-        endif ()
-      else ()
-        if (NOT token STREQUAL "firstglob")
-          set(newcmd ${newcmd} ${token})
-        endif ()
-      endif ()
-    endforeach ()
-    set(${line} ${newcmd})
-  endif ()
-  if (NOT ${line} MATCHES "^foreach;")
-    if (NOT ${skip_empty} OR NOT ${line} STREQUAL "" AND NOT globempty)
-      message("Running ${line} |${${line}}|")
-      execute_process(COMMAND ${${line}}
-        RESULT_VARIABLE cmd_result
-        ERROR_VARIABLE cmd_err
-        OUTPUT_VARIABLE cmd_out)
-      if (cmd_result AND NOT failok)
-        message(FATAL_ERROR "*** ${line} failed (${cmd_result}): ${cmd_err}***\n")
-      endif ()
-    endif ()
-  endif ()
-  set(${err_and_out} "${${err_and_out}}${cmd_err}${cmd_out}")
-endmacro()
+get_filename_component(current_directory_path "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(${current_directory_path}/process_cmdline.cmake NO_POLICY_SCOPE)
 
 process_cmdline(precmd ON tomatch)
 

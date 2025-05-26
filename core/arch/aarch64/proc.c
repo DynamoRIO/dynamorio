@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -111,11 +111,25 @@ read_feature_regs(uint64 isa_features[])
         :
         : "x0");
 
-    asm(".inst 0xd5380740\n" /* mrs x0, ID_AA64MMFR2_EL1 */
-        "mov %0, x0"
-        : "=r"(isa_features[AA64MMFR2])
-        :
-        : "x0");
+    if (IF_LINUX_ELSE(!IS_STRING_OPTION_EMPTY(xarch_root), false)) {
+        /* We assume we're under QEMU, where this causes a fatal SIGILL (i#7315).
+         * XXX i#7315: We'd prefer to use TRY_EXCEPT_ALLOW_NO_DCONTEXT here and
+         * remove this xarch_root check, but proc_init() is called prior to
+         * init-time signal handling being set up: and we'd need to add SIGILL
+         * to the ones caught at init time, which complicates later uses of
+         * SIGILL for NUDGESIG_SIGNUM and suspend_signum (and on x86
+         * XSTATE_QUERY_SIG): so we'd want SIGILL to only work for try-except
+         * at init time. This is all a little too involved to implement right now.
+         */
+        LOG(GLOBAL, LOG_TOP | LOG_ASYNCH, 1,
+            "Skipping MRS of ID_AA64MMFR2_EL1 under QEMU\n");
+    } else {
+        asm(".inst 0xd5380740\n" /* mrs x0, ID_AA64MMFR2_EL1 */
+            "mov %0, x0"
+            : "=r"(isa_features[AA64MMFR2])
+            :
+            : "x0");
+    }
 }
 
 #    if !defined(MACOS)
@@ -259,6 +273,9 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_DPB2);
         LOG_FEATURE(FEATURE_JSCVT);
         LOG_FEATURE(FEATURE_PAUTH);
+        LOG_FEATURE(FEATURE_LS64);
+        LOG_FEATURE(FEATURE_LS64V);
+        LOG_FEATURE(FEATURE_LS64ACCDATA);
 
         LOG(GLOBAL, LOG_TOP, 1, "ID_AA64PFR0_EL1 = 0x%016lx\n",
             cpu_info.features.isa_features[AA64PFR0]);
@@ -311,17 +328,18 @@ void
 enable_all_test_cpu_features()
 {
     const feature_bit_t features[] = {
-        FEATURE_LSE,    FEATURE_RDM,         FEATURE_FP16,          FEATURE_DotProd,
-        FEATURE_SVE,    FEATURE_LOR,         FEATURE_FHM,           FEATURE_SM3,
-        FEATURE_SM4,    FEATURE_SHA512,      FEATURE_SHA3,          FEATURE_RAS,
-        FEATURE_SPE,    FEATURE_PAUTH,       FEATURE_LRCPC,         FEATURE_LRCPC2,
-        FEATURE_BF16,   FEATURE_I8MM,        FEATURE_F64MM,         FEATURE_FlagM,
-        FEATURE_JSCVT,  FEATURE_DPB,         FEATURE_DPB2,          FEATURE_SVE2,
-        FEATURE_SVEAES, FEATURE_SVEBitPerm,  FEATURE_SVESHA3,       FEATURE_SVESM4,
-        FEATURE_MTE,    FEATURE_BTI,         FEATURE_FRINTTS,       FEATURE_PAUTH2,
-        FEATURE_MTE2,   FEATURE_FlagM2,      FEATURE_CONSTPACFIELD, FEATURE_SSBS,
-        FEATURE_SSBS2,  FEATURE_DIT,         FEATURE_LSE2,          FEATURE_WFxT,
-        FEATURE_FPAC,   FEATURE_FPACCOMBINE,
+        FEATURE_LSE,        FEATURE_RDM,         FEATURE_FP16,          FEATURE_DotProd,
+        FEATURE_SVE,        FEATURE_LOR,         FEATURE_FHM,           FEATURE_SM3,
+        FEATURE_SM4,        FEATURE_SHA512,      FEATURE_SHA3,          FEATURE_RAS,
+        FEATURE_SPE,        FEATURE_PAUTH,       FEATURE_LRCPC,         FEATURE_LRCPC2,
+        FEATURE_BF16,       FEATURE_I8MM,        FEATURE_F64MM,         FEATURE_FlagM,
+        FEATURE_JSCVT,      FEATURE_DPB,         FEATURE_DPB2,          FEATURE_SVE2,
+        FEATURE_SVEAES,     FEATURE_SVEBitPerm,  FEATURE_SVESHA3,       FEATURE_SVESM4,
+        FEATURE_MTE,        FEATURE_BTI,         FEATURE_FRINTTS,       FEATURE_PAUTH2,
+        FEATURE_MTE2,       FEATURE_FlagM2,      FEATURE_CONSTPACFIELD, FEATURE_SSBS,
+        FEATURE_SSBS2,      FEATURE_DIT,         FEATURE_LSE2,          FEATURE_WFxT,
+        FEATURE_FPAC,       FEATURE_FPACCOMBINE, FEATURE_LS64,          FEATURE_LS64V,
+        FEATURE_LS64ACCDATA
     };
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);

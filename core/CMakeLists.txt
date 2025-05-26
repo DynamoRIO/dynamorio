@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -682,9 +682,12 @@ if (UNIX)
     get_filename_component(binutils_path ${CMAKE_LINKER} PATH)
     if (APPLE)
       set(readelf_name "greadelf")
-    else (APPLE)
+    elseif (ANDROID AND CLANG)
+      # Use the NDK's llvm-readelf.
+      set(readelf_name "llvm-readelf")
+    else ()
       set(readelf_name "readelf")
-    endif (APPLE)
+    endif ()
     find_program(READELF_EXECUTABLE ${readelf_name} HINTS "${binutils_path}"
       DOC "path to readelf")
     if (NOT READELF_EXECUTABLE)
@@ -1104,16 +1107,16 @@ endif ()
 if (BUILD_TESTS AND
     ((CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH) OR
       (NOT DR_HOST_NOT_TARGET)))
-  add_executable(unit_tests unit_tests.c
+  add_executable(core_unit_tests unit_tests.c
     # These unit tests have been moved from the x86_code module into a new x86_code
     # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
     # We want this option to apply only to code compiled for unit_test. Also clang
     # specific target options break the clang build (xref i#3458).
     ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} arch/x86_code_test.c)
-  add_gen_events_deps(unit_tests)
+  add_gen_events_deps(core_unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
-    add_dependencies(unit_tests ${arch_core_asm_tgt} ${archshared_core_asm_tgt}
+    add_dependencies(core_unit_tests ${arch_core_asm_tgt} ${archshared_core_asm_tgt}
       ntdll_imports)
   endif ()
   set(unit_tests_extra_flags "")
@@ -1149,7 +1152,7 @@ if (BUILD_TESTS AND
       endif ()
     endif ()
   endif ()
-  set_target_properties(unit_tests PROPERTIES
+  set_target_properties(core_unit_tests PROPERTIES
     COMPILE_DEFINITIONS "RC_IS_TEST;STANDALONE_UNIT_TEST"
     COMPILE_FLAGS "${unit_tests_extra_flags}"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
@@ -1158,30 +1161,35 @@ if (BUILD_TESTS AND
       # i#1228 make sure entry point of the elf binary pointing to _start.
       # Otherwise, the entry point will point to the start of .text section,
       # which might not be _start.
-      append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,${ld_entry_flag},_start")
+      append_property_string(TARGET core_unit_tests LINK_FLAGS "-Wl,${ld_entry_flag},_start")
     endif ()
     if (NOT ANDROID) # everything is inside Bionic on Android
-      target_link_libraries(unit_tests dl m pthread)
+      target_link_libraries(core_unit_tests dl m pthread)
     endif ()
-    target_link_libraries(unit_tests drmemfuncs)
-    set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
+    target_link_libraries(core_unit_tests drmemfuncs)
+    set_preferred_base_start_and_end(core_unit_tests ${preferred_base} ON)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntdll
-    target_link_libraries(unit_tests ${static_libc_list} ntdll_imports)
-    set_target_properties(unit_tests PROPERTIES
+    target_link_libraries(core_unit_tests ${static_libc_list} ntdll_imports)
+    set_target_properties(core_unit_tests PROPERTIES
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
-  target_link_libraries(unit_tests drlibc)
-  get_target_path_for_execution(unit_relpath unit_tests "${location_suffix}")
+  target_link_libraries(core_unit_tests drlibc)
+  get_target_path_for_execution(unit_relpath core_unit_tests "${location_suffix}")
   prefix_cmd_if_necessary(unit_relpath OFF ${unit_relpath})
-  add_test(unit_tests ${unit_relpath})
+  add_test(core_unit_tests ${unit_relpath})
   if (APPLE)
-    set_tests_properties(unit_tests PROPERTIES LABELS OSX)
+    set_tests_properties(core_unit_tests PROPERTIES LABELS OSX)
   endif ()
-  if (AARCHXX OR RISCV64)
-    set_tests_properties(unit_tests PROPERTIES LABELS RUNS_ON_QEMU)
+  if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH AND NOT DR_COPY_TO_DEVICE)
+    set_tests_properties(core_unit_tests PROPERTIES LABELS RUNS_ON_QEMU)
+    # Make sure core code detects that we're under QEMU by setting the option
+    # used for that in managed mode, even though we don't really need this option
+    # for its own sake.
+    set_tests_properties(core_unit_tests PROPERTIES ENVIRONMENT
+      "DYNAMORIO_OPTIONS=-xarch_root ${CMAKE_FIND_ROOT_PATH}")
   endif ()
-  copy_target_to_device(unit_tests "${location_suffix}")
+  copy_target_to_device(core_unit_tests "${location_suffix}")
 endif ()
 
 ###########################################################################

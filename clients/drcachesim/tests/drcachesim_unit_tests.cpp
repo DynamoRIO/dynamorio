@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,20 +34,22 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <random>
 #include <regex>
 
-#undef NDEBUG
 #include <assert.h>
 #include "config_reader_unit_test.h"
 #include "v2p_reader_unit_test.h"
 #include "tlb_simulator_unit_test.h"
 #include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache.h"
-#include "simulator/cache_lru.h"
 #include "simulator/cache_simulator.h"
+#include "simulator/policy_lfu.h"
+#include "simulator/policy_lru.h"
 #include "simulator/prefetcher.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -458,6 +460,299 @@ public:
 };
 
 void
+unit_test_set_parent()
+{
+    cache_t child_1;
+    cache_t child_2;
+    cache_t parent;
+    assert(child_1.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false),
+                        std::unique_ptr<policy_lru_t>(new policy_lru_t(1024, 1))));
+    assert(child_2.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false),
+                        std::unique_ptr<policy_lru_t>(new policy_lru_t(1024, 1))));
+    assert(parent.init(1, 64, 1024, nullptr, new cache_stats_t(64, "", false, false),
+                       std::unique_ptr<policy_lru_t>(new policy_lru_t(1024, 1))));
+    // Test setting parent.
+    child_1.set_parent(&parent);
+    assert(child_1.get_parent() == &parent);
+    assert(parent.get_parent() == nullptr);
+    assert(parent.get_children() == std::vector<caching_device_t *> { &child_1 });
+    assert(child_1.get_children().empty());
+    // Test removing parent.
+    child_1.set_parent(nullptr);
+    assert(parent.get_parent() == nullptr);
+    assert(child_1.get_parent() == nullptr);
+    assert(parent.get_children().empty());
+    assert(child_1.get_children().empty());
+    // Test multiple children.
+    child_1.set_parent(&parent);
+    child_2.set_parent(&parent);
+    assert(child_1.get_parent() == &parent);
+    assert(child_2.get_parent() == &parent);
+    assert((parent.get_children() ==
+            std::vector<caching_device_t *> { &child_1, &child_2 }));
+    // Test existing child.
+    child_2.set_parent(&parent);
+    assert(child_1.get_parent() == &parent);
+    assert(child_2.get_parent() == &parent);
+    assert((parent.get_children() ==
+            std::vector<caching_device_t *> { &child_1, &child_2 }));
+}
+
+void
+unit_test_exclusive_cache_policy()
+{
+    // Exclusive caches exercise some unique code paths related to line
+    // replacement.  This test was developed to track down an observed
+    // bug.  The subsequent randomized test takes a more shotgun approach
+    // to try to cover any cases this test misses.
+    std::cerr << "\n** EXCLUSIVE POLICY TEST ***\n";
+
+    // Create simple 2-level cache with exclusive LLC.
+    std::string config = R"MYCONFIG(// 2-level with exclusive LLC.
+num_cores       1
+line_size       64
+coherent        false
+
+L1 {
+  type            unified
+  core            0
+  size            1K
+  assoc           1
+  prefetcher      none
+  parent          LLC
+}
+LLC {
+  size            4K
+  assoc           4
+  exclusive       true
+  prefetcher      none
+  replace_policy  LRU
+  parent          memory
+}
+)MYCONFIG";
+    std::istringstream config_in(config);
+    test_cache_simulator_t cache_sim(&config_in);
+
+    // The cache config specified no coherence.
+    TEST_EQ(cache_sim.get_num_snooped_caches(), 0);
+
+    cache_t *l1 = cache_sim.get_named_cache("L1");
+    cache_t *llc = cache_sim.get_named_cache("LLC");
+    assert(l1 != nullptr);
+    assert(llc != nullptr);
+    assert(l1 != llc);
+    TEST_EQ(l1->get_parent(), llc);
+
+    // L1 is 1-way 1KB, while LLC is 4-way 4KB LRU exclusive.
+    //
+    // Together they should behave like a 5KB 5-way LRU cache.
+    //
+    // If we loop through up to 5 conflicting addresses, they should all fit in
+    // the caches.  But beyond 5, there should be misses to memory.
+    //
+    // Furthermore, once lines start getting evicted, LRU should keep the
+    // recent lines in the cache and only evict old lines.
+
+    constexpr int NUM_LOOPS = 10;
+    const int ADDR_STRIDE = llc->get_size_bytes(); // Guaranteed to conflict.
+
+    // Helper routines to grab cache stats as if the full hierarchy were a
+    // single cache.  So this means HITS are summed, but only LLC misses count.
+    auto get_hits = [&](void) {
+        int64_t l1_hits = cache_sim.get_cache_metric(metric_name_t::HITS, /*level=*/1,
+                                                     /*core=*/0, cache_split_t::DATA);
+        int64_t l2_hits = cache_sim.get_cache_metric(metric_name_t::HITS, /*level=*/2,
+                                                     /*core=*/0, cache_split_t::DATA);
+        return l1_hits + l2_hits;
+    };
+    auto get_misses = [&](void) {
+        int64_t l2_misses = cache_sim.get_cache_metric(metric_name_t::MISSES, /*level=*/2,
+                                                       /*core=*/0, cache_split_t::DATA);
+        return l2_misses;
+    };
+
+    // Helper routine to loop through a series of conflicting lines.
+    // The actual addresses are line index * address stride to make sure
+    // all lines are conflicting.
+    auto process_test_lines = [&](int loops, const std::vector<int> &lines) {
+        for (int i = 0; i < loops; ++i) {
+            for (const int line : lines) {
+                addr_t maddr = ADDR_STRIDE * line;
+                if (!cache_sim.process_memref(make_memref(maddr))) {
+                    std::cerr << "drcachesim failed: " << cache_sim.get_error_string()
+                              << "\n";
+                    exit(1);
+                }
+            }
+        }
+    };
+
+    // First, test a sequence of lines that will fit within the cache
+    // associativity.  First five accesses miss, the rest hit.
+    //         expectation ----->  M  M  M  M  M  H  H  H  H  H
+    std::vector<int> test_lines1 { 1, 2, 3, 4, 5, 1, 2, 3, 4, 5 };
+
+    process_test_lines(NUM_LOOPS, test_lines1);
+    constexpr int EXP1_MISSES = 5;
+    const int exp1_hits = test_lines1.size() * NUM_LOOPS - EXP1_MISSES;
+    TEST_EQ(get_misses(), EXP1_MISSES);
+    TEST_EQ(get_hits(), exp1_hits);
+
+    // Next, access more lines than fit in the cache, which should cause a few
+    // misses and replacements.  Note lines 3 and 6 are accessed frequently to keep
+    // them recently-accessed and thus not evicted.
+    //         expectation ----->  H  M  H  H  M  H  M  H  H  M  M  H  H  H
+    //    evicted line ordinal ->     1        2     5        4  7
+    std::vector<int> test_lines2 { 5, 6, 4, 3, 7, 6, 2, 6, 3, 1, 5, 6, 2, 3 };
+    process_test_lines(1, test_lines2);
+    constexpr int EXP2_MISSES = 5;
+    int exp2_hits = test_lines2.size() - EXP2_MISSES;
+    TEST_EQ(get_misses(), EXP1_MISSES + EXP2_MISSES);
+    TEST_EQ(get_hits(), exp1_hits + exp2_hits);
+}
+
+void
+unit_test_exclusive_cache_policy_rand()
+{
+    // A more extensive test of the exclusive cache logic using the property
+    // of an exclusive LRU cache to "extend" the associativity of its child
+    // LRU cache.
+    std::cerr << "\n** EXCLUSIVE POLICY TEST w/ RANDOM ***\n";
+
+    // Create 2-level cache with 3-way L1 and 5-way exclusive LLC, which
+    // should behave the same as a 1-level 8-way cache in terms of hits and
+    // misses.
+    std::string config_exc = R"MYCONFIG(// 2-level with exclusive LLC.
+num_cores       1
+line_size       64
+coherent        false
+
+L1 {
+  type            unified
+  core            0
+  size            3K
+  assoc           3
+  prefetcher      none
+  replace_policy  LRU
+  parent          LLC
+}
+LLC {
+  size            5K
+  assoc           5
+  exclusive       true
+  prefetcher      none
+  replace_policy  LRU
+  parent          memory
+}
+)MYCONFIG";
+
+    // Create the reference 1-level 8-way equivalent LRU cache.
+    std::string config_8way = R"MYCONFIG(// 1-level
+num_cores       1
+line_size       64
+coherent        false
+
+L1 {
+  type            unified
+  core            0
+  size            8K
+  assoc           8
+  prefetcher      none
+  replace_policy  LRU
+  parent          memory
+}
+)MYCONFIG";
+
+    // Create the two cache simulators.
+    std::istringstream config_in_exc(config_exc);
+    test_cache_simulator_t cache_sim_exc(&config_in_exc);
+
+    std::istringstream config_in_8way(config_8way);
+    test_cache_simulator_t cache_sim_8way(&config_in_8way);
+
+    // Verify the cache configs specified no coherence.
+    TEST_EQ(cache_sim_exc.get_num_snooped_caches(), 0);
+    TEST_EQ(cache_sim_8way.get_num_snooped_caches(), 0);
+
+    // Helper routines to grab cache stats as if the full hierarchy were a
+    // single cache.  So this means HITS are summed, but only LLC misses count.
+    auto get_hits_exc = [&](void) {
+        int64_t l1_hits = cache_sim_exc.get_cache_metric(metric_name_t::HITS, /*level=*/1,
+                                                         /*core=*/0, cache_split_t::DATA);
+        int64_t l2_hits = cache_sim_exc.get_cache_metric(metric_name_t::HITS, /*level=*/2,
+                                                         /*core=*/0, cache_split_t::DATA);
+        return l1_hits + l2_hits;
+    };
+    auto get_misses_exc = [&](void) {
+        int64_t l2_misses =
+            cache_sim_exc.get_cache_metric(metric_name_t::MISSES, /*level=*/2,
+                                           /*core=*/0, cache_split_t::DATA);
+        return l2_misses;
+    };
+
+    // Similar to the above, but for the 1-level 8-way cache.
+    auto get_hits_8way = [&](void) {
+        int64_t l1_hits =
+            cache_sim_8way.get_cache_metric(metric_name_t::HITS, /*level=*/1,
+                                            /*core=*/0, cache_split_t::DATA);
+        return l1_hits;
+    };
+    auto get_misses_8way = [&](void) {
+        int64_t l1_misses =
+            cache_sim_8way.get_cache_metric(metric_name_t::MISSES, /*level=*/1,
+                                            /*core=*/0, cache_split_t::DATA);
+        return l1_misses;
+    };
+
+    // Generate a random sequence of integers that will be converted to
+    // conflicting cacheline addresses, run them through both caches, and
+    // verify the caches have identical hit rates.
+    // Use a geometric distribution to get clustering of similar addresses,
+    // thus favoring hits (compared to a uniform distribution).
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    // The dist parameter was chosen to get a long tail of misses.
+    // Higher values cause more clustering of the distribution,
+    // e.g. more hits and fewer misses.
+    std::geometric_distribution<> dist(0.25);
+
+    // Run a bunch of random conflicting cache addresses through both caches
+    // to give the replacement logic a workout.
+    constexpr int NUM_LINES = 10000;
+    // Pick a large multiple of the cache size as our stride, to ensure all
+    // generated addresses conflict.
+    const int ADDR_STRIDE = cache_sim_8way.get_named_cache("L1")->get_size_bytes() * 4;
+    for (int i = 0; i < NUM_LINES; ++i) {
+        // Generate a random address that will hit set 0.
+        const int line_number = dist(gen);
+        const addr_t maddr = ADDR_STRIDE * line_number;
+        memref_t memref = make_memref(maddr);
+        if (!cache_sim_exc.process_memref(memref)) {
+            std::cerr << "drcachesim failed: " << cache_sim_exc.get_error_string()
+                      << "\n";
+            exit(1);
+        }
+        if (!cache_sim_8way.process_memref(memref)) {
+            std::cerr << "drcachesim failed: " << cache_sim_8way.get_error_string()
+                      << "\n";
+            exit(1);
+        }
+        TEST_EQ(get_misses_8way(), get_misses_exc());
+    }
+    std::cerr << "8way cache had " << get_hits_8way() << " hits and " << get_misses_8way()
+              << " misses.\n";
+
+    // Make sure both recorded the same number of hits and misses, and that
+    // there were more hits than misses.
+    assert(get_misses_8way() > 1);
+    assert(get_hits_8way() > get_misses_8way());
+
+    TEST_EQ(get_hits_8way() + get_misses_8way(), NUM_LINES);
+    TEST_EQ(get_hits_8way(), get_hits_exc());
+    TEST_EQ(get_misses_8way(), get_misses_exc());
+}
+
+void
 unit_test_exclusive_cache()
 {
     // Create simple 3-level cache with exclusive LLC.
@@ -528,8 +823,10 @@ LLC {
     }
 
     TEST_EQ(cache_sim.get_named_cache("L2")->get_associativity(), L2_ASSOC);
+    TEST_EQ(cache_sim.get_named_cache("L2")->get_replace_policy(), "LRU");
     TEST_EQ(cache_sim.get_named_cache("LLC")->get_associativity(), LLC_ASSOC);
     TEST_EQ(cache_sim.get_named_cache("LLC")->get_size_bytes(), LLC_SIZE);
+    TEST_EQ(cache_sim.get_named_cache("LLC")->get_replace_policy(), "LRU");
 
     // Define stats helper functions that are specific to this test config.
     auto get_l2_metric = [&](metric_name_t metric) {
@@ -551,10 +848,11 @@ LLC {
     TEST_EQ(llc_misses, l2_misses);
     TEST_EQ(llc_hits, 0);
 
-    // Increasing to 8 conflicting lines means neither L2 nor LLC can hold all
+    // Increasing to 8 conflicting lines means no single cache can hold all
     // of the lines, but as a victim cache the LLC is additive and should hold
-    // L2's conflict evictions:  we expect 4 hits (from prior test) and the rest
+    // L2's evictions:  we expect 4 hits (from prior test) and the rest
     // misses in L2, but 4 (new) misses and the rest hits in LLC.
+    // Since the L2 is inclusive, the L1 does NOT hold any lines not in the L2.
     const int MORE_CONFLICTING_ADDRESSES = 8;
     for (int n = 0; n < NUM_LOOPS; ++n) {
         for (int i = 0; i < MORE_CONFLICTING_ADDRESSES; ++i) {
@@ -572,9 +870,9 @@ LLC {
     int new_llc_hits = get_llc_metric(metric_name_t::HITS);
 
     // Subtract out the counts from the prior accesses.
+    TEST_EQ(new_l2_hits - l2_hits, CONFLICTING_ADDRESSES);
     TEST_EQ(new_l2_misses - l2_misses,
             NUM_LOOPS * MORE_CONFLICTING_ADDRESSES - CONFLICTING_ADDRESSES);
-    TEST_EQ(new_l2_hits - l2_hits, CONFLICTING_ADDRESSES);
 
     TEST_EQ(new_llc_misses - llc_misses,
             MORE_CONFLICTING_ADDRESSES - CONFLICTING_ADDRESSES);
@@ -652,10 +950,12 @@ unit_test_cache_associativity()
         int total_size = LINE_SIZE * BLOCKS_PER_WAY * assoc;
         // Test access patterns that stress increasing associativity.
         for (uint32_t test_assoc = 1; test_assoc <= 2 * assoc; ++test_assoc) {
-            cache_lru_t cache;
+            cache_t cache;
             caching_device_stats_t stats(/*miss_file=*/"", LINE_SIZE);
             bool initialized =
-                cache.init(assoc, LINE_SIZE, total_size, /*parent=*/nullptr, &stats);
+                cache.init(assoc, LINE_SIZE, total_size, /*parent=*/nullptr, &stats,
+                           std::unique_ptr<policy_lru_t>(
+                               new policy_lru_t(total_size / assoc, assoc)));
             assert(initialized);
             assert(cache.get_associativity() == assoc);
             // Test start address is arbitrary.
@@ -701,10 +1001,13 @@ unit_test_cache_size()
         // Access a buffer of increasing size, make sure hits + misses are expected.
         for (int buffer_size = cache_size / 2; buffer_size < cache_size * 2;
              buffer_size *= 2) {
-            cache_lru_t cache;
+            cache_t cache;
             caching_device_stats_t stats(/*miss_file=*/"", LINE_SIZE);
-            bool initialized = cache.init(associativity, LINE_SIZE, cache_size,
-                                          /*parent=*/nullptr, &stats);
+            bool initialized =
+                cache.init(associativity, LINE_SIZE, cache_size,
+                           /*parent=*/nullptr, &stats,
+                           std::unique_ptr<policy_lru_t>(new policy_lru_t(
+                               cache_size / associativity, associativity)));
             assert(initialized);
             assert(cache.get_size_bytes() == cache_size);
             static constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
@@ -753,8 +1056,11 @@ unit_test_cache_line_size()
             int total_cache_size = line_size * cache_line_count;
             cache_t cache;
             caching_device_stats_t stats(/*miss_file=*/"", line_size);
-            bool initialized = cache.init(ASSOCIATIVITY, line_size, total_cache_size,
-                                          /*parent=*/nullptr, &stats);
+            bool initialized =
+                cache.init(ASSOCIATIVITY, line_size, total_cache_size,
+                           /*parent=*/nullptr, &stats,
+                           std::unique_ptr<policy_lfu_t>(new policy_lfu_t(
+                               total_cache_size / ASSOCIATIVITY, ASSOCIATIVITY)));
             assert(initialized);
             auto read_count =
                 generate_1D_accesses(cache, 0, stride, total_cache_size / stride);
@@ -794,16 +1100,33 @@ unit_test_cache_bad_configs()
 
     // 0 values are bad for any of these parameters.
     std::cerr << "Testing 0 parameters.\n";
-    assert(!cache.init(0, SAFE_LINE_SIZE, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
-    assert(!cache.init(SAFE_ASSOC, 0, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
-    assert(!cache.init(SAFE_ASSOC, SAFE_LINE_SIZE, 0, /*parent=*/nullptr, &stats));
+
+    assert(!cache.init(0, SAFE_LINE_SIZE, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 0, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, SAFE_LINE_SIZE, 0, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, SAFE_LINE_SIZE, SAFE_CACHE_SIZE, /*parent=*/nullptr,
+                       &stats, nullptr));
 
     // Test other bad line sizes: <4 and/or non-power-of-two.
     std::cerr << "Testing bad line size parameters.\n";
-    assert(!cache.init(SAFE_ASSOC, 1, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
-    assert(!cache.init(SAFE_ASSOC, 2, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
-    assert(!cache.init(SAFE_ASSOC, 7, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
-    assert(!cache.init(SAFE_ASSOC, 65, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
+    assert(!cache.init(SAFE_ASSOC, 1, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 2, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 7, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
+    assert(!cache.init(SAFE_ASSOC, 65, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats,
+                       std::unique_ptr<policy_lru_t>(
+                           new policy_lru_t(SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
 
     // Size, associativity, and line_size are related.  The requirement is that
     // size/associativity is a power-of-two, and >= line_size, so try some
@@ -817,7 +1140,9 @@ unit_test_cache_bad_configs()
     };
     for (const auto &combo : bad_combinations) {
         assert(!cache.init(combo.assoc, SAFE_LINE_SIZE, combo.size, /*parent=*/nullptr,
-                           &stats));
+                           &stats,
+                           std::unique_ptr<policy_lru_t>(new policy_lru_t(
+                               SAFE_CACHE_SIZE / SAFE_ASSOC, SAFE_ASSOC))));
     }
 }
 
@@ -848,10 +1173,14 @@ unit_test_cache_accessors()
                 caching_device_stats_t stats(/*miss_file=*/"", line_size);
                 // Only test LRU here.  Other replacement policy accessors are
                 // tested in the cache_replacement_policy_unit_test.
-                cache_lru_t cache(cache_name);
-                bool initialized = cache.init(associativity, line_size, total_size,
-                                              /*parent=*/nullptr, &stats,
-                                              /*prefetcher=*/nullptr, policy, coherent);
+                cache_t cache(cache_name);
+                bool initialized =
+                    cache.init(associativity, line_size, total_size,
+                               /*parent=*/nullptr, &stats,
+                               /*replacement_policy=*/
+                               std::unique_ptr<policy_lru_t>(new policy_lru_t(
+                                   total_size / associativity, associativity)),
+                               /*prefetcher=*/nullptr, policy, coherent);
                 assert(initialized);
                 assert(cache.get_stats() == &stats);
                 assert(stats.get_caching_device() == &cache);
@@ -942,6 +1271,8 @@ test_main(int argc, const char *argv[])
     assert(argc == 2);
 
     unit_test_exclusive_cache();
+    unit_test_exclusive_cache_policy();
+    unit_test_exclusive_cache_policy_rand();
     unit_test_cache_accessors();
     unit_test_config_reader(std::string(argv[1]));
     unit_test_v2p_reader(std::string(argv[1]));
@@ -960,6 +1291,7 @@ test_main(int argc, const char *argv[])
     unit_test_core_sharded();
     unit_test_nextline_prefetcher();
     unit_test_custom_prefetcher();
+    unit_test_set_parent();
     return 0;
 }
 

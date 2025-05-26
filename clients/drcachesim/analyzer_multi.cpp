@@ -36,6 +36,7 @@
 #include "common/options.h"
 #include "common/utils.h"
 #include "common/directory_iterator.h"
+#include "noise_generator.h"
 #include "tlb_simulator.h"
 #include "tracer/raw2trace_directory.h"
 #include "tracer/raw2trace.h"
@@ -175,10 +176,10 @@ analyzer_multi_t::create_invariant_checker()
             }
         }
     }
-    return new invariant_checker_t(op_offline.get_value(), op_verbose.get_value(),
-                                   op_test_mode_name.get_value(),
-                                   serial_schedule_file_.get(), cpu_schedule_file_.get(),
-                                   op_abort_on_invariant_error.get_value());
+    return new invariant_checker_t(
+        op_offline.get_value(), op_verbose.get_value(), op_test_mode_name.get_value(),
+        serial_schedule_file_.get(), cpu_schedule_file_.get(),
+        op_abort_on_invariant_error.get_value(), op_sched_syscall_file.get_value() != "");
 }
 
 template <>
@@ -571,6 +572,13 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
 #endif
     }
 
+    sched_ops.kernel_syscall_trace_path = op_sched_syscall_file.get_value();
+
+    // Enable the noise generator before init_scheduler(), where we eventually add a
+    // noise generator as another input workload.
+    if (op_add_noise_generator.get_value())
+        this->add_noise_generator_ = true;
+
     if (!indirs.empty()) {
         std::vector<std::string> tracedirs;
         for (const std::string &indir : indirs)
@@ -805,13 +813,17 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::get_aux_file_path(
             trace_dir += std::string(DIRSEP) + "..";
         }
         file_path = trace_dir + std::string(DIRSEP) + default_filename;
-        /* Support the aux file in either raw/ or trace/. */
+        /* Support the aux file in either trace/, raw/, or aux/. */
         if (!std::ifstream(file_path.c_str()).good()) {
             file_path = trace_dir + std::string(DIRSEP) + TRACE_SUBDIR +
                 std::string(DIRSEP) + default_filename;
         }
         if (!std::ifstream(file_path.c_str()).good()) {
             file_path = trace_dir + std::string(DIRSEP) + OUTFILE_SUBDIR +
+                std::string(DIRSEP) + default_filename;
+        }
+        if (!std::ifstream(file_path.c_str()).good()) {
+            file_path = trace_dir + std::string(DIRSEP) + AUX_SUBDIR +
                 std::string(DIRSEP) + default_filename;
         }
     }

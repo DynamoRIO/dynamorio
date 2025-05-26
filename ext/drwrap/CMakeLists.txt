@@ -19,7 +19,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -30,39 +30,8 @@ include(../../make/policies.cmake NO_POLICY_SCOPE)
 # not using it (i#714).
 set(DynamoRIO_USE_LIBC OFF)
 
-##################################################
-# we rely on DR proper's asm setup so we don't need to include cpp2asm_support.cmake)
-
-# for cpp2asm_defines.h
-include_directories(${DynamoRIO_DIR})
-
-# we aren't using DR's configure.h so we have to set defines:
-if (UNIX)
-  if (APPLE AND NOT AARCH64)
-    set(asm_defs ${asm_defs} -DASSEMBLE_WITH_NASM)
-  else (APPLE AND NOT AARCH64)
-    set(asm_defs ${asm_defs} -DASSEMBLE_WITH_GAS)
-  endif (APPLE AND NOT AARCH64)
-else (UNIX)
-  set(asm_defs ${asm_defs} -DASSEMBLE_WITH_MASM)
-endif (UNIX)
-get_DynamoRIO_defines(DR_DEFINES OFF)
-# We need defines to be a list to pass as separate args to custom command.
-# We assume none have spaces inside them which seems reasonable.
-string(REPLACE " " ";" DR_DEFINES "${DR_DEFINES}")
-set(asm_flags ${asm_defs} ${DR_DEFINES} -I "${DynamoRIO_DIR}")
-set(asm_deps "${DynamoRIO_DIR}/cpp2asm_defines.h")
-if (DR_HOST_ARM)
-  set(asm_file "drwrap_asm_arm.asm")
-elseif (DR_HOST_AARCH64)
-  set(asm_file "drwrap_asm_aarch64.asm")
-  elseif (DR_HOST_RISCV64)
-  set(asm_file "drwrap_asm_riscv64.asm")
-else ()
-  set(asm_file "drwrap_asm_x86.asm")
-endif ()
-add_asm_target(${asm_file} drwrap_asm_src drwrap_asm_tgt ""
-  "${asm_flags}" "${asm_deps}")
+add_ext_asm_target("drwrap_asm_arm.asm" "drwrap_asm_aarch64.asm" "drwrap_asm_riscv64.asm"
+  "drwrap_asm_x86.asm" drwrap_asm_src drwrap_asm_tgt)
 
 #
 ##################################################

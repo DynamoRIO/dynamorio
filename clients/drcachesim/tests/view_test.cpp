@@ -32,6 +32,7 @@
 
 /* Unit tests for the view_t tool. */
 
+#include "test_helpers.h"
 #include <algorithm>
 #include <iostream>
 #include <regex>
@@ -485,16 +486,16 @@ run_single_thread_chunk_test(void *drcontext)
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 3 } },
         { TRACE_TYPE_INSTR, 4, { 42 } },
     } };
-    const char *expect = R"DELIM(           1           0:           3 <marker: version 3>
-           2           0:           3 <marker: filetype 0x0>
-           3           0:           3 <marker: cache line size 64>
-           4           0:           3 <marker: chunk instruction count 2>
-           5           0:           3 <marker: timestamp 1002>
-           6           0:           3 <marker: tid 3 on core 2>
-           7           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
-           8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
-           9           2:           3 <marker: chunk footer #0>
-          10           3:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+    const char *expect = R"DELIM(           1           0:       W0.T3 <marker: version 3>
+           2           0:       W0.T3 <marker: filetype 0x0>
+           3           0:       W0.T3 <marker: cache line size 64>
+           4           0:       W0.T3 <marker: chunk instruction count 2>
+           5           0:       W0.T3 <marker: timestamp 1002>
+           6           0:       W0.T3 <marker: W0.T3 on core 2>
+           7           1:       W0.T3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           8           2:       W0.T3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           9           2:       W0.T3 <marker: chunk footer #0>
+          10           3:       W0.T3 ifetch       4 byte(s) @ 0x0000002a non-branch
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
@@ -552,31 +553,31 @@ run_serial_chunk_test(void *drcontext)
         }
     };
     const char *expect =
-        R"DELIM(           1           0:           3 <marker: version 3>
-           2           0:           3 <marker: filetype 0x0>
-           3           0:           3 <marker: cache line size 64>
-           4           0:           3 <marker: chunk instruction count 20>
-           5           0:           3 <marker: timestamp 1001>
-           6           0:           3 <marker: tid 3 on core 2>
-           7           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
-           8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+        R"DELIM(           1           0:       W0.T3 <marker: version 3>
+           2           0:       W0.T3 <marker: filetype 0x0>
+           3           0:       W0.T3 <marker: cache line size 64>
+           4           0:       W0.T3 <marker: chunk instruction count 20>
+           5           0:       W0.T3 <marker: timestamp 1001>
+           6           0:       W0.T3 <marker: W0.T3 on core 2>
+           7           1:       W0.T3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           8           2:       W0.T3 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
-           9           2:           7 <marker: version 3>
-          10           2:           7 <marker: filetype 0x0>
-          11           2:           7 <marker: cache line size 64>
-          12           2:           7 <marker: chunk instruction count 2>
-          13           2:           7 <marker: timestamp 1002>
-          14           2:           7 <marker: tid 7 on core 2>
-          15           3:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
-          16           4:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
+           9           2:       W0.T7 <marker: version 3>
+          10           2:       W0.T7 <marker: filetype 0x0>
+          11           2:       W0.T7 <marker: cache line size 64>
+          12           2:       W0.T7 <marker: chunk instruction count 2>
+          13           2:       W0.T7 <marker: timestamp 1002>
+          14           2:       W0.T7 <marker: W0.T7 on core 2>
+          15           3:       W0.T7 ifetch       4 byte(s) @ 0x0000002a non-branch
+          16           4:       W0.T7 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
-          17           4:           3 <marker: timestamp 1003>
-          18           4:           3 <marker: tid 3 on core 3>
-          19           5:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+          17           4:       W0.T3 <marker: timestamp 1003>
+          18           4:       W0.T3 <marker: W0.T3 on core 3>
+          19           5:       W0.T3 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
-          20           5:           7 <marker: timestamp 1004>
-          21           5:           7 <marker: tid 7 on core 3>
-          22           6:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
+          20           5:       W0.T7 <marker: timestamp 1004>
+          21           5:       W0.T7 <marker: W0.T7 on core 3>
+          22           6:       W0.T7 ifetch       4 byte(s) @ 0x0000002a non-branch
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
@@ -645,18 +646,18 @@ run_regdeps_test(void *drcontext)
 
     /* clang-format off */
     std::string expect =
-        std::string(R"DELIM(           1           0:           3 <marker: version 3>
-           2           0:           3 <marker: filetype 0x20e00>
-           3           0:           3 <marker: cache line size 64>
-           4           0:           3 <marker: chunk instruction count 5>
-           5           0:           3 <marker: timestamp 1002>
-           6           0:           3 <marker: tid 3 on core 2>
-           7           1:           3 ifetch       3 byte(s) @ 0x00007f6fdd3ec360 00010011 00060906 move [8byte]       %rv4 -> %rv7
-           8           2:           3 ifetch       4 byte(s) @ 0x00007f6fdc76cb35 00004011 004e0321 simd [32byte]       %rv76 -> %rv1
-           9           3:           3 ifetch       4 byte(s) @ 0x00007f6fdc76cb2d 00004811 00094921 load simd [32byte]       %rv7 -> %rv71
-          10           4:           3 ifetch      10 byte(s) @ 0x00007f86ef03d107 00001931 04020204 load store [4byte]       %rv0 %rv2 %rv36 -> %rv0
-          10           4:           3                                             00000026
-          11           5:           3 ifetch       2 byte(s) @ 0x00005605ec276c4d 00002200          branch  (taken)
+        std::string(R"DELIM(           1           0:       W0.T3 <marker: version 3>
+           2           0:       W0.T3 <marker: filetype 0x20e00>
+           3           0:       W0.T3 <marker: cache line size 64>
+           4           0:       W0.T3 <marker: chunk instruction count 5>
+           5           0:       W0.T3 <marker: timestamp 1002>
+           6           0:       W0.T3 <marker: W0.T3 on core 2>
+           7           1:       W0.T3 ifetch       3 byte(s) @ 0x00007f6fdd3ec360 00010011 00060906 move [8byte]       %rv4 -> %rv7
+           8           2:       W0.T3 ifetch       4 byte(s) @ 0x00007f6fdc76cb35 00004011 004e0321 simd [32byte]       %rv76 -> %rv1
+           9           3:       W0.T3 ifetch       4 byte(s) @ 0x00007f6fdc76cb2d 00004811 00094921 load simd [32byte]       %rv7 -> %rv71
+          10           4:       W0.T3 ifetch      10 byte(s) @ 0x00007f86ef03d107 00001931 04020204 load store [4byte]       %rv0 %rv2 %rv36 -> %rv0
+          10           4:       W0.T3                                             00000026
+          11           5:       W0.T3 ifetch       2 byte(s) @ 0x00005605ec276c4d 00002200          branch  (taken)
 )DELIM");
     /* clang-format on */
 

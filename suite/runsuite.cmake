@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 set(CTEST_PROJECT_NAME "DynamoRIO")
 set(cpack_project_name "DynamoRIO")
@@ -87,14 +87,8 @@ endforeach (arg)
 if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
   execute_process(COMMAND ldd --version
     RESULT_VARIABLE ldd_result ERROR_VARIABLE ldd_err OUTPUT_VARIABLE ldd_out)
-  if (ldd_result OR ldd_err)
-    # Failed; just move on.
-  elseif (ldd_out MATCHES "GLIBC 2.3[5-9]")
-    # XXX i#5437, i#5431: While we work through Ubuntu22 issues we run
-    # just a few tests.
-    set(extra_ctest_args INCLUDE_LABEL UBUNTU_22)
-    set(arg_debug_only ON)
-  elseif (arg_32_only AND NOT cross_aarchxx_linux_only AND NOT cross_android_only)
+  message("ldd --version: ${ldd_out}")
+  if (arg_32_only AND NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     # TODO i#6417: The switch to AMD VM's for GA CI has broken many of our tests.
     # This includes timeouts which increases suite length.
     # Until we get ths x86-32 job back green, we drop back to a small set of tests.
@@ -262,53 +256,59 @@ endif ()
 # changes one of those.
 #
 # Prefer named version 14.0 from apt.llvm.org.
-find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
-if (NOT CLANG_FORMAT_DIFF)
-  find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
-endif ()
-if (NOT CLANG_FORMAT_DIFF)
-  find_program(CLANG_FORMAT_DIFF clang-format-diff.py DOC "clang-format-diff")
-endif ()
-find_package(Python3)
-if (CLANG_FORMAT_DIFF AND Python3_FOUND)
-  get_filename_component(CUR_DIR "." ABSOLUTE)
-  set(diff_file "${CUR_DIR}/runsuite_diff.patch")
-  file(WRITE ${diff_file} "${diff_contents}")
-  execute_process(COMMAND ${Python3_EXECUTABLE} ${CLANG_FORMAT_DIFF} -p1
-    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
-    INPUT_FILE ${diff_file}
-    RESULT_VARIABLE format_result
-    ERROR_VARIABLE format_err
-    OUTPUT_VARIABLE format_out)
-  if (format_result OR format_err)
-    message(FATAL_ERROR
-      "Error (${format_result}) running clang-format-diff: ${format_err}")
-  endif ()
-  if (format_out)
-    # The WARNING and FATAL_ERROR message types try to format the diff and it
-    # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
-    message(STATUS
-      "Changes are not formatted properly:\n${format_out}")
-    message(FATAL_ERROR
-      "FATAL ERROR: Changes are not formatted properly (see diff above)!")
-  else ()
-    message("clang-format check passed")
-  endif ()
+if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
+  message("format check disabled")
 else ()
-  if (arg_require_format)
-    message(FATAL_ERROR "FATAL ERROR: clang-format is required but not found!")
-  else ()
-    message("clang-format-diff not found: skipping format checks")
+  find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
+  if (NOT CLANG_FORMAT_DIFF)
+    find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
   endif ()
-endif ()
+  if (NOT CLANG_FORMAT_DIFF)
+    find_program(CLANG_FORMAT_DIFF clang-format-diff.py DOC "clang-format-diff")
+  endif ()
+  find_package(Python3)
+  if (CLANG_FORMAT_DIFF AND Python3_FOUND)
+    get_filename_component(CUR_DIR "." ABSOLUTE)
+    set(diff_file "${CUR_DIR}/runsuite_diff.patch")
+    file(WRITE ${diff_file} "${diff_contents}")
+    execute_process(COMMAND ${Python3_EXECUTABLE} ${CLANG_FORMAT_DIFF} -p1
+      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+      INPUT_FILE ${diff_file}
+      RESULT_VARIABLE format_result
+      ERROR_VARIABLE format_err
+      OUTPUT_VARIABLE format_out)
+    if (format_result OR format_err)
+      message(FATAL_ERROR
+        "Error (${format_result}) running clang-format-diff: ${format_err}")
+    endif ()
+    if (format_out)
+      # The WARNING and FATAL_ERROR message types try to format the diff and it
+      # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
+      message(STATUS
+        "Changes are not formatted properly:\n${format_out}")
+      message(FATAL_ERROR
+        "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+    else ()
+      message("clang-format check passed")
+    endif ()
+  else ()
+    if (arg_require_format)
+      message(FATAL_ERROR "FATAL ERROR: clang-format is required but not found!")
+    else ()
+      message("clang-format-diff not found: skipping format checks")
+    endif ()
+  endif ()
 
-# Check for tabs other than on the revision lines.
-# The clang-format check will now find these in C files, but not non-C files.
-string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
-string(REGEX MATCH "\t" match "${diff_notabs}")
-if (NOT "${match}" STREQUAL "")
-  string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
-  message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+  # Check for tabs other than on the revision lines.
+  # The clang-format check will now find these in C files, but not non-C files.
+  string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
+  # Allow tabs to be removed from existing lines.
+  string(REGEX REPLACE "\n-[^\n]*\t" "" diff_notabs "${diff_notabs}")
+  string(REGEX MATCH "\t" match "${diff_notabs}")
+  if (NOT "${match}" STREQUAL "")
+    string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
+    message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+  endif ()
 endif ()
 
 # Check for NOCHECKIN

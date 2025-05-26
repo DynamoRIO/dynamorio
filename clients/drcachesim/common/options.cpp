@@ -500,7 +500,11 @@ droption_t<std::string>
     op_TLB_replace_policy(DROPTION_SCOPE_FRONTEND, "TLB_replace_policy",
                           REPLACE_POLICY_LFU, "TLB replacement policy",
                           "Specifies the replacement policy for TLBs. "
-                          "Supported policies: LFU (Least Frequently Used).");
+                          "Supported policies: " REPLACE_POLICY_LFU
+                          " (Least Frequently Used), " REPLACE_POLICY_BIT_PLRU
+                          " (Pseudo Least Recently Used) " REPLACE_POLICY_LRU
+                          " (Least Recently Used) " REPLACE_POLICY_FIFO
+                          " (First-In-First-Out)");
 
 droption_t<std::string>
     op_tool(DROPTION_SCOPE_FRONTEND,
@@ -713,6 +717,13 @@ droption_t<std::string>
     op_config_file(DROPTION_SCOPE_FRONTEND, "config_file", "",
                    "Cache hierarchy configuration file",
                    "The full path to the cache hierarchy configuration file.");
+
+droption_t<bool> op_add_noise_generator(
+    DROPTION_SCOPE_FRONTEND, "add_noise_generator", false, "Add noise generation.",
+    "Adds synthetic trace records produced by a noise generator as another input "
+    "workload to the scheduler. These synthetic records are interleaved by the scheduler "
+    "with the target trace(s) records. Currently it only adds a single-process, "
+    "single thread noise generator, but that may change in the future.");
 
 // XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int>
@@ -1039,11 +1050,19 @@ droption_t<std::string>
 #endif
 droption_t<std::string> op_sched_switch_file(
     DROPTION_SCOPE_FRONTEND, "sched_switch_file", "",
-    "Path to file holding context switch sequences",
+    "Path to file holding kernel context switch sequences",
     "Applies to -core_sharded and -core_serial.  Path to file holding context switch "
     "sequences.  The file can contain multiple sequences each with regular trace headers "
     "and the sequence proper bracketed by TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
     "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END markers.");
+
+droption_t<std::string> op_sched_syscall_file(
+    DROPTION_SCOPE_FRONTEND, "sched_syscall_file", "",
+    "Path to file holding kernel system call sequences",
+    "Path to file holding system call sequences.  The file can contain multiple "
+    "sequences each with regular trace headers and the sequence proper bracketed by "
+    "TRACE_MARKER_TYPE_SYSCALL_TRACE_START and TRACE_MARKER_TYPE_SYSCALL_TRACE_END "
+    "markers.");
 
 droption_t<bool> op_sched_randomize(
     DROPTION_SCOPE_FRONTEND, "sched_randomize", false,

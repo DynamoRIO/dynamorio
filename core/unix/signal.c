@@ -7696,8 +7696,6 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     sigframe_rt_t *frame = (sigframe_rt_t *)frame_no_xstate;
     int sig;
     dr_where_am_i_t cur_whereami = dcontext->whereami;
-    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
-    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     switch (type) {
     case ILLEGAL_INSTRUCTION_EXCEPTION: sig = SIGILL; break;
     case UNREADABLE_MEMORY_EXECUTION_EXCEPTION: sig = SIGSEGV; break;
@@ -7715,6 +7713,18 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      * to a plain frame on delivery.
      */
     memset(frame, 0, sizeof(*frame));
+
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
+#if defined(MACOS)
+    /* Since SIGCXT_FROM_UCXT just accesses the uc->uc_mcontext ptr field on
+     * macOS, sc will be NULL below if we do not initialize uc_mcontext first.
+     * On macOS, the uc_mcontext pointer always just points to the mcontext
+     * elsewhere in the frame.
+     */
+    uc->IF_X64_ELSE(uc_mcontext64, uc_mcontext) = (void *)&frame->mc;
+#endif
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
+
     frame->info.si_signo = sig;
     /* Set si_code to match what would happen natively.  We also need this to
      * avoid the !is_sys_kill() check in record_pending_signal() to avoid an

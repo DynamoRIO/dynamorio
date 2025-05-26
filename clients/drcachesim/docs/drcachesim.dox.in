@@ -710,28 +710,28 @@ and the instruction fetch ordinal.
 \code
 $ $ bin64/drrun -t drmemtrace -tool view -indir drmemtrace.*.dir -sim_refs 20
 Output format:
-<--record#-> <--instr#->: <---tid---> <record details>
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
-           1           0:     3256418 <marker: version 6>
-           2           0:     3256418 <marker: filetype 0x240>
-           3           0:     3256418 <marker: cache line size 64>
-           4           0:     3256418 <marker: chunk instruction count 1024>
-           5           0:     3256418 <marker: page size 4096>
-           6           0:     3256418 <marker: timestamp 13312410768080478>
-           7           0:     3256418 <marker: tid 3256418 on core 7>
-           8           1:     3256418 ifetch       3 byte(s) @ 0x00007fc205a61940 48 89 e7             mov    %rsp, %rdi
-           9           2:     3256418 ifetch       5 byte(s) @ 0x00007fc205a61943 e8 b8 0c 00 00       call   $0x00007fc205a62600
-          10           2:     3256418 write        8 byte(s) @ 0x00007fff9a9e3528 by PC 0x00007fc205a61943
-          11           3:     3256418 ifetch       1 byte(s) @ 0x00007fc205a62600 55                   push   %rbp
-          12           3:     3256418 write        8 byte(s) @ 0x00007fff9a9e3520 by PC 0x00007fc205a62600
-          13           4:     3256418 ifetch       3 byte(s) @ 0x00007fc205a62601 48 89 e5             mov    %rsp, %rbp
-          14           5:     3256418 ifetch       2 byte(s) @ 0x00007fc205a62604 41 57                push   %r15
-          15           5:     3256418 write        8 byte(s) @ 0x00007fff9a9e3518 by PC 0x00007fc205a62604
-          16           6:     3256418 ifetch       2 byte(s) @ 0x00007fc205a62606 41 56                push   %r14
-          17           6:     3256418 write        8 byte(s) @ 0x00007fff9a9e3510 by PC 0x00007fc205a62606
-          18           7:     3256418 ifetch       2 byte(s) @ 0x00007fc205a62608 41 55                push   %r13
-          19           7:     3256418 write        8 byte(s) @ 0x00007fff9a9e3508 by PC 0x00007fc205a62608
-          20           8:     3256418 ifetch       2 byte(s) @ 0x00007fc205a6260a 41 54                push   %r12
+           1           0: W0.T3256418 <marker: version 6>
+           2           0: W0.T3256418 <marker: filetype 0x240>
+           3           0: W0.T3256418 <marker: cache line size 64>
+           4           0: W0.T3256418 <marker: chunk instruction count 1024>
+           5           0: W0.T3256418 <marker: page size 4096>
+           6           0: W0.T3256418 <marker: timestamp 13312410768080478>
+           7           0: W0.T3256418 <marker: W0.T3256418 on core 7>
+           8           1: W0.T3256418 ifetch       3 byte(s) @ 0x00007fc205a61940 48 89 e7             mov    %rsp, %rdi
+           9           2: W0.T3256418 ifetch       5 byte(s) @ 0x00007fc205a61943 e8 b8 0c 00 00       call   $0x00007fc205a62600
+          10           2: W0.T3256418 write        8 byte(s) @ 0x00007fff9a9e3528 by PC 0x00007fc205a61943
+          11           3: W0.T3256418 ifetch       1 byte(s) @ 0x00007fc205a62600 55                   push   %rbp
+          12           3: W0.T3256418 write        8 byte(s) @ 0x00007fff9a9e3520 by PC 0x00007fc205a62600
+          13           4: W0.T3256418 ifetch       3 byte(s) @ 0x00007fc205a62601 48 89 e5             mov    %rsp, %rbp
+          14           5: W0.T3256418 ifetch       2 byte(s) @ 0x00007fc205a62604 41 57                push   %r15
+          15           5: W0.T3256418 write        8 byte(s) @ 0x00007fff9a9e3518 by PC 0x00007fc205a62604
+          16           6: W0.T3256418 ifetch       2 byte(s) @ 0x00007fc205a62606 41 56                push   %r14
+          17           6: W0.T3256418 write        8 byte(s) @ 0x00007fff9a9e3510 by PC 0x00007fc205a62606
+          18           7: W0.T3256418 ifetch       2 byte(s) @ 0x00007fc205a62608 41 55                push   %r13
+          19           7: W0.T3256418 write        8 byte(s) @ 0x00007fff9a9e3508 by PC 0x00007fc205a62608
+          20           8: W0.T3256418 ifetch       2 byte(s) @ 0x00007fc205a6260a 41 54                push   %r12
 View tool results:
               8 : total instructions
 \endcode
@@ -740,19 +740,19 @@ An example of thread switches:
 
 \code
 ------------------------------------------------------------
-       46        0:  3264758 <marker: timestamp 13312413437398055>
-       47        0:  3264758 <marker: tid 3264758 on core 2>
-       48        1:  3264758 ifetch       3 byte(s) @ 0x00007f4ea89e4940 48 89 e7             mov    %rsp, %rdi
-       49        2:  3264758 ifetch       5 byte(s) @ 0x00007f4ea89e4943 e8 b8 0c 00 00       call   $0x00007f4ea89e5600
-       50        2:  3264758 write        8 byte(s) @ 0x00007ffd93a0cf18 by PC 0x00007f4ea89e4943
+       46        0: W0.T3264758 <marker: timestamp 13312413437398055>
+       47        0: W0.T3264758 <marker: W0.T3264758 on core 2>
+       48        1: W0.T3264758 ifetch       3 byte(s) @ 0x00007f4ea89e4940 48 89 e7             mov    %rsp, %rdi
+       49        2: W0.T3264758 ifetch       5 byte(s) @ 0x00007f4ea89e4943 e8 b8 0c 00 00       call   $0x00007f4ea89e5600
+       50        2: W0.T3264758 write        8 byte(s) @ 0x00007ffd93a0cf18 by PC 0x00007f4ea89e4943
 ...
-  2854543  2149665:  3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87f8c b8 0e 00 00 00       mov    $0x0000000e, %eax
-  2854544  2149666:  3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87f91 0f 05                syscall
+  2854543  2149665: W0.T3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87f8c b8 0e 00 00 00       mov    $0x0000000e, %eax
+  2854544  2149666: W0.T3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87f91 0f 05                syscall
 ------------------------------------------------------------
-  2854545  2149666:  3264760 <marker: timestamp 13312413438835999>
-  2854546  2149666:  3264760 <marker: tid 3264760 on core 11>
-  2854547  2149667:  3264760 ifetch       3 byte(s) @ 0x00007f4ea7d0b099 48 85 c0             test   %rax, %rax
-  2854548  2149668:  3264760 ifetch       2 byte(s) @ 0x00007f4ea7d0b09c 7c 18                jl     $0x00007f4ea7d0b0b6
+  2854545  2149666: W0.T3264760 <marker: timestamp 13312413438835999>
+  2854546  2149666: W0.T3264760 <marker: W0.T3264760 on core 11>
+  2854547  2149667: W0.T3264760 ifetch       3 byte(s) @ 0x00007f4ea7d0b099 48 85 c0             test   %rax, %rax
+  2854548  2149668: W0.T3264760 ifetch       2 byte(s) @ 0x00007f4ea7d0b09c 7c 18                jl     $0x00007f4ea7d0b0b6
 ...
 \endcode
 
@@ -762,41 +762,41 @@ with metadata showing that the signal was delivered just after an
 untaken conditional branch:
 
 \code
-      801343      601827:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa5c70 75 57                jnz    $0x00007fc2c3aa5cc9 (untaken)
-      801344      601827:     1159769 <marker: kernel xfer from 0x7fc2c3aa5c72 to handler>
-      801345      601827:     1159769 <marker: timestamp 13335923552684013>
-      801346      601827:     1159769 <marker: tid 1159769 on core 7>
-      801347      601828:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa259 55                   push   %rbp
-      801348      601828:     1159769 write        8 byte(s) @ 0x00007fff8044e930 by PC 0x00007fc2c03fa259
-      801349      601829:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa25a 48 89 e5             mov    %rsp, %rbp
-      801350      601830:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa25d 89 7d fc             mov    %edi, -0x04(%rbp)
-      801351      601830:     1159769 write        4 byte(s) @ 0x00007fff8044e92c by PC 0x00007fc2c03fa25d
-      801352      601831:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa260 48 89 75 f0          mov    %rsi, -0x10(%rbp)
-      801353      601831:     1159769 write        8 byte(s) @ 0x00007fff8044e920 by PC 0x00007fc2c03fa260
-      801354      601832:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa264 48 89 55 e8          mov    %rdx, -0x18(%rbp)
-      801355      601832:     1159769 write        8 byte(s) @ 0x00007fff8044e918 by PC 0x00007fc2c03fa264
-      801356      601833:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa268 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
-      801357      601833:     1159769 read         4 byte(s) @ 0x00007fff8044e92c by PC 0x00007fc2c03fa268
-      801358      601834:     1159769 ifetch       2 byte(s) @ 0x00007fc2c03fa26c 75 0f                jnz    $0x00007fc2c03fa27d (untaken)
-      801359      601835:     1159769 ifetch       6 byte(s) @ 0x00007fc2c03fa26e 8b 05 c0 3e 00 00    mov    <rel> 0x00007fc2c03fe134, %eax
-      801360      601835:     1159769 read         4 byte(s) @ 0x00007fc2c03fe134 by PC 0x00007fc2c03fa26e
-      801361      601836:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa274 83 c0 01             add    $0x01, %eax
-      801362      601837:     1159769 ifetch       6 byte(s) @ 0x00007fc2c03fa277 89 05 b7 3e 00 00    mov    %eax, <rel> 0x00007fc2c03fe134
-      801363      601837:     1159769 write        4 byte(s) @ 0x00007fc2c03fe134 by PC 0x00007fc2c03fa277
-      801364      601838:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27d 90                   nop
-      801365      601839:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27e 5d                   pop    %rbp
-      801366      601839:     1159769 read         8 byte(s) @ 0x00007fff8044e930 by PC 0x00007fc2c03fa27e
-      801367      601840:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27f c3                   ret (target 0x7fc2c3a5af90)
-      801368      601840:     1159769 read         8 byte(s) @ 0x00007fff8044e938 by PC 0x00007fc2c03fa27f
-      801369      601841:     1159769 ifetch       7 byte(s) @ 0x00007fc2c3a5af90 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
-      801370      601842:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3a5af97 0f 05                syscall
-      801371      601842:     1159769 <marker: system call 15>
-      801372      601842:     1159769 <marker: timestamp 13335923552684023>
-      801373      601842:     1159769 <marker: tid 1159769 on core 7>
-      801374      601842:     1159769 <marker: syscall xfer from 0x7fc2c3a5af99>
-      801375      601842:     1159769 <marker: timestamp 13335923552684029>
-      801376      601842:     1159769 <marker: tid 1159769 on core 7>
-      801377      601843:     1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa5c72 48 83 c4 48          add    $0x48, %rsp
+      801343      601827: W0.T1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa5c70 75 57                jnz    $0x00007fc2c3aa5cc9 (untaken)
+      801344      601827: W0.T1159769 <marker: kernel xfer from 0x7fc2c3aa5c72 to handler>
+      801345      601827: W0.T1159769 <marker: timestamp 13335923552684013>
+      801346      601827: W0.T1159769 <marker: W0.T1159769 on core 7>
+      801347      601828: W0.T1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa259 55                   push   %rbp
+      801348      601828: W0.T1159769 write        8 byte(s) @ 0x00007fff8044e930 by PC 0x00007fc2c03fa259
+      801349      601829: W0.T1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa25a 48 89 e5             mov    %rsp, %rbp
+      801350      601830: W0.T1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa25d 89 7d fc             mov    %edi, -0x04(%rbp)
+      801351      601830: W0.T1159769 write        4 byte(s) @ 0x00007fff8044e92c by PC 0x00007fc2c03fa25d
+      801352      601831: W0.T1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa260 48 89 75 f0          mov    %rsi, -0x10(%rbp)
+      801353      601831: W0.T1159769 write        8 byte(s) @ 0x00007fff8044e920 by PC 0x00007fc2c03fa260
+      801354      601832: W0.T1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa264 48 89 55 e8          mov    %rdx, -0x18(%rbp)
+      801355      601832: W0.T1159769 write        8 byte(s) @ 0x00007fff8044e918 by PC 0x00007fc2c03fa264
+      801356      601833: W0.T1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa268 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
+      801357      601833: W0.T1159769 read         4 byte(s) @ 0x00007fff8044e92c by PC 0x00007fc2c03fa268
+      801358      601834: W0.T1159769 ifetch       2 byte(s) @ 0x00007fc2c03fa26c 75 0f                jnz    $0x00007fc2c03fa27d (untaken)
+      801359      601835: W0.T1159769 ifetch       6 byte(s) @ 0x00007fc2c03fa26e 8b 05 c0 3e 00 00    mov    <rel> 0x00007fc2c03fe134, %eax
+      801360      601835: W0.T1159769 read         4 byte(s) @ 0x00007fc2c03fe134 by PC 0x00007fc2c03fa26e
+      801361      601836: W0.T1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa274 83 c0 01             add    $0x01, %eax
+      801362      601837: W0.T1159769 ifetch       6 byte(s) @ 0x00007fc2c03fa277 89 05 b7 3e 00 00    mov    %eax, <rel> 0x00007fc2c03fe134
+      801363      601837: W0.T1159769 write        4 byte(s) @ 0x00007fc2c03fe134 by PC 0x00007fc2c03fa277
+      801364      601838: W0.T1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27d 90                   nop
+      801365      601839: W0.T1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27e 5d                   pop    %rbp
+      801366      601839: W0.T1159769 read         8 byte(s) @ 0x00007fff8044e930 by PC 0x00007fc2c03fa27e
+      801367      601840: W0.T1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27f c3                   ret (target 0x7fc2c3a5af90)
+      801368      601840: W0.T1159769 read         8 byte(s) @ 0x00007fff8044e938 by PC 0x00007fc2c03fa27f
+      801369      601841: W0.T1159769 ifetch       7 byte(s) @ 0x00007fc2c3a5af90 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+      801370      601842: W0.T1159769 ifetch       2 byte(s) @ 0x00007fc2c3a5af97 0f 05                syscall
+      801371      601842: W0.T1159769 <marker: system call 15>
+      801372      601842: W0.T1159769 <marker: timestamp 13335923552684023>
+      801373      601842: W0.T1159769 <marker: W0.T1159769 on core 7>
+      801374      601842: W0.T1159769 <marker: syscall xfer from 0x7fc2c3a5af99>
+      801375      601842: W0.T1159769 <marker: timestamp 13335923552684029>
+      801376      601842: W0.T1159769 <marker: W0.T1159769 on core 7>
+      801377      601843: W0.T1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa5c72 48 83 c4 48          add    $0x48, %rsp
 \endcode
 
 Here is an illustration of what a trace would look like when an uncompleted
@@ -805,19 +805,19 @@ is not removed (The following trace is for demonstration purpose only):
 
 \code
 
-    46914793    33950158:     3767811 ifetch       5 byte(s) @ 0x000055f52911b75e c4 42 f8 f5 e8       bzhi   %r8, %rax, %r13
-    46914794    33950159:     3767811 ifetch       5 byte(s) @ 0x000055f52911b763 c4 62 f8 f5 c3       bzhi   %rbx, %rax, %r8
-    46914795    33950160:     3767811 ifetch       4 byte(s) @ 0x000055f52911b768 48 c1 eb 33          shr    $0x33, %rbx
-    46914796    33950161:     3767811 ifetch       3 byte(s) @ 0x000055f52911b76c 48 01 f3             add    %rsi, %rbx
-    46914797    33950162:     3767811 ifetch       5 byte(s) @ 0x000055f52911b76f b8 04 00 00 00       mov    $0x00000004, %eax
+    46914793    33950158: W0.T3767811 ifetch       5 byte(s) @ 0x000055f52911b75e c4 42 f8 f5 e8       bzhi   %r8, %rax, %r13
+    46914794    33950159: W0.T3767811 ifetch       5 byte(s) @ 0x000055f52911b763 c4 62 f8 f5 c3       bzhi   %rbx, %rax, %r8
+    46914795    33950160: W0.T3767811 ifetch       4 byte(s) @ 0x000055f52911b768 48 c1 eb 33          shr    $0x33, %rbx
+    46914796    33950161: W0.T3767811 ifetch       3 byte(s) @ 0x000055f52911b76c 48 01 f3             add    %rsi, %rbx
+    46914797    33950162: W0.T3767811 ifetch       5 byte(s) @ 0x000055f52911b76f b8 04 00 00 00       mov    $0x00000004, %eax
     (The line below is for demonstration purpose only and will not appear in a real drmemtrace.)
-    46914798    33950163:     3767811 ifetch       6 byte(s) @ 0x000055f52911b774 89 85 68 ff ff ff    mov    %eax, -0x98(%rbp)
-    46914799    33950163:     3767811 <marker: kernel xfer from 0x55f52911b774 to handler>
-    46914800    33950163:     3767811 <marker: signal #27>
-    46914801    33950163:     3767811 <marker: timestamp 13373506292215933>
-    46914802    33950163:     3767811 <marker: tid 3767811 on core 4139>
-    46914803    33950164:     3767811 ifetch       1 byte(s) @ 0x000055f5298f7500 55                   push   %rbp
-    46914804    33950164:     3767811 write        8 byte(s) @ 0x00007fd98bd2f210 by PC 0x000055f5298f7500
+    46914798    33950163: W0.T3767811 ifetch       6 byte(s) @ 0x000055f52911b774 89 85 68 ff ff ff    mov    %eax, -0x98(%rbp)
+    46914799    33950163: W0.T3767811 <marker: kernel xfer from 0x55f52911b774 to handler>
+    46914800    33950163: W0.T3767811 <marker: signal #27>
+    46914801    33950163: W0.T3767811 <marker: timestamp 13373506292215933>
+    46914802    33950163: W0.T3767811 <marker: W0.T3767811 on core 4139>
+    46914803    33950164: W0.T3767811 ifetch       1 byte(s) @ 0x000055f5298f7500 55                   push   %rbp
+    46914804    33950164: W0.T3767811 write        8 byte(s) @ 0x00007fd98bd2f210 by PC 0x000055f5298f7500
 \endcode
 
 When the uncompleted mov instruction is removed, a
@@ -825,18 +825,18 @@ When the uncompleted mov instruction is removed, a
 instruction has been removed:
 
 \code
-    46914793    33950158:     3767811 ifetch       5 byte(s) @ 0x000055f52911b75e c4 42 f8 f5 e8       bzhi   %r8, %rax, %r13
-    46914794    33950159:     3767811 ifetch       5 byte(s) @ 0x000055f52911b763 c4 62 f8 f5 c3       bzhi   %rbx, %rax, %r8
-    46914795    33950160:     3767811 ifetch       4 byte(s) @ 0x000055f52911b768 48 c1 eb 33          shr    $0x33, %rbx
-    46914796    33950161:     3767811 ifetch       3 byte(s) @ 0x000055f52911b76c 48 01 f3             add    %rsi, %rbx
-    46914797    33950162:     3767811 ifetch       5 byte(s) @ 0x000055f52911b76f b8 04 00 00 00       mov    $0x00000004, %eax
-    46914798    33950163:     3767811 <marker: uncompleted instruction, encoding 0x898568ff>
-    46914799    33950163:     3767811 <marker: kernel xfer from 0x55f52911b774 to handler>
-    46914800    33950163:     3767811 <marker: signal #27>
-    46914801    33950163:     3767811 <marker: timestamp 13373506292215933>
-    46914802    33950163:     3767811 <marker: tid 3767811 on core 4139>
-    46914803    33950164:     3767811 ifetch       1 byte(s) @ 0x000055f5298f7500 55                   push   %rbp
-    46914804    33950164:     3767811 write        8 byte(s) @ 0x00007fd98bd2f210 by PC 0x000055f5298f7500
+    46914793    33950158: W0.T3767811 ifetch       5 byte(s) @ 0x000055f52911b75e c4 42 f8 f5 e8       bzhi   %r8, %rax, %r13
+    46914794    33950159: W0.T3767811 ifetch       5 byte(s) @ 0x000055f52911b763 c4 62 f8 f5 c3       bzhi   %rbx, %rax, %r8
+    46914795    33950160: W0.T3767811 ifetch       4 byte(s) @ 0x000055f52911b768 48 c1 eb 33          shr    $0x33, %rbx
+    46914796    33950161: W0.T3767811 ifetch       3 byte(s) @ 0x000055f52911b76c 48 01 f3             add    %rsi, %rbx
+    46914797    33950162: W0.T3767811 ifetch       5 byte(s) @ 0x000055f52911b76f b8 04 00 00 00       mov    $0x00000004, %eax
+    46914798    33950163: W0.T3767811 <marker: uncompleted instruction, encoding 0x898568ff>
+    46914799    33950163: W0.T3767811 <marker: kernel xfer from 0x55f52911b774 to handler>
+    46914800    33950163: W0.T3767811 <marker: signal #27>
+    46914801    33950163: W0.T3767811 <marker: timestamp 13373506292215933>
+    46914802    33950163: W0.T3767811 <marker: W0.T3767811 on core 4139>
+    46914803    33950164: W0.T3767811 ifetch       1 byte(s) @ 0x000055f5298f7500 55                   push   %rbp
+    46914804    33950164: W0.T3767811 write        8 byte(s) @ 0x00007fd98bd2f210 by PC 0x000055f5298f7500
 \endcode
 
 \section sec_tool_func_view View Function Calls
@@ -1032,7 +1032,13 @@ compared to the original trace, instructions follow the
 #DR_ISA_REGDEPS synthetic ISA.
 
 #DR_ISA_REGDEPS has the purpose of preserving register dependencies and giving
-hints on the type of operation an instruction performs.
+hints on the type of operation an instruction performs.  For this reason, all operands
+that are not registers (e.g., memory and immediate operands) are not present.
+Memory operations of a #DR_ISA_REGDEPS #instr_t can be inferred from the subsequent
+#dynamorio::drmemtrace::TRACE_TYPE_READ and #dynamorio::drmemtrace::TRACE_TYPE_WRITE
+records.  Note that if a memory operand of the original ISA instruction uses a register,
+its corresponding virtual register will be present in the list of source register operands
+of the corresponding #DR_ISA_REGDEPS instruction.
 
 Being a synthetic ISA, some routines that work on instructions coming from an
 actual ISA (such as #DR_ISA_AMD64) are not supported (e.g., decode_sizeof()).
@@ -1080,7 +1086,7 @@ Note that all routines that operate on #instr_t and #opnd_t are also supported f
 of those described above will return the zeroed value set by instr_create() or
 instr_init() when the #instr_t was created.
 
-On top of instructions and memory acceses, traces also have
+On top of instructions and memory accesses, traces also have
 #dynamorio::drmemtrace::trace_marker_type_t markers.
 All markers of the original trace are present, except for:
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_IDX
@@ -1103,12 +1109,26 @@ Also, we preserved the following markers, but only for SYS_futex functions:
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETADDR
 
-Finally, every trace has a v2p.textproto file associated to it, which provides a
-plausible virtual to physical mapping of the virtual addresses present in a trace
-for more realistic TLB simulations.  This is a static virtual to physical mapping
-with 2 MB pages. Users can generate different mappings (e.g., smaller page size)
-by modifying this file, or create their own mapping following the same
-v2p.textproto format.
+Every trace has a v2p.textproto and an info.textproto file associated with it.
+
+The v2p.textproto file provides a plausible virtual to physical mapping of the virtual
+addresses present in a trace for more realistic TLB simulations.  This is a static
+virtual to physical mapping with 2 MB pages. Users can generate different mappings
+(e.g., smaller page size) by modifying this file, or create their own mapping following
+the same v2p.textproto format.
+
+To run the TLB_simulator tool leveraging the provided v2p.textproto, use:
+\verbatim
+drrun -t drmemtrace -tool TLB_simulator -indir ${PATH_TO_TRACE} -use_physical -v2p_file ${PATH_TO_TRACE}/aux/v2p.textproto
+\endverbatim
+
+The info.textproto file provides users with additional, human-readable information about
+a trace.  Unlike v2p.textproto, this file is currently not intended to be used with any
+DynamoRIO tool.  The file contains information on phases of the underlying workload and
+the number of peak live cores (i.e., the maximum number of cores used at the same time
+during the executon of the traced workload).  We recommend users to set their trace
+simulations to use the provided number of peak live cores and scale the LLC accordingly,
+if the peak live cores is not the whole socket.
 
 These traces are supported starting from DynamoRIO 11.3.
 
@@ -1120,9 +1140,16 @@ The Google Workload Traces can be downloaded from:
 
 Directory structure:
 \verbatim
+CHANGELOG.txt
+CONTRIBUTING.txt
+LICENSE.txt
+README.txt
 workload_name/
-  <uuid>.<tid>.memtrace.zip
-  v2p.textproto
+  trace/
+    <uuid>.<tid>.memtrace.zip
+  aux/
+    info.textproto
+    v2p.textproto
 \endverbatim
 
 \section sec_google_help Getting Help and Reporting Bugs
@@ -1630,13 +1657,13 @@ subsequent entry or the kernel transfer event marker (or infer branch
 behavior for rseq aborts):
 
 ```
-      801394      601853:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa91e3 7f 1b                jnle   $0x00007fc2c3aa9200 (untaken)
-      801395      601854:     1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa91e5 48 83 c4 10          add    $0x10, %rsp
-      801396      601855:     1159769 ifetch       1 byte(s) @ 0x00007fc2c3aa91e9 5b                   pop    %rbx
-      801397      601855:     1159769 read         8 byte(s) @ 0x00007fff8044f6c0 by PC 0x00007fc2c3aa91e9
-      801398      601856:     1159769 ifetch       1 byte(s) @ 0x00007fc2c3aa91ea c3                   ret (target 0x7fc2c3aa81c1)
-      801399      601856:     1159769 read         8 byte(s) @ 0x00007fff8044f6c8 by PC 0x00007fc2c3aa91ea
-      801400      601857:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa81c1 89 c5                mov    %eax, %ebp
+      801394      601853: W0.T1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa91e3 7f 1b                jnle   $0x00007fc2c3aa9200 (untaken)
+      801395      601854: W0.T1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa91e5 48 83 c4 10          add    $0x10, %rsp
+      801396      601855: W0.T1159769 ifetch       1 byte(s) @ 0x00007fc2c3aa91e9 5b                   pop    %rbx
+      801397      601855: W0.T1159769 read         8 byte(s) @ 0x00007fff8044f6c0 by PC 0x00007fc2c3aa91e9
+      801398      601856: W0.T1159769 ifetch       1 byte(s) @ 0x00007fc2c3aa91ea c3                   ret (target 0x7fc2c3aa81c1)
+      801399      601856: W0.T1159769 read         8 byte(s) @ 0x00007fff8044f6c8 by PC 0x00007fc2c3aa91ea
+      801400      601857: W0.T1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa81c1 89 c5                mov    %eax, %ebp
 ```
 
 Filtered traces (filtered via -L0_filter) include the dynamic

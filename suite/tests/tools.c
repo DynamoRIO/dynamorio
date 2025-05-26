@@ -526,6 +526,9 @@ set_check_signal_mask(sigset_t *mask, sigset_t *returned_mask)
 void
 dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
 {
+#            ifdef MACOS
+    assert(false); /* NYI */
+#            else
     struct _aarch64_ctx *head = (struct _aarch64_ctx *)(ucxt->uc_mcontext.RESERVED);
     assert(head->magic == FPSIMD_MAGIC);
     assert(head->size == sizeof(struct fpsimd_context));
@@ -541,7 +544,7 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
     }
     print("\n");
 
-#            ifndef DR_HOST_NOT_TARGET
+#                ifndef DR_HOST_NOT_TARGET
     if (is_sve) {
         size_t offset = sizeof(struct fpsimd_context);
         struct _aarch64_ctx *next_head =
@@ -621,6 +624,7 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
             next_head = (struct _aarch64_ctx *)(ucxt->uc_mcontext.RESERVED + offset);
         }
     }
+#                endif
 #            endif
 }
 #        endif

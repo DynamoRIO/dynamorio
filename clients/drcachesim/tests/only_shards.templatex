@@ -1,7 +1,7 @@
 Schedule stats tool results:
 Total counts:
            2 cores
-           4 threads: W0.T1257600, W0.T1257602, W0.T1257599, W0.T1257603
+           4 threads: W0.T872904, W0.T872903, W0.T872902, W0.T872884
 .*
-Core #0 schedule: FJ_
-Core #1 schedule: GI
+Core #0 schedule: EM_E_M_
+Core #1 schedule: GF_F_F_

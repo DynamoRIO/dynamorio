@@ -175,9 +175,10 @@ machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
 {
     /* We need to flush the icache on all harts, which is not feasible for FENCE.I, so we
      * use SYS_riscv_flush_icache to let the kernel do this.
+     * In order for this to work for multithreaded applications, we must NOT set the
+     * SYS_RISCV_FLUSH_ICACHE_LOCAL flag.
      */
-    dynamorio_syscall(SYS_riscv_flush_icache, 3, pc_start, pc_end,
-                      SYS_RISCV_FLUSH_ICACHE_LOCAL);
+    dynamorio_syscall(SYS_riscv_flush_icache, 3, pc_start, pc_end, 0);
 }
 
 DR_API

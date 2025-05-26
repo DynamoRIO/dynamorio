@@ -1,1 +1,9 @@
+encoding for expected ld64b  (%x4)[64byte] -> %x24 %x25 %x26 %x27 %x28 %x29 %x30 %x31 not possible
+encoding for expected ld64b  (%x0)[64byte] -> %x21 %x22 %x23 %x24 %x25 %x26 %x27 %x28 not possible
+encoding for expected st64b  %x24 %x25 %x26 %x27 %x28 %x29 %x30 %x31 -> (%x4)[64byte] not possible
+encoding for expected st64b  %x21 %x22 %x23 %x24 %x25 %x26 %x27 %x28 -> (%x0)[64byte] not possible
+encoding for expected st64bv  %x24 %x25 %x26 %x27 %x28 %x29 %x30 %x31 -> (%x4)[64byte] %x6 not possible
+encoding for expected st64bv  %x21 %x22 %x23 %x24 %x25 %x26 %x27 %x28 -> (%x0)[64byte] %x4 not possible
+encoding for expected st64bv0  %x24 %x25 %x26 %x27 %x28 %x29 %x30 %x31 -> (%x4)[64byte] %x6 not possible
+encoding for expected st64bv0  %x21 %x22 %x23 %x24 %x25 %x26 %x27 %x28 -> (%x0)[64byte] %x4 not possible
 All v8.7 tests complete.

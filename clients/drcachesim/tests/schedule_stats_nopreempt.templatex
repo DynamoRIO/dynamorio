@@ -1,31 +1,33 @@
 Schedule stats tool results:
 Total counts:
            4 cores
-           8 threads: W0.T1257.*
-      638938 instructions
-           6 total context switches
-   0\.0093906 CSPKI \(context switches per 1000 instructions\)
-      106490 instructions per context switch
-           6 voluntary context switches
+           9 threads: W0.T872.*
+      650576 instructions
+          18 total context switches
+   0.0276678 CSPKI \(context switches per 1000 instructions\)
+       36143 instructions per context switch
+          18 voluntary context switches
            0 direct context switches
-      100\.00% voluntary switches
-        0\.00% direct switches
+           0 context switch sequence injections
+           0 system call sequence injections
+      100.00% voluntary switches
+        0.00% direct switches
            5 switches input-to-input
-           4 switches input-to-idle
-           1 switches idle-to-input
+          16 switches input-to-idle
+          13 switches idle-to-input
            0 switches nop-ed
            0 quantum_preempts
            0 migrations
            0 work steals
            1 rebalances
            0 output limits hit
-         161 system calls
-           2 maybe-blocking system calls
+         480 system calls
+         183 maybe-blocking system calls
            0 direct switch requests
            0 observed migrations
            0 waits
     *[0-9]* idles
-      *[0-9\.]*% cpu busy by record count
+     *[0-9\.]*% cpu busy by record count
    *[0-9]* cpu microseconds
    *[0-9]* wait microseconds
    *[0-9]* idle microseconds
@@ -33,55 +35,67 @@ Total counts:
       *[0-9\.]*% cpu busy by time
       *[0-9\.]*% cpu busy by time, ignoring idle past last instr
   Instructions per context switch histogram:
-           0..   50000     2
+           0..   50000    14
        50000..  100000     4
   Cores per thread:
-           1..       2     8
+           1..       2     9
+  Latencies for syscalls that incurred a switch:
+.*
+  Latencies for syscalls that did not incur a switch:
+.*
 Core #0 counts:
-           . threads: W0.T1257.*
+           . threads: W0.T872.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
 .*
 Core #1 counts:
-           . threads: W0.T1257.*
+           . threads: W0.T872.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
 .*
 Core #2 counts:
-           . threads: W0.T1257.*
+           . threads: W0.T872.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
 .*
 Core #3 counts:
-           . threads: W0.T1257.*
+           . threads: W0.T872.*
       *[0-9]* instructions
            . total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
            . voluntary context switches
            0 direct context switches
+           0 context switch sequence injections
+           0 system call sequence injections
       100\.00% voluntary switches
         0\.00% direct switches
 .*
-Core #0 schedule: [A-Ha-h_]*
-Core #1 schedule: [A-Ha-h_]*
-Core #2 schedule: [A-Ha-h_]*
-Core #3 schedule: [A-Ha-h_]*
+Core #0 schedule: [A-Ia-i_]*
+Core #1 schedule: [A-Ia-i_]*
+Core #2 schedule: [A-Ia-i_]*
+Core #3 schedule: [A-Ia-i_]*

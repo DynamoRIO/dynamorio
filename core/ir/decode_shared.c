@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -253,8 +253,12 @@ dr_set_isa_mode(void *drcontext, dr_isa_mode_t new_mode,
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     dr_isa_mode_t old_mode;
     /* We would disallow but some early init routines need to use global heap */
-    if (dcontext == GLOBAL_DCONTEXT)
+    if (dcontext == GLOBAL_DCONTEXT) {
         dcontext = get_thread_private_dcontext();
+        /* If we're pre-thread-init, go back to GLOBAL_DCONTEXT. */
+        if (dcontext == NULL)
+            dcontext = GLOBAL_DCONTEXT;
+    }
     /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
 #if !defined(STANDALONE_DECODER)

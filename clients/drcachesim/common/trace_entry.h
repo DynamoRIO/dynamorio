@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -218,7 +218,12 @@ typedef enum {
     // match TRACE_ENTRY_VERSION) in the addr field.  Unused for pipes.
     TRACE_TYPE_HEADER,
 
-    /** The final entry in an offline file or a pipe.  Not exposed to tools. */
+    /**
+     * The final entry in an offline file or a pipe.  Not exposed to tools.
+     * This can be in the middle of a derived trace when existing traces are
+     * combined into a new trace, as happens with core-sharded-on-disk traces
+     * produced by the record_filter tool in core-sharded mode.
+     */
     TRACE_TYPE_FOOTER,
 
     /** A hardware-issued prefetch (generated after tracing by a cache simulator). */
@@ -559,9 +564,13 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
-    // Internal marker present just before each indirect branch instruction in offline
-    // non-i-filtered traces.  The marker value holds the actual target of the
-    // branch.  The reader converts this to the memref_t "indirect_branch_target" field.
+    /**
+     * Internal marker present just before each indirect branch instruction in offline
+     * non-i-filtered traces.  The marker value holds the actual target of the
+     * branch.  The reader converts this to the instr.indirect_branch_target field in
+     * #memref_t and does not pass it on, so #memref_t analysis tools never see this
+     * marker.
+     */
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 
     // Although it is only for Mac that syscall success requires more than the
@@ -570,7 +579,7 @@ typedef enum {
     /**
      * This marker is emitted for system calls whose parameters are traced with
      * -record_syscall.  It is emitted immediately after #TRACE_MARKER_TYPE_FUNC_RETVAL
-     * if prior the system call (whose id is specified by the closest previous
+     * if the prior system call (whose id is specified by the closest previous
      * #TRACE_MARKER_TYPE_FUNC_ID marker entry) failed.  Whether it failed is obtained
      * from dr_syscall_get_result_ex() via the "succeeded" field of
      * #dr_syscall_result_info_t.  See the corresponding documentation for caveats about
@@ -1052,10 +1061,25 @@ typedef enum {
      * The individual traces are enclosed within a pair of
      * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END
      * markers which also specify what system call the contained trace belongs to. This
-     * file can be used with -syscall_template_file to raw2trace to create an
-     * #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace. See the sample file written by the
-     * burst_syscall_inject.cpp test for more details on the expected format for the
-     * system call template file.
+     * file can be used to create an #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace with
+     * -syscall_template_file to raw2trace, with -sched_syscall_file to the
+     * drmemtrace analyzer framework, and also with #dynamorio::drmemtrace::
+     * scheduler_tmpl_t::scheduler_options_t.kernel_syscall_trace_path and #dynamorio::
+     * drmemtrace::scheduler_tmpl_t::scheduler_options_t.kernel_syscall_reader to the
+     * scheduler. Each system call trace template uses the regular drmemtrace format,
+     * including using paired #TRACE_MARKER_TYPE_KERNEL_EVENT and
+     * #TRACE_MARKER_TYPE_KERNEL_XFER markers to represent kernel interrupts during
+     * system call execution. Each system call trace should end with an indirect
+     * branch instruction (e.g., iret/sysret/sysexit on x86, or eret on AArch64) which
+     * must be preceded by a #TRACE_MARKER_TYPE_BRANCH_TARGET marker with any value;
+     * the marker's value will be appropriately set to point to the fallthrough pc of
+     * the prior syscall instruction. Note: if a #TRACE_MARKER_TYPE_KERNEL_EVENT
+     * immediately follows the syscall trace, it indicates interruption of the syscall
+     * by a signal; in this case, the next pc is the #TRACE_MARKER_TYPE_KERNEL_EVENT
+     * value.
+     * See the sample file written by the burst_syscall_inject.cpp test for more
+     * details on the expected format for the system call template file.
+     *
      * TODO i#6495: Add support for reading a zipfile where each trace template is in
      * a separate component. This will make it easier to manually append, update, or
      * inspect the individual templates, and also allow streaming the component with the
@@ -1075,6 +1099,12 @@ typedef enum {
     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY = 0x8000,
     /**
      * Each trace shard represents one core and contains interleaved software threads.
+     * Such a trace is already scheduled, so it is run through the scheduler in a
+     * non-scheduled mode where interfaces such as get_workload_id() will not return the
+     * original separate inputs but rather the new inputs as seen by the scheduler which
+     * are a single workload with one input per core.  Use the modified #memref_t tid and
+     * pid fields with the helpers workload_from_memref_pid() and
+     * workload_from_memref_tid() to obtain the workload in this case.
      */
     OFFLINE_FILE_TYPE_CORE_SHARDED = 0x10000,
     /**

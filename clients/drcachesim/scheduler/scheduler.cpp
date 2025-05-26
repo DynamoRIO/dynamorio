@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -167,7 +167,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
            cur_ref_count_, cur_instr_count_, input->tid,
            input->reader->get_record_ordinal(), input->reader->get_instruction_ordinal());
 
-    // Update our header state.
+    // Update our header and other state.
     // If we skipped over these, advance_region_of_interest() sets them.
     // TODO i#5843: Check that all inputs have the same top-level headers here.
     // A possible exception is allowing warmup-phase-filtered traces to be mixed
@@ -189,6 +189,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
             chunk_instr_count_ = marker_value;
             break;
         case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = marker_value; break;
+        // While reader_t tracks kernel state, if we dynamically inject a sequence
+        // the input readers will not see it: so we need our own state here.
+        case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_trace_ = true; break;
+        case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: in_kernel_trace_ = false; break;
         default: // No action needed.
             break;
         }
@@ -334,7 +340,7 @@ template <typename RecordType, typename ReaderType>
 bool
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::is_record_kernel() const
 {
-    return scheduler_->is_record_kernel(ordinal_);
+    return in_kernel_trace_;
 }
 
 template <typename RecordType, typename ReaderType>

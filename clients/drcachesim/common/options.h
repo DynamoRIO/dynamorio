@@ -57,6 +57,7 @@
 // Constants used by specific tools.
 #define REPLACE_POLICY_NON_SPECIFIED ""
 #define REPLACE_POLICY_LRU "LRU"
+#define REPLACE_POLICY_BIT_PLRU "BIT_PLRU"
 #define REPLACE_POLICY_LFU "LFU"
 #define REPLACE_POLICY_FIFO "FIFO"
 #define PREFETCH_POLICY_NEXTLINE "nextline"
@@ -178,6 +179,7 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_warmu
 extern dynamorio::droption::droption_t<double> op_warmup_fraction;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_sim_refs;
 extern dynamorio::droption::droption_t<std::string> op_config_file;
+extern dynamorio::droption::droption_t<bool> op_add_noise_generator;
 extern dynamorio::droption::droption_t<unsigned int> op_report_top;
 extern dynamorio::droption::droption_t<unsigned int> op_reuse_distance_threshold;
 extern dynamorio::droption::droption_t<bool> op_reuse_distance_histogram;
@@ -216,6 +218,7 @@ extern dynamorio::droption::droption_t<std::string> op_replay_file;
 extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 #endif
 extern dynamorio::droption::droption_t<std::string> op_sched_switch_file;
+extern dynamorio::droption::droption_t<std::string> op_sched_syscall_file;
 extern dynamorio::droption::droption_t<bool> op_sched_randomize;
 extern dynamorio::droption::droption_t<bool> op_sched_disable_direct_switches;
 extern dynamorio::droption::droption_t<bool> op_sched_infinite_timeouts;

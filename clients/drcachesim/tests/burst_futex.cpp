@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
  * trace is analyzed to confirm that futex parameters were included.
  */
 
+#include "test_helpers.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
 #include "analysis_tool.h"

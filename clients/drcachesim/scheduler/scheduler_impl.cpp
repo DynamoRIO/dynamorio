@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -218,10 +218,47 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_set_tid(memref_t &record,
 }
 
 template <>
-bool
-scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_instr(memref_t record)
+void
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_set_pid(memref_t &record,
+                                                               memref_pid_t pid)
 {
-    return type_is_instr(record.instr.type);
+    record.marker.pid = pid;
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_instr(memref_t record,
+                                                                addr_t *pc, size_t *size)
+{
+    if (type_is_instr(record.instr.type)) {
+        if (pc != nullptr)
+            *pc = record.instr.addr;
+        if (size != nullptr)
+            *size = record.instr.size;
+        return true;
+    }
+    return false;
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_indirect_branch_instr(
+    memref_t &record, bool &has_indirect_branch_target, addr_t set_indirect_branch_target)
+{
+    has_indirect_branch_target = false;
+    if (type_is_instr_branch(record.instr.type) &&
+        !type_is_instr_direct_branch(record.instr.type)) {
+        has_indirect_branch_target = true;
+        // XXX: Zero may not be the perfect sentinel value as an app may have instrs that
+        // jump to pc=0 (and later handle the fault). But current uses of
+        // record_type_is_indirect_branch_instr use only non-zero values for
+        // set_indirect_branch_target based on actual pcs seen in the trace.
+        if (set_indirect_branch_target != 0) {
+            record.instr.indirect_branch_target = set_indirect_branch_target;
+        }
+        return true;
+    }
+    return false;
 }
 
 template <>
@@ -239,6 +276,13 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_instr_boundary(
     memref_t record, memref_t prev_record)
 {
     return record_type_is_instr(record);
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_is_thread_exit(memref_t record)
+{
+    return record.exit.type == TRACE_TYPE_THREAD_EXIT;
 }
 
 template <>
@@ -348,6 +392,23 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &i
     // We do nothing, as every record has a tid from the separate inputs.
 }
 
+template <>
+template <>
+typename scheduler_tmpl_t<memref_t, reader_t>::switch_type_t
+scheduler_impl_tmpl_t<memref_t, reader_t>::invalid_kernel_sequence_key()
+{
+    return switch_type_t::SWITCH_INVALID;
+}
+
+template <>
+template <>
+int
+scheduler_impl_tmpl_t<memref_t, reader_t>::invalid_kernel_sequence_key()
+{
+    // System numbers are small non-negative integers.
+    return -1;
+}
+
 /******************************************************************************
  * Specializations for scheduler_impl_tmpl_t<record_reader_t>, aka
  * record_scheduler_impl_t.
@@ -412,11 +473,42 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_set_tid(
 }
 
 template <>
+void
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_set_pid(
+    trace_entry_t &record, memref_pid_t pid)
+{
+    if (record.type != TRACE_TYPE_PID)
+        return;
+    record.addr = static_cast<addr_t>(pid);
+}
+
+template <>
 bool
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr(
-    trace_entry_t record)
+    trace_entry_t record, addr_t *pc, size_t *size)
 {
-    return type_is_instr(static_cast<trace_type_t>(record.type));
+    if (type_is_instr(static_cast<trace_type_t>(record.type))) {
+        if (pc != nullptr)
+            *pc = record.addr;
+        if (size != nullptr)
+            *size = record.size;
+        return true;
+    }
+    return false;
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::
+    record_type_is_indirect_branch_instr(trace_entry_t &record,
+                                         bool &has_indirect_branch_target,
+                                         addr_t set_indirect_branch_target_unused)
+{
+    has_indirect_branch_target = false;
+    // Cannot set the provided indirect branch target here because
+    // a prior trace_entry_t would have it.
+    return type_is_instr_branch(static_cast<trace_type_t>(record.type)) &&
+        !type_is_instr_direct_branch(static_cast<trace_type_t>(record.type));
 }
 
 template <>
@@ -469,6 +561,14 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_instr_boun
     return (record_type_is_instr(record) ||
             record_reader_t::record_is_pre_instr(&record)) &&
         !record_reader_t::record_is_pre_instr(&prev_record);
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_thread_exit(
+    trace_entry_t record)
+{
+    return record.type == TRACE_TYPE_THREAD_EXIT;
 }
 
 template <>
@@ -568,6 +668,23 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
     input.queue.push_front(tid);
 }
 
+template <>
+template <>
+typename scheduler_tmpl_t<trace_entry_t, record_reader_t>::switch_type_t
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::invalid_kernel_sequence_key()
+{
+    return switch_type_t::SWITCH_INVALID;
+}
+
+template <>
+template <>
+int
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::invalid_kernel_sequence_key()
+{
+    // System numbers are small non-negative integers.
+    return -1;
+}
+
 /***************************************************************************
  * Scheduler.
  */
@@ -629,6 +746,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.honor_infinite_timeouts);
     VPRINT(this, 1, "  %-25s : %f\n", "exit_if_fraction_inputs_left",
            options_.exit_if_fraction_inputs_left);
+    VPRINT(this, 1, "  %-25s : %s\n", "kernel_syscall_trace_path",
+           options_.kernel_syscall_trace_path.c_str());
+    VPRINT(this, 1, "  %-25s : %p\n", "kernel_syscall_reader",
+           options_.kernel_syscall_reader.get());
+    VPRINT(this, 1, "  %-25s : %p\n", "kernel_syscall_reader_end",
+           options_.kernel_syscall_reader_end.get());
 }
 
 template <typename RecordType, typename ReaderType>
@@ -656,7 +779,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::~scheduler_impl_tmpl_t()
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS]);
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue rebalances",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_RUNQUEUE_REBALANCES]);
-        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Ouput limits hit",
+        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Output limits hit",
                outputs_[i].stats[memtrace_stream_t::SCHED_STAT_HIT_OUTPUT_LIMIT]);
 #ifndef NDEBUG
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue lock acquired",
@@ -717,6 +840,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
         input_reader_info_t reader_info;
         reader_info.only_threads = workload.only_threads;
         reader_info.only_shards = workload.only_shards;
+        reader_info.first_input_ordinal = static_cast<input_ordinal_t>(inputs_.size());
         if (workload.path.empty()) {
             if (workload.readers.empty())
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
@@ -776,28 +900,59 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         }
         for (const auto &modifiers : workload.thread_modifiers) {
-            if (modifiers.struct_size != sizeof(input_thread_info_t))
-                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            const std::vector<memref_tid_t> *which_tids;
-            std::vector<memref_tid_t> workload_tid_vector;
-            if (modifiers.tids.empty()) {
-                // Apply to all tids that have not already been modified.
-                for (const auto entry : reader_info.tid2input) {
-                    if (!inputs_[entry.second].has_modifier)
-                        workload_tid_vector.push_back(entry.first);
+            // We can't actually use modifiers.struct_size to provide binary
+            // backward compatibility due to C++ not supporting offsetof with
+            // non-standard-layout types.  So we ignore struct_size and only
+            // provide source compatibility.
+            // Vector of ordinals into input for this workload.
+            std::vector<int> which_workload_inputs;
+            if (modifiers.tids.empty() && modifiers.shards.empty()) {
+                // Apply to all inputs that have not already been modified.
+                for (int i = 0; i < static_cast<int>(reader_info.input_count); ++i) {
+                    if (!inputs_[reader_info.first_input_ordinal + i].has_modifier)
+                        which_workload_inputs.push_back(i);
                 }
-                which_tids = &workload_tid_vector;
-            } else
-                which_tids = &modifiers.tids;
+            } else if (!modifiers.tids.empty()) {
+                if (!modifiers.shards.empty()) {
+                    error_string_ =
+                        "Cannot set both tids and shards in input_thread_info_t";
+                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                }
+                for (memref_tid_t tid : modifiers.tids) {
+                    auto it = reader_info.tid2input.find(tid);
+                    if (it == reader_info.tid2input.end()) {
+                        error_string_ =
+                            "Cannot find tid " + std::to_string(tid) + " for modifier";
+                        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                    }
+                    which_workload_inputs.push_back(it->second -
+                                                    reader_info.first_input_ordinal);
+                }
+            } else if (!modifiers.shards.empty()) {
+                which_workload_inputs = modifiers.shards;
+            }
+
             // We assume the overhead of copying the modifiers for every thread is
             // not high and the simplified code is worthwhile.
-            for (memref_tid_t tid : *which_tids) {
-                if (reader_info.tid2input.find(tid) == reader_info.tid2input.end())
-                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-                int index = reader_info.tid2input[tid];
+            for (int local_index : which_workload_inputs) {
+                int index = local_index + reader_info.first_input_ordinal;
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;
-                input.binding = modifiers.output_binding;
+                // Check for valid bindings.
+                for (output_ordinal_t bind : modifiers.output_binding) {
+                    if (bind < 0 || bind >= output_count) {
+                        error_string_ =
+                            "output_binding " + std::to_string(bind) + " out of bounds";
+                        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                    }
+                }
+                // It is common enough for every output to be passed (as part of general
+                // code with a full set as a default value) that it is worth
+                // detecting and ignoring in order to avoid hitting binding-handling
+                // code and save time in initial placement and runqueue code.
+                if (modifiers.output_binding.size() < static_cast<size_t>(output_count)) {
+                    input.binding = modifiers.output_binding;
+                }
                 input.priority = modifiers.priority;
                 for (size_t i = 0; i < modifiers.regions_of_interest.size(); ++i) {
                     const auto &range = modifiers.regions_of_interest[i];
@@ -868,6 +1023,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
     live_input_count_.store(static_cast<int>(inputs_.size()), std::memory_order_release);
 
     res = read_switch_sequences();
+    if (res != sched_type_t::STATUS_SUCCESS)
+        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+
+    res = read_syscall_sequences();
     if (res != sched_type_t::STATUS_SUCCESS)
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
 
@@ -1385,28 +1544,54 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
 {
-    std::unique_ptr<ReaderType> reader, reader_end;
-    if (!options_.kernel_switch_trace_path.empty()) {
-        reader = get_reader(options_.kernel_switch_trace_path, verbosity_);
+    return read_kernel_sequences(switch_sequence_, options_.kernel_switch_trace_path,
+                                 std::move(options_.kernel_switch_reader),
+                                 std::move(options_.kernel_switch_reader_end),
+                                 TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                                 TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, "context switch");
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::read_syscall_sequences()
+{
+
+    return read_kernel_sequences(syscall_sequence_, options_.kernel_syscall_trace_path,
+                                 std::move(options_.kernel_syscall_reader),
+                                 std::move(options_.kernel_syscall_reader_end),
+                                 TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                                 TRACE_MARKER_TYPE_SYSCALL_TRACE_END, "system call");
+}
+
+template <typename RecordType, typename ReaderType>
+template <typename SequenceKey>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
+    std::unordered_map<SequenceKey, std::vector<RecordType>, custom_hash_t<SequenceKey>>
+        &sequence,
+    std::string trace_path, std::unique_ptr<ReaderType> reader,
+    std::unique_ptr<ReaderType> reader_end, trace_marker_type_t start_marker,
+    trace_marker_type_t end_marker, std::string sequence_type)
+{
+    if (!trace_path.empty()) {
+        reader = get_reader(trace_path, verbosity_);
         if (!reader || !reader->init()) {
-            error_string_ +=
-                "Failed to open kernel switch file " + options_.kernel_switch_trace_path;
+            error_string_ += "Failed to open file for kernel " + sequence_type +
+                " sequences: " + trace_path;
             return sched_type_t::STATUS_ERROR_FILE_OPEN_FAILED;
         }
         reader_end = get_default_reader();
-    } else if (!options_.kernel_switch_reader) {
-        // No switch data provided.
+    } else if (!reader) {
+        // No kernel data provided.
         return sched_type_t::STATUS_SUCCESS;
     } else {
-        if (!options_.kernel_switch_reader_end) {
-            error_string_ += "Provided kernel switch reader but no end";
+        if (!reader_end) {
+            error_string_ += "Provided kernel " + sequence_type + " reader but no end";
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         }
-        reader = std::move(options_.kernel_switch_reader);
-        reader_end = std::move(options_.kernel_switch_reader_end);
         // We own calling init() as it can block.
         if (!reader->init()) {
-            error_string_ += "Failed to init kernel switch reader";
+            error_string_ += "Failed to init kernel " + sequence_type + " reader";
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         }
     }
@@ -1414,34 +1599,57 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
     // memory and don't need to stream them on every use.
     // We read a single stream, even if underneath these are split into subfiles
     // in an archive.
-    switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
+    SequenceKey sequence_key = invalid_kernel_sequence_key<SequenceKey>();
+    const SequenceKey INVALID_SEQ_KEY = invalid_kernel_sequence_key<SequenceKey>();
+    bool in_sequence = false;
     while (*reader != *reader_end) {
         RecordType record = **reader;
         // Only remember the records between the markers.
         trace_marker_type_t marker_type = TRACE_MARKER_TYPE_RESERVED_END;
         uintptr_t marker_value = 0;
-        if (record_type_is_marker(record, marker_type, marker_value) &&
-            marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
-            switch_type = static_cast<switch_type_t>(marker_value);
-            if (!switch_sequence_[switch_type].empty()) {
-                error_string_ += "Duplicate context switch sequence type found";
+        bool is_marker = record_type_is_marker(record, marker_type, marker_value);
+        if (is_marker && marker_type == start_marker) {
+            if (in_sequence) {
+                error_string_ += "Found another " + sequence_type +
+                    " sequence start without prior ending";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
+            sequence_key = static_cast<SequenceKey>(marker_value);
+            in_sequence = true;
+            if (sequence_key == INVALID_SEQ_KEY) {
+                error_string_ +=
+                    "Invalid " + sequence_type + " sequence found with default key";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
+            if (!sequence[sequence_key].empty()) {
+                error_string_ += "Duplicate " + sequence_type + " sequence found";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
         }
-        if (switch_type != sched_type_t::SWITCH_INVALID)
-            switch_sequence_[switch_type].push_back(record);
-        if (record_type_is_marker(record, marker_type, marker_value) &&
-            marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
-            if (static_cast<switch_type_t>(marker_value) != switch_type) {
-                error_string_ += "Context switch marker values mismatched";
+        if (in_sequence)
+            sequence[sequence_key].push_back(record);
+        if (is_marker && marker_type == end_marker) {
+            if (!in_sequence) {
+                error_string_ += "Found " + sequence_type +
+                    " sequence end marker without start marker";
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
             }
-            VPRINT(this, 1, "Read %zu kernel context switch records for type %d\n",
-                   switch_sequence_[switch_type].size(), switch_type);
-            switch_type = sched_type_t::SWITCH_INVALID;
+            if (static_cast<SequenceKey>(marker_value) != sequence_key) {
+                error_string_ += sequence_type + " marker values mismatched";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
+            if (sequence[sequence_key].empty()) {
+                error_string_ += sequence_type + " sequence empty";
+                return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+            }
+            VPRINT(this, 1, "Read %zu kernel %s records for key %d\n",
+                   sequence[sequence_key].size(), sequence_type.c_str(), sequence_key);
+            sequence_key = INVALID_SEQ_KEY;
+            in_sequence = false;
         }
         ++(*reader);
     }
+    assert(!in_sequence);
     return sched_type_t::STATUS_SUCCESS;
 }
 
@@ -1600,6 +1808,139 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     }
     return sched_type_t::STATUS_SUCCESS;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
+    output_ordinal_t output, input_info_t *input, RecordType &record)
+{
+    assert(!input->in_syscall_injection);
+    assert(input->to_inject_syscall != input_info_t::INJECT_NONE);
+    if (!record_type_is_invalid(record)) {
+        // May be invalid if we're at input eof, in which case we do not need to
+        // save it.
+        input->queue.push_front(record);
+    }
+    int syscall_num = input->to_inject_syscall;
+    input->to_inject_syscall = input_info_t::INJECT_NONE;
+    assert(syscall_sequence_.find(syscall_num) != syscall_sequence_.end());
+    stream_status_t res = inject_kernel_sequence(syscall_sequence_[syscall_num], input);
+    if (res != stream_status_t::STATUS_OK)
+        return res;
+    ++outputs_[output]
+          .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS];
+    VPRINT(this, 3, "Inserted %zu syscall records for syscall %d to %d.%d\n",
+           syscall_sequence_[syscall_num].size(), syscall_num, input->workload,
+           input->index);
+
+    // Return the first injected record.
+    assert(!input->queue.empty());
+    record = input->queue.front();
+    input->queue.pop_front();
+    input->cur_from_queue = true;
+    input->in_syscall_injection = true;
+    return stream_status_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::maybe_inject_pending_syscall_sequence(
+    output_ordinal_t output, input_info_t *input, RecordType &record)
+{
+    if (input->to_inject_syscall == input_info_t::INJECT_NONE)
+        return stream_status_t::STATUS_OK;
+
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value_unused;
+    uintptr_t timestamp_unused;
+    bool is_marker = record_type_is_marker(record, marker_type, marker_value_unused);
+    bool is_injection_point = false;
+    if (
+        // For syscalls not specified in -record_syscall, which do not have
+        // the func_id-func_retval markers.
+        record_type_is_timestamp(record, timestamp_unused) ||
+        // For syscalls that did not have a post-event because the trace ended.
+        record_type_is_thread_exit(record) ||
+        // For syscalls interrupted by a signal and did not have a post-syscall
+        // event.
+        (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
+        is_injection_point = true;
+    } else if (is_marker && marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+        if (!input->saw_first_func_id_marker_after_syscall) {
+            // XXX i#7482: If we allow recording zero args for syscalls in
+            // -record_syscall, we would need to update this logic.
+            input->saw_first_func_id_marker_after_syscall = true;
+        } else {
+            // For syscalls specified in -record_syscall, for which we inject
+            // after the func_id-func_arg markers (if any) but before the
+            // func_id-func_retval markers.
+            is_injection_point = true;
+        }
+    }
+    if (is_injection_point) {
+        stream_status_t res = inject_pending_syscall_sequence(output, input, record);
+        if (res != stream_status_t::STATUS_OK)
+            return res;
+        input->saw_first_func_id_marker_after_syscall = false;
+    }
+    return stream_status_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
+    std::vector<RecordType> &sequence, input_info_t *input)
+{
+    // Inject kernel template code.  Since the injected records belong to this
+    // input (the kernel is acting on behalf of this input) we insert them into the
+    // input's queue, but ahead of any prior queued items.  This is why we walk in
+    // reverse, for the push_front calls to the deque.  We update the tid of the
+    // records here to match.  They are considered as is_record_synthetic() and do
+    // not affect input stream ordinals.
+    // XXX: These will appear before the top headers of a new thread which is slightly
+    // odd to have regular records with the new tid before the top headers.
+    assert(!sequence.empty());
+    bool saw_any_instr = false;
+    bool set_branch_target_marker = false;
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value = 0;
+    for (int i = static_cast<int>(sequence.size()) - 1; i >= 0; --i) {
+        RecordType record = sequence[i];
+        record_type_set_tid(record, input->tid);
+        if (record_type_is_instr(record)) {
+            set_branch_target_marker = false;
+            if (!saw_any_instr) {
+                saw_any_instr = true;
+                bool has_indirect_branch_target = false;
+                // If the last to-be-injected instruction is an indirect branch, set its
+                // indirect_branch_target field to the fallthrough pc of the last
+                // returned instruction from this input (for syscall injection, it would
+                // be the syscall for which we're injecting the trace). This is simpler
+                // than trying to get the actual next instruction on this input for which
+                // we would need to read-ahead.
+                // XXX i#6495, i#7157: The above strategy does not work for syscalls that
+                // transfer control (like sigreturn), but we do not trace those anyway
+                // today (neither using Intel-PT, nor QEMU) as there are challenges in
+                // determining the post-syscall resumption point.
+                if (record_type_is_indirect_branch_instr(
+                        record, has_indirect_branch_target, input->last_pc_fallthrough) &&
+                    !has_indirect_branch_target) {
+                    // trace_entry_t instr records do not hold the indirect branch target;
+                    // instead a separate marker prior to the indirect branch instr holds
+                    // it, which must be set separately.
+                    set_branch_target_marker = true;
+                }
+            }
+        } else if (set_branch_target_marker &&
+                   record_type_is_marker(record, marker_type, marker_value) &&
+                   marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
+            record_type_set_marker_value(record, input->last_pc_fallthrough);
+            set_branch_target_marker = false;
+        }
+        input->queue.push_front(record);
+    }
+    return stream_status_t::STATUS_OK;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -1778,7 +2119,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::is_record_synthetic(
     int index = outputs_[output].cur_input;
     if (index < 0)
         return false;
-    if (outputs_[output].in_context_switch_code)
+    if (outputs_[output].in_context_switch_code || outputs_[output].in_syscall_code)
         return true;
     return inputs_[index].reader->is_record_synthetic();
 }
@@ -1825,6 +2166,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_record_ordinal(
         // If this gets any more complex, the scheduler stream should track its
         // own counts for every input and just ignore the input stream's tracking.
         ord -= inputs_[index].queue.size() + (inputs_[index].cur_from_queue ? 1 : 0);
+    }
+    if (inputs_[index].in_syscall_injection) {
+        // We readahead by one record when injecting syscalls.
+        --ord;
     }
     return ord;
 }
@@ -1938,7 +2283,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
         return sched_type_t::STATUS_OK;
     }
     // If we're within one and already skipped, just exit to avoid re-requesting a skip
-    // and making no progress (we're on the inserted timetamp + cpuid and our cur instr
+    // and making no progress (we're on the inserted timestamp + cpuid and our cur instr
     // count isn't yet the target).
     if (input.in_cur_region && cur_instr >= cur_range.start_instruction - 1)
         return sched_type_t::STATUS_OK;
@@ -2282,43 +2627,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::set_cur_input(
         stream->version_ = inputs_[input].reader->get_version();
         stream->last_timestamp_ = inputs_[input].reader->get_last_timestamp();
         stream->first_timestamp_ = inputs_[input].reader->get_first_timestamp();
-        stream->filetype_ = inputs_[input].reader->get_filetype();
+        stream->filetype_ = adjust_filetype(
+            static_cast<offline_file_type_t>(inputs_[input].reader->get_filetype()));
         stream->cache_line_size_ = inputs_[input].reader->get_cache_line_size();
         stream->chunk_instr_count_ = inputs_[input].reader->get_chunk_instr_count();
         stream->page_size_ = inputs_[input].reader->get_page_size();
-    }
-
-    if (inputs_[input].pid != INVALID_PID) {
-        insert_switch_tid_pid(inputs_[input]);
-    }
-
-    if (!switch_sequence_.empty() &&
-        outputs_[output].stream->get_instruction_ordinal() > 0) {
-        switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
-        if (prev_workload != inputs_[input].workload)
-            switch_type = sched_type_t::SWITCH_PROCESS;
-        else
-            switch_type = sched_type_t::SWITCH_THREAD;
-        // Inject kernel context switch code.  Since the injected records belong to this
-        // input (the kernel is acting on behalf of this input) we insert them into the
-        // input's queue, but ahead of any prior queued items.  This is why we walk in
-        // reverse, for the push_front calls to the deque.  We update the tid of the
-        // records here to match.  They are considered as is_record_synthetic() and do
-        // not affect input stream ordinals.
-        // XXX: These will appear before the top headers of a new thread which is slightly
-        // odd to have regular records with the new tid before the top headers.
-        if (!switch_sequence_[switch_type].empty()) {
-            for (int i = static_cast<int>(switch_sequence_[switch_type].size()) - 1;
-                 i >= 0; --i) {
-                RecordType record = switch_sequence_[switch_type][i];
-                record_type_set_tid(record, inputs_[input].tid);
-                inputs_[input].queue.push_front(record);
-            }
-            VPRINT(this, 3,
-                   "Inserted %zu switch records for type %d from %d.%d to %d.%d\n",
-                   switch_sequence_[switch_type].size(), switch_type, prev_workload,
-                   outputs_[output].prev_input, inputs_[input].workload, input);
-        }
     }
 
     inputs_[input].prev_time_in_quantum =
@@ -2413,27 +2726,101 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t 
     }
     // We can't easily place these stats inside set_cur_input() as we call that to
     // temporarily give up our input.
-    update_switch_stats(output, prev_index, index);
+    stream_status_t on_switch_res = on_context_switch(output, prev_index, index);
+    if (on_switch_res != stream_status_t::STATUS_OK) {
+        return on_switch_res;
+    }
     set_cur_input(output, index);
     return res;
 }
 
 template <typename RecordType, typename ReaderType>
-void
-scheduler_impl_tmpl_t<RecordType, ReaderType>::update_switch_stats(
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     output_ordinal_t output, input_ordinal_t prev_input, input_ordinal_t new_input)
 {
+    bool do_inject_switch_seq = false;
     if (prev_input == new_input)
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_NOP];
     else if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL &&
-             new_input != sched_type_t::INVALID_INPUT_ORDINAL)
+             new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT];
-    else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL)
+        do_inject_switch_seq = true;
+    } else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL) {
+        // XXX: For now, we do not inject a kernel context switch sequence on
+        // input-to-idle transitions (note that we do so on idle-to-input though).
+        // However, we may want to inject some other suitable sequence, but we're not
+        // sure yet.
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
-    else {
+    } else {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
         // Reset the flag so we'll try to steal if we go idle again.
         outputs_[output].tried_to_steal_on_idle = false;
+        do_inject_switch_seq = true;
+    }
+
+    // We want to insert the context switch sequence on input-to-input and
+    // idle-to-input cases. This is a better control point to do that than
+    // set_cur_input. Here we get the stolen input events too, and we don't have
+    // to filter out the init-time set_cur_input cases.
+    if (!do_inject_switch_seq)
+        return stream_status_t::STATUS_OK;
+    if (inputs_[new_input].pid != INVALID_PID) {
+        insert_switch_tid_pid(inputs_[new_input]);
+    }
+    if (switch_sequence_.empty())
+        return stream_status_t::STATUS_OK;
+    switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
+    if ( // XXX: idle-to-input transitions are assumed to be process switches
+         // for now. But we may want to improve this heuristic.
+        prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
+        inputs_[prev_input].workload != inputs_[new_input].workload)
+        switch_type = sched_type_t::SWITCH_PROCESS;
+    else
+        switch_type = sched_type_t::SWITCH_THREAD;
+    if (switch_sequence_.find(switch_type) == switch_sequence_.end())
+        return stream_status_t::STATUS_OK;
+    stream_status_t res =
+        inject_kernel_sequence(switch_sequence_[switch_type], &inputs_[new_input]);
+    if (res == stream_status_t::STATUS_OK) {
+        ++outputs_[output]
+              .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
+        VPRINT(this, 3, "Inserted %zu switch records for type %d from %d.%d to %d.%d\n",
+               switch_sequence_[switch_type].size(), switch_type,
+               prev_input != sched_type_t::INVALID_INPUT_ORDINAL
+                   ? inputs_[prev_input].workload
+                   : -1,
+               prev_input, inputs_[new_input].workload, new_input);
+    } else if (res != stream_status_t::STATUS_EOF) {
+        return res;
+    }
+    return stream_status_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+void
+scheduler_impl_tmpl_t<RecordType, ReaderType>::update_syscall_state(
+    RecordType record, output_ordinal_t output)
+{
+    if (outputs_[output].hit_syscall_code_end) {
+        // We have to delay so the end marker is still in_syscall_code.
+        outputs_[output].in_syscall_code = false;
+        outputs_[output].hit_syscall_code_end = false;
+    }
+
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value = 0;
+    if (!record_type_is_marker(record, marker_type, marker_value))
+        return;
+    switch (marker_type) {
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+        outputs_[output].in_syscall_code = true;
+        break;
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+        // We have to delay until the next record.
+        outputs_[output].hit_syscall_code_end = true;
+        break;
+    default: break;
     }
 }
 
@@ -2444,6 +2831,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                                                            input_info_t *&input,
                                                            uint64_t cur_time)
 {
+    record = create_invalid_record();
     // We do not enforce a globally increasing time to avoid the synchronization cost; we
     // do return an error on a time smaller than an input's current start time when we
     // check for quantum end.
@@ -2542,7 +2930,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             } else {
                 input->needs_advance = true;
             }
-            if (input->at_eof || *input->reader == *input->reader_end) {
+            bool input_at_eof = input->at_eof || *input->reader == *input->reader_end;
+            if (input_at_eof && input->to_inject_syscall != input_info_t::INJECT_NONE) {
+                // The input's at eof but we have a syscall trace yet to be injected.
+                stream_status_t res =
+                    inject_pending_syscall_sequence(output, input, record);
+                if (res != stream_status_t::STATUS_OK)
+                    return res;
+            } else if (input_at_eof) {
                 if (!input->at_eof) {
                     stream_status_t status = mark_input_eof(*input);
                     if (status != sched_type_t::STATUS_OK)
@@ -2565,18 +2960,39 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 record = **input->reader;
             }
         }
+
+        stream_status_t res =
+            maybe_inject_pending_syscall_sequence(output, input, record);
+        if (res != stream_status_t::STATUS_OK)
+            return res;
+
+        // Check whether all syscall injected records have been passed along
+        // to the caller.
+        trace_marker_type_t marker_type;
+        uintptr_t marker_value_unused;
+        if (input->in_syscall_injection &&
+            record_type_is_marker(outputs_[output].last_record, marker_type,
+                                  marker_value_unused) &&
+            marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
+            input->in_syscall_injection = false;
+        }
         VPRINT(this, 5,
                "next_record[%d]: candidate record from %d (@%" PRId64 "): ", output,
                input->index, get_instr_ordinal(*input));
         if (input->instrs_pre_read > 0 && record_type_is_instr(record))
             --input->instrs_pre_read;
         VDO(this, 5, print_record(record););
+
+        // We want check_for_input_switch() to have the updated state, so we process
+        // syscall trace related markers now.
+        update_syscall_state(record, output);
+
         bool need_new_input = false;
         bool preempt = false;
         uint64_t blocked_time = 0;
         uint64_t prev_time_in_quantum = input->prev_time_in_quantum;
-        stream_status_t res = check_for_input_switch(
-            output, record, input, cur_time, need_new_input, preempt, blocked_time);
+        res = check_for_input_switch(output, record, input, cur_time, need_new_input,
+                                     preempt, blocked_time);
         if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_SKIPPED)
             return res;
         if (need_new_input) {
@@ -2653,7 +3069,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             } else if (res == sched_type_t::STATUS_STOLE) {
                 // We need to loop to get the new record.
                 input = &inputs_[outputs_[output].cur_input];
-                update_switch_stats(output, prev_input, input->index);
+                stream_status_t on_switch_res =
+                    on_context_switch(output, prev_input, input->index);
+                if (on_switch_res != stream_status_t::STATUS_OK) {
+                    return on_switch_res;
+                }
                 lock.unlock();
                 lock = std::unique_lock<mutex_dbg_owned>(*input->lock);
                 lock.lock();
@@ -2665,15 +3085,48 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         }
         break;
     }
+    update_next_record(output, record);
     VPRINT(this, 4, "next_record[%d]: from %d @%" PRId64 ": ", output, input->index,
            cur_time);
-    update_next_record(output, record);
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
     record_type_has_tid(record, input->last_record_tid);
     record_type_has_pid(record, input->pid);
-    return sched_type_t::STATUS_OK;
+    return finalize_next_record(output, record, input);
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
+    output_ordinal_t output, const RecordType &record, input_info_t *input)
+{
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value;
+    addr_t instr_pc;
+    size_t instr_size;
+    bool is_marker = record_type_is_marker(record, marker_type, marker_value);
+    // Good to queue the injected records at this point, because we now surely will
+    // be done with TRACE_MARKER_TYPE_SYSCALL.
+    if (is_marker && marker_type == TRACE_MARKER_TYPE_SYSCALL &&
+        syscall_sequence_.find(static_cast<int>(marker_value)) !=
+            syscall_sequence_.end()) {
+        assert(!input->in_syscall_injection);
+        // The actual injection of the syscall trace happens later at the intended
+        // point between the syscall function tracing markers.
+        input->to_inject_syscall = static_cast<int>(marker_value);
+        input->saw_first_func_id_marker_after_syscall = false;
+    } else if (record_type_is_instr(record, &instr_pc, &instr_size)) {
+        input->last_pc_fallthrough = instr_pc + instr_size;
+    }
+    if (is_marker) {
+        // Turn idle+wait markers back into their respective status codes.
+        if (marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
+            return stream_status_t::STATUS_IDLE;
+        else if (marker_type == TRACE_MARKER_TYPE_CORE_WAIT)
+            return stream_status_t::STATUS_WAIT;
+    }
+    return stream_status_t::STATUS_OK;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2681,6 +3134,14 @@ void
 scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal_t output,
                                                                   RecordType &record)
 {
+    // Initialize to zero to prevent uninit use errors.
+    trace_marker_type_t marker_type = trace_marker_type_t::TRACE_MARKER_TYPE_KERNEL_EVENT;
+    uintptr_t marker_value = 0;
+    bool is_marker = record_type_is_marker(record, marker_type, marker_value);
+    if (is_marker && marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        record_type_set_marker_value(
+            record, adjust_filetype(static_cast<offline_file_type_t>(marker_value)));
+    }
     if (options_.mapping != sched_type_t::MAP_TO_ANY_OUTPUT &&
         options_.mapping != sched_type_t::MAP_AS_PREVIOUSLY)
         return; // Nothing to do.
@@ -2689,14 +3150,30 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
         // sched_type_t::MAP_AS_PREVIOUSLY).
         return;
     }
+    // We modify the tid and pid fields to ensure uniqueness across multiple workloads for
+    // core-sharded-on-disk and with analyzers that look at the tid instead of using our
+    // workload identifiers (and since the workload API is not there for
+    // core-sharded-on-disk it may not be worth updating these analyzers).  To maintain
+    // the original values, we write the workload ordinal into the top 32 bits.  We don't
+    // support distinguishing for 32-bit-build record_filter.  We also ignore complexities
+    // on Mac with its 64-bit tid type.
+    int64_t workload = get_workload_ordinal(output);
+    memref_tid_t cur_tid;
+    if (record_type_has_tid(record, cur_tid) && workload > 0) {
+        memref_tid_t new_tid = (workload << MEMREF_ID_WORKLOAD_SHIFT) | cur_tid;
+        record_type_set_tid(record, new_tid);
+    }
+    memref_pid_t cur_pid;
+    if (record_type_has_pid(record, cur_pid) && workload > 0) {
+        memref_tid_t new_pid = (workload << MEMREF_ID_WORKLOAD_SHIFT) | cur_pid;
+        record_type_set_pid(record, new_pid);
+    }
     // For a dynamic schedule, the as-traced cpuids and timestamps no longer
     // apply and are just confusing (causing problems like interval analysis
     // failures), so we replace them.
-    trace_marker_type_t type;
-    uintptr_t value;
-    if (!record_type_is_marker(record, type, value))
+    if (!is_marker)
         return; // Nothing to do.
-    if (type == TRACE_MARKER_TYPE_TIMESTAMP) {
+    if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         if (outputs_[output].base_timestamp == 0) {
             // Record the first input's first timestamp, as a base value.
 #ifndef NDEBUG
@@ -2721,7 +3198,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
 #endif
             record_type_set_marker_value(record, new_time);
         assert(ok);
-    } else if (type == TRACE_MARKER_TYPE_CPU_ID) {
+    } else if (marker_type == TRACE_MARKER_TYPE_CPU_ID) {
 #ifndef NDEBUG
         bool ok =
 #endif
@@ -2854,16 +3331,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::eof_or_idle(output_ordinal_t outp
 }
 
 template <typename RecordType, typename ReaderType>
-bool
-scheduler_impl_tmpl_t<RecordType, ReaderType>::is_record_kernel(output_ordinal_t output)
-{
-    int index = outputs_[output].cur_input;
-    if (index < 0)
-        return false;
-    return inputs_[index].reader->is_record_kernel();
-}
-
-template <typename RecordType, typename ReaderType>
 double
 scheduler_impl_tmpl_t<RecordType, ReaderType>::get_statistic(
     output_ordinal_t output, memtrace_stream_t::schedule_statistic_t stat) const
@@ -2871,6 +3338,21 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_statistic(
     if (stat >= memtrace_stream_t::SCHED_STAT_TYPE_COUNT)
         return -1;
     return static_cast<double>(outputs_[output].stats[stat]);
+}
+
+template <typename RecordType, typename ReaderType>
+offline_file_type_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::adjust_filetype(
+    offline_file_type_t orig_filetype) const
+{
+    uintptr_t filetype = static_cast<uintptr_t>(orig_filetype);
+    if (!syscall_sequence_.empty()) {
+        // If the read syscall_sequence_ does not have any trace for the
+        // syscalls actually present in the trace, we may end up without any
+        // syscall trace despite the following filetype bit set.
+        filetype |= OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
+    }
+    return static_cast<offline_file_type_t>(filetype);
 }
 
 template class scheduler_impl_tmpl_t<memref_t, reader_t>;

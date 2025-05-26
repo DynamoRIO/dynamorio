@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2023-2024 Google, Inc.    All rights reserved.
+# Copyright (c) 2023-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 include(../../../../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -57,9 +57,9 @@ add_dependencies(empty_launcher api_headers)
 
 # These add_win32_flags() calls are necessary only for building the project inside
 # the DR top level project.
-add_win32_flags(drmemtrace_empty)
-add_win32_flags(empty_creator)
-add_win32_flags(empty_launcher)
+add_win32_flags(drmemtrace_empty OFF)
+add_win32_flags(empty_creator OFF)
+add_win32_flags(empty_launcher OFF)
 
 function (write_config_file name dst libdir)
   if (X64)

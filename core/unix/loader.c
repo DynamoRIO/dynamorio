@@ -834,7 +834,12 @@ privload_os_finalize(privmod_t *privmod)
 #    endif
     if (GLRO_dl_tls_static_size_OFFS == 0) {
         // We have some versions hardcoded.
-#    ifdef X64
+#    ifdef ARM
+        // These are the numbers for glibc 2.35.
+        GLRO_dl_tls_static_size_OFFS = 368;
+        GLRO_dl_tls_static_align_OFFS = GLRO_dl_tls_static_size_OFFS + 4;
+#    else
+#        ifdef X64
         // The offsets changed between 2.38 and 2.39.
         if (ver[2] == '3' && ver[3] < '9') {
             GLRO_dl_tls_static_size_OFFS = 0x2a8;
@@ -843,7 +848,7 @@ privload_os_finalize(privmod_t *privmod)
             GLRO_dl_tls_static_size_OFFS = 0x2c8;
             GLRO_dl_tls_static_align_OFFS = 0x2d0;
         }
-#    else
+#        else
         if (ver[2] == '3' && ver[3] >= '8') {
             GLRO_dl_tls_static_size_OFFS = 0x320;
             GLRO_dl_tls_static_align_OFFS = 0x324;
@@ -854,6 +859,7 @@ privload_os_finalize(privmod_t *privmod)
             GLRO_dl_tls_static_align_OFFS =
                 (ver[2] == '3' && ver[3] == '5') ? 0x32c : 0x320;
         }
+#        endif
 #    endif
     }
     size_t val = 4096, written;

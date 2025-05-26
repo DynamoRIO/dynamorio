@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -39,6 +39,8 @@
 #include "annotations.h"
 
 #ifdef ANNOTATIONS /* around whole file */
+
+#    include "annotations_api.h"
 
 #    if !(defined(WINDOWS) && defined(X64))
 #        include "valgrind.h"
@@ -227,8 +229,8 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request);
 #    endif
 
 static bool
-is_annotation_tag(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *start_pc,
-                  instr_t *scratch, DR_PARAM_OUT const char **name);
+is_annotation_tag(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *cur_pc, instr_t *scratch,
+                  DR_PARAM_OUT const char **name);
 
 static void
 identify_annotation(dcontext_t *dcontext, DR_PARAM_INOUT annotation_layout_t *layout,
@@ -361,7 +363,7 @@ instrument_annotation(dcontext_t *dcontext, DR_PARAM_INOUT app_pc *start_pc,
           /* layout.type is already ANNOTATION_TYPE_NONE */
         });
     if (layout.type != ANNOTATION_TYPE_NONE) {
-        LOG(GLOBAL, LOG_ANNOTATIONS, 2,
+        LOG(THREAD, LOG_ANNOTATIONS, 2,
             "Decoded %s annotation %s. Next pc now " PFX ".\n",
             (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
             layout.name, layout.resume_pc);
@@ -781,6 +783,12 @@ lookup_valgrind_request(ptr_uint_t request)
     case VG_USERREQ__MAKE_MEM_DEFINED_IF_ADDRESSABLE:
         return DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE;
     case VG_USERREQ__DISCARD_TRANSLATIONS: return DR_VG_ID__DISCARD_TRANSLATIONS;
+    case VG_USERREQ__MAKE_MEM_UNDEFINED: return DR_VG_ID__MAKE_MEM_UNDEFINED;
+    case VG_USERREQ__MAKE_MEM_DEFINED: return DR_VG_ID__MAKE_MEM_DEFINED;
+    case VG_USERREQ__CHECK_MEM_IS_ADDRESSABLE: return DR_VG_ID__CHECK_MEM_IS_ADDRESSABLE;
+    case VG_USERREQ__CHECK_MEM_IS_DEFINED: return DR_VG_ID__CHECK_MEM_IS_DEFINED;
+    case VG_USERREQ__MALLOCLIKE_BLOCK: return DR_VG_ID__MALLOCLIKE_BLOCK;
+    case VG_USERREQ__FREELIKE_BLOCK: return DR_VG_ID__FREELIKE_BLOCK;
     }
     return DR_VG_ID__LAST;
 }

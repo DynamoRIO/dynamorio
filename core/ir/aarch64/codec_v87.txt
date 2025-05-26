@@ -36,5 +36,13 @@
 
 # Instruction definitions:
 
-110101010000001100010000000xxxxx  n   1221 WFxT     wfet          : x0
-110101010000001100010000001xxxxx  n   1222 WFxT     wfit          : x0
+1111100000111111110100xxxxxx0xx0  n   1223 LS64         ld64b x0p0 x0p1 x0p2 x0p3 x0p4 x0p5 x0p6 x0p7 : mem0_64
+1111100000111111110100xxxxx0xxx0  n   1223 LS64         ld64b x0p0 x0p1 x0p2 x0p3 x0p4 x0p5 x0p6 x0p7 : mem0_64
+1111100000111111100100xxxxxx0xx0  n   1224 LS64         st64b                                 mem0_64 : x0p0 x0p1 x0p2 x0p3 x0p4 x0p5 x0p6 x0p7
+1111100000111111100100xxxxx0xxx0  n   1224 LS64         st64b                                 mem0_64 : x0p0 x0p1 x0p2 x0p3 x0p4 x0p5 x0p6 x0p7
+11111000001xxxxx101100xxxxxx0xx0  n   1225 LS64V        st64bv                            mem0_64 x16 : x0p0 x0p1 x0p2 x0p3 x0p4 x0p5 x0p6 x0p7
+11111000001xxxxx101100xxxxx0xxx0  n   1225 LS64V        st64bv                            mem0_64 x16 : x0p0 x0p1 x0p2 x0p3 x0p4 x0p5 x0p6 x0p7
+11111000001xxxxx101000xxxxxx0xx0  n   1226 LS64ACCDATA  st64bv0                           mem0_64 x16 : x0p0 x0p1 x0p2 x0p3 x0p4 x0p5 x0p6 x0p7
+11111000001xxxxx101000xxxxx0xxx0  n   1226 LS64ACCDATA  st64bv0                           mem0_64 x16 : x0p0 x0p1 x0p2 x0p3 x0p4 x0p5 x0p6 x0p7
+110101010000001100010000000xxxxx  n   1221 WFxT         wfet                                          : x0
+110101010000001100010000001xxxxx  n   1222 WFxT         wfit                                          : x0

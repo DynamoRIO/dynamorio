@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 set(DynamoRIO_INTERNAL ON) # do not import dynamorio lib target
 set(DynamoRIO_DIR ${PROJECT_BINARY_DIR}/cmake)

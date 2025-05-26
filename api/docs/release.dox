@@ -133,7 +133,24 @@ changes:
    dr_create_memory_dump() returns true and elf_path is not NULL, elf_path will be
    written with the path to the memory dump file.
 
+The changes between version \DR_VERSION and 11.3.0 include the following minor
+compatibility changes:
+
+ - Added a separate cache replacement policy object to `caching_device_t`. `init` now
+   takes an `std::unique_ptr<cache_replacement_policy_t>` that defines the replacement
+   policy. It can be created manually or by using `create_cache_replacement_policy`.
+   Removed the subclasses `cache_lru_t`, `cache_fifo_t`, `tlb_lfu_t`, `tlb_plru_t` that
+   implemented specific cache replacement policies. Added implementations for the
+   matching policies as subclasses of `cache_replacement_policy_t`.
+ - Added the workload to the top bits of the tid for multi-workload drmemtrace
+   scheduling.  The drmemtrace view tool now prints the workload and tid in
+   the form "Wn.Tmmm".
+ - Changed the #dynamorio::drmemtrace::scheduler_tmpl_t::input_thread_info_t.
+   regions_of_interest structure layout, requiring recompiling using code.
+
 Further non-compatibility-affecting changes include:
+ - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
+   in dynamorio::drmemtrace::caching_device_t and its deriving classes.
  - Added support for reading a single drmemtrace trace file from stdin
    via "-infile -".
  - Added the #dynamorio::drmemtrace::decode_cache_t library to make it easier and more
@@ -141,6 +158,28 @@ Further non-compatibility-affecting changes include:
    instructions in the trace. This works for traces that have embedded instruction
    encodings in them, and also for legacy traces without embedded encodings where the
    encodings are obtained from the application binaries instead.
+ - Added a new drmemtrace analyzer flag -sched_syscall_file to allow specifying the
+   system call trace template file to be used for dynamic injection of system call trace
+   templates. Added similar options for the drmemtrace scheduler: #dynamorio::drmemtrace::
+   scheduler_tmpl_t::scheduler_options_t::kernel_syscall_trace_path, and #dynamorio::
+   drmemtrace::scheduler_tmpl_t::scheduler_options_t::kernel_syscall_reader.
+ - Added initial implementation of a noise generator in the drmemtrace framework. The
+   noise generator produces synthetic records to schedule with one or more target traces.
+   These synthetic records are interleaved with real trace records by the dynamic
+   scheduler. We currently don't support mixing of noise and trace records in non-dynamic
+   modes.
+   To produce noise generation we implemented:
+    - #dynamorio::drmemtrace::noise_generator_t scaffolding as a
+      #dynamorio::drmemtrace::reader_t to produce synthetic trace records.
+    - #dynamorio::drmemtrace::noise_generator_info_t, which contains the metadata
+      information to drive the generation of synthetic records.
+    - #dynamorio::drmemtrace::noise_generator_factory_t that creates
+      #dynamorio::drmemtrace::noise_generator_t, which can then be added to the input
+      workloads of #dynamorio::drmemtrace::scheduler_tmpl_t.
+    - the flag -add_noise_generator to the drmemtrace framework that enables noise
+      generation alongside the scheduled traces.
+ - Added AUX_SUBDIR (== "aux") to the subdirs in which get_aux_file_path() looks for
+   auxiliary files (e.g., v2p.textproto).
 
 **************************************************
 <hr>
@@ -571,7 +610,7 @@ changes:
    segment index.  The custom data field is now per-segment and not per-module,
    and all callbacks are invoked separately for each segment.
 
-The changes between version \DR_VERSION and 8.0.0 include the following minor
+The changes between version 9.0.0 and 8.0.0 include the following minor
 compatibility changes:
 
  - drconfiglib (and thus drrun and drconfig) now sets only the new client path

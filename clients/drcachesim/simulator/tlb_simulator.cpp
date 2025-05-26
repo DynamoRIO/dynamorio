@@ -37,13 +37,14 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <vector>
+#include <utility>
 
 #include "analysis_tool.h"
+#include "create_cache_replacement_policy.h"
 #include "memref.h"
-#include "options.h"
 #include "utils.h"
 #include "caching_device_stats.h"
+#include "create_cache_replacement_policy.h"
 #include "simulator.h"
 #include "tlb.h"
 #include "tlb_simulator_create.h"
@@ -94,37 +95,45 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
         lltlbs_[i] = NULL;
     }
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
-        itlbs_[i] = create_tlb(knobs_.TLB_replace_policy);
-        if (itlbs_[i] == NULL) {
-            error_string_ = "Failed to create itlbs_";
-            success_ = false;
-            return;
-        }
-        dtlbs_[i] = create_tlb(knobs_.TLB_replace_policy);
-        if (dtlbs_[i] == NULL) {
-            error_string_ = "Failed to create dtlbs_";
-            success_ = false;
-            return;
-        }
-        lltlbs_[i] = create_tlb(knobs_.TLB_replace_policy);
-        if (lltlbs_[i] == NULL) {
-            error_string_ = "Failed to create lltlbs_";
-            success_ = false;
-            return;
-        }
-
+        std::string core_str = std::to_string(i);
+        itlbs_[i] = new tlb_t("itlb " + core_str);
+        dtlbs_[i] = new tlb_t("dtlb " + core_str);
+        lltlbs_[i] = new tlb_t("lltlb " + core_str);
+        auto replace_policy = create_cache_replacement_policy(
+            knobs_.TLB_replace_policy, knobs_.TLB_L1I_entries / knobs_.TLB_L1I_assoc,
+            knobs_.TLB_L1I_assoc);
         if (!itlbs_[i]->init(knobs_.TLB_L1I_assoc, (int)knobs_.page_size,
                              knobs_.TLB_L1I_entries, lltlbs_[i],
-                             new tlb_stats_t((int)knobs_.page_size)) ||
-            !dtlbs_[i]->init(knobs_.TLB_L1D_assoc, (int)knobs_.page_size,
-                             knobs_.TLB_L1D_entries, lltlbs_[i],
-                             new tlb_stats_t((int)knobs_.page_size)) ||
-            !lltlbs_[i]->init(knobs_.TLB_L2_assoc, (int)knobs_.page_size,
-                              knobs_.TLB_L2_entries, NULL,
-                              new tlb_stats_t((int)knobs_.page_size))) {
+                             new tlb_stats_t((int)knobs_.page_size),
+                             std::move(replace_policy))) {
             error_string_ =
-                "Usage error: failed to initialize TLbs_. Ensure entry number, "
-                "page size and associativity are powers of 2.";
+                "Usage error: failed to initialize itlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
+            success_ = false;
+            return;
+        }
+        replace_policy = create_cache_replacement_policy(
+            knobs_.TLB_replace_policy, knobs_.TLB_L1D_entries / knobs_.TLB_L1D_assoc,
+            knobs_.TLB_L1D_assoc);
+        if (!dtlbs_[i]->init(knobs_.TLB_L1D_assoc, (int)knobs_.page_size,
+                             knobs_.TLB_L1D_entries, lltlbs_[i],
+                             new tlb_stats_t((int)knobs_.page_size),
+                             std::move(replace_policy))) {
+            error_string_ =
+                "Usage error: failed to initialize dtlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
+            success_ = false;
+            return;
+        }
+        replace_policy = create_cache_replacement_policy(
+            knobs_.TLB_replace_policy, knobs_.TLB_L2_entries / knobs_.TLB_L2_assoc,
+            knobs_.TLB_L2_assoc);
+        if (!lltlbs_[i]->init(
+                knobs_.TLB_L2_assoc, (int)knobs_.page_size, knobs_.TLB_L2_entries, NULL,
+                new tlb_stats_t((int)knobs_.page_size), std::move(replace_policy))) {
+            error_string_ =
+                "Usage error: failed to initialize lltlbs_. Ensure (entry number / "
+                "associativity) is a power of 2.";
             success_ = false;
             return;
         }
@@ -135,18 +144,18 @@ tlb_simulator_t::~tlb_simulator_t()
 {
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         // Try to handle failure during construction.
-        if (itlbs_[i] == NULL)
-            return;
-        delete itlbs_[i]->get_stats();
-        delete itlbs_[i];
-        if (dtlbs_[i] == NULL)
-            return;
-        delete dtlbs_[i]->get_stats();
-        delete dtlbs_[i];
-        if (lltlbs_[i] == NULL)
-            return;
-        delete lltlbs_[i]->get_stats();
-        delete lltlbs_[i];
+        if (itlbs_[i] != NULL) {
+            delete itlbs_[i]->get_stats();
+            delete itlbs_[i];
+        }
+        if (dtlbs_[i] != NULL) {
+            delete dtlbs_[i]->get_stats();
+            delete dtlbs_[i];
+        }
+        if (lltlbs_[i] != NULL) {
+            delete lltlbs_[i]->get_stats();
+            delete lltlbs_[i];
+        }
     }
     delete[] itlbs_;
     delete[] dtlbs_;
@@ -278,23 +287,6 @@ tlb_simulator_t::print_results()
         }
     }
     return true;
-}
-
-tlb_t *
-tlb_simulator_t::create_tlb(std::string policy)
-{
-    // XXX: how to implement different replacement policies?
-    // Should we extend tlb_t to tlb_XXX_t so as to avoid multiple inheritance?
-    // Or should we adopt multiple inheritance to have caching_device_XXX_t as one base
-    // and tlb_t as another base class?
-    if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LFU
-        policy == REPLACE_POLICY_LFU)             // set to LFU
-        return new tlb_t;
-
-    // undefined replacement policy
-    ERRMSG("Usage error: undefined replacement policy. "
-           "Please choose " REPLACE_POLICY_LFU ".\n");
-    return NULL;
 }
 
 } // namespace drmemtrace

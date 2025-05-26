@@ -1,9 +1,9 @@
 Schedule stats tool results:
 Total counts:
            3 cores
-          24 threads: .*W[012].T1257596.*W[012].T1257596.*W[012].T1257596.*
-     1916814 instructions
+          27 threads: .*W[012].T872902.*W[012].T872902.*W[012].T872902.*
+     1857635 instructions
 .*
-Core #0 schedule: [A-Xa-x_]*
-Core #1 schedule: [A-Xa-x_]*
-Core #2 schedule: [A-Xa-x_]*
+Core #0 schedule: [A-Za-z_]*
+Core #1 schedule: [A-Za-z_]*
+Core #2 schedule: [A-Za-z_]*

@@ -51,12 +51,11 @@
 #include "file_reader.h"
 #include "ipc_reader.h"
 #include "cache.h"
-#include "cache_fifo.h"
-#include "cache_lru.h"
 #include "cache_simulator_create.h"
 #include "cache_stats.h"
 #include "caching_device.h"
 #include "caching_device_stats.h"
+#include "create_cache_replacement_policy.h"
 #include "prefetcher.h"
 #include "simulator.h"
 #include "snoop_filter.h"
@@ -100,12 +99,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs,
 
     // This configuration allows for one shared LLC only.
     std::string cache_name = "LL";
-    cache_t *llc = create_cache(cache_name, knobs_.replace_policy);
-    if (llc == NULL) {
-        error_string_ = "create_cache failed for the LLC";
-        success_ = false;
-        return;
-    }
+    cache_t *llc = new cache_t(cache_name);
 
     all_caches_[cache_name] = llc;
     llcaches_[cache_name] = llc;
@@ -131,7 +125,10 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs,
 
     if (!llc->init(knobs_.LL_assoc, (int)knobs_.line_size, (int)knobs_.LL_size, NULL,
                    new cache_stats_t((int)knobs_.line_size, knobs_.LL_miss_file,
-                                     warmup_enabled_))) {
+                                     warmup_enabled_),
+                   create_cache_replacement_policy(
+                       knobs_.replace_policy, (int)knobs_.LL_size / (int)knobs_.line_size,
+                       (int)knobs_.LL_assoc))) {
         error_string_ =
             "Usage error: failed to initialize LL cache.  Ensure size divided by "
             "associativity is a power of 2, that the total size is a multiple "
@@ -150,32 +147,28 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs,
 
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         cache_name = "L1I" + (knobs_.num_cores > 0 ? std::to_string(i) : "");
-        l1_icaches_[i] = create_cache(cache_name, knobs_.replace_policy);
-        if (l1_icaches_[i] == NULL) {
-            error_string_ = "create_cache failed for an l1_icache";
-            success_ = false;
-            return;
-        }
+        l1_icaches_[i] = new cache_t(cache_name);
         snooped_caches_[2 * i] = l1_icaches_[i];
         cache_name = "L1D" + (knobs_.num_cores > 0 ? std::to_string(i) : "");
-        l1_dcaches_[i] = create_cache(cache_name, knobs_.replace_policy);
-        if (l1_dcaches_[i] == NULL) {
-            error_string_ = "create_cache failed for an l1_dcache";
-            success_ = false;
-            return;
-        }
+        l1_dcaches_[i] = new cache_t(cache_name);
         snooped_caches_[(2 * i) + 1] = l1_dcaches_[i];
 
         if (!l1_icaches_[i]->init(
                 knobs_.L1I_assoc, (int)knobs_.line_size, (int)knobs_.L1I_size, llc,
                 new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
                                   knobs_.model_coherence),
+                create_cache_replacement_policy(
+                    knobs_.replace_policy, (int)knobs_.L1I_size / (int)knobs_.line_size,
+                    (int)knobs_.L1I_assoc) /*replacement_policy*/,
                 nullptr /*prefetcher*/, cache_inclusion_policy_t::NON_INC_NON_EXC,
                 knobs_.model_coherence, 2 * i, snoop_filter_) ||
             !l1_dcaches_[i]->init(
                 knobs_.L1D_assoc, (int)knobs_.line_size, (int)knobs_.L1D_size, llc,
                 new cache_stats_t((int)knobs_.line_size, "", warmup_enabled_,
                                   knobs_.model_coherence),
+                create_cache_replacement_policy(
+                    knobs_.replace_policy, (int)knobs_.L1D_size / (int)knobs_.line_size,
+                    (int)knobs_.L1D_assoc) /*replacement_policy*/,
                 get_prefetcher(knobs_.data_prefetcher),
                 cache_inclusion_policy_t::NON_INC_NON_EXC, knobs_.model_coherence,
                 (2 * i) + 1, snoop_filter_)) {
@@ -245,14 +238,7 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file,
     // Create all the caches in the hierarchy.
     for (const auto &cache_params_it : cache_params) {
         std::string cache_name = cache_params_it.first;
-        const auto &cache_config = cache_params_it.second;
-
-        cache_t *cache = create_cache(cache_name, cache_config.replace_policy);
-        if (cache == NULL) {
-            success_ = false;
-            return;
-        }
-
+        cache_t *cache = new cache_t(cache_name);
         all_caches_[cache_name] = cache;
     }
 
@@ -358,6 +344,10 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file,
                          (int)cache_config.size, parent_,
                          new cache_stats_t((int)knobs_.line_size, cache_config.miss_file,
                                            warmup_enabled_, is_coherent_),
+                         create_cache_replacement_policy(cache_config.replace_policy,
+                                                         (int)cache_config.size /
+                                                             (int)knobs_.line_size,
+                                                         (int)cache_config.assoc),
                          get_prefetcher(cache_config.prefetcher), inclusion_policy,
                          is_coherent_, is_snooped ? snoop_id : -1,
                          is_snooped ? snoop_filter_ : nullptr, children)) {
@@ -681,6 +671,11 @@ cache_simulator_t::get_cache_metric(metric_name_t metric, unsigned level, unsign
 {
     caching_device_t *curr_cache;
 
+    if (level < 1) {
+        std::cerr << "Cache levels start at 1.\n";
+        return STATS_ERROR_WRONG_CACHE_LEVEL;
+    }
+
     if (core >= knobs_.num_cores) {
         return STATS_ERROR_WRONG_CORE_NUMBER;
     }
@@ -712,23 +707,6 @@ const cache_simulator_knobs_t &
 cache_simulator_t::get_knobs() const
 {
     return knobs_;
-}
-
-cache_t *
-cache_simulator_t::create_cache(const std::string &name, const std::string &policy)
-{
-    if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
-        policy == REPLACE_POLICY_LRU)             // set to LRU
-        return new cache_lru_t(name);
-    if (policy == REPLACE_POLICY_LFU) // set to LFU
-        return new cache_t(name);
-    if (policy == REPLACE_POLICY_FIFO) // set to FIFO
-        return new cache_fifo_t(name);
-
-    // undefined replacement policy
-    ERRMSG("Usage error: undefined replacement policy. "
-           "Please choose " REPLACE_POLICY_LRU " or " REPLACE_POLICY_LFU ".\n");
-    return NULL;
 }
 
 // Access snoop filter stats.

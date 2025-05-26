@@ -1068,6 +1068,7 @@ enum {
     DR_REG_ELR_EL1,          /**< The "elr_el1" register. */
     DR_REG_SPSR_EL1,         /**< The "spsr_el1" register. */
     DR_REG_TPIDR_EL1,        /**< The "tpidr_el1" register. */
+    DR_REG_ACCDATA_EL1,      /**< The "accdata_el1" register. */
 /* Be sure to update reg_get_size() in opnd_shared.c if you add a register. */
 #    endif
 
@@ -2423,6 +2424,19 @@ INSTR_INLINE
 /** Returns a register operand (\p r must be a DR_REG_ constant). */
 opnd_t
 opnd_create_reg(reg_id_t r);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns a copy of a register operand with the reg number increased
+ * by \p amount.
+ *
+ * This only makes sense with numbered and ordered register sets,
+ * such as the AARCH64 X registers. Be sure not to exceed the
+ * last register in the set e.g. DR_REG_X30
+ */
+opnd_t
+opnd_inc_reg(opnd_t opnd, int amount);
 
 DR_API
 INSTR_INLINE

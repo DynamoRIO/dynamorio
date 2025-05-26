@@ -1,17 +1,17 @@
 Output format:
-<--record#-> <--instr#->: <---tid---> <record details>
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
-         120          63:     1992554 <marker: timestamp 13352268558646604>
-         121          63:     1992554 <marker: tid 1992554 on core 10>
-         122          64:     1992554 ifetch       4 byte(s) @ 0x0000000000401028 48 83 eb 01          sub    $0x0000000000000001 %rbx -> %rbx
-         123          65:     1992554 ifetch       4 byte(s) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx $0x0000000000000000
-         124          66:     1992554 ifetch       2 byte(s) @ 0x0000000000401030 75 d9                jnz    $0x000000000040100b (taken)
-         125          67:     1992554 ifetch       7 byte(s) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    $0x0000000000000001 -> %rdi
-         126          68:     1992554 ifetch       8 byte(s) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
-         126          68:     1992554                                             00
-         127          69:     1992554 ifetch       7 byte(s) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    $0x000000000000000d -> %rdx
-         128          70:     1992554 ifetch       5 byte(s) @ 0x0000000000401021 b8 01 00 00 00       mov    $0x00000001 -> %eax
-         129          71:     1992554 ifetch       2 byte(s) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+         120          63: W0.T1992554 <marker: timestamp 13352268558646604>
+         121          63: W0.T1992554 <marker: W0.T1992554 on core 10>
+         122          64: W0.T1992554 ifetch       4 byte(s) @ 0x0000000000401028 48 83 eb 01          sub    $0x0000000000000001 %rbx -> %rbx
+         123          65: W0.T1992554 ifetch       4 byte(s) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx $0x0000000000000000
+         124          66: W0.T1992554 ifetch       2 byte(s) @ 0x0000000000401030 75 d9                jnz    $0x000000000040100b (taken)
+         125          67: W0.T1992554 ifetch       7 byte(s) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    $0x0000000000000001 -> %rdi
+         126          68: W0.T1992554 ifetch       8 byte(s) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
+         126          68: W0.T1992554                                             00
+         127          69: W0.T1992554 ifetch       7 byte(s) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    $0x000000000000000d -> %rdx
+         128          70: W0.T1992554 ifetch       5 byte(s) @ 0x0000000000401021 b8 01 00 00 00       mov    $0x00000001 -> %eax
+         129          71: W0.T1992554 ifetch       2 byte(s) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
 View tool results:
               8 : total instructions
 

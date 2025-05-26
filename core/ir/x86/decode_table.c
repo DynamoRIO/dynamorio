@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1231,8 +1231,8 @@ const instr_info_t * const op_instr[] =
     /* OP_invpcid       */   &third_byte_38[103],
 
     /* Intel TSX */
-    /* OP_xabort        */   &base_extensions[17][7],
-    /* OP_xbegin        */   &base_extensions[18][7],
+    /* OP_xabort        */   &rm_extensions[6][0],
+    /* OP_xbegin        */   &rm_extensions[7][0],
     /* OP_xend          */   &rm_extensions[4][5],
     /* OP_xtest         */   &rm_extensions[4][6],
 
@@ -2372,36 +2372,36 @@ const instr_info_t first_byte[] = {
     {EXTENSION, 0x830000, catUncategorized, "(group 1c)", Ev, xx, Ib, xx, xx, mrm, x, 2},
     {OP_test,  0x840000, catMath, "test", xx, xx, Eb, Gb, xx, mrm, fW6, tex[10][0]},
     {OP_test,  0x850000, catMath, "test", xx, xx, Ev, Gv, xx, mrm, fW6, tfb[0x84]},
-    {OP_xchg,  0x860000, catUncategorized, "xchg", Eb, Gb, Eb, Gb, xx, mrm, x, END_LIST},
-    {OP_xchg,  0x870000, catUncategorized, "xchg", Ev, Gv, Ev, Gv, xx, mrm, x, tfb[0x86]},
+    {OP_xchg,  0x860000, catMove, "xchg", Eb, Gb, Eb, Gb, xx, mrm, x, END_LIST},
+    {OP_xchg,  0x870000, catMove, "xchg", Ev, Gv, Ev, Gv, xx, mrm, x, tfb[0x86]},
     /* 88 */
     {OP_mov_st,  0x880000, catMove, "mov", Eb, xx, Gb, xx, xx, mrm, x, tex[18][0]},
     {OP_mov_st,  0x890000, catMove, "mov", Ev, xx, Gv, xx, xx, mrm, x, tfb[0x88]},
     {OP_mov_ld,  0x8a0000, catMove, "mov", Gb, xx, Eb, xx, xx, mrm, x, END_LIST},
     {OP_mov_ld,  0x8b0000, catMove, "mov", Gv, xx, Ev, xx, xx, mrm, x, tfb[0x8a]},
     {OP_mov_seg, 0x8c0000, catMove, "mov", Ev, xx, Sw, xx, xx, mrm, x, END_LIST},
-    {OP_lea,  0x8d0000, catLoad, "lea", Gv, xx, Mm, xx, xx, mrm, x, END_LIST}, /* Intel has just M */
+    {OP_lea,  0x8d0000, catMath, "lea", Gv, xx, Mm, xx, xx, mrm, x, END_LIST}, /* Intel has just M */
     {OP_mov_seg, 0x8e0000, catMove, "mov", Sw, xx, Ev, xx, xx, mrm, x, tfb[0x8c]},
     {XOP_PREFIX_EXT, 0x8f0000, catUncategorized, "(xop_prefix_ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     /* 90 */
     {PREFIX_EXT, 0x900000, catUncategorized, "(prefix ext 103)", xx, xx, xx, xx, xx, no, x, 103},
-    {OP_xchg, 0x910000, catUncategorized, "xchg", eCX_x, eAX, eCX_x, eAX, xx, no, x, tfb[0x92]},
-    {OP_xchg, 0x920000, catUncategorized, "xchg", eDX_x, eAX, eDX_x, eAX, xx, no, x, tfb[0x93]},
-    {OP_xchg, 0x930000, catUncategorized, "xchg", eBX_x, eAX, eBX_x, eAX, xx, no, x, tfb[0x94]},
-    {OP_xchg, 0x940000, catUncategorized, "xchg", eSP_x, eAX, eSP_x, eAX, xx, no, x, tfb[0x95]},
-    {OP_xchg, 0x950000, catUncategorized, "xchg", eBP_x, eAX, eBP_x, eAX, xx, no, x, tfb[0x96]},
-    {OP_xchg, 0x960000, catUncategorized, "xchg", eSI_x, eAX, eSI_x, eAX, xx, no, x, tfb[0x97]},
-    {OP_xchg, 0x970000, catUncategorized, "xchg", eDI_x, eAX, eDI_x, eAX, xx, no, x, tfb[0x87]},
+    {OP_xchg, 0x910000, catMove, "xchg", eCX_x, eAX, eCX_x, eAX, xx, no, x, tfb[0x92]},
+    {OP_xchg, 0x920000, catMove, "xchg", eDX_x, eAX, eDX_x, eAX, xx, no, x, tfb[0x93]},
+    {OP_xchg, 0x930000, catMove, "xchg", eBX_x, eAX, eBX_x, eAX, xx, no, x, tfb[0x94]},
+    {OP_xchg, 0x940000, catMove, "xchg", eSP_x, eAX, eSP_x, eAX, xx, no, x, tfb[0x95]},
+    {OP_xchg, 0x950000, catMove, "xchg", eBP_x, eAX, eBP_x, eAX, xx, no, x, tfb[0x96]},
+    {OP_xchg, 0x960000, catMove, "xchg", eSI_x, eAX, eSI_x, eAX, xx, no, x, tfb[0x97]},
+    {OP_xchg, 0x970000, catMove, "xchg", eDI_x, eAX, eDI_x, eAX, xx, no, x, tfb[0x87]},
     /* 98 */
     {OP_cwde, 0x980000, catUncategorized, "cwde", eAX, xx, ax, xx, xx, no, x, END_LIST},/*16-bit=="cbw", src is al not ax; FIXME: newer gdb calls it "cwtl"?!?*/
     /* PR 354096: does not write to ax/eax/rax: sign-extends into dx/edx/rdx */
     {OP_cdq,  0x990000, catUncategorized, "cdq", eDX, xx, eAX, xx, xx, no, x, END_LIST},/*16-bit=="cwd";64-bit=="cqo"*/
     {OP_call_far, 0x9a0000, catBranch, "lcall",  xsp, i_vSPo2, Ap, xsp, xx, i64, x, END_LIST},
     {OP_fwait, 0x9b0000, catFP | catState, "fwait", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_pushf, 0x9c0000, catUncategorized, "pushf", xsp, i_xSPo1, xsp, xx, xx, no, fRX, END_LIST},
-    {OP_popf,  0x9d0000, catUncategorized, "popf", xsp, xx, xsp, i_xSP, xx, no, fWX, END_LIST},
-    {OP_sahf,  0x9e0000, catUncategorized, "sahf", xx, xx, ah, xx, xx, no, (fW6&(~fWO)), END_LIST},
-    {OP_lahf,  0x9f0000, catLoad, "lahf", ah, xx, xx, xx, xx, no, (fR6&(~fRO)), END_LIST},
+    {OP_pushf, 0x9c0000, catStore | catState, "pushf", xsp, i_xSPo1, xsp, xx, xx, no, fRX, END_LIST},
+    {OP_popf,  0x9d0000, catLoad | catState, "popf", xsp, xx, xsp, i_xSP, xx, no, fWX, END_LIST},
+    {OP_sahf,  0x9e0000, catState, "sahf", xx, xx, ah, xx, xx, no, (fW6&(~fWO)), END_LIST},
+    {OP_lahf,  0x9f0000, catState, "lahf", ah, xx, xx, xx, xx, no, (fR6&(~fRO)), END_LIST},
     /* a0 */
     {OP_mov_ld,  0xa00000, catMove, "mov", al, xx, Ob, xx, xx, no, x, tfb[0x8b]},
     {OP_mov_ld,  0xa10000, catMove, "mov", eAX, xx, Ov, xx, xx, no, x, tfb[0xa0]},
@@ -2561,9 +2561,9 @@ const instr_info_t second_byte[] = {
   {PREFIX_EXT, 0x0f1a10, catUncategorized, "(prefix ext 186)", xx, xx, xx, xx, xx, mrm, x, 186},
   {PREFIX_EXT, 0x0f1b10, catUncategorized, "(prefix ext 187)", xx, xx, xx, xx, xx, mrm, x, 187},
   {OP_cldemote, 0x0f1c30, catOther, "cldemote", xx, xx, Mb, xx, xx, mrm|reqp, x, END_LIST},
-  {OP_nop_modrm, 0x0f1d10, catSIMD, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-  {OP_nop_modrm, 0x0f1e10, catSIMD, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-  {OP_nop_modrm, 0x0f1f10, catSIMD, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+  {OP_nop_modrm, 0x0f1d10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+  {OP_nop_modrm, 0x0f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+  {OP_nop_modrm, 0x0f1f10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   /* 20 */
   {OP_mov_priv, 0x0f2010, catMove, "mov", Rr, xx, Cr, xx, xx, mrm, fW6, tsb[0x21]},
   {OP_mov_priv, 0x0f2110, catMove, "mov", Rr, xx, Dr, xx, xx, mrm, fW6, tsb[0x22]},
@@ -2608,23 +2608,23 @@ const instr_info_t second_byte[] = {
   {INVALID, 0x0f3e10, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0f3f10, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* 40 */
-  {OP_cmovo,   0x0f4010, catUncategorized, "cmovo",  Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
+  {OP_cmovo,   0x0f4010, catMove, "cmovo",  Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
   {E_VEX_EXT, 0x0f4110, catUncategorized, "(e_vex ext 83)", xx, xx, xx, xx, xx, mrm, x, 83},
   {E_VEX_EXT, 0x0f4210, catUncategorized, "(e_vex ext 84)", xx, xx, xx, xx, xx, mrm, x, 84},
-  {OP_cmovnb,  0x0f4310, catUncategorized, "cmovnb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
+  {OP_cmovnb,  0x0f4310, catMove, "cmovnb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
   {E_VEX_EXT, 0x0f4410, catUncategorized, "(e_vex ext 86)", xx, xx, xx, xx, xx, mrm, x, 86},
   {E_VEX_EXT, 0x0f4510, catUncategorized, "(e_vex ext 87)", xx, xx, xx, xx, xx, mrm, x, 87},
   {E_VEX_EXT, 0x0f4610, catUncategorized, "(e_vex ext 88)", xx, xx, xx, xx, xx, mrm, x, 88},
   {E_VEX_EXT, 0x0f4710, catUncategorized, "(e_vex ext 89)", xx, xx, xx, xx, xx, mrm, x, 89},
   /* 48 */
-  {OP_cmovs,  0x0f4810, catUncategorized, "cmovs",  Gv, xx, Ev, xx, xx, mrm|predcc, fRS, END_LIST},
-  {OP_cmovns, 0x0f4910, catUncategorized, "cmovns", Gv, xx, Ev, xx, xx, mrm|predcc, fRS, END_LIST},
+  {OP_cmovs,  0x0f4810, catMove, "cmovs",  Gv, xx, Ev, xx, xx, mrm|predcc, fRS, END_LIST},
+  {OP_cmovns, 0x0f4910, catMove, "cmovns", Gv, xx, Ev, xx, xx, mrm|predcc, fRS, END_LIST},
   {E_VEX_EXT, 0x0f4a10, catUncategorized, "(e_vex ext 90)", xx, xx, xx, xx, xx, mrm, x, 90},
   {E_VEX_EXT, 0x0f4b10, catUncategorized, "(e_vex ext 85)", xx, xx, xx, xx, xx, mrm, x, 85},
-  {OP_cmovl,  0x0f4c10, catUncategorized, "cmovl",  Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO), END_LIST},
-  {OP_cmovnl, 0x0f4d10, catUncategorized, "cmovnl", Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO), END_LIST},
-  {OP_cmovle, 0x0f4e10, catUncategorized, "cmovle", Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
-  {OP_cmovnle,0x0f4f10, catUncategorized, "cmovnle",Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
+  {OP_cmovl,  0x0f4c10, catMove, "cmovl",  Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO), END_LIST},
+  {OP_cmovnl, 0x0f4d10, catMove, "cmovnl", Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO), END_LIST},
+  {OP_cmovle, 0x0f4e10, catMove, "cmovle", Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
+  {OP_cmovnle,0x0f4f10, catMove, "cmovnle",Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
   /* 50 */
   {PREFIX_EXT, 0x0f5010, catUncategorized, "(prefix ext 16)", xx, xx, xx, xx, xx, mrm, x, 16},
   {PREFIX_EXT, 0x0f5110, catUncategorized, "(prefix ext 17)", xx, xx, xx, xx, xx, mrm, x, 17},
@@ -3038,8 +3038,7 @@ const instr_info_t base_extensions[][8] = {
     {INVALID, 0xc60024, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc60025, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc60026, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    /* XXX i#1314: this also sets eip */
-    {OP_xabort, 0xf8c60067, catUncategorized, "xabort", eax, xx, Ib, xx, xx, mrm, x, END_LIST},
+    {MOD_EXT, 0xc60027, catUncategorized, "(mod ext 124)", xx, xx, xx, xx, xx, mrm, x, 124},
   },
   /* group 11b (first byte c7) */
   { /* extensions[18] */
@@ -3051,7 +3050,7 @@ const instr_info_t base_extensions[][8] = {
     {INVALID, 0xc70024, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc70025, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc70026, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_xbegin, 0xf8c70067, catUncategorized, "xbegin", xx, xx, Jz, xx, xx, mrm, x, END_LIST},
+    {MOD_EXT, 0xc70027, catUncategorized, "(mod ext 125)", xx, xx, xx, xx, xx, mrm, x, 125},
   },
   /* group 12 (first bytes 0f 71): all assumed to have Ib */
   { /* extensions[19] */
@@ -5868,7 +5867,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf2382a18, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x382a18, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpbroadcastmb2q, 0xf3382a48, catSIMD, "vpbroadcastmb2q", Ve, xx, KQb, xx, xx, mrm|evex|ttnone, x, NA},
-    {OP_vmovntdqa, 0x66382a08, catLoad, "vmovntdqa", Me, xx, Ve, xx, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vmovntdqa, 0x66382a08, catLoad | catSIMD, "vmovntdqa", Ve, xx, Me, xx, xx, mrm|evex|ttfvm, x, END_LIST},
     {INVALID,    0xf2382a18, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 185 */
     {INVALID,      0x383a18, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -6075,8 +6074,8 @@ const instr_info_t e_vex_extensions[][3] = {
     {OP_vpcmpeqq, 0x66382918, catSIMD, "vpcmpeqq",  Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexwb[233][2]},
     {PREFIX_EXT,    0x382918, catUncategorized, "(prefix ext 180)", xx, xx, xx, xx, xx, mrm|evex, x, 180},
   }, { /* e_vex ext 12 */
-    {OP_movntdqa,  0x66382a18, catLoad | catSIMD, "movntdqa", Mdq, xx, Vdq, xx, xx, mrm|reqp, x, END_LIST},
-    {OP_vmovntdqa, 0x66382a18, catLoad, "vmovntdqa", Mx, xx, Vx, xx, xx, mrm|vex|reqp, x, tpe[184][10]},
+    {OP_movntdqa,  0x66382a18, catLoad | catSIMD, "movntdqa", Vdq, xx, Mdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_vmovntdqa, 0x66382a18, catLoad | catSIMD, "vmovntdqa", Vx, xx, Mx, xx, xx, mrm|vex|reqp, x, tpe[184][10]},
     {PREFIX_EXT,    0x382a18, catUncategorized, "(prefix ext 184)", xx, xx, xx, xx, xx, mrm|evex, x, 184},
   }, { /* e_vex ext 13 */
     {OP_packusdw,  0x66382b18, catUncategorized, "packusdw", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
@@ -6363,35 +6362,35 @@ const instr_info_t e_vex_extensions[][3] = {
     {PREFIX_EXT, 0x0f9310, catUncategorized, "(prefix ext 147)", xx, xx, xx, xx, xx, mrm,   x, 147},
     {INVALID, 0x0f9310, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 83 */
-    {OP_cmovno,  0x0f4110, catUncategorized,           "cmovno", Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
+    {OP_cmovno,  0x0f4110, catMove,           "cmovno", Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
     {PREFIX_EXT, 0x0f4110, catUncategorized, "(prefix ext 148)", xx, xx, xx, xx, xx, mrm,         x, 148},
     {INVALID, 0x0f4110, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 84 */
-    {OP_cmovb,   0x0f4210, catUncategorized,            "cmovb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
+    {OP_cmovb,   0x0f4210, catMove,            "cmovb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
     {PREFIX_EXT, 0x0f4210, catUncategorized, "(prefix ext 149)", xx, xx, xx, xx, xx, mrm,          x, 149},
     {INVALID, 0x0f4210, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 85 */
-    {OP_cmovnp,  0x0f4b10, catUncategorized,           "cmovnp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+    {OP_cmovnp,  0x0f4b10, catMove,           "cmovnp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
     {PREFIX_EXT, 0x0f4b10, catUncategorized, "(prefix ext 150)", xx, xx, xx, xx, xx, mrm,          x, 150},
     {INVALID, 0x0f4b10, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 86 */
-    {OP_cmovz,   0x0f4410, catUncategorized,            "cmovz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
+    {OP_cmovz,   0x0f4410, catMove,            "cmovz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
     {PREFIX_EXT, 0x0f4410, catUncategorized, "(prefix ext 151)", xx, xx, xx, xx, xx, mrm,          x, 151},
     {INVALID, 0x0f4410, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 87 */
-    {OP_cmovnz,  0x0f4510, catUncategorized,           "cmovnz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
+    {OP_cmovnz,  0x0f4510, catMove,           "cmovnz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
     {PREFIX_EXT, 0x0f4510, catUncategorized, "(prefix ext 152)", xx, xx, xx, xx, xx, mrm,          x, 152},
     {INVALID, 0x0f4510, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 88 */
-    {OP_cmovbe,  0x0f4610, catUncategorized,           "cmovbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+    {OP_cmovbe,  0x0f4610, catMove,           "cmovbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
     {PREFIX_EXT, 0x0f4610, catUncategorized, "(prefix ext 153)", xx, xx, xx, xx, xx, mrm,                x, 153},
     {INVALID, 0x0f4610, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 89 */
-    {OP_cmovnbe, 0x0f4710, catUncategorized,          "cmovnbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+    {OP_cmovnbe, 0x0f4710, catMove,          "cmovnbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
     {PREFIX_EXT, 0x0f4710, catUncategorized, "(prefix ext 154)", xx, xx, xx, xx, xx, mrm,                x, 154},
     {INVALID, 0x0f4710, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 90 */
-    {OP_cmovp,   0x0f4a10, catUncategorized,            "cmovp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+    {OP_cmovp,   0x0f4a10, catMove,            "cmovp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
     {PREFIX_EXT, 0x0f4a10, catUncategorized, "(prefix ext 155)", xx, xx, xx, xx, xx, mrm,          x, 155},
     {INVALID, 0x0f4a10, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 91 */
@@ -7172,6 +7171,14 @@ const instr_info_t mod_extensions[][2] = {
     {OP_clwb,    0x660fae36, catOther, "clwb", xx, xx, Mb, xx, xx, mrm, no, END_LIST},
     {INVALID,    0x660fae36, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
+  { /* mod extension 124 */
+    {INVALID,    0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {RM_EXT,     0xc60067, catUncategorized, "(group 7 mod + rm ext 6)", xx, xx, xx, xx, xx, mrm, x, 6},
+  },
+  { /* mod extension 125 */
+    {INVALID,    0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {RM_EXT,     0xc70067, catUncategorized, "(group 7 mod + rm ext 7)", xx, xx, xx, xx, xx, mrm, x, 7},
+  },
 };
 
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
@@ -7240,6 +7247,27 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_rdpkru, 0xee0f0171, catUncategorized, "rdpkru", eax, edx, ecx, xx, xx, mrm, x, END_LIST},
     {OP_wrpkru, 0xef0f0171, catUncategorized, "wrpkru", xx, xx, ecx, edx, eax, mrm, x, END_LIST},
+  },
+  { /* rm extension 6 */
+    /* XXX i#1314: this also sets eip */
+    {OP_xabort, 0xf8c60067, catOther, "xabort", eax, xx, Ib, xx, xx, mrm, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc60067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+  },
+  { /* rm extension 7 */
+    {OP_xbegin, 0xf8c70067, catOther, "xbegin", xx, xx, Jz, xx, xx, mrm, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {INVALID, 0xc70067, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
 };
 
@@ -7360,7 +7388,7 @@ const instr_info_t evex_prefix_extensions[][2] = {
 const instr_info_t rex_b_extensions[][2] = {
   { /* rex.b extension 0 */
     /* We chain these even though encoding won't find them. */
-    {OP_nop,  0x900000, catUncategorized, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][3]},
+    {OP_nop,  0x900000, catOther, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][3]},
     /* For decoding we avoid needing new operand types by only getting
      * here if rex.b is set.  For encode, we would need either to take
      * REQUIRES_REX + OPCODE_SUFFIX or a new operand type for registers that
@@ -7371,7 +7399,7 @@ const instr_info_t rex_b_extensions[][2] = {
      * all x64 processors, so we just don't list in the encoding chain.
      * See i#5446.
      */
-    {OP_xchg, 0x900000, catUncategorized, "xchg", eAX_x, eAX, eAX_x, eAX, xx, o64, x, END_LIST},
+    {OP_xchg, 0x900000, catMove, "xchg", eAX_x, eAX, eAX_x, eAX, xx, o64, x, END_LIST},
   },
 };
 
@@ -8929,7 +8957,7 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vpabsq, 0x66381f48, catSIMD, "vpabsq",   Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[147][3]},
     {OP_vpabsq, 0x66381f58, catSIMD, "vpabsq",   Ve, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_Wb_ext 148 */
-    {OP_vbroadcastf32x2, 0x66381908, catLoad | catSIMD, "vbroadcastf32x2", Vf, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
+    {OP_vbroadcastf32x2, 0x66381908, catSIMD, "vbroadcastf32x2", Vf, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
     {INVALID, 0x66381918, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {OP_vbroadcastsd, 0x66381948, catFP | catMove | catSIMD, "vbroadcastsd", Vf, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
     {INVALID, 0x66381958, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
@@ -8949,7 +8977,7 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vpbroadcastq, 0x66387c48, catSIMD, "vpbroadcastq", Ve, xx, KEb, Eq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
     {INVALID, 0x66387c58, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 152 */
-    {OP_vbroadcasti32x2, 0x66385908, catLoad | catSIMD, "vbroadcasti32x2", Ve, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
+    {OP_vbroadcasti32x2, 0x66385908, catSIMD, "vbroadcasti32x2", Ve, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
     {INVALID, 0x66385918, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {OP_vpbroadcastq, 0x66385948, catSIMD, "vpbroadcastq", Ve, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt1s, x, tevexwb[151][2]},
     {INVALID, 0x66385958, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
@@ -10087,23 +10115,23 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fdivr, 0xd8ff10, catFP | catMath, "fdivr", st0, xx, st7, st0, xx, mrm, x, tfh[4][0x30]},
    },
     { /* d9 = [1] */
-        {OP_fld, 0xd9c010, catFP | catMove | catLoad, "fld", st0, xx, st0, xx, xx, mrm, x, tfh[1][0x01]}, /* c0 = [0x00] */
-        {OP_fld, 0xd9c110, catFP | catMove | catLoad, "fld", st0, xx, st1, xx, xx, mrm, x, tfh[1][0x02]},
-        {OP_fld, 0xd9c210, catFP | catMove | catLoad, "fld", st0, xx, st2, xx, xx, mrm, x, tfh[1][0x03]},
-        {OP_fld, 0xd9c310, catFP | catMove | catLoad, "fld", st0, xx, st3, xx, xx, mrm, x, tfh[1][0x04]},
-        {OP_fld, 0xd9c410, catFP | catMove | catLoad, "fld", st0, xx, st4, xx, xx, mrm, x, tfh[1][0x05]},
-        {OP_fld, 0xd9c510, catFP | catMove | catLoad, "fld", st0, xx, st5, xx, xx, mrm, x, tfh[1][0x06]},
-        {OP_fld, 0xd9c610, catFP | catMove | catLoad, "fld", st0, xx, st6, xx, xx, mrm, x, tfh[1][0x07]},
-        {OP_fld, 0xd9c710, catFP | catMove | catLoad, "fld", st0, xx, st7, xx, xx, mrm, x, END_LIST},
-        {OP_fxch, 0xd9c810, catFP | catMath, "fxch", st0, st0, st0, st0, xx, mrm, x, tfh[1][0x09]}, /* c8 = [0x08] */
-        {OP_fxch, 0xd9c910, catFP | catMath, "fxch", st0, st1, st0, st1, xx, mrm, x, tfh[1][0x0a]},
-        {OP_fxch, 0xd9ca10, catFP | catMath, "fxch", st0, st2, st0, st2, xx, mrm, x, tfh[1][0x0b]},
-        {OP_fxch, 0xd9cb10, catFP | catMath, "fxch", st0, st3, st0, st3, xx, mrm, x, tfh[1][0x0c]},
-        {OP_fxch, 0xd9cc10, catFP | catMath, "fxch", st0, st4, st0, st4, xx, mrm, x, tfh[1][0x0d]},
-        {OP_fxch, 0xd9cd10, catFP | catMath, "fxch", st0, st5, st0, st5, xx, mrm, x, tfh[1][0x0e]},
-        {OP_fxch, 0xd9ce10, catFP | catMath, "fxch", st0, st6, st0, st6, xx, mrm, x, tfh[1][0x0f]},
-        {OP_fxch, 0xd9cf10, catFP | catMath, "fxch", st0, st7, st0, st7, xx, mrm, x, END_LIST},
-        {OP_fnop, 0xd9d010, catFP | catMath, "fnop", xx, xx, xx, xx, xx, mrm, x, END_LIST}, /* d0 = [0x10] */
+        {OP_fld, 0xd9c010, catFP | catMove, "fld", st0, xx, st0, xx, xx, mrm, x, tfh[1][0x01]}, /* c0 = [0x00] */
+        {OP_fld, 0xd9c110, catFP | catMove, "fld", st0, xx, st1, xx, xx, mrm, x, tfh[1][0x02]},
+        {OP_fld, 0xd9c210, catFP | catMove, "fld", st0, xx, st2, xx, xx, mrm, x, tfh[1][0x03]},
+        {OP_fld, 0xd9c310, catFP | catMove, "fld", st0, xx, st3, xx, xx, mrm, x, tfh[1][0x04]},
+        {OP_fld, 0xd9c410, catFP | catMove, "fld", st0, xx, st4, xx, xx, mrm, x, tfh[1][0x05]},
+        {OP_fld, 0xd9c510, catFP | catMove, "fld", st0, xx, st5, xx, xx, mrm, x, tfh[1][0x06]},
+        {OP_fld, 0xd9c610, catFP | catMove, "fld", st0, xx, st6, xx, xx, mrm, x, tfh[1][0x07]},
+        {OP_fld, 0xd9c710, catFP | catMove, "fld", st0, xx, st7, xx, xx, mrm, x, END_LIST},
+        {OP_fxch, 0xd9c810, catFP | catMove, "fxch", st0, st0, st0, st0, xx, mrm, x, tfh[1][0x09]}, /* c8 = [0x08] */
+        {OP_fxch, 0xd9c910, catFP | catMove, "fxch", st0, st1, st0, st1, xx, mrm, x, tfh[1][0x0a]},
+        {OP_fxch, 0xd9ca10, catFP | catMove, "fxch", st0, st2, st0, st2, xx, mrm, x, tfh[1][0x0b]},
+        {OP_fxch, 0xd9cb10, catFP | catMove, "fxch", st0, st3, st0, st3, xx, mrm, x, tfh[1][0x0c]},
+        {OP_fxch, 0xd9cc10, catFP | catMove, "fxch", st0, st4, st0, st4, xx, mrm, x, tfh[1][0x0d]},
+        {OP_fxch, 0xd9cd10, catFP | catMove, "fxch", st0, st5, st0, st5, xx, mrm, x, tfh[1][0x0e]},
+        {OP_fxch, 0xd9ce10, catFP | catMove, "fxch", st0, st6, st0, st6, xx, mrm, x, tfh[1][0x0f]},
+        {OP_fxch, 0xd9cf10, catFP | catMove, "fxch", st0, st7, st0, st7, xx, mrm, x, END_LIST},
+        {OP_fnop, 0xd9d010, catFP | catMove, "fnop", xx, xx, xx, xx, xx, mrm, x, END_LIST}, /* d0 = [0x10] */
         {INVALID, 0xd9d110, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xd9d210, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xd9d310, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -10114,14 +10142,14 @@ const instr_info_t float_high_modrm[][64] = {
         /* Undocumented.  On sandpile.org as "fstp1".  We assume an alias for fstp
          * and do not include in the encode chain.
          */
-        {OP_fstp, 0xd9d810, catFP | catMove | catStore, "fstp", st0, xx, st0, xx, xx, mrm, x, END_LIST}, /* d8 = [0x18] */
-        {OP_fstp, 0xd9d910, catFP | catMove | catStore, "fstp", st1, xx, st0, xx, xx, mrm, x, END_LIST},
-        {OP_fstp, 0xd9da10, catFP | catMove | catStore, "fstp", st2, xx, st0, xx, xx, mrm, x, END_LIST},
-        {OP_fstp, 0xd9db10, catFP | catMove | catStore, "fstp", st3, xx, st0, xx, xx, mrm, x, END_LIST},
-        {OP_fstp, 0xd9dc10, catFP | catMove | catStore, "fstp", st4, xx, st0, xx, xx, mrm, x, END_LIST},
-        {OP_fstp, 0xd9dd10, catFP | catMove | catStore, "fstp", st5, xx, st0, xx, xx, mrm, x, END_LIST},
-        {OP_fstp, 0xd9de10, catFP | catMove | catStore, "fstp", st6, xx, st0, xx, xx, mrm, x, END_LIST},
-        {OP_fstp, 0xd9df10, catFP | catMove | catStore, "fstp", st7, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fstp, 0xd9d810, catFP | catMove, "fstp", st0, xx, st0, xx, xx, mrm, x, END_LIST}, /* d8 = [0x18] */
+        {OP_fstp, 0xd9d910, catFP | catMove, "fstp", st1, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fstp, 0xd9da10, catFP | catMove, "fstp", st2, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fstp, 0xd9db10, catFP | catMove, "fstp", st3, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fstp, 0xd9dc10, catFP | catMove, "fstp", st4, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fstp, 0xd9dd10, catFP | catMove, "fstp", st5, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fstp, 0xd9de10, catFP | catMove, "fstp", st6, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fstp, 0xd9df10, catFP | catMove, "fstp", st7, xx, st0, xx, xx, mrm, x, END_LIST},
         {OP_fchs,   0xd9e010, catFP | catMath, "fchs",   st0, xx, st0, xx, xx, mrm, x, END_LIST}, /* e0 = [0x20] */
         {OP_fabs,   0xd9e110, catFP | catMath, "fabs",   st0, xx, st0, xx, xx, mrm, x, END_LIST},
         {INVALID,   0xd9e210, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -10130,13 +10158,13 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fxam,   0xd9e510, catFP | catMath, "fxam",   xx, xx, st0, xx, xx, mrm, x, END_LIST},
         {INVALID,   0xd9e610, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
         {INVALID,   0xd9e710, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-        {OP_fld1,   0xd9e810, catFP | catMath | catLoad, "fld1",   st0, xx, cF, xx, xx, mrm, x, END_LIST}, /* e8 = [0x28] */
-        {OP_fldl2t, 0xd9e910, catFP | catMath | catLoad, "fldl2t", st0, xx, cF, xx, xx, mrm, x, END_LIST},
-        {OP_fldl2e, 0xd9ea10, catFP | catMath | catLoad, "fldl2e", st0, xx, cF, xx, xx, mrm, x, END_LIST},
-        {OP_fldpi,  0xd9eb10, catFP | catMath | catLoad, "fldpi",  st0, xx, cF, xx, xx, mrm, x, END_LIST},
+        {OP_fld1,   0xd9e810, catFP | catMath, "fld1",   st0, xx, cF, xx, xx, mrm, x, END_LIST}, /* e8 = [0x28] */
+        {OP_fldl2t, 0xd9e910, catFP | catMath, "fldl2t", st0, xx, cF, xx, xx, mrm, x, END_LIST},
+        {OP_fldl2e, 0xd9ea10, catFP | catMath, "fldl2e", st0, xx, cF, xx, xx, mrm, x, END_LIST},
+        {OP_fldpi,  0xd9eb10, catFP | catMath, "fldpi",  st0, xx, cF, xx, xx, mrm, x, END_LIST},
         {OP_fldlg2, 0xd9ec10, catUncategorized, "fldlg2", st0, xx, cF, xx, xx, mrm, x, END_LIST},
         {OP_fldln2, 0xd9ed10, catUncategorized, "fldln2", st0, xx, cF, xx, xx, mrm, x, END_LIST},
-        {OP_fldz,   0xd9ee10, catFP | catMath | catLoad, "fldz",   st0, xx, cF, xx, xx, mrm, x, END_LIST},
+        {OP_fldz,   0xd9ee10, catFP | catMath, "fldz",   st0, xx, cF, xx, xx, mrm, x, END_LIST},
         {INVALID,   0xd9ef10, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
         {OP_f2xm1,  0xd9f010, catFP | catMath, "f2xm1",  st0, xx, st0, xx, xx, mrm, x, END_LIST}, /* f0 = [0x30] */
         {OP_fyl2x,  0xd9f110, catFP | catMath, "fyl2x",  st0, st1, st0, st1, xx, mrm, x, END_LIST},
@@ -10379,22 +10407,22 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fxch, 0xddcd10, catFP | catMath, "fxch", st0, st5, st0, st5, xx, mrm, x, END_LIST},
         {OP_fxch, 0xddce10, catFP | catMath, "fxch", st0, st6, st0, st6, xx, mrm, x, END_LIST},
         {OP_fxch, 0xddcf10, catFP | catMath, "fxch", st0, st7, st0, st7, xx, mrm, x, END_LIST},
-        {OP_fst, 0xddd010, catFP | catMove | catStore, "fst", st0, xx, st0, xx, xx, mrm, x, tfh[5][0x11]}, /* d0 = [0x10] */
-        {OP_fst, 0xddd110, catFP | catMove | catStore, "fst", st1, xx, st0, xx, xx, mrm, x, tfh[5][0x12]},
-        {OP_fst, 0xddd210, catFP | catMove | catStore, "fst", st2, xx, st0, xx, xx, mrm, x, tfh[5][0x13]},
-        {OP_fst, 0xddd310, catFP | catMove | catStore, "fst", st3, xx, st0, xx, xx, mrm, x, tfh[5][0x14]},
-        {OP_fst, 0xddd410, catFP | catMove | catStore, "fst", st4, xx, st0, xx, xx, mrm, x, tfh[5][0x15]},
-        {OP_fst, 0xddd510, catFP | catMove | catStore, "fst", st5, xx, st0, xx, xx, mrm, x, tfh[5][0x16]},
-        {OP_fst, 0xddd610, catFP | catMove | catStore, "fst", st6, xx, st0, xx, xx, mrm, x, tfh[5][0x17]},
-        {OP_fst, 0xddd710, catFP | catMove | catStore, "fst", st7, xx, st0, xx, xx, mrm, x, END_LIST},
-        {OP_fstp, 0xddd810, catFP | catMove | catStore, "fstp", st0, xx, st0, xx, xx, mrm, x, tfh[5][0x19]}, /* d8 = [0x18] */
-        {OP_fstp, 0xddd910, catFP | catMove | catStore, "fstp", st1, xx, st0, xx, xx, mrm, x, tfh[5][0x1a]},
-        {OP_fstp, 0xddda10, catFP | catMove | catStore, "fstp", st2, xx, st0, xx, xx, mrm, x, tfh[5][0x1b]},
-        {OP_fstp, 0xdddb10, catFP | catMove | catStore, "fstp", st3, xx, st0, xx, xx, mrm, x, tfh[5][0x1c]},
-        {OP_fstp, 0xdddc10, catFP | catMove | catStore, "fstp", st4, xx, st0, xx, xx, mrm, x, tfh[5][0x1d]},
-        {OP_fstp, 0xdddd10, catFP | catMove | catStore, "fstp", st5, xx, st0, xx, xx, mrm, x, tfh[5][0x1e]},
-        {OP_fstp, 0xddde10, catFP | catMove | catStore, "fstp", st6, xx, st0, xx, xx, mrm, x, tfh[5][0x1f]},
-        {OP_fstp, 0xdddf10, catFP | catMove | catStore, "fstp", st7, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fst, 0xddd010, catFP | catMove, "fst", st0, xx, st0, xx, xx, mrm, x, tfh[5][0x11]}, /* d0 = [0x10] */
+        {OP_fst, 0xddd110, catFP | catMove, "fst", st1, xx, st0, xx, xx, mrm, x, tfh[5][0x12]},
+        {OP_fst, 0xddd210, catFP | catMove, "fst", st2, xx, st0, xx, xx, mrm, x, tfh[5][0x13]},
+        {OP_fst, 0xddd310, catFP | catMove, "fst", st3, xx, st0, xx, xx, mrm, x, tfh[5][0x14]},
+        {OP_fst, 0xddd410, catFP | catMove, "fst", st4, xx, st0, xx, xx, mrm, x, tfh[5][0x15]},
+        {OP_fst, 0xddd510, catFP | catMove, "fst", st5, xx, st0, xx, xx, mrm, x, tfh[5][0x16]},
+        {OP_fst, 0xddd610, catFP | catMove, "fst", st6, xx, st0, xx, xx, mrm, x, tfh[5][0x17]},
+        {OP_fst, 0xddd710, catFP | catMove, "fst", st7, xx, st0, xx, xx, mrm, x, END_LIST},
+        {OP_fstp, 0xddd810, catFP | catMove, "fstp", st0, xx, st0, xx, xx, mrm, x, tfh[5][0x19]}, /* d8 = [0x18] */
+        {OP_fstp, 0xddd910, catFP | catMove, "fstp", st1, xx, st0, xx, xx, mrm, x, tfh[5][0x1a]},
+        {OP_fstp, 0xddda10, catFP | catMove, "fstp", st2, xx, st0, xx, xx, mrm, x, tfh[5][0x1b]},
+        {OP_fstp, 0xdddb10, catFP | catMove, "fstp", st3, xx, st0, xx, xx, mrm, x, tfh[5][0x1c]},
+        {OP_fstp, 0xdddc10, catFP | catMove, "fstp", st4, xx, st0, xx, xx, mrm, x, tfh[5][0x1d]},
+        {OP_fstp, 0xdddd10, catFP | catMove, "fstp", st5, xx, st0, xx, xx, mrm, x, tfh[5][0x1e]},
+        {OP_fstp, 0xddde10, catFP | catMove, "fstp", st6, xx, st0, xx, xx, mrm, x, tfh[5][0x1f]},
+        {OP_fstp, 0xdddf10, catFP | catMove, "fstp", st7, xx, st0, xx, xx, mrm, x, END_LIST},
         {OP_fucom, 0xdde010, catFP | catMath, "fucom", xx, xx, st0, st0, xx, mrm, x, tfh[5][0x21]}, /* e0 = [0x20] */
         {OP_fucom, 0xdde110, catFP | catMath, "fucom", xx, xx, st1, st0, xx, mrm, x, tfh[5][0x22]},
         {OP_fucom, 0xdde210, catFP | catMath, "fucom", xx, xx, st2, st0, xx, mrm, x, tfh[5][0x23]},

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3013,7 +3013,7 @@ instr_get_operation_size(instr_t *instr)
 void
 instr_set_operation_size(instr_t *instr, opnd_size_t operation_size)
 {
-    CLIENT_ASSERT(instr_get_isa_mode(instr) != DR_ISA_REGDEPS,
+    CLIENT_ASSERT(instr_get_isa_mode(instr) == DR_ISA_REGDEPS,
                   "instr_set_operation_size: only DR_ISA_REGDEPS instructions can have "
                   "an operation_size");
     instr->operation_size = operation_size;

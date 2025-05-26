@@ -34,14 +34,20 @@
 # FIXME i#120: add in all the runall/runalltest.sh tests
 
 # input:
+# * precmd = pre processing command to run
 # * cmd = command to run in background that uses run_in_bg, which will
 #     print the pid to stdout.
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
+# * postcmd = post processing command to run
+# * postcmdN (for N=2+) = additional post processing commands to run
 # * toolbindir
 # * out = file where output of background process will be sent
 # * pidfile = file where the pid of the background process will be written
 # * nudge = arguments to drnudgeunix or drconfig
 # * clear = dir to clear ahead of time
+
+get_filename_component(current_directory_path "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(${current_directory_path}/process_cmdline.cmake NO_POLICY_SCOPE)
 
 # intra-arg space=@@ and inter-arg space=@
 string(REGEX REPLACE "@@" " " cmd "${cmd}")
@@ -64,6 +70,9 @@ if (pidfile)
   file(REMOVE ${pidfile})
 endif ()
 file(REMOVE ${out})
+
+# Run the pre processig command.
+process_cmdline(precmd ON tomatch)
 
 # Run the target in the background.
 execute_process(COMMAND ${cmd}
@@ -336,8 +345,19 @@ while (NOT "${output}" MATCHES "\ndone\n")
   endif ()
 endwhile()
 
+# Run post processing commands.
+if (NOT "${postcmd}" STREQUAL "")
+  process_cmdline(postcmd ON tomatch)
+  set(num 2)
+  while (NOT "${postcmd${num}}" STREQUAL "")
+    process_cmdline(postcmd${num} ON tomatch)
+    math(EXPR num "${num} + 1")
+  endwhile ()
+endif()
+
 # message() adds a newline so removing any trailing newline
 string(REGEX REPLACE "[ \n]+$" "" output "${output}")
+string(CONCAT output ${output} ${tomatch})
 message("${output}")
 
 # Sometimes infloop keeps running: FIXME: figure out why.

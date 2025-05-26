@@ -144,10 +144,10 @@ public:
         STATUS_STOLE, /**< Used for internal scheduler purposes. */
     };
 
-    /** Identifies an input stream by its index. */
+    /** Identifies an input stream by its index (0-based). */
     typedef int input_ordinal_t;
 
-    /** Identifies an output stream by its index. */
+    /** Identifies an output stream by its index (0-based). */
     typedef int output_ordinal_t;
 
     /** Sentinel value indicating that no input stream is specified. */
@@ -195,9 +195,12 @@ public:
     };
 
     /**
-     * Specifies details about one set of input trace files from one workload,
-     * each input file representing a single software thread.
-     * It is assumed that there is no thread id duplication within one workload.
+     * Specifies details about one set of  input trace files from one workload.  Each
+     * input file typically represents  either one software thread ("thread-sharded")
+     * or one hardware thread ("core-sharded").  The  details in this struct apply to
+     * the inputs listed in the 'tids' (for thread-sharded, if identifying by tid) or
+     * 'shards' (for any sharding, if identifying  by ordinal).  When using 'tids' it
+     * is assumed that there is no thread id duplication within one workload.
      */
     struct input_thread_info_t {
         /** Convenience constructor for common usage. */
@@ -231,18 +234,41 @@ public:
             , output_binding(output_binding)
         {
         }
-        /** Size of the struct for binary-compatible additions. */
+        /**
+         * Size of the struct.  Not used as this structure cannot support
+         * binary-compatible additions due to limits of C++ offsetof support with some
+         * implementations of std::set where it is not a standard-layout class: thus,
+         * changes here require recompiling tools using this code.
+         */
         size_t struct_size = sizeof(input_thread_info_t);
         /**
-         * Which threads the details in this structure apply to.
-         * If empty, the details apply to all not-yet-mentioned (by other 'tids'
-         * vectors in prior entries for this workload) threads in the
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
+         * Which input threads the details in this structure apply to.  Only one of
+         * 'tids' and 'shards' can be non-empty.  If 'tids' is empty and 'shards' is
+         * empty, the details apply to all unmentioned (by other 'tids' or
+         * 'shards' vectors in other entries for this workload) inputs in the
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.  When using
+         * 'tids' it is assumed that there is no thread id duplication within one
+         * workload.  If multiple entries list the same tid, only the last one
+         * is honored.
          */
         std::vector<memref_tid_t> tids;
         /**
-         * Limits these threads to this set of output streams.  They will not
-         * be scheduled on any other output streams.
+         * Which inputs the details in this structure apply to, expressed as 0-based
+         * ordinals in the 'readers' vector or in the files opened at 'path' (which
+         * are sorted lexicographically by path) in the containing
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.  Only one of
+         * 'tids' and 'shards' can be non-empty.  If 'tids' is empty and 'shards' is
+         * empty, the details apply to all not-yet-mentioned (by other 'tids' or
+         * 'shards' vectors in prior entries for this workload) inputs in the
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
+         * If multiple entries list the same shard ordinal, only the last one is
+         * honored.
+         */
+        std::vector<int> shards;
+        /**
+         * Limits these threads to this set of output streams, which are specified by
+         * ordinal 0 through the output count minus oner.  They will not be scheduled
+         * on any other output streams.
          */
         std::set<output_ordinal_t> output_binding;
         /**
@@ -292,11 +318,16 @@ public:
         /** The end reader for 'reader'. */
         std::unique_ptr<ReaderType> end;
         /**
-         * A unique identifier to distinguish from other readers for this workload.
-         * Typically this will be the thread id but it does not need to be, so long
-         * as it is not 0 (DynamoRIO's INVALID_THREAD_ID sentinel).
-         * This allows the 'thread_modifiers' field of 'input_workload_t'
-         * to refer to this input.
+         * A unique identifier to distinguish from other readers for this workload.  This
+         * value is used to fill in the #memref_t "tid" field for synthesized context
+         * switch records in dynamic schedules, for synthesized thread exits when skipping
+         * beyond the end of an input, and for synthesized region separator markers when
+         * skipping.  It is also used to refer to this input in the
+         * 'thread_modifiers.tids' field of 'input_workload_t' (though an alternative is
+         * to use the 'thread_modifiers.shards' field).
+         *
+         * This identifier can be non-unique if the aforementioned uses are not
+         * relevant: which would typically only be in non-dynamically-scheduled modes.
          */
         memref_tid_t tid = INVALID_THREAD_ID;
     };
@@ -384,6 +415,9 @@ public:
          * precise due to the coarse-grained timestamps and the elision of adjacent
          * timestamps in the istream.  Interpolation is used to estimate instruction
          * ordinals when timestamps fall in between recorded points.
+         *
+         * This field is only supported for thread-sharded inputs, as core-sharded
+         * do not have an automatically generated replay-as-traced file.
          */
         std::vector<timestamp_range_t> times_of_interest;
 
@@ -459,6 +493,16 @@ public:
          * or a (potentially) blocking system call is identified.  At this point,
          * a new input is selected, taking into consideration other options such
          * as priorities, core bindings, and inter-input dependencies.
+         * In this mode, input #TRACE_MARKER_TYPE_CPU_ID marker values are modified
+         * to reflect the virtual cores; input #TRACE_MARKER_TYPE_TIMESTAMP values are
+         * modified to reflect a notion of virtual time; and input .tid and .pid
+         * #memref_t fields have the workload ordinal set in the top
+         * (64 - #MEMREF_ID_WORKLOAD_SHIFT) bits in order
+         * to ensure the values are unique across multiple workloads (see also
+         * workload_from_memref_pid(), workload_from_memref_tid(),
+         * pid_from_memref_tid(), and tid_from_memref_tid()).
+         * (The tid and pid changes are not supported for 32-bit builds, and
+         * do not support tid values occupying more than #MEMREF_ID_WORKLOAD_SHIFT bits.)
          */
         MAP_TO_ANY_OUTPUT,
         /**
@@ -469,6 +513,16 @@ public:
          * The same output count and input stream order and count must be re-specified;
          * scheduling details such as regions of interest and core bindings do not
          * need to be re-specified and are in fact ignored.
+         * In this mode, input #TRACE_MARKER_TYPE_CPU_ID marker values are modified
+         * to reflect the virtual cores; input #TRACE_MARKER_TYPE_TIMESTAMP values are
+         * modified to reflect a notion of virtual time; and input .tid and .pid
+         * #memref_t fields have the workload ordinal set in the top 32
+         * (64 - #MEMREF_ID_WORKLOAD_SHIFT) bits in order
+         * to ensure the values are unique across multiple workloads (see also
+         * workload_from_memref_pid(), workload_from_memref_tid(),
+         * pid_from_memref_tid(), and tid_from_memref_tid()).
+         * (The tid and pid changes are not supported for 32-bit builds, and
+         * do not support tid values occupying more than #MEMREF_ID_WORKLOAD_SHIFT bits.)
          */
         MAP_AS_PREVIOUSLY,
     };
@@ -829,6 +883,31 @@ public:
          * when raising this value on uneven inputs.
          */
         double exit_if_fraction_inputs_left = 0.1;
+        /**
+         * Input file containing template sequences of kernel system call code.
+         * Each sequence must start with a #TRACE_MARKER_TYPE_SYSCALL_TRACE_START
+         * marker and end with #TRACE_MARKER_TYPE_SYSCALL_TRACE_END.
+         * The value of each marker must hold the system call number for the system call
+         * it corresponds to. Sequences for multiple system calls are concatenated into a
+         * single file. Each sequence should be in the regular offline drmemtrace format.
+         * Whenever a #TRACE_MARKER_TYPE_SYSCALL marker is encountered in a trace, if a
+         * corresponding sequence with the same marker value exists it is inserted into
+         * the output stream after the #TRACE_MARKER_TYPE_SYSCALL marker.
+         * The same file (or reader) must be passed when replaying as this kernel
+         * code is not stored when recording.
+         * An alternative to passing the file path is to pass #kernel_syscall_reader
+         * and #kernel_syscall_reader_end.
+         */
+        std::string kernel_syscall_trace_path;
+        /**
+         * An alternative to #kernel_syscall_trace_path is to pass a reader and
+         * #kernel_syscall_reader_end.  See the description of #kernel_syscall_trace_path.
+         * This field is only examined if #kernel_syscall_trace_path is empty.
+         * The scheduler will call the init() function for the reader.
+         */
+        std::unique_ptr<ReaderType> kernel_syscall_reader;
+        /** The end reader for #kernel_syscall_reader. */
+        std::unique_ptr<ReaderType> kernel_syscall_reader_end;
         // When adding new options, also add to print_configuration().
     };
 
@@ -1120,6 +1199,13 @@ public:
         /**
          * Returns the ordinal for the current
          * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
+         *
+         * For a core-sharded-on-disk trace (#OFFLINE_FILE_TYPE_CORE_SHARDED), which
+         * is already scheduled, get_workload_id() will not return the original
+         * separate inputs but rather the new inputs as seen by the scheduler which
+         * are a single workload with one input per core.  Use the modified #memref_t
+         * tid and pid fields with the helpers workload_from_memref_pid() and
+         * workload_from_memref_tid() to obtain the workload in this case.
          */
         int64_t
         get_workload_id() const override
@@ -1203,6 +1289,7 @@ public:
         uint64_t cur_instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
         uint64_t first_timestamp_ = 0;
+        bool in_kernel_trace_ = false;
         // Remember top-level headers for the memtrace_stream_t interface.
         uint64_t version_ = 0;
         uint64_t filetype_ = 0;

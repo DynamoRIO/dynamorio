@@ -94,6 +94,12 @@
 ---------------------------xxxxx  memx0      # X register used as memref for SYS
 ---------------------------xxxxx  x0p0       # even-numbered X register (or XZR)
 ---------------------------xxxxx  x0p1       # ... add 1
+---------------------------xxxxx  x0p2       # ... add 2
+---------------------------xxxxx  x0p3       # ... add 3
+---------------------------xxxxx  x0p4       # ... add 4
+---------------------------xxxxx  x0p5       # ... add 5
+---------------------------xxxxx  x0p6       # ... add 6
+---------------------------xxxxx  x0p7       # ... add 7
 ---------------------------xxxxx  b0         # B register
 ---------------------------xxxxx  h0         # H register
 ---------------------------xxxxx  s0         # S register
@@ -131,6 +137,7 @@
 ----------------------xxxxx-----  z_s_5      # Z register with s size elements
 ----------------------xxxxx-----  z_d_5      # Z register with d size elements
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
+----------------------xxxxx-----  mem0_64    # 64 bytes; no offset
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 ----------------------xxxxx-----  pred_constr  # pattern operand
 ----------------------xxxxx-----  simm5_5    # Signed 5 bit immediate from 5 - 9

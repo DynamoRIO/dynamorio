@@ -21,7 +21,7 @@ Core #3 counts:
       *[1-9][0-9]* output limits hit
 .*
 // Ensure 2 cores start idle.
-Core #0 schedule: [A-H][A-Ha-h_]*
-Core #1 schedule: [A-Z][A-Ha-h_]*
-Core #2 schedule: _[A-Ha-h_]*
-Core #3 schedule: _[A-Ha-h_]*
+Core #0 schedule: [A-I][A-Ia-i_]*
+Core #1 schedule: [A-Z][A-Ia-i_]*
+Core #2 schedule: _[A-Ia-i_]*
+Core #3 schedule: _[A-Ia-i_]*

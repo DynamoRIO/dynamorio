@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -509,6 +509,15 @@ instr_branch_type(instr_t *cti_instr)
     case OP_call_far_ind: return LINK_INDIRECT | LINK_CALL | LINK_FAR;
     case OP_ret_far:
     case OP_iret: return LINK_INDIRECT | LINK_RETURN | LINK_FAR;
+    /* We don't mark sysenter and syscall as indirect branches because
+     * the user-mode DynamoRIO instrumentation does not need to treat them
+     * as such. sysexit and sysret are typically found in the kernel traces
+     * generated using other methods (like QEMU). It is useful to treat them
+     * as such to show proper PC continuity in the injected traces
+     * (i#6495, i#7157).
+     */
+    case OP_sysexit:
+    case OP_sysret: return LINK_INDIRECT | LINK_FAR;
     default:
         LOG(THREAD_GET, LOG_ALL, 0, "branch_type: unknown opcode: %d\n",
             instr_get_opcode(cti_instr));
@@ -583,9 +592,16 @@ bool
 instr_is_mbr_arch(instr_t *instr) /* multi-way branch */
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
+    /* We don't mark sysenter and syscall as indirect branches because
+     * the user-mode DynamoRIO instrumentation does not need to treat them
+     * as such. sysexit and sysret are typically found in the kernel traces
+     * generated using other methods (like QEMU). It is useful to treat them
+     * as such to show proper PC continuity in the injected traces
+     * (i#6495, i#7157).
+     */
     return (opc == OP_jmp_ind || opc == OP_call_ind || opc == OP_ret ||
             opc == OP_jmp_far_ind || opc == OP_call_far_ind || opc == OP_ret_far ||
-            opc == OP_iret);
+            opc == OP_iret || opc == OP_sysexit || opc == OP_sysret);
 }
 
 bool

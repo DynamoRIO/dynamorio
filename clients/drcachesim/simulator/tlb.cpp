@@ -35,9 +35,10 @@
 #include <assert.h>
 #include <stddef.h>
 
-#include "memref.h"
 #include "caching_device.h"
 #include "caching_device_block.h"
+#include "memref.h"
+#include "options.h"
 #include "tlb_entry.h"
 #include "trace_entry.h"
 
@@ -50,6 +51,11 @@ tlb_t::init_blocks()
     for (int i = 0; i < num_blocks_; i++) {
         blocks_[i] = new tlb_entry_t;
     }
+}
+
+tlb_t::tlb_t(const std::string &name)
+    : caching_device_t(name)
+{
 }
 
 void

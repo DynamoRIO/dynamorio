@@ -55,6 +55,7 @@
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include "noise_generator.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "scheduler.h"
@@ -217,6 +218,7 @@ protected:
         operator=(const analyzer_worker_data_t &) = delete;
     };
 
+    // See comment on init_scheduler_common() for some noteworthy details.
     bool
     init_scheduler(const std::vector<std::string> &trace_paths,
                    // To include all threads/shards, use empty sets.
@@ -224,15 +226,17 @@ protected:
                    const std::set<int> &only_shards, int output_limit, int verbosity,
                    typename sched_type_t::scheduler_options_t options);
 
-    // For core-sharded, worker_count_ must be set prior to calling this; for parallel
-    // mode if it is not set it will be set to the underlying core count.
-    // For core-sharded, all of "options" is used; otherwise, only the
-    // read_inputs_in_init field is preserved.
+    // See comment on init_scheduler_common() for some noteworthy details.
     bool
     init_scheduler(std::unique_ptr<ReaderType> reader,
                    std::unique_ptr<ReaderType> reader_end, int verbosity,
                    typename sched_type_t::scheduler_options_t options);
 
+    // For core-sharded, worker_count_ must be set prior to calling this; for parallel
+    // mode if it is not set it will be set to the underlying core count.
+    // For core-sharded, all of "options" is used; otherwise, the
+    // read_inputs_in_init, replay_as_traced_istream, and kernel_syscall_trace_path
+    // fields are preserved.
     bool
     init_scheduler_common(std::vector<typename sched_type_t::input_workload_t> &workloads,
                           typename sched_type_t::scheduler_options_t options);
@@ -434,6 +438,11 @@ protected:
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     bool sched_by_time_ = false;
     typename sched_type_t::mapping_t sched_mapping_ = sched_type_t::MAP_TO_ANY_OUTPUT;
+
+    // Factory to create noise generators that can then be added to the scheduler's
+    // input workloads.
+    noise_generator_factory_t<RecordType, ReaderType> noise_generator_factory_;
+    bool add_noise_generator_ = false;
 
 private:
     bool

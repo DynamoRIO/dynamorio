@@ -47,7 +47,7 @@
 #   and optionally submit to dashboard.  Use w/o submit as "make runregression".
 
 # We use target_include_directories() which was added in 2.8.11
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 include(../runsuite_common_pre.cmake) # For _DR_set_VS_bitwidth_env_vars.
@@ -675,6 +675,7 @@ function(tobuild test source)
   add_exe(${test} ${source})
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
+  copy_target_to_device(${test} "${location_suffix}")
 endfunction(tobuild)
 
 # normal app w/ options
@@ -690,6 +691,7 @@ function(tobuild_ops test source dr_ops exe_ops)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
+  copy_target_to_device(${test} "${location_suffix}")
 endfunction(tobuild_ops)
 
 # normal app that has a dll and an executable
@@ -986,6 +988,7 @@ function(add_api_exe test source use_decoder use_static_DR)
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drsyms.dll"
         VERBATIM)
       add_custom_target(drcopy DEPENDS "${drcopy_stamp}")
+      add_dependencies(drcopy drconfiglib)
       set(created_drcopy_target ON PARENT_SCOPE)
     endif ()
     add_dependencies(${test} drcopy)
@@ -1565,8 +1568,16 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     endif ()
     get_filename_component(toolbindir ${toolbindir} DIRECTORY)
     add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${toolbindir}
-      -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
-      -D clear=${clear_arg} -D pidfile=${pidfile}
+      -D precmd=${${key}_precmd}
+      -D cmd=${cmd_with_at}
+      -D postcmd=${${key}_postcmd}
+      -D postcmd2=${${key}_postcmd2}
+      -D postcmd3=${${key}_postcmd3}
+      -D postcmd4=${${key}_postcmd4}
+      -D out=${tmpfile}
+      -D nudge=${nudge_arg}
+      -D clear=${clear_arg}
+      -D pidfile=${pidfile}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
   elseif (is_runcmp)
     # Some apps have enough output that ctest runs out of memory when
@@ -2083,11 +2094,14 @@ if (NOT ANDROID32)
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_evex.h
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_vex.h
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask_A.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask_B.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask_C.h
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_vex.h
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_A.h
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_B.h
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_C.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_D.h
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_5args_avx512_evex_mask.h)
     append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
   endif ()
@@ -2162,6 +2176,9 @@ if (BUILD_CLIENTS)
   endif ()
   torunonly_api(tool.drdisas drdisas
     "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON OFF)
+  torunonly_api(tool.drdisas_regdeps drdisas
+    "../../clients/drdisas/test_regdeps.template" ""
+    "-mode;regdeps;00001931;04020204;00000026" ON OFF)
   if (ARM)
     torunonly_api(tool.drdisas_thumb drdisas
       # Pass -thumb as a "DR op" to define it in the .template file.
@@ -2263,6 +2280,8 @@ elseif (AARCHXX)
   # For now we simply run a simple app which still exercises quite a bit.
   torunonly(common.broadfun-stress common.broadfun common/broadfun.c
     "-stress_recreate_state" "")
+  # Under QEMU this can take longer.
+  set(common.broadfun-stress_timeout 300)
 endif ()
 
 if (X86)
@@ -2274,6 +2293,9 @@ elseif (RISCV64)
   set(control_flags "hello")
 endif ()
 tobuild(common.${control_flags} common/${control_flags}.c)
+
+# Binary used for sample.callstack, which uses libcallstack to track malloc() calls.
+tobuild(common.alloc common/alloc.c)
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
@@ -2492,13 +2514,15 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
         client-interface/cleancall.c "" "-thread_private -prof_pcs -opt_cleancall 0" "")
     endif (NOT X64)
   endif (UNIX)
+  tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
+  tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
+endif (X86)
+if (X86 OR AARCH64)
   tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
   # check dr_insert_cbr_instrumentation with out-of-line clean call
   torunonly_ci(client.count-ctis-noopt client.count-ctis client.count-ctis.dll
     client-interface/count-ctis.c "" "-opt_cleancall 0" "")
-  tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
-  tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
-endif (X86)
+endif (X86 OR AARCH64)
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
@@ -2810,12 +2834,12 @@ if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
-if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+if (X86 OR AARCH64 OR RISCV64) # FIXME i#1551: port asm to ARM
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
-endif (X86 OR AARCH64)
+endif (X86 OR AARCH64 OR RISCV64)
 if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
@@ -3658,6 +3682,7 @@ if (BUILD_SAMPLES)
     foreach (sample ${sample_list})
       # FIXME i#4392: Remove sanity checks and replace with functioning tests like
       # that done for the opcode_count and memtrace_simple samples.
+      # This function call to torunonly_ci() is overwritten by the special cases below.
       torunonly_ci(sample.${sample} common.${control_flags}
         ${sample} common/${control_flags}.c "" "" "")
       if (sample STREQUAL "inscount")
@@ -3729,6 +3754,7 @@ if (BUILD_SAMPLES)
         endif ()
       elseif (sample STREQUAL "callstack")
         set(sample.${sample}_expectbase "sample.callstack")
+        torunonly_ci(sample.${sample} common.alloc ${sample} common/alloc.c "" "" "")
       endif()
     endforeach ()
   endif (NOT ANDROID)
@@ -4012,6 +4038,9 @@ if (BUILD_CLIENTS)
         "-tool basic_counts" "")
     endif ()
 
+    set(syscall_file
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_syscall_sequences.x64")
+
     if (X86 AND X64) # We only bother with a sample trace for x86_64.
       # We test with a fixed trace file so we can test exact numeric results.
       set(small_trace_file
@@ -4019,10 +4048,25 @@ if (BUILD_CLIENTS)
       torunonly_simtool(reuse_offline ${ci_shared_app}
         "-infile ${small_trace_file} -tool reuse_distance -reuse_distance_histogram" "")
 
+      # The schedule_stats tool triggers the scheduler, to which we add one noise
+      # generator process with a single thread (current default configuration).
+      # We test with a single-threaded trace for a total of 2 threads, which we check
+      # for in the tool's output. The default noise generator produces 999
+      # TRACE_TYPE_READ records (+42 records generated by ci_shared_app == simple_app),
+      # which we check for in the basic_counts tool output.
+      torunonly_simtool(schedule_stats_noise_generator ${ci_shared_app}
+          "-infile ${small_trace_file} -tool schedule_stats:basic_counts -add_noise_generator -core_serial"
+          "")
+      set(tool.schedule_stats_noise_generator_rawtemp ON) # no preprocessor
+
       # Our multi-threaded sample trace is larger so we require gzip.
       if (ZLIB_FOUND)
         set(thread_trace_dir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+        # This trace has some futex calls with latencies ~40ms * 1000 time_units_per_us
+        # * default scale 0.1 is 2.5M instructions which makes core-sharded runs here
+        # a little long: so we scale them all back.
+        set(thread_trace_scale "-sched_block_scale 0.01")
         torunonly_simtool(reuse_offline_threads ${ci_shared_app}
           "-indir ${thread_trace_dir} -tool reuse_distance -reuse_distance_histogram" "")
         set(tool.reuse_offline_threads_rawtemp ON) # no preprocessor
@@ -4032,42 +4076,42 @@ if (BUILD_CLIENTS)
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
 
         torunonly_simtool(counts_only_thread ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 1257604"
+          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 872906"
           "")
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
 
         torunonly_simtool(schedule_stats_nopreempt ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_quantum 10000000"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 10000000"
           "")
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
 
         torunonly_simtool(schedule_stats_maxcores ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats -core_sharded -sched_max_cores 2"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_max_cores 2"
           "")
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
 
         torunonly_simtool(core_serial ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool schedule_stats:basic_counts -core_serial"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats:basic_counts -core_serial"
           "")
         set(tool.core_serial_rawtemp ON) # no preprocessor
 
         set(cpu_sched_path "${thread_trace_dir}/cpu_schedule.bin.zip")
         torunonly_simtool(simulate_as_traced ${ci_shared_app}
-          "-indir ${thread_trace_dir} -core_serial -cpu_schedule_file ${cpu_sched_path} -cores 7"
+          "-indir ${thread_trace_dir} -core_serial -cpu_schedule_file ${cpu_sched_path} -cores 11"
           "")
         set(tool.simulate_as_traced_rawtemp ON) # no preprocessor
 
         torunonly_simtool(skip_to_timestamp ${ci_shared_app}
           # We pick a timestamp far enough in that only 2 threads remain
           # at that point, testing thread exclusion.
-          "-indir ${thread_trace_dir} -tool basic_counts -skip_to_timestamp 13331862029905366 -cpu_schedule_file ${cpu_sched_path}"
+          "-indir ${thread_trace_dir} -tool basic_counts -skip_to_timestamp 13386385969691570 -cpu_schedule_file ${cpu_sched_path}"
           "")
         set(tool.skip_to_timestamp_rawtemp ON) # no preprocessor
 
         set(switch_file
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
         torunonly_simtool(switch_insertion ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool basic_counts -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
           "")
         set(tool.switch_insertion_rawtemp ON) # no preprocessor
 
@@ -4076,15 +4120,35 @@ if (BUILD_CLIENTS)
           "")
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
+        torunonly_simtool(syscall_insertion ${ci_shared_app}
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -sched_syscall_file ${syscall_file}"
+          "")
+        set(tool.syscall_insertion_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(syscall_insertion_invariants ${ci_shared_app}
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool invariant_checker -sched_syscall_file ${syscall_file}"
+          "")
+        set(tool.syscall_insertion_invariants_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
+          "")
+        set(tool.syscall_insertion_core_sharded_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(syscall_file_invariants ${ci_shared_app}
+          "-infile ${syscall_file} -tool invariant_checker"
+          "")
+        set(tool.syscall_file_invariants_rawtemp ON) # no preprocessor
+
         # Test -multi_indir with 3 copies of our sample dir.
         torunonly_simtool(multi_indir ${ci_shared_app}
-          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} -tool schedule_stats -cores 3"
+          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -cores 3"
           "")
         set(tool.multi_indir_rawtemp ON) # no preprocessor
 
         # Sanity test that core-sharded at least runs without errors on our other tools.
         torunonly_simtool(core_sharded ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool reuse_time:reuse_distance:histogram:opcode_mix:syscall_mix -core_sharded"
           "")
         set(tool.core_sharded_rawtemp ON) # no preprocessor
 
@@ -4116,7 +4180,7 @@ if (BUILD_CLIENTS)
         if (CAT_EXE AND GUNZIP_EXE AND BASH_EXE)
           # Easiest to make our pipeline in bash with a direct add_test()
           # (although this bypasses the torun() features used by all other tests).
-          set(infile "${core_sharded_dir}/drmemtrace.core.0.trace.zip")
+          set(infile "${core_sharded_dir}/drmemtrace.core.000000.trace.zip")
           add_test(tool.drcacheoff.stdin
             ${BASH_EXE} -c
             "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
@@ -4238,6 +4302,12 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(simple ${ci_shared_app} ""
       # We pass a small instr count to test multiple chunks in a zipfile.
       "@-chunk_instr_count@10K" "")
+
+    if (X86 AND X64)
+      torunonly_drcacheoff(simple-dyn-inject-invariants ${ci_shared_app} ""
+        # We pass a small instr count to test multiple chunks in a zipfile.
+        "@-chunk_instr_count@1000@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+    endif()
 
     if (UNIX)
       # Test an app with a fork.
@@ -4672,6 +4742,8 @@ if (BUILD_CLIENTS)
         torunonly_drcacheoff(burst_syscall_inject tool.drcacheoff.burst_syscall_inject ""
           "@-tool@invariant_checker@-syscall_template_file@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template"
           "")
+        set(tool.drcacheoff.burst_syscall_inject_postcmd2
+          "firstglob@${drcachesim_path}@-infile@drmemtrace.tool.drcacheoff.burst_syscall_inject.*.dir/raw/syscall_trace_template@-tool@view")
       endif ()
 
       set(tool.drcacheoff.burst_traceopts_nodr ON)
@@ -4831,6 +4903,12 @@ if (BUILD_CLIENTS)
       # Test -record_syscall on SYS_write == #1 with 3 args.
       torunonly_drcacheoff(allasm-record-syscall allasm_repstr
         "-record_syscall 1|3" "@-tool@view" "")
+
+      torunonly_drcacheoff(allasm-dyn-inject-view allasm_repstr
+        "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@view" "")
+
+      torunonly_drcacheoff(allasm-dyn-inject-invariants allasm_repstr
+        "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
@@ -5035,7 +5113,7 @@ if (BUILD_CLIENTS)
         "" "-tool;schedule_stats;-no_core_sharded;-indir;${outdir}" OFF OFF)
       set(tool.record_filter_as_traced_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       set(tool.record_filter_as_traced_precmd
-        "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@7@-indir@${trace_dir}@-outdir@${outdir}")
+        "${drcachesim_path}@-tool@record_filter@-cpu_schedule_file@${sched_file}@-core_sharded@-cores@11@-indir@${trace_dir}@-outdir@${outdir}")
       set(tool.record_filter_as_traced_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.record_filter_as_traced_rawtemp ON) # no preprocessor
@@ -6173,13 +6251,15 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   endif ()
 endif (NOT ARM)
 
-if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+# FIXME i#1551: port asm to ARM
+# FIXME i#5383: selfmod tests fail to build on macOS + ARM64
+if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
 
   tobuild(security-common.selfmod security-common/selfmod.c)
   tochcon(security-common.selfmod textrel_shlib_t)
-endif (X86 OR AARCH64)
+endif (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   if (NOT APPLE) # XXX i#58: port test to MacOS
@@ -6254,6 +6334,75 @@ if (vera++_FOUND)
   add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
     --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
   set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
+endif ()
+
+# TODO i#7399: Add Android, MacOS, MUSL, RISCV64 support to DrSyscall.
+# Windows tests fail due to Syscall mismatch for NtGetContextThread with wrapper
+# 236 vs table 235.
+IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
+  tobuild_ci(client.drsyscall-test client-interface/drsyscall-test.c "" "" "")
+  get_target_path_for_execution(drsyscall_libpath client.drsyscall-test.dll
+    "${location_suffix}")
+  get_target_path_for_execution(app_path client.drsyscall-test "${location_suffix}")
+  add_test(drsyscall_test ${drrun_path} -s 90 -quiet
+    -client ${drsyscall_libpath} 0 "" ${dr_test_ops} -- ${app_path})
+  use_DynamoRIO_extension(client.drsyscall-test.dll drmgr)
+  use_DynamoRIO_extension(client.drsyscall-test.dll drsyscall)
+
+  tobuild_ci(client.strace-test client-interface/drsyscall-test.c "" "" "")
+  get_target_path_for_execution(strace_test_libpath client.strace-test.dll
+    "${location_suffix}")
+  add_test(strace_test ${drrun_path} -s 90 -quiet
+    -client ${strace_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
+  use_DynamoRIO_extension(client.strace-test.dll drmgr)
+  use_DynamoRIO_extension(client.strace-test.dll drsyscall)
+
+  tobuild_ci(sample.strace client-interface/drsyscall-test.c "" "" "")
+  get_target_path_for_execution(strace_sample_test_libpath sample.strace.dll
+    "${location_suffix}")
+  add_test(strace_sample ${drrun_path} -s 90 -quiet
+    -client ${strace_sample_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
+  use_DynamoRIO_extension(sample.strace.dll drmgr)
+  use_DynamoRIO_extension(sample.strace.dll drsyscall)
+
+  add_exe(linux.file_io linux/file-io.c)
+  tobuild_ci(client.syscall-file-io-test client-interface/syscall-file-io-test.c "" "" "")
+  torunonly_ci(client.syscall-file-io-test linux.file_io client.syscall-file-io-test.dll
+     linux/file-io.c "" "" "")
+  use_DynamoRIO_extension(client.syscall-file-io-test.dll drmgr)
+  use_DynamoRIO_extension(client.syscall-file-io-test.dll drsyscall)
+
+  add_exe(linux.syscall_records linux/syscall-records.c)
+  set(client.syscall-records-test_runcmp
+    "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  set(client.syscall-records-test_precmd
+    "rm@${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
+  string(CONCAT client.syscall-records-test_postcmd
+    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
+    "${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
+  set(client.syscall-records-test_expectbase "syscall-records")
+  tobuild_ci(client.syscall-records-test
+    client-interface/syscall-records-test.c "" "" "")
+  torunonly_ci(client.syscall-records-test linux.syscall_records
+    client.syscall-records-test.dll
+    linux/syscall-records.c "" "" "")
+  use_DynamoRIO_extension(client.syscall-records-test.dll drsyscall)
+  use_DynamoRIO_extension(client.syscall-records-test.dll drsyscall_record_lib)
+
+  add_exe(linux.syscall_records_attach linux/syscall-records-attach.c)
+  set(client.attach-memory-dump-syscall-test_precmd
+    "rm@${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
+  string(CONCAT client.attach-memory-dump-syscall-test_postcmd
+    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
+    "${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
+  set(client.attach-memory-dump-syscall-test_realtest linux.syscall_records_attach)
+  tobuild_ci(client.attach-memory-dump-syscall-test
+    client-interface/attach-memory-dump-syscall-test.runall "" "" "")
+  use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
+    drsyscall)
+  use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
+    drsyscall_record_lib)
+
 endif ()
 
 ###########################################################################
@@ -6450,6 +6599,11 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
+    # XXX i#1806: client.flush currently fails in release build.
+    if (DEBUG)
+      set_tests_properties(code_api|client.flush
+                           PROPERTIES LABELS RUNS_ON_QEMU)
+    endif ()
     if (NOT APPLE) # TODO i#5383: Port to Mac M1.
       set_tests_properties(
         code_api|common.allasm_aarch64_isa
@@ -6508,41 +6662,6 @@ if (NOT ANDROID AND AARCHXX)
   endif ()
 endif (NOT ANDROID AND AARCHXX)
 
-# XXX i#5437, i#5431: While we work through Ubuntu22 issues we want our new GA CI job to
-# just run sanity tests that do pass now as a glibc change detector to see if our
-# workarounds so far break over time.
-set_tests_properties(
-  code_api|common.broadfun
-  PROPERTIES LABELS UBUNTU_22)
-if (BUILD_SAMPLES AND NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-  set_tests_properties(
-    code_api|sample.bbsize
-    PROPERTIES LABELS UBUNTU_22)
-endif ()
-if (BUILD_CLIENTS AND NOT ANDROID)
-  set_tests_properties(
-    code_api|tool.drcachesim.simple
-    code_api|tool.drcacheoff.simple
-    PROPERTIES LABELS UBUNTU_22)
-endif ()
-if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64 AND NOT ANDROID) # TODO i#3544: Port tests to RISC-V 64
-  # TODO i#1874: Build drmemtrace on Android (rseq tests depend on drmemtrace).
-  set_tests_properties(
-    code_api|api.rseq
-    code_api|linux.rseq_disable
-    code_api|linux.rseq_noarray
-    code_api|linux.rseq
-    code_api|linux.rseq_table
-    code_api|tool.drcacheoff.rseq
-    PROPERTIES LABELS UBUNTU_22)
-endif ()
-if (TARGET tool.drcacheoff.purestatic)
-  # This target only easily builds on Ubuntu22+ so make sure we run it there.
-  set_tests_properties(
-    code_api|tool.drcacheoff.purestatic
-    PROPERTIES LABELS UBUNTU_22)
-endif()
-
 # XXX i#3544: Support for running RISC-V Linux tests under QEMU.
 # Currently about 1/6 of the compiled tests pass.
 if (RISCV64)
@@ -6557,6 +6676,7 @@ if (RISCV64)
     code_api|client.crashmsg
     code_api|client.drwrap-test-callconv
     code_api|client.execfault
+    code_api|client.flush
     code_api|client.mangle_suspend
     code_api|client.null_instrument
     code_api|client.option_parse

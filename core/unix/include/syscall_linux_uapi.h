@@ -2143,6 +2143,10 @@
 #    define SYS_riscv_flush_icache __NR_riscv_flush_icache
 #endif
 
+#ifdef __NR_riscv_hwprobe
+#    define SYS_riscv_hwprobe __NR_riscv_hwprobe
+#endif
+
 #ifdef __NR_rmdir
 #    define SYS_rmdir __NR_rmdir
 #endif

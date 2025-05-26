@@ -520,7 +520,7 @@ expand_dr_root(const char *dr_root, bool debug, dr_platform_t dr_platform, bool 
         { "lib32/debug/libdynamorio.dylib", true, true, false, DR_PLATFORM_32BIT },
         { "lib32/release/libdrpreload.dylib", false, false, true, DR_PLATFORM_32BIT },
         { "lib32/release/libdynamorio.dylib", true, false, false, DR_PLATFORM_32BIT },
-        { "lib64/debug/libdrpreload.dylib", true, false, true, DR_PLATFORM_64BIT },
+        { "lib64/debug/libdrpreload.dylib", true, true, true, DR_PLATFORM_64BIT },
         { "lib64/debug/libdynamorio.dylib", true, true, false, DR_PLATFORM_64BIT },
         { "lib64/release/libdrpreload.dylib", false, false, true, DR_PLATFORM_64BIT },
         { "lib64/release/libdynamorio.dylib", true, false, false, DR_PLATFORM_64BIT },
@@ -999,6 +999,7 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
             }
         } else if (strstr(line, "CLIENT_ABS=") == line) {
             strncpy(client, line + strlen("CLIENT_ABS="), client_size);
+            client[client_size - 1] = '\0';
             found_client = true;
             if (native_path[0] != '\0') {
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
@@ -1007,6 +1008,7 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
         } else if (strstr(line, IF_X64_ELSE("CLIENT64_ABS=", "CLIENT32_ABS=")) == line) {
             strncpy(client, line + strlen(IF_X64_ELSE("CLIENT64_ABS=", "CLIENT32_ABS=")),
                     client_size);
+            client[client_size - 1] = '\0';
             found_client = true;
             if (native_path[0] != '\0') {
                 add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar, "\"%s\"",
@@ -1016,6 +1018,7 @@ read_tool_file(const char *toolname, const char *dr_root, const char *dr_toolcon
             strncpy(alt_client,
                     line + strlen(IF_X64_ELSE("CLIENT32_ABS=", "CLIENT64_ABS=")),
                     alt_size);
+            alt_client[alt_size - 1] = '\0';
             if (!does_file_exist(alt_client)) {
                 alt_client[0] = '\0';
             }

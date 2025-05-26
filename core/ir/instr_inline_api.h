@@ -277,6 +277,18 @@ opnd_create_reg(reg_id_t r)
 
 INSTR_INLINE
 opnd_t
+opnd_inc_reg(opnd_t opnd, int amount)
+{
+    opnd_t new_opnd = opnd;
+    reg_id_t r = (reg_id_t)(opnd.value.reg_and_element_size.reg + amount);
+    CLIENT_ASSERT(r < DR_REG_AFTER_LAST_VALID_ENUM && r != DR_REG_INVALID,
+                  "opnd_inc_reg: invalid register");
+    new_opnd.value.reg_and_element_size.reg = r;
+    return new_opnd;
+}
+
+INSTR_INLINE
+opnd_t
 opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
 {
     opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */

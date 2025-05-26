@@ -147,11 +147,11 @@ namespace drmemtrace {
 #endif
 
 static inline int
-compute_log2(int value)
+compute_log2(int64_t value)
 {
     int i;
-    for (i = 0; i < 31; i++) {
-        if (value == 1 << i)
+    for (i = 0; i < 63; i++) {
+        if (value == int64_t(1) << i)
             return i;
     }
     // returns -1 if value is not a power of 2.

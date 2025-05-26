@@ -274,12 +274,17 @@ static const reg_id_t Z_registers[] = { REG32(DR_REG_Z0) };
 
 const reg_id_t Xn_six_offset_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
                                       DR_REG_X15, DR_REG_X20, DR_REG_X30 };
+/* First register of 8 and must be even, so must be <= 22. */
+const reg_id_t Xn_six_offset_0_8[6] = { DR_REG_X6, DR_REG_X10, DR_REG_X22,
+                                        DR_REG_X4, DR_REG_X12, DR_REG_X8 };
 const reg_id_t Xn_six_offset_1[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
                                       DR_REG_X16, DR_REG_X21, DR_REG_X30 };
 const reg_id_t Xn_six_offset_2[6] = { DR_REG_X0,  DR_REG_X7,  DR_REG_X12,
                                       DR_REG_X17, DR_REG_X22, DR_REG_X30 };
 const reg_id_t Xn_six_offset_3[6] = { DR_REG_X0,  DR_REG_X8,  DR_REG_X13,
                                       DR_REG_X18, DR_REG_X23, DR_REG_X30 };
+const reg_id_t Xn_six_offset_4[6] = { DR_REG_X20, DR_REG_X1, DR_REG_X30,
+                                      DR_REG_X21, DR_REG_X0, DR_REG_X3 };
 const reg_id_t Zn_six_offset_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
                                       DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
 const reg_id_t Zn_six_offset_1[6] = { DR_REG_Z0,  DR_REG_Z6,  DR_REG_Z11,

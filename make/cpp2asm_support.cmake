@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -102,16 +102,16 @@ endif ()
 
 if (${vsgen_ver} VERSION_GREATER 9)
   # For i#801 workaround
-  cmake_minimum_required(VERSION 3.7)
+  cmake_minimum_required(VERSION 3.14)
 else ()
   if (APPLE)
     # We want ASM NASM support
-    cmake_minimum_required(VERSION 3.7)
+    cmake_minimum_required(VERSION 3.14)
   else (APPLE)
     # Require 2.6.4 to avoid cmake bug #8639, unless this var is
     # properly set (which it is for DR b/c it has a workaround):
     if (NOT "${CMAKE_ASM_SOURCE_FILE_EXTENSIONS}" MATCHES "asm")
-      cmake_minimum_required(VERSION 3.7)
+      cmake_minimum_required(VERSION 3.14)
     endif ()
   endif (APPLE)
 endif ()

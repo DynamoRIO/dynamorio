@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -112,6 +112,14 @@ public:
          * inputs from being scheduled onto an output.
          */
         SCHED_STAT_HIT_OUTPUT_LIMIT,
+        /**
+         * Counts the instances when the kernel context switch sequences were injected.
+         */
+        SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS,
+        /**
+         * Counts the instances when the kernel syscall sequences were injected.
+         */
+        SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS,
         /** Count of statistic types. */
         SCHED_STAT_TYPE_COUNT,
     };
@@ -239,8 +247,8 @@ public:
     /**
      * Returns a unique identifier for the current workload.  This might be an ordinal
      * from the list of active workloads, or some other identifier.  This is guaranteed
-     * to be unique among all inputs, unlike the process and thread identifiers in
-     * #memref_t. If not implemented for the current mode, -1 is returned.
+     * to be unique among all inputs. If not implemented for the current mode, -1 is
+     * returned.
      */
     virtual int64_t
     get_workload_id() const
@@ -251,8 +259,8 @@ public:
     /**
      * Returns a unique identifier for the current input trace.  This might be an ordinal
      * from the list of active inputs, or some other identifier.  This is guaranteed to
-     * be unique among all inputs, unlike the process and thread identifiers in
-     * #memref_t.  If not implemented for the current mode, -1 is returned.
+     * be unique among all inputs.  If not implemented for the current mode, -1 is
+     * returned.
      */
     virtual int64_t
     get_input_id() const
@@ -338,10 +346,15 @@ public:
     {
         return "";
     }
+    void
+    set_last_timestamp(uint64_t timestamp)
+    {
+        last_timestamp_ = timestamp;
+    }
     uint64_t
     get_last_timestamp() const override
     {
-        return 0;
+        return last_timestamp_;
     }
     uint64_t
     get_first_timestamp() const override
@@ -430,6 +443,7 @@ private:
     int shard_ = 0;
     int64_t tid_ = 0;
     int64_t workload_id_ = 0;
+    int64_t last_timestamp_ = 0;
     // To let a test set just the tid and get a shard index for free.
     std::unordered_map<int64_t, int> tid2shard_;
 };

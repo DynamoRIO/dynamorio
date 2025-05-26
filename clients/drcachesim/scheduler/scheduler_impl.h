@@ -197,6 +197,10 @@ protected:
         // We use a deque so we can iterate over it.
         std::deque<RecordType> queue;
         bool cur_from_queue;
+        addr_t last_pc_fallthrough = 0;
+        // Whether we're in the middle of returning injected syscall records.
+        bool in_syscall_injection = false;
+
         std::set<output_ordinal_t> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
@@ -260,6 +264,11 @@ protected:
         // Causes the next unscheduled entry to abort.
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
+        int to_inject_syscall = INJECT_NONE;
+        bool saw_first_func_id_marker_after_syscall = false;
+
+        // Sentinel value for to_inject_syscall.
+        static constexpr int INJECT_NONE = -1;
     };
 
     // XXX i#6831: Should this live entirely inside the dynamic subclass?
@@ -405,9 +414,12 @@ protected:
     uint64_t
     scale_blocked_time(uint64_t initial_time) const;
 
+    stream_status_t
+    on_context_switch(output_ordinal_t output, input_ordinal_t prev_input,
+                      input_ordinal_t new_input);
+
     void
-    update_switch_stats(output_ordinal_t output, input_ordinal_t prev_input,
-                        input_ordinal_t new_input);
+    update_syscall_state(RecordType record, output_ordinal_t output);
 
     ///
     ///////////////////////////////////////////////////////////////////////////
@@ -480,7 +492,12 @@ protected:
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<bool>> active;
+        // XXX: in_syscall_code and hit_syscall_code_end arguably are tied to an input
+        // stream and must be a part of input_info_t instead. Today we do not context
+        // switch in the middle of injected kernel syscall code, but if we did, this
+        // state would be incorrect or lost.
         bool in_syscall_code = false;
+        bool hit_syscall_code_end = false;
         bool in_context_switch_code = false;
         bool hit_switch_code_end = false;
         // Used for time-based quanta.
@@ -542,6 +559,15 @@ protected:
         uint64_t timestamp;
     };
 
+    // Custom hash function used for switch_type_t and syscall num (int).
+    template <typename IntCastable> struct custom_hash_t {
+        std::size_t
+        operator()(const IntCastable &st) const
+        {
+            return std::hash<int>()(static_cast<int>(st));
+        }
+    };
+
     // Tracks data used while opening inputs.
     struct input_reader_info_t {
         std::set<memref_tid_t> only_threads;
@@ -553,6 +579,8 @@ protected:
         // The count of original pre-filtered inputs (might not match
         // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
         uint64_t input_count = 0;
+        // The index into inputs_ at which this workload's inputs begin.
+        input_ordinal_t first_input_ordinal = 0;
     };
 
     // We assume a 2GHz clock and IPC=0.5 to match
@@ -736,8 +764,24 @@ protected:
         std::vector<std::set<uint64_t>> &start2stop,
         std::vector<std::vector<schedule_output_tracker_t>> &all_sched);
 
+    template <typename SequenceKey>
+    SequenceKey
+    invalid_kernel_sequence_key();
+
+    template <typename SequenceKey>
+    scheduler_status_t
+    read_kernel_sequences(std::unordered_map<SequenceKey, std::vector<RecordType>,
+                                             custom_hash_t<SequenceKey>> &sequence,
+                          std::string trace_path, std::unique_ptr<ReaderType> reader,
+                          std::unique_ptr<ReaderType> reader_end,
+                          trace_marker_type_t start_marker,
+                          trace_marker_type_t end_marker, std::string sequence_type);
+
     scheduler_status_t
     read_switch_sequences();
+
+    scheduler_status_t
+    read_syscall_sequences();
 
     uint64_t
     get_time_micros();
@@ -794,9 +838,23 @@ protected:
     void
     record_type_set_tid(RecordType &record, memref_tid_t tid);
 
+    // For trace_entry_t, only sets the pid for record types that have it.
+    void
+    record_type_set_pid(RecordType &record, memref_pid_t pid);
+
     // Returns whether the given record is an instruction.
     bool
-    record_type_is_instr(RecordType record);
+    record_type_is_instr(RecordType record, addr_t *pc = nullptr, size_t *size = nullptr);
+
+    // Returns whether the given record is an indirect branch. Returns in
+    // has_indirect_branch_target whether the instr record type supports the indirect
+    // branch target field or not, which will be true only when RecordType is memref_t.
+    // When RecordType is memref_t, it also sets the indirect branch target field to the
+    // given value if it's non-zero.
+    bool
+    record_type_is_indirect_branch_instr(RecordType &record,
+                                         bool &has_indirect_branch_target,
+                                         addr_t set_indirect_branch_target = 0);
 
     // If the given record is a marker, returns true and its fields.
     bool
@@ -823,6 +881,9 @@ protected:
     bool
     record_type_is_instr_boundary(RecordType record, RecordType prev_record);
 
+    bool
+    record_type_is_thread_exit(RecordType record);
+
     // Creates the marker we insert between regions of interest.
     RecordType
     create_region_separator_marker(memref_tid_t tid, uintptr_t value);
@@ -841,6 +902,29 @@ protected:
 
     void
     update_next_record(output_ordinal_t output, RecordType &record);
+
+    // Performs the actual injection of the kernel sequence.
+    stream_status_t
+    inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
+
+    // Performs the actual injection of a kernel syscall sequence, using
+    // inject_kernel_sequence as helper.
+    stream_status_t
+    inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
+                                    RecordType &record);
+
+    // Checks whether we're at a suitable injection point for a yet to be injected
+    // syscall sequence, and performs the injection using
+    // inject_pending_syscall_sequence as helper.
+    stream_status_t
+    maybe_inject_pending_syscall_sequence(output_ordinal_t output, input_info_t *input,
+                                          RecordType &record);
+
+    // Actions that must be taken only when we know for sure that the given record
+    // is going to be the next record for some output stream.
+    stream_status_t
+    finalize_next_record(output_ordinal_t output, const RecordType &record,
+                         input_info_t *input);
 
     // Used for diagnostics: prints record fields to stderr.
     void
@@ -925,17 +1009,15 @@ protected:
     stream_status_t
     eof_or_idle(output_ordinal_t output, input_ordinal_t prev_input);
 
-    // Returns whether the current record for the current input stream scheduled on
-    // the 'output_ordinal'-th output stream is from a part of the trace corresponding
-    // to kernel execution.
-    bool
-    is_record_kernel(output_ordinal_t output);
-
     // These statistics are not guaranteed to be accurate when replaying a
     // prior schedule.
     double
     get_statistic(output_ordinal_t output,
                   memtrace_stream_t::schedule_statistic_t stat) const;
+
+    // Adds bits to the filetype if required by the scheduler config.
+    offline_file_type_t
+    adjust_filetype(offline_file_type_t orig_filetype) const;
 
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;
@@ -976,15 +1058,14 @@ protected:
         }
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
-    struct switch_type_hash_t {
-        std::size_t
-        operator()(const switch_type_t &st) const
-        {
-            return std::hash<int>()(static_cast<int>(st));
-        }
-    };
-    std::unordered_map<switch_type_t, std::vector<RecordType>, switch_type_hash_t>
+
+    std::unordered_map<switch_type_t, std::vector<RecordType>,
+                       custom_hash_t<switch_type_t>>
         switch_sequence_;
+    // We specify a custom hash function only to make it easier to generalize with
+    // switch_sequence_ defined above.
+    std::unordered_map<int, std::vector<RecordType>, custom_hash_t<int>>
+        syscall_sequence_;
     // For single_lockstep_output.
     std::unique_ptr<stream_t> global_stream_;
     // For online where we currently have to map dynamically observed thread ids
