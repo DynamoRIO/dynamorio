@@ -139,7 +139,8 @@ privload_tls_init(void *app_tls)
     }
 
     /* Store the ->sig field, mirroring the logic in libpthread _pthread_init_signature */
-    *(uintptr_t *)(pthread + PTHREAD_SIGNATURE_OFFSET) = (uintptr_t)sig ^ pthread_ptr_munge_token;
+    *(uintptr_t *)(pthread + PTHREAD_SIGNATURE_OFFSET) =
+        (uintptr_t)sig ^ pthread_ptr_munge_token;
 
     return tls;
 #else

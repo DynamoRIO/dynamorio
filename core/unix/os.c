@@ -2041,7 +2041,8 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
  * allocate a temporary TLS region until os_tls_init.
  */
 void *
-os_tls_thread_init_temp() {
+os_tls_thread_init_temp()
+{
     void *temp_tls = NULL;
     if (!read_thread_register(TLS_REG_LIB)) {
         /* We use the mach vm_allocate API here since heap is not init yet */
@@ -2055,7 +2056,8 @@ os_tls_thread_init_temp() {
 }
 
 void
-os_tls_thread_free_temp(void *temp_tls) {
+os_tls_thread_free_temp(void *temp_tls)
+{
     IF_DEBUG(kern_return_t res =)
     vm_deallocate(mach_task_self(), (vm_address_t)temp_tls, PAGE_SIZE);
     ASSERT(res == KERN_SUCCESS);

@@ -374,7 +374,6 @@ new_bsdthread_setup(priv_mcontext_t *mc)
 }
 #    endif /* MACOS */
 
-
 #endif /* UNIX */
 
 #ifdef WINDOWS
