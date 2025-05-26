@@ -1907,6 +1907,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     uintptr_t marker_value = 0;
     for (int i = static_cast<int>(sequence.size()) - 1; i >= 0; --i) {
         RecordType record = sequence[i];
+        // TODO i#7495: Add invariant checks that ensure these are equal to the
+        // context-switched-to thread when the switch sequence is injected into a
+        // trace.
         record_type_set_tid(record, input->tid);
         record_type_set_pid(record, input->pid);
         if (record_type_is_instr(record)) {
