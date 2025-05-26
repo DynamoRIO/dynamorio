@@ -2035,6 +2035,33 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
 }
 #endif
 
+#if defined(MACOS) && defined(AARCH64)
+/* On macOS a64 some synchronization primitives will fail if the thread
+ * register is NULL. os_tls_thread_init_temp and os_tls_thread_free_temp
+ * allocate a temporary TLS region until os_tls_init.
+ */
+void *
+os_tls_thread_init_temp() {
+    void *temp_tls = NULL;
+    if (!read_thread_register(TLS_REG_LIB)) {
+        /* We use the mach vm_allocate API here since heap is not init yet */
+        IF_DEBUG(kern_return_t res =)
+        vm_allocate(mach_task_self(), (vm_address_t *)&temp_tls, PAGE_SIZE,
+                    true /* anywhere */);
+        ASSERT(res == KERN_SUCCESS);
+        write_thread_register(temp_tls);
+    }
+    return temp_tls;
+}
+
+void
+os_tls_thread_free_temp(void *temp_tls) {
+    IF_DEBUG(kern_return_t res =)
+    vm_deallocate(mach_task_self(), (vm_address_t)temp_tls, PAGE_SIZE);
+    ASSERT(res == KERN_SUCCESS);
+}
+#endif
+
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t reg)
 {
@@ -2325,7 +2352,7 @@ os_tls_init(void)
     memset(segment, 0, PAGE_SIZE);
 #    endif
 
-    ASSERT(segment && "tls segment should not be NULL");
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "tls segment should not be NULL", segment != NULL);
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread " TIDFMT "\n",
@@ -2623,7 +2650,7 @@ os_thread_init(dcontext_t *dcontext, void *os_data)
         get_segment_base(LIB_SEG_TLS));
 
 #ifdef MACOS
-    dcontext->thread_port = mach_thread_self();
+    dcontext->thread_port = dynamorio_mach_syscall(MACH_thread_self_trap, 0);
     LOG(THREAD, LOG_ALL, 1, "Mach thread port: %d\n", dcontext->thread_port);
 #endif
 }
@@ -4137,9 +4164,7 @@ dynamorio_clone_macos(uint flags, byte *newsp, void *ptid, void *tls, void *ctid
     ASSERT(ptid == NULL);
     ASSERT(tls == NULL);
     ASSERT(ctid == NULL);
-
-    ASSERT((flags & (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND)) ==
-           (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND));
+    ASSERT(TESTALL(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND, flags));
 
 #    ifdef AARCH64
     thread_state_flavor_t state_flavor = ARM_THREAD_STATE64;
@@ -4154,7 +4179,8 @@ dynamorio_clone_macos(uint flags, byte *newsp, void *ptid, void *tls, void *ctid
 
     return new_thread;
 #    else
-    /* NYI */
+    /* FIXME i#1285: Private loader NYI on macOS x86 */
+    ASSERT_NOT_IMPLEMENTED();
     return -1;
 #    endif
 }
@@ -7538,13 +7564,15 @@ pre_system_call(dcontext_t *dcontext)
 #    ifdef X64
         /* Also update the pthread->fun and pthread->arg fields, since _pthread_start uses
          * them instead of the syscall arg0 on some macOS versions */
-        ASSERT(sys_param(dcontext, 3) &&
-               "bsdthread_create pthread argument should not be NULL");
-        *(app_pc *)((byte *)sys_param(dcontext, 3) + PTHREAD_FUN_OFFSET) =
-            (app_pc)new_bsdthread_intercept;
-        /* And the pthread->arg field always followed the pthread->fun field */
-        *(void **)((byte *)sys_param(dcontext, 3) + PTHREAD_FUN_OFFSET + sizeof(app_pc)) =
-            (void *)clone_rec;
+        app_pc pthread = (app_pc)sys_param(dcontext, 3);
+        ASSERT_CURIOSITY(pthread != NULL);
+        if (pthread != NULL) {
+            *(app_pc *)((byte *)pthread + PTHREAD_FUN_OFFSET) =
+                (app_pc)new_bsdthread_intercept;
+            /* And the pthread->arg field always followed the pthread->fun field */
+            *(void **)((byte *)pthread + PTHREAD_FUN_OFFSET + sizeof(app_pc)) =
+                (void *)clone_rec;
+        }
 #    endif
 
         os_new_thread_pre();

@@ -85,11 +85,6 @@
 #    include "vmkuw.h"
 #endif
 
-#if defined(MACOS) && defined(AARCH64)
-#    include "unix/tls.h"
-#    include <mach/mach.h>
-#endif
-
 #ifndef STANDALONE_UNIT_TEST
 #    ifdef __AVX512F__
 #        error "DynamoRIO core should run without AVX-512 instructions to remain \
@@ -251,12 +246,6 @@ data_section_exit(void);
 #        include <sys/ipc.h>
 #        include <sys/types.h>
 #        include <unistd.h>
-/* unix include files for macOS TLS fix */
-#        include "unix/tls.h"
-#    endif
-
-#    ifdef MACOS
-#        include <mach/mach.h>
 #    endif
 
 static uint starttime;
@@ -2266,15 +2255,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
 
 /* macOS aarch64 will sometimes crash when acquiring locks if TLS is NULL */
 #if defined(MACOS) && defined(AARCH64)
-    void *tmp_tls = NULL;
-    if (!read_thread_register(TLS_REG_LIB)) {
-        /* We use the mach vm_allocate API here since heap is not init yet */
-        IF_DEBUG(kern_return_t res =)
-        vm_allocate(mach_task_self(), (vm_address_t *)&tmp_tls, PAGE_SIZE,
-                    true /* anywhere */);
-        ASSERT(res == KERN_SUCCESS);
-        write_thread_register(tmp_tls);
-    }
+    void *tmp_tls = os_tls_thread_init_temp();
 #endif
 
     /* note that ENTERING_DR is assumed to have already happened: in apc handler
@@ -2333,9 +2314,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
     os_tls_init();
 #if defined(MACOS) && defined(AARCH64)
     if (tmp_tls) {
-        IF_DEBUG(kern_return_t res =)
-        vm_deallocate(mach_task_self(), (vm_address_t)tmp_tls, PAGE_SIZE);
-        ASSERT(res == KERN_SUCCESS);
+        os_tls_thread_free_temp(tmp_tls);
     }
 #endif
     dcontext = create_new_dynamo_context(true /*initial*/, dstack_in, mc);

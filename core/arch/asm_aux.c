@@ -325,7 +325,7 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
-#   if defined(MACOS) && (defined(X86) || defined(AARCH64))
+#    if defined(MACOS) && (defined(X86) || defined(AARCH64))
 /* Called from new_bsdthread_intercept (asm) for targeting a bsd thread user function.
  * new_bsdthread_intercept stored the arg to the user thread func in
  * mc->xax (X86) or mc->r9 (ARM64).  We're on the app stack -- but this
@@ -341,11 +341,11 @@ new_bsdthread_setup(priv_mcontext_t *mc)
      */
     ENTERING_DR();
 
-#    if defined(X86)
+#        if defined(X86)
     crec = (void *)mc->xax; /* placed there by new_bsdthread_intercept */
-#    elif defined(AARCH64)
+#        elif defined(AARCH64)
     crec = (void *)mc->r9; /* placed there by new_bsdthread_intercept */
-#    endif
+#        endif
     func_arg = (void *)get_clone_record_thread_arg(crec);
     LOG(GLOBAL, LOG_INTERP, 1,
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
@@ -360,19 +360,19 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     dynamo_thread_under_dynamo(dcontext);
 
     /* We assume that the only state that matters is the arg to the function. */
-#    if defined(X86) && defined(X64)
+#        if defined(X86) && defined(X64)
     mc->rdi = (reg_t)func_arg;
-#    elif defined(X86)
+#        elif defined(X86)
     *(reg_t *)(mc->xsp + sizeof(reg_t)) = (reg_t)func_arg;
-#    elif defined(AARCH64)
+#        elif defined(AARCH64)
     mc->r0 = (reg_t)func_arg;
-#    endif
+#        endif
 
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
-#endif /* MACOS */
+#    endif /* MACOS */
 
 
 #endif /* UNIX */
