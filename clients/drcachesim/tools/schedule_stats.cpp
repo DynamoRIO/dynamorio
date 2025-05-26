@@ -218,8 +218,6 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
                                         int64_t prev_tid, int64_t workload_id,
                                         int64_t tid, int64_t input_id, int64_t letter_ord)
 {
-    // We're not expected to switch in the middle of a kernel syscall trace.
-    assert(!shard->in_syscall_trace);
     // We convert to letters which only works well for <=26 inputs.
     if (shard->thread_sequence.empty()) {
         std::lock_guard<std::mutex> lock(prev_core_mutex_);
@@ -381,6 +379,11 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         ? tid
         : input_id;
     if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
+        if (shard->in_syscall_trace) {
+            shard->error =
+                "Found unexpected switch in the middle of a kernel syscall trace.";
+            return false;
+        }
         // See XXX comment in get_scheduler_stats(): this measures swap-ins, while
         // "perf" measures swap-outs.
         record_context_switch(shard, prev_workload_id, prev_tid, workload_id, tid,
