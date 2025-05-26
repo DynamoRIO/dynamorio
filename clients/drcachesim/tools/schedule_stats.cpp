@@ -450,8 +450,10 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             shard->filetype = static_cast<intptr_t>(memref.marker.marker_value);
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
-            // Kernel syscall traces are not expected to have timestamps.
-            assert(!shard->stream->is_record_kernel());
+            if (shard->stream->is_record_kernel()) {
+                shard->error = "Kernel traces are not expected to have timestamps.";
+                return false;
+            }
             if (shard->last_syscall_number < 0) {
                 // We use get_input_interface() to get the original timestamp
                 // instead of the scheduler-normalized one.
