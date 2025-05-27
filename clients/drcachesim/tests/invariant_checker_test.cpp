@@ -3392,6 +3392,7 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 1), nullptr },
             { gen_marker(
                   TID_A, TRACE_MARKER_TYPE_FUNC_ID,
                   static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
