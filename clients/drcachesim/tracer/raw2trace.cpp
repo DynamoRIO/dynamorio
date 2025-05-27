@@ -941,7 +941,7 @@ raw2trace_t::maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdat
         (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
          entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) ||
         // For sigreturn, we want to inject before the kernel_xfer marker which
-        // is just before the function tracing markers (if any) and the
+        // is after the syscall func_arg markers (if any) but before the
         // post-syscall timestamp marker.
         (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) ||
         // For syscalls interrupted by a signal and did not have a post-syscall
