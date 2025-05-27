@@ -300,12 +300,21 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         case TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT:
         case TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH:
         // Marking end of context for the above comment.
-        case TRACE_MARKER_TYPE_FUNC_ARG:
         case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
-            report_if_false(shard,
-                            shard->found_syscall_trace_after_last_userspace_instr_ == -1,
-                            "Found unexpected func_arg or syscall marker after injected "
-                            "syscall trace");
+        case TRACE_MARKER_TYPE_FUNC_ARG:
+            report_if_false(
+                shard,
+                // If a signal arrives just before control enters a function traced
+                // using -record_function, we will see the func_id-func_arg markers
+                // immediately after an injected sigreturn trace. In this case, our
+                // found_syscall_trace_after_last_userspace_instr_ would not be
+                // reset yet so may lead to a false positive.
+                (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ARG &&
+                 shard->prev_func_id_ <
+                     static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)) ||
+                    shard->found_syscall_trace_after_last_userspace_instr_ == -1,
+                "Found unexpected func_arg or syscall marker after injected "
+                "syscall trace");
             break;
         case TRACE_MARKER_TYPE_FUNC_ID:
             // This may be present both before and after the injected syscall trace,
