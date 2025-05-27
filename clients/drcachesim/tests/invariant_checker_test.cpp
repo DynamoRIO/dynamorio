@@ -3371,7 +3371,6 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
-#    ifdef UNIX
     // Syscall trace injected before func_arg marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
@@ -3411,7 +3410,7 @@ check_kernel_syscall_trace(void)
                          "Failed to detect func_arg marker after injected syscall trace"))
             res = false;
     }
-#    endif
+#    ifdef UNIX
     // Syscall trace injected before a non-syscall func_arg marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
@@ -3453,6 +3452,7 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
+#    endif
     // Syscall trace injected before syscall_schedule marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
