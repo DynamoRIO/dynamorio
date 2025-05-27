@@ -47,6 +47,8 @@
 #include "os_private.h" /* ASM_XAX */
 #if defined(ARM) && defined(LINUX)
 #    include "include/syscall.h" /* SYS_set_tls */
+#elif defined(AARCH64) && defined(MACOS)
+#    include "include/syscall_mach.h" /* MACHDEP_thread_set_tsd */
 #endif
 
 /* We support 3 different methods of creating a segment (see os_tls_init()) */
@@ -203,11 +205,6 @@ read_thread_register(reg_id_t reg)
 
 #if defined(AARCHXX) || defined(RISCV64)
 
-#    ifdef MACOS
-extern kern_return_t
-_thread_set_tsd_base(void *);
-#    endif
-
 static inline bool
 write_thread_register(void *val)
 {
@@ -216,7 +213,7 @@ write_thread_register(void *val)
     return false;
 #    elif defined(AARCH64)
 #        ifdef MACOS
-    _thread_set_tsd_base(val);
+    dynamorio_mach_dep_syscall(MACHDEP_thread_set_tsd, 1, val);
 #        else
     asm volatile("msr " IF_MACOS_ELSE("tpidrro_el0", "tpidr_el0") ", %0" : : "r"(val));
 #        endif
