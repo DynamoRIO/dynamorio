@@ -3787,7 +3787,7 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
-#    ifdef UNIX
+#    ifdef LINUX
     // Signal return immediately after sigreturn syscall trace.
     // TODO i#7496: We set the syscall trace-end branch_target marker always to the
     // fallthrough pc of the syscall. This isn't correct for injected sigreturn traces,

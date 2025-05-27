@@ -1165,7 +1165,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->retaddr_stack_.push(0);
             }
         }
-#ifdef UNIX
+#ifdef LINUX
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER &&
             shard->found_syscall_trace_after_last_userspace_instr_ == SYS_rt_sigreturn) {
             // It is an undocumented property that the TRACE_MARKER_TYPE_KERNEL_XFER
