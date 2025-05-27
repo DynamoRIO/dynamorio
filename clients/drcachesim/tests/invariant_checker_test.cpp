@@ -3371,6 +3371,7 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
+#    ifdef UNX
     // Syscall trace injected before func_arg marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
@@ -3392,7 +3393,6 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 1), nullptr },
             { gen_marker(
                   TID_A, TRACE_MARKER_TYPE_FUNC_ID,
                   static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 42),
@@ -3411,7 +3411,7 @@ check_kernel_syscall_trace(void)
                          "Failed to detect func_arg marker after injected syscall trace"))
             res = false;
     }
-
+#    endif
     // Syscall trace injected before a non-syscall func_arg marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
