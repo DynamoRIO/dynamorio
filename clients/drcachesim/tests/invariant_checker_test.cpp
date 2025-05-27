@@ -3371,7 +3371,7 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
-#    ifdef UNX
+#    ifdef UNIX
     // Syscall trace injected before func_arg marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
