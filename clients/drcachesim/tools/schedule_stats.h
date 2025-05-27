@@ -340,6 +340,7 @@ protected:
         uint64_t segment_start_microseconds = 0;
         intptr_t filetype = 0;
         uint64_t switch_start_instrs = 0;
+        bool in_syscall_trace = false;
     };
 
     virtual std::unique_ptr<histogram_interface_t>

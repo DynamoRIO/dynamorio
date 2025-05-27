@@ -740,7 +740,8 @@ public:
          * or concatenated into a single file.
          * Each sequence should be in the regular offline drmemtrace format.
          * The sequence is inserted into the output stream on each context switch
-         * of the indicated type.
+         * of the indicated type. Each record in the inserted sequence holds the
+         * next input stream's tid and pid.
          * The same file (or reader) must be passed when replaying as this kernel
          * code is not stored when recording.
          * An alternative to passing the file path is to pass #kernel_switch_reader
