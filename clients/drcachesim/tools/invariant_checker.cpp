@@ -307,12 +307,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // If a signal arrives just before control enters a function traced
                 // using -record_function, we will see the func_id-func_arg markers
                 // immediately after an injected sigreturn trace. In this case, our
-                // found_syscall_trace_after_last_userspace_instr_ would not be
+                // syscall_trace_num_after_last_userspace_instr_ would not be
                 // reset yet so may lead to a false positive.
                 (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ARG &&
                  shard->prev_func_id_ <
                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)) ||
-                    shard->found_syscall_trace_after_last_userspace_instr_ == -1,
+                    shard->syscall_trace_num_after_last_userspace_instr_ == -1,
                 "Found unexpected func_arg or syscall marker after injected "
                 "syscall trace");
             break;
@@ -648,7 +648,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                                     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
                                 shard->file_type_) ||
-                            shard->found_syscall_trace_after_last_userspace_instr_ == -1,
+                            shard->syscall_trace_num_after_last_userspace_instr_ == -1,
                         "Found multiple syscall traces after a user-space instr");
         // Need to reset to disable the PC continuity check for syscall trace template
         // files where we do have consecutive syscall traces without any intervening
@@ -694,7 +694,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                 static_cast<int>(memref.marker.marker_value),
                             "Mismatching syscall num in trace end and syscall marker");
             // Syscall trace templates do not have any user-space instr.
-            shard->found_syscall_trace_after_last_userspace_instr_ =
+            shard->syscall_trace_num_after_last_userspace_instr_ =
                 static_cast<int>(memref.marker.marker_value);
         }
         // TODO i#5505: Ideally the last instruction in the system call PT trace
@@ -903,7 +903,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // marker because we may need it again if there's a consecutive syscall/switch.
         if (!shard->between_kernel_syscall_trace_markers_) {
             shard->pre_syscall_trace_instr_ = {};
-            shard->found_syscall_trace_after_last_userspace_instr_ = -1;
+            shard->syscall_trace_num_after_last_userspace_instr_ = -1;
         }
         if (!shard->between_kernel_context_switch_markers_) {
             shard->pre_context_switch_trace_instr_ = {};
@@ -1176,7 +1176,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
 #ifdef LINUX
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER &&
-            shard->found_syscall_trace_after_last_userspace_instr_ == SYS_rt_sigreturn) {
+            shard->syscall_trace_num_after_last_userspace_instr_ == SYS_rt_sigreturn) {
             // It is an undocumented property that the TRACE_MARKER_TYPE_KERNEL_XFER
             // marker values are also set to the syscall-fallthrough pc. So it is
             // expected that prev_syscall_end_branch_target_ == the kernel_xfer value.
