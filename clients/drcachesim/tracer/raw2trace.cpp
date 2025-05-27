@@ -273,10 +273,9 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
             // the syscall instruction for which we're injecting the trace. This is
             // simpler than trying to get the actual post-syscall instruction for which
             // we would perhaps even need to read-ahead to the next raw trace buffer.
-            // XXX i#6495, i#7157: The above strategy does not work for syscalls that
-            // transfer control (like sigreturn), but we do not trace those anyway today
-            // (neither using Intel-PT, nor QEMU) as there are challenges in determining
-            // the post-syscall resumption point.
+            // TODO i#7496: The above strategy does not work for syscalls that
+            // transfer control (like sigreturn) or for syscalls auto-restarted by a
+            // signal.
             if (type_is_instr_branch(static_cast<trace_type_t>(entry.type)) &&
                 !type_is_instr_direct_branch(static_cast<trace_type_t>(entry.type)) &&
                 inserted_instr_count ==
@@ -941,6 +940,10 @@ raw2trace_t::maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdat
         // For syscalls that did not have a post-event because the trace ended.
         (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
          entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) ||
+        // For sigreturn, we want to inject before the kernel_xfer marker which
+        // is after the syscall func_arg markers (if any) but before the
+        // post-syscall timestamp marker.
+        (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) ||
         // For syscalls interrupted by a signal and did not have a post-syscall
         // event.
         (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT)) {

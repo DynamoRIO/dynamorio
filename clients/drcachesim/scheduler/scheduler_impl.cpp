@@ -1862,6 +1862,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::maybe_inject_pending_syscall_sequ
         record_type_is_timestamp(record, timestamp_unused) ||
         // For syscalls that did not have a post-event because the trace ended.
         record_type_is_thread_exit(record) ||
+        // For sigreturn, we want to inject before the kernel_xfer marker which
+        // is after the syscall func_arg markers (if any) but before the
+        // post-syscall timestamp marker.
+        (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) ||
         // For syscalls interrupted by a signal and did not have a post-syscall
         // event.
         (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
@@ -1923,10 +1927,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
                 // be the syscall for which we're injecting the trace). This is simpler
                 // than trying to get the actual next instruction on this input for which
                 // we would need to read-ahead.
-                // XXX i#6495, i#7157: The above strategy does not work for syscalls that
-                // transfer control (like sigreturn), but we do not trace those anyway
-                // today (neither using Intel-PT, nor QEMU) as there are challenges in
-                // determining the post-syscall resumption point.
+                // TODO i#7496: The above strategy does not work for syscalls that
+                // transfer control (like sigreturn) or for syscalls auto-restarted by a
+                // signal.
                 if (record_type_is_indirect_branch_instr(
                         record, has_indirect_branch_target, input->last_pc_fallthrough) &&
                     !has_indirect_branch_target) {

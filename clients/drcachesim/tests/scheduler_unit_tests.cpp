@@ -6856,14 +6856,19 @@ test_kernel_syscall_sequences()
                                 SYSCALL_BASE));
                         inputs.push_back(test_util::make_marker(
                             TRACE_MARKER_TYPE_FUNC_ARG, /*value=*/10));
-                        // First syscall on first input was interrupted by a signal,
-                        // so no post-syscall event.
                         if (input_idx == 0) {
+                            // First syscall on first input was interrupted by a signal,
+                            // so no post-syscall event.
                             inputs.push_back(test_util::make_marker(
                                 TRACE_MARKER_TYPE_KERNEL_EVENT, /*value=*/1));
                             inputs.push_back(test_util::make_marker(
                                 TRACE_MARKER_TYPE_KERNEL_XFER, /*value=*/1));
                             add_post_timestamp = false;
+                        } else if (input_idx == 1) {
+                            // First syscall on second input is a sigreturn that also
+                            // adds a kernel_xfer marker.
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_KERNEL_XFER, /*value=*/1));
                         } else {
                             inputs.push_back(test_util::make_marker(
                                 TRACE_MARKER_TYPE_FUNC_ID,
@@ -6915,8 +6920,8 @@ test_kernel_syscall_sequences()
                "Avf0i0SsFF1ii1kk,Cvf0i0SsFF1ii1FFs0,Aii0S2iii20,Cii0S2iii20,"
                "Aii0Ss1ii10,Cii0Ss1ii10,Aii0S2iii20,Cii0S2iii20,Aii0Ss1ii10,Cii0Ss1ii10");
         assert(sched_as_string[1] ==
-               "Bvf0i0SsFF1ii1FFs0ii0S2iii20ii0Ss1ii10ii0S2iii20ii0Ss1ii10______________"
-               "__________________________________________");
+               "Bvf0i0SsFF1ii1k0ii0S2iii20ii0Ss1ii10ii0S2iii20ii0Ss1ii10______________"
+               "____________________________________________");
         // Zoom in and check the first few syscall sequences on the first output record
         // by record with value checks.
         int idx = 0;
