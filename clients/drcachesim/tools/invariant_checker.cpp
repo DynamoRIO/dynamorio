@@ -1181,7 +1181,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // marker values are also set to the syscall-fallthrough pc. So it is
             // expected that prev_syscall_end_branch_target_ == the kernel_xfer value.
             // TODO i#7496: We skip the PC continuity check for the branch_target marker
-            // at the end of syscall traces injected for sigreturn.
+            // at the end of syscall traces injected for sigreturn, as they're not
+            // expected to match.
             shard->prev_syscall_end_branch_target_ = 0;
         }
         report_if_false(shard, memref.marker.marker_value != 0,

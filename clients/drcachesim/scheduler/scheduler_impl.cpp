@@ -1863,7 +1863,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::maybe_inject_pending_syscall_sequ
         // For syscalls that did not have a post-event because the trace ended.
         record_type_is_thread_exit(record) ||
         // For sigreturn, we want to inject before the kernel_xfer marker which
-        // is after the function tracing markers (if any) but before the
+        // is just before the function tracing markers (if any) and the
         // post-syscall timestamp marker.
         (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) ||
         // For syscalls interrupted by a signal and did not have a post-syscall

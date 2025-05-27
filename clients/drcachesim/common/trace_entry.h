@@ -1077,7 +1077,8 @@ typedef enum {
      * marker value will not be the actual next pc in the trace in some cases (i#7496):
      * - if a #TRACE_MARKER_TYPE_KERNEL_EVENT immediately follows the syscall trace,
      *   it indicates interruption of the syscall by a signal; in this case, the next
-     *   pc in the trace is the #TRACE_MARKER_TYPE_KERNEL_EVENT marker value.
+     *   pc after the signal is the #TRACE_MARKER_TYPE_KERNEL_EVENT marker value,
+     *   which is same as the syscall instr pc.
      * - for the sigreturn syscall, the next pc in the trace is what was specified
      *   in the prior #TRACE_MARKER_TYPE_KERNEL_EVENT marker.
      * See the sample file written by the burst_syscall_inject.cpp test for more
