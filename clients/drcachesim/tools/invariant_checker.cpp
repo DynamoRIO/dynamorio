@@ -686,7 +686,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Mismatching syscall num in trace end and syscall marker");
             // Syscall trace templates do not have any user-space instr.
             shard->found_syscall_trace_after_last_userspace_instr_ =
-                memref.marker.marker_value;
+                static_cast<int>(memref.marker.marker_value);
         }
         // TODO i#5505: Ideally the last instruction in the system call PT trace
         // also would be an indirect CTI with a TRACE_MARKER_TYPE_BRANCH_TARGET
