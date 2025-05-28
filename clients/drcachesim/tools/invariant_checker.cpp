@@ -1185,6 +1185,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // expected to match.
             shard->prev_syscall_end_branch_target_ = 0;
         }
+#endif
+#ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
