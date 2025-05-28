@@ -324,7 +324,7 @@ set(ARCH_SRCS
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
-  arch/x86_code.c
+  arch/asm_aux.c
   ${arch_core_asm_src}
   ${archshared_core_asm_src}
   arch/${ARCH_NAME}/optimize.c
@@ -421,7 +421,11 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/memquery.c)
     set(OS_SRCS ${OS_SRCS} unix/module_macho.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_macos.c)
-    set(OS_SRCS ${OS_SRCS} unix/tls_macos.c)
+    if (AARCH64)
+      set(OS_SRCS ${OS_SRCS} unix/tls_macos_aarch64.c)
+    elseif (X86)
+      set(OS_SRCS ${OS_SRCS} unix/tls_macos_x86.c)
+    endif()
     set(OS_SRCS ${OS_SRCS} unix/signal_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/native_macho.c)
     # XXX i#1286: implement nudge_macos.c

@@ -4084,7 +4084,7 @@ intercept_nt_setcontext(dcontext_t *dcontext, CONTEXT *cxt)
                            get_mcontext(dcontext), (app_pc)cxt->CXT_XIP, cxt->CXT_XSP,
                            cxt, NULL, 0);
 
-    /* Yes, we use the same x86.asm and x86_code.c procedures as
+    /* Yes, we use the same x86.asm and asm_aux.c procedures as
      * NtContinue: nt_continue_dynamo_start and nt_continue_start_setup
      */
     if (!in_fcache((cache_pc)cxt->CXT_XIP) &&

@@ -216,7 +216,7 @@ DECL_EXTERN(load_dynamo_failure)
  * required for non early follow children, we have to explicitly tell the
  * linker to do so.  This is done in the Makefile.
  * Note that if it weren't for wanting local go-native code we would have
- * auto_setup in x86_code.c be dynamo_auto_start.
+ * auto_setup in asm_aux.c be dynamo_auto_start.
  */
         DECLARE_FUNC(dynamo_auto_start)
 GLOBAL_LABEL(dynamo_auto_start:)

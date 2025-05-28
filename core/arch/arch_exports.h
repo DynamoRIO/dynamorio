@@ -768,7 +768,7 @@ dr_fxrstor32(byte *buf_aligned);
 #    define DYNAMO_START_XSP_ADJUST 0
 #endif
 
-/* x86_code.c */
+/* asm_aux.c */
 void
 dynamo_start(priv_mcontext_t *mc);
 

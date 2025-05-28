@@ -1381,7 +1381,7 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
 
 /****************************************************************************/
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-/* avoid needing x86_code.c from x86.asm from get_own_context_helper(),
+/* avoid needing asm_aux.c from x86.asm from get_own_context_helper(),
 
 /* unstatic for use by GET_OWN_CONTEXT macro */
 void
@@ -4384,7 +4384,7 @@ create_process_parameters(HANDLE hProcess, PEB *peb, UNICODE_STRING *imagefile,
     return 1;
 }
 
-/* avoid needing x86_code.c from x86.asm from get_own_context_helper() */
+/* avoid needing asm_aux.c from x86.asm from get_own_context_helper() */
 #if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 /* Executable name must be in kernel object name form
  * (e.g., \SystemRoot\System32\notepad.exe, or \??\c:\foo\bar.exe)

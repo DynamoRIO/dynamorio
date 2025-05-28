@@ -145,7 +145,7 @@
 #    error NYI
 #endif
 
-#ifdef MACOS64
+#if defined(MACOS64) && defined(X86)
 /* FIXME i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
  * provide a dynamic method to determine the first entry for forward compatability.
  * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
@@ -157,6 +157,9 @@
 #    define DR_TLS_BASE_SLOT 6   /* the TLS slot for DR's TLS base */
 /* offset from pthread_t struct to slot 6 */
 #    define DR_TLS_BASE_OFFSET (sizeof(void *) * (SEG_TLS_BASE_SLOT + DR_TLS_BASE_SLOT))
+#elif defined(MACOS) && defined(AARCH64)
+#    define DR_TLS_BASE_SLOT 6 /* the TLS slot for DR's TLS base */
+#    define DR_TLS_BASE_OFFSET (sizeof(void *) * DR_TLS_BASE_SLOT)
 #endif
 
 #if defined(AARCHXX) && !defined(MACOS64)
@@ -255,6 +258,14 @@ os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
 #if defined(AARCHXX) || defined(RISCV64)
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
+#endif
+
+#if defined(MACOS) && defined(AARCH64)
+void *
+os_tls_thread_init_temp();
+
+void
+os_tls_thread_free_temp(void *temp_tls);
 #endif
 
 #ifdef DEBUG
