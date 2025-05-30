@@ -58,7 +58,7 @@ jobs:
   ###########################################################################
   # 32-bit VS2019 and tests:
   vs2019-32:
-    runs-on: windows-2019
+    runs-on: windows-2022
 
     steps:
     - uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
   ###########################################################################
   # 64-bit VS2019 and tests:
   vs2019-64:
-    runs-on: windows-2019
+    runs-on: windows-2022
 
     steps:
     - uses: actions/checkout@v4
@@ -154,7 +154,7 @@ jobs:
   ###########################################################################
   # 32-bit and 64-bit VS2019 release builds:
   vs2019-builds:
-    runs-on: windows-2019
+    runs-on: windows-2022
 
     steps:
     - uses: actions/checkout@v4
