@@ -56,8 +56,8 @@ defaults:
 
 jobs:
   ###########################################################################
-  # 32-bit VS2019 and tests:
-  vs2019-32:
+  # 32-bit VS2022 and tests:
+  vs2022-32:
     runs-on: windows-2022
 
     steps:
@@ -104,8 +104,8 @@ jobs:
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   ###########################################################################
-  # 64-bit VS2019 and tests:
-  vs2019-64:
+  # 64-bit VS2022 and tests:
+  vs2022-64:
     runs-on: windows-2022
 
     steps:
@@ -152,8 +152,8 @@ jobs:
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   ###########################################################################
-  # 32-bit and 64-bit VS2019 release builds:
-  vs2019-builds:
+  # 32-bit and 64-bit VS2022 release builds:
+  vs2022-builds:
     runs-on: windows-2022
 
     steps:
@@ -201,15 +201,15 @@ jobs:
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
-      needs: [vs2019-builds, vs2019-64, vs2019-32]
+      needs: [vs2022-builds, vs2022-64, vs2022-32]
       # By default, a failure in a job skips the jobs that need it. The
       # following expression ensures that failure-notification.yml is
       # always invoked.
       if: ${{ always() }}
       with:
         test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5}',
-                                      'vs2019-builds', needs.vs2019-builds.result,
-                                      'vs2019-64', needs.vs2019-64.result,
-                                      'vs2019-32', needs.vs2019-32.result) }}
+                                      'vs2022-builds', needs.vs2022-builds.result,
+                                      'vs2022-64', needs.vs2022-64.result,
+                                      'vs2022-32', needs.vs2022-32.result) }}
         test_suite_results_only: ${{ join(needs.*.result, ',') }}
       secrets: inherit
