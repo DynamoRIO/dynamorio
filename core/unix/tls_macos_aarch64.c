@@ -97,8 +97,18 @@ tls_thread_free(tls_type_t tls_type, int index)
     ASSERT(tls_type == TLS_TYPE_SLOT);
     dr_tls_base_addr = get_dr_tls_base_addr();
 
-    /* In client threads, the thread register may have already been zeroed */
-    if (dr_tls_base_addr != NULL) {
+    /* Under -private_loader on macOS aarch64, the thread register
+     * will already have been set to NULL by privload_tls_exit.
+     *
+     * Note that when we reach privload_tls_exit we will be using
+     * private TLS for both app and client threads, since
+     * on this platform we skip dynamo_thread_not_under_dynamo in
+     * dynamo_thread_exit_common.
+     *
+     * If we are on app TLS (i.e., !private_loader),
+     * we mark the thread as exited with TLS_SLOT_VAL_EXITED.
+     */
+    if (!INTERNAL_OPTION(private_loader)) {
         *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
     }
 

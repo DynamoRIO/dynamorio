@@ -329,7 +329,7 @@ byte **
 get_dr_tls_base_addr(void);
 #endif
 
-#ifdef MACOS64
+#if defined(MACOS64) && defined(X86)
 void
 tls_process_init(void);
 

@@ -36,7 +36,7 @@
 /* Copyright (c) 2001 Hewlett-Packard Company */
 
 /*
- * asm_aux.c - auxiliary C routines to assembly routines in x86.asm
+ * asm_aux.c - auxiliary C routines to assembly routines in <arch>.asm
  */
 #include "../globals.h"
 #include "../fragment.h"
@@ -357,7 +357,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     ASSERT(dcontext != NULL);
     crec = NULL; /* now freed */
 
-    dynamo_thread_under_dynamo(dcontext);
+    thread_starting(dcontext);
 
     /* We assume that the only state that matters is the arg to the function. */
 #        if defined(X86) && defined(X64)

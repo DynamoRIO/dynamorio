@@ -122,7 +122,9 @@ GLOBAL_LABEL(dr_fpu_exception_init:)
 #ifdef MACOS
         DECLARE_FUNC(dynamorio_mach_dep_syscall)
 GLOBAL_LABEL(dynamorio_mach_dep_syscall:)
-        /* mach_dep syscalls use x16=0x80000000 and x3=num, we'll assume up to 3 args */
+        /* machine-dependent syscalls use x16=0x80000000 and x3=num, we'll assume
+         * up to 3 args
+         */
         mov      x3, x0
         mov      x16, #0x80000000
         mov      x17, x1

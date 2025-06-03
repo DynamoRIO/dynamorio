@@ -82,6 +82,7 @@
 #    endif
 #    include <mach/mach_traps.h> /* for swtch_pri */
 #    include "include/syscall_mach.h"
+/* Offset of pthread->fun in macOS libpthread */
 #    define PTHREAD_FUN_OFFSET 0x90
 #endif
 
@@ -1049,6 +1050,10 @@ d_r_os_init(void)
         d_r_rseq_init();
 #endif
 #if defined(MACOS64) && defined(X86)
+    /* On macos x86 we need to allocate slots for DR tls, but on aarch64
+     * we take a different approach (stealing slot 6) which does not
+     * require initialization.
+     */
     tls_process_init();
 #endif
 }
@@ -2049,7 +2054,7 @@ os_tls_thread_init_temp()
         IF_DEBUG(kern_return_t res =)
         vm_allocate(mach_task_self(), (vm_address_t *)&temp_tls, PAGE_SIZE,
                     true /* anywhere */);
-        ASSERT(res == KERN_SUCCESS);
+        ASSERT(res == KERN_SUCCESS && temp_tls != NULL);
         write_thread_register(temp_tls);
     }
     return temp_tls;
@@ -2353,8 +2358,6 @@ os_tls_init(void)
     /* MUST zero out dcontext slot so uninit access gets NULL */
     memset(segment, 0, PAGE_SIZE);
 #    endif
-
-    ASSERT_MESSAGE(CHKLVL_ASSERTS, "tls segment should not be NULL", segment != NULL);
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread " TIDFMT "\n",

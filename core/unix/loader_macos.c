@@ -124,7 +124,7 @@ privload_tls_init(void *app_tls)
     /* Compute pthread->_sig, mirroring the logic in libpthread _pthread_init_signature */
     void *sig = pthread;
     if (proc_has_feature(FEATURE_PAUTH)) {
-        /* libpthread uses the PAC extension to insert a "authentication code"
+        /* libpthread uses the PAC extension to insert an "authentication code"
          * into the upper bits of a pointer using a "discriminator"
          * unique to libpthread. This is intended to prevent forgeries of pthread_t
          * (not created via libpthread). Since we forged a pthread_t, we must also
@@ -161,6 +161,11 @@ privload_tls_exit(void *dr_tp)
                   PAGE_SIZE);
 
     ASSERT(res == KERN_SUCCESS);
+
+    /* Note that both client and app threads should be on private TLS
+     * at this point, since we do not call dynamo_thread_not_under_dynamo
+     * in dynamo_thread_exit_common on this platform.
+     */
     if (read_thread_register(TLS_REG_LIB) == (uint64_t)dr_tp) {
         write_thread_register(NULL);
     }

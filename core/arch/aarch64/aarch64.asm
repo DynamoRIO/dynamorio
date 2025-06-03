@@ -566,7 +566,7 @@ GLOBAL_LABEL(new_bsdthread_intercept:)
         /* Push a priv_mcontext on the stack */
         sub      sp, sp, #priv_mcontext_t_SIZE
         stp      x0, x1, [sp, #(0 * ARG_SZ*2)]
-        add      x0, sp, #(priv_mcontext_t_SIZE + 16) /* compute original SP */
+        add      x0, sp, #(priv_mcontext_t_SIZE) /* compute original SP */
         stp      x30, x0, [sp, #(15 * ARG_SZ*2)]
         str      x30, [sp, #(16 * ARG_SZ*2)] /* save LR as PC */
 

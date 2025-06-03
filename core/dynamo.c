@@ -2594,10 +2594,14 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
      */
     if (!other_thread) {
 #if !(defined(MACOS) && defined(AARCH64))
-        /* i5383: on macOS a64 app TLS has already been free'd and we must remain
-         * on priv TLS until os_tls_exit below, when we can zero the thread reg.
-         */
         dynamo_thread_not_under_dynamo(dcontext);
+#else
+        /* i5383: on macOS a64 app TLS has already been free'd (i.e. in
+         * macOS libpthread pthread_exit) and thus we must remain on priv TLS
+         * since many of the exit functions below will acquire locks which expect
+         * readable TLS. In os_thread_exit below (calls privload_tls_exit) we
+         * zero the thread reg.
+         */
 #endif
 #ifdef WINDOWS
         /* We don't do this inside os_thread_not_under_dynamo b/c we do it in
