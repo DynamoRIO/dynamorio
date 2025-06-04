@@ -1197,6 +1197,19 @@ If you would like to cite this work, you can use the following BibTeX entry:
 }
 \endverbatim
 
+\section sec_google_common_issues Common Issues
+
+Here we collect common issues that some users might experience when using the Google
+Workload Traces.
+
+- Depending on the Linux distribution used, there might be a threshold on the number of
+  files a single process can open that is set too low (e.g., 1024). This threshold can be
+  increased by setting the nofile item in /etc/security/limits.conf. A low nofile
+  threshold is problematic when a DynamoRIO analyzer or scheduler operates on a whole
+  Google trace, which can have over 2000 trace files (one per software thread). This can
+  result in "Failed to initialize scheduler: Failed to open PATH/TO/MEMTRACE.ZIP
+  (was RLIMIT_NOFILE exceeded?)". If this happens, please increase the nofile threshold.
+
 \section sec_public_v1_deprecated Deprecated Google Workload Traces (Version 1)
 
 The previous version of Google workload traces contains a subset of the
