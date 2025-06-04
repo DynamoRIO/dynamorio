@@ -1960,7 +1960,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     std::unique_ptr<ReaderType> reader = get_reader(path, verbosity_);
     if (!reader || !reader->init()) {
-        error_string_ += "Failed to open " + path;
+        // Include a suggestion to check the open file limit.
+        // We could call getrlimit to see if it's a likely culprit; we could
+        // try to call setrlimit ourselves but that doesn't feel right.
+        error_string_ += "Failed to open " + path + " (was RLIMIT_NOFILE exceeded?)";
         return sched_type_t::STATUS_ERROR_FILE_OPEN_FAILED;
     }
     int index = static_cast<input_ordinal_t>(inputs_.size());
