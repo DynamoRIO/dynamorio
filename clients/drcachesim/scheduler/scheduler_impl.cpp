@@ -960,8 +960,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                            i, index, range.start_instruction, range.stop_instruction);
                     if (range.start_instruction == 0 ||
                         (range.stop_instruction < range.start_instruction &&
-                         range.stop_instruction != 0))
+                         range.stop_instruction != 0)) {
+                        error_string_ = "invalid start/stop range in regions of interest";
                         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                    }
                     if (i == 0)
                         continue;
                     if (range.start_instruction <=
