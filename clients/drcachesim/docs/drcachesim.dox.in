@@ -1209,7 +1209,7 @@ Workload Traces.
   threshold is problematic when a DynamoRIO analyzer or scheduler operates on a whole
   Google trace, which can have over 2000 trace files (one per software thread). This can
   result in "Failed to initialize scheduler: Failed to open PATH/TO/MEMTRACE.ZIP". If
-  this happens, please increase the "nofile" threshold .
+  this happens, please increase the "nofile" threshold.
 
 \section sec_public_v1_deprecated Deprecated Google Workload Traces (Version 1)
 
