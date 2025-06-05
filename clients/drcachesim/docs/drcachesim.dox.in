@@ -1202,7 +1202,7 @@ If you would like to cite this work, you can use the following BibTeX entry:
 Here we collect common issues that some users might experience when using the Google
 Workload Traces.
 
-- Depending on the Linux distribution used, there might be a "nofile" threshold on the
+- Depending on the Linux distribution used, there might be a "nofile" threshold for the
   number of files a single process can open that is set too low (e.g., 1024). This
   threshold can be increased using "ulimit -n 8192". A threshold of 8192 is enough for
   Google Workload Traces. Consider adding this command to your ".bashrc". A low "nofile"
