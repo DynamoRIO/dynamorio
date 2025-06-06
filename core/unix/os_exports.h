@@ -151,6 +151,8 @@
  * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
  * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
  * for our own use.
+ * https://github.com/apple-oss-distributions/xnu
+ * /blob/e3723e1f17661b24996789d8afc084c0c3303b26/libsyscall/os/tsd.h#L42
  */
 /* XXX i#5383: This is used as *8 so it's really a slot not a byte offset. */
 #    define SEG_TLS_BASE_SLOT 28 /* offset from pthread_t struct to segment base */
