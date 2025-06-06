@@ -2348,12 +2348,14 @@ os_tls_init(void)
      */
 #    if defined(MACOS64) && defined(X86)
     byte *segment = tls_get_dr_addr();
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "tls segment should not be NULL", segment != NULL);
 
     /* MUST zero out dcontext slot so uninit access gets NULL */
     memset(segment, 0, sizeof(os_local_state_t));
 #    else
     byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE,
                               VMM_SPECIAL_MMAP | VMM_PER_THREAD);
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "tls segment should not be NULL", segment != NULL);
 
     /* MUST zero out dcontext slot so uninit access gets NULL */
     memset(segment, 0, PAGE_SIZE);
