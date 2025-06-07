@@ -36,7 +36,7 @@
 /* Copyright (c) 2001 Hewlett-Packard Company */
 
 /*
- * x86_code.c - auxiliary C routines to assembly routines in x86.asm
+ * asm_aux.c - auxiliary C routines to assembly routines in <arch>.asm
  */
 #include "../globals.h"
 #include "../fragment.h"
@@ -325,11 +325,11 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
-#    if defined(MACOS) && defined(X86)
-/* Called from new_bsdthread_intercept for targeting a bsd thread user function.
+#    if defined(MACOS) && (defined(X86) || defined(AARCH64))
+/* Called from new_bsdthread_intercept (asm) for targeting a bsd thread user function.
  * new_bsdthread_intercept stored the arg to the user thread func in
- * mc->xax.  We're on the app stack -- but this is a temporary solution.
- * i#1403 covers intercepting in an earlier and better manner.
+ * mc->xax (X86) or mc->r9 (ARM64).  We're on the app stack -- but this
+ * is a temporary solution. i#1403 covers intercepting in an earlier and better manner.
  */
 void
 new_bsdthread_setup(priv_mcontext_t *mc)
@@ -341,7 +341,11 @@ new_bsdthread_setup(priv_mcontext_t *mc)
      */
     ENTERING_DR();
 
+#        if defined(X86)
     crec = (void *)mc->xax; /* placed there by new_bsdthread_intercept */
+#        elif defined(AARCH64)
+    crec = (void *)mc->r9; /* placed there by new_bsdthread_intercept */
+#        endif
     func_arg = (void *)get_clone_record_thread_arg(crec);
     LOG(GLOBAL, LOG_INTERP, 1,
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
@@ -352,13 +356,16 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     crec = NULL; /* now freed */
+
     thread_starting(dcontext);
 
     /* We assume that the only state that matters is the arg to the function. */
-#        ifdef X64
+#        if defined(X86) && defined(X64)
     mc->rdi = (reg_t)func_arg;
-#        else
+#        elif defined(X86)
     *(reg_t *)(mc->xsp + sizeof(reg_t)) = (reg_t)func_arg;
+#        elif defined(AARCH64)
+    mc->r0 = (reg_t)func_arg;
 #        endif
 
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,

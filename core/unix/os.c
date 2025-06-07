@@ -75,12 +75,15 @@
 
 #ifdef MACOS
 #    include <sys/sysctl.h> /* for sysctl */
+#    include <mach/mach.h>  /* for sysctl */
 #    ifndef SYS___sysctl
 /* The name was changed on Yosemite */
 #        define SYS___sysctl SYS_sysctl
 #    endif
 #    include <mach/mach_traps.h> /* for swtch_pri */
 #    include "include/syscall_mach.h"
+/* Offset of pthread->fun in macOS libpthread */
+#    define PTHREAD_FUN_OFFSET 0x90
 #endif
 
 #ifdef LINUX
@@ -1046,7 +1049,11 @@ d_r_os_init(void)
     if (!standalone_library)
         d_r_rseq_init();
 #endif
-#ifdef MACOS64
+#if defined(MACOS64) && defined(X86)
+    /* On macos x86 we need to allocate slots for DR tls, but on aarch64
+     * we take a different approach (stealing slot 6) which does not
+     * require initialization.
+     */
     tls_process_init();
 #endif
 }
@@ -1462,7 +1469,7 @@ find_stack_bottom()
 void
 os_slow_exit(void)
 {
-#ifdef MACOS64
+#if defined(MACOS64) && defined(X86)
     tls_process_exit();
 #endif
 #ifdef LINUX
@@ -1679,7 +1686,7 @@ os_timeout(int time_in_milliseconds)
         asm("movzw" IF_X64_ELSE("q", "l") " %0, %%" ASM_XAX : : "m"((offs)) : ASM_XAX); \
         asm("mov %" ASM_SEG ":(%%" ASM_XAX "), %%" ASM_XAX : : : ASM_XAX);              \
         asm("mov %%" ASM_XAX ", %0" : "=m"((var)) : : ASM_XAX);
-#elif defined(AARCHXX) && !defined(MACOS)
+#elif defined(AARCHXX)
 /* Android needs indirection through a global.  The Android toolchain has
  * trouble with relocations if we use a global directly in asm, so we convert to
  * a local variable in these macros.  We pay the cost of the extra instructions
@@ -1725,17 +1732,6 @@ os_timeout(int time_in_milliseconds)
                                  : "r"(_base_offs), "r"(offs)                       \
                                  : ASM_R2, ASM_R3);                                 \
         } while (0)
-#elif defined(AARCH64) && defined(MACOS)
-
-#    define WRITE_TLS_SLOT_IMM(imm, var) WRITE_TLS_SLOT(imm, var)
-#    define READ_TLS_SLOT_IMM(imm, var) READ_TLS_SLOT(imm, var)
-#    define WRITE_TLS_INT_SLOT_IMM(imm, var) WRITE_TLS_SLOT(imm, var)
-#    define READ_TLS_INT_SLOT_IMM(imm, var) READ_TLS_SLOT(imm, var)
-#    define WRITE_TLS_SLOT(offs, var) \
-        *((__typeof__(var) *)(tls_get_dr_addr() + offs)) = var;
-#    define READ_TLS_SLOT(offs, var) \
-        var = *((__typeof__(var) *)(tls_get_dr_addr() + offs));
-
 #elif defined(RISCV64)
 #    define WRITE_TLS_SLOT_IMM(imm, var)                                       \
         do {                                                                   \
@@ -1809,10 +1805,7 @@ static os_local_state_t uninit_tls; /* has .magic == 0 */
 static bool
 is_thread_tls_initialized(void)
 {
-#if defined(MACOS) && defined(AARCH64)
-    os_local_state_t *v = (void *)tls_get_dr_addr();
-    return v != NULL && v->tls_type == TLS_TYPE_SLOT;
-#elif defined(MACOS64) && !defined(AARCH64)
+#if defined(MACOS64) && !defined(AARCH64)
     /* For now we have both a directly-addressable os_local_state_t and a pointer to
      * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
      * we would probably get rid of the indirection here and directly read the magic
@@ -1971,7 +1964,7 @@ os_local_state_offset(ushort seg_offs)
     /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
-    return (seg_offs - TLS_LOCAL_STATE_OFFSET IF_MACOS64(-tls_get_dr_offs()));
+    return (seg_offs - TLS_LOCAL_STATE_OFFSET IF_X86(IF_MACOS64(-tls_get_dr_offs())));
 }
 
 /* XXX: Will return NULL if called before os_thread_init(), which sets
@@ -2044,6 +2037,35 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
     }
     ASSERT_NOT_REACHED();
     return false;
+}
+#endif
+
+#if defined(MACOS) && defined(AARCH64)
+/* On macOS a64 some synchronization primitives will fail if the thread
+ * register is NULL. os_tls_thread_init_temp and os_tls_thread_free_temp
+ * allocate a temporary TLS region until os_tls_init.
+ */
+void *
+os_tls_thread_init_temp()
+{
+    void *temp_tls = NULL;
+    if (!read_thread_register(TLS_REG_LIB)) {
+        /* We use the mach vm_allocate API here since heap is not init yet */
+        IF_DEBUG(kern_return_t res =)
+        vm_allocate(mach_task_self(), (vm_address_t *)&temp_tls, PAGE_SIZE,
+                    true /* anywhere */);
+        ASSERT(res == KERN_SUCCESS && temp_tls != NULL);
+        write_thread_register(temp_tls);
+    }
+    return temp_tls;
+}
+
+void
+os_tls_thread_free_temp(void *temp_tls)
+{
+    IF_DEBUG(kern_return_t res =)
+    vm_deallocate(mach_task_self(), (vm_address_t)temp_tls, PAGE_SIZE);
+    ASSERT(res == KERN_SUCCESS);
 }
 #endif
 
@@ -2324,23 +2346,27 @@ os_tls_init(void)
      * FIXME PR 205276: this whole scheme currently does not check if app is using
      * segments need to watch modify_ldt syscall
      */
-#    ifdef MACOS64
-    /* Today we're allocating enough contiguous TLS slots to hold os_local_state_t.
-     * We also store a pointer to it in TLS slot 6.
-     */
+#    if defined(MACOS64) && defined(X86)
     byte *segment = tls_get_dr_addr();
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "tls segment should not be NULL", segment != NULL);
+
+    /* MUST zero out dcontext slot so uninit access gets NULL */
+    memset(segment, 0, sizeof(os_local_state_t));
 #    else
     byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE,
                               VMM_SPECIAL_MMAP | VMM_PER_THREAD);
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "tls segment should not be NULL", segment != NULL);
+
+    /* MUST zero out dcontext slot so uninit access gets NULL */
+    memset(segment, 0, PAGE_SIZE);
 #    endif
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread " TIDFMT "\n",
         d_r_get_thread_id());
+
     ASSERT(!is_thread_tls_initialized());
 
-    /* MUST zero out dcontext slot so uninit access gets NULL */
-    memset(segment, 0, IF_MACOSA64_ELSE(sizeof(os_local_state_t), PAGE_SIZE));
     /* store key data in the tls itself */
     os_tls->self = os_tls;
     os_tls->tid = get_sys_thread_id();
@@ -2353,7 +2379,7 @@ os_tls_init(void)
      * will be overwritten in os_tls_app_seg_init().
      */
     os_tls->os_seg_info.dr_tls_base = segment;
-    ASSERT(proc_is_cache_aligned(os_tls->self + TLS_LOCAL_STATE_OFFSET));
+    ASSERT(proc_is_cache_aligned((byte *)os_tls->self + TLS_LOCAL_STATE_OFFSET));
     /* Verify that local_state_extended_t should indeed be used. */
     ASSERT(DYNAMO_OPTION(ibl_table_in_tls));
 
@@ -2631,7 +2657,6 @@ os_thread_init(dcontext_t *dcontext, void *os_data)
         get_segment_base(LIB_SEG_TLS));
 
 #ifdef MACOS
-    /* XXX: do we need to free/close dcontext->thread_port?  I don't think so. */
     dcontext->thread_port = dynamorio_mach_syscall(MACH_thread_self_trap, 0);
     LOG(THREAD, LOG_ALL, 1, "Mach thread port: %d\n", dcontext->thread_port);
 #endif
@@ -4095,7 +4120,6 @@ is_thread_currently_native(thread_record_t *tr)
             (tr->dcontext != NULL && tr->dcontext->currently_stopped));
 }
 
-#ifdef LINUX /* XXX i#58: just until we have Mac support */
 static void
 client_thread_run(void)
 {
@@ -4134,8 +4158,38 @@ client_thread_run(void)
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
         d_r_get_thread_id());
-    block_cleanup_and_terminate(dcontext, SYS_exit, 0, 0, false /*just thread*/,
+    block_cleanup_and_terminate(dcontext, SYSNUM_EXIT_THREAD, 0, 0, false /*just thread*/,
                                 IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
+}
+
+#ifdef MACOS
+/* emulated clone() for macos */
+thread_id_t
+dynamorio_clone_macos(uint flags, byte *newsp, void *ptid, void *tls, void *ctid,
+                      void (*func)(void))
+{
+    ASSERT(ptid == NULL);
+    ASSERT(tls == NULL);
+    ASSERT(ctid == NULL);
+    ASSERT(TESTALL(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND, flags));
+
+#    ifdef AARCH64
+    thread_state_flavor_t state_flavor = ARM_THREAD_STATE64;
+    arm_thread_state64_t state = { .__sp = (uint64_t)newsp, .__pc = (uint64_t)func };
+    mach_msg_type_number_t state_count = ARM_THREAD_STATE64_COUNT;
+    thread_act_t new_thread;
+
+    kern_return_t res = thread_create_running(
+        mach_task_self(), state_flavor, (thread_state_t)&state, state_count, &new_thread);
+    if (res != KERN_SUCCESS)
+        return -1;
+
+    return new_thread;
+#    else
+    /* FIXME i#1285: Private loader NYI on macOS x86 */
+    ASSERT_NOT_IMPLEMENTED(false && "i#1285 Private loader NYI for Mac x86");
+    return -1;
+#    endif
 }
 #endif
 
@@ -4153,9 +4207,8 @@ client_thread_run(void)
 DR_API bool
 dr_create_client_thread(void (*func)(void *param), void *arg)
 {
-#ifdef LINUX
     dcontext_t *dcontext = get_thread_private_dcontext();
-    byte *xsp;
+    byte *xsp = 0;
     /* We do not pass SIGCHLD since don't want signal to parent and don't support
      * waiting on child.
      * We do not pass CLONE_THREAD so that the new thread is in its own thread
@@ -4175,7 +4228,8 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     /* make sure client_thread_run can get the func and arg, and that
      * signal_thread_inherit gets the right syscall info
      */
-    set_clone_record_fields(crec, (reg_t)arg, (app_pc)func, SYS_clone, flags);
+    set_clone_record_fields(crec, (reg_t)arg, (app_pc)func, IF_LINUX_ELSE(SYS_clone, -1),
+                            flags);
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp=" PFX " dstack=" PFX "\n", xsp,
         get_clone_record_dstack(crec));
     /* i#501 switch to app's tls before creating client thread.
@@ -4183,7 +4237,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * to the app's.
      */
     os_clone_pre(dcontext);
-#    if defined(AARCHXX) || defined(RISCV64)
+#if (defined(AARCHXX) || defined(RISCV64)) && !defined(MACOS)
     /* We need to invalidate DR's TLS to avoid get_thread_private_dcontext() finding one
      * and hitting asserts in dynamo_thread_init lock calls -- yet we don't want to for
      * app threads, so we're doing this here and not in os_clone_pre().
@@ -4191,13 +4245,20 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      */
     void *tls = (void *)read_thread_register(LIB_SEG_TLS);
     write_thread_register(NULL);
-#    endif
+#endif
+
+#ifdef MACOS
+    thread_id_t newpid =
+        dynamorio_clone_macos(flags, xsp, NULL, NULL, NULL, client_thread_run);
+#else
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
+#endif
+
     /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
-#    if defined(AARCHXX) || defined(RISCV64)
+#if (defined(AARCHXX) || defined(RISCV64)) && !defined(MACOS)
     write_thread_register(tls);
-#    endif
+#endif
     /* i#501 the app's tls was switched in os_clone_pre. */
     if (INTERNAL_OPTION(private_loader))
         os_switch_lib_tls(dcontext, false /*to dr*/);
@@ -4210,10 +4271,6 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
         return false;
     }
     return true;
-#else
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement on Mac */
-    return false;
-#endif
 }
 
 int
@@ -4268,8 +4325,12 @@ load_shared_library(const char *name, bool reachable)
     /* We call locate_and_load_private_library() to support searching for
      * a pathless name.
      */
+    /* XXX i#1285: implement macOS private loader */
+#if !defined(MACOS)
     if (INTERNAL_OPTION(private_loader))
         return (shlib_handle_t)locate_and_load_private_library(name, reachable);
+#endif
+
 #if defined(STATIC_LIBRARY) || defined(MACOS)
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
@@ -4286,9 +4347,13 @@ load_shared_library(const char *name, bool reachable)
 shlib_routine_ptr_t
 lookup_library_routine(shlib_handle_t lib, const char *name)
 {
+    /* XXX i#1285: implement macOS private loader */
+#if !defined(MACOS)
     if (INTERNAL_OPTION(private_loader)) {
         return (shlib_routine_ptr_t)get_private_library_address((app_pc)lib, name);
     }
+#endif
+
 #if defined(STATIC_LIBRARY) || defined(MACOS)
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlsym(lib, name);
@@ -7502,6 +7567,21 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param1 = (reg_t)func_arg;
         *sys_param_addr(dcontext, 0) = (reg_t)new_bsdthread_intercept;
         *sys_param_addr(dcontext, 1) = (reg_t)clone_rec;
+
+#    ifdef X64
+        /* Also update the pthread->fun and pthread->arg fields, since _pthread_start uses
+         * them instead of the syscall arg0 on some macOS versions */
+        app_pc pthread = (app_pc)sys_param(dcontext, 3);
+        ASSERT_CURIOSITY(pthread != NULL);
+        if (pthread != NULL) {
+            *(app_pc *)((byte *)pthread + PTHREAD_FUN_OFFSET) =
+                (app_pc)new_bsdthread_intercept;
+            /* And the pthread->arg field always followed the pthread->fun field */
+            *(void **)((byte *)pthread + PTHREAD_FUN_OFFSET + sizeof(app_pc)) =
+                (void *)clone_rec;
+        }
+#    endif
+
         os_new_thread_pre();
         break;
     }

@@ -2253,6 +2253,11 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
         return SUCCESS;
     }
 
+/* macOS aarch64 will sometimes crash when acquiring locks if TLS is NULL */
+#if defined(MACOS) && defined(AARCH64)
+    void *tmp_tls = os_tls_thread_init_temp();
+#endif
+
     /* note that ENTERING_DR is assumed to have already happened: in apc handler
      * for win32, in new_thread_setup for linux, in main init for 1st thread
      */
@@ -2307,6 +2312,11 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
     }
 
     os_tls_init();
+#if defined(MACOS) && defined(AARCH64)
+    if (tmp_tls) {
+        os_tls_thread_free_temp(tmp_tls);
+    }
+#endif
     dcontext = create_new_dynamo_context(true /*initial*/, dstack_in, mc);
     initialize_dynamo_context(dcontext);
     set_thread_private_dcontext(dcontext);
@@ -2583,7 +2593,16 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
      * we called event callbacks.
      */
     if (!other_thread) {
+#if !(defined(MACOS) && defined(AARCH64))
         dynamo_thread_not_under_dynamo(dcontext);
+#else
+        /* i5383: on macOS a64 app TLS has already been free'd (i.e. in
+         * macOS libpthread pthread_exit) and thus we must remain on priv TLS
+         * since many of the exit functions below will acquire locks which expect
+         * readable TLS. In os_thread_exit below (calls privload_tls_exit) we
+         * zero the thread reg.
+         */
+#endif
 #ifdef WINDOWS
         /* We don't do this inside os_thread_not_under_dynamo b/c we do it in
          * context switches.  os_loader_exit() will call this, but it has no
