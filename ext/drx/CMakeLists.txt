@@ -47,6 +47,10 @@ set(srcs
   # add more here
   )
 
+if (UNIX)
+  set(srcs ${srcs} drx_time_scale.c)
+endif ()
+
 # i#1491#2: VS generators fail if static lib has resources
 set(srcs_static ${srcs})
 

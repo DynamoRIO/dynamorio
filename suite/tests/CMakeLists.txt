@@ -2969,6 +2969,12 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   link_with_pthread(client.drx_buf-test)
   target_include_directories(client.drx_buf-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+
+  if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+    tobuild_api(client.drx_time_scale-test client-interface/drx_time_scale-test.c
+      "" "" OFF ON OFF)
+    use_DynamoRIO_extension(client.drx_time_scale-test drx_static)
+  endif ()
 endif (NOT RISCV64)
 
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64

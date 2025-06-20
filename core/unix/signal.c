@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -7979,7 +7979,7 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info, bool
         /* i#2907: we have no signal handlers until we start the app (i#2335)
          * so we can't set up an itimer until then.
          */
-        ASSERT(dynamo_initialized);
+        ASSERT(is_thread_signal_info_initialized(dcontext));
         ASSERT(!info->shared_itimer ||
                self_owns_recursive_lock(&(*info->itimer)[which].lock));
         usec_to_timeval((*info->itimer)[which].actual.interval, &val.it_interval);
