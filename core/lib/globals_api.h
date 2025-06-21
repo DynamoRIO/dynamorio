@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -623,7 +623,7 @@ typedef struct _instr_t instr_t;
 #ifdef X64
 #    define PFMT ZHEX64_FORMAT_STRING
 #    define PIFMT HEX64_FORMAT_STRING
-#    define SZFMT INT64_FORMAT_STRING
+#    define SZFMT UINT64_FORMAT_STRING
 #    define SSZFMT INT64_FORMAT_STRING
 #    define SZFC UINT64_FORMAT_CODE
 #    define SSZFC INT64_FORMAT_CODE
