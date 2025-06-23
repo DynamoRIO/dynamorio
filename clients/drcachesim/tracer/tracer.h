@@ -183,7 +183,7 @@ enum {
 
 /* Tracer nudge types. */
 enum {
-    TRACER_NUDGE_MEM_DUMP = 0,  /* Capture a memory dump. */
+    TRACER_NUDGE_MEM_DUMP = 0, /* Capture a memory dump. */
 };
 
 #if defined(X86_64) || defined(AARCH64)

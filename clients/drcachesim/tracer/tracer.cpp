@@ -540,7 +540,6 @@ event_nudge(void *drcontext, uint64 arg)
     }
 }
 
-
 /***************************************************************************
  * Tracing instrumentation.
  */
