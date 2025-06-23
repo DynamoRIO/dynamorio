@@ -4470,7 +4470,7 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.windows-split_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
 
-    if (X64 AND LINUX)
+    if (X64 AND (LINUX OR WIN32))
       torunonly_drcacheoff(windows-memdump ${ci_shared_app}
         "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -memdump_on_window"
         "@-tool@basic_counts" "")
