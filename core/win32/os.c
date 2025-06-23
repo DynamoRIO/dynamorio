@@ -7822,7 +7822,7 @@ os_dump_core_live_dump(const char *msg, char *path DR_PARAM_OUT, size_t path_sz)
     /* use no option synch for syslogs to avoid grabbing locks and risking
      * deadlock, caller should have synchronized already anyways */
     if (!get_unique_logfile(".ldmp", dump_core_file_name, sizeof(dump_core_file_name),
-                            /*open_directory=*/false, /*embed_timestamp*/false,
+                            /*open_directory=*/false, /*embed_timestamp*/ false,
                             &dmp_file) ||
         dmp_file == INVALID_FILE) {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING, "Unable to open core dump file");
