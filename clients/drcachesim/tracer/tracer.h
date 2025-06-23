@@ -181,6 +181,11 @@ enum {
     BBDUP_MODE_L0_FILTER = 4, /* Address tracing with L0_filter. */
 };
 
+/* Tracer nudge types. */
+enum {
+    TRACER_NUDGE_MEM_DUMP = 0,  /* Capture a memory dump. */
+};
+
 #if defined(X86_64) || defined(AARCH64)
 #    define DELAYED_CHECK_INLINED 1
 #else

@@ -4470,6 +4470,10 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.windows-split_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
 
+    torunonly_drcacheoff(windows-memdump ${ci_shared_app}
+      "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -memdump_on_window"
+      "@-tool@basic_counts" "")
+
     # Test L0_filter_until_instrs
     torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
         "-trace_after_instrs 10K -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"

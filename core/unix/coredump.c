@@ -514,7 +514,8 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
     file_t elf_file;
     char dump_core_file_name[MAXIMUM_PATH];
     if (!get_unique_logfile(".elf", dump_core_file_name, sizeof(dump_core_file_name),
-                            false, &elf_file) ||
+                            /*open_directory=*/false, /*embed_timestamp=*/true,
+                            &elf_file) ||
         elf_file == INVALID_FILE) {
         SYSLOG_INTERNAL_ERROR("Unable to open the core dump file.");
         return false;

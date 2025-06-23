@@ -361,6 +361,14 @@ droption_t<bool> op_align_endpoints(
     "all threads and is nop-ed as soon as detach starts, eliminating the unevenness. "
     "This also allows omitting threads that did nothing during the burst.");
 
+droption_t<bool> op_memdump_on_window(
+    DROPTION_SCOPE_CLIENT, "memdump_on_window", false,
+    "Capture a memory dump when a tracing window opens",
+    "Capture a memory dump upon the initiation of tracing triggered by "
+    "-trace_after_instrs, -trace_instr_intervals_file, or -retrace_every_instrs. "
+    "If -retrace_every_instrs is also enabled, a memory dump will be captured for "
+    "each individual tracing window.");
+
 droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
     "Do not start tracing until N instructions",

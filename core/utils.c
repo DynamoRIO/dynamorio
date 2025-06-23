@@ -2759,7 +2759,8 @@ create_log_dir(int dir_type)
         logdir_initialized = true;
         /* skip creating if basedir is empty */
         if (*base != '\0') {
-            if (!get_unique_logfile("", logdir, sizeof(logdir), true, NULL)) {
+            if (!get_unique_logfile("", logdir, sizeof(logdir), /*open_directory=*/true,
+                                    /*embed_timestamp=*/false, NULL)) {
                 SYSLOG_INTERNAL_WARNING("Unable to create log directory %s", logdir);
             }
         }
@@ -2901,6 +2902,9 @@ close_log_file(file_t f)
 /* Generalize further as needed
  * Creates a unique file or directory of the form
  * BASEDIR/[app_name].[pid].<unique num of up to 8 digits>[file_type]
+ * when embed_timestamp is false,
+ * BASEDIR/[app_name].[pid].[timestamp in hex].<unique num of up to 8 digits>[file_type]
+ * when embed_timestamp is true.
  * If the filename_buffer is not NULL, the filename of the obtained file
  * is copied there. For creating a directory the file argument is expected
  * to be null.  Return true if the requested file or directory was created
@@ -2908,7 +2912,7 @@ close_log_file(file_t f)
  */
 bool
 get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
-                   bool open_directory, file_t *file)
+                   bool open_directory, bool embed_timestamp, file_t *file)
 {
     char buf[MAXIMUM_PATH];
     uint size = BUFFER_SIZE_ELEMENTS(buf), counter = 0, base_offset;
@@ -2924,8 +2928,15 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
         buf[base_offset++] = DIRSEP;
         size = BUFFER_SIZE_ELEMENTS(buf) - base_offset;
         do {
-            snprintf(&(buf[base_offset]), size, "%s.%s.%.8d%s", get_app_name_for_path(),
-                     get_application_pid(), counter, file_type);
+            if (embed_timestamp) {
+                snprintf(&(buf[base_offset]), size, "%s.%s.%012lx.%08d%s",
+                         get_app_name_for_path(), get_application_pid(),
+                         query_time_millis(), counter, file_type);
+            } else {
+                snprintf(&(buf[base_offset]), size, "%s.%s.%.8d%s",
+                         get_app_name_for_path(), get_application_pid(), counter,
+                         file_type);
+            }
             NULL_TERMINATE_BUFFER(buf);
             if (open_directory) {
                 success = os_create_dir(buf, CREATE_DIR_REQUIRE_NEW);
