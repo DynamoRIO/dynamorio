@@ -4469,8 +4469,11 @@ if (BUILD_CLIENTS)
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
     set(tool.drcacheoff.windows-split_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
-
-    if (X64 AND (LINUX OR WIN32))
+    # Test memory dump when a trace window opens.
+    # TODO i#7508: Add Windows support. raw2trace fails with "Non-module instructions
+    # found with no encoding information." when a memory dump is captured in the beginning
+    # of a tracing window.
+    if (X64 AND LINUX)
       torunonly_drcacheoff(windows-memdump ${ci_shared_app}
         "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -memdump_on_window"
         "@-tool@basic_counts" "")

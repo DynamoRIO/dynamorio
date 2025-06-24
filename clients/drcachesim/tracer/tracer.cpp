@@ -525,9 +525,13 @@ event_nudge(void *drcontext, uint64 arg)
         dr_memory_dump_spec_t spec;
         spec.size = sizeof(dr_memory_dump_spec_t);
 #ifdef WINDOWS
-        spec.flags = DR_MEMORY_DUMP_LDMP;
-        spec.ldmp_path = (char *)&path;
-        spec.ldmp_path_size = MAXIMUM_PATH;
+        /* TODO i#7508: raw2trace fails with "Non-module instructions found with no
+         * encoding information.". This occurs on Windows when capturing memory dumps at
+         * the start of a new tracing window.
+         */
+        NOTIFY(
+            0,
+            "ERROR: capturing memory dump when a trace window opens is not supported.\n");
 #else
         spec.flags = DR_MEMORY_DUMP_ELF;
         spec.elf_path = (char *)&path;
@@ -537,6 +541,23 @@ event_nudge(void *drcontext, uint64 arg)
             NOTIFY(0, "ERROR: failed to create memory dump.\n");
             return;
         }
+        file_t memory_dump_file = dr_open_file(path, DR_FILE_READ);
+        if (memory_dump_file < 0) {
+            NOTIFY(0, "ERROR: failed to read memory dump file: %s.\n", path);
+            return;
+        }
+        uint64 file_size;
+        if (!dr_file_size(memory_dump_file, &file_size)) {
+            NOTIFY(0, "ERROR: failed to read the size of the memory dump file: %s.\n",
+                   path);
+            dr_close_file(memory_dump_file);
+            return;
+        }
+        if (file_size == 0) {
+            NOTIFY(0, "ERROR: memory dump file %s is empty.\n", path);
+        }
+        dr_close_file(memory_dump_file);
+        return;
     }
 }
 
