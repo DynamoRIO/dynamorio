@@ -521,9 +521,6 @@ static void
 event_nudge(void *drcontext, uint64 arg)
 {
     if (arg == TRACER_NUDGE_MEM_DUMP) {
-        char path[MAXIMUM_PATH];
-        dr_memory_dump_spec_t spec;
-        spec.size = sizeof(dr_memory_dump_spec_t);
 #ifdef WINDOWS
         /* TODO i#7508: raw2trace fails with "Non-module instructions found with no
          * encoding information.". This occurs on Windows when capturing memory dumps at
@@ -532,11 +529,14 @@ event_nudge(void *drcontext, uint64 arg)
         NOTIFY(
             0,
             "ERROR: capturing memory dump when a trace window opens is not supported.\n");
+        return;
 #else
+        char path[MAXIMUM_PATH];
+        dr_memory_dump_spec_t spec;
+        spec.size = sizeof(dr_memory_dump_spec_t);
         spec.flags = DR_MEMORY_DUMP_ELF;
         spec.elf_path = (char *)&path;
         spec.elf_path_size = MAXIMUM_PATH;
-#endif
         if (!dr_create_memory_dump(&spec)) {
             NOTIFY(0, "ERROR: failed to create memory dump.\n");
             return;
@@ -558,6 +558,7 @@ event_nudge(void *drcontext, uint64 arg)
         }
         dr_close_file(memory_dump_file);
         return;
+#endif
     }
 }
 
