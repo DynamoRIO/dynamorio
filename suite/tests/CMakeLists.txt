@@ -4473,7 +4473,6 @@ if (BUILD_CLIENTS)
     # TODO i#7508: Add Windows support. raw2trace fails with "Non-module instructions
     # found with no encoding information." when a memory dump is captured in the beginning
     # of a tracing window.
-    # XXX: Verify the content of the memory dump files.
     if (X64 AND LINUX)
       torunonly_drcacheoff(windows-memdump ${ci_shared_app}
         "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -memdump_on_window"
