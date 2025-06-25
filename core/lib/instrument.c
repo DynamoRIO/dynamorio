@@ -1804,9 +1804,9 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
     if (trace_callbacks.num == 0)
         return DR_EMIT_DEFAULT;
 
-    /* do not expand or up-decode the instrlist, client gets to choose
-     * whether and how to do that
-     */
+        /* do not expand or up-decode the instrlist, client gets to choose
+         * whether and how to do that
+         */
 
 #ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\ninstrument_trace ******************\n");
@@ -1815,9 +1815,9 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #endif
 
-    /* We always pass Level 3 instrs to the client, since we no longer
-     * expose the expansion routines.
-     */
+        /* We always pass Level 3 instrs to the client, since we no longer
+         * expose the expansion routines.
+         */
 #ifdef UNSUPPORTED_API
     for (instr = instrlist_first_expanded(dcontext, trace); instr != NULL;
          instr = instr_get_next_expanded(dcontext, trace, instr)) {
@@ -2202,7 +2202,7 @@ instrument_signal(dcontext_t *dcontext, dr_siginfo_t *siginfo)
      * registrant should own the signal (xref i#424).
      */
     call_all_ret(ret, = ret == DR_SIGNAL_DELIVER ?, : ret, signal_callbacks,
-                 dr_signal_action_t (*)(void *, dr_siginfo_t *), (void *)dcontext,
+                 dr_signal_action_t(*)(void *, dr_siginfo_t *), (void *)dcontext,
                  siginfo);
     return ret;
 }
@@ -5335,7 +5335,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         for (i = 0; i < cci.num_opmask_skip; i++)
             cci.opmask_skip[i] = true;
 #endif
-        /* now remove those used for param/retval */
+            /* now remove those used for param/retval */
 #ifdef X64
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
             /* xmm0-3 (-7 for linux) are used for params */
@@ -7835,7 +7835,7 @@ instrument_persist_ro_size(dcontext_t *dcontext, void *perscxt, size_t file_offs
      */
     if (persist_ro_size_callbacks.num > 0) {
         call_all_ret(sz, +=, , persist_ro_size_callbacks,
-                     size_t (*)(void *, void *, size_t, void **), (void *)dcontext,
+                     size_t(*)(void *, void *, size_t, void **), (void *)dcontext,
                      perscxt, file_offs + sz, &persist_user_data[idx]);
     }
     /* using size_t for API w/ clients in case we want to widen in future */
@@ -7913,7 +7913,7 @@ instrument_persist_rx_size(dcontext_t *dcontext, void *perscxt, size_t file_offs
     if (persist_rx_size_callbacks.num == 0)
         return 0;
     call_all_ret(sz, +=, , persist_rx_size_callbacks,
-                 size_t (*)(void *, void *, size_t, void **), (void *)dcontext, perscxt,
+                 size_t(*)(void *, void *, size_t, void **), (void *)dcontext, perscxt,
                  file_offs + sz, &persist_user_data[idx]);
     /* using size_t for API w/ clients in case we want to widen in future */
     CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");
@@ -7957,7 +7957,7 @@ instrument_persist_rw_size(dcontext_t *dcontext, void *perscxt, size_t file_offs
     if (persist_rw_size_callbacks.num == 0)
         return 0;
     call_all_ret(sz, +=, , persist_rw_size_callbacks,
-                 size_t (*)(void *, void *, size_t, void **), (void *)dcontext, perscxt,
+                 size_t(*)(void *, void *, size_t, void **), (void *)dcontext, perscxt,
                  file_offs + sz, &persist_user_data[idx]);
     /* using size_t for API w/ clients in case we want to widen in future */
     CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");

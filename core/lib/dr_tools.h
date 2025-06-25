@@ -386,7 +386,7 @@ typedef struct _dr_memory_dump_spec_t {
      * field that, if non-NULL, specifies the output directory of the created
      * file.
      */
-     char *elf_output_directory;
+    char *elf_output_directory;
 } dr_memory_dump_spec_t;
 
 DR_API
