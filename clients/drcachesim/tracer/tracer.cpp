@@ -537,6 +537,19 @@ event_nudge(void *drcontext, uint64 arg)
         spec.flags = DR_MEMORY_DUMP_ELF;
         spec.elf_path = (char *)&path;
         spec.elf_path_size = MAXIMUM_PATH;
+        spec.elf_output_directory = nullptr;
+
+        char windir[MAXIMUM_PATH];
+        if (has_tracing_windows()) {
+            if (op_split_windows.get_value()) {
+                dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir),
+                            "%s%s" WINDOW_SUBDIR_FORMAT, logsubdir, DIRSEP,
+                            tracing_window.load(std::memory_order_acquire));
+                NULL_TERMINATE_BUFFER(windir);
+                spec.elf_output_directory = windir;
+            }
+        }
+
         if (!dr_create_memory_dump(&spec)) {
             NOTIFY(0, "ERROR: failed to create memory dump.\n");
             return;

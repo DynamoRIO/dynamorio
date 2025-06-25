@@ -184,7 +184,7 @@ open_diagnostics_file(DR_PARAM_IN file_t *file, DR_PARAM_OUT char *buf,
 {
     const char *file_extension = DIAGNOSTICS_FILE_XML_EXTENSION;
     get_unique_logfile(file_extension, buf, maxlen, /*open_directory=*/false,
-                       /*embed_timestamp=*/false, file);
+                       /*output_directory=*/NULL, /*embed_timestamp=*/false, file);
 }
 
 /* flags */

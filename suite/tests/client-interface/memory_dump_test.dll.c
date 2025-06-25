@@ -58,6 +58,7 @@ event_nudge(void *drcontext, uint64 arg)
         spec.flags = DR_MEMORY_DUMP_ELF;
         spec.elf_path = (char *)&path;
         spec.elf_path_size = MAXIMUM_PATH;
+        spec.elf_output_directory = NULL;
 #endif
         if (!dr_create_memory_dump(&spec)) {
             dr_fprintf(STDERR, "Error: failed to create memory dump.\n");

@@ -4473,10 +4473,18 @@ if (BUILD_CLIENTS)
     # TODO i#7508: Add Windows support. raw2trace fails with "Non-module instructions
     # found with no encoding information." when a memory dump is captured in the beginning
     # of a tracing window.
+    # XXX: Verify the content of the memory dump files.
     if (X64 AND LINUX)
       torunonly_drcacheoff(windows-memdump ${ci_shared_app}
-        "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -memdump_on_window"
+        "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -memdump_on_window"
         "@-tool@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.windows-memdump_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+    set(tool.drcacheoff.windows-memdump_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+    set(tool.drcacheoff.windows-memdump_postcmd4
+      "${READELF_EXECUTABLE}@-a@${PROJECT_BINARY_DIR}/suite/tests/${dir_prefix}.*.dir/raw/window.000?/*.elf")
     endif ()
 
     # Test L0_filter_until_instrs

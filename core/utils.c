@@ -42,6 +42,7 @@
 
 #include "globals.h"
 #include "configure_defines.h"
+#include "dr_tools.h"
 #include "utils.h"
 #include "module_shared.h"
 #include <math.h>
@@ -2760,7 +2761,8 @@ create_log_dir(int dir_type)
         /* skip creating if basedir is empty */
         if (*base != '\0') {
             if (!get_unique_logfile("", logdir, sizeof(logdir), /*open_directory=*/true,
-                                    /*embed_timestamp=*/false, NULL)) {
+                                    /*output_directory=*/NULL, /*embed_timestamp=*/false,
+                                    NULL)) {
                 SYSLOG_INTERNAL_WARNING("Unable to create log directory %s", logdir);
             }
         }
@@ -2912,7 +2914,8 @@ close_log_file(file_t f)
  */
 bool
 get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
-                   bool open_directory, bool embed_timestamp, file_t *file)
+                   bool open_directory, char *output_directory, bool embed_timestamp,
+                   file_t *file)
 {
     char buf[MAXIMUM_PATH];
     uint size = BUFFER_SIZE_ELEMENTS(buf), counter = 0, base_offset;
@@ -2920,8 +2923,18 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
     ASSERT((open_directory && file == NULL) || (!open_directory && file != NULL));
     if (!open_directory)
         *file = INVALID_FILE;
-    create_log_dir(BASE_DIR);
-    if (get_log_dir(BASE_DIR, buf, &size)) {
+
+    bool target_initialized = false;
+    if (output_directory == NULL) {
+        create_log_dir(BASE_DIR);
+        target_initialized = get_log_dir(BASE_DIR, buf, &size);
+    } else {
+        target_initialized = dr_directory_exists(output_directory);
+        if (target_initialized) {
+            strncpy(buf, output_directory, size);
+        }
+    }
+    if (target_initialized) {
         NULL_TERMINATE_BUFFER(buf);
         ASSERT_TRUNCATE(base_offset, uint, strlen(buf));
         base_offset = (uint)strlen(buf);

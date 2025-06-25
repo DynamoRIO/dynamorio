@@ -415,8 +415,8 @@ init_global_profiles()
     });
     if (profile_file == INVALID_FILE) {
         get_unique_logfile(".profile", /*filename_buffer=*/NULL, /*maxlen=*/0,
-                           /*open_directory=*/false, /*embed_timestamp=*/false,
-                           &profile_file);
+                           /*open_directory=*/false, /*output_directory=*/NULL,
+                           /*embed_timestamp=*/false, &profile_file);
     }
     DOLOG(1, LOG_PROFILE, {
         if (profile_file == INVALID_FILE)

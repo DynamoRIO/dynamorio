@@ -362,12 +362,15 @@ droption_t<bool> op_align_endpoints(
     "This also allows omitting threads that did nothing during the burst.");
 
 droption_t<bool> op_memdump_on_window(
+    // TODO i#7508: Add Windows support. raw2trace fails with "Non-module instructions
+    // found with no encoding information.". This occurs on Windows when capturing memory
+    // dumps at the start of a new tracing window.
     DROPTION_SCOPE_CLIENT, "memdump_on_window", false,
     "Capture a memory dump when a tracing window opens",
     "Capture a memory dump upon the initiation of tracing triggered by "
     "-trace_after_instrs, -trace_instr_intervals_file, or -retrace_every_instrs. "
     "If -retrace_every_instrs is also enabled, a memory dump will be captured for "
-    "each individual tracing window.");
+    "each individual tracing window. This is only supported on X64 Linux.");
 
 droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
