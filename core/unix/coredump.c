@@ -422,7 +422,7 @@ write_arm_tls_note(DR_PARAM_IN file_t elf_file)
  * false otherwise.
  */
 static bool
-os_dump_core_internal(dcontext_t *dcontext, char *output_directory DR_PARAM_IN,
+os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARAM_IN,
                       char *path DR_PARAM_OUT, size_t path_sz)
 {
     priv_mcontext_t mc;

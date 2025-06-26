@@ -1311,8 +1311,8 @@ file_t
 get_thread_private_logfile(void);
 bool
 get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
-                   bool open_directory, char *output_directory, bool embed_timestamp,
-                   file_t *file);
+                   bool open_directory, const char *output_directory,
+                   bool embed_timestamp, file_t *file);
 const char *
 get_app_name_for_path(void);
 const char *

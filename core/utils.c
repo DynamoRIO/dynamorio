@@ -2914,8 +2914,8 @@ close_log_file(file_t f)
  */
 bool
 get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
-                   bool open_directory, char *output_directory, bool embed_timestamp,
-                   file_t *file)
+                   bool open_directory, const char *output_directory,
+                   bool embed_timestamp, file_t *file)
 {
     char buf[MAXIMUM_PATH];
     uint size = BUFFER_SIZE_ELEMENTS(buf), counter = 0, base_offset;
