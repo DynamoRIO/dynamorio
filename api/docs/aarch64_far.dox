@@ -388,7 +388,7 @@ Our usage of Landing Pad will look something like:
   <th>Patched stub: Transfers to far-away linked fragment</th>
 </tr>
 <tr>
- <td>
+  <td>
 ```
  exit_cti stub
 ...
@@ -403,7 +403,7 @@ stub:
 
 
 ```
-  <td></td>
+  </td><td>
 ```
  exit_cti stub
 ...
