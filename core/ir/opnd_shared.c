@@ -2549,7 +2549,7 @@ bool
 reg_is_avx512(reg_id_t reg)
 {
     return reg_is_strictly_zmm(reg) ||
-        reg_is_opmask(reg) IF_X86_X64(|| reg_is_avx512_extended(reg));
+        reg_is_opmask(reg) IF_X86_64(|| reg_is_avx512_extended(reg));
 }
 
 reg_id_t
