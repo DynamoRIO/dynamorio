@@ -979,9 +979,7 @@ instr_may_write_avx512_register(instr_t *instr)
     for (int i = 0; i < instr_num_dsts(instr); ++i) {
         opnd_t dst = instr_get_dst(instr, i);
         if (opnd_is_reg(dst)) {
-            if (reg_is_strictly_zmm(opnd_get_reg(dst)) ||
-                reg_is_opmask(opnd_get_reg(dst))
-                    IF_X64(|| reg_is_avx512_extended(opnd_get_reg(dst))))
+            if (reg_is_avx512(opnd_get_reg(dst)))
                 return true;
         }
     }

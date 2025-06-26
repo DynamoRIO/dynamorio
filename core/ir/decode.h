@@ -61,9 +61,10 @@
  */
 #    define PREFIX_SEG_FS 0x20
 #    define PREFIX_SEG_GS 0x40
-/* Generic prefix used for AVX-512 by decode_cti().
- * Full decode does *not* set this prefix, which is relied upon for
- * AVX-512 detection with full decode in build_bb_ilist().
+/* Generic prefix used only by decode_cti() and used as a rough method to detect AVX-512
+ * in instr_may_write_avx512_register() and build_bb_ilist(), but it's too broad.  Full
+ * decode does *not* set this prefix and instead we use precise operand checks for
+ * AVX-512 detection when we have operand info.
  */
 #    define PREFIX_EVEX 0x000100000
 #endif

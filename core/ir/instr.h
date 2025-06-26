@@ -567,8 +567,7 @@ instr_can_set_single_step(instr_t *instr);
 /* Returns true if \p instr is part of Intel's AVX-512 instructions that may write to a
  * ymm16-31, zmm, or opmask register. It approximates this by checking whether
  * PREFIX_EVEX is set, for fast-decode decode_cti() instructions. If not set, it checks
- * the destinations of \p instr. The decoded instr should be available for inspection as
- * this is invoked only when some client is present.
+ * the destinations of \p instr.
  */
 bool
 instr_may_write_avx512_register(instr_t *instr);

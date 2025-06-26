@@ -180,6 +180,7 @@ Further non-compatibility-affecting changes include:
       generation alongside the scheduled traces.
  - Added AUX_SUBDIR (== "aux") to the subdirs in which get_aux_file_path() looks for
    auxiliary files (e.g., v2p.textproto).
+ - Added reg_is_avx512().
 
 **************************************************
 <hr>

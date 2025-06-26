@@ -3484,12 +3484,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
             if (!d_r_is_avx512_code_in_use()) {
                 if (ZMM_ENABLED()) {
-                    if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX) ||
+                    /* Check operands for precise AVX-512 detection; if we don't have
+                     * full decode with operands, we fall back on checking the
+                     * PREFIX_EVEX flag which is only set by decode_cti() and is
+                     * too broad but the best we have there.
+                     */
+                    if ((!bb->full_decode &&
+                         instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) ||
                         (bb->full_decode && instr_may_write_avx512_register(bb->instr))) {
-                        /* For AVX-512 detection in bb builder, we're checking only
-                         * for the this generic prefix flag which is set by
-                         * decode_cti(), or for full decode we check the operands.
-                         * In client_process_bb, post-client instructions
+                        /* In client_process_bb, post-client instructions
                          * are again checked with instr_may_write_avx512_register().
                          */
                         LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");

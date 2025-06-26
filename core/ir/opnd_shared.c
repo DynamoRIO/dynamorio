@@ -2545,6 +2545,13 @@ reg_is_avx512_extended(reg_id_t reg)
 #    endif
 #endif
 
+bool
+reg_is_avx512(reg_id_t reg)
+{
+    return reg_is_strictly_zmm(reg) ||
+        reg_is_opmask(reg) IF_X64(|| reg_is_avx512_extended(reg));
+}
+
 reg_id_t
 reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
 {
