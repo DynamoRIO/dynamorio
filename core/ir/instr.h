@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -565,12 +565,13 @@ bool
 instr_can_set_single_step(instr_t *instr);
 
 /* Returns true if \p instr is part of Intel's AVX-512 instructions that may write to a
- * zmm or opmask register. It approximates this by checking whether PREFIX_EVEX is set. If
- * not set, it checks the destinations of \p instr. The decoded instr should be
- * available for inspection as this is invoked only when some client is present.
+ * ymm16-31, zmm, or opmask register. It approximates this by checking whether
+ * PREFIX_EVEX is set, for fast-decode decode_cti() instructions. If not set, it checks
+ * the destinations of \p instr. The decoded instr should be available for inspection as
+ * this is invoked only when some client is present.
  */
 bool
-instr_may_write_zmm_or_opmask_register(instr_t *instr);
+instr_may_write_avx512_register(instr_t *instr);
 #endif
 
 /* Given a machine state, returns whether or not the cbr instr would be taken
