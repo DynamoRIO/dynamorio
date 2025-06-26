@@ -981,8 +981,7 @@ instr_may_write_avx512_register(instr_t *instr)
         if (opnd_is_reg(dst)) {
             if (reg_is_strictly_zmm(opnd_get_reg(dst)) ||
                 reg_is_opmask(opnd_get_reg(dst)) ||
-                (reg_is_strictly_ymm(opnd_get_reg(dst)) &&
-                 opnd_get_reg(dst) > DR_REG_YMM15))
+                reg_is_avx512_extended(opnd_get_reg(dst)))
                 return true;
         }
     }
