@@ -971,7 +971,7 @@ instr_can_set_single_step(instr_t *instr)
 }
 
 bool
-instr_may_write_zmm_or_opmask_register(instr_t *instr)
+instr_may_write_avx512_register(instr_t *instr)
 {
     if (instr_get_prefix_flag(instr, PREFIX_EVEX))
         return true;
@@ -979,8 +979,7 @@ instr_may_write_zmm_or_opmask_register(instr_t *instr)
     for (int i = 0; i < instr_num_dsts(instr); ++i) {
         opnd_t dst = instr_get_dst(instr, i);
         if (opnd_is_reg(dst)) {
-            if (reg_is_strictly_zmm(opnd_get_reg(dst)) ||
-                reg_is_opmask(opnd_get_reg(dst)))
+            if (reg_is_avx512(opnd_get_reg(dst)))
                 return true;
         }
     }

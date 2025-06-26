@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3540,6 +3540,15 @@ DR_API
 bool
 reg_is_avx512_extended(reg_id_t reg);
 #endif
+
+DR_API
+/**
+ * Returns true iff \p reg refers to register added by the AVX-512 feature set.
+ * Returns true for any ZMM register, any opmask register, and any
+ * reg_is_avx512_extended() register.
+ */
+bool
+reg_is_avx512(reg_id_t reg);
 
 DR_API
 /**
