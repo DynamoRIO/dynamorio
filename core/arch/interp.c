@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2842,7 +2842,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef X86
         if (!d_r_is_avx512_code_in_use()) {
             if (ZMM_ENABLED()) {
-                if (instr_may_write_zmm_or_opmask_register(inst)) {
+                if (instr_may_write_avx512_register(inst)) {
                     LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
                     d_r_set_avx512_code_in_use(true, NULL);
                     proc_set_num_simd_saved(MCXT_NUM_SIMD_SLOTS);
@@ -3484,11 +3484,16 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             }
             if (!d_r_is_avx512_code_in_use()) {
                 if (ZMM_ENABLED()) {
-                    if (instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) {
-                        /* For AVX-512 detection in bb builder, we're checking only
-                         * for the prefix flag, which for example can be set by
-                         * decode_cti. In client_process_bb, post-client instructions
-                         * are checked with instr_may_write_zmm_register.
+                    /* Check operands for precise AVX-512 detection; if we don't have
+                     * full decode with operands, we fall back on checking the
+                     * PREFIX_EVEX flag which is only set by decode_cti() and is
+                     * too broad but the best we have there.
+                     */
+                    if ((!bb->full_decode &&
+                         instr_get_prefix_flag(bb->instr, PREFIX_EVEX)) ||
+                        (bb->full_decode && instr_may_write_avx512_register(bb->instr))) {
+                        /* In client_process_bb, post-client instructions
+                         * are again checked with instr_may_write_avx512_register().
                          */
                         LOG(THREAD, LOG_INTERP, 2, "Detected AVX-512 code in use\n");
                         d_r_set_avx512_code_in_use(true, instr_get_app_pc(bb->instr));

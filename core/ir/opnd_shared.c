@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -2538,13 +2538,19 @@ reg_is_extended(reg_id_t reg)
 bool
 reg_is_avx512_extended(reg_id_t reg)
 {
-    /* Note that we do consider spl, bpl, sil, and dil to be "extended" */
     return ((reg >= DR_REG_START_XMM + 16 && reg <= DR_REG_STOP_XMM) ||
             (reg >= DR_REG_START_YMM + 16 && reg <= DR_REG_STOP_YMM) ||
             (reg >= DR_REG_START_ZMM + 16 && reg <= DR_REG_STOP_ZMM));
 }
 #    endif
 #endif
+
+bool
+reg_is_avx512(reg_id_t reg)
+{
+    return reg_is_strictly_zmm(reg) ||
+        reg_is_opmask(reg) IF_X86_64(|| reg_is_avx512_extended(reg));
+}
 
 reg_id_t
 reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
