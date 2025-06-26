@@ -88,8 +88,8 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             opnd_t dst = instr_get_dst(instr, i);
             if (opnd_is_reg(dst)) {
                 if (reg_is_strictly_zmm(opnd_get_reg(dst)) ||
-                    reg_is_opmask(opnd_get_reg(dst)) ||
-                    reg_is_avx512_extended(opnd_get_reg(dst))) {
+                    reg_is_opmask(opnd_get_reg(dst))
+                        IF_X64(|| reg_is_avx512_extended(opnd_get_reg(dst)))) {
                     lib_avx512 = true;
                     break;
                 }
