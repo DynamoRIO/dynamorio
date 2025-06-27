@@ -7477,14 +7477,7 @@ test_record_scheduler_switch_injection()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
 
-    // Ensure the context switch is *before* the encoding.
-    // Advance cpu0 on TID_B to its 1st context switch.
     // Injected context switch trace.
-    // TODO i#7157: The TRACE_TYPE_THREAD and TRACE_TYPE_PID for the new
-    // input should be moved to before the injected context switch trace.
-    // This is so that the trace records also identify the context switch
-    // sequence records with the new input's tid/pid, like what the stream
-    // APIs do.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 1,
                TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
@@ -7493,6 +7486,11 @@ test_record_scheduler_switch_injection()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 1,
                TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+    // TODO i#7157: The TRACE_TYPE_THREAD and TRACE_TYPE_PID for the new
+    // input should be moved to before the injected context switch trace.
+    // This is so that the trace records also identify the context switch
+    // sequence records with the new input's tid/pid, like what the stream
+    // APIs do.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_B);
 
