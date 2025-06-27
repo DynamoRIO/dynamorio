@@ -4454,6 +4454,10 @@ fd_priv_dup(file_t curfd)
          * so how do we tell if the flag is supported?  try calling once at init?
          */
         newfd = fcntl_syscall(curfd, F_DUPFD, min_dr_fd);
+        /* F_DUPFD will fail if it can't allocate a descriptor >= the 3rd paramter.
+         * If it fails, try again with something smaller, but keep trying to stay
+         * out of typical app descriptor ranges even if we can't fully isolate.
+         */
         int try_fd = min_dr_fd / 2;
         static const int MIN_FD = 10; /* Avoid tcsh, etc. issues: see comment below. */
         while (newfd < 0 && try_fd >= MIN_FD) {
