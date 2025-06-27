@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -413,6 +413,9 @@ typedef struct _client_data_t {
      * but only upon failures.
      */
     dr_error_code_t error_code;
+
+    /* Flag for dr_invoke_syscall_as_app(). */
+    bool skip_syscall_events;
 } client_data_t;
 
 #ifdef UNIX
