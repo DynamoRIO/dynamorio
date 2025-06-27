@@ -4454,17 +4454,33 @@ fd_priv_dup(file_t curfd)
          * so how do we tell if the flag is supported?  try calling once at init?
          */
         newfd = fcntl_syscall(curfd, F_DUPFD, min_dr_fd);
-        if (newfd < 0) {
+        /* F_DUPFD will fail if it can't allocate a descriptor >= the 3rd paramter.
+         * If it fails, try again with something smaller, but keep trying to stay
+         * out of typical app descriptor ranges even if we can't fully isolate.
+         */
+        int try_fd = min_dr_fd / 2;
+        static const int MIN_FD = 10; /* Avoid tcsh, etc. issues: see comment below. */
+        while (newfd < 0 && try_fd >= MIN_FD) {
             /* We probably ran out of fds, esp if debug build and there are
              * lots of threads.  Should we track how many we've given out to
              * avoid a failed syscall every time after?
              */
-            SYSLOG_INTERNAL_WARNING_ONCE("ran out of stolen fd space");
+            SYSLOG_INTERNAL_WARNING_ONCE("ran out of stolen fd space with error %d",
+                                         newfd);
             /* Try again but this time in the app space, somewhere high up
              * to avoid issues like tcsh assuming it can own fds 3-5 for
              * piping std{in,out,err} (xref the old -open_tcsh_fds option).
              */
-            newfd = fcntl_syscall(curfd, F_DUPFD, min_dr_fd / 2);
+            newfd = fcntl_syscall(curfd, F_DUPFD, try_fd);
+            /* Drop by half if we're up > 1M; else try linear values. */
+            if (try_fd > 1024 * 1024)
+                try_fd /= 2;
+            else
+                --try_fd;
+        }
+        if (newfd < 0) {
+            SYSLOG_INTERNAL_WARNING_ONCE("fd_priv_dup failed: for min=%d got %d", try_fd,
+                                         newfd);
         }
     }
     return newfd;
