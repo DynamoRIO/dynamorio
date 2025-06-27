@@ -2533,7 +2533,8 @@ dr_create_memory_dump(dr_memory_dump_spec_t *spec)
 #elif defined(LINUX) && \
     ((defined(X64) && defined(X86)) || (defined(AARCH64) && !defined(ANDROID64)))
     if (TEST(DR_MEMORY_DUMP_ELF, spec->flags)) {
-        return os_dump_core_live(get_thread_private_dcontext(), spec->elf_path,
+        return os_dump_core_live(get_thread_private_dcontext(),
+                                 spec->elf_output_directory, spec->elf_path,
                                  spec->elf_path_size);
     }
 #endif

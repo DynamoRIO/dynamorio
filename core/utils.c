@@ -42,6 +42,7 @@
 
 #include "globals.h"
 #include "configure_defines.h"
+#include "dr_tools.h"
 #include "utils.h"
 #include "module_shared.h"
 #include <math.h>
@@ -2759,7 +2760,9 @@ create_log_dir(int dir_type)
         logdir_initialized = true;
         /* skip creating if basedir is empty */
         if (*base != '\0') {
-            if (!get_unique_logfile("", logdir, sizeof(logdir), true, NULL)) {
+            if (!get_unique_logfile("", logdir, sizeof(logdir), /*open_directory=*/true,
+                                    /*output_directory=*/NULL, /*embed_timestamp=*/false,
+                                    NULL)) {
                 SYSLOG_INTERNAL_WARNING("Unable to create log directory %s", logdir);
             }
         }
@@ -2901,6 +2904,9 @@ close_log_file(file_t f)
 /* Generalize further as needed
  * Creates a unique file or directory of the form
  * BASEDIR/[app_name].[pid].<unique num of up to 8 digits>[file_type]
+ * when embed_timestamp is false,
+ * BASEDIR/[app_name].[pid].[timestamp in hex].<unique num of up to 8 digits>[file_type]
+ * when embed_timestamp is true.
  * If the filename_buffer is not NULL, the filename of the obtained file
  * is copied there. For creating a directory the file argument is expected
  * to be null.  Return true if the requested file or directory was created
@@ -2908,7 +2914,8 @@ close_log_file(file_t f)
  */
 bool
 get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
-                   bool open_directory, file_t *file)
+                   bool open_directory, const char *output_directory,
+                   bool embed_timestamp, file_t *file)
 {
     char buf[MAXIMUM_PATH];
     uint size = BUFFER_SIZE_ELEMENTS(buf), counter = 0, base_offset;
@@ -2916,16 +2923,33 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
     ASSERT((open_directory && file == NULL) || (!open_directory && file != NULL));
     if (!open_directory)
         *file = INVALID_FILE;
-    create_log_dir(BASE_DIR);
-    if (get_log_dir(BASE_DIR, buf, &size)) {
+
+    bool target_initialized = false;
+    if (output_directory == NULL) {
+        create_log_dir(BASE_DIR);
+        target_initialized = get_log_dir(BASE_DIR, buf, &size);
+    } else {
+        target_initialized = dr_directory_exists(output_directory);
+        if (target_initialized) {
+            strncpy(buf, output_directory, size);
+        }
+    }
+    if (target_initialized) {
         NULL_TERMINATE_BUFFER(buf);
         ASSERT_TRUNCATE(base_offset, uint, strlen(buf));
         base_offset = (uint)strlen(buf);
         buf[base_offset++] = DIRSEP;
         size = BUFFER_SIZE_ELEMENTS(buf) - base_offset;
         do {
-            snprintf(&(buf[base_offset]), size, "%s.%s.%.8d%s", get_app_name_for_path(),
-                     get_application_pid(), counter, file_type);
+            if (embed_timestamp) {
+                snprintf(&(buf[base_offset]), size, "%s.%s.%012lx.%08d%s",
+                         get_app_name_for_path(), get_application_pid(),
+                         query_time_millis(), counter, file_type);
+            } else {
+                snprintf(&(buf[base_offset]), size, "%s.%s.%.8d%s",
+                         get_app_name_for_path(), get_application_pid(), counter,
+                         file_type);
+            }
             NULL_TERMINATE_BUFFER(buf);
             if (open_directory) {
                 success = os_create_dir(buf, CREATE_DIR_REQUIRE_NEW);

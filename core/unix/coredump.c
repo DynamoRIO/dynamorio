@@ -422,7 +422,8 @@ write_arm_tls_note(DR_PARAM_IN file_t elf_file)
  * false otherwise.
  */
 static bool
-os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
+os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARAM_IN,
+                      char *path DR_PARAM_OUT, size_t path_sz)
 {
     priv_mcontext_t mc;
     if (!dr_get_mcontext_priv(dcontext, NULL, &mc))
@@ -514,7 +515,8 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
     file_t elf_file;
     char dump_core_file_name[MAXIMUM_PATH];
     if (!get_unique_logfile(".elf", dump_core_file_name, sizeof(dump_core_file_name),
-                            false, &elf_file) ||
+                            /*open_directory=*/false, output_directory,
+                            /*embed_timestamp=*/true, &elf_file) ||
         elf_file == INVALID_FILE) {
         SYSLOG_INTERNAL_ERROR("Unable to open the core dump file.");
         return false;
@@ -703,7 +705,8 @@ os_dump_core_internal(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path
  * Returns true if a core dump file is written, false otherwise.
  */
 bool
-os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
+os_dump_core_live(dcontext_t *dcontext, char *output_directory DR_PARAM_IN,
+                  char *path DR_PARAM_OUT, size_t path_sz)
 {
 #ifdef DR_HOST_NOT_TARGET
     // Memory dump is supported only when the host and the target are the same.
@@ -724,7 +727,7 @@ os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz)
     }
 
     // TODO i#7046: Add support to save register values for all threads.
-    const bool ret = os_dump_core_internal(dcontext, path, path_sz);
+    const bool ret = os_dump_core_internal(dcontext, output_directory, path, path_sz);
 
     end_synch_with_all_threads(threads, num_threads,
                                /*resume=*/true);
