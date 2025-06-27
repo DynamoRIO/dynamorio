@@ -2751,37 +2751,34 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     output_ordinal_t output, input_ordinal_t prev_input, input_ordinal_t new_input)
 {
-    bool do_inject_switch_seq = false;
-    if (prev_input == new_input)
+    if (prev_input == new_input) {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_NOP];
-    else if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL &&
-             new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+        return stream_status_t::STATUS_OK;
+    } else if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL &&
+               new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT];
-        do_inject_switch_seq = true;
     } else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL) {
         // XXX: For now, we do not inject a kernel context switch sequence on
         // input-to-idle transitions (note that we do so on idle-to-input though).
         // However, we may want to inject some other suitable sequence, but we're not
         // sure yet.
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
+        return stream_status_t::STATUS_OK;
     } else {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
         // Reset the flag so we'll try to steal if we go idle again.
         outputs_[output].tried_to_steal_on_idle = false;
-        do_inject_switch_seq = true;
     }
 
-    // We want to insert the context switch sequence on input-to-input and
+    // We want to insert the context switch records (which includes the new input's
+    // tid and pid, and possibly the context switch sequence) on input-to-input and
     // idle-to-input cases. This is a better control point to do that than
     // set_cur_input. Here we get the stolen input events too, and we don't have
     // to filter out the init-time set_cur_input cases.
-    if (!do_inject_switch_seq)
-        return stream_status_t::STATUS_OK;
+
     if (inputs_[new_input].pid != INVALID_PID) {
         insert_switch_tid_pid(inputs_[new_input]);
     }
-    if (switch_sequence_.empty())
-        return stream_status_t::STATUS_OK;
     switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
     if ( // XXX: idle-to-input transitions are assumed to be process switches
          // for now. But we may want to improve this heuristic.
