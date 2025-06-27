@@ -254,7 +254,8 @@ os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
  * mode (a process mixing 64-bit and 32-bit code) is not supported.
  */
 bool
-os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz);
+os_dump_core_live(dcontext_t *dcontext, char *output_directory DR_PARAM_IN,
+                  char *path DR_PARAM_OUT, size_t path_sz);
 #endif
 
 #if defined(AARCHXX) || defined(RISCV64)

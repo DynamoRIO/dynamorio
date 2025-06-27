@@ -381,6 +381,12 @@ typedef struct _dr_memory_dump_spec_t {
      * in bytes, of elf_path.
      */
     size_t elf_path_size;
+    /**
+     * This field only applies to #DR_MEMORY_DUMP_ELF. This is an optional input
+     * field that, if non-NULL, specifies the output directory of the created
+     * file.
+     */
+    char *elf_output_directory;
 } dr_memory_dump_spec_t;
 
 DR_API

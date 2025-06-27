@@ -180,6 +180,10 @@ Further non-compatibility-affecting changes include:
       generation alongside the scheduled traces.
  - Added AUX_SUBDIR (== "aux") to the subdirs in which get_aux_file_path() looks for
    auxiliary files (e.g., v2p.textproto).
+ - Added -memdump_on_window option to the drmemtrace trace analysis tools framework.
+   This option triggers a memory dump when a trace window opens by -trace_after_instrs,
+   -trace_instr_intervals_file, or -retrace_every_instrs. If -retrace_every_instrs is
+   also enabled, a memory dump will be captured for each individual tracing window.
  - Added reg_is_avx512().
 
 **************************************************

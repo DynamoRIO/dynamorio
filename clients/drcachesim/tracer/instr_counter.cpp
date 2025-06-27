@@ -68,6 +68,7 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+static client_id_t client_id;
 static uint64 instr_count;
 /* For performance, we only increment the global instr_count exactly for
  * small thresholds.  If -trace_after_instrs is larger than this value, we
@@ -214,10 +215,16 @@ hit_instr_count_threshold(app_pc next_pc)
     if (get_initial_no_trace_for_instrs_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire)) {
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+        if (op_memdump_on_window.get_value()) {
+            dr_nudge_client(client_id, TRACER_NUDGE_MEM_DUMP);
+        }
         retrace_start_timestamp.store(instru_t::get_timestamp());
     } else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
+        if (op_memdump_on_window.get_value()) {
+            dr_nudge_client(client_id, TRACER_NUDGE_MEM_DUMP);
+        }
         retrace_start_timestamp.store(instru_t::get_timestamp());
         if (op_offline.get_value())
             open_new_window_dir(tracing_window.load(std::memory_order_acquire));
@@ -580,8 +587,9 @@ init_irregular_trace_windows()
 }
 
 void
-event_inscount_init()
+event_inscount_init(client_id_t id)
 {
+    client_id = id;
     init_irregular_trace_windows();
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
 }
