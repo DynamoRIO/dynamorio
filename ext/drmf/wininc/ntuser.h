@@ -1872,7 +1872,7 @@ VOID NTAPI
 NtUserNotifyWinEvent(DWORD Event, HWND hWnd, LONG idObject, LONG idChild);
 
 BOOL NTAPI
-NtUserOpenClipboard(HWND hWnd, DWORD Unknown1);
+NtUserOpenClipboard(HWND hWnd, PBOOL pfEmptyClient);
 
 HDESK
 NTAPI

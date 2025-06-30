@@ -2005,7 +2005,7 @@ syscall_info_t syscall_user32_info[] = {
       2,
       {
           { 0, sizeof(HWND), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
-          { 1, sizeof(DWORD), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
+          { 1, sizeof(BOOL), W | HT, DRSYS_TYPE_BOOL },
       } },
     { { 0, 0 },
       "NtUserOpenDesktop",
