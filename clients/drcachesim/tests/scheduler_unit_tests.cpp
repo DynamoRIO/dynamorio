@@ -6845,10 +6845,11 @@ test_kernel_switch_sequences()
         check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
         // TODO i#7157: The TRACE_TYPE_THREAD and TRACE_TYPE_PID for the new
         // input should also be before the injected context switch trace.
-        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
-                   (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4));
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4)));
         check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
-                   (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1);
+                   static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
         check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
                    TRACE_MARKER_TYPE_VERSION);
         check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
@@ -6870,10 +6871,11 @@ test_kernel_switch_sequences()
         check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
         // TODO i#7157: The TRACE_TYPE_THREAD and TRACE_TYPE_PID for the new
         // input should also be before the injected context switch trace.
-        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
-                   (2ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 6));
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 6)));
         check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
-                   (2ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1);
+                   static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
     }
 
     {
