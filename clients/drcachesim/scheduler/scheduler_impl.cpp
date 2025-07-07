@@ -2779,6 +2779,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     if (inputs_[new_input].pid != INVALID_PID) {
         insert_switch_tid_pid(inputs_[new_input]);
     }
+    if (switch_sequence_.empty())
+        return stream_status_t::STATUS_OK;
     switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
     if ( // XXX: idle-to-input transitions are assumed to be process switches
          // for now. But we may want to improve this heuristic.
