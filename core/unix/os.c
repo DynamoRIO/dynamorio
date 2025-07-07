@@ -5801,7 +5801,10 @@ dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
     reg_t saved[MAX_PARAM_COUNT];
     va_list ap;
     va_start(ap, arg_count);
-    for (int i = 0; i < arg_count; ++i) {
+    /* In some builds, Werror=array-bounds complains about saved[i] despite our
+     * arg_count check above: so we add "&& i < MAX_PARAM_COUNT" to avoid the warning.
+     */
+    for (int i = 0; i < arg_count && i < MAX_PARAM_COUNT; ++i) {
         args[i] = va_arg(ap, reg_t);
         saved[i] = sys_param(dcontext, i);
         set_syscall_param(dcontext, i, args[i]);

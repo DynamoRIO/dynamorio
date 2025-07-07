@@ -141,9 +141,11 @@ dr_init(client_id_t id)
     }
 #endif
 
-#ifdef UNIX
-    // Test that dr_invoke_syscall_as_app() goes through DR's handling by ensuring
-    // a request for the file limit is correctly reduced for -steal_fds.
+    /* We don't run the code below on Mac b/c syscall() is deprecated there. */
+#ifdef LINUX
+    /* Test that dr_invoke_syscall_as_app() goes through DR's handling by ensuring
+     * a request for the file limit is correctly reduced for -steal_fds.
+     */
     int sysnum_getrlimit =
 #    if defined(X64) || defined(MACOS)
         SYS_getrlimit
