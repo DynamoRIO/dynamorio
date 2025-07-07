@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -767,6 +767,9 @@ template <>
 inline bool
 droption_t<bool>::convert_from_string(const std::string s)
 {
+#ifdef WINDOWS
+    UNREFERENCED_PARAMETER(s);
+#endif
     // We shouldn't get here
     return false;
 }
@@ -801,6 +804,9 @@ template <>
 inline bool
 droption_t<twostring_t>::convert_from_string(const std::string s)
 {
+#ifdef WINDOWS
+    UNREFERENCED_PARAMETER(s);
+#endif
     return false;
 }
 
@@ -810,6 +816,9 @@ template <typename T>
 inline bool
 droption_t<T>::convert_from_string(const std::string sc)
 {
+#ifdef WINDOWS
+    UNREFERENCED_PARAMETER(sc);
+#endif
     return false;
 }
 
@@ -817,6 +826,10 @@ template <typename T>
 inline bool
 droption_t<T>::convert_from_string(const std::string s1, const std::string s2)
 {
+#ifdef WINDOWS
+    UNREFERENCED_PARAMETER(s1);
+    UNREFERENCED_PARAMETER(s2);
+#endif
     return false;
 }
 
