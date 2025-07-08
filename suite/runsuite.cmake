@@ -84,6 +84,8 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
 endforeach (arg)
 
+set(extra_ctest_args INCLUDE_LABEL TMATE_DEBUG) # TEMPORARY
+
 if (UNIX AND NOT APPLE AND NOT ANDROID AND NOT cross_riscv64_linux_only)
   execute_process(COMMAND ldd --version
     RESULT_VARIABLE ldd_result ERROR_VARIABLE ldd_err OUTPUT_VARIABLE ldd_out)
