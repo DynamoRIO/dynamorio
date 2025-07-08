@@ -146,6 +146,10 @@ dr_init(client_id_t id)
     /* Test that dr_invoke_syscall_as_app() goes through DR's handling by ensuring
      * a request for the file limit is correctly reduced for -steal_fds.
      */
+    uint64 steal_fd_value = 0;
+    bool got_value = dr_get_integer_option("steal_fds", &steal_fd_value);
+    DR_ASSERT(got_value);
+    DR_ASSERT(steal_fd_value > 0);
     int sysnum_getrlimit =
 #    if defined(X64) || defined(MACOS)
         SYS_getrlimit

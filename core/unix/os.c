@@ -5776,12 +5776,12 @@ dr_syscall_invoke_another(void *drcontext)
     /* for x64 we don't need to copy xcx into r10 b/c we use r10 as our param */
 }
 
-/* This goes through app handling (but does not include client syscall events).
- * That suits some client uses, but others want only DR internal handling
- * and not app handling: which will require further work to support and
- * does not seem trivial (e.g., setting an itimer would need to go
- * run the dr_set_itimer() code): that's under i#199 and would be a
- * separate API routine.
+/* This goes through DR's handling of app syscalls, but does not trigger client syscall
+ * events.  That suits some client uses, but others want only DR internal handling and
+ * not app handling (for clients making syscalls that could cause DR to lose control or
+ * lose functionality w/o knowing/intercepting them): which will require further work to
+ * support and does not seem trivial (e.g., setting an itimer would need to go run the
+ * dr_set_itimer() code): that's under i#199 and would be a separate API routine.
  */
 DR_API
 reg_t
@@ -5797,6 +5797,8 @@ dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
     reg_t args[MAX_PARAM_COUNT] = {};
     /* We need to save the mcontext app values so we can place this syscall's
      * values into the mcontext for pre_system_call() to examine them.
+     * We also need to save registers the kernel will clobber: but on our
+     * arches that's just the return value which equals the 1st parameter.
      */
     reg_t saved[MAX_PARAM_COUNT];
     va_list ap;
@@ -5804,7 +5806,7 @@ dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
     /* In some builds, Werror=array-bounds complains about saved[i] despite our
      * arg_count check above: so we add "&& i < MAX_PARAM_COUNT" to avoid the warning.
      */
-    for (int i = 0; i < arg_count && i < MAX_PARAM_COUNT; ++i) {
+    for (int i = 0; i < MAX_PARAM_COUNT && i < arg_count; ++i) {
         args[i] = va_arg(ap, reg_t);
         saved[i] = sys_param(dcontext, i);
         set_syscall_param(dcontext, i, args[i]);
@@ -5815,7 +5817,7 @@ dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
     reg_t saved_res = MCXT_SYSCALL_RES(mc);
     reg_t res;
     /* Skip client syscall events. */
-    dcontext->client_data->skip_syscall_events = true;
+    dcontext->client_data->skip_client_syscall_events = true;
     if (!pre_system_call(dcontext)) {
         res = MCXT_SYSCALL_RES(mc);
     } else {
@@ -5823,7 +5825,7 @@ dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
                                 args[4], args[5]);
         post_system_call(dcontext);
     }
-    dcontext->client_data->skip_syscall_events = false;
+    dcontext->client_data->skip_client_syscall_events = false;
     /* Restore app registers. */
     for (int i = 0; i < arg_count; ++i) {
         set_syscall_param(dcontext, i, saved[i]);

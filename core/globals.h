@@ -415,7 +415,7 @@ typedef struct _client_data_t {
     dr_error_code_t error_code;
 
     /* Flag for dr_invoke_syscall_as_app(). */
-    bool skip_syscall_events;
+    bool skip_client_syscall_events;
 } client_data_t;
 
 #ifdef UNIX

@@ -2075,7 +2075,7 @@ instrument_filter_syscall(dcontext_t *dcontext, int sysnum)
 bool
 instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
 {
-    if (dcontext->client_data->skip_syscall_events)
+    if (dcontext->client_data->skip_client_syscall_events)
         return true;
     bool exec = true;
     dcontext->client_data->in_pre_syscall = true;
@@ -2107,7 +2107,7 @@ instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
 void
 instrument_post_syscall(dcontext_t *dcontext, int sysnum)
 {
-    if (dcontext->client_data->skip_syscall_events)
+    if (dcontext->client_data->skip_client_syscall_events)
         return;
     dr_where_am_i_t old_whereami = dcontext->whereami;
     if (post_syscall_callbacks.num == 0)
