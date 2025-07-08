@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -765,7 +765,7 @@ droption_t<double>::convert_from_string(const std::string s)
 }
 template <>
 inline bool
-droption_t<bool>::convert_from_string(const std::string s)
+droption_t<bool>::convert_from_string(const std::string)
 {
     // We shouldn't get here
     return false;
@@ -799,7 +799,7 @@ droption_t<bytesize_t>::convert_from_string(const std::string s)
 }
 template <>
 inline bool
-droption_t<twostring_t>::convert_from_string(const std::string s)
+droption_t<twostring_t>::convert_from_string(const std::string)
 {
     return false;
 }
@@ -808,14 +808,14 @@ droption_t<twostring_t>::convert_from_string(const std::string s)
 
 template <typename T>
 inline bool
-droption_t<T>::convert_from_string(const std::string sc)
+droption_t<T>::convert_from_string(const std::string)
 {
     return false;
 }
 
 template <typename T>
 inline bool
-droption_t<T>::convert_from_string(const std::string s1, const std::string s2)
+droption_t<T>::convert_from_string(const std::string, const std::string)
 {
     return false;
 }
