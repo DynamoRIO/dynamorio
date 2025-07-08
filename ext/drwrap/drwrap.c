@@ -2021,7 +2021,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
 
     app_pc retaddr =
         IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)IF_AARCHXX_ELSE(lr, ra));
-    if (TEST(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
+    if (wrap != NULL && TEST(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
         /* In case of a tailcall, the return address has already been replaced by
          * the sentinel in the stack, we need to retrieve the return address from the
          * outer level.
