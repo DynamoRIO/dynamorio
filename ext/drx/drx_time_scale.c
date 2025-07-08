@@ -44,6 +44,7 @@
 #    ifdef LINUX
 #        include "../../core/unix/include/syscall.h"
 #    else
+#        error Non-Linux not yet supported
 #        include <sys/syscall.h>
 #    endif
 #    include <sys/time.h>

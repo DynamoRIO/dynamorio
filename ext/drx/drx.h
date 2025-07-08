@@ -602,6 +602,8 @@ DR_EXPORT
  * Can only be called once (until drx_unregister_time_scaling() is called).
  *
  * \return whether successful.
+ *
+ * \note Currently Linux-only.
  */
 bool
 drx_register_time_scaling(drx_time_scale_t *options);

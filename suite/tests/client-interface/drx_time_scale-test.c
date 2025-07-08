@@ -32,6 +32,7 @@
 
 #include <assert.h>
 #include <signal.h>
+#include <math.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <time.h>

@@ -47,7 +47,8 @@ set(srcs
   # add more here
   )
 
-if (UNIX)
+# XXX i#7504: Time and timer scaling currently only supports Linux.
+if (LINUX)
   set(srcs ${srcs} drx_time_scale.c)
 endif ()
 
