@@ -328,6 +328,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.annotation-detection.bb-truncate-2' => 1, # i#7529
                 'code_api|client.annotation-detection.full-decode' => 1, # i#7529
                 'code_api|client.annotation-detection.full-decode.tiny-bb' => 1, # i#7529
+                'code_api|client.drwrap-test' => 1, # i#7529
                 'code_api|client.execfault' => 1, # i#7529
                 'code_api|client.float_vmbase' => 1, # i#7529
                 'code_api|client.winxfer' => 1, # i#7529
