@@ -1061,7 +1061,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 
 #if defined(WINDOWS) && defined(DEBUG)
     if (should_swap_teb_nonstack_fields()) {
-        ASSERT_CURIOSITY(!is_dynamo_address(dcontext->app_fls_data));
+        ASSERT_CURIOSITY_ONCE(!is_dynamo_address(dcontext->app_fls_data));
         ASSERT(dcontext->app_fls_data == NULL ||
                dcontext->app_fls_data != dcontext->priv_fls_data);
         ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
