@@ -320,8 +320,8 @@ jobs:
         echo ------ Setting up paths ------
         7z x c:\projects\install\ninja.zip -oc:\projects\install\ninja > nul
         set PATH=c:\projects\install\ninja;%PATH%
-        dir "c:\Program Files\WiX Toolset"*
-        set PATH=C:\Program Files\WiX Toolset v3.14\bin;%PATH%
+        dir "c:\Program Files (x86)\WiX Toolset"*
+        set PATH=C:\Program Files (x86)\WiX Toolset v3.14\bin;%PATH%
         call "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
