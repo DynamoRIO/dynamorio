@@ -6838,3 +6838,11 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.record_filter_bycore_multi
     code_api|tool.record_filter_bycore_uni)
 endif ()
+
+set_tests_properties(
+  code_api|client.drwrap-test
+  code_api|client.thread
+  code_api|sample.opcode_count
+  code_api|tool.drcpusim.simple
+  code_api|tool.drcacheoff.simple
+  PROPERTIES LABELS TMATE_DEBUG) # TEMPORARY
