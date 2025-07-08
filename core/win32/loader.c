@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -1461,6 +1461,14 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
     /* Then, call the module entry point. */
     app_pc entry = get_module_entry(privmod->base);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    if (str_case_prefix(privmod->name, "combase")) {
+        /* XXX i#6962: combase.dll calls HandlePossibleBadComBaseDllLoad which runs
+         * int3 which DR somehow does not intercept, resulting in silent crash. For now
+         * we skip it.
+         */
+        call_routines = false;
+        SYSLOG_INTERNAL_INFO("skipping combase initializer (i#6962)");
+    }
     /* get_module_entry adds base => returns base instead of NULL */
     if (call_routines && entry != NULL && entry != privmod->base &&
         /* We call the TLS routines for the externally_loaded executable for
@@ -1507,7 +1515,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
              * is working so far; if that changes we'll have to dig into it.
              */
             SYSLOG_INTERNAL_WARNING(
-                "ignoring failure of private library %s entry (call reason=%d)\n",
+                "ignoring failure of private library %s entry (call reason=%d)",
                 privmod->name, reason);
             res = TRUE;
         }
