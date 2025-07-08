@@ -1409,6 +1409,8 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
 {
     LOG(THREAD, LOG_LOADER, 3, "%s for %s: reason=%d\n", __FUNCTION__, privmod->name,
         reason);
+    SYSLOG_INTERNAL_INFO("%s for %s: reason=%d", __FUNCTION__, privmod->name,
+                         reason); // NOCHECK
     bool return_val = true;
     bool call_routines = true;
     if (reason == DLL_THREAD_EXIT) {
