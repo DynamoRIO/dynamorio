@@ -774,7 +774,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
                IS_CLIENT_THREAD(dcontext));
         if (should_swap_teb_nonstack_fields()) {
-            ASSERT(!is_dynamo_address(dcontext->app_fls_data));
+            ASSERT_CURIOSITY(!is_dynamo_address(dcontext->app_fls_data));
             ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
             ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
         }
@@ -1467,7 +1467,7 @@ privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
          * we skip it.
          */
         call_routines = false;
-        SYSLOG_INTERNAL_INFO("skipping combase initializer (i#6962)");
+        SYSLOG_INTERNAL_INFO_ONCE("skipping combase initializer (i#6962)");
     }
     /* get_module_entry adds base => returns base instead of NULL */
     if (call_routines && entry != NULL && entry != privmod->base &&
