@@ -1061,6 +1061,9 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 
 #if defined(WINDOWS) && defined(DEBUG)
     if (should_swap_teb_nonstack_fields()) {
+        /* XXX i#7720: We'd like to fix app_fls_data problems but for now we
+         * downgrade to a curiosity to avoid breakage.
+         */
         ASSERT_CURIOSITY_ONCE(!is_dynamo_address(dcontext->app_fls_data));
         ASSERT(dcontext->app_fls_data == NULL ||
                dcontext->app_fls_data != dcontext->priv_fls_data);
