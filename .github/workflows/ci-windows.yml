@@ -151,10 +151,6 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
-    - name: Setup tmate session
-      if: failure()
-      uses: mxschmitt/action-tmate@v3
-
   ###########################################################################
   # 32-bit and 64-bit VS2022 release builds:
   vs2022-builds:
