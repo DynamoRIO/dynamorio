@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -6414,6 +6414,13 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
                                       uint *new_memprot, /* OUT */
                                       uint *old_memprot /* OPTIONAL OUT*/, bool image)
 {
+    if (pretend_writable_areas == NULL) {
+        /* i#7528: This is likely a private library's __acrt_initialize_winapi_thunks
+         * calling VirtualProtect which is redirected and calls here, but we're not even
+         * initialized yet and will crash if we continue.  We just allow in that case.
+         */
+        return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
+    }
     /* FIXME: look up whether image, etc. here?
      * but could overlap multiple regions!
      */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1264,6 +1264,21 @@ DR_API
 bool
 dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
                               int wow64_index);
+#endif
+
+#ifdef UNIX
+DR_API
+/**
+ * Invokes a system call and applies handling as though the application had executed it,
+ * but does not trigger system call events such as dr_register_pre_syscall_event().
+ * This is safer than a client invoking raw system calls that bypass DR's handling, which
+ * can cause numerous problems such as breaking DR's timer multiplexing or file
+ * descriptor isolation.
+ *
+ * \note UNIX only.
+ */
+reg_t
+dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...);
 #endif
 
 /**************************************************

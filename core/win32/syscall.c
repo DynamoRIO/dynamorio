@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2052,7 +2052,8 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         thread_record_t *tr = thread_lookup(tid);
         CONTEXT *my_cxt;
         NTSTATUS res;
-        const thread_synch_state_t desired_state = THREAD_SYNCH_VALID_MCONTEXT;
+        const thread_synch_state_t desired_state =
+            (const thread_synch_state_t)THREAD_SYNCH_VALID_MCONTEXT;
         DEBUG_DECLARE(thread_synch_result_t synch_res;)
         ASSERT(tr != NULL);
         SELF_PROTECT_LOCAL(tr->dcontext, WRITABLE);

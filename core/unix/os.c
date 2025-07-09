@@ -4454,17 +4454,33 @@ fd_priv_dup(file_t curfd)
          * so how do we tell if the flag is supported?  try calling once at init?
          */
         newfd = fcntl_syscall(curfd, F_DUPFD, min_dr_fd);
-        if (newfd < 0) {
+        /* F_DUPFD will fail if it can't allocate a descriptor >= the 3rd paramter.
+         * If it fails, try again with something smaller, but keep trying to stay
+         * out of typical app descriptor ranges even if we can't fully isolate.
+         */
+        int try_fd = min_dr_fd / 2;
+        static const int MIN_FD = 10; /* Avoid tcsh, etc. issues: see comment below. */
+        while (newfd < 0 && try_fd >= MIN_FD) {
             /* We probably ran out of fds, esp if debug build and there are
              * lots of threads.  Should we track how many we've given out to
              * avoid a failed syscall every time after?
              */
-            SYSLOG_INTERNAL_WARNING_ONCE("ran out of stolen fd space");
+            SYSLOG_INTERNAL_WARNING_ONCE("ran out of stolen fd space with error %d",
+                                         newfd);
             /* Try again but this time in the app space, somewhere high up
              * to avoid issues like tcsh assuming it can own fds 3-5 for
              * piping std{in,out,err} (xref the old -open_tcsh_fds option).
              */
-            newfd = fcntl_syscall(curfd, F_DUPFD, min_dr_fd / 2);
+            newfd = fcntl_syscall(curfd, F_DUPFD, try_fd);
+            /* Drop by half if we're up > 1M; else try linear values. */
+            if (try_fd > 1024 * 1024)
+                try_fd /= 2;
+            else
+                --try_fd;
+        }
+        if (newfd < 0) {
+            SYSLOG_INTERNAL_WARNING_ONCE("fd_priv_dup failed: for min=%d got %d", try_fd,
+                                         newfd);
         }
     }
     return newfd;
@@ -5758,6 +5774,65 @@ dr_syscall_invoke_another(void *drcontext)
     }
 #endif /* X86 */
     /* for x64 we don't need to copy xcx into r10 b/c we use r10 as our param */
+}
+
+/* This goes through DR's handling of app syscalls, but does not trigger client syscall
+ * events.  That suits some client uses, but others want only DR internal handling and
+ * not app handling (for clients making syscalls that could cause DR to lose control or
+ * lose functionality w/o knowing/intercepting them): which will require further work to
+ * support and does not seem trivial (e.g., setting an itimer would need to go run the
+ * dr_set_itimer() code): that's under i#199 and would be a separate API routine.
+ */
+DR_API
+reg_t
+dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    if (dcontext == GLOBAL_DCONTEXT)
+        return -EINVAL;
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+#define MAX_PARAM_COUNT 6
+    if (arg_count > MAX_PARAM_COUNT)
+        return -EINVAL;
+    reg_t args[MAX_PARAM_COUNT] = {};
+    /* We need to save the mcontext app values so we can place this syscall's
+     * values into the mcontext for pre_system_call() to examine them.
+     * We also need to save registers the kernel will clobber: but on our
+     * arches that's just the return value which equals the 1st parameter.
+     */
+    reg_t saved[MAX_PARAM_COUNT];
+    va_list ap;
+    va_start(ap, arg_count);
+    /* In some builds, Werror=array-bounds complains about saved[i] despite our
+     * arg_count check above: so we add "&& i < MAX_PARAM_COUNT" to avoid the warning.
+     */
+    for (int i = 0; i < MAX_PARAM_COUNT && i < arg_count; ++i) {
+        args[i] = va_arg(ap, reg_t);
+        saved[i] = sys_param(dcontext, i);
+        set_syscall_param(dcontext, i, args[i]);
+    }
+    va_end(ap);
+    reg_t saved_sysnum = MCXT_SYSNUM_REG(mc);
+    MCXT_SYSNUM_REG(mc) = sysnum;
+    reg_t saved_res = MCXT_SYSCALL_RES(mc);
+    reg_t res;
+    /* Skip client syscall events. */
+    dcontext->client_data->skip_client_syscall_events = true;
+    if (!pre_system_call(dcontext)) {
+        res = MCXT_SYSCALL_RES(mc);
+    } else {
+        res = dynamorio_syscall(sysnum, arg_count, args[0], args[1], args[2], args[3],
+                                args[4], args[5]);
+        post_system_call(dcontext);
+    }
+    dcontext->client_data->skip_client_syscall_events = false;
+    /* Restore app registers. */
+    for (int i = 0; i < arg_count; ++i) {
+        set_syscall_param(dcontext, i, saved[i]);
+    }
+    MCXT_SYSCALL_RES(mc) = saved_res;
+    MCXT_SYSNUM_REG(mc) = saved_sysnum;
+    return res;
 }
 
 static inline bool
