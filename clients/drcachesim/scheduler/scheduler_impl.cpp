@@ -1676,6 +1676,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::process_next_initial_record(
         return true;                    // Keep reading.
     if (input.pid == INVALID_PID)
         record_type_has_pid(record, input.pid);
+    // Though the tid must have been already set by other logic (the readahead in
+    // open_reader, or the construction arg to input_workload_t), we still
+    // check and set it for consistent treatment with pid.
     if (input.tid == INVALID_THREAD_ID)
         record_type_has_tid(record, input.tid);
     if (record_type_is_non_marker_header(record))
@@ -2779,12 +2782,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
         outputs_[output].tried_to_steal_on_idle = false;
     }
 
-    bool injected_switch_trace = false;
     // We want to insert the context switch records (which includes the new input's
     // tid and pid, and possibly the context switch sequence) on input-to-input and
     // idle-to-input cases. This is a better control point to do that than
     // set_cur_input. Here we get the stolen input events too, and we don't have
     // to filter out the init-time set_cur_input cases.
+
+    bool injected_switch_trace = false;
     if (!switch_sequence_.empty()) {
         switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
         if ( // XXX: idle-to-input transitions are assumed to be process switches
