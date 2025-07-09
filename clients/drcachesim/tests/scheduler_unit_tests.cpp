@@ -6566,16 +6566,16 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                 case TRACE_MARKER_TYPE_KERNEL_XFER: sched_as_string[i] += 'k'; break;
                 default: sched_as_string[i] += '?'; break;
                 }
-            }
-            // A context switch should happen only at the context_switch_start marker.
-            // TODO i#7495: Add invariant checks that ensure this property for
-            // core-sharded-on-disk traces. This would need moving the synthetic
-            // tid-pid markers before the injected switch trace.
-            if (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
-                assert(prev_tid[i] != tid_from_memref_tid(memref.instr.tid));
-            } else {
-                assert(for_syscall_seq || prev_tid[i] == INVALID_THREAD_ID ||
-                       prev_tid[i] == tid_from_memref_tid(memref.instr.tid));
+                // A context switch should happen only at the context_switch_start marker.
+                // TODO i#7495: Add invariant checks that ensure this property for
+                // core-sharded-on-disk traces. This would need moving the synthetic
+                // tid-pid markers before the injected switch trace.
+                if (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
+                    assert(prev_tid[i] != tid_from_memref_tid(memref.instr.tid));
+                } else {
+                    assert(for_syscall_seq || prev_tid[i] == INVALID_THREAD_ID ||
+                        prev_tid[i] == tid_from_memref_tid(memref.instr.tid));
+                }
             }
             prev_tid[i] = tid_from_memref_tid(memref.instr.tid);
             prev_in_ord[i] = outputs[i]->get_input_interface()->get_record_ordinal();
