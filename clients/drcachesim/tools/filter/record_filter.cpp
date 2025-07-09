@@ -521,8 +521,7 @@ record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entr
                            { static_cast<addr_t>(-1) } });
         header.push_back(
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { static_cast<addr_t>(-1) } });
-        // If we have a trace with one window that we are trimming, add the window id to
-        // the header.
+        // If we are removing records from a window-trace add the window id to the header.
         if (shard->last_window_id != static_cast<addr_t>(-1)) {
             header.push_back({ TRACE_TYPE_MARKER,
                                TRACE_MARKER_TYPE_WINDOW_ID,

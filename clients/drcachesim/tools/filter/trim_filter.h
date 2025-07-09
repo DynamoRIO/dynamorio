@@ -92,7 +92,8 @@ public:
                     per_shard->in_removed_region = false;
                 }
                 break;
-            // Check that if we have window markers, the window id is always the same.
+            // Set the last window id to be the one seen just before the region we intend
+            // to keep.
             case TRACE_MARKER_TYPE_WINDOW_ID:
                 if (per_shard->in_removed_region_before)
                     *record_filter_info.last_window_id = entry.addr;
