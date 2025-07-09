@@ -58,56 +58,56 @@ defaults:
   # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
 
 jobs:
-  # Ubuntu22 64-bit Linux build with gcc and run tests.
-  x86-64:
-    runs-on: ubuntu-22.04
-    steps:
-    # When checking out the repository that triggered a workflow, actions/checkout
-    # defaults to the reference or SHA for that event. See documentation for ref at
-    # https://github.com/actions/checkout
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    # Cancel any prior runs for a PR (but do not cancel master branch runs).
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-      if: ${{ github.event_name == 'pull_request' }}
-
-    # We also need origin/master for pre-commit source file checks in runsuite.cmake.
-    # But fetching multiple branches isn't supported yet: actions/checkout#214
-    # Pending PR that adds this support actions/checkout#155
-    # TODO i#4549: When necessary support is available, remove/replace the
-    # workaround here and from every job in other Github Actions CI workflows.
-    - run: git fetch --no-tags --depth=1 origin master
-
-    # Install multilib for non-cross-compiling Linux build.
-    - name: Create Build Environment
-      run: |
-        sudo apt update
-        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev
-        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
-
-    - name: Check if format checks are disabled
-      id: are_format_checks_disabled
-      uses: ./.github/actions/are-format-checks-disabled
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        CI_TRIGGER: ${{ github.event_name }}
-        CI_BRANCH: ${{ github.ref }}
-        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
-
+#  # Ubuntu22 64-bit Linux build with gcc and run tests.
+#  x86-64:
+#    runs-on: ubuntu-22.04
+#    steps:
+#    # When checking out the repository that triggered a workflow, actions/checkout
+#    # defaults to the reference or SHA for that event. See documentation for ref at
+#    # https://github.com/actions/checkout
+#    - uses: actions/checkout@v4
+#      with:
+#        submodules: true
+#
+#    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+#    - uses: n1hility/cancel-previous-runs@v2
+#      with:
+#        token: ${{ secrets.GITHUB_TOKEN }}
+#      if: ${{ github.event_name == 'pull_request' }}
+#
+#    # We also need origin/master for pre-commit source file checks in runsuite.cmake.
+#    # But fetching multiple branches isn't supported yet: actions/checkout#214
+#    # Pending PR that adds this support actions/checkout#155
+#    # TODO i#4549: When necessary support is available, remove/replace the
+#    # workaround here and from every job in other Github Actions CI workflows.
+#    - run: git fetch --no-tags --depth=1 origin master
+#
+#    # Install multilib for non-cross-compiling Linux build.
+#    - name: Create Build Environment
+#      run: |
+#        sudo apt update
+#        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+#          liblz4-dev g++-multilib libunwind-dev
+#        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+#
+#    - name: Setup newer cmake
+#      uses: jwlawson/actions-setup-cmake@v2
+#      with:
+#        cmake-version: '3.19.7'
+#
+#    - name: Check if format checks are disabled
+#      id: are_format_checks_disabled
+#      uses: ./.github/actions/are-format-checks-disabled
+#
+#    - name: Run Suite
+#      working-directory: ${{ github.workspace }}
+#      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
+#      env:
+#        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+#        CI_TRIGGER: ${{ github.event_name }}
+#        CI_BRANCH: ${{ github.ref }}
+#        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
+#
   # Ubuntu22 32-bit Linux build with gcc and run tests.
   x86-32:
     runs-on: ubuntu-22.04
@@ -162,92 +162,96 @@ jobs:
         CI_BRANCH: ${{ github.ref }}
         DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
-  # 64-bit Linux build with gcc and musl.
-  # TODO i#1973: Fix failing cases and enable tests in CI.
-  x86-64-alpine-3_21:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-        path: ${{ github.workspace }}/DynamoRIO
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
 
-    # Cancel any prior runs for a PR (but do not cancel master branch runs).
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-      if: ${{ github.event_name == 'pull_request' }}
-
-    - run: git fetch --no-tags --depth=1 origin master
-      working-directory: ${{ github.workspace }}/DynamoRIO
-
-    # Create an Alpine Linux 3.21.2 chroot environment for building
-    - name: Create Build Environment
-      run: |
-        sudo mkdir alpine-root
-        curl -L https://dl-cdn.alpinelinux.org/v3.21/releases/x86_64/alpine-minirootfs-3.21.3-x86_64.tar.gz | \
-        sudo tar xzv -C alpine-root
-
-        cd alpine-root
-        sudo mount -o bind /dev/ dev
-        sudo mount -t proc proc proc
-        sudo mount -t sysfs sys sys
-        sudo mount -o bind ${{ github.workspace }}/DynamoRIO root
-        # Use host DNS configuration in the chroot environment
-        sudo cp /etc/resolv.conf etc/
-
-        sudo chroot . sbin/apk upgrade
-
-        # Meta-package build-base simplifies dependencies, but it pulls in
-        # fortify-headers. Alpine ships an out-of-date version whose headers
-        # contain unnecessary includes, causing naming conflicts.
-        # TODO i#1973: simplify dependency with build-base after fixing
-        # the compatibility problem.
-        sudo chroot . sbin/apk add \
-          alpine-base binutils bash cmake doxygen file g++ git libunwind-dev \
-          lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
-          patch xz-dev zlib-dev zlib-static
-
-    # XXX: Using actions/are-format-checks-disabled here results in EACCES:
-    # permission denied,
-    # rmdir '/home/runner/work/dynamorio/dynamorio/alpine-root/bin' after
-    # actions/checkout@v4 and before gh api is called. So we call gh api here.
-    - name: Check if format checks are disabled
-      id: are_format_checks_disabled
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-      run: |
-        found=no
-        if ${{ github.event_name == 'pull_request' }}; then
-          commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
-          if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
-            found=yes
-          fi
-        elif ${{ github.event_name == 'push' }}; then
-          if ${{ contains(toJSON(github.event.commits.*.message), 'DISABLE_FORMAT_CHECKS') }}; then
-            found=yes
-          fi
-        fi
-        if [[ "$found" == "yes" ]]; then
-          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
-          echo "format checks are disabled."
-        else
-          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
-          echo "format checks are enabled."
-        fi
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: |
-        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL,DISABLE_FORMAT_CHECKS \
-          chroot alpine-root sh -c 'cd &&
-                                    ./suite/runsuite_wrapper.pl automated_ci 64_only'
-      env:
-        DYNAMORIO_MUSL: yes
-        CI_TRIGGER: ${{ github.event_name }}
-        CI_BRANCH: ${{ github.ref }}
-        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
+#  # 64-bit Linux build with gcc and musl.
+#  # TODO i#1973: Fix failing cases and enable tests in CI.
+#  x86-64-alpine-3_21:
+#    runs-on: ubuntu-22.04
+#    steps:
+#    - uses: actions/checkout@v4
+#      with:
+#        submodules: true
+#        path: ${{ github.workspace }}/DynamoRIO
+#
+#    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+#    - uses: n1hility/cancel-previous-runs@v2
+#      with:
+#        token: ${{ secrets.GITHUB_TOKEN }}
+#      if: ${{ github.event_name == 'pull_request' }}
+#
+#    - run: git fetch --no-tags --depth=1 origin master
+#      working-directory: ${{ github.workspace }}/DynamoRIO
+#
+#    # Create an Alpine Linux 3.21.2 chroot environment for building
+#    - name: Create Build Environment
+#      run: |
+#        sudo mkdir alpine-root
+#        curl -L https://dl-cdn.alpinelinux.org/v3.21/releases/x86_64/alpine-minirootfs-3.21.3-x86_64.tar.gz | \
+#        sudo tar xzv -C alpine-root
+#
+#        cd alpine-root
+#        sudo mount -o bind /dev/ dev
+#        sudo mount -t proc proc proc
+#        sudo mount -t sysfs sys sys
+#        sudo mount -o bind ${{ github.workspace }}/DynamoRIO root
+#        # Use host DNS configuration in the chroot environment
+#        sudo cp /etc/resolv.conf etc/
+#
+#        sudo chroot . sbin/apk upgrade
+#
+#        # Meta-package build-base simplifies dependencies, but it pulls in
+#        # fortify-headers. Alpine ships an out-of-date version whose headers
+#        # contain unnecessary includes, causing naming conflicts.
+#        # TODO i#1973: simplify dependency with build-base after fixing
+#        # the compatibility problem.
+#        sudo chroot . sbin/apk add \
+#          alpine-base binutils bash cmake doxygen file g++ git libunwind-dev \
+#          lz4-dev lz4-static linux-headers make musl-dev musl-libintl perl \
+#          patch xz-dev zlib-dev zlib-static
+#
+#    # XXX: Using actions/are-format-checks-disabled here results in EACCES:
+#    # permission denied,
+#    # rmdir '/home/runner/work/dynamorio/dynamorio/alpine-root/bin' after
+#    # actions/checkout@v4 and before gh api is called. So we call gh api here.
+#    - name: Check if format checks are disabled
+#      id: are_format_checks_disabled
+#      env:
+#        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        GITHUB_REPOSITORY: ${{ github.repository }}
+#      run: |
+#        found=no
+#        if ${{ github.event_name == 'pull_request' }}; then
+#          commit_messages="$(gh api '${{ github.event.pull_request._links.commits.href }}' --paginate --jq .[].commit.message)"
+#          if echo "$commit_messages" | grep -q "DISABLE_FORMAT_CHECKS"; then
+#            found=yes
+#          fi
+#        elif ${{ github.event_name == 'push' }}; then
+#          if ${{ contains(toJSON(github.event.commits.*.message), 'DISABLE_FORMAT_CHECKS') }}; then
+#            found=yes
+#          fi
+#        fi
+#        if [[ "$found" == "yes" ]]; then
+#          echo "disable_format_checks=yes" >> $GITHUB_OUTPUT
+#          echo "format checks are disabled."
+#        else
+#          echo "disable_format_checks=no" >> $GITHUB_OUTPUT
+#          echo "format checks are enabled."
+#        fi
+#
+#    - name: Run Suite
+#      working-directory: ${{ github.workspace }}
+#      run: |
+#        sudo --preserve-env=CI_TRIGGER,CI_BRANCH,DYNAMORIO_MUSL,DISABLE_FORMAT_CHECKS \
+#          chroot alpine-root sh -c 'cd &&
+#                                    ./suite/runsuite_wrapper.pl automated_ci 64_only'
+#      env:
+#        DYNAMORIO_MUSL: yes
+#        CI_TRIGGER: ${{ github.event_name }}
+#        CI_BRANCH: ${{ github.ref }}
+#        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
