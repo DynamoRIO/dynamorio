@@ -82,6 +82,12 @@ public:
         /* xref i#6690 i#1595: multi-dcontext_t solution.
          */
         void *dcontext;
+
+        /**
+         * Gives filters access to the last window id seen. This is useful when trimming
+         * a windowed trace.
+         */
+        addr_t *last_window_id;
     };
 
     /**
@@ -231,6 +237,8 @@ protected:
         memref_counter_t memref_counter;
         addr_t last_timestamp = 0;
         addr_t last_cpu_id = 0;
+        // addr_t is an unsigned integer, so we assume -1 is not a valid window.
+        addr_t last_window_id = -1;
         std::unordered_set<addr_t> cur_chunk_pcs;
         bool prev_was_output = false;
         addr_t filetype = 0;

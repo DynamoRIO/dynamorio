@@ -74,8 +74,8 @@ public:
         record_filter_t::record_filter_info_t &record_filter_info) override
     {
         per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-        if (entry.type == TRACE_TYPE_MARKER &&
-            entry.size == TRACE_MARKER_TYPE_TIMESTAMP) {
+        if (entry.type == TRACE_TYPE_MARKER) {
+            switch (entry.size) {
             // While it seems theoretically nice to keep the timestamp,cpuid that
             // is over the threshold so we have a timestamp at the end, that results
             // in large time gaps if across a blocking syscall.  Trying to edit
@@ -83,10 +83,21 @@ public:
             // distort syscall durations.  The least-bad solution seems to be to
             // keep the regular trace content right up to the timestamp and
             // throw away the timestamp.
-            if (entry.addr < trim_before_timestamp_ || entry.addr > trim_after_timestamp_)
-                per_shard->in_removed_region = true;
-            else
-                per_shard->in_removed_region = false;
+            case TRACE_MARKER_TYPE_TIMESTAMP:
+                per_shard->in_removed_region_before = entry.addr < trim_before_timestamp_;
+                if (entry.addr < trim_before_timestamp_ ||
+                    entry.addr > trim_after_timestamp_) {
+                    per_shard->in_removed_region = true;
+                } else {
+                    per_shard->in_removed_region = false;
+                }
+                break;
+            // Check that if we have window markers, the window id is always the same.
+            case TRACE_MARKER_TYPE_WINDOW_ID:
+                if (per_shard->in_removed_region_before)
+                    *record_filter_info.last_window_id = entry.addr;
+                break;
+            }
         }
         if (entry.type == TRACE_TYPE_THREAD_EXIT || entry.type == TRACE_TYPE_FOOTER) {
             // Don't throw the footer away.  (The header is always kept because we
@@ -96,10 +107,7 @@ public:
             // (We do not support trimming a single-file multi-window trace).
             return true;
         }
-        if (entry.type == TRACE_TYPE_MARKER &&
-            entry.size == TRACE_MARKER_TYPE_WINDOW_ID) {
-            error_string_ = "Trimming WINDOW_ID markers is not supported";
-        }
+
         return !per_shard->in_removed_region;
     }
     bool
@@ -113,6 +121,7 @@ public:
 private:
     struct per_shard_t {
         bool in_removed_region = false;
+        bool in_removed_region_before = false;
     };
 
     uint64_t trim_before_timestamp_;
