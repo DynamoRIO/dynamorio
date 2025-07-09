@@ -5512,9 +5512,11 @@ sys_param_addr(dcontext_t *dcontext, int num)
      */
     return ((reg_t *)mc->esp) + 1 /*retaddr*/ + num;
 #    endif
-    /* even for vsyscall where ecx (syscall) or esp (sysenter) are saved into
+    /* Even for vsyscall where ecx (syscall) or esp (sysenter) are saved into
      * ebp, the original parameter registers are not yet changed pre-syscall,
-     * except for ebp, which is pushed on the stack:
+     * except for ebp, which is pushed on the stack. But since we also modify
+     * the parameter through sys_param_addr() we need to use the actual location
+     * passed to the kernel.
      *     0xffffe400  55                   push   %ebp %esp -> %esp (%esp)
      *     0xffffe401  89 cd                mov    %ecx -> %ebp
      *     0xffffe403  0f 05                syscall -> %ecx
@@ -5527,7 +5529,9 @@ sys_param_addr(dcontext_t *dcontext, int num)
      */
     switch (num) {
     case 0: return &mc->IF_X86_ELSE(xbx, IF_RISCV64_ELSE(a0, r0));
-    case 1: return &mc->IF_X86_ELSE(xcx, IF_RISCV64_ELSE(a1, r1));
+    case 1:
+        return IF_X86_ELSE((dcontext->sys_was_int ? &mc->xcx : &mc->xbp),
+                           &mc->IF_RISCV64_ELSE(a1, r1));
     case 2: return &mc->IF_X86_ELSE(xdx, IF_RISCV64_ELSE(a2, r2));
     case 3: return &mc->IF_X86_ELSE(xsi, IF_RISCV64_ELSE(a3, r3));
     case 4: return &mc->IF_X86_ELSE(xdi, IF_RISCV64_ELSE(a4, r4));
