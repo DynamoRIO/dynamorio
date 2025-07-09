@@ -144,7 +144,7 @@ static void
 inflate_timespec64(void *drcontext, timespec64_t *spec)
 {
     NOTIFY(2,
-           "T" TIDFMT "  Original time %" INT64_FORMAT_STRING ".%.12" INT64_FORMAT_STRING
+           "T" TIDFMT "  Original time %" INT64_FORMAT_CODE ".%.12" INT64_FORMAT_CODE
            "\n",
            dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
     if (is_timespec64_zero(spec))
@@ -154,8 +154,8 @@ inflate_timespec64(void *drcontext, timespec64_t *spec)
     spec->tv_sec += spec->tv_nsec / MAX_TV_NSEC;
     spec->tv_nsec = spec->tv_nsec % MAX_TV_NSEC;
     NOTIFY(2,
-           "T" TIDFMT " Inflated time by %dx: now %" INT64_FORMAT_STRING
-           ".%.12" INT64_FORMAT_STRING "\n",
+           "T" TIDFMT " Inflated time by %dx: now %" INT64_FORMAT_CODE
+           ".%.12" INT64_FORMAT_CODE "\n",
            dr_get_thread_id(drcontext), scale_options.timer_scale, spec->tv_sec,
            spec->tv_nsec);
 }
@@ -186,8 +186,8 @@ deflate_timespec64(void *drcontext, timespec64_t *spec)
         (spec->tv_sec % MAX_TV_NSEC) * MAX_TV_NSEC / scale_options.timer_scale;
     spec->tv_sec /= scale_options.timer_scale;
     NOTIFY(2,
-           "T" TIDFMT "  Deflated time by %dx: now %" INT64_FORMAT_STRING
-           ".%.12" INT64_FORMAT_STRING "\n",
+           "T" TIDFMT "  Deflated time by %dx: now %" INT64_FORMAT_CODE
+           ".%.12" INT64_FORMAT_CODE "\n",
            dr_get_thread_id(drcontext), scale_options.timer_scale, spec->tv_sec,
            spec->tv_nsec);
 }
@@ -288,7 +288,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         int flags = (int)dr_syscall_get_param(drcontext, 1);
         itimerspec64_t *new_spec = (itimerspec64_t *)dr_syscall_get_param(drcontext, 2);
         itimerspec64_t *old_spec = (itimerspec64_t *)dr_syscall_get_param(drcontext, 3);
-        NOTIFY(2, "T" TIDFMT " timer_settime flags=%d, old=%p, new=%p\n",
+        NOTIFY(2, "T" TIDFMT " timer_settime64 flags=%d, old=%p, new=%p\n",
                dr_get_thread_id(drcontext), flags, new_spec, old_spec);
         if (TEST(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
@@ -350,7 +350,8 @@ event_post_syscall(void *drcontext, int sysnum)
     case SYS_timer_settime:
     case SYS_timer_gettime: {
         size_t wrote;
-        if (dr_safe_read(data->app_syscall_param, sizeof(data->itimer_spec),
+        if (data->app_syscall_param != NULL &&
+            dr_safe_read(data->app_syscall_param, sizeof(data->itimer_spec),
                          &data->itimer_spec, &wrote) &&
             wrote == sizeof(data->itimer_spec)) {
             deflate_timespec(drcontext, &data->itimer_spec.it_interval);
@@ -367,7 +368,8 @@ event_post_syscall(void *drcontext, int sysnum)
     case SYS_timer_settime64:
     case SYS_timer_gettime64: {
         size_t wrote;
-        if (dr_safe_read(data->app_syscall_param, sizeof(data->itimer_spec64),
+        if (data->app_syscall_param != NULL &&
+            dr_safe_read(data->app_syscall_param, sizeof(data->itimer_spec64),
                          &data->itimer_spec64, &wrote) &&
             wrote == sizeof(data->itimer_spec64)) {
             deflate_timespec64(drcontext, &data->itimer_spec64.it_interval);
@@ -384,7 +386,8 @@ event_post_syscall(void *drcontext, int sysnum)
     case SYS_setitimer:
     case SYS_getitimer: {
         size_t wrote;
-        if (dr_safe_read(data->app_syscall_param, sizeof(data->itimer_val),
+        if (data->app_syscall_param != NULL &&
+            dr_safe_read(data->app_syscall_param, sizeof(data->itimer_val),
                          &data->itimer_val, &wrote) &&
             wrote == sizeof(data->itimer_val)) {
             deflate_timeval(drcontext, &data->itimer_val.it_interval);
