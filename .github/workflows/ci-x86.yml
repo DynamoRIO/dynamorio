@@ -262,8 +262,8 @@ jobs:
       if: ${{ always() }}
       with:
         test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5}',
-                                      'x86-32', needs.x86-32.result ) }}
-#                                      'x86-64', needs.x86-64.result,
-#                                      'x86-64-alpine-3_21', needs.x86-64-alpine-3_21.result) }}
+                                      'x86-32', needs.x86-32.result,
+                                      'x86-64', needs.x86-64.result,
+                                      'x86-64-alpine-3_21', needs.x86-64-alpine-3_21.result) }}
         test_suite_results_only: ${{ join(needs.*.result, ',') }}
       secrets: inherit
