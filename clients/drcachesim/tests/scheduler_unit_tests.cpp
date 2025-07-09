@@ -6574,7 +6574,7 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     assert(prev_tid[i] != tid_from_memref_tid(memref.instr.tid));
                 } else {
                     assert(for_syscall_seq || prev_tid[i] == INVALID_THREAD_ID ||
-                        prev_tid[i] == tid_from_memref_tid(memref.instr.tid));
+                           prev_tid[i] == tid_from_memref_tid(memref.instr.tid));
                 }
             }
             prev_tid[i] = tid_from_memref_tid(memref.instr.tid);
