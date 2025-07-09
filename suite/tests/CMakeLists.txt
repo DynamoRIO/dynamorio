@@ -2970,7 +2970,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   target_include_directories(client.drx_buf-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
-  if (LINUX) # XXX i#7504: Time scaling is only supported on Linux for now.
+  if (LINUX AND NOT ANDROID) # XXX i#7504: Scaling is only supported on Linux for now.
     tobuild_api(client.drx_time_scale-test client-interface/drx_time_scale-test.c
       "" "" OFF ON OFF)
     use_DynamoRIO_extension(client.drx_time_scale-test drx_static)
