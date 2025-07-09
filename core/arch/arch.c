@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3128,7 +3128,9 @@ unhook_vsyscall(void)
     uint prot;
     bool res;
     uint len = VSYS_DISPLACED_LEN;
-    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER)
+    if (get_syscall_method() !=
+        SYSCALL_METHOD_SYSENTER IF_NOT_X64(&&get_syscall_method() !=
+                                           SYSCALL_METHOD_SYSCALL))
         return false;
     ASSERT(!sysenter_hook_failed);
     ASSERT(vsyscall_sysenter_return_pc != NULL);
