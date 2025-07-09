@@ -4804,7 +4804,7 @@ if (BUILD_CLIENTS)
         use_DynamoRIO_static_client(tool.drcacheoff.scale_time drmemtrace_static)
         use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.scale_time)
         target_link_libraries(tool.drcacheoff.scale_time drmemtrace_raw2trace
-          drmemtrace_analyzer test_helpers)
+          drmemtrace_analyzer test_helpers rt)
         target_include_directories(tool.drcacheoff.scale_time PUBLIC
           "${PROJECT_SOURCE_DIR}/clients/drcachesim"
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"

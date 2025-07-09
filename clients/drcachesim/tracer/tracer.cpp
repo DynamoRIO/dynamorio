@@ -421,10 +421,13 @@ instrumentation_exit()
         !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_unregister_bb_app2app_event(event_bb_app2app))
         DR_ASSERT(false);
+#ifdef LINUX
+    // XXX i#7504: Time and timer scaling currently only supports Linux.
     if (op_scale_timers.get_value() > 0) {
         bool ok = drx_unregister_time_scaling();
         DR_ASSERT(ok);
     }
+#endif
     drx_exit();
     drbbdup_status_t res = drbbdup_exit();
     DR_ASSERT(res == DRBBDUP_SUCCESS);
@@ -480,6 +483,8 @@ instrumentation_init()
 
     bool ok = drx_init();
     DR_ASSERT(ok);
+#ifdef LINUX
+    // XXX i#7504: Time and timer scaling currently only supports Linux.
     if (op_scale_timers.get_value() > 0) {
         drx_time_scale_t scale = {
             sizeof(scale),
@@ -489,6 +494,7 @@ instrumentation_init()
         ok = drx_register_time_scaling(&scale);
         DR_ASSERT(ok);
     }
+#endif
 }
 
 static void
