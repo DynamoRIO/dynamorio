@@ -53,7 +53,7 @@
 #endif
 
 #ifdef DEBUG
-static uint verbose = 2;
+static uint verbose = 1;
 #    define NOTIFY(level, ...)                   \
         do {                                     \
             if (verbose >= (level)) {            \
@@ -64,8 +64,31 @@ static uint verbose = 2;
 #    define NOTIFY(...) /* nothing */
 #endif
 
+#ifndef X64
+/* This is not in public headers as it's hidden inside glibc.
+ * The 32-bit-build struct timespec has 32-bit fields; this provides 64-bit
+ * so the seconds can go beyond the year 2038.
+ * (The 64-bit-build struct timespec has 64-bit fields.)
+ * XXX: If this were C++ we could templatize and share code to avoid all this
+ * duplication of identical code.  We could do header inclusion with macros
+ * in C but that seems overkill for this amount of code.
+ */
+typedef struct _timespec64_t {
+    int64 tv_sec;
+    int64 tv_nsec;
+} timespec64_t;
+
+typedef struct _itimerspec64_t {
+    timespec64_t it_interval;
+    timespec64_t it_value;
+} itimerspec64_t;
+#endif
+
 typedef struct _per_thread_t {
     struct itimerspec itimer_spec;
+#ifndef X64
+    itimerspec64_t itimer_spec64;
+#endif
     struct itimerval itimer_val;
     void *app_syscall_param;
 } per_thread_t;
@@ -86,6 +109,14 @@ is_timespec_zero(struct timespec *spec)
     return spec->tv_sec == 0 && spec->tv_nsec == 0;
 }
 
+#ifndef X64
+static inline bool
+is_timespec64_zero(timespec64_t *spec)
+{
+    return spec->tv_sec == 0 && spec->tv_nsec == 0;
+}
+#endif
+
 static inline bool
 is_timeval_zero(struct timeval *val)
 {
@@ -95,7 +126,7 @@ is_timeval_zero(struct timeval *val)
 static void
 inflate_timespec(void *drcontext, struct timespec *spec)
 {
-    NOTIFY(2, "T" TIDFMT "  Original time %" SZFC ".%.12" SZFC "\n",
+    NOTIFY(2, "T" TIDFMT "  Original time %" SSZFC ".%.12" SSZFC "\n",
            dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
     if (is_timespec_zero(spec))
         return;
@@ -103,10 +134,32 @@ inflate_timespec(void *drcontext, struct timespec *spec)
     spec->tv_sec *= scale_options.timer_scale;
     spec->tv_sec += spec->tv_nsec / MAX_TV_NSEC;
     spec->tv_nsec = spec->tv_nsec % MAX_TV_NSEC;
-    NOTIFY(2, "T" TIDFMT " Inflated time by %dx: now %" SZFC ".%.12" SZFC "\n",
+    NOTIFY(2, "T" TIDFMT " Inflated time by %dx: now %" SSZFC ".%.12" SSZFC "\n",
            dr_get_thread_id(drcontext), scale_options.timer_scale, spec->tv_sec,
            spec->tv_nsec);
 }
+
+#ifndef X64
+static void
+inflate_timespec64(void *drcontext, timespec64_t *spec)
+{
+    NOTIFY(2,
+           "T" TIDFMT "  Original time %" INT64_FORMAT_STRING ".%.12" INT64_FORMAT_STRING
+           "\n",
+           dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
+    if (is_timespec64_zero(spec))
+        return;
+    spec->tv_nsec *= scale_options.timer_scale;
+    spec->tv_sec *= scale_options.timer_scale;
+    spec->tv_sec += spec->tv_nsec / MAX_TV_NSEC;
+    spec->tv_nsec = spec->tv_nsec % MAX_TV_NSEC;
+    NOTIFY(2,
+           "T" TIDFMT " Inflated time by %dx: now %" INT64_FORMAT_STRING
+           ".%.12" INT64_FORMAT_STRING "\n",
+           dr_get_thread_id(drcontext), scale_options.timer_scale, spec->tv_sec,
+           spec->tv_nsec);
+}
+#endif
 
 static void
 deflate_timespec(void *drcontext, struct timespec *spec)
@@ -117,15 +170,33 @@ deflate_timespec(void *drcontext, struct timespec *spec)
     spec->tv_nsec +=
         (spec->tv_sec % MAX_TV_NSEC) * MAX_TV_NSEC / scale_options.timer_scale;
     spec->tv_sec /= scale_options.timer_scale;
-    NOTIFY(2, "T" TIDFMT "  Deflated time by %dx: now %" SZFC ".%.12" SZFC "\n",
+    NOTIFY(2, "T" TIDFMT "  Deflated time by %dx: now %" SSZFC ".%.12" SSZFC "\n",
            dr_get_thread_id(drcontext), scale_options.timer_scale, spec->tv_sec,
            spec->tv_nsec);
 }
 
+#ifndef X64
+static void
+deflate_timespec64(void *drcontext, timespec64_t *spec)
+{
+    if (is_timespec64_zero(spec))
+        return;
+    spec->tv_nsec /= scale_options.timer_scale;
+    spec->tv_nsec +=
+        (spec->tv_sec % MAX_TV_NSEC) * MAX_TV_NSEC / scale_options.timer_scale;
+    spec->tv_sec /= scale_options.timer_scale;
+    NOTIFY(2,
+           "T" TIDFMT "  Deflated time by %dx: now %" INT64_FORMAT_STRING
+           ".%.12" INT64_FORMAT_STRING "\n",
+           dr_get_thread_id(drcontext), scale_options.timer_scale, spec->tv_sec,
+           spec->tv_nsec);
+}
+#endif
+
 static void
 inflate_timeval(void *drcontext, struct timeval *val)
 {
-    NOTIFY(2, "T" TIDFMT "  Original time %" SZFC ".%.9" SZFC "\n",
+    NOTIFY(2, "T" TIDFMT "  Original time %" SSZFC ".%.9" SSZFC "\n",
            dr_get_thread_id(drcontext), val->tv_sec, val->tv_usec);
     if (is_timeval_zero(val))
         return;
@@ -133,7 +204,7 @@ inflate_timeval(void *drcontext, struct timeval *val)
     val->tv_sec *= scale_options.timer_scale;
     val->tv_sec += val->tv_usec / MAX_TV_USEC;
     val->tv_usec = val->tv_usec % MAX_TV_USEC;
-    NOTIFY(2, "T" TIDFMT "  Inflated time by %dx: now %" SZFC ".%.9" SZFC "\n",
+    NOTIFY(2, "T" TIDFMT "  Inflated time by %dx: now %" SSZFC ".%.9" SSZFC "\n",
            dr_get_thread_id(drcontext), scale_options.timer_scale, val->tv_sec,
            val->tv_usec);
 }
@@ -146,7 +217,7 @@ deflate_timeval(void *drcontext, struct timeval *val)
     val->tv_usec /= scale_options.timer_scale;
     val->tv_usec += (val->tv_sec % MAX_TV_USEC) * MAX_TV_USEC / scale_options.timer_scale;
     val->tv_sec /= scale_options.timer_scale;
-    NOTIFY(2, "T" TIDFMT "  Deflated time by %dx: now %" SZFC ".%.9" SZFC "\n",
+    NOTIFY(2, "T" TIDFMT "  Deflated time by %dx: now %" SSZFC ".%.9" SSZFC "\n",
            dr_get_thread_id(drcontext), scale_options.timer_scale, val->tv_sec,
            val->tv_usec);
 }
@@ -173,6 +244,10 @@ event_filter_syscall(void *drcontext, int sysnum)
     switch (sysnum) {
     case SYS_timer_settime:
     case SYS_timer_gettime:
+#ifndef X64
+    case SYS_timer_gettime64:
+    case SYS_timer_settime64:
+#endif
     case SYS_setitimer:
     case SYS_getitimer: return true;
     }
@@ -208,10 +283,40 @@ event_pre_syscall(void *drcontext, int sysnum)
         data->app_syscall_param = old_spec;
         break;
     }
+#ifndef X64
+    case SYS_timer_settime64: {
+        int flags = (int)dr_syscall_get_param(drcontext, 1);
+        itimerspec64_t *new_spec = (itimerspec64_t *)dr_syscall_get_param(drcontext, 2);
+        itimerspec64_t *old_spec = (itimerspec64_t *)dr_syscall_get_param(drcontext, 3);
+        NOTIFY(2, "T" TIDFMT " timer_settime flags=%d, old=%p, new=%p\n",
+               dr_get_thread_id(drcontext), flags, new_spec, old_spec);
+        if (TEST(TIMER_ABSTIME, flags)) {
+            /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
+            NOTIFY(0, "Absolute time is not supported\n");
+            return true;
+        }
+        size_t wrote;
+        if (dr_safe_read(new_spec, sizeof(data->itimer_spec64), &data->itimer_spec64,
+                         &wrote) &&
+            wrote == sizeof(data->itimer_spec64)) {
+            inflate_timespec64(drcontext, &data->itimer_spec64.it_interval);
+            inflate_timespec64(drcontext, &data->itimer_spec64.it_value);
+            dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec64);
+        }
+        data->app_syscall_param = old_spec;
+        break;
+    }
+#endif
     case SYS_timer_gettime:
         NOTIFY(2, "T" TIDFMT " timer_gettime\n", dr_get_thread_id(drcontext));
         data->app_syscall_param = (void *)dr_syscall_get_param(drcontext, 1);
         break;
+#ifndef X64
+    case SYS_timer_gettime64:
+        NOTIFY(2, "T" TIDFMT " timer_gettime64\n", dr_get_thread_id(drcontext));
+        data->app_syscall_param = (void *)dr_syscall_get_param(drcontext, 1);
+        break;
+#endif
     case SYS_setitimer: {
         NOTIFY(2, "T" TIDFMT " setitimer\n", dr_get_thread_id(drcontext));
         struct itimerval *new_val =
@@ -258,6 +363,24 @@ event_post_syscall(void *drcontext, int sysnum)
         }
         break;
     }
+#ifndef X64
+    case SYS_timer_settime64:
+    case SYS_timer_gettime64: {
+        size_t wrote;
+        if (dr_safe_read(data->app_syscall_param, sizeof(data->itimer_spec64),
+                         &data->itimer_spec64, &wrote) &&
+            wrote == sizeof(data->itimer_spec64)) {
+            deflate_timespec64(drcontext, &data->itimer_spec64.it_interval);
+            deflate_timespec64(drcontext, &data->itimer_spec64.it_value);
+            if (!dr_safe_write(data->app_syscall_param, sizeof(data->itimer_spec64),
+                               &data->itimer_spec64, &wrote) ||
+                wrote != sizeof(data->itimer_spec64)) {
+                NOTIFY(0, "Failed to modify timer cur value\n");
+            }
+        }
+        break;
+    }
+#endif
     case SYS_setitimer:
     case SYS_getitimer: {
         size_t wrote;
@@ -353,10 +476,11 @@ scale_posix_timers(void *drcontext, bool inflate)
     size_t filebuf_read = 0, filebuf_pos = 0;
     while (dr_get_line(fd, filebuf, BUFFER_SIZE_BYTES(filebuf), &filebuf_read,
                        &filebuf_pos, linebuf, BUFFER_SIZE_BYTES(linebuf))) {
-        NOTIFY(1, "Read line: |%s|\n", linebuf);
+        NOTIFY(2, "Read line: |%s|\n", linebuf);
         int id = -1;
         int found = dr_sscanf(linebuf, "ID: %d", &id);
         if (found == 1 && id >= 0) {
+#ifdef X64
             struct itimerspec spec;
             /* We use dr_invoke_syscall_as_app() because DR needs to intercept these to
              * interact with its multiplexing of app and client itimers (and maybe POSIX
@@ -382,6 +506,29 @@ scale_posix_timers(void *drcontext, bool inflate)
             } else if (res != 0) {
                 NOTIFY(0, "Failed to call timer_gettime for id %d: %d\n", id, res);
             }
+#else
+            itimerspec64_t spec;
+            /* See above comment about dr_invoke_syscall_as_app(). */
+            int res =
+                dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime64, 2, id, &spec);
+            if (res == 0 &&
+                (!is_timespec64_zero(&spec.it_interval) ||
+                 !is_timespec64_zero(&spec.it_value))) {
+                if (inflate) {
+                    inflate_timespec64(drcontext, &spec.it_interval);
+                    inflate_timespec64(drcontext, &spec.it_value);
+                } else {
+                    deflate_timespec64(drcontext, &spec.it_interval);
+                    deflate_timespec64(drcontext, &spec.it_value);
+                }
+                int res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime64, 4, id,
+                                                   0, &spec, NULL);
+                if (res != 0)
+                    NOTIFY(0, "Failed to call timer_settime64 for id %d: %d\n", id, res);
+            } else if (res != 0) {
+                NOTIFY(0, "Failed to call timer_gettime64 for id %d: %d\n", id, res);
+            }
+#endif
         }
     }
     dr_close_file(fd);

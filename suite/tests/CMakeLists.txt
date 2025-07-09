@@ -2974,6 +2974,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild_api(client.drx_time_scale-test client-interface/drx_time_scale-test.c
       "" "" OFF ON OFF)
     use_DynamoRIO_extension(client.drx_time_scale-test drx_static)
+    target_link_libraries(client.drx_time_scale-test rt)
   endif ()
 endif (NOT RISCV64)
 
