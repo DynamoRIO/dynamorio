@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025, Inc.  All rights reserved.
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -90,7 +90,7 @@ typedef struct _per_thread_t {
     itimerspec64_t itimer_spec64;
 #endif
     struct itimerval itimer_val;
-    void *app_syscall_param;
+    void *app_read_timer_param;
 } per_thread_t;
 
 /* Globals only written at init time. */
@@ -280,7 +280,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             inflate_timespec(drcontext, &data->itimer_spec.it_value);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec);
         }
-        data->app_syscall_param = old_spec;
+        data->app_read_timer_param = old_spec;
         break;
     }
 #ifndef X64
@@ -303,18 +303,18 @@ event_pre_syscall(void *drcontext, int sysnum)
             inflate_timespec64(drcontext, &data->itimer_spec64.it_value);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec64);
         }
-        data->app_syscall_param = old_spec;
+        data->app_read_timer_param = old_spec;
         break;
     }
 #endif
     case SYS_timer_gettime:
         NOTIFY(2, "T" TIDFMT " timer_gettime\n", dr_get_thread_id(drcontext));
-        data->app_syscall_param = (void *)dr_syscall_get_param(drcontext, 1);
+        data->app_read_timer_param = (void *)dr_syscall_get_param(drcontext, 1);
         break;
 #ifndef X64
     case SYS_timer_gettime64:
         NOTIFY(2, "T" TIDFMT " timer_gettime64\n", dr_get_thread_id(drcontext));
-        data->app_syscall_param = (void *)dr_syscall_get_param(drcontext, 1);
+        data->app_read_timer_param = (void *)dr_syscall_get_param(drcontext, 1);
         break;
 #endif
     case SYS_setitimer: {
@@ -330,12 +330,12 @@ event_pre_syscall(void *drcontext, int sysnum)
             inflate_timeval(drcontext, &data->itimer_val.it_value);
             dr_syscall_set_param(drcontext, 1, (reg_t)&data->itimer_val);
         }
-        data->app_syscall_param = old_val;
+        data->app_read_timer_param = old_val;
         break;
     }
     case SYS_getitimer:
         NOTIFY(2, "T" TIDFMT " getitimer\n", dr_get_thread_id(drcontext));
-        data->app_syscall_param = (void *)dr_syscall_get_param(drcontext, 1);
+        data->app_read_timer_param = (void *)dr_syscall_get_param(drcontext, 1);
         break;
     }
     return true;
@@ -350,13 +350,13 @@ event_post_syscall(void *drcontext, int sysnum)
     case SYS_timer_settime:
     case SYS_timer_gettime: {
         size_t wrote;
-        if (data->app_syscall_param != NULL &&
-            dr_safe_read(data->app_syscall_param, sizeof(data->itimer_spec),
+        if (data->app_read_timer_param != NULL &&
+            dr_safe_read(data->app_read_timer_param, sizeof(data->itimer_spec),
                          &data->itimer_spec, &wrote) &&
             wrote == sizeof(data->itimer_spec)) {
             deflate_timespec(drcontext, &data->itimer_spec.it_interval);
             deflate_timespec(drcontext, &data->itimer_spec.it_value);
-            if (!dr_safe_write(data->app_syscall_param, sizeof(data->itimer_spec),
+            if (!dr_safe_write(data->app_read_timer_param, sizeof(data->itimer_spec),
                                &data->itimer_spec, &wrote) ||
                 wrote != sizeof(data->itimer_spec)) {
                 NOTIFY(0, "Failed to modify timer cur value\n");
@@ -368,13 +368,13 @@ event_post_syscall(void *drcontext, int sysnum)
     case SYS_timer_settime64:
     case SYS_timer_gettime64: {
         size_t wrote;
-        if (data->app_syscall_param != NULL &&
-            dr_safe_read(data->app_syscall_param, sizeof(data->itimer_spec64),
+        if (data->app_read_timer_param != NULL &&
+            dr_safe_read(data->app_read_timer_param, sizeof(data->itimer_spec64),
                          &data->itimer_spec64, &wrote) &&
             wrote == sizeof(data->itimer_spec64)) {
             deflate_timespec64(drcontext, &data->itimer_spec64.it_interval);
             deflate_timespec64(drcontext, &data->itimer_spec64.it_value);
-            if (!dr_safe_write(data->app_syscall_param, sizeof(data->itimer_spec64),
+            if (!dr_safe_write(data->app_read_timer_param, sizeof(data->itimer_spec64),
                                &data->itimer_spec64, &wrote) ||
                 wrote != sizeof(data->itimer_spec64)) {
                 NOTIFY(0, "Failed to modify timer cur value\n");
@@ -386,13 +386,13 @@ event_post_syscall(void *drcontext, int sysnum)
     case SYS_setitimer:
     case SYS_getitimer: {
         size_t wrote;
-        if (data->app_syscall_param != NULL &&
-            dr_safe_read(data->app_syscall_param, sizeof(data->itimer_val),
+        if (data->app_read_timer_param != NULL &&
+            dr_safe_read(data->app_read_timer_param, sizeof(data->itimer_val),
                          &data->itimer_val, &wrote) &&
             wrote == sizeof(data->itimer_val)) {
             deflate_timeval(drcontext, &data->itimer_val.it_interval);
             deflate_timeval(drcontext, &data->itimer_val.it_value);
-            if (!dr_safe_write(data->app_syscall_param, sizeof(data->itimer_val),
+            if (!dr_safe_write(data->app_read_timer_param, sizeof(data->itimer_val),
                                &data->itimer_val, &wrote) ||
                 wrote != sizeof(data->itimer_val)) {
                 NOTIFY(0, "Failed to modify timer cur value\n");
@@ -541,7 +541,7 @@ DR_EXPORT
 bool
 drx_register_time_scaling(drx_time_scale_t *options)
 {
-    /* Only the first call succeeds. */
+    /* As documented, can only be called once (before unregister is called). */
     int count = dr_atomic_add32_return_sum(&init_count, 1);
     if (count != 1) {
         dr_atomic_add32_return_sum(&init_count, -1);
@@ -550,8 +550,12 @@ drx_register_time_scaling(drx_time_scale_t *options)
 
     if (options->struct_size != sizeof(drx_time_scale_t))
         return false;
-    if (options->timer_scale < 0 || options->timeout_scale < 0)
+    if (options->timer_scale == 0 || options->timeout_scale == 0)
         return false;
+    if (options->timer_scale == 1 && options->timeout_scale == 1) {
+        /* Nothing to do. */
+        return true;
+    }
 
     scale_options = *options;
 
@@ -565,8 +569,8 @@ drx_register_time_scaling(drx_time_scale_t *options)
                                          DRMGR_PRIORITY_NAME_DRX_SCALE_PRE_SYS, NULL,
                                          NULL, DRMGR_PRIORITY_PRE_SYS_DRX_SCALE };
     drmgr_priority_t postsys_priority = { sizeof(init_priority),
-                                          DRMGR_PRIORITY_NAME_DRX_SCALE_PRE_SYS, NULL,
-                                          NULL, DRMGR_PRIORITY_PRE_SYS_DRX_SCALE };
+                                          DRMGR_PRIORITY_NAME_DRX_SCALE_POST_SYS, NULL,
+                                          NULL, DRMGR_PRIORITY_POST_SYS_DRX_SCALE };
 
     dr_register_filter_syscall_event(event_filter_syscall);
 
