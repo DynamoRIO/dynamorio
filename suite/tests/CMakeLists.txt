@@ -6771,6 +6771,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
   set_labels_on_known_tests(AMD_X32_DENYLIST
     code_api|api.detach
     code_api|api.startstop
+    code_api|api.static_signal
     code_api|client.flush
     code_api|client.strace
     code_api|linux.eintr
@@ -6781,6 +6782,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcacheoff.burst_futex
     code_api|tool.drcacheoff.burst_replaceall
     code_api|tool.drcacheoff.burst_syscall_inject
+    code_api|tool.drcacheoff.burst_threadfilter
     code_api|tool.drcacheoff.burst_threads_counts
     code_api|tool.drcacheoff.func_view_noret
     code_api|tool.drcacheoff.gencode
