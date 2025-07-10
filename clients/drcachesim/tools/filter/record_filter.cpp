@@ -428,7 +428,6 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     }
     per_shard->record_filter_info.last_encoding = &per_shard->last_encoding;
     per_shard->record_filter_info.dcontext = dcontext_.dcontext;
-    per_shard->record_filter_info.last_window_id = &per_shard->last_window_id;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
@@ -521,12 +520,6 @@ record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entr
                            { static_cast<addr_t>(-1) } });
         header.push_back(
             { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { static_cast<addr_t>(-1) } });
-        // If we are removing records from a window-trace add the window id to the header.
-        if (shard->last_window_id != static_cast<addr_t>(-1)) {
-            header.push_back({ TRACE_TYPE_MARKER,
-                               TRACE_MARKER_TYPE_WINDOW_ID,
-                               { shard->last_window_id } });
-        }
         if (!write_trace_entries(shard, header)) {
             shard->error += "Failed to write synthetic header";
             return false;

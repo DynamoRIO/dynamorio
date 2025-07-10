@@ -1059,6 +1059,162 @@ test_trim_filter()
         }
     }
     {
+        // Test trimming of a multi windows trace.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            // Chunk 1.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
+              true,
+              { true } },
+            // Removal before timestamp starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 40 } },
+              true,
+              { false } },
+            // This is a window-trace. Even though we already started trimming, we always
+            // emit the first window marker.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { 0 } }, true, { true } },
+            // Error: we cannot have multiple windows in the same trace when trimming.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { 1 } },
+              true,
+              { false } },
+            // Removal before timestamp ends here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            // Removal after timestamp starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
+              true,
+              { false } },
+            // Chunk 2.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            // Removal after timestamp ends here.
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            // These footer records should remain.
+            { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(50, 150));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a trim_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        // The trimming should fail, as the trace contain multiple windows.
+        if (process_entries_and_check_result(record_filter.get(), entries, 0))
+            return false;
+    }
+    {
+        // Test trimming of a single window trace.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            // Chunk 1.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
+              true,
+              { true } },
+            // Removal before timestamp starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 40 } },
+              true,
+              { false } },
+            // This is a window-trace. Even though we already started trimming, we always
+            // emit the first window marker.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { 0 } }, true, { true } },
+            // We won't emit following window markers if we are in a removed region of
+            // the trace.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { 0 } },
+              true,
+              { false } },
+            // Removal before timestamp ends here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } },
+              true,
+              { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            // Removal after timestamp starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
+              true,
+              { false } },
+            // Chunk 2.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL, { 12 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 200 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+            // Removal after timestamp ends here.
+            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            // These footer records should remain.
+            { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(50, 150));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a trim_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+            return false;
+    }
+    {
         // Test removing from mid-way in the 1st chunk to the very end.
         std::vector<test_case_t> entries = {
             // Header.
