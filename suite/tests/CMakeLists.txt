@@ -6780,7 +6780,6 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|api.startstop
     code_api|api.static_signal
     code_api|client.flush
-    code_api|client.strace
     code_api|linux.eintr
     code_api|linux.eintr-noinline
     code_api|tool.basic_counts
