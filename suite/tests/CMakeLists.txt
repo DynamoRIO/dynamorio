@@ -6768,5 +6768,38 @@ endmacro()
 # LINUX_XARCH_TEST is defined only for x86-64 linux.xarch test which don't
 # have the following tests, so we need to skip set_tests_properties.
 if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
-  # TODO i#6417: Re-label those that still fail after the i#7534 fix.
+  set_labels_on_known_tests(AMD_X32_DENYLIST
+    code_api|api.detach
+    code_api|api.startstop
+    code_api|client.flush
+    code_api|client.strace
+    code_api|linux.eintr
+    code_api|linux.eintr-noinline
+    code_api|tool.basic_counts
+    code_api|tool.drcacheoff.altbindir
+    code_api|tool.drcacheoff.basic_counts
+    code_api|tool.drcacheoff.burst_futex
+    code_api|tool.drcacheoff.burst_replaceall
+    code_api|tool.drcacheoff.burst_syscall_inject
+    code_api|tool.drcacheoff.burst_threads_counts
+    code_api|tool.drcacheoff.func_view_noret
+    code_api|tool.drcacheoff.gencode
+    code_api|tool.drcacheoff.gencode_filtered
+    code_api|tool.drcacheoff.invariant_checker_pthreads
+    code_api|tool.drcacheoff.legacy
+    code_api|tool.drcacheoff.max-global
+    code_api|tool.drcacheoff.sysnums
+    code_api|tool.drcacheoff.warmup-pthreads-max-refs
+    code_api|tool.drcacheoff.warmup-pthreads-max-trace-size
+    code_api|tool.drcachesim.coherence
+    code_api|tool.drcachesim.delay-global
+    code_api|tool.drcachesim.miss_analyzer
+    code_api|tool.drcachesim.phys-threads_SUDO
+    code_api|tool.drcachesim.scattergather-x86
+    code_api|tool.drcachesim.threads
+    code_api|tool.drcachesim.threads-with-config-file
+    code_api|tool.drcachesim.TLB-threads
+    code_api|tool.drcov.eintr
+    code_api|tool.histogram.offline
+    code_api|tool.record_filter_bycore_multi)
 endif ()
