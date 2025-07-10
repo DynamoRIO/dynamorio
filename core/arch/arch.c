@@ -2992,7 +2992,10 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
 
     /* On a call on a method change the method is not yet finalized so we always try
      */
-    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER && !method_changing)
+    if (get_syscall_method() !=
+            SYSCALL_METHOD_SYSENTER IF_X86_32(&&get_syscall_method() !=
+                                              SYSCALL_METHOD_SYSCALL) &&
+        !method_changing)
         return false;
 
     ASSERT(DATASEC_WRITABLE(DATASEC_RARELY_PROT));
@@ -3129,8 +3132,8 @@ unhook_vsyscall(void)
     bool res;
     uint len = VSYS_DISPLACED_LEN;
     if (get_syscall_method() !=
-        SYSCALL_METHOD_SYSENTER IF_NOT_X64(&&get_syscall_method() !=
-                                           SYSCALL_METHOD_SYSCALL))
+        SYSCALL_METHOD_SYSENTER IF_X86_32(&&get_syscall_method() !=
+                                          SYSCALL_METHOD_SYSCALL))
         return false;
     ASSERT(!sysenter_hook_failed);
     ASSERT(vsyscall_sysenter_return_pc != NULL);
