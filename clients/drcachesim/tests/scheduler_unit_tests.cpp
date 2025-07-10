@@ -6808,7 +6808,7 @@ test_kernel_switch_sequences()
         assert(stream0->get_instruction_ordinal() == 3);
         assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
         // The synthetic TRACE_TYPE_THREAD and TRACE_TYPE_PID for the new
-        // input before the injected context switch trace. This allow identifying
+        // input before the injected context switch trace. This allows identifying
         // the injected context switch sequence records with the new input's
         // tid/pid, like what the stream APIs do.
         check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
