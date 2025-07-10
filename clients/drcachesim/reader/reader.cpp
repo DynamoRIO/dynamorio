@@ -199,6 +199,9 @@ reader_t::process_input_entry()
             if (type_is_instr_branch(cur_ref_.instr.type) &&
                 !type_is_instr_direct_branch(cur_ref_.instr.type)) {
                 cur_ref_.instr.indirect_branch_target = last_branch_target_;
+                // Reset the last branch target so that we don't accidentally
+                // reuse it.
+                last_branch_target_ = 0;
             } else {
                 cur_ref_.instr.indirect_branch_target = 0;
             }
