@@ -563,8 +563,9 @@ drx_register_time_scaling(drx_time_scale_t *options)
     if (options->timer_scale == 0 || options->timeout_scale == 0)
         return false; /* Invalid scale. */
     if (options->timer_scale == 1 && options->timeout_scale == 1) {
-        /* Nothing to do. */
-        return true;
+        /* No real scaling, but we continue to allow testing the full infrasturcture
+         * without actual scaling.
+         */
     }
     if (options->timeout_scale > 1)
         return false; /* Not supported yet. */
