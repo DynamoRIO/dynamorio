@@ -581,8 +581,8 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
 
     // In some configurations (e.g., when using -skip_instrs), we may not see the
-    // TRACE_MARKER_TYPE_FILETYPE marker at all, so we get it from the
-    // memtrace_stream_t when we get to the instrs.
+    // TRACE_MARKER_TYPE_FILETYPE and TRACE_MARKER_TYPE_VERSION markers at all, so we get
+    // them from the memtrace_stream_t when we get to the instrs.
     if (!init_from_stream()) {
         return false;
     }

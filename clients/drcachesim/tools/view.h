@@ -115,9 +115,9 @@ protected:
     virtual bool
     init_decode_cache();
 
-    // Initializes various other state based on the filetype. If the
-    // TRACE_MARKER_TYPE_FILETYPE was not seen, the filetype is acquired from the
-    // memtrace_stream_t object instead.
+    // Initializes various other state based on the filetype and trace version. If the
+    // TRACE_MARKER_TYPE_FILETYPE or TRACE_MARKER_TYPE_VERSION were not seen, the filetype
+    // and trace version are acquired from the memtrace_stream_t object instead.
     bool
     init_from_stream();
 
