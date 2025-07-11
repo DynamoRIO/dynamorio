@@ -1136,20 +1136,19 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        // The trimming should fail, as the trace contains multiple windows with different
-        // IDs.
         std::string error_string =
             process_entries_and_check_result(record_filter.get(), entries, 0);
-        if (!error_string.empty()) {
-            std::ostringstream expected_error_string;
-            expected_error_string << "Filtering failed on entry 9: Filter error: "
-                                     "Trimming a trace with multiple windows is not "
-                                     "supported. Previous window_id = "
-                                  << WINDOW_ID_0
-                                  << ", current window_id = " << WINDOW_ID_1;
-            if (error_string != expected_error_string.str())
-                return false;
-        }
+        // The trimming should fail, as the trace contains multiple windows with different
+        // IDs.
+        if (error_string.empty())
+            return false;
+        std::ostringstream expected_error_string;
+        expected_error_string << "Filtering failed on entry 9: Filter error: "
+                                 "Trimming a trace with multiple windows is not "
+                                 "supported. Previous window_id = "
+                              << WINDOW_ID_0 << ", current window_id = " << WINDOW_ID_1;
+        if (error_string != expected_error_string.str())
+            return false;
     }
     {
         // Test trimming of a single window trace.
