@@ -63,11 +63,14 @@ enum {
 static const int ITIMER_TYPES[] = { ITIMER_REAL, ITIMER_VIRTUAL, ITIMER_PROF };
 static const int SIGNAL_TYPES[] = { SIGALRM, SIGVTALRM, SIGPROF };
 
-static const int SCALE = 10;
+const int INTERVAL_MICROSEC = 10000;
+const int INTERVAL_NANOSEC = 10000000;
+
+static const uint SCALE = 10;
 /* Ideally we'd see a 10x difference but we have to allow for wide variations
  * in test machine load to avoid flakiness.
  */
-static const int MIN_PASSING_SCALE = 2;
+static const uint MIN_PASSING_SCALE = 2;
 /* This test is single-threaded so we do not use atomics. */
 static volatile int count[TIMER_TYPE_COUNT];
 static timer_t posix_real_id;
@@ -139,19 +142,44 @@ enable_timers(void)
     int res;
     struct itimerval val;
     val.it_interval.tv_sec = 0;
-    val.it_interval.tv_usec = 10000;
+    val.it_interval.tv_usec = INTERVAL_MICROSEC;
     val.it_value.tv_sec = 0;
-    val.it_value.tv_usec = 10000;
+    val.it_value.tv_usec = INTERVAL_MICROSEC;
     for (int i = 0; i < sizeof(ITIMER_TYPES) / sizeof(ITIMER_TYPES[0]); ++i) {
         intercept_signal(SIGNAL_TYPES[i], signal_handler, false);
-        res = setitimer(ITIMER_TYPES[i], &val, NULL);
-        assert(res == 0);
+        bool called_in_asm = false;
+#ifdef X86_64
+        if (i == 0) {
+            /* We check one with asm to ensure param registers are restored;
+             * just one to ensure any libc wrapping is also covered in the others.
+             */
+            called_in_asm = true;
+            struct itimerval *postsys_val = NULL, *val_ptr = &val;
+            __asm__ __volatile__("mov %[itype], %%rdi\n\t"
+                                 "mov %[val_ptr], %%rsi\n\t"
+                                 "mov $0, %%edx\n\t"
+                                 "mov %[sysnum], %%eax\n\t"
+                                 "syscall\n\t"
+                                 "mov %%eax, %[result]\n\t"
+                                 "mov %%rsi, %[param_val]\n\t"
+                                 : [result] "=m"(res), [param_val] "=m"(postsys_val)
+                                 : [itype] "m"(ITIMER_TYPES[i]), [val_ptr] "m"(val_ptr),
+                                   [sysnum] "i"(SYS_setitimer)
+                                 : "rdi", "rsi", "rdx", "memory");
+            assert(res == 0);
+            assert(postsys_val == &val);
+        }
+#endif
+        if (!called_in_asm) {
+            res = setitimer(ITIMER_TYPES[i], &val, NULL);
+            assert(res == 0);
+        }
     }
     struct itimerspec spec;
     spec.it_interval.tv_sec = 0;
-    spec.it_interval.tv_nsec = 10000000;
+    spec.it_interval.tv_nsec = INTERVAL_NANOSEC;
     spec.it_value.tv_sec = 0;
-    spec.it_value.tv_nsec = 10000000;
+    spec.it_value.tv_nsec = INTERVAL_NANOSEC;
     res = timer_settime(posix_real_id, 0, &spec, NULL);
     assert(res == 0);
     res = timer_settime(posix_cpu_id, 0, &spec, NULL);
@@ -164,9 +192,27 @@ disable_timers(void)
     int res;
     struct itimerval val = {};
     for (int i = 0; i < sizeof(ITIMER_TYPES) / sizeof(ITIMER_TYPES[0]); ++i) {
+        /* Ensure the value is what we set. */
+        struct itimerval read_val = {};
+        res = getitimer(ITIMER_TYPES[i], &read_val);
+        assert(res == 0);
+        assert(read_val.it_interval.tv_sec == 0);
+        assert(read_val.it_interval.tv_usec == INTERVAL_MICROSEC);
+        /* Now disable. */
         res = setitimer(ITIMER_TYPES[i], &val, NULL);
         assert(res == 0);
     }
+    /* Ensure the values are what we set. */
+    struct itimerspec read_spec = {};
+    res = timer_gettime(posix_real_id, &read_spec);
+    assert(res == 0);
+    assert(read_spec.it_interval.tv_sec == 0);
+    assert(read_spec.it_interval.tv_nsec == INTERVAL_NANOSEC);
+    res = timer_gettime(posix_cpu_id, &read_spec);
+    assert(res == 0);
+    assert(read_spec.it_interval.tv_sec == 0);
+    assert(read_spec.it_interval.tv_nsec == INTERVAL_NANOSEC);
+    /* Now disable. */
     struct itimerspec spec = {};
     res = timer_settime(posix_real_id, 0, &spec, NULL);
     assert(res == 0);
@@ -186,7 +232,11 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_fprintf(STDERR, "in dr_client_main\n");
+    uint timer_scale = 1;
+    if (argc >= 2)
+        timer_scale = atoi(argv[1]);
+    dr_fprintf(STDERR, "in dr_client_main scale=%u\n", timer_scale);
+
     dr_register_exit_event(event_exit);
     bool ok = drx_init();
     assert(ok);
@@ -194,7 +244,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drx_time_scale_t scale = {
         sizeof(scale),
     };
-    scale.timer_scale = SCALE;
+    scale.timer_scale = timer_scale;
+    scale.timeout_scale = 1;
     ok = drx_register_time_scaling(&scale);
     assert(ok);
 }
@@ -202,26 +253,37 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 int
 main(int argc, char *argv[])
 {
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;'"))
-        print("failed to set env var!\n");
-
     /* Setup. */
     create_posix_timers();
 
-    /* First, get the expected counts with no scaling. */
+    /* First, get the expected counts under DR with no scaling. */
     VPRINT("\nGetting original timer counts\n");
+    /* TODO i#7542: Once we resolve the no-client issue, change this reference
+     * run to be plain DR with no client. For now we use a client with a scale
+     * of 1 to avoid the i#7542 signal issue.
+     */
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;1'"))
+        print("failed to set env var!\n");
     int orig_count[TIMER_TYPE_COUNT];
+    dr_app_setup_and_start();
     enable_timers();
     /* We can't just sleep as that will only trigger ITIMER_REAL: the others
      * require actual cpu time.
      */
     do_some_work();
     disable_timers();
+    dr_app_stop_and_cleanup();
     for (int i = 0; i < TIMER_TYPE_COUNT; ++i)
         orig_count[i] = count[i];
 
-    /* Test pre-existing timers. */
-    VPRINT("\nTesting pre-existing timers with scale %d\n", SCALE);
+    /* Test scaling pre-existing timers. */
+    VPRINT("\nTesting pre-existing timers with scale %u\n", SCALE);
+    char buf[64];
+    dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "-stderr_mask 0xc -client_lib ';;%u'",
+                SCALE);
+    NULL_TERMINATE_BUFFER(buf);
+    if (!my_setenv("DYNAMORIO_OPTIONS", buf))
+        print("failed to set env var!\n");
     enable_timers();
     dr_app_setup_and_start();
     do_some_work();
@@ -232,13 +294,25 @@ main(int argc, char *argv[])
         assert(count[i] * MIN_PASSING_SCALE < orig_count[i]);
     }
 
-    /* Test timers added after attach. */
-    VPRINT("\nTesting later-added timers with scale %d\n", SCALE);
+    /* Test scaling timers added after attach. */
+    VPRINT("\nTesting later-added timers with scale %u\n", SCALE);
     dr_app_setup_and_start();
     enable_timers();
     do_some_work();
     disable_timers();
     dr_app_stop_and_cleanup();
+    for (int i = 0; i < TIMER_TYPE_COUNT; ++i) {
+        print("Counter #%d: orig=%d scaled=%d\n", i, orig_count[i], count[i]);
+        assert(count[i] * MIN_PASSING_SCALE < orig_count[i]);
+    }
+
+    /* Test scaling timers that start before and end after DR. */
+    VPRINT("\nTesting spanning timers with scale %u\n", SCALE);
+    enable_timers();
+    dr_app_setup_and_start();
+    do_some_work();
+    dr_app_stop_and_cleanup();
+    disable_timers();
     for (int i = 0; i < TIMER_TYPE_COUNT; ++i) {
         print("Counter #%d: orig=%d scaled=%d\n", i, orig_count[i], count[i]);
         assert(count[i] * MIN_PASSING_SCALE < orig_count[i]);

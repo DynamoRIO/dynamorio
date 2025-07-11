@@ -560,13 +560,17 @@ typedef struct _drx_time_scale_t {
      * Only positive values are supported.
      * Each timer's duration (both initial and periodic) is multiplied by this value.
      */
-    int timer_scale;
+    uint timer_scale;
     /**
      * Specifies how to scale timeouts passed by the application to system calls.
+     * This is separated from timers to provide more granular control over these
+     * two conceptually different types of delayed actions with often different
+     * application uses and impacts from modifications.
      * Only positive values are supported.
      * Each timeout is multiplied by this value.
+     * \note This is not yet supported; support is forthcoming.
      */
-    int timeout_scale;
+    uint timeout_scale;
 } drx_time_scale_t;
 
 /**
@@ -576,13 +580,13 @@ typedef struct _drx_time_scale_t {
  * proper instrumentation pass ordering.
  */
 enum {
-    /** Priority of drx time scaling thread init event. */
+    /** Priority of drx time scaling thread init event: before client. */
     DRMGR_PRIORITY_THREAD_INIT_DRX_SCALE = -7500,
-    /** Priority of drx time scaling thread exit event. */
+    /** Priority of drx time scaling thread exit event: before client. */
     DRMGR_PRIORITY_THREAD_EXIT_DRX_SCALE = -7500,
-    /** Priority of drx time scaling pre-syscall event. */
+    /** Priority of drx time scaling pre-syscall event: before client. */
     DRMGR_PRIORITY_PRE_SYS_DRX_SCALE = -7500,
-    /** Priority of drx time post-syscall event. */
+    /** Priority of drx time post-syscall event: before client. */
     DRMGR_PRIORITY_POST_SYS_DRX_SCALE = -7500,
 };
 
