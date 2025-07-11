@@ -52,6 +52,7 @@
 #include <inttypes.h>
 #include <fstream>
 #include <set>
+#include <sstream>
 #include <vector>
 
 namespace dynamorio {
@@ -202,25 +203,28 @@ get_basic_counts(const std::string &trace_dir)
     return counts;
 }
 
-static void
-print_entry(trace_entry_t entry)
+static std::string
+entry_as_string(trace_entry_t entry)
 {
-    fprintf(stderr, "%s:%d:%" PRIxPTR, trace_type_names[entry.type], entry.size,
-            entry.addr);
+    std::ostringstream entry_string;
+    entry_string << trace_type_names[entry.type] << ":" << entry.size << ":" << std::hex
+                 << entry.addr << std::dec;
+    return entry_string.str();
 }
 
-bool
+static std::string
 process_entries_and_check_result(test_record_filter_t *record_filter,
                                  const std::vector<test_case_t> &entries, int index)
 {
+    std::ostringstream error_string;
     record_filter->initialize_stream(nullptr);
     auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
     void *shard_data =
         record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
     if (!*record_filter) {
-        fprintf(stderr, "Filtering init failed: %s\n",
-                record_filter->get_error_string().c_str());
-        return false;
+        error_string << "Filtering init failed: " << record_filter->get_error_string();
+        fprintf(stderr, "%s\n", error_string.str().c_str());
+        return error_string.str();
     }
     // Process each trace entry.
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
@@ -230,18 +234,21 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
             stream->set_last_timestamp(entries[i].entry.addr);
         if (entries[i].input &&
             !record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
-            fprintf(stderr, "Filtering failed on entry %d: %s\n", i,
-                    record_filter->parallel_shard_error(shard_data).c_str());
-            return false;
+            error_string << "Filtering failed on entry " << i << ": "
+                         << record_filter->parallel_shard_error(shard_data);
+            fprintf(stderr, "%s\n", error_string.str().c_str());
+            return error_string.str();
         }
     }
     if (!record_filter->parallel_shard_exit(shard_data) || !*record_filter) {
-        fprintf(stderr, "Filtering exit failed\n");
-        return false;
+        error_string << "Filtering exit failed";
+        fprintf(stderr, "%s\n", error_string.str().c_str());
+        return error_string.str();
     }
     if (!record_filter->print_results()) {
-        fprintf(stderr, "Filtering results failed\n");
-        return false;
+        error_string << "Filtering results failed";
+        fprintf(stderr, "%s\n", error_string.str().c_str());
+        return error_string.str();
     }
 
     std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
@@ -250,15 +257,11 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
         if (!entries[i].input)
             continue;
-        fprintf(stderr, "  %d: ", i);
-        print_entry(entries[i].entry);
-        fprintf(stderr, "\n");
+        fprintf(stderr, "  %d: %s\n", i, entry_as_string(entries[i].entry).c_str());
     }
     fprintf(stderr, "Output:\n");
     for (int i = 0; i < static_cast<int>(filtered.size()); ++i) {
-        fprintf(stderr, "  %d: ", i);
-        print_entry(filtered[i]);
-        fprintf(stderr, "\n");
+        fprintf(stderr, "  %d: %s\n", i, entry_as_string(filtered[i]).c_str());
     }
     // Check filtered output entries.
     int j = 0;
@@ -266,31 +269,28 @@ process_entries_and_check_result(test_record_filter_t *record_filter,
         if (!entries[i].output[index])
             continue;
         if (j >= static_cast<int>(filtered.size())) {
-            fprintf(stderr,
-                    "Too few entries in filtered output (iter=%d). Expected: ", index);
-            print_entry(entries[i].entry);
-            fprintf(stderr, "\n");
-            return false;
+            error_string << "Too few entries in filtered output (iter=" << index
+                         << "). Expected: " << entry_as_string(entries[i].entry);
+            fprintf(stderr, "%s\n", error_string.str().c_str());
+            return error_string.str();
         }
         if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
-            fprintf(stderr,
-                    "Wrong filter result for iter=%d, at pos=%d. Expected: ", index, i);
-            print_entry(entries[i].entry);
-            fprintf(stderr, ", got: ");
-            print_entry(filtered[j]);
-            fprintf(stderr, "\n");
-            return false;
+            error_string << "Wrong filter result for iter=" << index << ", at pos=" << i
+                         << ". Expected: " << entry_as_string(entries[i].entry)
+                         << ", got: " << entry_as_string(filtered[j]);
+            fprintf(stderr, "%s\n", error_string.str().c_str());
+            return error_string.str();
         }
         ++j;
     }
     if (j < static_cast<int>(filtered.size())) {
-        fprintf(stderr, "Got %d extra entries in filtered output (iter=%d). Next one: ",
-                static_cast<int>(filtered.size()) - j, index);
-        print_entry(filtered[j]);
-        fprintf(stderr, "\n");
-        return false;
+        error_string << "Got " << (static_cast<int>(filtered.size()) - j)
+                     << " extra entries in filtered output (iter=" << index
+                     << "). Next one: " << entry_as_string(filtered[j]);
+        fprintf(stderr, "%s\n", error_string.str().c_str());
+        return error_string.str();
     }
-    return true;
+    return "";
 }
 
 /* Test changes in instruction encodings.
@@ -425,7 +425,7 @@ test_encodings2regdeps_filter()
 
     /* Run the test.
      */
-    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
         return false;
 
     fprintf(stderr, "test_encodings2regdeps_filter passed\n");
@@ -594,7 +594,7 @@ test_func_id_filter()
 
     /* Run the test.
      */
-    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
         return false;
 
     fprintf(stderr, "test_func_id_filter passed\n");
@@ -668,7 +668,7 @@ test_modify_marker_value_filter()
     test_record_filter_t record_filter(std::move(filters), 0, /*write_archive=*/true);
 
     // Run the test.
-    if (!process_entries_and_check_result(&record_filter, entries, 0))
+    if (!process_entries_and_check_result(&record_filter, entries, 0).empty())
         return false;
 
     fprintf(stderr, "test_modify_marker_value_filter passed\n");
@@ -833,7 +833,7 @@ test_cache_and_type_filter()
         uint64_t stop_timestamp = k == 0 ? 0 : 0xabcdee;
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), stop_timestamp));
-        if (!process_entries_and_check_result(record_filter.get(), entries, k))
+        if (!process_entries_and_check_result(record_filter.get(), entries, k).empty())
             return false;
     }
     fprintf(stderr, "test_cache_and_type_filter passed\n");
@@ -911,7 +911,7 @@ test_chunk_update()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1028,7 +1028,7 @@ test_chunk_update()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     fprintf(stderr, "test_chunk_update passed\n");
@@ -1043,6 +1043,8 @@ test_trim_filter()
     constexpr addr_t ENCODING_A = 0x4321;
     constexpr addr_t PC_B = 0x5678;
     constexpr addr_t ENCODING_B = 0x8765;
+    constexpr addr_t WINDOW_ID_0 = 0x0;
+    constexpr addr_t WINDOW_ID_1 = 0x1;
     {
         // Test invalid parameters.
         auto filter = std::unique_ptr<record_filter_func_t>(
@@ -1084,9 +1086,11 @@ test_trim_filter()
               { false } },
             // This is a window-trace. Even though we already started trimming, we always
             // emit the first window marker.
-            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { 0 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { WINDOW_ID_0 } },
+              true,
+              { true } },
             // Error: we cannot have multiple windows in the same trace when trimming.
-            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { 1 } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { WINDOW_ID_1 } },
               true,
               { false } },
             // Removal before timestamp ends here.
@@ -1132,9 +1136,20 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        // The trimming should fail, as the trace contain multiple windows.
-        if (process_entries_and_check_result(record_filter.get(), entries, 0))
-            return false;
+        // The trimming should fail, as the trace contains multiple windows with different
+        // IDs.
+        std::string error_string =
+            process_entries_and_check_result(record_filter.get(), entries, 0);
+        if (!error_string.empty()) {
+            std::ostringstream expected_error_string;
+            expected_error_string << "Filtering failed on entry 9: Filter error: "
+                                     "Trimming a trace with multiple windows is not "
+                                     "supported. Previous window_id = "
+                                  << WINDOW_ID_0
+                                  << ", current window_id = " << WINDOW_ID_1;
+            if (error_string != expected_error_string.str())
+                return false;
+        }
     }
     {
         // Test trimming of a single window trace.
@@ -1162,10 +1177,12 @@ test_trim_filter()
               { false } },
             // This is a window-trace. Even though we already started trimming, we always
             // emit the first window marker.
-            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { 0 } }, true, { true } },
-            // We won't emit following window markers if we are in a removed region of
-            // the trace.
-            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { 0 } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { WINDOW_ID_0 } },
+              true,
+              { true } },
+            // We won't emit following window markers because we are in a removed region
+            // of the trace.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID, { WINDOW_ID_0 } },
               true,
               { false } },
             // Removal before timestamp ends here.
@@ -1211,7 +1228,7 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1275,7 +1292,7 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1381,7 +1398,7 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1432,7 +1449,7 @@ test_trim_filter()
         filters.push_back(std::move(filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     {
@@ -1545,7 +1562,7 @@ test_trim_filter()
         filters.push_back(std::move(type_filter));
         auto record_filter = std::unique_ptr<test_record_filter_t>(
             new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-        if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
             return false;
     }
     fprintf(stderr, "test_trim_filter passed\n");
@@ -1662,7 +1679,7 @@ test_wait_filter()
     std::vector<std::unique_ptr<record_filter_func_t>> filters;
     auto record_filter = std::unique_ptr<test_record_filter_t>(
         new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
-    if (!process_entries_and_check_result(record_filter.get(), entries, 0))
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
         return false;
     fprintf(stderr, "test_wait_filter passed\n");
     return true;
