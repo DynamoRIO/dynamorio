@@ -91,6 +91,7 @@ typedef struct _per_thread_t {
 #endif
     struct itimerval itimer_val;
     void *app_read_timer_param;
+    void *app_set_timer_param;
 } per_thread_t;
 
 /* Globals only written at init time. */
@@ -279,6 +280,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             inflate_timespec(drcontext, &data->itimer_spec.it_interval);
             inflate_timespec(drcontext, &data->itimer_spec.it_value);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec);
+            data->app_set_timer_param = new_spec;
         }
         data->app_read_timer_param = old_spec;
         break;
@@ -302,6 +304,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             inflate_timespec64(drcontext, &data->itimer_spec64.it_interval);
             inflate_timespec64(drcontext, &data->itimer_spec64.it_value);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec64);
+            data->app_set_timer_param = new_spec;
         }
         data->app_read_timer_param = old_spec;
         break;
@@ -329,6 +332,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             inflate_timeval(drcontext, &data->itimer_val.it_interval);
             inflate_timeval(drcontext, &data->itimer_val.it_value);
             dr_syscall_set_param(drcontext, 1, (reg_t)&data->itimer_val);
+            data->app_set_timer_param = new_val;
         }
         data->app_read_timer_param = old_val;
         break;
@@ -348,6 +352,8 @@ event_post_syscall(void *drcontext, int sysnum)
     /* We need to pretend the actual value is the original un-inflated value. */
     switch (sysnum) {
     case SYS_timer_settime:
+        dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
+        /* Deliberate fallthrough. */
     case SYS_timer_gettime: {
         size_t wrote;
         if (data->app_read_timer_param != NULL &&
@@ -366,6 +372,8 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 #ifndef X64
     case SYS_timer_settime64:
+        dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
+        /* Deliberate fallthrough. */
     case SYS_timer_gettime64: {
         size_t wrote;
         if (data->app_read_timer_param != NULL &&
@@ -384,6 +392,8 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 #endif
     case SYS_setitimer:
+        dr_syscall_set_param(drcontext, 1, (reg_t)data->app_set_timer_param);
+        /* Deliberate fallthrough. */
     case SYS_getitimer: {
         size_t wrote;
         if (data->app_read_timer_param != NULL &&
@@ -551,11 +561,13 @@ drx_register_time_scaling(drx_time_scale_t *options)
     if (options->struct_size != sizeof(drx_time_scale_t))
         return false;
     if (options->timer_scale == 0 || options->timeout_scale == 0)
-        return false;
+        return false; /* Invalid scale. */
     if (options->timer_scale == 1 && options->timeout_scale == 1) {
         /* Nothing to do. */
         return true;
     }
+    if (options->timeout_scale > 1)
+        return false; /* Not supported yet. */
 
     scale_options = *options;
 
@@ -585,6 +597,15 @@ drx_register_time_scaling(drx_time_scale_t *options)
         return false;
 
     void *drcontext = dr_get_current_drcontext();
+    /* XXX i#7504: For dynamic attach, at process init time other threads are not
+     * yet taken over and so our timer sweep here can be inaccurate with the
+     * gap between now and taking over other threads.
+     * If we move this to the post-attach event, though, we need to record
+     * what we inflated so we don't double-inflate a syscall-inflated timer
+     * seen in the gap before we get to the post-attach event.
+     * It would be nicer if DR suspended all the other threads prior to
+     * process init here, when attaching.
+     */
     scale_itimers(drcontext, /*inflate=*/true);
     scale_posix_timers(drcontext, /*inflate=*/true);
 

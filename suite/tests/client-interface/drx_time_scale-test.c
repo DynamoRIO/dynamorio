@@ -139,13 +139,47 @@ enable_timers(void)
     int res;
     struct itimerval val;
     val.it_interval.tv_sec = 0;
-    val.it_interval.tv_usec = 10000;
+    const int INTERVAL_MICROSEC = 10000;
+    val.it_interval.tv_usec = INTERVAL_MICROSEC;
     val.it_value.tv_sec = 0;
-    val.it_value.tv_usec = 10000;
+    val.it_value.tv_usec = INTERVAL_MICROSEC;
     for (int i = 0; i < sizeof(ITIMER_TYPES) / sizeof(ITIMER_TYPES[0]); ++i) {
         intercept_signal(SIGNAL_TYPES[i], signal_handler, false);
-        res = setitimer(ITIMER_TYPES[i], &val, NULL);
+        bool called_in_asm = false;
+#ifdef X86_64
+        if (i == 0) {
+            /* We check one with asm to ensure param registers are restored;
+             * just one to ensure any libc wrapping is also covered in the others.
+             */
+            called_in_asm = true;
+            struct itimerval *postsys_val = NULL, *val_ptr = &val;
+            __asm__ __volatile__("mov %[itype], %%rdi\n\t"
+                                 "mov %[val_ptr], %%rsi\n\t"
+                                 "mov $0, %%edx\n\t"
+                                 "mov %[sysnum], %%eax\n\t"
+                                 "syscall\n\t"
+                                 "mov %%eax, %[result]\n\t"
+                                 "mov %%rsi, %[param_val]\n\t"
+                                 : [result] "=m"(res), [param_val] "=m"(postsys_val)
+                                 : [itype] "m"(ITIMER_TYPES[i]), [val_ptr] "m"(val_ptr),
+                                   [sysnum] "i"(SYS_setitimer)
+                                 : "rdi", "rsi", "rdx", "memory");
+            assert(res == 0);
+            assert(postsys_val == &val);
+        }
+#endif
+        if (!called_in_asm) {
+            res = setitimer(ITIMER_TYPES[i], &val, NULL);
+            assert(res == 0);
+        }
+    }
+    /* Test querying. */
+    for (int i = 0; i < sizeof(ITIMER_TYPES) / sizeof(ITIMER_TYPES[0]); ++i) {
+        struct itimerval read_val = {};
+        res = getitimer(ITIMER_TYPES[i], &read_val);
         assert(res == 0);
+        assert(read_val.it_interval.tv_sec == 0);
+        assert(read_val.it_interval.tv_usec == INTERVAL_MICROSEC);
     }
     struct itimerspec spec;
     spec.it_interval.tv_sec = 0;
@@ -195,6 +229,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         sizeof(scale),
     };
     scale.timer_scale = SCALE;
+    scale.timeout_scale = 1;
     ok = drx_register_time_scaling(&scale);
     assert(ok);
 }
