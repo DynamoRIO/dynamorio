@@ -4607,6 +4607,9 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.view_runsve 1)
       endif ()
 
+      torunonly_drcacheoff(view-skip-instrs ${ci_shared_app} ""
+        "@-tool@view@-sim_refs@16384@-skip_instrs@1" "")
+
       set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
       torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
         "@-tool@func_view" "only_5")

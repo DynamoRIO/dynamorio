@@ -1,0 +1,8 @@
+Hello, world!
+Output format:
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
+------------------------------------------------------------
+.*ret \(target .*
+.*
+View tool results:
+    *[0-9]* : total instructions

@@ -31,23 +31,23 @@
  */
 
 #ifndef _VIEW_H_
-#define _VIEW_H_ 1
+#    define _VIEW_H_ 1
 
-#include <stdint.h>
+#    include <stdint.h>
 
-#include <iomanip>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
+#    include <iomanip>
+#    include <iostream>
+#    include <memory>
+#    include <string>
+#    include <unordered_map>
+#    include <unordered_set>
 
-#include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
-#include "analysis_tool.h"
-#include "decode_cache.h"
-#include "memref.h"
-#include "memtrace_stream.h"
-#include "raw2trace.h"
+#    include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
+#    include "analysis_tool.h"
+#    include "decode_cache.h"
+#    include "memref.h"
+#    include "memtrace_stream.h"
+#    include "raw2trace.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -119,7 +119,7 @@ protected:
     // TRACE_MARKER_TYPE_FILETYPE was not seen, the filetype is acquired from the
     // memtrace_stream_t object instead.
     bool
-    init_from_filetype();
+    init_from_stream();
 
     inline void
     print_header()
@@ -178,7 +178,7 @@ protected:
     int64_t timestamp_record_ord_ = -1;
     int64_t version_record_ord_ = -1;
     int64_t filetype_record_ord_ = -1;
-    bool init_from_filetype_done_ = false;
+    bool init_from_stream_done_ = false;
     std::unique_ptr<decode_cache_t<disasm_info_t>> decode_cache_ = nullptr;
     memtrace_stream_t *serial_stream_ = nullptr;
 
