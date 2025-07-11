@@ -1130,9 +1130,13 @@ dr_syscall_get_param(void *drcontext, int param_num);
 DR_API
 /**
  * Usable only from a pre-syscall (dr_register_pre_syscall_event())
- * event, or from a post-syscall (dr_register_post_syscall_event())
- * event when also using dr_syscall_invoke_another().  Sets the value
- * of system call parameter number \p param_num to \p new_value.
+ * event or a post-syscall (dr_register_post_syscall_event()) event.
+ * From a post-syscall event this will not affect the syscall that
+ * just happened (but it will affect a second syscall when using
+ * dr_syscall_invoke_another().
+ *
+ * Sets the value of system call parameter number \p param_num to \p
+ * new_value.
  *
  * It is up to the caller to ensure that writing this parameter is
  * safe: this routine does not know the number of parameters for each
