@@ -4794,6 +4794,26 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_futex_nodr ON)
         set(tool.drcacheoff.burst_futex_nopost ON)
         torunonly_drcacheoff(burst_futex tool.drcacheoff.burst_futex "" "" "")
+
+        # -scale_timers is Linux-only.
+        # We specify this executable here as it uses tools.h code.
+        set(tool.drcacheoff.scale_time_no_reg_compat) # Avoid REG_ name conflicts.
+        add_api_exe(tool.drcacheoff.scale_time
+          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/scale_time.cpp
+          OFF ON)
+        use_DynamoRIO_static_client(tool.drcacheoff.scale_time drmemtrace_static)
+        use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.scale_time)
+        target_link_libraries(tool.drcacheoff.scale_time drmemtrace_raw2trace
+          drmemtrace_analyzer test_helpers rt)
+        target_include_directories(tool.drcacheoff.scale_time PUBLIC
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/scheduler")
+        set(tool.drcacheoff.scale_time_nodr ON)
+        set(tool.drcacheoff.scale_time_nopost ON)
+        torunonly_drcacheoff(scale_time tool.drcacheoff.scale_time "" "" "")
       endif ()
 
       if (UNIX)

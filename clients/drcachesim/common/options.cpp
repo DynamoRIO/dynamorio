@@ -1248,5 +1248,13 @@ droption_t<bool> op_pt2ir_best_effort(
     "conversion failed, syscall traces found to be empty, and non-fatal decode errors "
     "seen in converted syscall traces).");
 
+droption_t<int> op_scale_timers(
+    DROPTION_SCOPE_ALL, "scale_timers", 0, 0, (std::numeric_limits<int>::max)(),
+    "If non-0, inflate application timer periods by this value",
+    "If non-zero, application timer initial durations and periodic durations are "
+    "inflated by this scale.  This can help preserve relative timing between timer-based "
+    "application work and other application work in the presence of "
+    "significant slowdowns from tracing.  Currently only supported on Linux.");
+
 } // namespace drmemtrace
 } // namespace dynamorio
