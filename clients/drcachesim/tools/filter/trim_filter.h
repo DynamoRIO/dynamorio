@@ -100,13 +100,16 @@ public:
                     return true;
                 } else {
                     // Check that all window markers in the trace have the same ID.
-                    // We currently don't support trimming a trace with multiple windows
-                    // because we cannot make any assumption on the order of timestamp
-                    // and window markers, and we don't have an easy way to insert a
-                    // new window marker right before the region we intend to keep.
-                    // Hence why we always emit the first, original window marker, which
-                    // we know will have the right ID, since all the window IDs have to
-                    // be the same.
+                    // XXX i#7531: We currently don't support trimming a trace with
+                    // multiple windows because we cannot make any assumption on the order
+                    // of timestamp and window markers, and currently record_filter
+                    // doesn't support adding records or preserving a deleted header,
+                    // hence we don't have an easy way to insert a new window marker right
+                    // before the region we intend to keep (which would be the last ID
+                    // seen before the trace region we want to preserve). This is the
+                    // reason why we always emit the first, original window marker, which
+                    // we know will have the right ID, since all the window IDs have to be
+                    // the same.
                     if (per_shard->window_id != entry.addr) {
                         error_string_ = "Trimming a trace with multiple windows is not "
                                         "supported. Previous window_id = " +
