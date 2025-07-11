@@ -4797,7 +4797,7 @@ if (BUILD_CLIENTS)
 
         # -scale_timers is Linux-only.
         # We specify this executable here as it uses tools.h code.
-        set(tool.drcacheoff.scale_time_no_reg_compat)
+        set(tool.drcacheoff.scale_time_no_reg_compat) # Avoid REG_ name conflicts.
         add_api_exe(tool.drcacheoff.scale_time
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/scale_time.cpp
           OFF ON)

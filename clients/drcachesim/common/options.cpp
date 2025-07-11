@@ -1252,9 +1252,9 @@ droption_t<int> op_scale_timers(
     DROPTION_SCOPE_ALL, "scale_timers", 0, 0, (std::numeric_limits<int>::max)(),
     "If non-0, inflate application timer periods by this value",
     "If non-zero, application timer initial durations and periodic durations are "
-    "inflated by this scale.  This can help preserve relative timing among application "
-    "threads in the presence of significant slowdowns from tracing.  "
-    "Currently only has an effect on Linux.");
+    "inflated by this scale.  This can help preserve relative timing between timer-based "
+    "application work and other application work in the presence of "
+    "significant slowdowns from tracing.  Currently only supported on Linux.");
 
 } // namespace drmemtrace
 } // namespace dynamorio

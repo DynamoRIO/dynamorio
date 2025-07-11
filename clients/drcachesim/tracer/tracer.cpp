@@ -490,6 +490,7 @@ instrumentation_init()
             sizeof(scale),
         };
         scale.timer_scale = op_scale_timers.get_value();
+        scale.timeout_scale = 1;
         NOTIFY(1, "Registering timer scaling %dx\n", scale.timer_scale);
         ok = drx_register_time_scaling(&scale);
         DR_ASSERT(ok);

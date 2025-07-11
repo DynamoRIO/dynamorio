@@ -72,11 +72,7 @@ namespace drmemtrace {
 bool
 my_setenv(const char *var, const char *value)
 {
-#ifdef UNIX
     return setenv(var, value, 1 /*override*/) == 0;
-#else
-    return SetEnvironmentVariable(var, value) == TRUE;
-#endif
 }
 
 /****************************************************************************
@@ -172,6 +168,8 @@ do_some_work(void)
  * Trace processing code.
  */
 
+// XXX: We could try to share common elements of these drmemtrace burst
+// tests to share code like this across them.
 static std::string
 post_process(const std::string &out_subdir)
 {
@@ -196,16 +194,7 @@ post_process(const std::string &out_subdir)
         raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
                               dir.out_archives_, dir.encoding_file_,
                               dir.serial_schedule_file_, dir.cpu_schedule_file_,
-                              dr_context,
-                              0
-#ifdef WINDOWS
-                              /* FIXME i#3983: Creating threads in standalone mode
-                               * causes problems.  We disable the pool for now.
-                               */
-                              ,
-                              0
-#endif
-        );
+                              dr_context, 0);
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
             std::cerr << "raw2trace failed: " << error << "\n";
@@ -246,6 +235,7 @@ count_signals(const std::string &dir)
                   << "\n";
     }
     auto *stream = scheduler.get_stream(0);
+    int signals = 0;
     while (true) {
         memref_t memref;
         scheduler_t::stream_status_t status = stream->next_record(memref);
@@ -253,11 +243,9 @@ count_signals(const std::string &dir)
             break;
         }
         assert(status == scheduler_t::STATUS_OK);
-        if (type_is_instr(memref.instr.type) &&
-            (memref.instr.addr == reinterpret_cast<addr_t>(signal_handler_posix) ||
-             memref.instr.addr == reinterpret_cast<addr_t>(signal_handler_itimer))) {
+        if (memref.marker.type == TRACE_TYPE_MARKER &&
+            memref.marker.marker_type == TRACE_MARKER_TYPE_SIGNAL_NUMBER)
             ++count;
-        }
     }
     return count;
 }
