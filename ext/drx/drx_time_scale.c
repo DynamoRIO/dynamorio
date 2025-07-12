@@ -78,6 +78,12 @@ typedef struct _timespec64_t {
     int64 tv_nsec;
 } timespec64_t;
 
+/* The 32-bit structure has a 32-bit int for seconds, and there is a flag to
+ * specify an absolute time, which means it can't reach past 2038: so Linux
+ * added a new data struct and new syscalls so 32-bit can use 64-bit values for
+ * the seconds. That data structure is not easily found in public headers so we
+ * define it ourselves to use with the 64-variant syscalls in 32-bit.
+ */
 typedef struct _itimerspec64_t {
     timespec64_t it_interval;
     timespec64_t it_value;
@@ -431,7 +437,7 @@ scale_itimers(void *drcontext, bool inflate)
         // interact with its multiplexing of app and client itimers.
         res = dr_invoke_syscall_as_app(drcontext, SYS_getitimer, 2, TIMER_TYPES[i], &val);
         if (res != 0) {
-            NOTIFY(0, "Failed to call getitimer for id %d\n", i);
+            NOTIFY(0, "Failed to call getitimer for id %d: %d\n", i, res);
             continue;
         }
         if (is_timeval_zero(&val.it_value) && is_timeval_zero(&val.it_interval)) {
@@ -455,7 +461,7 @@ scale_itimers(void *drcontext, bool inflate)
         res = dr_invoke_syscall_as_app(drcontext, SYS_setitimer, 3, TIMER_TYPES[i], &val,
                                        NULL);
         if (res != 0)
-            NOTIFY(0, "Failed to call setitimer for id %d\n", i);
+            NOTIFY(0, "Failed to call setitimer for id %d: %d\n", i, res);
     }
 }
 
