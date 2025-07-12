@@ -78,6 +78,12 @@ typedef struct _timespec64_t {
     int64 tv_nsec;
 } timespec64_t;
 
+/* The 32-bit structure has a 32-bit int for seconds, and there is a flag to
+ * specify an absolute time, which means it can't reach past 2038: so Linux
+ * added a new data struct and new syscalls so 32-bit can use 64-bit values for
+ * the seconds. That data structure is not easily found in public headers so we
+ * define it ourselves to use with the 64-variant syscalls in 32-bit.
+ */
 typedef struct _itimerspec64_t {
     timespec64_t it_interval;
     timespec64_t it_value;
@@ -423,28 +429,39 @@ scale_itimers(void *drcontext, bool inflate)
      */
     NOTIFY(2, "Scaling itimers\n");
     const int TIMER_TYPES[] = { ITIMER_REAL, ITIMER_VIRTUAL, ITIMER_PROF };
+    int res;
     for (int i = 0; i < sizeof(TIMER_TYPES) / sizeof(TIMER_TYPES[0]); ++i) {
+        NOTIFY(2, "Scaling itimer %d\n", i);
         struct itimerval val;
         // We use dr_invoke_syscall_as_app() because DR needs to intercept these to
         // interact with its multiplexing of app and client itimers.
-        int res =
-            dr_invoke_syscall_as_app(drcontext, SYS_getitimer, 2, TIMER_TYPES[i], &val);
-        if (res == 0 &&
-            (!is_timeval_zero(&val.it_interval) || !is_timeval_zero(&val.it_value))) {
-            if (inflate) {
-                inflate_timeval(drcontext, &val.it_interval);
-                inflate_timeval(drcontext, &val.it_value);
-            } else {
-                deflate_timeval(drcontext, &val.it_interval);
-                deflate_timeval(drcontext, &val.it_value);
-            }
-            int res = dr_invoke_syscall_as_app(drcontext, SYS_setitimer, 3,
-                                               TIMER_TYPES[i], &val, NULL);
-            if (res != 0)
-                NOTIFY(0, "Failed to call setitimer for id %d\n", i);
-        } else if (res != 0) {
-            NOTIFY(0, "Failed to call getitimer for id %d\n", i);
+        res = dr_invoke_syscall_as_app(drcontext, SYS_getitimer, 2, TIMER_TYPES[i], &val);
+        if (res != 0) {
+            NOTIFY(0, "Failed to call getitimer for id %d: %d\n", i, res);
+            continue;
         }
+        if (is_timeval_zero(&val.it_value) && is_timeval_zero(&val.it_interval)) {
+            /* Disabled; nothing to do. */
+            continue;
+        }
+        /* If the timer just fired, we can have a zero it_value.  If we send that
+         * to setitimer we will disable the timer, so we reset it ourselves.
+         */
+        if (is_timeval_zero(&val.it_value)) {
+            val.it_value.tv_sec = val.it_interval.tv_sec;
+            val.it_value.tv_usec = val.it_interval.tv_usec;
+        }
+        if (inflate) {
+            inflate_timeval(drcontext, &val.it_interval);
+            inflate_timeval(drcontext, &val.it_value);
+        } else {
+            deflate_timeval(drcontext, &val.it_interval);
+            deflate_timeval(drcontext, &val.it_value);
+        }
+        res = dr_invoke_syscall_as_app(drcontext, SYS_setitimer, 3, TIMER_TYPES[i], &val,
+                                       NULL);
+        if (res != 0)
+            NOTIFY(0, "Failed to call setitimer for id %d: %d\n", i, res);
     }
 }
 
@@ -487,6 +504,7 @@ scale_posix_timers(void *drcontext, bool inflate)
 #define LINE_BUF_SIZE 64
     char linebuf[FILE_BUF_SIZE];
     size_t filebuf_read = 0, filebuf_pos = 0;
+    int res;
     while (dr_get_line(fd, filebuf, BUFFER_SIZE_BYTES(filebuf), &filebuf_read,
                        &filebuf_pos, linebuf, BUFFER_SIZE_BYTES(linebuf))) {
         NOTIFY(2, "Read line: |%s|\n", linebuf);
@@ -500,47 +518,64 @@ scale_posix_timers(void *drcontext, bool inflate)
              * timers in the future).  We do not want to trigger our own syscall
              * events for these, and DR indeed does not raise client events here.
              */
-            int res =
-                dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime, 2, id, &spec);
-            if (res == 0 &&
-                (!is_timespec_zero(&spec.it_interval) ||
-                 !is_timespec_zero(&spec.it_value))) {
-                if (inflate) {
-                    inflate_timespec(drcontext, &spec.it_interval);
-                    inflate_timespec(drcontext, &spec.it_value);
-                } else {
-                    deflate_timespec(drcontext, &spec.it_interval);
-                    deflate_timespec(drcontext, &spec.it_value);
-                }
-                int res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime, 4, id, 0,
-                                                   &spec, NULL);
-                if (res != 0)
-                    NOTIFY(0, "Failed to call timer_settime for id %d: %d\n", id, res);
-            } else if (res != 0) {
+            res = dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime, 2, id, &spec);
+            if (res != 0) {
                 NOTIFY(0, "Failed to call timer_gettime for id %d: %d\n", id, res);
+                continue;
             }
+            if (is_timespec_zero(&spec.it_value) && is_timespec_zero(&spec.it_interval)) {
+                /* Disabled; nothing to do. */
+                continue;
+            }
+            /* If the timer just fired, we can have a zero it_value.  If we send that
+             * to timer_settime we will disable the timer, so we reset it ourselves.
+             */
+            if (is_timespec_zero(&spec.it_value)) {
+                spec.it_value.tv_sec = spec.it_interval.tv_sec;
+                spec.it_value.tv_nsec = spec.it_interval.tv_nsec;
+            }
+            if (inflate) {
+                inflate_timespec(drcontext, &spec.it_interval);
+                inflate_timespec(drcontext, &spec.it_value);
+            } else {
+                deflate_timespec(drcontext, &spec.it_interval);
+                deflate_timespec(drcontext, &spec.it_value);
+            }
+            res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime, 4, id, 0, &spec,
+                                           NULL);
+            if (res != 0)
+                NOTIFY(0, "Failed to call timer_settime for id %d: %d\n", id, res);
 #else
             itimerspec64_t spec;
             /* See above comment about dr_invoke_syscall_as_app(). */
-            int res =
-                dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime64, 2, id, &spec);
-            if (res == 0 &&
-                (!is_timespec64_zero(&spec.it_interval) ||
-                 !is_timespec64_zero(&spec.it_value))) {
-                if (inflate) {
-                    inflate_timespec64(drcontext, &spec.it_interval);
-                    inflate_timespec64(drcontext, &spec.it_value);
-                } else {
-                    deflate_timespec64(drcontext, &spec.it_interval);
-                    deflate_timespec64(drcontext, &spec.it_value);
-                }
-                int res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime64, 4, id,
-                                                   0, &spec, NULL);
-                if (res != 0)
-                    NOTIFY(0, "Failed to call timer_settime64 for id %d: %d\n", id, res);
-            } else if (res != 0) {
+            res = dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime64, 2, id, &spec);
+            if (res != 0) {
                 NOTIFY(0, "Failed to call timer_gettime64 for id %d: %d\n", id, res);
+                continue;
             }
+            if (is_timespec64_zero(&spec.it_value) &&
+                is_timespec64_zero(&spec.it_interval)) {
+                /* Disabled; nothing to do. */
+                continue;
+            }
+            /* If the timer just fired, we can have a zero it_value.  If we send that
+             * to timer_settime we will disable the timer, so we reset it ourselves.
+             */
+            if (is_timespec64_zero(&spec.it_value)) {
+                spec.it_value.tv_sec = spec.it_interval.tv_sec;
+                spec.it_value.tv_nsec = spec.it_interval.tv_nsec;
+            }
+            if (inflate) {
+                inflate_timespec64(drcontext, &spec.it_interval);
+                inflate_timespec64(drcontext, &spec.it_value);
+            } else {
+                deflate_timespec64(drcontext, &spec.it_interval);
+                deflate_timespec64(drcontext, &spec.it_value);
+            }
+            res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime64, 4, id, 0,
+                                           &spec, NULL);
+            if (res != 0)
+                NOTIFY(0, "Failed to call timer_settime64 for id %d: %d\n", id, res);
 #endif
         }
     }

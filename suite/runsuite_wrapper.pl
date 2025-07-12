@@ -499,7 +499,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|linux.clone-reset' => 1, # i#4604
                 'code_api|client.detach_test' => 1, # i#6764
                 'code_api|sample.callstack' => 1, # i#7394
-                'code_api|client.drx_time_scale-test' => 1, # i#7504
                 # These are from the long suite.
                 'common.decode-stress' => 1, # i#1807 Ignored for all options.
                 'code_api,opt_speed|common.fib' => 1, # i#1807: Undiagnosed timeout.
