@@ -5512,9 +5512,11 @@ sys_param_addr(dcontext_t *dcontext, int num)
      */
     return ((reg_t *)mc->esp) + 1 /*retaddr*/ + num;
 #    endif
-    /* even for vsyscall where ecx (syscall) or esp (sysenter) are saved into
+    /* Even for vsyscall where ecx (syscall) or esp (sysenter) are saved into
      * ebp, the original parameter registers are not yet changed pre-syscall,
-     * except for ebp, which is pushed on the stack:
+     * except for ebp, which is pushed on the stack. But since we also modify
+     * the parameter through sys_param_addr() we need to use the actual location
+     * passed to the kernel.
      *     0xffffe400  55                   push   %ebp %esp -> %esp (%esp)
      *     0xffffe401  89 cd                mov    %ecx -> %ebp
      *     0xffffe403  0f 05                syscall -> %ecx
@@ -5527,7 +5529,9 @@ sys_param_addr(dcontext_t *dcontext, int num)
      */
     switch (num) {
     case 0: return &mc->IF_X86_ELSE(xbx, IF_RISCV64_ELSE(a0, r0));
-    case 1: return &mc->IF_X86_ELSE(xcx, IF_RISCV64_ELSE(a1, r1));
+    case 1:
+        return IF_X86_ELSE((dcontext->sys_was_int ? &mc->xcx : &mc->xbp),
+                           &mc->IF_RISCV64_ELSE(a1, r1));
     case 2: return &mc->IF_X86_ELSE(xdx, IF_RISCV64_ELSE(a2, r2));
     case 3: return &mc->IF_X86_ELSE(xsi, IF_RISCV64_ELSE(a3, r3));
     case 4: return &mc->IF_X86_ELSE(xdi, IF_RISCV64_ELSE(a4, r4));
@@ -5774,6 +5778,65 @@ dr_syscall_invoke_another(void *drcontext)
     }
 #endif /* X86 */
     /* for x64 we don't need to copy xcx into r10 b/c we use r10 as our param */
+}
+
+/* This goes through DR's handling of app syscalls, but does not trigger client syscall
+ * events.  That suits some client uses, but others want only DR internal handling and
+ * not app handling (for clients making syscalls that could cause DR to lose control or
+ * lose functionality w/o knowing/intercepting them): which will require further work to
+ * support and does not seem trivial (e.g., setting an itimer would need to go run the
+ * dr_set_itimer() code): that's under i#199 and would be a separate API routine.
+ */
+DR_API
+reg_t
+dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    if (dcontext == GLOBAL_DCONTEXT)
+        return -EINVAL;
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+#define MAX_PARAM_COUNT 6
+    if (arg_count > MAX_PARAM_COUNT)
+        return -EINVAL;
+    reg_t args[MAX_PARAM_COUNT] = {};
+    /* We need to save the mcontext app values so we can place this syscall's
+     * values into the mcontext for pre_system_call() to examine them.
+     * We also need to save registers the kernel will clobber: but on our
+     * arches that's just the return value which equals the 1st parameter.
+     */
+    reg_t saved[MAX_PARAM_COUNT];
+    va_list ap;
+    va_start(ap, arg_count);
+    /* In some builds, Werror=array-bounds complains about saved[i] despite our
+     * arg_count check above: so we add "&& i < MAX_PARAM_COUNT" to avoid the warning.
+     */
+    for (int i = 0; i < MAX_PARAM_COUNT && i < arg_count; ++i) {
+        args[i] = va_arg(ap, reg_t);
+        saved[i] = sys_param(dcontext, i);
+        set_syscall_param(dcontext, i, args[i]);
+    }
+    va_end(ap);
+    reg_t saved_sysnum = MCXT_SYSNUM_REG(mc);
+    MCXT_SYSNUM_REG(mc) = sysnum;
+    reg_t saved_res = MCXT_SYSCALL_RES(mc);
+    reg_t res;
+    /* Skip client syscall events. */
+    dcontext->client_data->skip_client_syscall_events = true;
+    if (!pre_system_call(dcontext)) {
+        res = MCXT_SYSCALL_RES(mc);
+    } else {
+        res = dynamorio_syscall(sysnum, arg_count, args[0], args[1], args[2], args[3],
+                                args[4], args[5]);
+        post_system_call(dcontext);
+    }
+    dcontext->client_data->skip_client_syscall_events = false;
+    /* Restore app registers. */
+    for (int i = 0; i < arg_count; ++i) {
+        set_syscall_param(dcontext, i, saved[i]);
+    }
+    MCXT_SYSCALL_RES(mc) = saved_res;
+    MCXT_SYSNUM_REG(mc) = saved_sysnum;
+    return res;
 }
 
 static inline bool

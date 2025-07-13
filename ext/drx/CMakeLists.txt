@@ -47,6 +47,11 @@ set(srcs
   # add more here
   )
 
+# XXX i#7504: Time and timer scaling currently only supports Linux.
+if (LINUX)
+  set(srcs ${srcs} drx_time_scale.c)
+endif ()
+
 # i#1491#2: VS generators fail if static lib has resources
 set(srcs_static ${srcs})
 

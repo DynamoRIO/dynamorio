@@ -185,6 +185,10 @@ Further non-compatibility-affecting changes include:
    -trace_instr_intervals_file, or -retrace_every_instrs. If -retrace_every_instrs is
    also enabled, a memory dump will be captured for each individual tracing window.
  - Added reg_is_avx512().
+ - Added routine dr_invoke_syscall_as_app() to invoke a system call as though the
+   application made it, meaning it goes through DR's handling.
+ - Added drx_register_time_scaling() which scales timers on UNIX to align with
+   the slowdown of heavyweight instrumentation.
 
 **************************************************
 <hr>

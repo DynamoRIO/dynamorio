@@ -2969,6 +2969,13 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   link_with_pthread(client.drx_buf-test)
   target_include_directories(client.drx_buf-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+
+  if (LINUX AND NOT ANDROID) # XXX i#7504: Scaling is only supported on Linux for now.
+    tobuild_api(client.drx_time_scale-test client-interface/drx_time_scale-test.c
+      "" "" OFF ON OFF)
+    use_DynamoRIO_extension(client.drx_time_scale-test drx_static)
+    target_link_libraries(client.drx_time_scale-test rt)
+  endif ()
 endif (NOT RISCV64)
 
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
@@ -4787,6 +4794,26 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_futex_nodr ON)
         set(tool.drcacheoff.burst_futex_nopost ON)
         torunonly_drcacheoff(burst_futex tool.drcacheoff.burst_futex "" "" "")
+
+        # -scale_timers is Linux-only.
+        # We specify this executable here as it uses tools.h code.
+        set(tool.drcacheoff.scale_time_no_reg_compat) # Avoid REG_ name conflicts.
+        add_api_exe(tool.drcacheoff.scale_time
+          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/scale_time.cpp
+          OFF ON)
+        use_DynamoRIO_static_client(tool.drcacheoff.scale_time drmemtrace_static)
+        use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.scale_time)
+        target_link_libraries(tool.drcacheoff.scale_time drmemtrace_raw2trace
+          drmemtrace_analyzer test_helpers rt)
+        target_include_directories(tool.drcacheoff.scale_time PUBLIC
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/scheduler")
+        set(tool.drcacheoff.scale_time_nodr ON)
+        set(tool.drcacheoff.scale_time_nopost ON)
+        torunonly_drcacheoff(scale_time tool.drcacheoff.scale_time "" "" "")
       endif ()
 
       if (UNIX)
@@ -6770,71 +6797,37 @@ endmacro()
 if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
   set_labels_on_known_tests(AMD_X32_DENYLIST
     code_api|api.detach
-    code_api|api.detach_spawn_quick_exit
-    code_api|api.ibl-stress
     code_api|api.startstop
-    code_api|api.static_detach
-    code_api|api.static_prepop
     code_api|api.static_signal
-    code_api|api.thread_churn
-    code_api|client.alloc
-    code_api|client.attach_blocking
-    code_api|client.attach_test
-    code_api|client.detach_test
-    code_api|client.drwrap-test-detach
     code_api|client.flush
-    code_api|client.strace
-    code_api|common.decode-stress
     code_api|linux.eintr
     code_api|linux.eintr-noinline
     code_api|tool.basic_counts
     code_api|tool.drcacheoff.altbindir
-    code_api|tool.drcacheoff.burst_client
-    code_api|tool.drcacheoff.purestatic
     code_api|tool.drcacheoff.basic_counts
     code_api|tool.drcacheoff.burst_futex
-    code_api|tool.drcacheoff.burst_malloc
-    code_api|tool.drcacheoff.burst_maps
-    code_api|tool.drcacheoff.burst_reattach
-    code_api|tool.drcacheoff.burst_replace
     code_api|tool.drcacheoff.burst_replaceall
-    code_api|tool.drcacheoff.burst_static
     code_api|tool.drcacheoff.burst_syscall_inject
     code_api|tool.drcacheoff.burst_threadfilter
-    code_api|tool.drcacheoff.burst_threads
     code_api|tool.drcacheoff.burst_threads_counts
-    code_api|tool.drcacheoff.burst_threadL0filter
     code_api|tool.drcacheoff.func_view_noret
     code_api|tool.drcacheoff.gencode
     code_api|tool.drcacheoff.gencode_filtered
-    code_api|tool.drcacheoff.getretaddr_record_replace_retaddr
-    code_api|tool.drcacheoff.invariant_checker
     code_api|tool.drcacheoff.invariant_checker_pthreads
     code_api|tool.drcacheoff.legacy
     code_api|tool.drcacheoff.max-global
     code_api|tool.drcacheoff.sysnums
-    code_api|tool.drcacheoff.warmup-pthreads-2
     code_api|tool.drcacheoff.warmup-pthreads-max-refs
     code_api|tool.drcacheoff.warmup-pthreads-max-trace-size
-    code_api|tool.drcacheoff.warmup-pthreads-windows-split
-    code_api|tool.drcacheoff.windows-split
-    code_api|tool.drcacheoff.windows-timestamps
-    code_api|tool.drcacheoff.delay-ts
     code_api|tool.drcachesim.coherence
     code_api|tool.drcachesim.delay-global
-    code_api|tool.drcachesim.filter-d
-    code_api|tool.drcachesim.filter-no-d
-    code_api|tool.drcachesim.invariants
     code_api|tool.drcachesim.miss_analyzer
     code_api|tool.drcachesim.phys-threads_SUDO
     code_api|tool.drcachesim.scattergather-x86
     code_api|tool.drcachesim.threads
     code_api|tool.drcachesim.threads-with-config-file
-    code_api|tool.drcachesim.windows-simple
     code_api|tool.drcachesim.TLB-threads
     code_api|tool.drcov.eintr
     code_api|tool.histogram.offline
-    code_api|tool.record_filter
-    code_api|tool.record_filter_bycore_multi
-    code_api|tool.record_filter_bycore_uni)
+    code_api|tool.record_filter_bycore_multi)
 endif ()
