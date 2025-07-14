@@ -2303,6 +2303,10 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
 endif (X86)
 tobuild(common.getretaddr common/getretaddr.c)
 
+if (UNIX)
+  tobuild(common.syscall-mmap common/syscall-mmap.c)
+endif ()
+
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # XXX i#1287: implement for MacOS
   # We do not support -no_early_inject on Android (i#1873).
@@ -5343,6 +5347,21 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(getretaddr_record_replace_retaddr common.getretaddr
             "-record_replace_retaddr -record_function tailcall_with_retaddr|1&foo|1"
             "@-tool@invariant_checker" "")
+  endif ()
+
+  if (UNIX)
+    if (X86)
+      if (X64)
+        torunonly_drcacheoff(syscall-mmap-x86-64 common.syscall-mmap
+                             "-record_syscall 9|6" "@-simulator_type@view" "")
+      else ()
+        torunonly_drcacheoff(syscall-mmap-x86-32 common.syscall-mmap
+                             "-record_syscall 192|6" "@-simulator_type@view" "")
+      endif ()
+    elseif (AARCH64)
+      torunonly_drcacheoff(syscall-mmap-aarch64 common.syscall-mmap
+                           "-record_syscall 222|6" "@-simulator_type@view" "")
+    endif ()
   endif ()
 
   ###########################################################################
