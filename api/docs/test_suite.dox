@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -109,7 +109,8 @@ If you want to focus on just one test, you can use a label like the
 `TMATE_DEBUG` label in the linked commit to run only that one test, but that is
 not necessary.  Pasting the key lines for that here:
 
-In runsuite.cmake after the arg parsing:
+In runsuite.cmake after the arg parsing and after the line
+`set(build_tests "BUILD_TESTS:BOOL=ON")` add this:
 
 ```
 set(extra_ctest_args INCLUDE_LABEL TMATE_DEBUG) # TEMPORARY
@@ -141,6 +142,18 @@ tmux commands.  You can install `gdb` if needed.
 
 `tmate` also allows web shell access; note that you may need to press `q` one
 time if the web page doesn't show anything.
+
+On Windows, the connection is a mingw shell, where the `gdb` debugger cannot
+read our PDB symbols.  Use the `cdb` debugger instead, which is not on the PATH
+by default.  Here is an example of launching a test inside `cdb`:
+
+```
+runneradmin@fv-az844-677 MINGW64 /d/a/dynamorio/dynamorio/build_debug-internal-64
+# '/c/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe' clients/bin64/drmemtrace_launcher.exe "-dr" "D:\a\dynamorio\dynamorio\build_debug-internal-64" "-dr_ops" "" "-tracer" "D:\a\dynamorio\dynamorio\build_debug-internal-64/clients/lib64/debug/drmemtrace.dll" "-tracer_alt" "" "-dr_debug" "-offline" "--" "suite/tests/bin/simple_app"
+```
+
+Remember when launching to use `.childdbg 1` to follow into the separate process
+created for the new application process.
 
 # Regression Test Suite
 
