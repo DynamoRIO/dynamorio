@@ -193,6 +193,8 @@ Further non-compatibility-affecting changes include:
    application made it, meaning it goes through DR's handling.
  - Added drx_register_time_scaling() which scales timers on UNIX to align with
    the slowdown of heavyweight instrumentation.
+ - Added a new drmemtrace option -exit_after_records which applies to all
+   tools and exits after N records.
 
 **************************************************
 <hr>

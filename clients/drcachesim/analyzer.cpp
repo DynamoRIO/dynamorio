@@ -617,6 +617,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
+            if (exit_after_records_ > 0 &&
+                worker.stream->get_record_ordinal() > exit_after_records_) {
+                VPRINT(this, 1,
+                       "Worker %d exiting after requested record count on shard %s\n",
+                       worker.index, worker.stream->get_stream_name().c_str());
+                return;
+            }
             if (tool_exited.find(i) != tool_exited.end())
                 continue;
             if (!tools_[i]->process_memref(record)) {
@@ -757,6 +764,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             return false;
         }
         for (int i = 0; i < num_tools_; ++i) {
+            if (exit_after_records_ > 0 &&
+                worker->stream->get_record_ordinal() > exit_after_records_) {
+                VPRINT(this, 1,
+                       "Worker %d exiting after requested record count on shard %s\n",
+                       worker->index, worker->stream->get_stream_name().c_str());
+                return true;
+            }
             if (tool_exited.find(i) != tool_exited.end())
                 continue;
             if (!tools_[i]->parallel_shard_memref(

@@ -400,6 +400,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         this->success_ = false;
         return;
     }
+    this->exit_after_records_ = op_exit_after_records.get_value();
     this->interval_microseconds_ = op_interval_microseconds.get_value();
     this->interval_instr_count_ = op_interval_instr_count.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
