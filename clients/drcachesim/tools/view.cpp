@@ -240,7 +240,7 @@ view_t::init_from_filetype()
 bool
 view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
-    if (sim_refs_left_ == 0)
+    if (knob_sim_refs_ > 0 && sim_refs_left_ == 0)
         return false; // Early exit.
 
     memtrace_stream_t *memstream = reinterpret_cast<memtrace_stream_t *>(shard_data);
