@@ -4580,6 +4580,14 @@ if (BUILD_CLIENTS)
         OFF OFF)
       set(tool.drcacheoff.cpu_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.cpu_rawtemp ON) # no preprocessor
+
+      # Test that one tool exiting early does not impact a second tool.
+      torunonly_api(tool.drcacheoff.one_early "${drcachesim_path}" "offline-one-early" ""
+        "-verbose;1;-tool;view:opcode_mix;-sim_refs;10;-infile;${zip_path}"
+        OFF OFF)
+      set(tool.drcacheoff.one_early_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.one_early_rawtemp ON) # no preprocessor
     endif ()
 
     # We run common.decode-bad to test markers for faults

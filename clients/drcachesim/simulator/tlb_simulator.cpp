@@ -190,7 +190,7 @@ tlb_simulator_t::process_memref(const memref_t &memref)
 
     // The references after warmup and simulated ones are dropped.
     if (knobs_.warmup_refs == 0 && knobs_.sim_refs == 0)
-        return true;
+        return false; // Early exit.
 
     // Both warmup and simulated references are simulated.
 

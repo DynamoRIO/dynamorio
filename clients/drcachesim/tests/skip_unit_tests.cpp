@@ -104,7 +104,11 @@ test_skip_initial()
         iter->skip_instructions(skip_instrs);
         for (; *iter != *iter_end; ++(*iter)) {
             const memref_t &memref = **iter;
-            CHECK(tool->process_memref(memref), tool->get_error_string().c_str());
+            if (!tool->process_memref(memref)) {
+                if (tool->get_error_string().empty())
+                    break;
+                CHECK(false, tool->get_error_string().c_str());
+            }
         }
         // Check the result.
         std::string res = capture.str();
