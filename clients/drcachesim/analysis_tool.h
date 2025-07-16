@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -186,8 +186,14 @@ public:
      * takes whatever actions the tool needs to perform its analysis.
      * If it prints, it should leave the i/o state in a default format
      * (std::dec) to support multiple tools.
-     * The return value indicates whether it was successful.
-     * On failure, get_error_string() returns a descriptive message.
+     * A return value of true indicates to keep going.
+     * A return value of false indicates one of two things:
+     * - A fatal error that requires stopping immediately, if get_error_string()
+     *   returns a non-empty value (it should contain a description of the error).
+     * - The tool is finished for non-error reasons and analysis can stop, if
+     *   get_error_string() returns an empty string.  If there are multiple tools,
+     *   analysis may continue and the tool should be prepared to potentially
+     *   have some of its methods called again.
      */
     virtual bool
     process_memref(const RecordType &entry) = 0;
@@ -522,9 +528,15 @@ public:
      * and takes whatever actions the tool needs to perform its analysis. The \p
      * shard_data parameter is the value returned by parallel_shard_init_stream() for this
      * shard.  Since each shard is operated upon in its entirety by the same worker
-     * thread, no synchronization is needed.  The return value indicates whether this
-     * function was successful. On failure, parallel_shard_error() returns a
-     * descriptive message.
+     * thread, no synchronization is needed.
+     * A return value of true indicates to keep going.
+     * A return value of false indicates one of two things:
+     * - A fatal error that requires stopping immediately, if parallel_shard_error()
+     *   returns a non-empty value (it should contain a description of the error).
+     * - The tool is finished for non-error reasons and analysis can stop, if
+     *    parallel_shard_error() returns an empty string.  If there are multiple tools,
+     *   analysis may continue and the tool should be prepared to potentially
+     *   have some of its methods called again.
      */
     virtual bool
     parallel_shard_memref(void *shard_data, const RecordType &entry)

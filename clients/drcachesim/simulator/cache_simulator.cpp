@@ -445,11 +445,11 @@ cache_simulator_t::process_memref(const memref_t &memref)
     // we are done.
     if ((knobs_.warmup_refs == 0 && knobs_.warmup_fraction == 0.0) &&
         knobs_.sim_refs == 0)
-        return true;
+        return false; // Early exit.
 
     // The references after warmup and simulated ones are dropped.
     if (is_warmed_up_ && knobs_.sim_refs == 0)
-        return true;
+        return false; // Early exit.
 
     // Both warmup and simulated references are simulated.
 
