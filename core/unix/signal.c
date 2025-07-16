@@ -7958,6 +7958,9 @@ init_itimer(dcontext_t *dcontext, bool first)
             ASSERT(rc == SUCCESS);
             (*info->itimer)[which].app.interval = timeval_to_usec(&prev.it_interval);
             (*info->itimer)[which].app.value = timeval_to_usec(&prev.it_value);
+            /* Set actual to app to start out with. */
+            (*info->itimer)[which].actual.interval = (*info->itimer)[which].app.interval;
+            (*info->itimer)[which].actual.value = (*info->itimer)[which].app.value;
         }
     }
 }
@@ -8424,7 +8427,7 @@ handle_post_getitimer(dcontext_t *dcontext, bool success, int which,
             /* Subtract the difference between last-asked-for value
              * and current value to reflect elapsed time.
              */
-            ASSERT((*info->itimer)[which].app.value >
+            ASSERT((*info->itimer)[which].app.value >=
                    ((*info->itimer)[which].actual.value - timeval_to_usec(&val)));
             uint64 left = (*info->itimer)[which].app.value -
                 ((*info->itimer)[which].actual.value - timeval_to_usec(&val));
