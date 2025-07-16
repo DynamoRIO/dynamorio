@@ -165,6 +165,7 @@ unit_test_sim_refs()
         ref.data.size = 8;
         ref.data.addr = i * 128;
         if (!cache_sim.process_memref(ref)) {
+            // Check we don't exit before our 8 sim_refs.
             if (i < 8 || !cache_sim.get_error_string().empty()) {
                 std::cerr << "drcachesim unit_test_sim_refs failed: "
                           << cache_sim.get_error_string() << "\n";
