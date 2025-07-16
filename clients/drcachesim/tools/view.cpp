@@ -240,6 +240,9 @@ view_t::init_from_filetype()
 bool
 view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
+    if (sim_refs_left_ == 0)
+        return false; // Early exit.
+
     memtrace_stream_t *memstream = reinterpret_cast<memtrace_stream_t *>(shard_data);
     // Even for -skip_refs we need to process the up-front version and type.
     if (memref.marker.type == TRACE_TYPE_MARKER) {
