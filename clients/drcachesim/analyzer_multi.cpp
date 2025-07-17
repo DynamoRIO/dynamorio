@@ -401,7 +401,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         return;
     }
     this->exit_after_records_ = op_exit_after_records.get_value();
-    if (this->exit_after_records_ > 0 &&
+    if (op_exit_after_records.specified() &&
         (op_sim_refs.specified() || op_skip_refs.get_value() > 0 ||
          op_warmup_refs.get_value() > 0 || op_warmup_fraction.get_value() > 0.)) {
         this->error_string_ = "Usage error: -exit_after_records is not compatible with "
