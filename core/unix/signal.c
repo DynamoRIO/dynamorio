@@ -8427,14 +8427,16 @@ handle_post_getitimer(dcontext_t *dcontext, bool success, int which,
             /* Subtract the difference between last-asked-for value
              * and current value to reflect elapsed time.
              */
-            ASSERT((*info->itimer)[which].app.value >=
-                   ((*info->itimer)[which].actual.value - timeval_to_usec(&val)));
-            uint64 left = (*info->itimer)[which].app.value -
-                ((*info->itimer)[which].actual.value - timeval_to_usec(&val));
-            usec_to_timeval(left, &val);
-            IF_DEBUG(ok =)
-            safe_write_ex(&cur_timer->it_value, sizeof(val), &val, NULL);
-            ASSERT(ok);
+            if ((*info->itimer)[which].actual.value > timeval_to_usec(&val) &&
+                (*info->itimer)[which].app.value >=
+                    ((*info->itimer)[which].actual.value - timeval_to_usec(&val))) {
+                uint64 left = (*info->itimer)[which].app.value -
+                    ((*info->itimer)[which].actual.value - timeval_to_usec(&val));
+                usec_to_timeval(left, &val);
+                IF_DEBUG(ok =)
+                safe_write_ex(&cur_timer->it_value, sizeof(val), &val, NULL);
+                ASSERT(ok);
+            }
         } else
             ASSERT_NOT_REACHED();
         if (info->shared_itimer)
