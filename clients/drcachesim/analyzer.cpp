@@ -606,6 +606,12 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
             }
             return;
         }
+        // For zipfiles, we could jump chunk to chunk and use the record ordinal
+        // marker, but this option is rarely used so we do a simple walk here.
+        // Users should use skip_instrs for fast skipping.
+        // We also do not present the prior timestamp when we get there.
+        if (skip_records_ >= worker.stream->get_output_record_ordinal())
+            continue;
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
         if ((record_is_timestamp(record) || record_is_instr(record)) &&
@@ -617,16 +623,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
-            if (exit_after_records_ > 0 &&
-                // We can't use get_record_ordinal() because it's the input
-                // ordinal due to SCHEDULER_USE_INPUT_ORDINALS.  We do not want to
-                // include skipped records here.
-                worker.stream->get_output_record_ordinal() > exit_after_records_) {
-                VPRINT(this, 1,
-                       "Worker %d exiting after requested record count on shard %s\n",
-                       worker.index, worker.stream->get_stream_name().c_str());
-                return;
-            }
             if (tool_exited.find(i) != tool_exited.end())
                 continue;
             if (!tools_[i]->process_memref(record)) {
@@ -648,6 +644,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                     return;
                 }
             }
+        }
+        if (exit_after_records_ > 0 &&
+            // We can't use get_record_ordinal() because it's the input
+            // ordinal due to SCHEDULER_USE_INPUT_ORDINALS.  We do not want to
+            // include skipped records here.
+            worker.stream->get_output_record_ordinal() >=
+                skip_records_ + exit_after_records_) {
+            VPRINT(this, 1,
+                   "Worker %d exiting after requested record count on shard %s\n",
+                   worker.index, worker.stream->get_stream_name().c_str());
+            return;
         }
     }
 }
@@ -756,6 +763,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             else if (record_has_tid(record, tid))
                 worker->shard_data[shard_index].shard_id = tid;
         }
+        if (skip_records_ > worker->stream->get_output_record_ordinal())
+            continue;
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
         if ((record_is_timestamp(record) || record_is_instr(record)) &&
@@ -767,16 +776,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             return false;
         }
         for (int i = 0; i < num_tools_; ++i) {
-            if (exit_after_records_ > 0 &&
-                // We can't use get_record_ordinal() because it's the input
-                // ordinal due to SCHEDULER_USE_INPUT_ORDINALS.  We do not want to
-                // include skipped records here.
-                worker->stream->get_output_record_ordinal() > exit_after_records_) {
-                VPRINT(this, 1,
-                       "Worker %d exiting after requested record count on shard %s\n",
-                       worker->index, worker->stream->get_stream_name().c_str());
-                return true;
-            }
             if (tool_exited.find(i) != tool_exited.end())
                 continue;
             if (!tools_[i]->parallel_shard_memref(
@@ -806,6 +805,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             if (!process_shard_exit(worker, shard_index)) {
                 return false;
             }
+        }
+        if (exit_after_records_ > 0 &&
+            // We can't use get_record_ordinal() because it's the input
+            // ordinal due to SCHEDULER_USE_INPUT_ORDINALS.  We do not want to
+            // include skipped records here.
+            worker->stream->get_output_record_ordinal() >=
+                skip_records_ + exit_after_records_) {
+            VPRINT(this, 1,
+                   "Worker %d exiting after requested record count on shard %s\n",
+                   worker->index, worker->stream->get_stream_name().c_str());
+            return true;
         }
     }
     if (shard_type_ == SHARD_BY_CORE) {

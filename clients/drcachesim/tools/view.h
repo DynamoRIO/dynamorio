@@ -176,6 +176,7 @@ protected:
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;
     int64_t timestamp_record_ord_ = -1;
+    memref_tid_t timestamp_tid_;
     int64_t version_record_ord_ = -1;
     int64_t filetype_record_ord_ = -1;
     bool init_from_filetype_done_ = false;

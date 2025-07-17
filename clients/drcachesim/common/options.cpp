@@ -629,7 +629,23 @@ droption_t<bytesize_t> op_skip_instrs(
     "iteration, each thread skips this many instructions (see -skip_to_timestamp for "
     "an alternative which does align all threads).  When built with zipfile "
     "support, this skipping is optimized and large instruction counts can be quickly "
-    "skipped; this is not the case for -skip_refs.  This will skip over top-level "
+    "skipped; this is not the case for -skip_records or -skip_refs. "
+    "This will skip over top-level "
+    "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
+    "records will not appear to analysis tools; however, their contents can be obtained "
+    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.");
+
+droption_t<bytesize_t> op_skip_records(
+    DROPTION_SCOPE_FRONTEND, "skip_records", 0, "Number of records to skip",
+    "Specifies the number of records to skip in the beginning of the trace "
+    "analysis.  For serial iteration, this number is "
+    "computed just once across the interleaving sequence of all threads; for parallel "
+    "iteration, each shard skips this many records (see -skip_to_timestamp for "
+    "an alternative which aligns all threads).  This skipping is not as fast as "
+    "-skip_instrs.  This will skip over top-level "
     "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE, "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "

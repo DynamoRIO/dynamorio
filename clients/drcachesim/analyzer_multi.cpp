@@ -393,9 +393,12 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
     this->verbosity_ = op_verbose.get_value();
     this->worker_count_ = op_jobs.get_value();
     this->skip_instrs_ = op_skip_instrs.get_value();
+    this->skip_records_ = op_skip_records.get_value();
     this->skip_to_timestamp_ = op_skip_to_timestamp.get_value();
-    if (this->skip_instrs_ > 0 && this->skip_to_timestamp_ > 0) {
-        this->error_string_ = "Usage error: only one of -skip_instrs and "
+    if ((this->skip_instrs_ > 0 && this->skip_to_timestamp_ > 0) ||
+        (this->skip_instrs_ > 0 && this->skip_records_ > 0) ||
+        (this->skip_to_timestamp_ > 0 && this->skip_records_ > 0)) {
+        this->error_string_ = "Usage error: only one of -skip_instrs, -skip_records, and "
                               "-skip_to_timestamp can be used at a time";
         this->success_ = false;
         return;
