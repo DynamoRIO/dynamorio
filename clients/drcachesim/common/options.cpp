@@ -658,13 +658,16 @@ droption_t<bytesize_t> op_skip_records(
     "sequences, are not counted at all.");
 
 droption_t<bytesize_t> op_skip_refs(
-    DROPTION_SCOPE_FRONTEND, "skip_refs", 0, "Number of records to skip in certain tools",
-    "This option is honored by certain tools such as the cache and TLB simulators and "
-    "the view tool.  It causes them to ignore the specified count of records at the "
+    DROPTION_SCOPE_FRONTEND, "skip_refs", 0,
+    "Number of non-markers to skip in certain tools",
+    "This option is honored by certain tools such as the cache and TLB simulators.  "
+    "It causes them to ignore the specified count of non-marker (i.e., actual address "
+    "reference ('ref') records) at the "
     "start of the trace and only start processing after that count is reached.  Since "
     "the framework is still iterating over those records and it is the tool who is "
     "ignoring them, this skipping may be slow for large skip values; consider "
-    "-skip_instrs for a faster method of skipping inside the framework itself.");
+    "-skip_instrs for a faster method of skipping inside the framework itself.  "
+    "To skip markers also, use -skip_records.");
 
 droption_t<uint64_t> op_skip_to_timestamp(
     DROPTION_SCOPE_FRONTEND, "skip_to_timestamp", 0, "Timestamp to start at",
@@ -700,14 +703,11 @@ droption_t<bytesize_t> op_L0_filter_until_instrs(
     "full trace. Therefore TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of "
     "filtered records.");
 
-// XXX i#7230: Currently the simulators count only non-marker records here: we should
-// either change that to all records to match -skip_refs, or update these docs.
-// If we update to match -skip_refs, we should make it clear that marker records
-// are not actually warming up the cache but are still being counted.
 droption_t<bytesize_t> op_warmup_refs(
-    DROPTION_SCOPE_FRONTEND, "warmup_refs", 0, "Number of records to warm caches up",
+    DROPTION_SCOPE_FRONTEND, "warmup_refs", 0, "Number of non-markers to warm caches up",
     "This option is honored by certain tools such as the cache and TLB simulators. "
-    "It causes them to not start analysis/simulation until this many records are seen."
+    "It causes them to not start analysis/simulation until this many non-marker records "
+    "(i.e., actual memory reference ('ref') records) are seen.  "
     "If -skip_refs is specified, the warmup records start after "
     "the skipped ones end. This flag is incompatible with warmup_fraction.");
 
@@ -719,13 +719,12 @@ droption_t<double> op_warmup_fraction(
     "is computed after the skipped references and before simulated references. "
     "This flag is incompatible with warmup_refs.");
 
-// XXX i#7230: Currently the simulators count only non-marker records here: we should
-// either change that to all records to match -skip_refs, or update these docs.
 droption_t<bytesize_t> op_sim_refs(
     DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
-    "Number of records to analyze",
-    "This option is honored by certain tools such as the cache and TLB simulators and "
-    "the view tool.  It causes them to only analyze this many records and then exit. "
+    "Number of non-markers records to analyze",
+    "This option is honored by certain tools such as the cache and TLB simulators.  "
+    "It causes them to only analyze this many non-marker (i.e., actual memory reference "
+    "('ref') records) and then exit. "
     "If -skip_refs is specified, the analyzed records start after the skipped ones end; "
     "similarly, if -warmup_refs or -warmup_fraction is specified, the warmup records "
     "come prior to the -sim_refs records.  Use -exit_after_records for a similar feature "
