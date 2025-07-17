@@ -4809,7 +4809,7 @@ if (BUILD_CLIENTS)
         add_api_exe(tool.drcacheoff.scale_time
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/scale_time.cpp
           OFF ON)
-        use_DynamoRIO_static_client(tool.drcacheoff.scale_time drmemtrace_static)
+        use_DynamoRIO_static_client(tool.drcacheoff.scale_time drmemtrace_nomain)
         use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.scale_time)
         target_link_libraries(tool.drcacheoff.scale_time drmemtrace_raw2trace
           drmemtrace_analyzer test_helpers rt)

@@ -440,6 +440,8 @@ scale_itimers(void *drcontext, bool inflate)
             NOTIFY(0, "Failed to call getitimer for id %d: %d\n", i, res);
             continue;
         }
+        NOTIFY(3, "As-queried: value=%lu.%lu interval=%lu.%lu\n", val.it_value.tv_sec,
+               val.it_value.tv_usec, val.it_interval.tv_sec, val.it_interval.tv_usec);
         if (is_timeval_zero(&val.it_value) && is_timeval_zero(&val.it_interval)) {
             /* Disabled; nothing to do. */
             continue;
