@@ -205,6 +205,24 @@ post_process(const std::string &out_subdir)
     return outdir;
 }
 
+static void
+event_sample(void *drcontext, dr_mcontext_t *mcontext)
+{
+    // Do nothing.
+}
+
+extern "C" {
+/* This dr_client_main should be called instead of the one in tracer.cpp. */
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    drmemtrace_client_main(id, argc, argv);
+    // Test itimer multiplexing interacting with scaling.
+    bool ok = dr_set_itimer(ITIMER_VIRTUAL, 10, event_sample);
+    assert(ok);
+}
+}
+
 static std::string
 gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 {

@@ -216,14 +216,20 @@ hit_instr_count_threshold(app_pc next_pc)
         !reached_trace_after_instrs.load(std::memory_order_acquire)) {
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
         if (op_memdump_on_window.get_value()) {
-            dr_nudge_client(client_id, TRACER_NUDGE_MEM_DUMP);
+            dr_nudge_client(
+                client_id,
+                (static_cast<uint64>(TRACER_NUDGE_MEM_DUMP) << TRACER_NUDGE_TYPE_SHIFT) |
+                    tracing_window.load(std::memory_order_acquire));
         }
         retrace_start_timestamp.store(instru_t::get_timestamp());
     } else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
         if (op_memdump_on_window.get_value()) {
-            dr_nudge_client(client_id, TRACER_NUDGE_MEM_DUMP);
+            dr_nudge_client(
+                client_id,
+                (static_cast<uint64>(TRACER_NUDGE_MEM_DUMP) << TRACER_NUDGE_TYPE_SHIFT) |
+                    tracing_window.load(std::memory_order_acquire));
         }
         retrace_start_timestamp.store(instru_t::get_timestamp());
         if (op_offline.get_value())
