@@ -618,7 +618,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         }
         for (int i = 0; i < num_tools_; ++i) {
             if (exit_after_records_ > 0 &&
-                worker.stream->get_record_ordinal() > exit_after_records_) {
+                // We can't use get_record_ordinal() because it's the input
+                // ordinal due to SCHEDULER_USE_INPUT_ORDINALS.  We do not want to
+                // include skipped records here.
+                worker.stream->get_output_record_ordinal() > exit_after_records_) {
                 VPRINT(this, 1,
                        "Worker %d exiting after requested record count on shard %s\n",
                        worker.index, worker.stream->get_stream_name().c_str());
@@ -765,7 +768,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
         }
         for (int i = 0; i < num_tools_; ++i) {
             if (exit_after_records_ > 0 &&
-                worker->stream->get_record_ordinal() > exit_after_records_) {
+                // We can't use get_record_ordinal() because it's the input
+                // ordinal due to SCHEDULER_USE_INPUT_ORDINALS.  We do not want to
+                // include skipped records here.
+                worker->stream->get_output_record_ordinal() > exit_after_records_) {
                 VPRINT(this, 1,
                        "Worker %d exiting after requested record count on shard %s\n",
                        worker->index, worker->stream->get_stream_name().c_str());

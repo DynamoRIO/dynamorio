@@ -1061,6 +1061,15 @@ public:
         uint64_t
         get_record_ordinal() const override;
         /**
+         * Identical to get_record_ordinal() but ignores the
+         * #SCHEDULER_USE_INPUT_ORDINALS flag.
+         */
+        uint64_t
+        get_output_record_ordinal() const
+        {
+            return cur_ref_count_;
+        }
+        /**
          * Returns the count of instructions from the start of the trace to this point.
          * For record_scheduler_t, if any encoding records or the internal record
          * TRACE_MARKER_TYPE_BRANCH_TARGET records are present prior to an instruction

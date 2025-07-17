@@ -4589,9 +4589,10 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.one_early_rawtemp ON) # no preprocessor
 
-      # Test that -exit_after_records exits all tools.
+      # Test that -exit_after_records exits all tools, and that it starts
+      # counting *after* -skip_instrs.
       torunonly_api(tool.drcacheoff.all_early "${drcachesim_path}" "offline-all-early" ""
-        "-verbose;1;-tool;view:opcode_mix;-exit_after_records;10;-infile;${zip_path}"
+        "-verbose;1;-tool;view:opcode_mix;-skip_instrs;10;-exit_after_records;5;-infile;${zip_path}"
         OFF OFF)
       set(tool.drcacheoff.all_early_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
