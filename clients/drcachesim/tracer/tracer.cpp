@@ -537,7 +537,7 @@ event_pre_detach()
 static void
 event_nudge(void *drcontext, uint64 arg)
 {
-    if (arg == TRACER_NUDGE_MEM_DUMP) {
+    if ((arg >> TRACER_NUDGE_TYPE_SHIFT) == TRACER_NUDGE_MEM_DUMP) {
 #ifdef WINDOWS
         /* TODO i#7508: raw2trace fails with "Non-module instructions found with no
          * encoding information.". This occurs on Windows when capturing memory dumps at
@@ -561,7 +561,7 @@ event_nudge(void *drcontext, uint64 arg)
             if (op_split_windows.get_value()) {
                 dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir),
                             "%s%s" WINDOW_SUBDIR_FORMAT, logsubdir, DIRSEP,
-                            tracing_window.load(std::memory_order_acquire));
+                            arg & TRACER_NUDGE_VALUE_MASK);
                 NULL_TERMINATE_BUFFER(windir);
                 spec.elf_output_directory = windir;
             }

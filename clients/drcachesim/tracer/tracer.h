@@ -181,6 +181,12 @@ enum {
     BBDUP_MODE_L0_FILTER = 4, /* Address tracing with L0_filter. */
 };
 
+/* dr_nudge_client takes a 64 bit argument. We use the most significant 8 bits as the
+ * type and the least significant 56 bits to pass a value to the client.
+ */
+#define TRACER_NUDGE_TYPE_SHIFT 56
+#define TRACER_NUDGE_VALUE_MASK 0x00ffffffffffffffLL
+
 /* Tracer nudge types. */
 enum {
     TRACER_NUDGE_MEM_DUMP = 0, /* Capture a memory dump. */
