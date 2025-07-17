@@ -4580,6 +4580,23 @@ if (BUILD_CLIENTS)
         OFF OFF)
       set(tool.drcacheoff.cpu_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.cpu_rawtemp ON) # no preprocessor
+
+      # Test that one tool exiting early does not impact a second tool.
+      torunonly_api(tool.drcacheoff.one_early "${drcachesim_path}" "offline-one-early" ""
+        "-verbose;1;-tool;view:opcode_mix;-sim_refs;10;-infile;${zip_path}"
+        OFF OFF)
+      set(tool.drcacheoff.one_early_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.one_early_rawtemp ON) # no preprocessor
+
+      # Test that -exit_after_records exits all tools, and that it starts
+      # counting *after* -skip_instrs.
+      torunonly_api(tool.drcacheoff.all_early "${drcachesim_path}" "offline-all-early" ""
+        "-verbose;1;-tool;view:opcode_mix;-skip_instrs;10;-exit_after_records;5;-infile;${zip_path}"
+        OFF OFF)
+      set(tool.drcacheoff.all_early_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.all_early_rawtemp ON) # no preprocessor
     endif ()
 
     # We run common.decode-bad to test markers for faults
@@ -4801,7 +4818,7 @@ if (BUILD_CLIENTS)
         add_api_exe(tool.drcacheoff.scale_time
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/scale_time.cpp
           OFF ON)
-        use_DynamoRIO_static_client(tool.drcacheoff.scale_time drmemtrace_static)
+        use_DynamoRIO_static_client(tool.drcacheoff.scale_time drmemtrace_nomain)
         use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.scale_time)
         target_link_libraries(tool.drcacheoff.scale_time drmemtrace_raw2trace
           drmemtrace_analyzer test_helpers rt)

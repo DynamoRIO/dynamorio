@@ -155,8 +155,11 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
                 ++ref_count_;
                 if (type_is_instr(memref.instr.type))
                     ++instr_count_;
-                if (!view_.process_memref(memref))
+                if (!view_.process_memref(memref)) {
+                    if (view_.get_error_string().empty())
+                        break;
                     std::cout << "Hit error: " << view_.get_error_string() << "\n";
+                }
             }
             // Return the result.
             std::string res = capture.str();
@@ -428,8 +431,11 @@ run_serial_test_helper(view_t &view,
                 ++ref_count_;
                 if (type_is_instr(memref.instr.type))
                     ++instr_count_;
-                if (!view_.process_memref(memref))
+                if (!view_.process_memref(memref)) {
+                    if (view_.get_error_string().empty())
+                        break;
                     std::cout << "Hit error: " << view_.get_error_string() << "\n";
+                }
             }
             // Return the result.
             std::string res = capture.str();

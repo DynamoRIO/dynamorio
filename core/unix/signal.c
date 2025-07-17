@@ -7958,6 +7958,9 @@ init_itimer(dcontext_t *dcontext, bool first)
             ASSERT(rc == SUCCESS);
             (*info->itimer)[which].app.interval = timeval_to_usec(&prev.it_interval);
             (*info->itimer)[which].app.value = timeval_to_usec(&prev.it_value);
+            /* Set actual to app to start out with. */
+            (*info->itimer)[which].actual.interval = (*info->itimer)[which].app.interval;
+            (*info->itimer)[which].actual.value = (*info->itimer)[which].app.value;
         }
     }
 }
@@ -8416,16 +8419,24 @@ handle_post_getitimer(dcontext_t *dcontext, bool success, int which,
         IF_DEBUG(ok =)
         safe_write_ex(&cur_timer->it_interval, sizeof(val), &val, NULL);
         ASSERT(ok);
-        if (d_r_safe_read(&cur_timer->it_value, sizeof(val), &val)) {
-            /* subtract the difference between last-asked-for value
-             * and current value to reflect elapsed time
-             */
-            uint64 left = (*info->itimer)[which].app.value -
-                ((*info->itimer)[which].actual.value - timeval_to_usec(&val));
-            usec_to_timeval(left, &val);
+        if ((*info->itimer)[which].app.value == 0) {
             IF_DEBUG(ok =)
             safe_write_ex(&cur_timer->it_value, sizeof(val), &val, NULL);
             ASSERT(ok);
+        } else if (d_r_safe_read(&cur_timer->it_value, sizeof(val), &val)) {
+            /* Subtract the difference between last-asked-for value
+             * and current value to reflect elapsed time.
+             */
+            if ((*info->itimer)[which].actual.value > timeval_to_usec(&val) &&
+                (*info->itimer)[which].app.value >=
+                    ((*info->itimer)[which].actual.value - timeval_to_usec(&val))) {
+                uint64 left = (*info->itimer)[which].app.value -
+                    ((*info->itimer)[which].actual.value - timeval_to_usec(&val));
+                usec_to_timeval(left, &val);
+                IF_DEBUG(ok =)
+                safe_write_ex(&cur_timer->it_value, sizeof(val), &val, NULL);
+                ASSERT(ok);
+            }
         } else
             ASSERT_NOT_REACHED();
         if (info->shared_itimer)

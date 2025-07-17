@@ -147,6 +147,10 @@ compatibility changes:
    the form "Wn.Tmmm".
  - Changed the #dynamorio::drmemtrace::scheduler_tmpl_t::input_thread_info_t.
    regions_of_interest structure layout, requiring recompiling using code.
+ - Changed the #dynamorio::drmemtrace::analysis_tool_tmpl_t::process_memref and
+   #dynamorio::drmemtrace::analysis_tool_tmpl_t::parallel_shard_memref return
+   conditions to no longer indicate an error if the error string is empty.
+   This can now be used to exit early without reporting an error.
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
@@ -189,6 +193,9 @@ Further non-compatibility-affecting changes include:
    application made it, meaning it goes through DR's handling.
  - Added drx_register_time_scaling() which scales timers on UNIX to align with
    the slowdown of heavyweight instrumentation.
+ - Added a new drmemtrace option -exit_after_records which applies to all
+   tools and exits after N records.
+ - Added get_output_record_ordinal() to the drmemtrace scheduler.
 
 **************************************************
 <hr>
