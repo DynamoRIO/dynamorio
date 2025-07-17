@@ -400,6 +400,15 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         this->success_ = false;
         return;
     }
+    this->exit_after_records_ = op_exit_after_records.get_value();
+    if (op_exit_after_records.specified() &&
+        (op_sim_refs.specified() || op_skip_refs.get_value() > 0 ||
+         op_warmup_refs.get_value() > 0 || op_warmup_fraction.get_value() > 0.)) {
+        this->error_string_ = "Usage error: -exit_after_records is not compatible with "
+                              "-sim_refs, -skip_refs, -warmup_refs, or -warmup_fraction";
+        this->success_ = false;
+        return;
+    }
     this->interval_microseconds_ = op_interval_microseconds.get_value();
     this->interval_instr_count_ = op_interval_instr_count.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model

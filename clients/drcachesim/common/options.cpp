@@ -705,12 +705,23 @@ droption_t<bytesize_t> op_sim_refs(
     DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
     "Number of records to analyze",
     "This option is honored by certain tools such as the cache and TLB simulators and "
-    "the view tool.  It causes them to only analyze this many records and ignore all "
-    "subsequent records.  If -skip_refs is specified, the analyzed records start after "
-    "the skipped ones end; similarly, if -warmup_refs is specified, the warmup records "
-    "come prior to the -sim_refs records.  Since the framework is still iterating over "
-    "all the records and it is the tool who is ignoring those outside of this range, a "
-    "large trace may still take time even with a small value for this option.");
+    "the view tool.  It causes them to only analyze this many records and then exit. "
+    "If -skip_refs is specified, the analyzed records start after the skipped ones end; "
+    "similarly, if -warmup_refs or -warmup_fraction is specified, the warmup records "
+    "come prior to the -sim_refs records.  Use -exit_after_records for a similar feature "
+    "that works on all tools (but does not work with -warmup_*, -sim_refs, or "
+    "-skip_refs).");
+
+droption_t<bytesize_t> op_exit_after_records(
+    DROPTION_SCOPE_FRONTEND, "exit_after_records", bytesize_t(1ULL << 63),
+    "Limits analyzers to this many records",
+    "Causes trace analyzers to only analyze this many records and then exit.  If "
+    "instructions are skipped (-skip_instrs), that happens "
+    "first before record counting starts here.  This is similar to -sim_refs, though "
+    "it is implemented in the framework and so applies to all tools.  This option is not "
+    "compatible with -sim_refs, -skip_refs, -warmup_refs, or -warmup_fraction. "
+    "For traces with multiple shards, each shard separately stops when it reaches this "
+    "count within the shard.");
 
 droption_t<std::string>
     op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr/riscv",

@@ -432,6 +432,7 @@ protected:
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
     uint64_t skip_to_timestamp_ = 0;
+    uint64_t exit_after_records_ = 0;
     uint64_t interval_microseconds_ = 0;
     uint64_t interval_instr_count_ = 0;
     int verbosity_ = 0;
