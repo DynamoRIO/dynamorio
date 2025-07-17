@@ -1448,7 +1448,13 @@ tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
 and dr_app_stop_and_cleanup() to delimit the desired trace region.  As an
 example, see <a
 href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/tests/burst_static.cpp">our
-burst_static test application</a>.
+burst_static test application</a>.  Since the default mode for drmemtrace is
+online analysis, sending data over a pipe, to write it to a file you need to
+specify the \p -offline option.  This is why the burst_static and other tests
+that statically link the \p drmemtrace tracer and want to produce trace files
+all set the \p DYNAMORIO_OPTIONS environment variable to a value that includes
+<tt>-client_lib ';;-offline'</tt> (no path needs to be included before the first
+semicolon for a statically linked client).
 
 ****************************************************************************
 \page sec_drcachesim_sim Simulator Details
