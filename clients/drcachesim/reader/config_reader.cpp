@@ -31,340 +31,72 @@
  */
 
 #include "config_reader.h"
-
-#include <stdint.h>
-
-#include <cstdlib>
-#include <iostream>
-#include <iterator>
-#include <map>
-#include <string>
-#include <utility>
-#include <vector>
-
-#include "options.h"
-#include "cache_simulator_create.h"
-#include "utils.h"
+#include "config_reader_helpers.h"
+#include <sstream>
 
 namespace dynamorio {
 namespace drmemtrace {
 
-config_reader_t::config_reader_t()
-{
-    /* Empty. */
-}
-
+// Extract parameter value from string
+template <typename T>
 bool
-config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &knobs,
-                           std::map<std::string, cache_params_t> &caches)
+parse_param_value_or_fail(const std::string &pname, const config_node_t &p, T *dst)
 {
-    fin_ = config_file;
-
-    // Walk through the configuration file.
-    while (!fin_->eof()) {
-        std::string param;
-
-        if (!(*fin_ >> std::ws >> param)) {
-            ERRMSG("Unable to read from the configuration file\n");
-            return false;
-        }
-
-        if (param == "//") {
-            // A comment.
-            if (!getline(*fin_, param)) {
-                ERRMSG("Comment expected but not found\n");
-                return false;
-            }
-        } else if (param == "num_cores") {
-            // Number of cache cores.
-            if (!(*fin_ >> knobs.num_cores)) {
-                ERRMSG("Error reading num_cores from the configuration file\n");
-                return false;
-            }
-            if (knobs.num_cores == 0) {
-                ERRMSG("Number of cores must be >0\n");
-                return false;
-            }
-        }
-        // XXX i#3047: Add support for page_size, which is needed to
-        // configure TLBs.
-        else if (param == "line_size") {
-            // Cache line size in bytes.
-            if (!(*fin_ >> knobs.line_size)) {
-                ERRMSG("Error reading line_size from the configuration file\n");
-                return false;
-            }
-            if (knobs.line_size == 0) {
-                ERRMSG("Line size must be >0\n");
-                return false;
-            }
-        } else if (param == "skip_refs") {
-            // Number of references to skip.
-            if (!(*fin_ >> knobs.skip_refs)) {
-                ERRMSG("Error reading skip_refs from the configuration file\n");
-                return false;
-            }
-        } else if (param == "warmup_refs") {
-            // Number of references to use for caches warmup.
-            if (!(*fin_ >> knobs.warmup_refs)) {
-                ERRMSG("Error reading warmup_refs from "
-                       "the configuration file\n");
-                return false;
-            }
-        } else if (param == "warmup_fraction") {
-            // Fraction of cache lines that must be filled to end the warmup.
-            if (!(*fin_ >> knobs.warmup_fraction)) {
-                ERRMSG("Error reading warmup_fraction from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (knobs.warmup_fraction < 0.0 || knobs.warmup_fraction > 1.0) {
-                ERRMSG("Warmup fraction should be in [0.0, 1.0]\n");
-                return false;
-            }
-        } else if (param == "sim_refs") {
-            // Number of references to simulate.
-            if (!(*fin_ >> knobs.sim_refs)) {
-                ERRMSG("Error reading sim_refs from the configuration file\n");
-                return false;
-            }
-        } else if (param == "cpu_scheduling") {
-            // Whether to simulate CPU scheduling or not.
-            std::string bool_val;
-            if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading cpu_scheduling from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (is_true(bool_val)) {
-                knobs.cpu_scheduling = true;
-            } else {
-                knobs.cpu_scheduling = false;
-            }
-        } else if (param == "verbose") {
-            // Verbose level.
-            if (!(*fin_ >> knobs.verbose)) {
-                ERRMSG("Error reading verbose from the configuration file\n");
-                return false;
-            }
-        } else if (param == "coherence" || param == "coherent") {
-            // Whether to simulate coherence
-            std::string bool_val;
-            if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading coherence from the configuration file\n");
-                return false;
-            }
-            if (is_true(bool_val)) {
-                knobs.model_coherence = true;
-            } else {
-                knobs.model_coherence = false;
-            }
-        } else if (param == "use_physical") {
-            // Whether to use physical addresses
-            std::string bool_val;
-            if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading use_physical from the configuration file\n");
-                return false;
-            }
-            if (is_true(bool_val)) {
-                knobs.use_physical = true;
-            } else {
-                knobs.use_physical = false;
-            }
-        } else {
-            // A cache unit.
-            cache_params_t cache;
-            cache.name = param;
-            if (!configure_cache(cache)) {
-                return false;
-            }
-            caches[cache.name] = cache;
-        }
-
-        if (!(*fin_ >> std::ws)) {
-            ERRMSG("Unable to read from the configuration file\n");
-            return false;
-        }
-    }
-
-    // Check cache configuration.
-    return check_cache_config(knobs.num_cores, caches);
-}
-
-bool
-config_reader_t::configure_cache(cache_params_t &cache)
-{
-    // String used to construct meaningful error messages.
-    std::string error_msg;
-
-    char c;
-    if (!(*fin_ >> std::ws >> c)) {
-        ERRMSG("Unable to read from the configuration file\n");
+    if (p.type == config_node_t::MAP) {
+        ERRMSG(
+            "Array for '%s' not supported, '%s' value expected at line %d column %d.\n",
+            pname.c_str(), get_type_name<T>(), p.val_line, p.val_column);
         return false;
     }
-    if (c != '{') {
-        ERRMSG("Expected '{' between '%s' and cache params\n", cache.name.c_str());
+    if (!parse_value(p.scalar, dst)) {
+        ERRMSG(
+            "Incorrect value '%s' for '%s', '%s' value expected at line %d column %d.\n",
+            p.scalar.c_str(), pname.c_str(), get_type_name<T>(), p.val_line,
+            p.val_column);
         return false;
     }
+    return true;
+}
 
-    while (!fin_->eof()) {
-        std::string param;
-        if (!(*fin_ >> std::ws >> param)) {
-            ERRMSG("Unable to read from the configuration file\n");
-            return false;
-        }
-
-        if (param == "}") {
-            return true;
-        } else if (param == "//") {
-            // A comment.
-            if (!getline(*fin_, param)) {
-                ERRMSG("Comment expected but not found\n");
-                return false;
-            }
-        } else if (param == "type") {
-            // Cache type: CACHE_TYPE_INSTRUCTION, CACHE_TYPE_DATA,
-            // or CACHE_TYPE_UNIFIED.
-            if (!(*fin_ >> cache.type)) {
-                ERRMSG("Error reading cache type from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (cache.type != CACHE_TYPE_INSTRUCTION && cache.type != CACHE_TYPE_DATA &&
-                cache.type != CACHE_TYPE_UNIFIED) {
-                ERRMSG("Unknown cache type: %s\n", cache.type.c_str());
-                return false;
-            }
-        } else if (param == "core") {
-            // CPU core this cache is associated with.
-            if (!(*fin_ >> cache.core)) {
-                ERRMSG("Error reading cache core from "
-                       "the configuration file\n");
-                return false;
-            }
-        } else if (param == "size") {
-            // Cache size in bytes.
-            std::string size_str;
-            if (!(*fin_ >> size_str)) {
-                ERRMSG("Error reading cache size from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (!convert_string_to_size(size_str, cache.size)) {
-                ERRMSG("Unusable cache size %s\n", size_str.c_str());
-                return false;
-            }
-            if (cache.size <= 0) {
-                ERRMSG("Cache size (%llu) must be >0\n", (unsigned long long)cache.size);
-                return false;
-            }
-        } else if (param == "assoc") {
-            // Cache associativity_.
-            if (!(*fin_ >> cache.assoc)) {
-                ERRMSG("Error reading cache assoc from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (cache.assoc <= 0) {
-                ERRMSG("Cache associativity (%u) must be >0\n", cache.assoc);
-                return false;
-            }
-        } else if (param == "inclusive") {
-            // Is the cache inclusive of its children.
-            std::string bool_val;
-            if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading inclusive cache policy from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (is_true(bool_val)) {
-                if (cache.exclusive) {
-                    ERRMSG("Cache cannot be both inclusive AND exclusive.\n");
-                    return false;
-                }
-                cache.inclusive = true;
-            } else {
-                cache.inclusive = false;
-            }
-        } else if (param == "exclusive") {
-            // Is the cache exclusive of its children.
-            std::string bool_val;
-            if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading exclusive cache policy from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (is_true(bool_val)) {
-                if (cache.inclusive) {
-                    ERRMSG("Cache cannot be both inclusive AND exclusive.\n");
-                    return false;
-                }
-                cache.exclusive = true;
-            } else {
-                cache.exclusive = false;
-            }
-        } else if (param == "parent") {
-            // Name of the cache's parent. LLC's parent is main memory
-            // (CACHE_PARENT_MEMORY).
-            if (!(*fin_ >> cache.parent)) {
-                ERRMSG("Error reading cache parent from "
-                       "the configuration file\n");
-                return false;
-            }
-        } else if (param == "replace_policy") {
-            // Cache replacement policy: REPLACE_POLICY_LRU (default),
-            // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
-            if (!(*fin_ >> cache.replace_policy)) {
-                ERRMSG("Error reading cache replace_policy from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (cache.replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
-                cache.replace_policy != REPLACE_POLICY_LRU &&
-                cache.replace_policy != REPLACE_POLICY_LFU &&
-                cache.replace_policy != REPLACE_POLICY_FIFO &&
-                cache.replace_policy != REPLACE_POLICY_RRIP) {
-                ERRMSG("Unknown replacement policy: %s\n", cache.replace_policy.c_str());
-                return false;
-            }
-        } else if (param == "prefetcher") {
-            // Type of prefetcher: PREFETCH_POLICY_NEXTLINE
-            // or PREFETCH_POLICY_NONE.
-            if (!(*fin_ >> cache.prefetcher)) {
-                ERRMSG("Error reading cache prefetcher from "
-                       "the configuration file\n");
-                return false;
-            }
-            if (cache.prefetcher != PREFETCH_POLICY_NEXTLINE &&
-                cache.prefetcher != PREFETCH_POLICY_NONE) {
-                ERRMSG("Unknown prefetcher type: %s\n", cache.prefetcher.c_str());
-                return false;
-            }
-        } else if (param == "miss_file") {
-            // Name of the file to use to dump cache misses info.
-            if (!(*fin_ >> cache.miss_file)) {
-                ERRMSG("Error reading cache miss_file from "
-                       "the configuration file\n");
-                return false;
-            }
-        } else {
-            ERRMSG("Unknown cache configuration setting '%s'\n", param.c_str());
-            return false;
-        }
-
-        if (!(*fin_ >> std::ws)) {
-            ERRMSG("Unable to read from the configuration file\n");
-            return false;
-        }
+// XXX: This function is a duplicate of
+//      droption_t<bytesize_t>::convert_from_string
+//      Consider sharing the function using a single copy.
+bool
+convert_string_to_size(const std::string &s, uint64_t &size)
+{
+    char suffix = *s.rbegin(); // s.back() only in C++11
+    int scale;
+    switch (suffix) {
+    case 'K':
+    case 'k': scale = 1024; break;
+    case 'M':
+    case 'm': scale = 1024 * 1024; break;
+    case 'G':
+    case 'g': scale = 1024 * 1024 * 1024; break;
+    default: scale = 1;
     }
 
-    ERRMSG("Expected '}' at the end of cache params\n");
-    return false;
+    std::string toparse = s;
+    if (scale > 1)
+        toparse = s.substr(0, s.size() - 1); // s.pop_back() only in C++11
+
+    // While the overall size is likely too large to be represented
+    // by a 32-bit integer, the prefix number is usually not.
+    int input = atoi(toparse.c_str());
+    if (input >= 0)
+        size = (uint64_t)(input * scale);
+    else {
+        size = 0;
+        return false;
+    }
+    return true;
 }
 
 bool
-config_reader_t::check_cache_config(int num_cores,
-                                    std::map<std::string, cache_params_t> &caches_map)
+configure_cache(const config_t &params, cache_params_t *cache);
+
+bool
+check_cache_config(int num_cores, std::map<std::string, cache_params_t> &caches_map)
 {
     std::vector<int> core_inst_caches(num_cores, 0);
     std::vector<int> core_data_caches(num_cores, 0);
@@ -440,36 +172,209 @@ config_reader_t::check_cache_config(int num_cores,
     return true;
 }
 
-// XXX: This function is a duplicate of
-//      droption_t<bytesize_t>::convert_from_string
-//      Consider sharing the function using a single copy.
-bool
-config_reader_t::convert_string_to_size(const std::string &s, uint64_t &size)
+config_reader_t::config_reader_t()
 {
-    char suffix = *s.rbegin(); // s.back() only in C++11
-    int scale;
-    switch (suffix) {
-    case 'K':
-    case 'k': scale = 1024; break;
-    case 'M':
-    case 'm': scale = 1024 * 1024; break;
-    case 'G':
-    case 'g': scale = 1024 * 1024 * 1024; break;
-    default: scale = 1;
+    /* Empty. */
+}
+
+bool
+config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &knobs,
+                           std::map<std::string, cache_params_t> &caches)
+{
+    config_t params;
+    if (!read_param_map(config_file, &params)) {
+        return false;
     }
 
-    std::string toparse = s;
-    if (scale > 1)
-        toparse = s.substr(0, s.size() - 1); // s.pop_back() only in C++11
+    for (const auto &p : params) {
+        if (p.first == "num_cores") {
+            // Number of cache cores.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.num_cores)) {
+                return false;
+            }
+            if (knobs.num_cores == 0) {
+                ERRMSG("Number of cores must be positive at line %d column %d\n",
+                       p.second.val_line, p.second.val_column);
+                return false;
+            }
+            // XXX i#3047: Add support for page_size, which is needed to
+            // configure TLBs.
+        } else if (p.first == "line_size") {
+            // Cache line size in bytes.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.line_size)) {
+                return false;
+            }
+            if (knobs.line_size == 0) {
+                ERRMSG("Cache line size must be positive at line %d column %d\n",
+                       p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "skip_refs") {
+            // Number of references to skip.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.skip_refs)) {
+                return false;
+            }
+        } else if (p.first == "warmup_refs") {
+            // Number of references to use for caches warmup.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.warmup_refs)) {
+                return false;
+            }
+        } else if (p.first == "warmup_fraction") {
+            // Fraction of cache lines that must be filled to end the warmup.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.warmup_fraction)) {
+                return false;
+            }
+            if (knobs.warmup_fraction < 0.0 || knobs.warmup_fraction > 1.0) {
+                ERRMSG("Warmup fraction should be in [0.0, 1.0] at line %d column %d\n",
+                       p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "sim_refs") {
+            // Number of references to simulate.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.sim_refs)) {
+                return false;
+            }
+        } else if (p.first == "cpu_scheduling") {
+            // Whether to simulate CPU scheduling or not.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.cpu_scheduling)) {
+                return false;
+            }
+        } else if (p.first == "verbose") {
+            // Verbose level.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.verbose)) {
+                return false;
+            }
+        } else if (p.first == "coherence" || p.first == "coherent") {
+            // Whether to simulate coherence
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.model_coherence)) {
+                return false;
+            }
+        } else if (p.first == "use_physical") {
+            // Whether to use physical addresses
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.use_physical)) {
+                return false;
+            }
+        } else if (p.second.type == config_node_t::MAP) {
+            // A cache unit.
+            cache_params_t cache;
+            cache.name = p.first;
+            if (!configure_cache(p.second.children, &cache)) {
+                return false;
+            }
+            caches[cache.name] = std::move(cache);
+        } else {
+            ERRMSG("Unknown parameter %s at line %d column %d\n", p.first.c_str(),
+                   p.second.param_line, p.second.param_column);
+            return false;
+        }
+    }
 
-    // While the overall size is likely too large to be represented
-    // by a 32-bit integer, the prefix number is usually not.
-    int input = atoi(toparse.c_str());
-    if (input >= 0)
-        size = (uint64_t)(input * scale);
-    else {
-        size = 0;
-        return false;
+    // Check cache configuration.
+    return check_cache_config(knobs.num_cores, caches);
+}
+
+bool
+configure_cache(const config_t &params, cache_params_t *cache)
+{
+    for (const auto &p : params) {
+        if (p.first == "type") {
+            // Cache type: CACHE_TYPE_INSTRUCTION, CACHE_TYPE_DATA,
+            // or CACHE_TYPE_UNIFIED.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->type)) {
+                return false;
+            }
+            if (cache->type != CACHE_TYPE_INSTRUCTION && cache->type != CACHE_TYPE_DATA &&
+                cache->type != CACHE_TYPE_UNIFIED) {
+                ERRMSG("Unknown cache type %s at line %d column %d\n",
+                       cache->type.c_str(), p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "core") {
+            // CPU core this cache is associated with.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->core)) {
+                return false;
+            }
+        } else if (p.first == "size") {
+            // Cache size in bytes.
+            if (!convert_string_to_size(p.second.scalar, cache->size)) {
+                ERRMSG("Unusable cache size %s at line %d column %d\n",
+                       p.second.scalar.c_str(), p.second.val_line, p.second.val_column);
+                return false;
+            }
+            if (cache->size <= 0) {
+                ERRMSG("Cache size (%llu) must be positive at line %d column %d\n",
+                       (unsigned long long)cache->size, p.second.val_line,
+                       p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "assoc") {
+            // Cache associativity_.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->assoc)) {
+                return false;
+            }
+            if (cache->assoc <= 0) {
+                ERRMSG("Cache associativity (%u) must be positive at line %d column %d\n",
+                       cache->assoc, p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "inclusive") {
+            // Is the cache inclusive of its children.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->inclusive)) {
+                return false;
+            }
+            if (cache->exclusive) {
+                ERRMSG("Cache cannot be both inclusive AND exclusive. See line %d column "
+                       "%d\n",
+                       p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "exclusive") {
+            // Is the cache exclusive of its children.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->exclusive)) {
+                return false;
+            }
+            if (cache->inclusive) {
+                ERRMSG("Cache cannot be both inclusive AND exclusive. See line %d column "
+                       "%d\n",
+                       p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "parent") {
+            // Name of the cache's parent. LLC's parent is main memory
+            // (CACHE_PARENT_MEMORY).
+            cache->parent = p.second.scalar;
+        } else if (p.first == "replace_policy") {
+            // Cache replacement policy: REPLACE_POLICY_LRU (default),
+            // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
+            cache->replace_policy = p.second.scalar;
+            if (cache->replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
+                cache->replace_policy != REPLACE_POLICY_LRU &&
+                cache->replace_policy != REPLACE_POLICY_LFU &&
+                cache->replace_policy != REPLACE_POLICY_FIFO &&
+                cache->replace_policy != REPLACE_POLICY_RRIP) {
+                ERRMSG("Unknown replacement policy %s at line %d column %d\n",
+                       cache->replace_policy.c_str(), p.second.val_line,
+                       p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "prefetcher") {
+            // Type of prefetcher: PREFETCH_POLICY_NEXTLINE
+            // or PREFETCH_POLICY_NONE.
+            cache->prefetcher = p.second.scalar;
+            if (cache->prefetcher != PREFETCH_POLICY_NEXTLINE &&
+                cache->prefetcher != PREFETCH_POLICY_NONE) {
+                ERRMSG("Unknown prefetcher type %s at line %d column %d\n",
+                       cache->prefetcher.c_str(), p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "miss_file") {
+            // Name of the file to use to dump cache misses info.
+            cache->miss_file = p.second.scalar;
+        } else {
+            ERRMSG("Unknown cache configuration setting '%s' at line %d column %d\n",
+                   p.first.c_str(), p.second.param_line, p.second.param_column);
+            return false;
+        }
     }
     return true;
 }
