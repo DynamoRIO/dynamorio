@@ -306,6 +306,8 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         esr->size = sizeof(struct esr_context);
 
         struct sve_context *sve = (void *)((byte *)esr + sizeof(struct esr_context));
+        const struct sve_context sve_zero = { 0 };
+        *sve = sve_zero;
         sve->head.magic = SVE_MAGIC;
         sve->vl = proc_get_vector_length_bytes();
         const uint quads_per_vector = sve_vecquad_from_veclen(sve->vl);
