@@ -181,9 +181,9 @@ view_t::init_decode_cache()
 }
 
 bool
-view_t::init_from_stream()
+view_t::init_from_filetype()
 {
-    if (init_from_stream_done_) {
+    if (init_from_filetype_done_) {
         return true;
     }
     // We will not see a TRACE_MARKER_TYPE_FILETYPE if -skip_instrs was used.
@@ -191,9 +191,6 @@ view_t::init_from_stream()
     // use the one from the stream instead.
     if (filetype_ == -1) {
         filetype_ = static_cast<offline_file_type_t>(serial_stream_->get_filetype());
-    }
-    if (trace_version_ == -1) {
-        trace_version_ = static_cast<int>(serial_stream_->get_version());
     }
     if (!init_decode_cache()) {
         return false;
@@ -236,7 +233,7 @@ view_t::init_from_stream()
     }
     disassemble_set_syntax(flags);
 
-    init_from_stream_done_ = true;
+    init_from_filetype_done_ = true;
     return true;
 }
 
@@ -251,9 +248,6 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // We delay printing until we know the tid.
             if (trace_version_ == -1) {
                 trace_version_ = static_cast<int>(memref.marker.marker_value);
-                if (filetype_ != -1 && !init_from_stream()) {
-                    return false;
-                }
             } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
                 error_string_ = std::string("Version mismatch across files");
                 return false;
@@ -264,7 +258,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // We delay printing until we know the tid.
             if (filetype_ == -1) {
                 filetype_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
-                if (trace_version_ != -1 && !init_from_stream()) {
+                if (!init_from_filetype()) {
                     return false;
                 }
             } else if (filetype_ !=
@@ -581,10 +575,16 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
 
     // In some configurations (e.g., when using -skip_instrs), we may not see the
-    // TRACE_MARKER_TYPE_FILETYPE and TRACE_MARKER_TYPE_VERSION markers at all, so we get
-    // them from the memtrace_stream_t when we get to the instrs.
-    if (!init_from_stream()) {
+    // TRACE_MARKER_TYPE_FILETYPE marker at all, so we get it from the
+    // memtrace_stream_t when we get to the instrs.
+    if (!init_from_filetype()) {
         return false;
+    }
+    // In some configurations (e.g., when using -skip_instrs), we may not see the
+    // TRACE_MARKER_TYPE_VERSION marker at all, so we get it from the
+    // memtrace_stream_t when we get to the instrs.
+    if (trace_version_ == -1) {
+        trace_version_ = static_cast<int>(serial_stream_->get_version());
     }
     std::cerr << std::left << std::setw(name_width) << "ifetch" << std::right
               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
