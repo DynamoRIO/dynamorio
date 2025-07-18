@@ -1,0 +1,9 @@
+Hello, world!
+Output format:
+<--record#-> <--instr#->: <Wrkld.Tid> <record details>
+------------------------------------------------------------
+// We must see some return instrs with a known target pc.
+.*ret .*\(target .*
+.*
+View tool results:
+    *[0-9]* : total instructions

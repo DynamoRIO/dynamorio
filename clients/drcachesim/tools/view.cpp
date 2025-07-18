@@ -583,6 +583,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (!init_from_filetype()) {
         return false;
     }
+    // In some configurations (e.g., when using -skip_instrs), we may not see the
+    // TRACE_MARKER_TYPE_VERSION marker at all, so we get it from the
+    // memtrace_stream_t when we get to the instrs.
+    if (trace_version_ == -1) {
+        trace_version_ = static_cast<int>(serial_stream_->get_version());
+    }
     std::cerr << std::left << std::setw(name_width) << "ifetch" << std::right
               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
