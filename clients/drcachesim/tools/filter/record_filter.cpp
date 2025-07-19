@@ -121,6 +121,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
+                          uint64_t trim_before_instr, uint64_t trim_after_instr,
                           bool encodings2regdeps, const std::string &keep_func_ids,
                           const std::string &modify_marker_value, unsigned int verbose)
 {
@@ -146,11 +147,13 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
                                                          filter_marker_types)));
     }
-    if (trim_before_timestamp > 0 || trim_after_timestamp > 0) {
+    if (trim_before_timestamp > 0 || trim_after_timestamp > 0 || trim_before_instr > 0 ||
+        trim_after_instr > 0) {
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::trim_filter_t(trim_before_timestamp,
-                                                         trim_after_timestamp)));
+                new dynamorio::drmemtrace::trim_filter_t(
+                    trim_before_timestamp, trim_after_timestamp, trim_before_instr,
+                    trim_after_instr)));
     }
     if (encodings2regdeps) {
         filter_funcs.emplace_back(

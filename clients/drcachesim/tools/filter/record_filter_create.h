@@ -62,6 +62,10 @@ namespace drmemtrace {
  *   up to its first timestamp whose value is greater or equal to this parameter.
  * @param[in] trim_after_timestamp  Trim records after the trace's first timestamp
  *   whose value is greater than this parameter.
+ * @param[in] trim_before_instr  Trim records from the trace's initial timestamp up to
+ * the first timestamp that follows the instruction ordinal specified by this parameter.
+ * @param[in] trim_after_instr  Trim records after the trace's first timestamp that
+ * follows the instruction ordinal specified by this parameter.
  * @param[in] encodings2regdeps  If true, converts instruction encodings from the real ISA
  *   of the input trace to the #DR_ISA_REGDEPS synthetic ISA.
  * @param[in] keep_func_ids  A comma-separated list of integers representing the
@@ -77,6 +81,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           int cache_filter_size, const std::string &remove_trace_types,
                           const std::string &remove_marker_types,
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
+                          uint64_t trim_before_instr, uint64_t trim_after_instr,
                           bool encodings2regdeps, const std::string &keep_func_ids,
                           const std::string &modify_marker_value, unsigned int verbose);
 
