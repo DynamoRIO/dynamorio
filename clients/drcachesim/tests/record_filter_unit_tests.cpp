@@ -1140,24 +1140,24 @@ test_trim_filter()
               { false } },
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
             { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { false } },
-            // instruction ordinal = 0 (removed)
+            // instruction ordinal = 1 (removed)
             { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
             // Removal of trim_before_instr = 1 ends here.
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 2 } }, true, { true } },
             { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, false, { true } },
-            // instruction ordinal = 1.
-            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
-            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 3 } }, true, { true } },
             // instruction ordinal = 2.
             { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
-            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 4 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 3 } }, true, { true } },
             // instruction ordinal = 3.
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 4 } }, true, { true } },
+            // instruction ordinal = 4.
             { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
             // Removal of trim_after_instr_instr = 3 starts here.
             { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 5 } },
               true,
               { false } },
-            // instruction ordinal = 4 (removed).
+            // instruction ordinal = 5 (removed).
             { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
             // Removal of trim_after_instr_instr = 3 ends here.
             // These footer records should remain.
