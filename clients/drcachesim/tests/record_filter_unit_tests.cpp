@@ -1094,8 +1094,8 @@ test_trim_filter()
         }
     }
     {
-        // Test invalid parameters: trim_before_timestamp > trim_after_timestamp and
-        // trim_before_instr > trim_after_instr.
+        // Test invalid parameters: trimming by timestamp and instruction ordinal at the
+        // same time.
         constexpr uint64_t TRIM_BEFORE_TIMESTAMP = 150;
         constexpr uint64_t TRIM_AFTER_TIMESTAMP = 149;
         constexpr uint64_t TRIM_BEFORE_INSTR = 250;
@@ -1105,12 +1105,8 @@ test_trim_filter()
                 TRIM_BEFORE_TIMESTAMP, TRIM_AFTER_TIMESTAMP, TRIM_BEFORE_INSTR,
                 TRIM_AFTER_INSTR));
         std::string expected_error_string =
-            "trim_before_timestamp = " + std::to_string(TRIM_BEFORE_TIMESTAMP) +
-            " must be less than trim_after_timestamp = " +
-            std::to_string(TRIM_AFTER_TIMESTAMP) +
-            ". trim_before_instr = " + std::to_string(TRIM_BEFORE_INSTR) +
-            " must be less than trim_after_instr = " + std::to_string(TRIM_AFTER_INSTR) +
-            ".";
+            "trim_[before | after]_timestamp and trim_[before | after]_instr cannot be "
+            "used at the same time";
         if (filter->get_error_string() != expected_error_string) {
             fprintf(stderr, "Failed to return an error on invalid params");
             return false;
@@ -1162,7 +1158,7 @@ test_trim_filter()
               true,
               { false } },
             // instruction ordinal = 4 (removed).
-            { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
             // Removal of trim_after_instr_instr = 3 ends here.
             // These footer records should remain.
             { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },

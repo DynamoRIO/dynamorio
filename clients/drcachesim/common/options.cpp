@@ -1231,7 +1231,7 @@ droption_t<uint64_t> op_trim_before_timestamp(
     "marker in the trace with timestamp greater than or equal to the specified value.");
 
 droption_t<uint64_t> op_trim_after_timestamp(
-    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records after this timestamp (in us) in the trace.",
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
@@ -1244,8 +1244,7 @@ droption_t<uint64_t> op_trim_before_instr(
     "marker in the trace that comes after the specified instruction ordinal.");
 
 droption_t<uint64_t> op_trim_after_instr(
-    DROPTION_SCOPE_ALL, "trim_after_instr", (std::numeric_limits<uint64_t>::max)(), 0,
-    (std::numeric_limits<uint64_t>::max)(),
+    DROPTION_SCOPE_ALL, "trim_after_instr", 0, 0, (std::numeric_limits<uint64_t>::max)(),
     "Trim records approximately after this instruction ordinal in the trace.",
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker in the trace "
     "that comes after the specified instruction ordinal.");
