@@ -1239,14 +1239,14 @@ droption_t<uint64_t> op_trim_after_timestamp(
 
 droption_t<uint64_t> op_trim_before_instr(
     DROPTION_SCOPE_ALL, "trim_before_instr", 0, 0, (std::numeric_limits<uint64_t>::max)(),
-    "Trim records approximately until this instruction ordinal (excluded) in the trace.",
+    "Trim records approximately until this instruction ordinal in the trace.",
     "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
     "marker in the trace that comes after the specified instruction ordinal.");
 
 droption_t<uint64_t> op_trim_after_instr(
     DROPTION_SCOPE_ALL, "trim_after_instr", (std::numeric_limits<uint64_t>::max)(), 0,
     (std::numeric_limits<uint64_t>::max)(),
-    "Trim records approximately after this instruction ordinal (excluded) in the trace.",
+    "Trim records approximately after this instruction ordinal in the trace.",
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker in the trace "
     "that comes after the specified instruction ordinal.");
 
