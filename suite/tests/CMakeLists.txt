@@ -5177,7 +5177,7 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.trim-instr_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
       # The filter overwrites any existing file in the dir from a prior run.
       set(tool.drcacheoff.trim-instr_precmd
-        "${drcachesim_path}@-tool@record_filter@-trim_before_instr@7@-trim_after_instr@120@-indir@${srcdir}@-outdir@${outdir}")
+        "${drcachesim_path}@-tool@record_filter@-trim_before_instr@31@-trim_after_instr@65@-indir@${srcdir}@-outdir@${outdir}")
       set(tool.drcacheoff.trim-instr_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.trim-instr_rawtemp ON) # no preprocessor
 
