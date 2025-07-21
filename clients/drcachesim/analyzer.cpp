@@ -610,7 +610,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         // marker, but this option is rarely used so we do a simple walk here.
         // Users should use skip_instrs for fast skipping.
         // We also do not present the prior timestamp when we get there.
-        if (skip_records_ >= worker.stream->get_output_record_ordinal())
+        if (skip_records_ > 0 &&
+            skip_records_ >= worker.stream->get_output_record_ordinal())
             continue;
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
@@ -763,7 +764,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             else if (record_has_tid(record, tid))
                 worker->shard_data[shard_index].shard_id = tid;
         }
-        if (skip_records_ > worker->stream->get_output_record_ordinal())
+        if (skip_records_ > 0 &&
+            skip_records_ >= worker->stream->get_output_record_ordinal())
             continue;
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
