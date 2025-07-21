@@ -307,7 +307,9 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 
         struct sve_context *sve = (void *)((byte *)esr + sizeof(struct esr_context));
         // Set other fields of sve_context to zero. New fields may be added and
-        // unexpected values in those fields may cause problems.
+        // unexpected values in those fields may cause problems. This is a small
+        // struct so the compiler will allocate it to a virtual register and
+        // optimise this initialisation
         const struct sve_context sve_zero = { 0 };
         *sve = sve_zero;
         sve->head.magic = SVE_MAGIC;
