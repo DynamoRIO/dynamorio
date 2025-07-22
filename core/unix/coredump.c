@@ -412,7 +412,7 @@ write_arm_tls_note(DR_PARAM_IN file_t elf_file)
     if (os_write(elf_file, NOTE_OWNER, NOTE_OWNER_LENGTH) != NOTE_OWNER_LENGTH) {
         return false;
     }
-    const reg_t tpidr_el0 = read_thread_register(DR_REG_TPIDRURW);
+    const reg_t tpidr_el0 = (reg_t)os_get_app_tls_base(NULL, TLS_REG_LIB);
     return os_write(elf_file, &tpidr_el0, sizeof(tpidr_el0)) == sizeof(tpidr_el0);
 }
 #endif
