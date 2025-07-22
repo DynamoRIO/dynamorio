@@ -399,7 +399,7 @@ write_fpregset_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN priv_mcontext_
  * the file, false otherwise.
  */
 static bool
-write_arm_tls_note(DR_PARAM_IN file_t elf_file)
+write_arm_tls_note(DR_PARAM_IN dcontext_t *dcontext, DR_PARAM_IN file_t elf_file)
 {
     ELF_NOTE_HEADER_TYPE nhdr;
     // Add one to include the terminating null character.
@@ -412,7 +412,7 @@ write_arm_tls_note(DR_PARAM_IN file_t elf_file)
     if (os_write(elf_file, NOTE_OWNER, NOTE_OWNER_LENGTH) != NOTE_OWNER_LENGTH) {
         return false;
     }
-    const reg_t tpidr_el0 = read_thread_register(DR_REG_TPIDRURW);
+    const reg_t tpidr_el0 = (reg_t)os_get_app_tls_base(dcontext, TLS_REG_LIB);
     return os_write(elf_file, &tpidr_el0, sizeof(tpidr_el0)) == sizeof(tpidr_el0);
 }
 #endif
@@ -611,7 +611,7 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     // XXX: We need to add support for model specific registers like FS and GS for
     // x86_64.
 #if defined(AARCH64)
-    if (!write_arm_tls_note(elf_file)) {
+    if (!write_arm_tls_note(dcontext, elf_file)) {
         os_close(elf_file);
         return false;
     }
