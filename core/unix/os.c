@@ -5555,8 +5555,11 @@ sys_param_addr(dcontext_t *dcontext, int num)
     switch (num) {
     case 0: return &mc->IF_X86_ELSE(xbx, IF_RISCV64_ELSE(a0, r0));
     case 1:
-        return IF_X86_ELSE((dcontext->sys_was_int ? &mc->xcx : &mc->xbp),
-                           &mc->IF_RISCV64_ELSE(a1, r1));
+        return IF_X86_ELSE(
+            ((dcontext->sys_was_int || get_syscall_method() == SYSCALL_METHOD_SYSENTER)
+                 ? &mc->xcx
+                 : &mc->xbp),
+            &mc->IF_RISCV64_ELSE(a1, r1));
     case 2: return &mc->IF_X86_ELSE(xdx, IF_RISCV64_ELSE(a2, r2));
     case 3: return &mc->IF_X86_ELSE(xsi, IF_RISCV64_ELSE(a3, r3));
     case 4: return &mc->IF_X86_ELSE(xdi, IF_RISCV64_ELSE(a4, r4));
