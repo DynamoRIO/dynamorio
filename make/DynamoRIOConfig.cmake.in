@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -1182,9 +1182,6 @@ endfunction (get_DynamoRIO_defines)
 set(DynamoRIO_EXT_drgui_NOLIB ON)
 set(DynamoRIO_EXT_droption_NOLIB ON)
 set(DynamoRIO_EXT_droption_INC ${DynamoRIO_cwd}/../ext/include)
-# Not really an extension, just for including drmemtrace.h
-# via use_DynamoRIO_extension(target, drmemtrace_static)
-set(DynamoRIO_EXT_drmemtrace_static_NOLIB ON)
 
 # DynamoRIO Extensions
 # Failure to call this in your client CMakeLists.txt when using an extension like

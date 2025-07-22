@@ -343,6 +343,7 @@ add_library(elftc STATIC IMPORTED)
 set_property(TARGET elftc PROPERTY IMPORTED_LOCATION "${elftc_libpath}")
 target_link_libraries(drsyms_static elftc)
 target_link_libraries(drsyms_drstatic elftc)
+file(COPY "${elftc_libpath}" DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 if (UNIX)
   # Avoid missing symbols in static library build from g++ libs when
   # drsyms_bench is linked with gcc instead of g++ (i#715, happens w/ cmake
