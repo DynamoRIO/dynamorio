@@ -1657,8 +1657,8 @@ static const redirect_import_t redirect_imports[] = {
      * + C++ operators in case they don't just call libc malloc?
      */
     /* We redirect these for fd isolation. */
-    { "open", (app_pc)os_open_protected },
-    { "close", (app_pc)os_close_protected },
+    { "open", (app_pc)redirect_open },
+    { "close", (app_pc)redirect_close },
     /* These libc routines can call pthread functions and cause hangs (i#4928) so
      * we use our syscall wrappers instead.
      */
