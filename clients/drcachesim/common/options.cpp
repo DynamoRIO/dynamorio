@@ -643,7 +643,7 @@ droption_t<bytesize_t> op_skip_records(
     "Specifies the number of records to skip in the beginning of the trace "
     "analysis.  For serial iteration, this number is "
     "computed just once across the interleaving sequence of all threads; for parallel "
-    "iteration, each shard skips this many records (see -skip_to_timestamp for "
+    "iteration, each worker skips this many records (see -skip_to_timestamp for "
     "an alternative which aligns all threads).  This skipping is not as fast as "
     "-skip_instrs.  This will skip over top-level "
     "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
@@ -651,7 +651,9 @@ droption_t<bytesize_t> op_skip_records(
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
     "records will not appear to analysis tools; however, their contents can be obtained "
-    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.");
+    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors. "
+    "Synthetic records, such as dynamically injected system call or context switch "
+    "sequences, are not counted at all, just like with -skip_instrs");
 
 droption_t<bytesize_t> op_skip_refs(
     DROPTION_SCOPE_FRONTEND, "skip_refs", 0, "Number of records to skip in certain tools",

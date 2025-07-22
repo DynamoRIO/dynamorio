@@ -610,6 +610,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         // marker, but this option is rarely used so we do a simple walk here.
         // Users should use skip_instrs for fast skipping.
         // We also do not present the prior timestamp when we get there.
+        // Nor do we count anything the scheduler doesn't add to the ordinals:
+        // dynamically injected synthetic records.
         if (skip_records_ > 0 &&
             skip_records_ >= worker.stream->get_output_record_ordinal())
             continue;
@@ -764,6 +766,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             else if (record_has_tid(record, tid))
                 worker->shard_data[shard_index].shard_id = tid;
         }
+        // See comment in process_serial() on skip_records.
+        // Parallel skipping is not well-supported: we skip in each worker, not each
+        // shard, and even each shard (as skip_instrs does today) may not be what the
+        // user wants: XXX i#7230: Is there a better usage mode for parallel skipping?
         if (skip_records_ > 0 &&
             skip_records_ >= worker->stream->get_output_record_ordinal())
             continue;
