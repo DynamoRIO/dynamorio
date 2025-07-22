@@ -768,7 +768,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
         }
         // See comment in process_serial() on skip_records.
         // Parallel skipping is not well-supported: we skip in each worker, not each
-        // shard, and even each shard (as skip_instrs does today) may not be what the
+        // shard, and even each shard (as -skip_instrs does today) may not be what the
         // user wants: XXX i#7230: Is there a better usage mode for parallel skipping?
         if (skip_records_ > 0 &&
             skip_records_ >= worker->stream->get_output_record_ordinal())

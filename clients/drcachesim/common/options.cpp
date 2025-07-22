@@ -636,7 +636,9 @@ droption_t<bytesize_t> op_skip_instrs(
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
     "records will not appear to analysis tools; however, their contents can be obtained "
-    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.");
+    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.  "
+    "Synthetic records, such as dynamically injected system call or context switch "
+    "sequences, are not counted at all.");
 
 droption_t<bytesize_t> op_skip_records(
     DROPTION_SCOPE_FRONTEND, "skip_records", 0, "Number of records to skip",
@@ -651,9 +653,9 @@ droption_t<bytesize_t> op_skip_records(
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
     "records will not appear to analysis tools; however, their contents can be obtained "
-    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors. "
+    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.  "
     "Synthetic records, such as dynamically injected system call or context switch "
-    "sequences, are not counted at all, just like with -skip_instrs");
+    "sequences, are not counted at all.");
 
 droption_t<bytesize_t> op_skip_refs(
     DROPTION_SCOPE_FRONTEND, "skip_refs", 0, "Number of records to skip in certain tools",

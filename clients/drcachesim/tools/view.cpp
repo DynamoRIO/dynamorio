@@ -120,8 +120,7 @@ view_t::parallel_shard_exit(void *shard_data)
     // out a delayed timestamp.
     if (timestamp_ > 0) {
         memtrace_stream_t *memstream = reinterpret_cast<memtrace_stream_t *>(shard_data);
-        memref_t memref = timestamp_memref_;
-        print_prefix(memstream, memref, timestamp_record_ord_);
+        print_prefix(memstream, timestamp_memref_, timestamp_record_ord_);
         std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
         timestamp_ = 0;
     }
