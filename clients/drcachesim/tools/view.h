@@ -172,10 +172,12 @@ protected:
     memref_tid_t prev_tid_;
     uint64_t prev_record_ = 0;
     intptr_t filetype_;
+    bool saw_headers_ = false;
     std::unordered_set<memref_tid_t> printed_header_;
     std::unordered_map<memref_tid_t, uintptr_t> last_window_;
     uintptr_t timestamp_;
     int64_t timestamp_record_ord_ = -1;
+    memref_t timestamp_memref_;
     int64_t version_record_ord_ = -1;
     int64_t filetype_record_ord_ = -1;
     bool init_from_filetype_done_ = false;

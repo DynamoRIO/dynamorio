@@ -116,6 +116,14 @@ view_t::parallel_shard_init_stream(int shard_index, void *worker_data,
 bool
 view_t::parallel_shard_exit(void *shard_data)
 {
+    // If the framework exited (-exit_after_records, e.g.), be sure to print
+    // out a delayed timestamp.
+    if (timestamp_ > 0) {
+        memtrace_stream_t *memstream = reinterpret_cast<memtrace_stream_t *>(shard_data);
+        print_prefix(memstream, timestamp_memref_, timestamp_record_ord_);
+        std::cerr << "<marker: timestamp " << timestamp_ << ">\n";
+        timestamp_ = 0;
+    }
     return true;
 }
 
@@ -260,6 +268,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_FILETYPE:
             // We delay printing until we know the tid.
             if (filetype_ == -1) {
+                saw_headers_ = true;
                 filetype_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
                 if (!init_from_filetype()) {
                     return false;
@@ -278,6 +287,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // since memref iterators use the timestamps to order buffer units.
             timestamp_ = memref.marker.marker_value;
             timestamp_record_ord_ = memstream->get_record_ordinal();
+            timestamp_memref_ = memref;
             if (should_skip(memstream, memref))
                 timestamp_ = 0;
             return true;
@@ -292,13 +302,17 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         printed_header_.find(memref.marker.tid) == printed_header_.end()) {
         printed_header_.insert(memref.marker.tid);
         if (trace_version_ != -1) { // Old versions may not have a version marker.
-            if (!should_skip(memstream, memref)) {
+            if (!should_skip(memstream, memref) &&
+                // Do not print if user skipped headers.
+                saw_headers_) {
                 print_prefix(memstream, memref, version_record_ord_);
                 std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
-            if (!should_skip(memstream, memref)) {
+            if (!should_skip(memstream, memref) &&
+                // Do not print if user skipped headers.
+                saw_headers_) {
                 print_prefix(memstream, memref, filetype_record_ord_);
                 std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
                           << ">\n";
@@ -657,6 +671,8 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 bool
 view_t::print_results()
 {
+    if (!parallel_shard_exit(serial_stream_))
+        return false;
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;

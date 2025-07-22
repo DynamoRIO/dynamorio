@@ -174,6 +174,7 @@ extern dynamorio::droption::droption_t<int> op_only_thread;
 extern dynamorio::droption::droption_t<std::string> op_only_threads;
 extern dynamorio::droption::droption_t<std::string> op_only_shards;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_instrs;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_records;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_skip_refs;
 extern dynamorio::droption::droption_t<uint64_t> op_skip_to_timestamp;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_warmup_refs;
