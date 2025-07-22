@@ -138,3 +138,12 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
+// Used by our build-and-test to test external use (where there's no test_helpers).
+#ifdef DEFINE_MAIN
+int
+main(int argc, const char *argv[])
+{
+    return dynamorio::drmemtrace::test_main(argc, argv);
+}
+#endif
