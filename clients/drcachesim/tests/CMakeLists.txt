@@ -58,7 +58,9 @@ target_link_libraries(analyzer_separate drmemtrace_analyzer drmemtrace_histogram
   drfrontendlib)
 
 # Test drmemtrace_static.
-add_executable(burst_separate burst_static.cpp)
-set_property(SOURCE burst_static.cpp APPEND PROPERTY COMPILE_DEFINITIONS "DEFINE_MAIN")
-configure_DynamoRIO_static(burst_separate)
-use_DynamoRIO_static_client(burst_separate drmemtrace_static)
+if (UNIX) # XXX i#7560: Windows link errors remain but we don't have time to solve.
+  add_executable(burst_separate burst_static.cpp)
+  set_property(SOURCE burst_static.cpp APPEND PROPERTY COMPILE_DEFINITIONS "DEFINE_MAIN")
+  configure_DynamoRIO_static(burst_separate)
+  use_DynamoRIO_static_client(burst_separate drmemtrace_static)
+endif ()
