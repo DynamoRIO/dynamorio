@@ -552,7 +552,11 @@ test_redirect(void)
     file_t fd = dr_open_file(path, DR_FILE_WRITE_OVERWRITE);
     dr_write_file(fd, contents, strlen(contents));
     dr_close_file(fd);
+    /* Now open with libc open() and O_RDWR as a regression test with the trigger
+     * of the i#7562 bug where O_RDWR leads to file truncation (now fixed).
+     */
     int libc_fd = open(path, O_RDWR, 0666);
+    /* Ensure it's not truncated. */
     char buf[64] = {};
     ssize_t amount = read(libc_fd, buf, strlen(contents) + 1);
     NULL_TERMINATE_BUFFER(buf);
