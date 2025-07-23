@@ -4558,6 +4558,31 @@ fd_is_in_private_range(file_t fd)
     return (DYNAMO_OPTION(steal_fds) > 0 && min_dr_fd > 0 && fd >= min_dr_fd);
 }
 
+/* Redirected from libc open() so flags are libc flags and not DR flags. */
+file_t
+redirect_open(const char *fname, int flags, int mode)
+{
+    file_t dup;
+    file_t res = open_syscall(fname, flags, mode);
+    if (res < 0)
+        return res;
+    dup = fd_priv_dup(res);
+    if (dup >= 0) {
+        close_syscall(res);
+        res = dup;
+        fd_mark_close_on_exec(res);
+    } /* else just keep original */
+    fd_table_add(res, 0 /*unused*/);
+    return res;
+}
+
+void
+redirect_close(file_t f)
+{
+    fd_table_remove(f);
+    close_syscall(f);
+}
+
 file_t
 os_open_protected(const char *fname, int os_open_flags)
 {

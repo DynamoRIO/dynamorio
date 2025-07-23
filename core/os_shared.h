@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -853,6 +853,10 @@ os_get_disk_free_space(/*IN*/ file_t file_handle,
                        /*OUT*/ uint64 *AvailableQuotaBytes /*OPTIONAL*/,
                        /*OUT*/ uint64 *TotalQuotaBytes /*OPTIONAL*/,
                        /*OUT*/ uint64 *TotalVolumeBytes /*OPTIONAL*/);
+file_t
+redirect_open(const char *fname, int flags, int mode);
+void
+redirect_close(file_t f);
 
 #ifdef PROFILE_RDTSC
 extern uint kilo_hertz;

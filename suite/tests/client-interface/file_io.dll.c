@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,6 +40,7 @@
 #ifdef WINDOWS
 #    include <windows.h>
 #else
+#    include <fcntl.h>
 #    include <stdlib.h>
 #    include <unistd.h>
 #    include <time.h>
@@ -64,6 +65,8 @@ static void
 test_times(void);
 static void
 test_vfprintf(void);
+static void
+test_redirect(void);
 
 byte *
 find_prot_edge(const byte *start, uint prot_flag)
@@ -319,6 +322,8 @@ dr_init(client_id_t id)
     test_times();
 
     test_vfprintf();
+
+    test_redirect();
 }
 
 /* Creates a closed, unique temporary file and returns its filename.
@@ -534,4 +539,29 @@ static void
 test_vfprintf(void)
 {
     test_vfprintf_helper(STDERR, "vfprintf check: %d\n", 1234);
+}
+
+static void
+test_redirect(void)
+{
+#ifdef LINUX
+    /* Test the private loader correctly passing libc open() flags (i#7562). */
+    char path[MAXIMUM_PATH];
+    const char *contents = "abcdefg";
+    get_temp_filename(path);
+    file_t fd = dr_open_file(path, DR_FILE_WRITE_OVERWRITE);
+    dr_write_file(fd, contents, strlen(contents));
+    dr_close_file(fd);
+    /* Now open with libc open() and O_RDWR as a regression test with the trigger
+     * of the i#7562 bug where O_RDWR leads to file truncation (now fixed).
+     */
+    int libc_fd = open(path, O_RDWR, 0666);
+    /* Ensure it's not truncated. */
+    char buf[64] = {};
+    ssize_t amount = read(libc_fd, buf, strlen(contents) + 1);
+    NULL_TERMINATE_BUFFER(buf);
+    if (strcmp(buf, contents) != 0)
+        dr_fprintf(STDERR, "libc view != DR view\n");
+    close(libc_fd);
+#endif
 }
