@@ -2980,6 +2980,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild_api(client.drx_sleep_scale-test client-interface/drx_sleep_scale-test.cpp
       "" "" OFF ON OFF)
     use_DynamoRIO_extension(client.drx_sleep_scale-test drx_static)
+    link_with_pthread(client.drx_sleep_scale-test)
   endif ()
 endif (NOT RISCV64)
 
