@@ -4597,6 +4597,14 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.all_early_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.all_early_rawtemp ON) # no preprocessor
+
+      # Test -skip_records.
+      torunonly_api(tool.drcacheoff.skip_records "${drcachesim_path}" "offline-skip-records" ""
+        "-tool;view:opcode_mix;-skip_records;10;-exit_after_records;5;-infile;${zip_path}"
+        OFF OFF)
+      set(tool.drcacheoff.skip_records_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.skip_records_rawtemp ON) # no preprocessor
     endif ()
 
     # We run common.decode-bad to test markers for faults
@@ -4630,6 +4638,10 @@ if (BUILD_CLIENTS)
       if (AARCH64 AND proc_supports_sve)
         set(tool.drcacheoff.view_runsve 1)
       endif ()
+
+      torunonly_drcacheoff(view-skip-instrs ${ci_shared_app} ""
+        "@-tool@view@-sim_refs@16384@-skip_instrs@1" "")
+      unset(tool.drcacheoff.view-skip-instrs_rawtemp)
 
       set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
       torunonly_drcacheoff(func_view common.fib "-record_function fib|1"

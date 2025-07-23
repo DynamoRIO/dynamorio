@@ -2253,6 +2253,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     output_ordinal_t output, RecordType &record, input_info_t &input)
 {
     assert(input.lock->owned_by_cur_thread());
+    // XXX i#7230: By using the provided ordinal, this should ignore synthetic records,
+    // which we have documented in the option docs.  We should make a unit test
+    // confirming and ensuring this matches -skip_records and invariant report ordinals.
     uint64_t cur_instr = get_instr_ordinal(input);
     uint64_t cur_reader_instr = input.reader->get_instruction_ordinal();
     assert(input.cur_region >= 0 &&

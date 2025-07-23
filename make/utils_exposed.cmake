@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012-2021 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2025 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -290,7 +290,7 @@ function(DynamoRIO_force_static_link target lib)
     else ()
       set(incname "_dr_client_main")
     endif ()
-    append_property_string(TARGET ${target} LINK_FLAGS "/include:${incname}")
+    _DR_append_property_string(TARGET ${target} LINK_FLAGS "/include:${incname}")
   endif ()
 endfunction(DynamoRIO_force_static_link)
 
