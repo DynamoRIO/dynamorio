@@ -116,9 +116,12 @@ public:
                 }
                 // We cannot remove records until we see a timestamp, so we have to wait
                 // until this TRACE_MARKER_TYPE_TIMESTAMP and start/stop trimming from
-                // there.
+                // there. We include trim_after_instr to cover the case where the
+                // instruction ordinal is just before a timestamp, so we start trimming
+                // from there and not the next timestamp instead, which can come after
+                // several other instructions.
                 if (per_shard->instr_counter < trim_before_instr_ ||
-                    per_shard->instr_counter > trim_after_instr_) {
+                    per_shard->instr_counter >= trim_after_instr_) {
                     per_shard->in_removed_region_instr = true;
                 } else {
                     per_shard->in_removed_region_instr = false;
