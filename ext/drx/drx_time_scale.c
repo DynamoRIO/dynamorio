@@ -352,7 +352,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         NOTIFY(2, "T" TIDFMT " getitimer\n", dr_get_thread_id(drcontext));
         data->app_read_timer_param = (void *)dr_syscall_get_param(drcontext, 1);
         break;
-    case SYS_nanosleep:
+    case SYS_nanosleep: {
         struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 0);
         struct timespec *remain = (struct timespec *)dr_syscall_get_param(drcontext, 1);
         NOTIFY(2, "T" TIDFMT " nanosleep time=%p, remaim=%p\n",
@@ -366,6 +366,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             dr_syscall_set_param(drcontext, 0, (reg_t)&data->time_spec);
         }
         break;
+    }
     case SYS_clock_nanosleep: {
         int flags = (int)dr_syscall_get_param(drcontext, 1);
         struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 2);
