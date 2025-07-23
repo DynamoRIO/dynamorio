@@ -1046,19 +1046,140 @@ test_trim_filter()
     constexpr addr_t WINDOW_ID_0 = 0x0;
     constexpr addr_t WINDOW_ID_1 = 0x1;
     {
-        // Test invalid parameters.
+        // Test invalid parameters: trim_before_timestamp > trim_after_timestamp.
+        constexpr uint64_t TRIM_BEFORE_TIMESTAMP = 150;
+        constexpr uint64_t TRIM_AFTER_TIMESTAMP = 149;
         auto filter = std::unique_ptr<record_filter_func_t>(
-            new dynamorio::drmemtrace::trim_filter_t(150, 149));
-        if (filter->get_error_string().empty()) {
+            new dynamorio::drmemtrace::trim_filter_t(TRIM_BEFORE_TIMESTAMP,
+                                                     TRIM_AFTER_TIMESTAMP));
+        std::string expected_error_string =
+            "trim_before_timestamp = " + std::to_string(TRIM_BEFORE_TIMESTAMP) +
+            " must be less than trim_after_timestamp = " +
+            std::to_string(TRIM_AFTER_TIMESTAMP) + ". ";
+        if (filter->get_error_string() != expected_error_string) {
             fprintf(stderr, "Failed to return an error on invalid params");
             return false;
         }
-        auto filter2 = std::unique_ptr<record_filter_func_t>(
-            new dynamorio::drmemtrace::trim_filter_t(150, 150));
-        if (filter2->get_error_string().empty()) {
+    }
+    {
+        // Test invalid parameters: trim_before_timestamp == trim_after_timestamp.
+        constexpr uint64_t TRIM_BEFORE_TIMESTAMP = 150;
+        constexpr uint64_t TRIM_AFTER_TIMESTAMP = 150;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(TRIM_BEFORE_TIMESTAMP,
+                                                     TRIM_AFTER_TIMESTAMP));
+        std::string expected_error_string =
+            "trim_before_timestamp = " + std::to_string(TRIM_BEFORE_TIMESTAMP) +
+            " must be less than trim_after_timestamp = " +
+            std::to_string(TRIM_AFTER_TIMESTAMP) + ". ";
+        if (filter->get_error_string() != expected_error_string) {
             fprintf(stderr, "Failed to return an error on invalid params");
             return false;
         }
+    }
+    {
+        // Test invalid parameters: trim_before_instr > trim_after_instr.
+        constexpr uint64_t TRIM_BEFORE_INSTR = 250;
+        constexpr uint64_t TRIM_AFTER_INSTR = 249;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(0, 0, TRIM_BEFORE_INSTR,
+                                                     TRIM_AFTER_INSTR));
+        std::string expected_error_string =
+            "trim_before_instr = " + std::to_string(TRIM_BEFORE_INSTR) +
+            " must be less than trim_after_instr = " + std::to_string(TRIM_AFTER_INSTR) +
+            ".";
+        if (filter->get_error_string() != expected_error_string) {
+            fprintf(stderr, "Failed to return an error on invalid params");
+            return false;
+        }
+    }
+    {
+        // Test invalid parameters: trimming by timestamp and instruction ordinal at the
+        // same time.
+        constexpr uint64_t TRIM_BEFORE_TIMESTAMP = 150;
+        constexpr uint64_t TRIM_AFTER_TIMESTAMP = 149;
+        constexpr uint64_t TRIM_BEFORE_INSTR = 250;
+        constexpr uint64_t TRIM_AFTER_INSTR = 249;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(
+                TRIM_BEFORE_TIMESTAMP, TRIM_AFTER_TIMESTAMP, TRIM_BEFORE_INSTR,
+                TRIM_AFTER_INSTR));
+        std::string expected_error_string =
+            "trim_[before | after]_timestamp and trim_[before | after]_instr cannot be "
+            "used at the same time";
+        if (filter->get_error_string() != expected_error_string) {
+            fprintf(stderr, "Failed to return an error on invalid params");
+            return false;
+        }
+    }
+    {
+        constexpr uint64_t TRIM_BEFORE_INSTR = 1;
+        constexpr uint64_t TRIM_AFTER_INSTR = 3;
+        // Test trimming of a trace using instruction ordinals.
+        std::vector<test_case_t> entries = {
+            // Header.
+            { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+            { { TRACE_TYPE_MARKER,
+                TRACE_MARKER_TYPE_FILETYPE,
+                { OFFLINE_FILE_TYPE_ENCODINGS } },
+              true,
+              { true } },
+            { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+              true,
+              { true } },
+            // Chunk 1.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 5 } },
+              true,
+              { true } },
+            // Removal of trim_before_instr = 1 starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1 } },
+              true,
+              { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { false } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { false } },
+            // instruction ordinal = 1 (removed).
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
+            // Removal of trim_before_instr = 1 ends here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 2 } }, true, { true } },
+            { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, false, { true } },
+            // instruction ordinal = 2.
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 3 } }, true, { true } },
+            // instruction ordinal = 3.
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+            // Removal of trim_after_instr_instr = 3 starts here.
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 4 } },
+              true,
+              { false } },
+            // instruction ordinal = 4 (removed).
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
+            { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 5 } },
+              true,
+              { false } },
+            // instruction ordinal = 5 (removed).
+            { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { false } },
+            // Removal of trim_after_instr_instr = 3 ends here.
+            // These footer records should remain.
+            { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+            { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+        };
+        std::vector<std::unique_ptr<record_filter_func_t>> filters;
+        auto filter = std::unique_ptr<record_filter_func_t>(
+            new dynamorio::drmemtrace::trim_filter_t(0, 0, TRIM_BEFORE_INSTR,
+                                                     TRIM_AFTER_INSTR));
+        if (!filter->get_error_string().empty()) {
+            fprintf(stderr, "Couldn't construct a trim_filter %s",
+                    filter->get_error_string().c_str());
+            return false;
+        }
+        filters.push_back(std::move(filter));
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+        if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
+            return false;
     }
     {
         // Test trimming of a multi windows trace.

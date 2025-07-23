@@ -5174,6 +5174,25 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.trim_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.trim_rawtemp ON) # no preprocessor
 
+      # Test the trim filter using instruction ordinals.
+      set(zip_path
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
+      set(outdir ${PROJECT_BINARY_DIR}/trim_instr_filter)
+      file(MAKE_DIRECTORY ${outdir})
+      # The filter launcher doesn't have an -infile parameter.
+      set(srcdir ${PROJECT_BINARY_DIR}/trim_instr_filter_src)
+      file(MAKE_DIRECTORY ${srcdir})
+      file(COPY ${zip_path} DESTINATION ${srcdir})
+      torunonly_api(tool.drcacheoff.trim-instr "${drcachesim_path}" "offline-trim-instr" ""
+        "-tool;view;-view_syntax;dr;-indir;${outdir};${test_mode_flag}"
+        OFF OFF)
+      set(tool.drcacheoff.trim-instr_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      # The filter overwrites any existing file in the dir from a prior run.
+      set(tool.drcacheoff.trim-instr_precmd
+        "${drcachesim_path}@-tool@record_filter@-trim_before_instr@31@-trim_after_instr@65@-indir@${srcdir}@-outdir@${outdir}")
+      set(tool.drcacheoff.trim-instr_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.trim-instr_rawtemp ON) # no preprocessor
+
       # Test the record_filter in as-traced mode.
       set(trace_dir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")

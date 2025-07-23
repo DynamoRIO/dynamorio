@@ -198,6 +198,11 @@ Further non-compatibility-affecting changes include:
  - Added get_output_record_ordinal() to the drmemtrace scheduler.
  - Added a new drmemtrace option -skip_records which applies to all
    tools and skips the first N records.
+ - Added -trim_before_instr and -trim_after_instr options to trim_filter (part of
+   drmemtrace's record_filter). They allow the trimming of a trace using instruction
+   ordinals. The trimming is approximated to the closest timestamp in the trace that
+   follows the provided instuction ordinals, as timestamps are a safe spot to trim a
+   trace.
 
 **************************************************
 <hr>

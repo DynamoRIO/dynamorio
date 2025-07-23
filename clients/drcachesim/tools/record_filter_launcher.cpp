@@ -115,11 +115,23 @@ static droption_t<uint64_t> op_trim_before_timestamp(
     "marker in the trace with timestamp greater than or equal to the specified value.");
 
 static droption_t<uint64_t> op_trim_after_timestamp(
-    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records after this timestamp (in us) in the trace.",
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
     "timestamp larger than the specified value.");
+
+static droption_t<uint64_t> op_trim_before_instr(
+    DROPTION_SCOPE_ALL, "trim_before_instr", 0, 0, (std::numeric_limits<uint64_t>::max)(),
+    "Trim records approximately until this instruction ordinal in the trace.",
+    "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
+    "marker in the trace that comes after the specified instruction ordinal.");
+
+static droption_t<uint64_t> op_trim_after_instr(
+    DROPTION_SCOPE_ALL, "trim_after_instr", 0, 0, (std::numeric_limits<uint64_t>::max)(),
+    "Trim records approximately after this instruction ordinal in the trace.",
+    "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker in the trace "
+    "that comes after the specified instruction ordinal.");
 
 /* XXX i#6369: we should partition our options by tool. This one should belong to the
  * record_filter partition. For now we add the filter_ prefix to options that should be
@@ -177,7 +189,8 @@ _tmain(int argc, const TCHAR *targv[])
             op_output_dir.get_value(), op_stop_timestamp.get_value(),
             op_cache_filter_size.get_value(), op_remove_trace_types.get_value(),
             op_remove_marker_types.get_value(), op_trim_before_timestamp.get_value(),
-            op_trim_after_timestamp.get_value(), op_encodings2regdeps.get_value(),
+            op_trim_after_timestamp.get_value(), op_trim_before_instr.get_value(),
+            op_trim_after_instr.get_value(), op_encodings2regdeps.get_value(),
             op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
             op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;

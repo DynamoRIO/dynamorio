@@ -37,8 +37,6 @@
 #include "trace_entry.h"
 
 #include <limits>
-#include <vector>
-#include <unordered_set>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -49,16 +47,39 @@ namespace drmemtrace {
 // instructions, but at the gain of consistent inter-thread trimming.
 class trim_filter_t : public record_filter_t::record_filter_func_t {
 public:
-    trim_filter_t(uint64_t trim_before_timestamp, uint64_t trim_after_timestamp)
+    trim_filter_t(uint64_t trim_before_timestamp = 0, uint64_t trim_after_timestamp = 0,
+                  uint64_t trim_before_instr = 0, uint64_t trim_after_instr = 0)
         : trim_before_timestamp_(trim_before_timestamp)
         , trim_after_timestamp_(trim_after_timestamp)
+        , trim_before_instr_(trim_before_instr)
+        , trim_after_instr_(trim_after_instr)
     {
-        // Support 0 to make it easier for users to have no trim-after.
-        if (trim_after_timestamp_ == 0) {
-            trim_after_timestamp_ = (std::numeric_limits<uint64_t>::max)();
-        }
-        if (trim_after_timestamp_ <= trim_before_timestamp_) {
-            error_string_ = "Invalid parameters: end must be > start";
+        // We don't support trimming by timestamp and instruction ordinal at the same
+        // time, as it adds unnecessary complexities.
+        if ((trim_before_timestamp_ > 0 || trim_after_timestamp_ > 0) &&
+            (trim_before_instr_ > 0 || trim_after_instr_ > 0)) {
+            error_string_ = "trim_[before | after]_timestamp and trim_[before | "
+                            "after]_instr cannot be used at the same time";
+        } else {
+            // Support 0 to make it easier for users to have no trim-after.
+            if (trim_after_timestamp_ == 0) {
+                trim_after_timestamp_ = (std::numeric_limits<uint64_t>::max)();
+            }
+            if (trim_after_timestamp_ <= trim_before_timestamp_) {
+                error_string_ =
+                    "trim_before_timestamp = " + std::to_string(trim_before_timestamp_) +
+                    " must be less than trim_after_timestamp = " +
+                    std::to_string(trim_after_timestamp_) + ". ";
+            }
+            if (trim_after_instr_ == 0) {
+                trim_after_instr_ = (std::numeric_limits<uint64_t>::max)();
+            }
+            if (trim_after_instr_ <= trim_before_instr_) {
+                error_string_ =
+                    "trim_before_instr = " + std::to_string(trim_before_instr_) +
+                    " must be less than trim_after_instr = " +
+                    std::to_string(trim_after_instr_) + ".";
+            }
         }
     }
     void *
@@ -74,6 +95,9 @@ public:
         record_filter_t::record_filter_info_t &record_filter_info) override
     {
         per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            ++per_shard->instr_counter;
+        }
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
             case TRACE_MARKER_TYPE_TIMESTAMP:
@@ -90,6 +114,20 @@ public:
                 } else {
                     per_shard->in_removed_region = false;
                 }
+                // We cannot remove records until we see a timestamp, so we have to wait
+                // until this TRACE_MARKER_TYPE_TIMESTAMP and start/stop trimming from
+                // there. We include trim_after_instr to cover the case where the
+                // instruction ordinal is just before a timestamp, so we start trimming
+                // from there and not the next timestamp instead, which can come after
+                // several other instructions.
+                if (per_shard->instr_counter < trim_before_instr_ ||
+                    per_shard->instr_counter >= trim_after_instr_) {
+                    per_shard->in_removed_region_instr = true;
+                } else {
+                    per_shard->in_removed_region_instr = false;
+                }
+                per_shard->in_removed_region =
+                    per_shard->in_removed_region || per_shard->in_removed_region_instr;
                 break;
             case TRACE_MARKER_TYPE_WINDOW_ID:
                 // Always emit the very first TRACE_MARKER_TYPE_WINDOW_ID marker, so no
@@ -142,11 +180,15 @@ public:
 private:
     struct per_shard_t {
         bool in_removed_region = false;
+        bool in_removed_region_instr = false;
         addr_t window_id = static_cast<addr_t>(-1);
+        uint64_t instr_counter = 0;
     };
 
     uint64_t trim_before_timestamp_;
     uint64_t trim_after_timestamp_;
+    uint64_t trim_before_instr_;
+    uint64_t trim_after_instr_;
 };
 
 } // namespace drmemtrace
