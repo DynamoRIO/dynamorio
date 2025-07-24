@@ -183,7 +183,9 @@ instr_count_threshold()
 
 // Enables tracing if we've reached the delay point.
 // For tracing windows going in the reverse direction and disabling tracing,
-// see reached_traced_instrs_threshold().
+// see reached_traced_instrs_threshold(). On Linux, call this function only from a clean
+// call. This is because it might invoke dr_redirect_execution() after a nudge to ensure
+// a cache exit. Refer to dr_nudge_client() for more details.
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
@@ -212,6 +214,9 @@ hit_instr_count_threshold(app_pc next_pc)
         dr_mutex_unlock(mutex);
         return;
     }
+#ifdef LINUX
+    bool redirect_execution = false;
+#endif
     if (get_initial_no_trace_for_instrs_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire)) {
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
@@ -220,6 +225,7 @@ hit_instr_count_threshold(app_pc next_pc)
                 client_id,
                 (static_cast<uint64>(TRACER_NUDGE_MEM_DUMP) << TRACER_NUDGE_TYPE_SHIFT) |
                     tracing_window.load(std::memory_order_acquire));
+            redirect_execution = true;
         }
         retrace_start_timestamp.store(instru_t::get_timestamp());
     } else {
@@ -230,6 +236,7 @@ hit_instr_count_threshold(app_pc next_pc)
                 client_id,
                 (static_cast<uint64>(TRACER_NUDGE_MEM_DUMP) << TRACER_NUDGE_TYPE_SHIFT) |
                     tracing_window.load(std::memory_order_acquire));
+            redirect_execution = true;
         }
         retrace_start_timestamp.store(instru_t::get_timestamp());
         if (op_offline.get_value())
@@ -254,6 +261,17 @@ hit_instr_count_threshold(app_pc next_pc)
         mode = BBDUP_MODE_TRACE;
     tracing_mode.store(mode, std::memory_order_release);
     dr_mutex_unlock(mutex);
+#ifdef LINUX
+    if (redirect_execution) {
+        void *drcontext = dr_get_current_drcontext();
+        dr_mcontext_t mcontext;
+        mcontext.size = sizeof(mcontext);
+        mcontext.flags = DR_MC_ALL;
+        dr_get_mcontext(drcontext, &mcontext);
+        mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
+        dr_redirect_execution(&mcontext);
+    }
+#endif
 }
 
 #ifndef DELAYED_CHECK_INLINED
