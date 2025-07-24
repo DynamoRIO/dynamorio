@@ -204,7 +204,7 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     // ran on for each memref.
     // core_index can end up as INVALID_CORE_INDEX during headers but we don't use it
     // then; we assert below on all uses cases that it's not INVALID_CORE_INDEX.
-    int core_index;
+    int core_index = INVALID_CORE_INDEX;
     // Do not try to schedule idle onto cores as we'll then think they had activity
     // when we print them out.
     if (memref.marker.type != TRACE_TYPE_MARKER ||
