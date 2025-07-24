@@ -502,7 +502,12 @@ event_post_syscall(void *drcontext, int sysnum)
         break;
     }
     case SYS_nanosleep:
+#ifdef X86
+        /* For AArch64 and RISC-V parameter 0 becomes the return value, so we do not
+         * want to restore the pre-syscall value.
+         */
         dr_syscall_set_param(drcontext, 0, (reg_t)data->app_set_timer_param);
+#endif
         /* Deliberate fallthrough. */
     case SYS_clock_nanosleep: {
         if (sysnum == SYS_clock_nanosleep)
