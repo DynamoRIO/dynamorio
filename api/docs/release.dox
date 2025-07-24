@@ -151,6 +151,8 @@ compatibility changes:
    #dynamorio::drmemtrace::analysis_tool_tmpl_t::parallel_shard_memref return
    conditions to no longer indicate an error if the error string is empty.
    This can now be used to exit early without reporting an error.
+ - Changed the -skip_refs drmemtrace option to not count markers, matching the
+   -sim_refs and -warmup_refs options.  (The new -skip_records counts markers.)
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
