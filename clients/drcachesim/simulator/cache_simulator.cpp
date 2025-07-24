@@ -470,8 +470,10 @@ cache_simulator_t::process_memref(const memref_t &memref)
                 core_index = last_core_index_;
             else {
                 core_index = core_for_thread(memref.data.tid);
-                last_thread_ = memref.data.tid;
-                last_core_index_ = core_index;
+                if (core_index != INVALID_CORE_INDEX) {
+                    last_thread_ = memref.data.tid;
+                    last_core_index_ = core_index;
+                }
             }
         } else
             core_index = core_for_thread(memref.data.tid);

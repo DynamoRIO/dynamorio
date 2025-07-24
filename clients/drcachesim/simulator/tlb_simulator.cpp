@@ -205,12 +205,19 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     // core_index can end up as INVALID_CORE_INDEX during headers but we don't use it
     // then; we assert below on all uses cases that it's not INVALID_CORE_INDEX.
     int core_index;
-    if (memref.data.tid == last_thread_)
-        core_index = last_core_index_;
-    else {
-        core_index = core_for_thread(memref.data.tid);
-        last_thread_ = memref.data.tid;
-        last_core_index_ = core_index;
+    // Do not try to schedule idle onto cores as we'll then think they had activity
+    // when we print them out.
+    if (memref.marker.type != TRACE_TYPE_MARKER ||
+        memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_IDLE) {
+        if (memref.data.tid == last_thread_) {
+            core_index = last_core_index_;
+        } else {
+            core_index = core_for_thread(memref.data.tid);
+            if (core_index != INVALID_CORE_INDEX) {
+                last_thread_ = memref.data.tid;
+                last_core_index_ = core_index;
+            }
+        }
     }
 
     // To support swapping to physical addresses without modifying the passed-in
