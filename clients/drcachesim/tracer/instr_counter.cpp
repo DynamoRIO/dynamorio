@@ -225,7 +225,9 @@ hit_instr_count_threshold(app_pc next_pc)
                 client_id,
                 (static_cast<uint64>(TRACER_NUDGE_MEM_DUMP) << TRACER_NUDGE_TYPE_SHIFT) |
                     tracing_window.load(std::memory_order_acquire));
+#ifdef LINUX
             redirect_execution = true;
+#endif
         }
         retrace_start_timestamp.store(instru_t::get_timestamp());
     } else {
@@ -236,7 +238,9 @@ hit_instr_count_threshold(app_pc next_pc)
                 client_id,
                 (static_cast<uint64>(TRACER_NUDGE_MEM_DUMP) << TRACER_NUDGE_TYPE_SHIFT) |
                     tracing_window.load(std::memory_order_acquire));
+#ifdef LINUX
             redirect_execution = true;
+#endif
         }
         retrace_start_timestamp.store(instru_t::get_timestamp());
         if (op_offline.get_value())
