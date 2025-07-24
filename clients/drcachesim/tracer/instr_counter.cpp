@@ -186,6 +186,7 @@ instr_count_threshold()
 // see reached_traced_instrs_threshold(). On Linux, call this function only from a clean
 // call. This is because it might invoke dr_redirect_execution() after a nudge to ensure
 // a cache exit. Refer to dr_nudge_client() for more details.
+// This function will not return when dr_redirect_execution() is called.
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
@@ -266,6 +267,9 @@ hit_instr_count_threshold(app_pc next_pc)
     tracing_mode.store(mode, std::memory_order_release);
     dr_mutex_unlock(mutex);
 #ifdef LINUX
+    // On Linux, the nudge is not delivered until this thread exits the code cache.
+    // As this is a clean call, `dr_redirect_execution()` is used to force a cache exit
+    // and ensure timely nudge delivery.
     if (redirect_execution) {
         void *drcontext = dr_get_current_drcontext();
         dr_mcontext_t mcontext;
@@ -274,6 +278,7 @@ hit_instr_count_threshold(app_pc next_pc)
         dr_get_mcontext(drcontext, &mcontext);
         mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
         dr_redirect_execution(&mcontext);
+        ASSERT(false, "dr_redirect_execution should not return");
     }
 #endif
 }
