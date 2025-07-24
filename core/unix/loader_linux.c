@@ -174,20 +174,19 @@ typedef struct _tcb_head_t {
 #ifdef X86
 #    define TLS_PRE_TCB_SIZE 0
 #elif defined(AARCHXX)
-/* FIXME i#1569: This may be wrong for AArch64! */
 /* Data structure to match libc pthread.
  * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
  * the size and member locations match to avoid gdb crash.
  */
 typedef struct _dr_pthread_t {
-    byte data1[0x68]; /* # of bytes before tid within pthread */
+    byte data1[0xd0]; /* # of bytes before tid within pthread */
     process_id_t tid;
     thread_id_t pid;
-    byte data2[0x450]; /* # of bytes after pid within pthread */
+    byte data2[0x6e8]; /* # of bytes after pid within pthread */
 } dr_pthread_t;
 #    define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
-#    define LIBC_PTHREAD_SIZE 0x4c0
-#    define LIBC_PTHREAD_TID_OFFSET 0x68
+#    define LIBC_PTHREAD_SIZE 0x7c0
+#    define LIBC_PTHREAD_TID_OFFSET 0xd0
 #elif defined(RISCV64)
 typedef struct _dr_pthread_t {
     byte data1[0xd0]; /* # of bytes before tid within pthread */
