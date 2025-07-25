@@ -75,7 +75,8 @@ invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
                                          std::istream *serial_schedule_file,
                                          std::istream *cpu_schedule_file,
                                          bool abort_on_invariant_error,
-                                         bool dynamic_syscall_trace_injection)
+                                         bool dynamic_syscall_trace_injection,
+                                         bool trace_incomplete)
     : knob_offline_(offline)
     , knob_verbose_(verbose)
     , knob_test_name_(test_name)
@@ -83,6 +84,7 @@ invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
     , cpu_schedule_file_(cpu_schedule_file)
     , abort_on_invariant_error_(abort_on_invariant_error)
     , dynamic_syscall_trace_injection_(dynamic_syscall_trace_injection)
+    , trace_incomplete_(trace_incomplete)
 {
     if (knob_test_name_ == "kernel_xfer_app" || knob_test_name_ == "rseq_app")
         has_annotations_ = true;
@@ -180,7 +182,8 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
     if (shard->decode_cache_ != nullptr)
         shard->decode_cache_->clear_cache();
     report_if_false(shard,
-                    shard->saw_thread_exit_
+                    shard->saw_thread_exit_ ||
+                        trace_incomplete_
                         // XXX i#6733: For online we sometimes see threads
                         // exiting w/o the tracer inserting an exit.  Until we figure
                         // that out we disable this error to unblock testing.
@@ -349,6 +352,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (!shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         (shard->stream != serial_stream_ || shard_map_.size() == 1)) {
+        if (trace_incomplete_ && !shard->adjusted_ordinal_for_incomplete_ &&
+            shard->ref_count_ < shard->stream->get_record_ordinal() &&
+            shard->dyn_injected_syscall_ref_count_ == 0) {
+            // There must have been a -skip_records.
+            shard->ref_count_ = shard->stream->get_record_ordinal();
+            shard->adjusted_ordinal_for_incomplete_ = true;
+        }
         report_if_false(shard,
                         shard->ref_count_ - shard->dyn_injected_syscall_ref_count_ ==
                             shard->stream->get_record_ordinal(),
