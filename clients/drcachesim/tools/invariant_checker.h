@@ -90,7 +90,8 @@ public:
                         std::istream *serial_schedule_file = nullptr,
                         std::istream *cpu_schedule_file = nullptr,
                         bool abort_on_invariant_error = true,
-                        bool dynamic_syscall_trace_injection = false);
+                        bool dynamic_syscall_trace_injection = false,
+                        bool trace_incomplete = false);
     virtual ~invariant_checker_t();
     std::string
     initialize_shard_type(shard_type_t shard_type) override;
@@ -254,6 +255,7 @@ protected:
         // Relevant when -no_abort_on_invariant_error.
         uint64_t error_count_ = 0;
         int64_t last_chunk_ordinal_ = -1;
+        bool adjusted_ordinal_for_incomplete_ = false;
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -318,6 +320,7 @@ protected:
 
     bool abort_on_invariant_error_ = true;
     bool dynamic_syscall_trace_injection_ = false;
+    bool trace_incomplete_ = false;
 };
 
 } // namespace drmemtrace

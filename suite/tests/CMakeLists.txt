@@ -4196,7 +4196,7 @@ if (BUILD_CLIENTS)
           set(infile "${core_sharded_dir}/drmemtrace.core.000000.trace.zip")
           add_test(tool.drcacheoff.stdin
             ${BASH_EXE} -c
-            "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
+            "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -exit_after_records 10 -infile -")
           file(READ "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-stdin.expect"
             stdin_expect)
           set_tests_properties(tool.drcacheoff.stdin PROPERTIES
@@ -4565,14 +4565,14 @@ if (BUILD_CLIENTS)
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip does not find real headers and we expect synthetic.
-        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-exit_after_records;10"
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
       torunonly_api(tool.drcacheoff.skip2 "${drcachesim_path}" "offline-skip2" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip finds real headers and we expect no synthetic.
-        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-exit_after_records;10"
         OFF OFF)
       set(tool.drcacheoff.skip2_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip2_rawtemp ON) # no preprocessor
@@ -4589,7 +4589,7 @@ if (BUILD_CLIENTS)
 
       # Test that one tool exiting early does not impact a second tool.
       torunonly_api(tool.drcacheoff.one_early "${drcachesim_path}" "offline-one-early" ""
-        "-verbose;1;-tool;view:opcode_mix;-sim_refs;10;-infile;${zip_path}"
+        "-verbose;1;-tool;TLB:opcode_mix;-core_serial;-sim_refs;10;-infile;${zip_path}"
         OFF OFF)
       set(tool.drcacheoff.one_early_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -4639,14 +4639,14 @@ if (BUILD_CLIENTS)
         "@-tool@opcode_mix@-skip_instrs@1" "")
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
-        "@-tool@view@-sim_refs@16384" "")
+        "@-tool@view@-exit_after_records@16384" "")
       unset(tool.drcacheoff.view_rawtemp) # Use preprocessor
       if (AARCH64 AND proc_supports_sve)
         set(tool.drcacheoff.view_runsve 1)
       endif ()
 
       torunonly_drcacheoff(view-skip-instrs ${ci_shared_app} ""
-        "@-tool@view@-sim_refs@16384@-skip_instrs@1" "")
+        "@-tool@view@-exit_after_records@16384@-skip_instrs@1" "")
       unset(tool.drcacheoff.view-skip-instrs_rawtemp)
 
       set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.

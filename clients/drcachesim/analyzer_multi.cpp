@@ -179,7 +179,8 @@ analyzer_multi_t::create_invariant_checker()
     return new invariant_checker_t(
         op_offline.get_value(), op_verbose.get_value(), op_test_mode_name.get_value(),
         serial_schedule_file_.get(), cpu_schedule_file_.get(),
-        op_abort_on_invariant_error.get_value(), op_sched_syscall_file.get_value() != "");
+        op_abort_on_invariant_error.get_value(), op_sched_syscall_file.get_value() != "",
+        op_skip_records.specified() || op_exit_after_records.specified());
 }
 
 template <>
@@ -258,10 +259,17 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
     } else if (tool == SYSCALL_MIX) {
         return syscall_mix_tool_create(op_verbose.get_value());
     } else if (tool == VIEW) {
+        // If the view tool and no other tool was specified, complain if the
+        // previously-supported -sim_refs or -skip_refs are passed.
+        if ((op_skip_refs.specified() || op_sim_refs.specified()) &&
+            op_tool.get_value().find(":") == std::string::npos) {
+            ERRMSG("Usage error: -skip_refs and -sim_refs are not supported with the "
+                   "view tool. Use -skip_records and -exit_after_records instead.\n");
+            return nullptr;
+        }
         std::string module_file_path = get_module_file_path();
         // The module file is optional so we don't check for emptiness.
-        return view_tool_create(module_file_path, op_skip_refs.get_value(),
-                                op_sim_refs.get_value(), op_view_syntax.get_value(),
+        return view_tool_create(module_file_path, op_view_syntax.get_value(),
                                 op_verbose.get_value(), op_alt_module_dir.get_value());
     } else if (tool == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
