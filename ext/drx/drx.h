@@ -568,7 +568,8 @@ typedef struct _drx_time_scale_t {
      * application uses and impacts from modifications.
      * Only positive values are supported.
      * Each timeout is multiplied by this value.
-     * \note This is not yet supported; support is forthcoming.
+     * \note This only supports the Linux nanosleep and clock_nanosleep system calls
+     * at this time.
      */
     uint timeout_scale;
 } drx_time_scale_t;

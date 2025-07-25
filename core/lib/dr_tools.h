@@ -1133,7 +1133,9 @@ DR_API
  * event or a post-syscall (dr_register_post_syscall_event()) event.
  * From a post-syscall event this will not affect the syscall that
  * just happened (but it will affect a second syscall when using
- * dr_syscall_invoke_another().
+ * dr_syscall_invoke_another(); additionally, be careful when using
+ * from a post-syscall event as for some architectures the first
+ * syscall parameter becomes the return value.
  *
  * Sets the value of system call parameter number \p param_num to \p
  * new_value.
