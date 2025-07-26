@@ -4849,6 +4849,10 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.scale_time_nodr ON)
         set(tool.drcacheoff.scale_time_nopost ON)
         torunonly_drcacheoff(scale_time tool.drcacheoff.scale_time "" "" "")
+
+        set(tool.drcacheoff.burst_sleep_nodr ON)
+        set(tool.drcacheoff.burst_sleep_nopost ON)
+        torunonly_drcacheoff(burst_sleep tool.drcacheoff.burst_sleep "" "" "")
       endif ()
 
       if (UNIX)

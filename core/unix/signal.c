@@ -140,6 +140,12 @@ sig_is_alarm_signal(int sig)
     return (sig == SIGALRM || sig == SIGVTALRM || sig == SIGPROF);
 }
 
+static inline bool
+sig_is_real_time(int sig)
+{
+    return sig >= 32;
+}
+
 /* We do not use SIGSTKSZ b/c for things like code modification
  * we end up calling many core routines and so want more space.
  * Also, SIGSTKSZ is now defined as sysconf(_SC_SIGSTKSZ) and we
@@ -5230,10 +5236,12 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         if (!blocked || sig >= OFFS_RT || (blocked && info->sigpending[sig] == NULL)) {
             /* only have 1 pending for blocked non-rt signals */
 
-            /* to avoid accumulating signals if we're slow in presence of
-             * a high-rate itimer we only keep 2 alarm signals (PR 596768)
+            /* To avoid accumulating signals if we're slow in presence of
+             * a high-rate itimer we only keep 2 alarm signals (PR 596768).
+             * We extend this to any non-real-time signal (where POSIX says only
+             * one has to be queued) to avoid lock issues.
              */
-            if (sig_is_alarm_signal(sig)) {
+            if (!sig_is_real_time(sig)) {
                 if (info->sigpending[sig] != NULL &&
                     info->sigpending[sig]->next != NULL) {
                     ASSERT(info->sigpending[sig]->next->next == NULL);

@@ -423,7 +423,7 @@ instrumentation_exit()
         DR_ASSERT(false);
 #ifdef LINUX
     // XXX i#7504: Time and timer scaling currently only supports Linux.
-    if (op_scale_timers.get_value() > 0) {
+    if (op_scale_timers.get_value() > 1 || op_scale_timeouts.get_value() > 1) {
         bool ok = drx_unregister_time_scaling();
         DR_ASSERT(ok);
     }
@@ -485,13 +485,14 @@ instrumentation_init()
     DR_ASSERT(ok);
 #ifdef LINUX
     // XXX i#7504: Time and timer scaling currently only supports Linux.
-    if (op_scale_timers.get_value() > 0) {
+    if (op_scale_timers.get_value() > 1 || op_scale_timeouts.get_value() > 1) {
         drx_time_scale_t scale = {
             sizeof(scale),
         };
         scale.timer_scale = op_scale_timers.get_value();
-        scale.timeout_scale = 1;
-        NOTIFY(1, "Registering timer scaling %dx\n", scale.timer_scale);
+        scale.timeout_scale = op_scale_timeouts.get_value();
+        NOTIFY(1, "Registering timer scaling %dx timeout scaling %dx\n",
+               scale.timer_scale, scale.timeout_scale);
         ok = drx_register_time_scaling(&scale);
         DR_ASSERT(ok);
     }
