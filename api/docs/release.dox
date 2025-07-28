@@ -153,6 +153,8 @@ compatibility changes:
    This can now be used to exit early without reporting an error.
  - Changed the -skip_refs drmemtrace option to not count markers, matching the
    -sim_refs and -warmup_refs options.  (The new -skip_records counts markers.)
+ - Dropped support for -skip_refs and -sim_refs in the view tool (use the new
+   -skip_records and -exit_after_records instead).
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`

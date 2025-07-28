@@ -1,7 +1,10 @@
 .*
-View tool results:
-              3 : total instructions
-
+TLB simulation results:
+Core #0 \(traced CPU\(s\): #0\)
+  L1I stats:
+    Hits:                                9
+    Misses:                              1
+.*
 ===========================================================================
 Opcode mix tool results:
             133 : total executed instructions
