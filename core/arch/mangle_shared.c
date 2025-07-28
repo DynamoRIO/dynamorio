@@ -1961,8 +1961,10 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
             // This will (one hopes) make the app execute the OP_ic_ivau instruction
             // that DynamoRIO currently relies on for detecting code modifications.
             const int ctr_el0_dic_bit = 29;
-            unsigned long ctr;
+            unsigned long ctr = -1;
+#    ifdef DR_HOST_AARCH64
             asm volatile("mrs %[ctr], ctr_el0" : [ctr] "=r"(ctr));
+#    endif
             if (ctr >> ctr_el0_dic_bit & 1) {
                 reg_t reg = opnd_get_reg(instr_get_dst(instr, 0));
                 POST(ilist, instr,
