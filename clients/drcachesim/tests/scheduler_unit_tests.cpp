@@ -7494,11 +7494,11 @@ test_record_scheduler_i7574()
         test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         test_util::make_instr(10),
         // Second instr, but the chunk end breaks up the
-        // branch_target marker and the instr.
+        // branch_target marker and the instr (i#7574).
         test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 1),
         test_util::make_marker(TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
         test_util::make_marker(TRACE_MARKER_TYPE_RECORD_ORDINAL, 1),
-        test_util::make_timestamp(INITIAL_TIMESTAMP_B + 1),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_A + 1),
         test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
         test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
         test_util::make_instr(30),
