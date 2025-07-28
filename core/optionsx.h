@@ -633,6 +633,12 @@ OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
                         "replace blocks using exclusive load/store with a "
                         "macro-instruction (unsafe)")
 #endif
+#ifdef AARCH64
+/* FIXME i#5771: This option may no longer be required when the issue is fixed. */
+OPTION_DEFAULT_INTERNAL(bool, fake_ctr_dic, false,
+                        "mangle read of CTR_EL0 so app believes DIC bit is "
+                        "clear, which can help with apps that modify code")
+#endif
 #if defined(AARCHXX) || defined(RISCV64)
 /* TODO i#1698: ARM is still missing the abilty to convert the following:
  * + ldrexd..strexd.

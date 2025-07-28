@@ -1951,6 +1951,29 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
 #endif
 
 #ifdef AARCH64
+        /* FIXME i#5771: This may no longer be required when the issue is fixed. */
+        if (INTERNAL_OPTION(fake_ctr_dic) && instr_get_opcode(instr) == OP_mrs &&
+            instr_num_srcs(instr) == 1 && opnd_is_reg(instr_get_src(instr, 0)) &&
+            opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_CTR_EL0 &&
+            instr_num_dsts(instr) == 1 && opnd_is_reg(instr_get_dst(instr, 0))) {
+            // If the bit in the system register is set, insert an AND (immediate)
+            // instruction after the MRS so that the app thinks the bit is clear.
+            // This will (one hopes) make the app execute the OP_ic_ivau instruction
+            // that DynamoRIO currently relies on for detecting code modifications.
+            const int ctr_el0_dic_bit = 29;
+            unsigned long ctr;
+            asm volatile("mrs %[ctr], ctr_el0" : [ctr] "=r"(ctr));
+            if (ctr >> ctr_el0_dic_bit & 1) {
+                reg_t reg = opnd_get_reg(instr_get_dst(instr, 0));
+                POST(ilist, instr,
+                     INSTR_CREATE_and(dcontext, opnd_create_reg(reg),
+                                      opnd_create_reg(reg),
+                                      OPND_CREATE_INT64(~(1UL << ctr_el0_dic_bit))));
+            }
+        }
+#endif
+
+#ifdef AARCH64
         if (instr_is_icache_op(instr) && instr_is_app(instr)) {
             next_instr = mangle_icache_op(dcontext, ilist, instr, next_instr,
                                           get_app_instr_xl8(instr) + AARCH64_INSTR_SIZE);
