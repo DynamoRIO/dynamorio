@@ -234,8 +234,8 @@ public:
 
 static std::string
 run_with_analyzer(void *drcontext, instrlist_t &ilist,
-                  const std::vector<trace_entry_t> &records, int skip_records,
-                  int num_records)
+                  const std::vector<trace_entry_t> &records, int skip_records = 0,
+                  int num_records = 0, bool no_modules = false)
 {
     memref_tid_t tid = 42;
     std::vector<scheduler_t::input_reader_t> readers;
@@ -245,7 +245,10 @@ run_with_analyzer(void *drcontext, instrlist_t &ilist,
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     std::vector<analysis_tool_t *> tools;
-    auto test_tool = std::unique_ptr<view_test_t>(new view_test_t(drcontext, ilist));
+    auto test_tool = std::unique_ptr<view_test_t>(
+        no_modules
+            ? reinterpret_cast<view_test_t *>(new view_nomod_test_t(drcontext, ilist))
+            : reinterpret_cast<view_test_t *>(new view_test_t(drcontext, ilist)));
     tools.push_back(test_tool.get());
     mock_analyzer_t analyzer(sched_inputs, &tools[0], (int)tools.size(), skip_records,
                              num_records);
@@ -260,12 +263,26 @@ run_with_analyzer(void *drcontext, instrlist_t &ilist,
     return res;
 }
 
-bool
-test_no_limit(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &memrefs)
+static int
+get_memref_count(const std::vector<trace_entry_t> &records)
 {
-    view_test_t view(drcontext, ilist);
-    std::string res = run_test_helper(view, memrefs);
-    if (std::count(res.begin(), res.end(), '\n') != static_cast<int>(memrefs.size())) {
+    test_util::mock_reader_t reader = test_util::mock_reader_t(records);
+    test_util::mock_reader_t reader_end = test_util::mock_reader_t();
+    int memref_count = 0;
+    for (reader.init(); reader != reader_end; ++reader) {
+        ++memref_count;
+    }
+    return memref_count;
+}
+
+bool
+test_no_limit_shared(void *drcontext, instrlist_t &ilist,
+                     const std::vector<trace_entry_t> &records, bool no_modules)
+{
+    int memref_count = get_memref_count(records);
+    std::string res = run_with_analyzer(drcontext, ilist, records, /*skip_records=*/0,
+                                        /*num_records=*/0, no_modules);
+    if (std::count(res.begin(), res.end(), '\n') != memref_count) {
         std::cerr << "Incorrect line count\n";
         return false;
     }
@@ -280,11 +297,25 @@ test_no_limit(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &
 }
 
 bool
+test_no_limit(void *drcontext, instrlist_t &ilist,
+              const std::vector<trace_entry_t> &records)
+{
+    return test_no_limit_shared(drcontext, ilist, records, /*no_modules=*/false);
+}
+
+bool
+test_no_modules(void *drcontext, instrlist_t &ilist,
+                const std::vector<trace_entry_t> &records)
+{
+    return test_no_limit_shared(drcontext, ilist, records, /*no_modules=*/false);
+}
+
+bool
 test_num_memrefs(void *drcontext, instrlist_t &ilist,
                  const std::vector<trace_entry_t> &records, int num_records)
 {
-    ASSERT(static_cast<size_t>(num_records) < records.size(),
-           "need more records to limit");
+    int memref_count = get_memref_count(records);
+    ASSERT(num_records < memref_count, "need more records to limit");
     std::string res =
         run_with_analyzer(drcontext, ilist, records, /*skip_records=*/0, num_records);
     if (std::count(res.begin(), res.end(), '\n') != num_records) {
@@ -298,7 +329,6 @@ test_num_memrefs(void *drcontext, instrlist_t &ilist,
 
 bool
 test_skip_memrefs(void *drcontext, instrlist_t &ilist,
-                  const std::vector<memref_t> &memrefs,
                   const std::vector<trace_entry_t> &records, int skip_records,
                   int num_records)
 {
@@ -306,7 +336,10 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     // XXX: To test precisely skipping the instrs and data we'll need to spend
     // more effort here, but the initial delayed markers are the corner cases.
     int all_count = 0, marker_count = 0;
-    for (const auto &memref : memrefs) {
+    test_util::mock_reader_t reader = test_util::mock_reader_t(records);
+    test_util::mock_reader_t reader_end = test_util::mock_reader_t();
+    for (reader.init(); reader != reader_end; ++reader) {
+        memref_t memref = *reader;
         if (all_count++ < skip_records)
             continue;
         if (all_count - skip_records > num_records)
@@ -314,7 +347,7 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
         if (memref.marker.type == TRACE_TYPE_MARKER)
             ++marker_count;
     }
-    ASSERT(static_cast<size_t>(num_records + skip_records) <= memrefs.size(),
+    ASSERT(num_records + skip_records <= get_memref_count(records),
            "need more memrefs to skip");
     std::string res =
         run_with_analyzer(drcontext, ilist, records, skip_records, num_records);
@@ -352,25 +385,6 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
 }
 
 bool
-test_no_modules(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &memrefs)
-{
-    view_nomod_test_t view(drcontext, ilist);
-    std::string res = run_test_helper(view, memrefs);
-    if (std::count(res.begin(), res.end(), '\n') != static_cast<int>(memrefs.size())) {
-        std::cerr << "Incorrect line count\n";
-        return false;
-    }
-    std::stringstream ss(res);
-    int prefix;
-    ss >> prefix;
-    if (prefix != 1) {
-        std::cerr << "Expect 1-based line prefixes\n";
-        return false;
-    }
-    return true;
-}
-
-bool
 run_limit_tests(void *drcontext)
 {
     bool res = true;
@@ -388,22 +402,6 @@ run_limit_tests(void *drcontext)
     size_t offs_nop2 = offs_jcc + instr_length(drcontext, jcc);
 
     const memref_tid_t t1 = 3;
-    std::vector<memref_t> memrefs = {
-        gen_marker(t1, TRACE_MARKER_TYPE_VERSION, 3),
-        gen_marker(t1, TRACE_MARKER_TYPE_FILETYPE, 0),
-        gen_marker(t1, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
-        gen_marker(t1, TRACE_MARKER_TYPE_TIMESTAMP, 1001),
-        gen_marker(t1, TRACE_MARKER_TYPE_CPU_ID, 2),
-        gen_instr(t1, offs_nop1),
-        gen_data(t1, true, 0x42, 4),
-        gen_marker(t1, TRACE_MARKER_TYPE_TIMESTAMP, 1002),
-        gen_marker(t1, TRACE_MARKER_TYPE_CPU_ID, 3),
-        gen_branch(t1, offs_jcc),
-        gen_instr(t1, offs_nop2),
-        gen_data(t1, true, 0x42, 4),
-    };
-    // To test skipping and limiting we need to use an analyzer which requires
-    // a trace_entry_t version of the above.
     std::vector<trace_entry_t> records = {
         test_util::make_thread(t1),
         test_util::make_pid(/*pid=*/1),
@@ -420,18 +418,19 @@ run_limit_tests(void *drcontext)
         test_util::make_instr(offs_nop2, TRACE_TYPE_INSTR),
         test_util::make_memref(0x42, TRACE_TYPE_READ, 4),
     };
+    int memref_count = get_memref_count(records);
 
-    res = test_no_limit(drcontext, *ilist, memrefs) && res;
-    for (int i = 1; i < static_cast<int>(memrefs.size()); ++i) {
+    res = test_no_limit(drcontext, *ilist, records) && res;
+    for (int i = 1; i < memref_count; ++i) {
         res = test_num_memrefs(drcontext, *ilist, records, i) && res;
     }
     constexpr int num_refs = 2;
-    for (int i = 1; i < static_cast<int>(memrefs.size() - num_refs); ++i) {
-        res = test_skip_memrefs(drcontext, *ilist, memrefs, records, i, num_refs) && res;
+    for (int i = 1; i < memref_count - num_refs; ++i) {
+        res = test_skip_memrefs(drcontext, *ilist, records, i, num_refs) && res;
     }
 
     // Ensure missing modules are fine.
-    res = test_no_modules(drcontext, *ilist, memrefs) && res;
+    res = test_no_modules(drcontext, *ilist, records) && res;
 
     instrlist_clear_and_destroy(drcontext, ilist);
     return res;
