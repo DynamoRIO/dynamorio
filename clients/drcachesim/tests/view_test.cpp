@@ -384,8 +384,8 @@ run_limit_tests(void *drcontext)
     instrlist_append(ilist, jcc);
     instrlist_append(ilist, nop2);
     size_t offs_nop1 = 0;
-    size_t offs_jz = offs_nop1 + instr_length(drcontext, nop1);
-    size_t offs_nop2 = offs_jz + instr_length(drcontext, jcc);
+    size_t offs_jcc = offs_nop1 + instr_length(drcontext, nop1);
+    size_t offs_nop2 = offs_jcc + instr_length(drcontext, jcc);
 
     const memref_tid_t t1 = 3;
     std::vector<memref_t> memrefs = {
@@ -398,8 +398,8 @@ run_limit_tests(void *drcontext)
         gen_data(t1, true, 0x42, 4),
         gen_marker(t1, TRACE_MARKER_TYPE_TIMESTAMP, 1002),
         gen_marker(t1, TRACE_MARKER_TYPE_CPU_ID, 3),
-        gen_branch(t1, offs_jz),
-        gen_branch(t1, offs_nop2),
+        gen_branch(t1, offs_jcc),
+        gen_instr(t1, offs_nop2),
         gen_data(t1, true, 0x42, 4),
     };
     // To test skipping and limiting we need to use an analyzer which requires
@@ -416,8 +416,8 @@ run_limit_tests(void *drcontext)
         test_util::make_memref(0x42, TRACE_TYPE_READ, 4),
         test_util::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1002),
         test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 3),
-        test_util::make_instr(offs_jz, TRACE_TYPE_INSTR_UNTAKEN_JUMP),
-        test_util::make_instr(offs_nop2, TRACE_TYPE_INSTR_UNTAKEN_JUMP),
+        test_util::make_instr(offs_jcc, TRACE_TYPE_INSTR_UNTAKEN_JUMP),
+        test_util::make_instr(offs_nop2, TRACE_TYPE_INSTR),
         test_util::make_memref(0x42, TRACE_TYPE_READ, 4),
     };
 
