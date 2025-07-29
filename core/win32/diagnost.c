@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -65,7 +65,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t reg_mutex, INIT_LOCK_FREE(diagnost_reg_mute
 static const char *const separator =
     "-----------------------------------------------------------------------\n";
 
-/* FIXME: The following is a list of relevant registry key entries as
+/* XXX: The following is a list of relevant registry key entries as
  * reported by autoruns-8.53.  Since autorunsc -a only shows non-empty
  * keys, I've compiled this list by aggregating the output on several
  * different machines. Some keys may be missing...
@@ -245,7 +245,7 @@ print_memory_buffer(file_t diagnostics_file, byte *address, uint length,
 static void
 report_addr_info(file_t diagnostics_file, app_pc addr, const char *tag)
 {
-    /* FIXME: Add closest exported function from Vlad's code, when ready */
+    /* XXX: Add closest exported function from Vlad's code, when ready */
     /* This is only used for violations so safe to allocate memory, and
      * we need the full name so we can't just stick w/ the buffer
      */
@@ -304,7 +304,7 @@ report_src_info(file_t diagnostics_file, dcontext_t *dcontext)
         trace_only_t *t = TRACE_FIELDS(f);
         if (t != NULL) {
             print_file(diagnostics_file, "\n\t\t\ttags=  \"");
-            /* FIXME: all app tags are printed in one line, if it proves to
+            /* XXX: all app tags are printed in one line, if it proves to
              * create unreadably long lines, change this
              */
             for (i = 0; i < t->num_bbs; i++)
@@ -601,7 +601,7 @@ report_current_process(DR_PARAM_IN file_t diagnostics_file,
 
     ASSERT(conservative || sp != NULL);
 
-    /* FIXME: There are several in-memory depedencies on strings that could
+    /* XXX: There are several in-memory depedencies on strings that could
        be used in an attack.  Risk should be assessed. */
     if (conservative) {
         print_file(diagnostics_file, "name=                    \"%s\"\n",
@@ -657,7 +657,7 @@ report_current_process(DR_PARAM_IN file_t diagnostics_file,
                peb->ProcessParameters->CommandLine.Buffer);
 
     /* DllPath can get pretty large -- splitting it up here.
-     * FIXME: Splitting buffers can be generalized fairly simply (1 for wide,
+     * XXX: Splitting buffers can be generalized fairly simply (1 for wide,
      * 1 for ascii) if this kind of thing happens a lot */
     /* For xml can't be done as an additional in tag field since I've seen
      * quotes in the dll-path string. */
@@ -699,7 +699,7 @@ report_current_process(DR_PARAM_IN file_t diagnostics_file,
     }
 
     /* Print out DLL information */
-    /* FIXME: walking the loader data structures at arbitrary points is dangerous
+    /* XXX: walking the loader data structures at arbitrary points is dangerous
      * due to data races with other threads -- see is_module_being_initialized
      * and get_module_name
      */
@@ -711,7 +711,7 @@ report_current_process(DR_PARAM_IN file_t diagnostics_file,
     if (is_self_couldbelinking()) {
         /* case 6093: we can 3-way deadlock w/ a flusher and a thread wanting
          * the bb building lock if we come here holding it (.B/.A violation).
-         * FIXME: as a short-term fix we do not print the list of all threads.
+         * XXX: as a short-term fix we do not print the list of all threads.
          * case 6141 covers re-enabling.
          */
         report_thread_list = false;
@@ -804,7 +804,7 @@ get_system_processes(DR_PARAM_OUT uint *info_bytes_needed)
     byte *process_info;
 
     *info_bytes_needed = sizeof(SYSTEM_PROCESSES);
-    /* FIXME: Not ideal to dynamically allocate memory in unstable situation. */
+    /* XXX: Not ideal to dynamically allocate memory in unstable situation. */
     process_info = (byte *)global_heap_alloc(*info_bytes_needed HEAPACCT(ACCT_OTHER));
     memset(process_info, 0, *info_bytes_needed);
     do {
@@ -1068,7 +1068,7 @@ report_intro(DR_PARAM_IN file_t diagnostics_file, DR_PARAM_IN const char *messag
                months[st.wMonth], st.wDay, st.wYear, st.wHour, st.wMinute, st.wSecond,
                st.wMilliseconds);
 
-    /* FIXME - can message be long enough that this runs into our buffer length
+    /* XXX - can message be long enough that this runs into our buffer length
      * limits? Could write message as a direct file write. */
     print_file(diagnostics_file,
                "<description> <![CDATA[[ \n"
@@ -1158,7 +1158,7 @@ report_system_diagnostics(DR_PARAM_IN file_t diagnostics_file)
                                sizeof(SYSTEM_PERFORMANCE_INFORMATION),
                                &(diag_info.sperf_info));
     if (NT_SUCCESS(result)) {
-        /* FIXME: good we started with all, but we should cut most of the
+        /* XXX: good we started with all, but we should cut most of the
          * useless ones */
         print_file(diagnostics_file,
                    "<performance-information>\n"
@@ -1281,7 +1281,7 @@ report_system_diagnostics(DR_PARAM_IN file_t diagnostics_file)
 static void
 add_diagnostics_xml_header(file_t diagnostics_file)
 {
-    /* FIXME - xref case 9425, iso-8859-1 encoding is chosen because all 8 bit values
+    /* XXX - xref case 9425, iso-8859-1 encoding is chosen because all 8 bit values
      * are valid and wld.exe's library knows how to handle it.  Other choices may be
      * more appropriate in the future. */
     print_file(diagnostics_file,

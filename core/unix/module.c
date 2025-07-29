@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -289,7 +289,7 @@ bool
 get_named_section_bounds(app_pc module_base, const char *name, app_pc *start /*OUT*/,
                          app_pc *end /*OUT*/)
 {
-    /* FIXME: not implemented */
+    /* XXX: not implemented */
     ASSERT(module_is_header(module_base, 0));
     if (start != NULL)
         *start = NULL;
@@ -301,11 +301,11 @@ get_named_section_bounds(app_pc module_base, const char *name, app_pc *start /*O
 bool
 rct_is_exported_function(app_pc tag)
 {
-    /* FIXME: not implemented */
+    /* XXX: not implemented */
     return false;
 }
 
-/* FIXME PR 295529: NYI, here so code origins policies aren't all ifdef WINDOWS */
+/* TODO PR 295529: NYI, here so code origins policies aren't all ifdef WINDOWS */
 const char *
 get_module_short_name(app_pc pc HEAPACCT(which_heap_t which))
 {
@@ -313,7 +313,7 @@ get_module_short_name(app_pc pc HEAPACCT(which_heap_t which))
     return NULL;
 }
 
-/* FIXME PR 295529: NYI, here so moduledb code isn't all ifdef WINDOWS */
+/* TODO PR 295529: NYI, here so moduledb code isn't all ifdef WINDOWS */
 bool
 get_module_company_name(app_pc mod_base, char *out_buf, size_t out_buf_size)
 {
@@ -334,7 +334,7 @@ get_module_base(app_pc pc)
     return base;
 }
 
-/* FIXME PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
+/* TODO PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
 bool
 is_range_in_code_section(app_pc module_base, app_pc start_pc, app_pc end_pc,
                          app_pc *sec_start /* OUT */, app_pc *sec_end /* OUT */)
@@ -343,7 +343,7 @@ is_range_in_code_section(app_pc module_base, app_pc start_pc, app_pc end_pc,
     return false;
 }
 
-/* FIXME PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
+/* TODO PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
 bool
 is_in_code_section(app_pc module_base, app_pc addr, app_pc *sec_start /* OUT */,
                    app_pc *sec_end /* OUT */)
@@ -352,7 +352,7 @@ is_in_code_section(app_pc module_base, app_pc addr, app_pc *sec_start /* OUT */,
     return false;
 }
 
-/* FIXME PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
+/* TODO PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
 bool
 is_in_dot_data_section(app_pc module_base, app_pc addr, app_pc *sec_start /* OUT */,
                        app_pc *sec_end /* OUT */)
@@ -361,7 +361,7 @@ is_in_dot_data_section(app_pc module_base, app_pc addr, app_pc *sec_start /* OUT
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
-/* FIXME PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
+/* TODO PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
 bool
 is_in_any_section(app_pc module_base, app_pc addr, app_pc *sec_start /* OUT */,
                   app_pc *sec_end /* OUT */)
@@ -379,7 +379,7 @@ is_mapped_as_image(app_pc module_base)
 /* Gets module information of module containing pc, cached from our module list.
  * Returns false if not in module; none of the OUT arguments are set in that case.
  *
- * FIXME: share code w/ win32/module.c's os_get_module_info()
+ * XXX: share code w/ win32/module.c's os_get_module_info()
  *
  * Note: this function returns only one module name using the rule established
  * by GET_MODULE_NAME(); for getting all possible ones use
@@ -432,7 +432,7 @@ os_get_module_info(const app_pc pc, uint *checksum, uint *timestamp, size_t *siz
             *code_size = rx_sz;
         }
         if (file_version != NULL) {
-            /* FIXME: NYI: make windows-only everywhere if no good linux source */
+            /* TODO: NYI: make windows-only everywhere if no good linux source */
             *file_version = 0;
         }
     }
@@ -458,7 +458,7 @@ extern rct_module_table_t rct_global_table;
 rct_module_table_t *
 os_module_get_rct_htable(app_pc pc, rct_type_t which)
 {
-    /* FIXME: until we have a module list we use global rct and rac tables */
+    /* XXX: until we have a module list we use global rct and rac tables */
     if (which == RCT_RCT)
         return &rct_global_table;
     return NULL; /* we use rac_non_module_table */
@@ -624,7 +624,7 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
      * Although performancewise this pattern matching is very cheap,
      * for stricter security we assume only one is used in a session.
      */
-    /* FIXME: This may change with future versions of libc, tested on
+    /* XXX: This may change with future versions of libc, tested on
      * RH8 and RH9 only.  Also works for whatever libc was in ubuntu 7.10.
      */
     /* However it does not work for ubuntu 8.04 where the code sequence has

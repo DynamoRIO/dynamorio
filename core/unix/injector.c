@@ -635,7 +635,7 @@ dr_inject_get_image_name(void *data)
     return (char *)info->image_name;
 }
 
-/* FIXME: Use the parser in options.c.  The implementation here will find
+/* XXX: Use the parser in options.c.  The implementation here will find
  * options in quoted strings, like the client options string.
  */
 static bool
@@ -1056,7 +1056,7 @@ ptrace_read_memory(pid_t pid, void *dst, void *src, size_t len)
     uint i;
     ptr_int_t *dst_reg = dst;
     ptr_int_t *src_reg = src;
-    ASSERT(len % sizeof(ptr_int_t) == 0); /* FIXME handle */
+    ASSERT(len % sizeof(ptr_int_t) == 0); /* XXX handle */
     for (i = 0; i < len / sizeof(ptr_int_t); i++) {
         /* We use a raw syscall instead of the libc wrapper, so the value read
          * is stored in the data pointer instead of being returned in r.
@@ -1076,7 +1076,7 @@ ptrace_write_memory(pid_t pid, void *dst, void *src, size_t len)
     uint i;
     ptr_int_t *dst_reg = dst;
     ptr_int_t *src_reg = src;
-    ASSERT(len % sizeof(ptr_int_t) == 0); /* FIXME handle */
+    ASSERT(len % sizeof(ptr_int_t) == 0); /* XXX handle */
     for (i = 0; i < len / sizeof(ptr_int_t); i++) {
         long r = our_ptrace(PTRACE_POKEDATA, pid, &dst_reg[i], (void *)src_reg[i]);
         if (r < 0)

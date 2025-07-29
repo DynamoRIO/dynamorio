@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2657,7 +2657,7 @@ enum {
 /** The bits in the 4-bit OP_msr immediate that select the nzcvqg status flags. */
 #    define EFLAGS_MSR_NZCVQG (EFLAGS_MSR_NZCVQ | EFLAGS_MSR_G)
 #elif defined(RISCV64)
-/* FIXME i#3544: Not implemented */
+/* XXX i#3544: Not implemented */
 /** Platform-independent macro for reads all arithmetic flags. */
 #    define EFLAGS_READ_ARITH 0
 #    define EFLAGS_READ_ALL 0      /**< Reads all flags. */

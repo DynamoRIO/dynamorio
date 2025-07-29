@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -530,7 +530,7 @@ NtCreateIoCompletion(DR_PARAM_OUT PHANDLE IoCompletionHandle,
 
 NTEXPORT NTSTATUS NTAPI
 NtRaiseHardError(DR_PARAM_IN NTSTATUS ErrorStatus, DR_PARAM_IN ULONG NumberOfArguments,
-                 /* FIXME: ReactOS claims this is a PUNICODE_STRING */
+                 /* XXX: ReactOS claims this is a PUNICODE_STRING */
                  DR_PARAM_IN ULONG UnicodeStringArgumentsMask,
                  DR_PARAM_IN PVOID Arguments,
                  DR_PARAM_IN ULONG MessageBoxType, /* HARDERROR_RESPONSE_OPTION */

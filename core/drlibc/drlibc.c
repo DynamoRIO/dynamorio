@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -192,7 +192,7 @@ get_cache_line_size(DR_PARAM_OUT size_t *dcache_line_size,
      */
     if (cache_info == 0) {
 #        if defined(MACOS)
-        /* FIXME i#5383: Put in a proper solution; maybe getauxval() syscall with
+        /* XXX i#5383: Put in a proper solution; maybe getauxval() syscall with
          * AT_HWCAP/AT_HWCAP2?
          * mrs traps to illegal instruction on M1;
          * hackily hardwire to "sysctl -a hw machdep.cpu" from one machine to

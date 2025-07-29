@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +57,7 @@ typedef struct _single_stat_t {
      * this in shared memory easily.
      */
     char name[STAT_NAME_MAX_LEN]; /* the description of the stat */
-    /* FIXME PR 216209: we'll want 64-bit stats for x64 address regions; we can
+    /* XXX PR 216209: we'll want 64-bit stats for x64 address regions; we can
      * either add per-stat types, or just widen them all.
      */
     stats_int_t value;

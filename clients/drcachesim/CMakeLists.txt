@@ -872,7 +872,7 @@ if (BUILD_TESTS)
            ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
   set_tests_properties(tool.drcachesim.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
-  # FIXME i#3544 Make raw2trace_unit_tests compilable in RISCV64.
+  # XXX i#3544 Make raw2trace_unit_tests compilable in RISCV64.
   if (NOT RISCV64)
     add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
@@ -1009,7 +1009,7 @@ if (BUILD_TESTS)
     TIMEOUT ${test_seconds})
 
   # XXX i#1997: dynamorio_static is not supported on Mac yet
-  # FIXME i#2949: gcc 7.3 fails to link certain configs
+  # XXX i#2949: gcc 7.3 fails to link certain configs
   # TODO i#3544: Port tests to RISC-V 64
   if (NOT APPLE AND NOT DISABLE_FOR_BUG_2949 AND NOT RISCV64)
     # Tests for the cache miss analyzer.
@@ -1192,7 +1192,7 @@ if (BUILD_TESTS)
         use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io drutil_static)
       endif ()
 
-      # FIXME i#2099: the weak symbol is not supported on Windows.
+      # XXX i#2099: the weak symbol is not supported on Windows.
       add_executable(tool.drcacheoff.burst_client tests/burst_static.cpp)
       append_property_list(TARGET tool.drcacheoff.burst_client
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")

@@ -124,7 +124,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     for (instr_t *instr = instrlist_first(bb); instr != NULL;
          instr = instr_get_next(instr)) {
         if (instr_is_gather(instr) || instr_is_scatter(instr)) {
-            /* FIXME i#2985: some scatter/gather instructions will not get expanded in
+            /* XXX i#2985: some scatter/gather instructions will not get expanded in
              * 32-bit mode.
              */
             IF_X64(dr_fprintf(STDERR, "Unexpected scatter or gather instruction\n"));

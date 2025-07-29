@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -252,7 +252,7 @@ struct _fragment_t {
     uint flags;
 
     /* trace head counters are in separate hashtable since always private.
-     * FIXME: when all fragments are private, a separate table uses more memory
+     * XXX: when all fragments are private, a separate table uses more memory
      * than having a counter field for all fragments, including non-trace-heads
      */
 
@@ -371,7 +371,7 @@ typedef struct _private_trace_t {
      (TEST(FRAG_SHARED, (f)->flags) ? &(((trace_t *)(f))->t) \
                                     : &(((private_trace_t *)(f))->t)))
 
-/* FIXME: Can be used to determine if a frag should have a prefix since currently
+/* XXX: Can be used to determine if a frag should have a prefix since currently
  * all IB targets have the same prefix. Use a different macro if different frags
  * have different prefixes, i.e., BBs vs. traces.
  */
@@ -380,7 +380,7 @@ typedef struct _private_trace_t {
  * See case 147 about possible extensions for bb non-tracehead
  * fragments.
  */
-/* FIXME: case 147: private bb's would have a different prefix
+/* XXX: case 147: private bb's would have a different prefix
  * therefore should be taken out of here.  Other than that there is no good reason
  * not to be able to target them.  case 5836 covers targeting private fragments
  * when using thread-shared ibl tables.
@@ -410,7 +410,7 @@ typedef struct _unprot_ht_statistics_t {
     hashtable_statistics_t trace_ibl_stats[IBL_BRANCH_TYPE_END];
     hashtable_statistics_t bb_ibl_stats[IBL_BRANCH_TYPE_END];
 
-    /* FIXME: this should really go to arch/arch.c instead of here */
+    /* XXX: this should really go to arch/arch.c instead of here */
 #    ifdef WINDOWS
     hashtable_statistics_t shared_syscall_hit_stats; /* miss path shared with trace_ibl */
 #    endif
@@ -468,7 +468,7 @@ typedef struct _fragment_entry_t {
 #    define CUSTOM_FIELDS                                                            \
         ibl_branch_type_t branch_type;                                               \
         /* stats written from the cache must be unprotected by allocating separately \
-         * FIXME: we could avoid this when protect_mask==0 by having a union here,   \
+         * XXX: we could avoid this when protect_mask==0 by having a union here,   \
          * like we have with mcontext in the dcontext, but not worth the complexity  \
          * or space for debug-build-only stats                                       \
          */                                                                          \
@@ -501,11 +501,11 @@ typedef struct _fragment_entry_t {
  * plus it uses more memory because traces are in two hashtables
  * simultaneously.
  *
- * FIXME: Shared bb IBL routines indirectly access only a few fields
+ * XXX: Shared bb IBL routines indirectly access only a few fields
  * from each fragment_table_t which will touch a separate cache line for
  * each.  However, trace IBL routines don't indirect so I don't expect
  * a performance hit of using the current struct layout.
- * FIXME: The bb IBL routines however are shared and therefore
+ * XXX: The bb IBL routines however are shared and therefore
  * indirect, so splitting the fragment_table_t in two compactable
  * structures may be worth trying.
  */

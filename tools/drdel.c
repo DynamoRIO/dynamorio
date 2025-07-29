@@ -96,7 +96,7 @@ drdel -f <file> -d <directory> -r \n\
     return 0;
 }
 
-/* FIXME: should move this to share/utils.c */
+/* XXX: should move this to share/utils.c */
 /* and merge/reuse or at least cf. with  */
 /* file_exists() */
 /* get_unique_filename() */
@@ -119,7 +119,7 @@ is_file_in_use(WCHAR *filename)
                        FILE_ATTRIBUTE_NORMAL, // normal file
                        NULL);                 // no attr. template
 
-    /* FIXME: is there a better way to check if a file is currently in
+    /* XXX: is there a better way to check if a file is currently in
      * use that doesn't get in the way of others.  Admittedly very
      * short race.  Can we count on the handle properties, e.g. if
      * QueryObject SYSTEM_OBJECT_INFORMATION.HandleCount and
@@ -159,7 +159,7 @@ is_file_present(WCHAR *filename)
 
     hFile = CreateFile(filename,              // file to open
                        0,                     // just existence check
-                       FILE_SHARE_READ,       // share for reading FIXME: do we need this
+                       FILE_SHARE_READ,       // share for reading XXX: do we need this
                        NULL,                  // default security
                        OPEN_EXISTING,         // existing file only
                        FILE_ATTRIBUTE_NORMAL, // normal file
@@ -182,7 +182,7 @@ delete_file_on_close(WCHAR *filename)
     hFile = CreateFile(
         filename,                            // file to open
         0,                                   // just existence check
-        FILE_SHARE_READ | FILE_SHARE_DELETE, // share for reading FIXME: do we need this
+        FILE_SHARE_READ | FILE_SHARE_DELETE, // share for reading XXX: do we need this
         NULL,                                // default security
         OPEN_EXISTING,                       // existing file only
         FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, // normal file, delete on close

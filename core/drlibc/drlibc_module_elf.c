@@ -58,7 +58,7 @@ typedef union _elf_generic_header_t {
 static bool
 is_elf_so_header_common(app_pc base, size_t size, bool memory)
 {
-    /* FIXME We could check more fields in the header just as the
+    /* XXX We could check more fields in the header just as the
      * dlopen() does. */
     static const unsigned char ei_expected[SELFMAG] = {
         [EI_MAG0] = ELFMAG0, [EI_MAG1] = ELFMAG1, [EI_MAG2] = ELFMAG2, [EI_MAG3] = ELFMAG3
@@ -121,7 +121,7 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
 #endif
              ))
             return false;
-        /* FIXME - should we add any of these to the check? For real
+        /* XXX - should we add any of these to the check? For real
          * modules all of these should hold. */
         ASSERT_CURIOSITY(elf_header.e_version == 1);
         ASSERT_CURIOSITY(!memory || elf_header.e_ehsize == sizeof(ELF_HEADER_TYPE));
@@ -549,7 +549,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
         }
     }
     ASSERT(last_end == lib_end);
-    /* FIXME: recover from map failure rather than relying on asserts. */
+    /* XXX: recover from map failure rather than relying on asserts. */
 
     return lib_base;
 }

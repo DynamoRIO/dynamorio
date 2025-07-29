@@ -61,7 +61,7 @@
 #include "opcode_api.h"
 #include "opnd.h"
 #include "instr_create_shared.h"
-/* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
+/* XXX i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
 
 #ifdef DEBUG
@@ -384,7 +384,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
 #ifdef AARCH64
-            /* We do not use instr_info_t encoding info on AArch64. FIXME i#1569 */
+            /* We do not use instr_info_t encoding info on AArch64. XXX i#1569 */
             SYSLOG_INTERNAL_WARNING("cannot encode %s",
                                     get_opcode_name(instr_get_opcode(instr)));
 #else
@@ -1077,7 +1077,7 @@ instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags)
             instr_free_raw_bits(dcontext, instr);
             CLIENT_ASSERT(!instr_raw_bits_valid(instr), "internal encoding buf error");
         }
-        /* even if decode fails, set valid to true -- ok?  FIXME */
+        /* even if decode fails, set valid to true -- ok?  XXX */
         instr_set_eflags_valid(instr, true);
     }
     return instr_eflags_conditionally(instr->eflags, instr_get_predicate(instr), flags);
@@ -1475,7 +1475,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 
     /* make it easy for iterators: handle NULL
      * assume that if opcode is valid, is at Level 2, so not a bundle
-     * do not expand meta-instrs -- FIXME: is that the right thing to do?
+     * do not expand meta-instrs -- XXX: is that the right thing to do?
      */
     if (instr == NULL || instr_opcode_valid(instr) || instr_is_meta(instr) ||
         /* if an invalid instr (not just undecoded) do not try to expand */
@@ -1577,7 +1577,7 @@ instr_is_level_0(instr_t *instr)
     dcontext_t *dcontext = get_thread_private_dcontext();
     dr_isa_mode_t old_mode;
     /* assume that if opcode is valid, is at Level 2, so not a bundle
-     * do not expand meta-instrs -- FIXME: is that the right to do? */
+     * do not expand meta-instrs -- XXX: is that the right to do? */
     if (instr == NULL || instr_opcode_valid(instr) || instr_is_meta(instr) ||
         /* if an invalid instr (not just undecoded) do not try to expand */
         !instr_valid(instr))
@@ -1807,7 +1807,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
         /* N.B.: if we change exit cti's to have instr_t targets, we have to
          * change other modules like emit to handle that!
-         * FIXME
+         * XXX
          */
         if (!instr_is_exit_cti(instr) &&
             instr_opcode_valid(instr) && /* decode_cti only filled in cti opcodes */
@@ -3217,7 +3217,7 @@ instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_
  * instr_t creation routines
  * To use 16-bit data sizes, must call set_prefix after creating instr
  * To support this, all relevant registers must be of eAX form!
- * FIXME: how do that?
+ * XXX: how do that?
  * will an all-operand replacement work, or do some instrs have some
  * var-size regs but some const-size also?
  *
@@ -3230,7 +3230,7 @@ instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_
  * opcode complaints:
  * OP_imm vs. OP_st
  * OP_ret: build routines have to separate ret_imm and ret_far_imm
- * others, see FIXME's in instr_create_api.h
+ * others, see XXX's in instr_create_api.h
  */
 
 instr_t *
@@ -4038,7 +4038,7 @@ instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
 #    if defined(AARCH64) || defined(RISCV64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 i#3544 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 i#3544 */
     return 0;
 #    else
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
@@ -4088,11 +4088,11 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
          *(pc + 2) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 6 /*rm*/) &&
          *((uint *)(pc + 4)) == os_tls_offset(offs));
 #    elif defined(AARCHXX)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    /* TODO i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented. */
+    /* XXX i#3544: Not implemented. */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    endif /* X86/ARM/RISCV64 */
@@ -4184,11 +4184,11 @@ instr_is_tls_xcx_spill(instr_t *instr)
     } else
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
 #    elif defined(AARCHXX)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    /* TODO i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    endif
@@ -4374,13 +4374,13 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
         return (aligned16 ? OP_movaps : OP_movups);
     }
 #    elif defined(ARM)
-    /* FIXME i#1551: which one we should return, OP_vmov, OP_vldr, or OP_vstr? */
+    /* XXX i#1551: which one we should return, OP_vmov, OP_vldr, or OP_vstr? */
     return OP_vmov;
 #    elif defined(AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return 0;
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 #    endif /* X86/ARM/RISCV64 */

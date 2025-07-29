@@ -52,7 +52,7 @@ main()
              * Given the value of 'test', this side of the conditional
              * should become part of a trace.
              */
-            /* FIXME - pick unusual nops that instr_is_nop() recognizes.
+            /* XXX - pick unusual nops that instr_is_nop() recognizes.
              * 2 regular nops in a row is hit on Linux frequently so going with
              * xchg ebp, ebp since I haven't seen that one used before (mov edi, edi
              * or xchg eax, eax is more typical for 2 bytes). */

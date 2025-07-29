@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -201,7 +201,7 @@ do_test(int count)
     while (!did_send_callback[count] && total_slept < MAX_SLEEP) {
         Sleep(100);
         total_slept += 100;
-        /* FIXME - all callbacks will have the same after address, need to mix in a
+        /* XXX - all callbacks will have the same after address, need to mix in a
          * GetMessage or some such so can verify order of callback stack.  */
         PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE);
     }

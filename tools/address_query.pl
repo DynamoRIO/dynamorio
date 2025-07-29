@@ -173,7 +173,7 @@ for ($i=0; $i<=$#addrs; $i++) {
 # put marker at the end too
 $queries .= "? $marker;";
 
-# FIXME: win2k ntsd does not load symbols by following loaded dll's path!
+# XXX: win2k ntsd does not load symbols by following loaded dll's path!
 # setting _NT_SYMBOL_PATH ENV here or exporting in shell doesn't work,
 # and -y not available on win2k ntsd, and .sympath takes all chars following
 # (even \r, \n, ", ;!), no aS available to break cmd -- giving up
@@ -232,7 +232,7 @@ if ($interactive) {
         }
         # I used to match the addresses printed but these debuggers sometimes
         # give weird output -- the right-hand is not always a larger address
-        # than the left-hand!!!  FIXME: what's going on?
+        # than the left-hand!!!  XXX: what's going on?
         # example:
         # w/ export symbols:
         #   0:001> ln 77f8d96b

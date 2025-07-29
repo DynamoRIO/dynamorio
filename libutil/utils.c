@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -309,7 +309,7 @@ acquire_shutdown_privilege()
 }
 
 /*
- * FIXME: shutdown reason. we should probably use this, BUT
+ * XXX: shutdown reason. we should probably use this, BUT
  *  InitiateSystemShutdownEx is not included in VS6.0, so we'll have
  *  to dynamically link it in.
  *
@@ -405,7 +405,7 @@ file_exists(const TCHAR *fn)
 #        define MAX_COUNTER 999999
 
 /* grokked from the core.
- * FIXME: shareme!
+ * XXX: shareme!
  * if NULL is passed for directory, then it is ignored and no directory
  *  check is done, and filename_base is assumed to be absolute.
  * TODO: make this a proactive check: make sure the file can be
@@ -1058,14 +1058,14 @@ setup_cache_permissions(WCHAR *cacheRootDirectory)
     ea[1].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
     ea[1].Trustee.ptstrName = (LPTSTR)pSIDCreatorOwner;
 
-    /* FIXME: we may want to disable the default group maybe should
+    /* XXX: we may want to disable the default group maybe should
      * set CREATOR GROUP to no access otherwise we get the default
      * Domain Users group (which usually is the Primary group) added,
      * e.g. KRAMMER\None:R(ead)
      */
 
     /* MSDN gave a false alarm that this doesn't exist on NT - It is
-     * present at least on sp6.  FIXME: may want to use GetProcAddress
+     * present at least on sp6.  XXX: may want to use GetProcAddress
      * if we support earlier versions, but we'll know early enough.
      * We don't really need to support anything other than User SYSTEM
      * on NT for which we don't need this to work and can return
@@ -1135,7 +1135,7 @@ setup_cache_shared_directories(const WCHAR *cache_root)
     NULL_TERMINATE_BUFFER(sharedcachepath);
 
     mkdir_with_parents(sharedcachepath);
-    /* FIXME: no error checking */
+    /* XXX: no error checking */
 
     res = copy_file_permissions(cachepath, libpath);
     if (res != ERROR_SUCCESS) {
@@ -1193,7 +1193,7 @@ check_opstring(const WCHAR *opstring)
     int res;
     size_t cbuf_size = wcslen(opstring) + 1;
     cbuf = (char *)malloc(cbuf_size);
-    /* FIXME: if malloc fails, do something */
+    /* XXX: if malloc fails, do something */
     _snprintf(cbuf, cbuf_size, "%S", opstring);
     cbuf[cbuf_size - 1] = '\0';
     res = set_dynamo_options(&ops, cbuf);
@@ -1214,7 +1214,7 @@ acquire_privileges()
        this almost certainly will cause failures if multiple
         threads are trying to acquire privileges.
      */
-    // FIXME - this should have real synchronization!!!
+    // XXX - this should have real synchronization!!!
     if (hToken != NULL)
         return ERROR_ALREADY_INITIALIZED;
 
@@ -1267,7 +1267,7 @@ wstr_replace(WCHAR *str, WCHAR orig, WCHAR new)
     return;
 }
 
-/* FIXME: should return error code if the directory wasn't created and
+/* XXX: should return error code if the directory wasn't created and
  * doesn't exist already
  */
 void
@@ -1317,7 +1317,7 @@ ensure_directory_exists_for_file(WCHAR *filename)
     mkdir_with_parents(buf);
 }
 
-/* FIXME: apparently there's a bug in MSVCRT that converts
+/* XXX: apparently there's a bug in MSVCRT that converts
  *  \r\n to \r\r\n ? anyway that's what google and the evidence
  *  seem to indicate. (see policy.c for more)
  *
@@ -1481,7 +1481,7 @@ delete_tree(const WCHAR *path)
          * delete_file_rename_in_use the file we just renamed for a very
          * long time (>3 hrs).
          *
-         * FIXME: temporary hack:  if filename has .tmp in its name
+         * XXX: temporary hack:  if filename has .tmp in its name
          * (first ocurrance), assume we just renamed it and skip.
          *
          * note we may want to doublecheck that the file is indeed not
@@ -1796,12 +1796,12 @@ wchar_t *canary_process_names[] = { L"canary.exe", L"services.exe", L"iexplore.e
 #        define OPTIONS_CANARY_MF L""
 #        define OPTIONS_CANARY_INJECT L"-wait"
 
-/* FIXME - could even get ldmps ... */
-/* FIXME - xref case 10322 on -syslog_mask 0, eventually should remove and verify
+/* XXX - could even get ldmps ... */
+/* XXX - xref case 10322 on -syslog_mask 0, eventually should remove and verify
  * expected eventlog output (and get PE to ignore them). */
 #        define OPTIONS_THIN_CLIENT L"-thin_client -syslog_mask 0"
 #        define OPTIONS_CLIENT L"-client -syslog_mask 0"
-/* FIXME - temporary hack so virus scan correctly identified by canary. Weird case
+/* XXX - temporary hack so virus scan correctly identified by canary. Weird case
  * since this is considered a survivable violation by default (and so ignores kill
  * proc).
  */
@@ -1879,9 +1879,9 @@ run_individual_canary_test(FILE *file, WCHAR *logbase, WCHAR *dr_options, int ex
             } else {
                 DWORD exit_code = 0;
                 GetExitCodeProcess(pinfo.hProcess, &exit_code);
-                /* FIXME - check return value, shouldn't ever fail though */
+                /* XXX - check return value, shouldn't ever fail though */
                 if (exit_code != CANARY_PROCESS_EXP_EXIT_CODE) {
-                    /* FIXME - the -1 is based on the core value for kill
+                    /* XXX - the -1 is based on the core value for kill
                      * proc, should export that and use it, or really just check for
                      * violations since we'll want the forensics anyways. Doesn't
                      * disambiguate between dr error and violation. */
@@ -1963,7 +1963,7 @@ run_canary_test_ex(FILE *file, /* INOUT */ CANARY_INFO *info, const WCHAR *scrat
         if (CopyFile(canary_process, exe_buf[i], FALSE) == 0) {
             fprintf(file, "Failed to copy canary file %S to %S\n", canary_process,
                     exe_buf[i]);
-            /* FIXME- continue if file exists from a previous run that didn't clean up */
+            /* XXX- continue if file exists from a previous run that didn't clean up */
             info->canary_code = CANARY_UNABLE_TO_TEST;
             goto canary_exit;
         }
@@ -1973,10 +1973,10 @@ run_canary_test_ex(FILE *file, /* INOUT */ CANARY_INFO *info, const WCHAR *scrat
     }
     write_config_group(policy);
 
-    /* FIXME - monitor eventlog though we should still detect via forensics and/or
+    /* XXX - monitor eventlog though we should still detect via forensics and/or
      * exit code (crash/violation).  Xref 10322, for now we suppress eventlogs. */
-    /* FIXME - the verify injection tests need work, should just talk to canary proc. */
-    /* FIXME - verify canary output - necessary? not clear what action would be */
+    /* XXX - the verify injection tests need work, should just talk to canary proc. */
+    /* XXX - verify canary output - necessary? not clear what action would be */
     /* Files are copied, begin runs */
 
 #        define DO_RUN(run_flag, core_ops, canary_options, inject, run_name, test_type) \
@@ -2068,7 +2068,7 @@ run_canary_test(/* INOUT */ CANARY_INFO *info, WCHAR *version_msg)
     /* xref case 10157, let's try to make sure this stays clean */
     delete_tree(scratch_folder);
     CreateDirectory(scratch_folder, NULL);
-    /* FIXME - verify directory created */
+    /* XXX - verify directory created */
     /* Using get unique file name since we plan to run this more then once,
      * though only an issue if the caller doesn't cleanup the report file and
      * leaves it locked. */
@@ -2076,7 +2076,7 @@ run_canary_test(/* INOUT */ CANARY_INFO *info, WCHAR *version_msg)
                         BUFFER_SIZE_ELEMENTS(info->buf_report));
     info->report = info->buf_report;
     report_file = _wfopen(info->report, L"wb");
-    /* FIXME - verify file creation */
+    /* XXX - verify file creation */
     fprintf(report_file, "%S\n", version_msg == NULL ? L"unknown version" : version_msg);
     result = run_canary_test_ex(report_file, info, scratch_folder, canary_process);
     res = delete_tree(scratch_folder);

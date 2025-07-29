@@ -2742,7 +2742,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
     }
     DEBUG_ASSERT(*pc > desc->pc_);
     desc->length_ = static_cast<byte>(*pc - desc->pc_);
-    // FIXME i#4016: On ARM calling instr_length causes the instruction to be
+    // XXX i#4016: On ARM calling instr_length causes the instruction to be
     // reencoded and that can change the length of a T32 instr from 4 to 2.
 #ifndef ARM
     DEBUG_ASSERT(*pc - desc->pc_ == instr_length(dcontext, instr));

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2021 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -426,7 +426,7 @@ app_pc
 check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc,
                           app_pc cur_pc, app_pc tgt_pc)
 {
-    /* FIXME i#2796: For opt level greater than 1, we abort. */
+    /* XXX i#2796: For opt level greater than 1, we abort. */
     return NULL;
 }
 
@@ -464,7 +464,7 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
 
         /* For now, any accesses to SP or X29, if it is used as frame pointer,
          * prevent inlining.
-         * FIXME i#2796: Some access to SP or X29 can be re-written.
+         * XXX i#2796: Some access to SP or X29 can be re-written.
          */
         if ((instr_reg_in_src(instr, DR_REG_XSP) ||
              (instr_reg_in_src(instr, DR_REG_X29) && ci->standard_fp)) &&
@@ -483,7 +483,7 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
 void
 analyze_clean_call_aflags(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where)
 {
-    /* FIXME i#2796: NYI on AArch64
+    /* TODO i#2796: NYI on AArch64
      * Non-essential for cleancall_opt=1 optimizations.
      */
 }
@@ -514,7 +514,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
         dr_save_arith_flags_to_reg(dcontext, ilist, where, nzcv_spill_reg);
     }
 
-    /* FIXME i#2796: Save fpcr, fpsr. */
+    /* XXX i#2796: Save fpcr, fpsr. */
 }
 
 void
@@ -545,7 +545,7 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, where,
         instr_create_restore_from_tls(dcontext, ci->spill_reg, TLS_REG2_SLOT));
 
-    /* FIXME i#2796: Restore fpcr, fpsr. */
+    /* XXX i#2796: Restore fpcr, fpsr. */
 }
 
 void
@@ -573,7 +573,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
     arg = args[0];
 
     if (opnd_uses_reg(arg, ci->spill_reg)) {
-        /* FIXME i#2796: Try to pass arg via spill register, like on X86. */
+        /* XXX i#2796: Try to pass arg via spill register, like on X86. */
         ASSERT_NOT_IMPLEMENTED(false);
     }
 
@@ -584,7 +584,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
         insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(arg),
                                opnd_create_reg(regparm), ilist, where, NULL, NULL);
     } else {
-        /* FIXME i#2796: Implement passing additional argument types. */
+        /* XXX i#2796: Implement passing additional argument types. */
         ASSERT_NOT_IMPLEMENTED(false);
     }
 }

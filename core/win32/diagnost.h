@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
 #ifndef _DIAGNOST_H_
 #define _DIAGNOST_H_ 1
 
-/* FIXME: The key for the log directory should be in a shared file! */
+/* XXX: The key for the log directory should be in a shared file! */
 #define DIAGNOSTICS_LOGDIR_KEY L"DYNAMORIO_LOGDIR"
 #define DIAGNOSTICS_FILE_XML_EXTENSION ".xml"
 #define DIAGNOSTICS_XML_FILE_VERSION "1.0"
@@ -94,7 +94,7 @@ typedef struct _DIAGNOSTICS_INFORMATION {
     SYSTEM_GLOBAL_FLAG global_flag;
 } DIAGNOSTICS_INFORMATION, *PDIAGNOSTICS_INFORMATION;
 
-/* FIXME: combine this definition and KEY_VALUE_INFORMATION_CLASS from ntdll.h */
+/* XXX: combine this definition and KEY_VALUE_INFORMATION_CLASS from ntdll.h */
 /* The properly-sized name & data field for KEY_VALUE_FULL_INFORMATION
    are not included in the KEY_VALUE_FULL_INFORMATION structure, but
    needed to receive the data after calling NtEnumerateValueKey().

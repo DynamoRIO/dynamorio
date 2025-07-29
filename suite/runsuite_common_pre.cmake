@@ -703,7 +703,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         set(ctest_test_args ${ctest_test_args} "REPEAT" "UNTIL_PASS:3")
       endif ()
       if (WIN32 AND TEST_LONG)
-        # FIXME i#265: on Windows we can't run multiple instances of
+        # XXX i#265: on Windows we can't run multiple instances of
         # the same app b/c of global reg key conflicts: should support
         # env vars and not require registry
         set(RUN_PARALLEL OFF)
@@ -750,7 +750,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
 
   if (add_to_package)
     # support having the suite test building the full package
-    # FIXME: perhaps should replace package.cmake w/ invocation of runsuite.cmake
+    # XXX: perhaps should replace package.cmake w/ invocation of runsuite.cmake
     # w/ certain params, since they're pretty similar at this point?
     # communicate w/ caller
     set(last_package_build_dir "${CTEST_BINARY_DIRECTORY}" PARENT_SCOPE)

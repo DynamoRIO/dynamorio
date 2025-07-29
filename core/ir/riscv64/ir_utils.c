@@ -42,7 +42,7 @@
 byte *
 remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc target)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -168,14 +168,14 @@ mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_
     }
 }
 
-/* FIXME i#3544: Keep this in sync with patch_mov_immed_arch(), which is not implemented
+/* XXX i#3544: Keep this in sync with patch_mov_immed_arch(), which is not implemented
  * yet. */
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
                       DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(src_inst == NULL && encode_estimate == NULL);
 
     CLIENT_ASSERT(opnd_is_reg(dst), "RISC-V cannot store an immediate direct to memory");
@@ -202,6 +202,6 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
                        DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }

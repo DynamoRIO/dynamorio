@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -102,7 +102,7 @@ read_hotp_status(const HANDLE hproc, const void *table_ptr,
     }
 
 #    if 0
-    /* FIXME: d_r_crc32 is not defined where share/ can get at it,
+    /* XXX: d_r_crc32 is not defined where share/ can get at it,
      *  and we may be changing it anyway (case 5346) -- so just
      *  don't do a check for now. */
     /* verify crc: crc starts at size elt, see globals_shared.h */
@@ -335,7 +335,7 @@ check_status_and_pending_restart(ConfigGroup *config, process_id_t pid,
     if (status != NULL)
         *status = stat;
 
-    /* FIXME: for now assume unknown == off  (?) */
+    /* XXX: for now assume unknown == off  (?) */
     if (stat == DLL_UNKNOWN)
         return ERROR_DETACH_ERROR;
 
@@ -456,7 +456,7 @@ system_info_cb(process_info_t *pi, void **param)
     case CB_NUDGE_DEFS:
         /* fall through and use the same code. */
     case CB_NUDGE_MODES:
-        /* FIXME: we used to only nudge apps that have the
+        /* XXX: we used to only nudge apps that have the
          *  DYNAMORIO_HOTPATCH_MODES key set; but this is dangerous
          *  if, e.g., hotpatching was on and then turned off. so
          *  we just nudge anything under DR, at least for now. */
@@ -508,7 +508,7 @@ execute_sysinfo_walk(process_status_info_t *sinfo)
     if (sinfo->res != ERROR_SUCCESS)
         return sinfo->res;
 
-    /* FIXME: report status_info.process_nonfatal_res? */
+    /* XXX: report status_info.process_nonfatal_res? */
 
     return ERROR_SUCCESS;
 }
@@ -671,7 +671,7 @@ get_process_peb(HANDLE process_handle, PEB *peb)
 }
 
 /* this is somewhat duplicated from get_process_imgname_cmdline in the src
- * module, share? FIXME */
+ * module, share? XXX */
 /* name returns just the name of the executable (strips off the path if
  * it's there) to be compatible with previous implementations */
 /* NOTE len's are in bytes */

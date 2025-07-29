@@ -37,7 +37,7 @@
 void
 optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,12 +64,12 @@
  * code section(s) [baseof_code_section,+sizeof_code_section) for each
  * code section.
  *
- * FIXME: (optimization) Since there can be multiple code sections we
+ * XXX: (optimization) Since there can be multiple code sections we
  * have to do this multiple times for each one in a module.  While
  * this may result in multiple passes with the current interface,
  * don't optimize before shown to be a hit.
  *
- * FIXME: (optimization) In case there are heavy-weight resource
+ * XXX: (optimization) In case there are heavy-weight resource
  * sections (dialogues, etc.) we may want to skip them.
  *
  */
@@ -108,7 +108,7 @@ find_address_references(dcontext_t *dcontext, app_pc text_start, app_pc text_end
 
     ASSERT(is_readable_without_exception(text_start, text_end - text_start));
 
-    /* FIXME: could try to read dword[pc] dword[pc+4] and then merging them with shifts
+    /* XXX: could try to read dword[pc] dword[pc+4] and then merging them with shifts
      * and | to get dword[pc+1] dword[pc+2] dword[pc+3]  instead of reading memory
      * but of course only if KSTAT says the latter is indeed faster!
      */
@@ -166,9 +166,9 @@ find_address_references(dcontext_t *dcontext, app_pc text_start, app_pc text_end
  * is added to hashtable, false otherwise.
  * Optional OUT:  known_ref -- true if ref was already known
  *
- * FIXME: called from find_relocation_addresses, if perf critical make
+ * XXX: called from find_relocation_addresses, if perf critical make
  * this static inline.
- * FIXME: make find_address_references call this once static inlined
+ * XXX: make find_address_references call this once static inlined
  */
 
 bool
@@ -233,7 +233,7 @@ rct_check_ref_and_add(dcontext_t *dcontext, app_pc ref, app_pc referto_start,
  * exposed, and in case it is we can at least cache the last two
  * looked up entries (like vmareas caches last_area).
  *
- * FIXME: for now using a single global hashtable and flushing of the whole table
+ * XXX: for now using a single global hashtable and flushing of the whole table
  * is the only provided implementation
  */
 
@@ -247,7 +247,7 @@ is_address_taken(dcontext_t *dcontext, app_pc target)
 static inline bool
 is_address_after_call(dcontext_t *dcontext, app_pc target)
 {
-    /* FIXME: practically equivalent to find_call_site() */
+    /* XXX: practically equivalent to find_call_site() */
     return fragment_after_call_lookup(dcontext, target) != NULL;
 }
 
@@ -255,7 +255,7 @@ is_address_after_call(dcontext_t *dcontext, app_pc target)
  * d_r_dispatch after inlined indirect branch lookup routine has failed
  *
  * function does not return if a security violation is blocked
- * FIXME: return value is ignored
+ * XXX: return value is ignored
  */
 int
 rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
@@ -279,7 +279,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         /* since the exports are now added to the global hashtable,
          * we have to check this first to collect these stats
          */
-        /* FIXME: we need symbols at loglevel 0 for this to work */
+        /* XXX: we need symbols at loglevel 0 for this to work */
         if (rct_is_exported_function(target_addr)) {
             if (is_ind_call)
                 STATS_INC(rct_ind_call_exports);
@@ -291,18 +291,18 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                     "RCT: address taken export or IAT conversion missed for " PFX,
                     target_addr);
                 /* the module entry point is in fact hit here */
-                /* FIXME: investigate if an export is really not used
+                /* XXX: investigate if an export is really not used
                  * via IAT or a variation of register.
                  */
             }
         }
     });
 
-    /* FIXME: if we use per-module hashtables, we'd first have to
+    /* XXX: if we use per-module hashtables, we'd first have to
      * looking up the module in question */
     if (!is_address_taken(dcontext, target_addr)) {
         bool is_code_section;
-        /* FIXME: use loglevel 2 when the define is on by default */
+        /* XXX: use loglevel 2 when the define is on by default */
         LOG(THREAD, LOG_RCT, 1, "RCT: bad ind %s target: " PFX ", source " PFX "\n",
             ibranch_type, target_addr, src_addr);
 
@@ -338,7 +338,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
              * 77a52027 ffe0             jmp     eax
              *
              * We would need to ensure that ret_after_call is turned
-             * on, FIXME: should turn into a security_option_t that needs
+             * on, XXX: should turn into a security_option_t that needs
              * to be at least OPTION_ENABLED
              */
 
@@ -353,7 +353,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                 }
             } else {
                 /* case 4982: we can't use RAC data - we'll get a violation
-                 * FIXME: add better option enforcement after making ret_after_call a
+                 * XXX: add better option enforcement after making ret_after_call a
                  * security_option_t.
                  */
                 ASSERT_NOT_IMPLEMENTED(false);
@@ -399,7 +399,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
          * .A and .B attacks will still be marked as such instead of failing here.
          */
         if (!is_code_section) {
-            /* FIXME: assert DGC */
+            /* XXX: assert DGC */
             /* we could be targeting a .data section that is within a
              * module we still don't cache it but only a performance
              * hit - it will not be reported anyways
@@ -440,11 +440,11 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
             goto good;
         }
 
-        /* FIXME: this code will not be needed if the exports are
+        /* XXX: this code will not be needed if the exports are
          * automatically added to the list yet I'd like to keep it
          * around for the STATS that may be relevant to case 1948
          */
-        /* FIXME: case 3946 we need symbols at loglevel 0 to collect these stats */
+        /* XXX: case 3946 we need symbols at loglevel 0 to collect these stats */
         DOLOG(1, LOG_RCT | LOG_SYMBOLS, {
             /* this is an expensive bsearch, so we may not want to
              * collect it as other stats */
@@ -472,7 +472,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
             GLOBAL_STAT(rct_ind_call_violations) + GLOBAL_STAT(rct_ind_jmp_violations),
             target_addr, src_addr, ibranch_type);
 
-        /* FIXME: case 4331, as a minimal change for 2.1, this
+        /* XXX: case 4331, as a minimal change for 2.1, this
          * currently reuses several .C exceptions, while in fact only
          * the -exempt_rct list is needed (but not fibers)
          */
@@ -569,7 +569,7 @@ rct_init(void)
                  TESTANY(OPTION_REPORT | OPTION_BLOCK, DYNAMO_OPTION(rct_ind_jump))));
         return;
     }
-    /* FIXME: hashtable_init currently in fragment.c should be moved here */
+    /* XXX: hashtable_init currently in fragment.c should be moved here */
     IF_WINDOWS(rct_known_targets_init());
 }
 

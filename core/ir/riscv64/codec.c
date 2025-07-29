@@ -377,7 +377,7 @@ static bool
 decode_csr_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                 int idx, instr_t *out)
 {
-    /* FIXME i#3544: Should CSRs be as DR_REG_* or rather as hex defines? Their
+    /* XXX i#3544: Should CSRs be as DR_REG_* or rather as hex defines? Their
      * set is extensible by platform implementers and various extensions, so
      * for now let's leave it as an int.
      */
@@ -1738,7 +1738,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     if (orig_pc != pc) {
         /* We do not want to copy when encoding and condone an invalid
          * relative target.
-         * FIXME i#3544: Add re-relativization support without having to re-encode.
+         * XXX i#3544: Add re-relativization support without having to re-encode.
          */
         instr_set_raw_bits_valid(instr, false);
         instr_set_translation(instr, orig_pc);

@@ -993,7 +993,7 @@ read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
     di->vex_encoded = false;
     di->evex_encoded = false;
     di->disp_abs = 0;
-    /* FIXME: set data and addr sizes to current mode
+    /* XXX: set data and addr sizes to current mode
      * for now I assume always 32-bit mode (or 64 for X64_MODE(di))!
      */
     di->prefixes = 0;
@@ -1293,7 +1293,7 @@ read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
         info->type > OP_LAST || (X64_MODE(di) && TEST(X64_INVALID, info->flags)) ||
         (!X64_MODE(di) && TEST(X86_INVALID, info->flags))) {
         /* invalid instruction: up to caller to decide what to do with it */
-        /* FIXME case 10672: provide a runtime option to specify new
+        /* XXX case 10672: provide a runtime option to specify new
          * instruction formats */
         DODEBUG({
             /* don't report when decoding DR addresses, as we sometimes try to
@@ -1595,7 +1595,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     default: CLIENT_ASSERT(false, "internal unknown reg error");
     }
 
-    /* Do not allow a register for 'p' or 'a' types.  FIXME: maybe *_far_ind_* should
+    /* Do not allow a register for 'p' or 'a' types.  XXX: maybe *_far_ind_* should
      * use TYPE_INDIR_M instead of TYPE_INDIR_E?  What other things are going to turn
      * into asserts or crashes instead of invalid instrs based on events as fragile
      * as these decode routines moving sizes around?
@@ -1779,7 +1779,7 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
             }
         }
         /* We go ahead and preserve the force bools if the original really had a 0
-         * disp; up to user to unset bools when changing disp value (FIXME: should
+         * disp; up to user to unset bools when changing disp value (XXX: should
          * we auto-unset on first mod?)
          */
         encode_zero_disp = di->has_disp && disp == 0 &&
@@ -2108,7 +2108,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         }
         return true;
     case TYPE_INDIR_REG:
-        /* FIXME: how know data size?  for now just use reg size: our only use
+        /* XXX: how know data size?  for now just use reg size: our only use
          * of this does not have a varying hardcoded reg, fortunately. */
         *opnd = opnd_create_base_disp(opsize, REG_NULL, 0, 0, reg_get_size(opsize));
         return true;
@@ -2846,10 +2846,10 @@ decode_debug_checks_arch(void)
 #ifdef DECODE_UNIT_TEST
 #    include "instr_create_shared.h"
 
-/* FIXME: Tried putting this inside a separate unit-decode.c file, but
+/* XXX: Tried putting this inside a separate unit-decode.c file, but
  *        required creating a unit-decode_table.c file.  Since the
  *        infrastructure is not fully set up, currently leaving this here
- * FIXME: beef up to check if something went wrong
+ * XXX: beef up to check if something went wrong
  */
 static bool
 unit_check_decode_ff_opcode()
@@ -2894,11 +2894,11 @@ unit_check_decode_ff_opcode()
         instr_encode(dcontext, instr, pc);                               \
         instr_reset(dcontext, instr);                                    \
         decode(dcontext, pc, instr);                                     \
-        /* FIXME: use EXPECT */                                          \
+        /* XXX: use EXPECT */                                          \
         CLIENT_ASSERT(instr_get_opcode(instr) == OP_##opc, "unit test"); \
         instr_destroy(dcontext, instr);
 
-/* FIXME: case 8212: add checks for every single instr type */
+/* XXX: case 8212: add checks for every single instr type */
 static bool
 unit_check_sse3()
 {

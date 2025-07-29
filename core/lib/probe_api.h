@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -227,7 +227,7 @@ typedef enum {
  * defined as an offset within a library. */
 typedef struct {
     /** IN - Full name of the library. */
-    /* FIXME PR 533522: explicitly specify what type of name should be used
+    /* XXX PR 533522: explicitly specify what type of name should be used
      * here: full path, dr_module_preferred_name(), pe (exports) name, what?
      * seems broken since need full path to load a lib but that won't match?
      */
@@ -243,7 +243,7 @@ typedef struct {
  * defined as an exported function within a library. */
 typedef struct {
     /** IN - Full name of the library. */
-    /* FIXME PR 533522: explicitly specify what type of name should be used
+    /* XXX PR 533522: explicitly specify what type of name should be used
      * here: full path, dr_module_preferred_name(), pe (exports) name, what?
      * seems broken since need full path to load a lib but that won't match?
      */

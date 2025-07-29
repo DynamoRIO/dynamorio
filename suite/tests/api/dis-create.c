@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,7 +68,7 @@ read_data(void *drcontext, file_t outf, byte *start, size_t size)
 
     instr_init(drcontext, &instr);
     while (pc < start + size) {
-        /* FIXME: want to cut it off instead of reading beyond for
+        /* XXX: want to cut it off instead of reading beyond for
          * end of file!  If weren't printing it out as go along could
          * mark invalid after seeing whether instr overflows.
          */

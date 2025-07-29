@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1210,7 +1210,7 @@ set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
              */
             CopyFile(src_path, dst_path, FALSE /*don't fail if exists*/);
         } else {
-            /* FIXME: do we want to use delete_file_rename_in_use?
+            /* XXX: do we want to use delete_file_rename_in_use?
              * this should only be called at uninstall or by
              *  tools users, so there shouldn't be any problem
              *  leaving one .tmp file around...
@@ -1357,7 +1357,7 @@ unset_autoinjection()
 /* NOTE: that this returns the current status -- which on NT
  *  is not necessarily the actual status, which is cached by the
  *  os at boot time.
- * FIXME: add a helper method for determining the status of
+ * XXX: add a helper method for determining the status of
  *  appinit that is being used for the current boot session. */
 BOOL
 is_autoinjection_set()
@@ -1428,7 +1428,7 @@ set_loadappinit_value(DWORD value)
 
     if (is_win7()) {
         /* Disable the reqt for a signature.
-         * FIXME i#323: better to sign drpreinject so we don't have to
+         * XXX i#323: better to sign drpreinject so we don't have to
          * relax security!
          */
         DWORD disable = 0;
@@ -1632,7 +1632,7 @@ copy_earlyhelper_dlls(const WCHAR *dir)
     if (!CopyFile(src_path, dst_path, FALSE /*don't fail if exists*/))
         return GetLastError();
 
-    /* FIXME PR 232738: add a param for removing the files */
+    /* XXX PR 232738: add a param for removing the files */
 
     return ERROR_SUCCESS;
 }
@@ -1795,7 +1795,7 @@ main()
         DO_ASSERT(wcslen(list1) == wcslen(list2));
     }
 
-    /* autoinject (FIXME: needs more..) */
+    /* autoinject (XXX: needs more..) */
     {
         res = get_config_parameter(INJECT_ALL_KEY_L, TRUE, INJECT_ALL_SUBKEY_L, buf,
                                    MAX_PARAM_LEN);
@@ -1805,7 +1805,7 @@ main()
                                    L"foo.dll;bar.dll;home.dll");
         DO_ASSERT(res == ERROR_SUCCESS);
 
-        /* FIXME: should all full automated tests of all
+        /* XXX: should all full automated tests of all
          *  APPINIT_FLAGS etc. */
         // res = set_autoinjection_ex(TRUE, );
         // DO_ASSERT(res == ERROR_SUCCESS);

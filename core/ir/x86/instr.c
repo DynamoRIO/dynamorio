@@ -652,7 +652,7 @@ instr_is_cti_short(instr_t *instr)
         opc = instr_get_opcode(instr);
     else if (instr_raw_bits_valid(instr)) { /* 2nd choice: 1st byte */
         /* get raw opcode
-         * FIXME: figure out which callers really rely on us not
+         * XXX: figure out which callers really rely on us not
          * up-decoding here -- if nobody then just do the
          * instr_get_opcode() and get rid of all this
          */
@@ -744,7 +744,7 @@ bool
 instr_is_syscall(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    /* FIXME: Intel processors treat "syscall" as invalid in 32-bit mode;
+    /* XXX: Intel processors treat "syscall" as invalid in 32-bit mode;
      * do we need to treat it specially? */
     if (opc == OP_sysenter || opc == OP_syscall)
         return true;
@@ -1855,7 +1855,7 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 }
 
 /* Borrowed from optimize.c, prob. belongs here anyways, could make it more
- * specific to the ones we create above, but know it works as is FIXME */
+ * specific to the ones we create above, but know it works as is XXX */
 /* return true if this instr is a nop, does not check for all types of nops
  * since there are many, these seem to be the most common */
 bool

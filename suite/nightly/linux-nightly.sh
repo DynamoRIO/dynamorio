@@ -47,7 +47,7 @@
 # for cvs updates, so we push from dereksha instead.
 # We run this as a lower-privileged user with blank-rsa access to the other machine.
 
-# FIXME: correlate w/ windows build numbers?
+# XXX: correlate w/ windows build numbers?
 # RESOLUTION: no, windows builds are separate, these linux runs will
 # only be labeled by date.
 
@@ -118,6 +118,6 @@ echo "checking up on windows now" >> $managerlog
 
 # mirror on west coast -- do this last in case it hangs
 # send results to log, get errors on all symlinks
-# FIXME: tar all non-symlinks and just send those over?
+# XXX: tar all non-symlinks and just send those over?
 cp -r $prefix /mnt/fileserver/nightly/linux/ >> $managerlog 2>&1
 

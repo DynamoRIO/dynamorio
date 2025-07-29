@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -418,8 +418,8 @@ CDynamoRIOView::PrintStat(TCHAR *c, uint i, BOOL filter)
     if (filter) {
 #if 0
         // Filter out persisted cache stat for now
-        // FIXME: have "show 0 values" checkbox
-        // FIXME: need to count up stats that match filter and use that
+        // XXX: have "show 0 values" checkbox
+        // XXX: need to count up stats that match filter and use that
         // for scrollbar max, else get flicker and empty space at bottom
         if (strncmp(m_stats->stats[i].name, "Persisted caches",
                     strlen("Persisted caches")) == 0)
@@ -458,7 +458,7 @@ CDynamoRIOView::PrintClientStats(TCHAR *c, TCHAR *max)
     return (uint)(c - start);
 }
 
-// FIXME: resize stats boxes w/ dialog resize:
+// XXX: resize stats boxes w/ dialog resize:
 // http://www.codeguru.com/forum/showthread.php?t=79384
 
 BOOL
@@ -597,7 +597,7 @@ CDynamoRIOView::OnChangeLogging()
     int level = dlg.GetLevel();
     int mask = dlg.GetMask();
 
-    // FIXME: need to write via drmarker
+    // XXX: need to write via drmarker
     m_stats->loglevel = level;
     m_stats->logmask = mask;
     m_LogLevel.Format(_T("%d"), m_stats->loglevel);
@@ -671,7 +671,7 @@ CDynamoRIOView::OnEditCopystats()
             for (i = 0; i < m_stats->num_stats; i++) {
                 if (pos >= &buf[STATS_BUFSZ - STAT_NAME_MAX_LEN * 2])
                     break;
-                // FIXME: Filter here too
+                // XXX: Filter here too
                 pos += PrintStat(pos, i, TRUE /*filter*/);
                 assert(pos < &buf[STATS_BUFSZ - 1]);
             }
@@ -779,7 +779,7 @@ CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 
     CView::OnVScroll(nSBCode, nPos, pScrollBar);
 
-    // FIXME: we could try to more smoothly scroll w/ the last-copied m_stats
+    // XXX: we could try to more smoothly scroll w/ the last-copied m_stats
     // instead of getting all new values
     Refresh();
 }

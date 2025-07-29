@@ -125,12 +125,12 @@ take_over(const char *pname)
         !rununder_on)
         return false;
 
-    /* FIXME PR 546894: eliminate once all users are updated to use config files */
+    /* XXX PR 546894: eliminate once all users are updated to use config files */
     plist = getenv("DYNAMORIO_INCLUDE");
     if (plist != NULL)
         return strstr(plist, pname) ? true : false;
 
-    /* FIXME PR 546894: eliminate once all users are updated to use config files */
+    /* XXX PR 546894: eliminate once all users are updated to use config files */
     plist = getenv("DYNAMORIO_EXCLUDE");
     if (plist != NULL)
         return strstr(plist, pname) ? false : true;
@@ -189,7 +189,7 @@ _init(int argc, char **argv, char **envp)
         return 0;
     /* i#46: Get env from loader directly. */
     dynamorio_set_envp(envp);
-    /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so
+    /* XXX i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so
      * and only LD_PRELOAD the preload lib itself
      */
 #    if VERBOSE

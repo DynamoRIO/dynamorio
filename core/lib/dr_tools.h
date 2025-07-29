@@ -2192,7 +2192,7 @@ typedef enum {
     DR_SUSPEND_NATIVE = 0x0001,
 } dr_suspend_flags_t;
 
-/* FIXME - xref PR 227619 - some other event handler are safe (image_load/unload for*
+/* XXX - xref PR 227619 - some other event handler are safe (image_load/unload for*
  * example) which we could note here. */
 DR_API
 /**
@@ -2431,7 +2431,7 @@ DR_API
 bool
 dr_delete_fragment(void *drcontext, void *tag);
 
-/* FIXME - xref PR 227619 - some other event handler are safe (image_load/unload for*
+/* XXX - xref PR 227619 - some other event handler are safe (image_load/unload for*
  * example) which we could note here. */
 DR_API
 /**
@@ -2480,15 +2480,15 @@ DR_API
 bool
 dr_flush_region(app_pc start, size_t size);
 
-/* FIXME - get rid of the no locks requirement by making event callbacks !couldbelinking
+/* XXX - get rid of the no locks requirement by making event callbacks !couldbelinking
  * and no dr locks (see PR 227619) so that client locks owned by this thread can't block
- * any couldbelinking thread.  FIXME - would be nice to make this available for
+ * any couldbelinking thread.  XXX - would be nice to make this available for
  * windows since there's less of a performance hit than using synch_all flushing, but
  * with coarse_units can't tell if we need a synch all flush or not and that confuses
- * the interface a lot. FIXME - xref PR 227619 - some other event handler are safe
+ * the interface a lot. XXX - xref PR 227619 - some other event handler are safe
  * (image_load/unload for example) which we could note here. */
-/* FIXME - add a completion callback (see vm_area_check_shared_pending()). */
-/* FIXME - could enable on windows when -thread_private since no coarse then. */
+/* XXX - add a completion callback (see vm_area_check_shared_pending()). */
+/* XXX - could enable on windows when -thread_private since no coarse then. */
 DR_API
 /**
  * Flush all fragments containing any code from the region [\p start, \p start + \p size).
@@ -2515,7 +2515,7 @@ DR_API
 bool
 dr_unlink_flush_region(app_pc start, size_t size);
 
-/* FIXME - can we better bound when the flush will happen?  Maybe unlink shared syscalls
+/* XXX - can we better bound when the flush will happen?  Maybe unlink shared syscalls
  * or similar or check the queue in more locations?  Should always hit the flush before
  * executing new code in the cache, and I think we'll always hit it before a nudge is
  * processed too.  Could trigger a nudge, or do this in a nudge, but that's rather

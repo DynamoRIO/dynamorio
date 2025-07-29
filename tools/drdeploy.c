@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -178,7 +178,7 @@ const char *options_list_str =
 #    endif
 #endif
 #ifdef DRCONFIG
-/* FIXME i#840: Syswide NYI on Linux. */
+/* TODO i#840: Syswide NYI on Linux. */
 #    ifdef WINDOWS
     "       -syswide_on        Set up systemwide injection so that registered\n"
     "                          applications will run under DR however they are\n"
@@ -280,7 +280,7 @@ const char *options_list_str =
     "                          wait.  A value of 0 means don't wait for nudges to\n"
     "                          complete."
 #    else  /* WINDOWS */
-    /* FIXME i#840: integrate drnudgeunix into drconfig on Unix */
+    /* XXX i#840: integrate drnudgeunix into drconfig on Unix */
     "Note: please use the drnudgeunix tool to nudge processes on Unix.\n";
 #    endif /* !WINDOWS */
 #else      /* DRCONFIG */
@@ -307,7 +307,7 @@ const char *options_list_str =
 #    ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -late              Requests late injection.\n"
 #    endif
-#    ifdef UNIX       /* FIXME i#725: Windows attach NYI */
+#    ifdef UNIX       /* TODO i#725: Windows attach NYI */
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -early             Requests early injection (the default).\n"
 #        endif
@@ -497,7 +497,7 @@ expand_dr_root(const char *dr_root, bool debug, dr_platform_t dr_platform, bool 
     int i;
     char buf[MAXIMUM_PATH];
     bool ok = true;
-    /* FIXME i#1569: port DynamoRIO to AArch64 so we can enable the check warning */
+    /* XXX i#1569: port DynamoRIO to AArch64 so we can enable the check warning */
     bool nowarn = IF_X86_ELSE(false, true);
 
     typedef struct _file_entry_t {
@@ -767,7 +767,7 @@ platform_name(dr_platform_t platform)
 }
 #endif
 
-/* FIXME i#840: Port registered process iterator. */
+/* XXX i#840: Port registered process iterator. */
 #ifdef WINDOWS
 static void
 list_process(char *name, bool global, dr_platform_t platform,
@@ -1190,7 +1190,7 @@ _tmain(int argc, TCHAR *targv[])
     bool use_debug = false;
     dr_platform_t dr_platform = DR_PLATFORM_DEFAULT;
 #ifdef WINDOWS
-    /* FIXME i#840: Implement nudges on Linux. */
+    /* XXX i#840: Implement nudges on Linux. */
     bool nudge_all = false;
     bool use_late_injection = false;
     process_id_t nudge_pid = 0;
@@ -1336,7 +1336,7 @@ _tmain(int argc, TCHAR *targv[])
         }
 #ifdef DRCONFIG
 #    ifdef WINDOWS
-        /* FIXME i#840: These are NYI for Linux. */
+        /* TODO i#840: These are NYI for Linux. */
         else if (!strcmp(argv[i], "-list_registered")) {
             action = action_list;
             list_registered = true;
@@ -1504,7 +1504,7 @@ _tmain(int argc, TCHAR *targv[])
             process = argv[++i];
         }
 #    ifdef WINDOWS
-        /* FIXME i#840: Nudge is NYI for Linux. */
+        /* TODO i#840: Nudge is NYI for Linux. */
         else if (strcmp(argv[i], "-nudge_timeout") == 0) {
             nudge_timeout = strtoul(argv[++i], NULL, 10);
         } else if (strcmp(argv[i], "-nudge") == 0 || strcmp(argv[i], "-nudge_pid") == 0 ||
@@ -1769,7 +1769,7 @@ done_with_options:
         search_env(app_name, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
         NULL_TERMINATE_BUFFER(full_app_name);
         if (full_app_name[0] == '\0') {
-            /* may need to append .exe, FIXME : other executable types */
+            /* may need to append .exe, XXX : other executable types */
             char tmp_buf[MAXIMUM_PATH];
             _snprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf), "%s%s", app_name, ".exe");
             NULL_TERMINATE_BUFFER(tmp_buf);
@@ -1822,7 +1822,7 @@ done_with_options:
 #endif
 
 #ifdef WINDOWS
-    /* FIXME i#900: This doesn't work on Linux, and doesn't do the right thing
+    /* XXX i#900: This doesn't work on Linux, and doesn't do the right thing
      * on Windows.
      */
     /* PR 244206: set the registry view before any registry access */
@@ -1903,7 +1903,7 @@ done_with_options:
             printf("nudge operation failed, verify permissions and parameters.\n");
     }
 #        ifdef WINDOWS
-    /* FIXME i#840: Process iterator NYI for Linux. */
+    /* TODO i#840: Process iterator NYI for Linux. */
     else if (action == action_list) {
         if (!list_registered)
             list_process(process, global, dr_platform, NULL);
@@ -1929,7 +1929,7 @@ done_with_options:
             IF_X64_ELSE(
                 dr_platform != DR_PLATFORM_32BIT,
                 (dr_platform == DR_PLATFORM_64BIT || !is_wow64(GetCurrentProcess())))) {
-            /* FIXME i#1522: enable AppInit for non-WOW64 on win8+ */
+            /* XXX i#1522: enable AppInit for non-WOW64 on win8+ */
             error("syswide_on is not yet supported on Windows 8+ non-WOW64");
             die();
         }
@@ -2165,7 +2165,7 @@ cleanup:
     sc = drfront_cleanup_args(argv, argc);
     if (sc != DRFRONT_SUCCESS)
         fatal("failed to free memory for args: %d", sc);
-    /* FIXME i#840: We can't actually match exit status on Linux perfectly
+    /* XXX i#840: We can't actually match exit status on Linux perfectly
      * since the kernel reserves most of the bits for signal codes.  At the
      * very least, we should ensure if the app exits with a signal we exit
      * non-zero.

@@ -109,7 +109,7 @@ fi
 # path to the cache dir, but the latter specifies the path to DR_HOME
 # (i.e., without a trailing /cache).  We do this so that DRcontrol can
 # find the lib and logs directory and copy their permissions.
-# FIXME: What a hack.  Can't we just set the permissions directly
+# XXX: What a hack.  Can't we just set the permissions directly
 # and make DRcontrol -sharedcache more intuitive?
 cache_root=`dirname "$DYNAMORIO_CACHE_ROOT"`
 
@@ -191,7 +191,7 @@ if [ "$caption" != "<nowindow>" ]; then
         sleep $RUNALL_SLEEP
         $drctl -preinject OFF
         # we assume that it's using the persisted caches
-        # FIXME: add way to find out
+        # XXX: add way to find out
 
         # Currently DRcontrol -nudge waits for the injected nudge thread to
         # exit, so we don't need to sleep here. DRcontrol does time out if

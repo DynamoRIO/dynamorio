@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -40,7 +40,7 @@ function (add_gen_events_deps target)
   endif ()
 endfunction (add_gen_events_deps)
 
-# FIXME i#60: add rules from old Makefile for building unit tests
+# XXX i#60: add rules from old Makefile for building unit tests
 # the tests had been broken for a while
 
 # We avoid core/ to avoid conflicts between core/hashtable.h and drcontainers
@@ -96,7 +96,7 @@ if (WIN32)
     add_definitions(-DHOT_PATCHING_INTERFACE)
   endif (NOT HOT_PATCHING_INTERFACE)
 
-  # FIXME i#98: fix the underlying cause of these warnings and remove these exceptions
+  # XXX i#98: fix the underlying cause of these warnings and remove these exceptions
   set(nowarn "/wd4996 /wd4047 /wd4024 /wd4133 /wd4127 /wd4100 /wd4292 /wd4127 /wd4100")
   set(libutil_cflags "/wd4996 /wd4047 /wd4024 /wd4133 /wd4127 /wd4100 /wd4292 /wd4127 /wd4100")
   set(libutil_ldflags "/nodefaultlib:libc.lib")

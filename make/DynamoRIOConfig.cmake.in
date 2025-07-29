@@ -821,7 +821,7 @@ function (_DR_set_compile_flags target is_client extra_flags static_DR)
     if (is_client)
       # Avoid bringing in libc and/or kernel32 for stack checks
       set(extra_flags "${extra_flags} /GS-")
-      # FIXME: why isn't /debug showing up: is it
+      # XXX: why isn't /debug showing up: is it
     endif (is_client)
 
     # Shrink binaries and pdbs (/Gy should already be there)

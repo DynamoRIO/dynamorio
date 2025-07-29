@@ -72,7 +72,7 @@
 byte *
 insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -80,7 +80,7 @@ insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 byte *
 insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -88,7 +88,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 uint
 nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emitting)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
@@ -131,7 +131,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         *pc++ = RAW_C_NOP_INST;
     }
 
-    /* FIXME i#3544: coarse-grain NYI on RISCV64 */
+    /* TODO i#3544: coarse-grain NYI on RISCV64 */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
 
     if (LINKSTUB_DIRECT(l_flags)) {
@@ -467,7 +467,7 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 cache_pc
 exit_cti_disp_pc(cache_pc branch_pc)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -561,7 +561,7 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     if (decode_raw_is_jmp(dcontext, cti))
         return decode_raw_jmp_target(dcontext, cti);
 
-    /* FIXME: i#3544: In trace, we might have direct branch to indirect linkstubs. */
+    /* XXX: i#3544: In trace, we might have direct branch to indirect linkstubs. */
 
     /* There should be no other types of branch to linkstubs. */
     ASSERT_NOT_REACHED();
@@ -571,8 +571,8 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 cache_pc
 cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* XXX i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
@@ -583,7 +583,7 @@ cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 cache_pc
 entrance_stub_jmp(cache_pc stub)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -591,7 +591,7 @@ entrance_stub_jmp(cache_pc stub)
 bool
 coarse_is_entrance_stub(cache_pc stub)
 {
-    /* FIXME i#3544: coarse-grain NYI on RISCV64 */
+    /* TODO i#3544: coarse-grain NYI on RISCV64 */
     return false;
 }
 
@@ -767,7 +767,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
                 generated_code_t *code, linkstub_t *linkstub, bool coarse_info)
 {
     if (linkstub != NULL) {
-        /* FIXME i#3544: NYI for coarse-grain stub. */
+        /* TODO i#3544: NYI for coarse-grain stub. */
         ASSERT_NOT_IMPLEMENTED(false);
     }
 
@@ -915,7 +915,7 @@ void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uint flags,
                    bool tls, bool absolute)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -923,7 +923,7 @@ void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                       uint flags, bool tls, bool absolute)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -931,7 +931,7 @@ byte *
 emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
                      bool target_trace_table)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -1237,7 +1237,7 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
 bool
 fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
 {
-    /* FIXME i#3544: We need to detect if C-extension is available and use
+    /* XXX i#3544: We need to detect if C-extension is available and use
      * the appropriate NOP encoding.
      */
     const size_t nop_sz = RAW_C_NOP_INST_SZ;

@@ -30,16 +30,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-/* FIXME: Need to add C++ code for certain structs for headers - this is going to be a
+/* XXX: Need to add C++ code for certain structs for headers - this is going to be a
    problem if WINE continues to only use C code  - I suppose that we could always inline
    in the header file to get around that little problem... */
-/* FIXME: We need to implement versioning on everything directx 5 and up if these headers
+/* XXX: We need to implement versioning on everything directx 5 and up if these headers
           are going to be generically useful for directx stuff */
 
 #ifndef __WINE_D3DTYPES_H
 #define __WINE_D3DTYPES_H
 
-/* #include <windows.h> FIXME: Need to include for compatibility. Inclusion caused compile
+/* #include <windows.h> XXX: Need to include for compatibility. Inclusion caused compile
  * fail */
 
 #if (DIRECT3D_VERSION >= 0x0800)
@@ -1034,7 +1034,7 @@ typedef enum {
 
     D3DRENDERSTATE_FORCE_DWORD = 0x7fffffff
 
-    /* FIXME: We have some retired values that are being reused for DirectX 7 */
+    /* XXX: We have some retired values that are being reused for DirectX 7 */
 } D3DRENDERSTATETYPE;
 
 typedef enum _D3DMATERIALCOLORSOURCE {

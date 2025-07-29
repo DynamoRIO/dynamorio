@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,7 +31,7 @@
  * DAMAGE.
  */
 
-/* FIXME - should use dr_fprintf but can't get that to work, then again this is
+/* XXX - should use dr_fprintf but can't get that to work, then again this is
  * standalone so doesn't really matter what we use. */
 
 #include "dynamorio.h"

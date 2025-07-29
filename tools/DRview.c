@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -162,7 +162,7 @@ generate_process_name(process_info_t *pi, WCHAR *name_buf /* OUT */,
     BOOL use_args = FALSE;
 
     /* hack: we assume only need qualified names for these hardcoded apps
-     * FIXME: read registry to see whether need qualification
+     * XXX: read registry to see whether need qualification
      */
     if (wcsicmp(pi->ProcessName, L"svchost.exe") == 0 ||
         wcsicmp(pi->ProcessName, L"msiexec.exe") == 0 ||
@@ -179,7 +179,7 @@ generate_process_name(process_info_t *pi, WCHAR *name_buf /* OUT */,
                      * and we also strip dllhost here to
                      * fit more of the GUI in and avoid the
                      * "Processid" string.
-                     * FIXME: read from registry.
+                     * XXX: read from registry.
                      */
                     (wcsicmp(pi->ProcessName, L"svchost.exe") != 0 &&
                      wcsicmp(pi->ProcessName, L"dllhost.exe") != 0))) {
@@ -406,7 +406,7 @@ main(int argc, char **argv)
             fflush(fp);
             if (sampling)
                 Sleep(millis);
-            /* FIXME: looping infinitely, make sure we are not leaking anything */
+            /* XXX: looping infinitely, make sure we are not leaking anything */
         } while (sampling && !idle);
     }
 
@@ -522,7 +522,7 @@ pw_callback(process_info_t *pi, void **param)
                 if (is_wow64(hproc)) {
                     if (!no32)
                         fprintf(fp, "32-bit, ");
-                    /* FIXME: currently x64 process can't see 32-bit
+                    /* XXX: currently x64 process can't see 32-bit
                      * drmarker
                      */
                     resstr = "<unknown>";
@@ -728,7 +728,7 @@ procwalk()
                     /* in pages so x4==KB */
                     4 * sperf_info.TotalCommittedPages, 4 * sperf_info.TotalCommitLimit,
                     4 * sperf_info.PeakCommitment);
-            /* FIXME: add physical memory, kernel memory, etc. */
+            /* XXX: add physical memory, kernel memory, etc. */
         }
         fprintf(fp, "System load: %d%%\t\tUptime: %lu ms\n", system_load, get_uptime());
 

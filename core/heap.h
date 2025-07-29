@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -284,7 +284,7 @@ void
 print_heap_statistics(void);
 #endif
 
-/* FIXME: persistence is yet another dimension here
+/* XXX: persistence is yet another dimension here
  * let's clean all these up and have a single alloc routine?
  */
 /* i#1791: nonpersistent heap cannot be used for IR or other client allocations */

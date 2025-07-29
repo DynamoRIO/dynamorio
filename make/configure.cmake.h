@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -188,7 +188,7 @@
 
 # optimization of dynamo
 #    ($(D)RETURN_STACK: deprecated and now removed)
-#    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
+#    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security XXX:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)
 # external interface
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
@@ -312,7 +312,7 @@
 # define DR_APP_EXPORTS
 #endif
 
-/* FIXME: some GBOP hooks depend on hotp_only HOT_PATCHING_INTERFACE */
+/* XXX: some GBOP hooks depend on hotp_only HOT_PATCHING_INTERFACE */
 
 #ifdef DEBUG
    /* for bug fixing this is useful so we turn on for all debug builds */

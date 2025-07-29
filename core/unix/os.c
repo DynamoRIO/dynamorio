@@ -410,7 +410,7 @@ os_dir_iterator_next(dir_iterator_t *iter);
 
 /* vsyscall page.  hardcoded at 0xffffe000 in earlier kernels, but
  * randomly placed since fedora2.
- * marked rx then: FIXME: should disallow this guy when that's the case!
+ * marked rx then: XXX: should disallow this guy when that's the case!
  * random vsyscall page is identified in maps files as "[vdso]"
  * (kernel-provided fake shared library or Virt Dyn Shared Object).
  */
@@ -443,9 +443,9 @@ size_t vdso_size = 0;
  * out of the code cache.
  */
 
-/* FIXME: maybe we should create 1st dcontext earlier so we don't need init_errno?
+/* XXX: maybe we should create 1st dcontext earlier so we don't need init_errno?
  * any problems with init_errno being set and then dcontext->errno being read?
- * FIXME: if a thread issues a dr_app_stop, then we don't want to use
+ * XXX: if a thread issues a dr_app_stop, then we don't want to use
  * this errno slot?  But it may later do a start...probably ok to keep using
  * the slot.  But, when threads die, they'll all use the same init_errno!
  */
@@ -622,12 +622,12 @@ get_libc_errno(void)
  * own implementation of unsetenv fixes all our problems.  If we use
  * libc's, unsetenv either does nothing or ends up having getenv return
  * NULL for other vars that are obviously set (by iterating through environ).
- * FIXME: find out the real story here.
+ * XXX: find out the real story here.
  */
 int
 our_unsetenv(const char *name)
 {
-    /* FIXME: really we should have some kind of synchronization */
+    /* XXX: really we should have some kind of synchronization */
     size_t name_len;
     char **env = our_environ;
     if (name == NULL || *name == '\0' || strchr(name, '=') != NULL) {
@@ -1186,7 +1186,7 @@ get_application_name_helper(bool ignore_cache, bool full_path)
                 strncpy(executable_path, c, BUFFER_SIZE_ELEMENTS(executable_path));
 #endif
             NULL_TERMINATE_BUFFER(executable_path);
-            /* FIXME: Fall back on /proc/self/cmdline and maybe argv[0] from
+            /* XXX: Fall back on /proc/self/cmdline and maybe argv[0] from
              * _init().
              */
             ASSERT(strlen(executable_path) > 0 && "readlink /proc/self/exe failed");
@@ -1305,7 +1305,7 @@ get_timer_frequency_cpuinfo(void)
     /* cpu MHz is typically in the first 4096 bytes.  If not, or we get a short
      * or interrupted read, our timer frequency estimate will be off, but it's
      * not the end of the world.
-     * FIXME: Factor a buffered file reader out of our maps iterator if we want
+     * XXX: Factor a buffered file reader out of our maps iterator if we want
      * to do this the right way.
      */
     buf = global_heap_alloc(PAGE_SIZE HEAPACCT(ACCT_OTHER));
@@ -1671,7 +1671,7 @@ os_timeout(int time_in_milliseconds)
         ASSERT(sizeof(var) == sizeof(int));    \
         asm volatile("movl %" ASM_SEG ":%c1, %0" : "=r"(var) : "i"(imm));
 
-/* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
+/* XXX: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
 #    define WRITE_TLS_SLOT(offs, var)                                                   \
         IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                                          \
         ASSERT(sizeof(var) == sizeof(void *));                                          \
@@ -2246,7 +2246,7 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
         ptr = (ushort *)opnd_compute_address_priv(opnd, get_mcontext(dcontext));
         ASSERT(ptr != NULL);
         if (!d_r_safe_read(ptr, sizeof(sel), &sel)) {
-            /* FIXME: if invalid address, should deliver a signal to user. */
+            /* XXX: if invalid address, should deliver a signal to user. */
             ASSERT_NOT_IMPLEMENTED(false);
         }
     }
@@ -2266,7 +2266,7 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
         d_r_get_thread_id(), reg_names[seg], sel, os_tls->app_lib_tls_base,
         os_tls->app_alt_tls_base);
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_REACHED();
 #endif /* X86/ARM */
 }
@@ -2343,7 +2343,7 @@ os_tls_init(void)
 #ifdef HAVE_TLS
     /* We create a 1-page segment with an LDT entry for each thread and load its
      * selector into fs/gs.
-     * FIXME PR 205276: this whole scheme currently does not check if app is using
+     * XXX PR 205276: this whole scheme currently does not check if app is using
      * segments need to watch modify_ldt syscall
      */
 #    if defined(MACOS64) && defined(X86)
@@ -2392,7 +2392,7 @@ os_tls_init(void)
     /* store type in global var for convenience: should be same for all threads */
     tls_global_type = os_tls->tls_type;
 
-    /* FIXME: this should be a SYSLOG fatal error?  Should fall back on !HAVE_TLS?
+    /* XXX: this should be a SYSLOG fatal error?  Should fall back on !HAVE_TLS?
      * Should have create_ldt_entry() return failure instead of asserting, then.
      */
 #else
@@ -2542,7 +2542,7 @@ os_tls_pre_init(int gdt_index)
         ASSERT(ok);
     }
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif /* X86/ARM */
 }
@@ -2698,7 +2698,7 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
     if (ostd->clone_tls != NULL) {
         if (!other_thread) {
             /* Avoid faults in is_thread_tls_initialized() */
-            /* FIXME i#2088: we need to restore the app's aux seg, if any, instead. */
+            /* XXX i#2088: we need to restore the app's aux seg, if any, instead. */
             os_set_dr_tls_base(dcontext, NULL, (byte *)&uninit_tls);
         }
         /* We have to free in release build too b/c "local unprotected" is global. */
@@ -2733,7 +2733,7 @@ os_fork_pre(dcontext_t *dcontext)
 
     /* i#239: Synch with all other threads to ensure that they are holding no
      * locks across the fork.
-     * FIXME i#26: Suspend signals received before initializing siginfo are
+     * XXX i#26: Suspend signals received before initializing siginfo are
      * squelched, so we won't be able to suspend threads that are initializing.
      */
     LOG(GLOBAL, 2, LOG_SYSCALLS | LOG_THREADS,
@@ -2856,7 +2856,7 @@ os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
          * immediately before anybody calls get_thread_private_dcontext() or
          * anything.
          */
-        /* FIXME i#2088: to preserve the app's aux seg, if any, we should pass it
+        /* XXX i#2088: to preserve the app's aux seg, if any, we should pass it
          * and the seg reg value via the clone record (like we do for ARM today).
          */
         os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
@@ -2961,7 +2961,7 @@ bool
 os_using_app_state(dcontext_t *dcontext)
 {
 #ifdef X86
-    /* FIXME: This could be optimized to avoid the syscall by keeping state in
+    /* XXX: This could be optimized to avoid the syscall by keeping state in
      * the dcontext.
      */
     if (INTERNAL_OPTION(mangle_app_seg)) {
@@ -3507,7 +3507,7 @@ os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
     /* Note that a preferred address overrides PROT_EXEC and a mmap_data
      * address will be honored, even though any execution there will fault.
      */
-    /* FIXME: note that PROT_EXEC => read access, so our guard pages and other
+    /* XXX: note that PROT_EXEC => read access, so our guard pages and other
      * non-committed memory, while not writable, is readable.
      * Plus, we can't later clear all prot bits for userworld mmap due to PR 107872
      * (PR 365748 covers fixing this for us).
@@ -3679,7 +3679,7 @@ os_heap_commit(void *p, size_t size, uint prot, heap_error_code_t *error_code)
     ASSERT(p);
     ASSERT(error_code != NULL);
 
-    /* FIXME: note that the memory would not be not truly committed if we have */
+    /* XXX: note that the memory would not be not truly committed if we have */
     /* not actually marked a mmap-ing without MAP_NORESERVE */
     res = mprotect_syscall(p, size, os_prot);
     if (res != 0) {
@@ -3703,7 +3703,7 @@ os_heap_decommit(void *p, size_t size, heap_error_code_t *error_code)
         LOG(GLOBAL, LOG_HEAP, 4, "os_heap_decommit: %d bytes @ " PFX "\n", size, p);
 
     *error_code = HEAP_ERROR_SUCCESS;
-    /* FIXME: for now do nothing since os_heap_reserve has in fact committed the memory */
+    /* XXX: for now do nothing since os_heap_reserve has in fact committed the memory */
     /* TODO:
            p = mmap_syscall(p, size, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
        we should either do a mremap()
@@ -3715,14 +3715,14 @@ os_heap_decommit(void *p, size_t size, heap_error_code_t *error_code)
 bool
 os_heap_systemwide_overcommit(heap_error_code_t last_error_code)
 {
-    /* FIXME: conservative answer yes */
+    /* XXX: conservative answer yes */
     return true;
 }
 
 bool
 os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
 {
-    /* FIXME - NYI */
+    /* TODO - NYI */
     return false;
 }
 
@@ -3742,7 +3742,7 @@ bool
 thread_signal(process_id_t pid, thread_id_t tid, int signum)
 {
 #ifdef MACOS
-    /* FIXME i#58: this takes in a thread port.  Need to map thread id to port.
+    /* XXX i#58: this takes in a thread port.  Need to map thread id to port.
      * Need to figure out whether we support raw Mach threads w/o pthread on top.
      */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -3816,10 +3816,10 @@ os_thread_sleep(uint64 milliseconds)
         dynamorio_syscall(SYSNUM_NO_CANCEL(SYS___semwait_signal), 6, sem, MACH_PORT_NULL,
                           1, 1, (int64_t)req.tv_sec, (int32_t)req.tv_nsec);
     if (res == -EINTR) {
-        /* FIXME i#58: figure out how much time elapsed and re-wait */
+        /* XXX i#58: figure out how much time elapsed and re-wait */
     }
 #else
-    /* FIXME: if we need accurate sleeps in presence of itimers we should
+    /* XXX: if we need accurate sleeps in presence of itimers we should
      * be using SYS_clock_nanosleep w/ an absolute time instead of relative
      */
     while (dynamorio_syscall(SYS_nanosleep, 2, &req, &remain) == -EINTR) {
@@ -4186,7 +4186,7 @@ dynamorio_clone_macos(uint flags, byte *newsp, void *ptid, void *tls, void *ctid
 
     return new_thread;
 #    else
-    /* FIXME i#1285: Private loader NYI on macOS x86 */
+    /* TODO i#1285: Private loader NYI on macOS x86 */
     ASSERT_NOT_IMPLEMENTED(false && "i#1285 Private loader NYI for Mac x86");
     return -1;
 #    endif
@@ -4925,7 +4925,7 @@ exit_process_syscall(long status)
     /* We now assume SYS_exit_group is defined: not building on old machines,
      * but will execute there.  We try exit_group and if it fails we use exit.
      *
-     * FIXME: if no exit_group, kill all other threads (==processes in same addr
+     * XXX: if no exit_group, kill all other threads (==processes in same addr
      * space) manually?  Presumably we got here b/c at an unsafe point to do
      * full exit?  Or is that not true: what about dr_abort()?
      */
@@ -4940,7 +4940,7 @@ exit_thread_syscall(long status)
 {
 #ifdef MACOS
     mach_port_t thread_port = dynamorio_mach_syscall(MACH_thread_self_trap, 0);
-    /* FIXME i#1403: on MacOS we fail to free the app's stack: we need to pass it to
+    /* XXX i#1403: on MacOS we fail to free the app's stack: we need to pass it to
      * bsdthread_terminate.
      */
     dynamorio_syscall(SYSNUM_EXIT_THREAD, 4, 0, 0, thread_port, 0);
@@ -4949,7 +4949,7 @@ exit_thread_syscall(long status)
 #endif
 }
 
-/* FIXME: this one will not be easily internationalizable
+/* XXX: this one will not be easily internationalizable
    yet it is easier to have a syslog based Unix implementation with real strings.
  */
 
@@ -5024,7 +5024,7 @@ safe_read_if_fast(const void *base, size_t size, void *out_buf)
     }
 }
 
-/* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */
+/* XXX - fold this together with safe_read_ex() (is a lot of places to update) */
 bool
 d_r_safe_read(const void *base, size_t size, void *out_buf)
 {
@@ -5091,7 +5091,7 @@ is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
 bool
 is_user_address(byte *pc)
 {
-    /* FIXME: NYI */
+    /* TODO: NYI */
     /* note returning true will always skip the case 9022 logic on Linux */
     return true;
 }
@@ -5172,7 +5172,7 @@ make_writable(byte *pc, size_t size)
      */
     if (!is_in_dynamo_dll(pc) /*avoid allmem assert*/ &&
 #ifdef STATIC_LIBRARY
-        /* FIXME i#975: is_in_dynamo_dll() is always false for STATIC_LIBRARY,
+        /* XXX i#975: is_in_dynamo_dll() is always false for STATIC_LIBRARY,
          * but we can't call get_memory_info() until allmem is initialized.  Our
          * uses before then are for patching x86.asm, which is OK.
          */
@@ -5206,7 +5206,7 @@ make_writable(byte *pc, size_t size)
 bool
 make_copy_on_writable(byte *pc, size_t size)
 {
-    /* FIXME: for current usage this should be fine */
+    /* XXX: for current usage this should be fine */
     return make_writable(pc, size);
 }
 
@@ -5222,7 +5222,7 @@ make_unwritable(byte *pc, size_t size)
      */
     if (!is_in_dynamo_dll(pc) /*avoid allmem assert*/ &&
 #ifdef STATIC_LIBRARY
-        /* FIXME i#975: is_in_dynamo_dll() is always false for STATIC_LIBRARY,
+        /* XXX i#975: is_in_dynamo_dll() is always false for STATIC_LIBRARY,
          * but we can't call get_memory_info() until allmem is initialized.  Our
          * uses before then are for patching x86.asm, which is OK.
          */
@@ -5447,7 +5447,7 @@ ignorable_system_call_normalized(int num)
 #if defined(LINUX) && defined(X86)
     case SYS_set_thread_area:
     case SYS_get_thread_area:
-        /* FIXME: we might add SYS_modify_ldt later. */
+        /* XXX: we might add SYS_modify_ldt later. */
 #endif
 #if defined(LINUX) && defined(ARM)
     /* syscall changes app's thread register */
@@ -5563,7 +5563,7 @@ sys_param_addr(dcontext_t *dcontext, int num)
     case 2: return &mc->IF_X86_ELSE(xdx, IF_RISCV64_ELSE(a2, r2));
     case 3: return &mc->IF_X86_ELSE(xsi, IF_RISCV64_ELSE(a3, r3));
     case 4: return &mc->IF_X86_ELSE(xdi, IF_RISCV64_ELSE(a4, r4));
-    /* FIXME: do a safe_read: but what about performance?
+    /* XXX: do a safe_read: but what about performance?
      * See the #if 0 below, as well. */
     case 5:
         return IF_X86_ELSE((dcontext->sys_was_int ? &mc->xbp : ((reg_t *)mc->xsp)),
@@ -5952,13 +5952,13 @@ was_sigreturn_syscall(dcontext_t *dcontext)
 static void
 handle_self_signal(dcontext_t *dcontext, uint sig)
 {
-    /* FIXME PR 297903: watch for all DEFAULT_TERMINATE signals,
+    /* XXX PR 297903: watch for all DEFAULT_TERMINATE signals,
      * and for any thread in the group, not just self.
      *
-     * FIXME PR 297033: watch for SIGSTOP and SIGCONT.
+     * XXX PR 297033: watch for SIGSTOP and SIGCONT.
      *
      * With -intercept_all_signals, we only need to watch for SIGKILL
-     * and SIGSTOP here, and we avoid the FIXMEs below.  If it's fine
+     * and SIGSTOP here, and we avoid the XXXs below.  If it's fine
      * for DR not to clean up on a SIGKILL, then SIGSTOP is all that's
      * left (at least once we have PR 297033 and are intercepting the
      * various STOP variations and CONT).
@@ -5967,8 +5967,8 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
         LOG(GLOBAL, LOG_TOP | LOG_SYSCALLS, 1,
             "thread " TIDFMT " sending itself a SIGABRT\n", d_r_get_thread_id());
         KSTOP(num_exits_dir_syscall);
-        /* FIXME: need to check whether app has a handler for SIGABRT! */
-        /* FIXME PR 211180/6723: this will do SYS_exit rather than the SIGABRT.
+        /* XXX: need to check whether app has a handler for SIGABRT! */
+        /* XXX PR 211180/6723: this will do SYS_exit rather than the SIGABRT.
          * Should do set_default_signal_action(SIGABRT) (and set a flag so
          * no races w/ another thread re-installing?) and then SYS_kill.
          */
@@ -6247,7 +6247,7 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
 static ssize_t
 script_file_reader(const char *pathname, void *buf, size_t count)
 {
-    /* FIXME i#2090: Check file is executable. */
+    /* XXX i#2090: Check file is executable. */
     file_t file = os_open(pathname, OS_OPEN_READ);
     size_t len;
 
@@ -6278,7 +6278,7 @@ script_file_reader(const char *pathname, void *buf, size_t count)
  * segment but we do not check this and so under DynamoRIO the error would be
  * detected only after the exec, if we are following the child.
  *
- * FIXME i#2091: There is a memory leak if a script is recognised, and it is
+ * XXX i#2091: There is a memory leak if a script is recognised, and it is
  * later decided not to inject (see where should_inject is set), and the exec
  * fails, because in this case there is no mechanism for freeing the memory
  * allocated in this function. This function should return sufficient information
@@ -6365,10 +6365,10 @@ handle_execve(dcontext_t *dcontext)
      * run-all-children model without bothering w/ setting up config files for
      * children, and to support injecting across execve that does not
      * preserve $HOME.
-     * FIXME i#287/PR 546544: we'll need to propagate DYNAMORIO_AUTOINJECT too
+     * XXX i#287/PR 546544: we'll need to propagate DYNAMORIO_AUTOINJECT too
      * once we use it in preload
      */
-    /* FIXME i#191: supposed to preserve things like pending signal
+    /* XXX i#191: supposed to preserve things like pending signal
      * set across execve: going to ignore for now
      */
     char *fname;
@@ -6729,7 +6729,7 @@ handle_exit(dcontext_t *dcontext)
     if (dcontext->sys_num == SYSNUM_EXIT_PROCESS) {
         /* We can have multiple thread groups within the same address space.
          * We need to know whether this is the only group left.
-         * FIXME: we can have races where new threads are created after our
+         * XXX: we can have races where new threads are created after our
          * check: we'll live with that for now, but the right approach is to
          * suspend all threads via synch_with_all_threads(), do the check,
          * and if exit_process then exit w/o resuming: though have to
@@ -6868,7 +6868,7 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
         GDT_SELECTOR(user_desc->entry_number) != read_thread_register(LIB_SEG_TLS))
         return false;
 #    elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #    endif /* X86/ARM */
     return true;
@@ -6886,7 +6886,7 @@ os_get_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
     if (desc[i].seg_not_present == 1)
         return false;
 #    elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #    endif /* X86/ARM */
     return true;
@@ -6931,7 +6931,7 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
             __FUNCTION__, to_app ? "to app" : "to DR", d_r_get_thread_id(), base);
         if (seg == SEG_TLS && base == NULL) {
             /* Set the selector to 0 so we don't think TLS is available. */
-            /* FIXME i#107: Still assumes app isn't using SEG_TLS. */
+            /* XXX i#107: Still assumes app isn't using SEG_TLS. */
             reg_t zero = 0;
             WRITE_DR_SEG(zero);
         }
@@ -7320,7 +7320,7 @@ pre_system_call(dcontext_t *dcontext)
     bool execute_syscall = true;
     dr_where_am_i_t old_whereami = dcontext->whereami;
     dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
-    /* FIXME We haven't yet done the work to detect which syscalls we
+    /* XXX We haven't yet done the work to detect which syscalls we
      * can determine a priori will fail. Once we do, we will set the
      * expect_last_syscall_to_fail to true for those case, and can
      * confirm in post_system_call() that the syscall failed as
@@ -7469,7 +7469,7 @@ pre_system_call(dcontext_t *dcontext)
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: munmap addr=" PFX " size=" PFX "\n", addr,
             len);
         RSTATS_INC(num_app_munmaps);
-        /* FIXME addr is supposed to be on a page boundary so we
+        /* XXX addr is supposed to be on a page boundary so we
          * could detect that condition here and set
          * expect_last_syscall_to_fail.
          */
@@ -7486,7 +7486,7 @@ pre_system_call(dcontext_t *dcontext)
         /* Check for unmapping a module. */
         os_get_module_info_lock();
         if (module_overlaps(addr, len)) {
-            /* FIXME - handle unmapping more than one module at once, or only unmapping
+            /* XXX - handle unmapping more than one module at once, or only unmapping
              * part of a module (for which case should adjust view size? or treat as full
              * unmap?). Theoretical for now as we haven't seen this. */
             module_area_t *ma = module_pc_lookup(addr);
@@ -7506,8 +7506,8 @@ pre_system_call(dcontext_t *dcontext)
             os_get_module_info_unlock();
         app_memory_deallocation(dcontext, (app_pc)addr, len,
                                 false /* don't own thread_initexit_lock */,
-                                true /* image, FIXME: though not necessarily */);
-        /* FIXME: case 4983 use is_elf_so_header() */
+                                true /* image, XXX: though not necessarily */);
+        /* XXX: case 4983 use is_elf_so_header() */
 #ifndef HAVE_MEMINFO_QUERY
         memcache_lock();
         memcache_remove(addr, addr + len);
@@ -7603,7 +7603,7 @@ pre_system_call(dcontext_t *dcontext)
             }
             execute_syscall = false;
         } else {
-            /* FIXME Store state for undo if the syscall fails. */
+            /* XXX Store state for undo if the syscall fails. */
             IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, new_memprot,
                                                   -1 /*type unchanged*/, exists));
         }
@@ -7693,7 +7693,7 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
     case SYS_posix_spawn: {
-        /* FIXME i#1644: monitor this call which can be fork or exec */
+        /* XXX i#1644: monitor this call which can be fork or exec */
         ASSERT_NOT_IMPLEMENTED(false);
         break;
     }
@@ -7972,7 +7972,7 @@ pre_system_call(dcontext_t *dcontext)
          *   tgkill(tgid, -1, sig) == kill(tgid, sig)
          * the 2nd was proposed but is not in 2.6.20 so I'm ignoring it, since
          * I don't want to kill the thread when the signal is never sent!
-         * FIXME: the 1st is in my tkill manpage, but not my 2.6.20 kernel sources!
+         * XXX: the 1st is in my tkill manpage, but not my 2.6.20 kernel sources!
          */
         if ((tgid == -1 || tgid == get_process_id()) && tid == d_r_get_thread_id()) {
             handle_self_signal(dcontext, sig);
@@ -8049,7 +8049,7 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_rt_tgsigqueueinfo:
 #endif
     case IF_MACOS_ELSE(SYS_sigpending, SYS_rt_sigpending): { /* 176 */
-        /* FIXME i#92: handle all of these syscalls! */
+        /* XXX i#92: handle all of these syscalls! */
         LOG(THREAD, LOG_ASYNCH | LOG_SYSCALLS, 1,
             "WARNING: unhandled signal system call %d\n", dcontext->sys_num);
         SYSLOG_INTERNAL_WARNING_ONCE("unhandled signal system call %d",
@@ -8506,7 +8506,7 @@ pre_system_call(dcontext_t *dcontext)
     }
 #    endif /* ARM */
 #elif defined(MACOS)
-    /* FIXME i#58: handle i386_{get,set}_ldt and thread_fast_set_cthread_self64 */
+    /* XXX i#58: handle i386_{get,set}_ldt and thread_fast_set_cthread_self64 */
 #endif
 
 #ifdef DEBUG
@@ -8614,7 +8614,7 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
     os_get_module_info_lock();
     ma = module_pc_lookup(base);
     if (ma != NULL) {
-        /* FIXME - how can we distinguish between the loader mapping the segments
+        /* XXX - how can we distinguish between the loader mapping the segments
          * over the initial map from someone just mapping over part of a module? If
          * is the latter case need to adjust the view size or remove from module list. */
         LOG(GLOBAL, LOG_VMAREAS, 2,
@@ -8627,7 +8627,7 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
         if (at_map) {
             ASSERT_CURIOSITY(base + size <= ma->end);
         } else {
-            /* FIXME - I'm having problems with this check for existing maps.  I
+            /* XXX - I'm having problems with this check for existing maps.  I
              * haven't been able to get gdb to break in early enough to really get a good
              * look at the early loader behavior.  Two issues:  One case is with our .so
              * for which the anonymous .bss mapping is one page larger than expected
@@ -8739,14 +8739,14 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map, app_pc base, size_t siz
      * no point are the section headers guaranteed to be mapped in so we can't
      * reliably walk sections (only segments) without looking to disk.
      */
-    /* FIXME - when should we add the module to our list?  At the first map
+    /* XXX - when should we add the module to our list?  At the first map
      * seems to be the best choice as we know the bounds and it's difficult to
      * tell when the loader is finished.  The downside is that at the initial map
      * the memory layout isn't finalized (memory beyond the first segment will
      * be shifted for page alignment reasons), so we have to be careful and
      * make adjustments to read anything beyond the first segment until the
      * loader finishes. This goes for the client too as it gets notified when we
-     * add to the list.  FIXME we could try to track the expected segment overmaps
+     * add to the list.  XXX we could try to track the expected segment overmaps
      * and only notify the client after the last one (though that's still before
      * linking and relocation, but that's true on Windows too). */
     /* Get filename & inode for the list. */
@@ -8861,7 +8861,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": anon\n", base);
     } else if (mmap_check_for_module_overlap(base, size, TEST(MEMPROT_READ, memprot), 0,
                                              true)) {
-        /* FIXME - how can we distinguish between the loader mapping the segments
+        /* XXX - how can we distinguish between the loader mapping the segments
          * over the initial map from someone just mapping over part of a module? If
          * is the latter case need to adjust the view size or remove from module list. */
         image = true;
@@ -8925,7 +8925,7 @@ handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
         /* fragments were shifted...don't try to fix them, just flush */
         app_memory_deallocation(dcontext, (app_pc)old_base, old_size,
                                 false /* don't own thread_initexit_lock */,
-                                false /* not image, FIXME: somewhat arbitrary */);
+                                false /* not image, XXX: somewhat arbitrary */);
         DOCHECK(1, {
             /* we don't expect to see remappings of modules */
             os_get_module_info_lock();
@@ -9049,7 +9049,7 @@ post_system_call(dcontext_t *dcontext)
 
             /* now let dynamo initialize new shared memory, logfiles, etc.
              * need access to static vars in dynamo.c, that's why we don't do it. */
-            /* FIXME - xref PR 246902 - d_r_dispatch runs a lot of code before
+            /* XXX - xref PR 246902 - d_r_dispatch runs a lot of code before
              * getting to post_system_call() is any of that going to be messed up
              * by waiting till here to fixup the child logfolder/file and tid?
              */
@@ -9145,7 +9145,7 @@ post_system_call(dcontext_t *dcontext)
          *
          * The same logic can be used on Windows (but isn't yet).
          */
-        /* FIXME There are shortcomings to the approach. If another thread
+        /* XXX There are shortcomings to the approach. If another thread
          * executes in the region after our pre_system_call processing
          * but before the re-add below, it will get a security violation.
          * That's less than ideal but at least isn't a security hole.
@@ -9217,7 +9217,7 @@ post_system_call(dcontext_t *dcontext)
             SYSLOG_INTERNAL_WARNING_ONCE("re-doing mprotect for PR 475111, PR 107872");
         }
 #endif
-        /* FIXME i#143: we need to tweak the returned oldprot for
+        /* XXX i#143: we need to tweak the returned oldprot for
          * writable areas we've made read-only
          */
         if (!success) {
@@ -9245,7 +9245,7 @@ post_system_call(dcontext_t *dcontext)
                        res == PRETEND_APP_MEM_PROT_CHANGE);
 
                 /* PR 410921 - Revert the changes to all-mems list.
-                 * FIXME: This fix assumes the whole region had the prot &
+                 * XXX: This fix assumes the whole region had the prot &
                  * type, which is true in the cases we have seen so far, but
                  * theoretically may not be true.  If it isn't true, multiple
                  * memory areas with different types/protections might have
@@ -9423,7 +9423,7 @@ post_system_call(dcontext_t *dcontext)
            sys_rt_sigaction(int sig, const struct sigaction *act,
              struct sigaction *oact, size_t sigsetsize)
          */
-        /* FIXME i#148: Handle syscall failure. */
+        /* XXX i#148: Handle syscall failure. */
         int sig = (int)dcontext->sys_param0;
         const kernel_sigaction_t *act = (const kernel_sigaction_t *)dcontext->sys_param1;
         prev_sigaction_t *oact = (prev_sigaction_t *)dcontext->sys_param2;
@@ -9458,7 +9458,7 @@ post_system_call(dcontext_t *dcontext)
            sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset,
              size_t sigsetsize)
          */
-        /* FIXME i#148: Handle syscall failure. */
+        /* XXX i#148: Handle syscall failure. */
         int status = handle_post_sigprocmask(
             dcontext, (int)dcontext->sys_param0, (kernel_sigset_t *)dcontext->sys_param1,
             (kernel_sigset_t *)dcontext->sys_param2, (size_t)dcontext->sys_param3);
@@ -9895,7 +9895,7 @@ get_dynamorio_library_path(void)
 #ifdef LINUX
 /* Get full path+name of executable file from /proc/self/exe.  Returns an empty
  * string on error.
- * FIXME i#47: This will return DR's path when using early injection.
+ * XXX i#47: This will return DR's path when using early injection.
  */
 static char *
 read_proc_self_exe(bool ignore_cache)
@@ -9989,7 +9989,7 @@ get_image_entry()
 void
 mem_stats_snapshot()
 {
-    /* FIXME: NYI */
+    /* TODO: NYI */
 }
 #endif
 
@@ -10118,7 +10118,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
      * Queries from clients: should be ok to hide innards.  Marking noaccess
      * should be safer than marking free, as unruly client might try to mmap
      * something in the free space: better to have it think it's reserved but
-     * not yet used memory.  FIXME: we're not marking beyond-vmheap DR regions
+     * not yet used memory.  XXX: we're not marking beyond-vmheap DR regions
      * as noaccess!
      */
     iterate_vmm_regions(add_to_memcache, NULL);
@@ -10305,7 +10305,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
         }
 #    endif
 
-        /* FIXME: best if we could pass every region to vmareas, but
+        /* XXX: best if we could pass every region to vmareas, but
          * it has no way of determining if this is a stack b/c we don't have
          * a dcontext at this point -- so we just don't pass the stack
          */
@@ -10387,7 +10387,7 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     if (ostd->stack_base == NULL) {
         /* initialize on-demand since don't have app esp handy in os_thread_init()
-         * FIXME: the comment here -- ignoring it for now, if hit cases confirming
+         * XXX: the comment here -- ignoring it for now, if hit cases confirming
          * it the right thing will be to merge adjacent rwx regions and assume
          * their union is the stack -- otherwise have to have special stack init
          * routine called from x86.asm new_thread_dynamo_start and internal_dynamo_start,
@@ -10514,7 +10514,7 @@ query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
             module_is_header(info->base_pc, fault_handling_initialized ? 0 : info->size))
             info->type = DR_MEMTYPE_IMAGE;
         else {
-            /* FIXME: won't quite match find_executable_vm_areas marking as
+            /* XXX: won't quite match find_executable_vm_areas marking as
              * image: can be doubly-mapped so; don't want to count vdso; etc.
              */
             info->type = DR_MEMTYPE_DATA;
@@ -10692,7 +10692,7 @@ typedef struct linux_event_t {
     bool broadcast;
 } linux_event_t;
 
-/* FIXME: this routine will need to have a macro wrapper to let us
+/* XXX: this routine will need to have a macro wrapper to let us
  * assign different ranks to all events for DEADLOCK_AVOIDANCE.
  * Currently a single rank seems to work.
  */
@@ -10701,7 +10701,7 @@ create_event(void)
 {
     event_t e = (event_t)global_heap_alloc(sizeof(linux_event_t) HEAPACCT(ACCT_OTHER));
     ksynch_init_var(&e->signaled);
-    ASSIGN_INIT_LOCK_FREE(e->lock, event_lock); /* FIXME: pass the event name here */
+    ASSIGN_INIT_LOCK_FREE(e->lock, event_lock); /* XXX: pass the event name here */
     e->broadcast = false;
     return e;
 }
@@ -11320,7 +11320,7 @@ os_random_seed(void)
 bool
 rct_analyze_module_at_violation(dcontext_t *dcontext, app_pc target_pc)
 {
-    /* FIXME: note that this will NOT find the data section corresponding to the given PC
+    /* XXX: note that this will NOT find the data section corresponding to the given PC
      * we don't yet have a corresponding get_allocation_size or an ELF header walk routine
      * on linux
      */
@@ -11366,7 +11366,7 @@ rct_analyze_module_at_violation(dcontext_t *dcontext, app_pc target_pc)
 bool
 rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src))
 {
-    /* FIXME PR 276762: not implemented */
+    /* XXX PR 276762: not implemented */
     return false;
 }
 #    endif
@@ -11412,14 +11412,14 @@ insert_jmp_at_tramp_entry(dcontext_t *dcontext, byte *trampoline, byte *target)
 bool
 aslr_is_possible_attack(app_pc target)
 {
-    /* FIXME: ASLR not implemented */
+    /* XXX: ASLR not implemented */
     return false;
 }
 
 app_pc
 aslr_possible_preferred_address(app_pc target_addr)
 {
-    /* FIXME: ASLR not implemented */
+    /* XXX: ASLR not implemented */
     return NULL;
 }
 

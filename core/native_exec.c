@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -209,7 +209,7 @@ entering_native(dcontext_t *dcontext)
     /* we need to match dr_app_stop() so we pop the kstack */
     KSTOP_NOT_MATCHING(dispatch_num_exits);
     /* turn off asynch interception for this thread while native
-     * FIXME: what if callbacks and apcs are destined for other modules?
+     * XXX: what if callbacks and apcs are destined for other modules?
      * should instead run dispatcher under DR every time, if going to native dll
      * will go native then?  have issues w/ missing the cb ret, though...
      * N.B.: if allow some asynch, have to find another place to store the real
@@ -218,7 +218,7 @@ entering_native(dcontext_t *dcontext)
      * We can't revert memory prots, since other threads are under DR
      * control, but we do handle our-fault write faults in native threads.
      */
-    /* FIXME i#2375: for -native_exec_opt on UNIX we need to update the gencode
+    /* XXX i#2375: for -native_exec_opt on UNIX we need to update the gencode
      * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
      */
     if (IF_WINDOWS_ELSE(true, !DYNAMO_OPTION(native_exec_opt)))
@@ -341,7 +341,7 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     dcontext->next_tag = target;
     /* tell d_r_dispatch() why we're coming there */
     dcontext->whereami = DR_WHERE_FCACHE;
-    /* FIXME i#2375: for -native_exec_opt on UNIX we need to update the gencode
+    /* XXX i#2375: for -native_exec_opt on UNIX we need to update the gencode
      * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
      */
     if (IF_WINDOWS_ELSE(true, !DYNAMO_OPTION(native_exec_opt)))

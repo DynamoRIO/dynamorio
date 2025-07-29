@@ -41,7 +41,7 @@
 /* WATCH OUT to not use the bash internal bind */
 /* `which bind` -v -u delaybind.exe delaybind.dll.dll */
 
-/* FIXME: I can't get a delay loaded DLL to get bound with bind.exe */
+/* XXX: I can't get a delay loaded DLL to get bound with bind.exe */
 
 /* support unloading with, otherwise we won't be able to unload the DLL */
 

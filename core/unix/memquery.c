@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -255,9 +255,9 @@ memquery_library_bounds_by_iterator_internal(
             /* There's something else in the text-data gap: xref i#2641. */
         } else {
             /* Found a .bss section. Check current mapping (note might only be
-             * part of the mapping (due to os region merging? FIXME investigate).
+             * part of the mapping (due to os region merging? XXX investigate).
              */
-            ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, FIXME might there be
+            ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, XXX might there be
                                                        * a gap if the file has large
                                                        * alignment and no data section?
                                                        * curiosity for now*/);

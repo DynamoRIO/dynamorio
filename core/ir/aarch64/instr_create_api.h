@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc. All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
@@ -458,7 +458,7 @@
  * \param d          The opnd_t explicit destination operand for the instruction.
  * \param rm_or_imm  The opnd_t explicit source operand for the instruction.
  */
-/* FIXME i#2440: I'm not sure this is correct.  Use INSTR_CREATE_lsr once available!
+/* XXX i#2440: I'm not sure this is correct.  Use INSTR_CREATE_lsr once available!
  * Also, what about writing the flags?  Most users don't want to read the flag results,
  * they just need to know whether they need to preserve the app's flags, so maybe
  * we can just document that this may not write them.
@@ -489,7 +489,7 @@
 
 /****************************************************************************
  * Manually-added ARM-specific INSTR_CREATE_* macros
- * FIXME i#4106: Add Doxygen headers.
+ * XXX i#4106: Add Doxygen headers.
  * Newer doxygens give warnings causing build errors on these so we remove
  * from the docs until headers are added.
  */
@@ -949,7 +949,7 @@
 #define INSTR_CREATE_clrex_imm(dc, imm) \
     instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(imm))
 
-/* FIXME i#1569: these two should perhaps not be provided */
+/* XXX i#1569: these two should perhaps not be provided */
 #define INSTR_CREATE_add_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
     INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha)
 #define INSTR_CREATE_sub_shimm(dc, rd, rn, rm_or_imm, sht, sha) \

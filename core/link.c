@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -91,7 +91,7 @@ coarse_remove_incoming(dcontext_t *dcontext, fragment_t *src_f, linkstub_t *src_
 
 /* We use temporary structs to pass targets to is_linkable().
  * change_linking_lock protects use of these.
- * FIXME: change is_linkable to take in field values directly?
+ * XXX: change is_linkable to take in field values directly?
  */
 DECLARE_FREQPROT_VAR(static fragment_t temp_targetf, { 0 });
 DECLARE_FREQPROT_VAR(static direct_linkstub_t temp_linkstub, { { { 0 } } });
@@ -137,7 +137,7 @@ void *stub32_heap;
  * We make them const to get them in read-only memory even if we have to cast a lot.
  * Our accessor routines do NOT cast since equality tests can use const and they
  * are the most common use.
- * FIXME: we're accumulating a lot of these -- but we don't have room in our flags
+ * XXX: we're accumulating a lot of these -- but we don't have room in our flags
  * space to distinguish any other way nicely, so we carry on w/ a bunch of
  * identical static linkstubs.
  */
@@ -208,7 +208,7 @@ static const linkstub_t linkstub_hot_patch = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_client = { LINK_FAKE, 0 };
 
 /* for !DYNAMO_OPTION(indirect_stubs)
- * FIXME: these are used for shared_syscall as well, yet not marked as
+ * XXX: these are used for shared_syscall as well, yet not marked as
  * FRAG_HAS_SYSCALL, but nobody checks for that currently
  */
 static const fragment_t linkstub_ibl_trace_fragment = {
@@ -369,7 +369,7 @@ uint
 linkstub_size(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
-    /* FIXME: optimization: now for ind exits we compute a pc from
+    /* XXX: optimization: now for ind exits we compute a pc from
      * flags and then exit_stub_size looks up the pc to find whether
      * indirect -- should pass that flag.
      * There are a number of uses of this idiom in emit_utils.c as well.
@@ -399,12 +399,12 @@ linkstub_frag_offs_at_end(uint flags, int direct_exits, int indirect_exits)
      * Since we have to assume sizeof(fragment_t) we can only allow
      * shared fragments to not have an offset, unless we add a LINK_SHARED
      * flag, which we can do if we end up having a product config w/ private bbs.
-     * FIXME: make the sizeof calculation dynamic such that the dominant
+     * XXX: make the sizeof calculation dynamic such that the dominant
      * type of bb fragment is the one w/o the post_linkstub_t.
      */
     return !(!TEST(FRAG_IS_TRACE, flags) && TEST(FRAG_SHARED, flags) &&
              /* We can't tell from the linkstub_t whether there is a
-              * translation field.  FIXME: we could avoid this problem
+              * translation field.  XXX: we could avoid this problem
               * by storing the translation field after the linkstubs.
               */
              !TEST(FRAG_HAS_TRANSLATION_INFO, flags) &&
@@ -576,7 +576,7 @@ last_exit_deleted(dcontext_t *dcontext)
     thread_link_data_t *ldata = (thread_link_data_t *)dcontext->link_field;
     linkstub_t *l;
     /* if this gets called twice, second is a nop
-     * FIXME: measure how often, reduce dup calls
+     * XXX: measure how often, reduce dup calls
      */
     if (LINKSTUB_FAKE(dcontext->last_exit) &&
         /* be defensive (remember case 7534!): re-do in case someone
@@ -679,7 +679,7 @@ set_coarse_ibl_exit(dcontext_t *dcontext)
      */
     /* Re-use the deletion routine to fill in the fields for us.
      * It won't replace last_exit itself as it's already fake, but it will
-     * replace last_fragment.  FIXME: now we have last_fragment != result of
+     * replace last_fragment.  XXX: now we have last_fragment != result of
      * linkstub_fragment()!
      */
     last_exit_deleted(dcontext);
@@ -864,7 +864,7 @@ local_exit_stub_size(dcontext_t *dcontext, app_pc target, uint fragment_flags)
 {
     /* linking shared separate stubs is not yet atomic so we only support
      * separate private stubs
-     * FIXME: optimization: some callers have a linkstub_t so we could provide
+     * XXX: optimization: some callers have a linkstub_t so we could provide
      * a separate routine for that to avoid the now-costly computation of
      * target for indirect exits.
      */
@@ -877,7 +877,7 @@ local_exit_stub_size(dcontext_t *dcontext, app_pc target, uint fragment_flags)
           TEST(FRAG_SHARED, fragment_flags)) ||
          /* entrance stubs are always separated */
          (TEST(FRAG_COARSE_GRAIN, fragment_flags)
-          /* FIXME: for now we inline ind stubs but eventually we want to separate.
+          /* XXX: for now we inline ind stubs but eventually we want to separate.
            * We need this check only for coarse since its stubs are the same size
            * as the direct stubs.
            */
@@ -974,7 +974,7 @@ separate_stub_free(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool dele
         ASSERT(LINKSTUB_NORMAL_DIRECT(l->flags));
         /* for -cbr_single_stub, non-deletion-freeing is disallowed, and
          * for deletion freeing, up to caller to not call us twice.
-         * FIXME: we could support freeing when both stubs are linked if
+         * XXX: we could support freeing when both stubs are linked if
          * we either added an identifying flag or re-calculated whether should
          * share (won't be able to use stub_pc equality anymore if can be NULL)
          */
@@ -1305,7 +1305,7 @@ incoming_remove_link_nosearch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l
          * have either the future or the real thing -- unless
          * it was NEVER executed: then could remove it, which we do for
          * shared cache temporary private futures (see below)
-         * FIXME: do this for other futures as well?
+         * XXX: do this for other futures as well?
          */
         if (dl->next_incoming == NULL) {
             if (TESTALL(FRAG_TEMP_PRIVATE | FRAG_IS_FUTURE, targetf->flags) &&
@@ -1556,7 +1556,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     if (TESTANY(FRAG_TRACE_LINKS_SHIFTED | FRAG_COARSE_GRAIN, f->flags)) {
         if (TEST(FRAG_IS_TRACE, f->flags)) {
             fragment_t wrapper;
-            /* FIXME case 8600: provide single lookup routine here */
+            /* XXX case 8600: provide single lookup routine here */
             fragment_t *bb = fragment_lookup_bb(dcontext, f->tag);
             if (bb == NULL || (bb->flags & FRAG_SHARED) != (f->flags & FRAG_SHARED)) {
                 /* Can't use lookup_fine_and_coarse since trace will shadow coarse */
@@ -1569,7 +1569,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
                 (TESTANY(FRAG_TRACE_LINKS_SHIFTED | FRAG_COARSE_GRAIN, bb->flags))) {
                 ASSERT(TEST(FRAG_IS_TRACE_HEAD, bb->flags) ||
                        TEST(FRAG_COARSE_GRAIN, bb->flags));
-                /* FIXME: this will mark trace head as FRAG_LINKED_INCOMING --
+                /* XXX: this will mark trace head as FRAG_LINKED_INCOMING --
                  * but then same thing for a new bb marked as a trace head
                  * before linking via its previous future, so not a new problem.
                  * won't actually link incoming since !linkable.
@@ -1589,7 +1589,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
             fragment_t *trace = fragment_lookup_trace(dcontext, f->tag);
             /* regardless of -remove_shared_trace_heads, a shared trace will
              * at least briefly shadow and shift links from a shared trace head.
-             * FIXME: add a FRAG_LINKS_SHIFTED flag to know for sure?
+             * XXX: add a FRAG_LINKS_SHIFTED flag to know for sure?
              */
             if (trace != NULL &&
                 (trace->flags & FRAG_SHARED) == (f->flags & FRAG_SHARED)) {
@@ -1649,7 +1649,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
         return NULL;
     }
     /* add future fragment
-     * FIXME: optimization is to convert f to future, that requires
+     * XXX: optimization is to convert f to future, that requires
      * coordinating with fragment_remove, fragment_delete, etc.
      */
     LOG(THREAD, LOG_LINKS, 4, "    adding future fragment for deleted F%d(" PFX ")\n",
@@ -2006,7 +2006,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
     LOG(THREAD, LOG_LINKS, 4, "  removing outgoing links for F%d(" PFX ")\n", old_f->id,
         old_f->tag);
     if (TEST(FRAG_COARSE_GRAIN, old_f->flags)) {
-        /* FIXME: we could implement full non-fake fragment_t recovery, and
+        /* XXX: we could implement full non-fake fragment_t recovery, and
          * engineer the normal link paths to do the right thing for coarse
          * fragments, to avoid all the coarse checks in this routine
          */
@@ -2144,7 +2144,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
             }
             coarse_link_to_fine(dcontext, old_stub, old_f, new_f, true /*do link*/);
         } else {
-            /* FIXME: patch the frozen trace head to redirect?
+            /* XXX: patch the frozen trace head to redirect?
              * Else once in the unit will not go to trace.
              * But by case 8151 this is only a trace head for paths coming
              * from outside, which will go to the trace, so it should be ok.
@@ -2175,7 +2175,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
                     }
                     if (tgt == old_f->tag) {
                         /* unprotect on demand (caller will re-protect)
-                         * FIXME: perhaps that's true for other link routines,
+                         * XXX: perhaps that's true for other link routines,
                          * but shift_links_to_new_fragment() is called from
                          * places where we need to double-check
                          */
@@ -2199,7 +2199,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
                 }
             } else if (entrance_stub_jmp_target(e->in.stub_pc) ==
                        FCACHE_ENTRY_PC(old_f)) {
-                /* FIXME: we don't know the tag of the src (and cannot find it
+                /* XXX: we don't know the tag of the src (and cannot find it
                  * (case 8565))!  We'll use old_f's tag to avoid triggering any
                  * new trace head rules.  Presumably they would have already
                  * been triggered unless they vary based on coarse or fine.
@@ -2397,7 +2397,7 @@ coarse_stubs_create(coarse_info_t *info, cache_pc pc, size_t size)
            (int)(COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info)) *
                  num_coarse_stubs_for_prefix(info)));
     DOCHECK(1, {
-        /* FIXME i#1551: need diff versions for diff isa modes */
+        /* XXX i#1551: need diff versions for diff isa modes */
         SET_TO_NOPS(DEFAULT_ISA_MODE, end_pc,
                     info->fcache_return_prefix +
                         COARSE_STUB_ALLOC_SIZE(COARSE_32_FLAG(info)) *
@@ -2575,7 +2575,7 @@ prepend_new_coarse_incoming(coarse_info_t *info, cache_pc coarse, linkstub_t *fi
         GLOBAL_DCONTEXT, coarse_incoming_t, ACCT_COARSE_LINK);
     /* entries are freed in coarse_remove_outgoing()/coarse_unit_unlink() */
     if (fine == NULL) {
-        /* FIXME: rather than separate entries per stub pc, to save memory
+        /* XXX: rather than separate entries per stub pc, to save memory
          * we could have a single one for the whole unit (and we'd search
          * here to see if it already exists) and search when unlinking to
          * find the individual stubs
@@ -2804,7 +2804,7 @@ coarse_link_direct(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             /* Currently we do not support non-linkable coarse exits except
              * for trace head targets (as they can all share an entrance).
              * For others we'd need per-exit entrance stubs and custom fcache
-             * return paths: FIXME.
+             * return paths: XXX.
              */
             /* We should have converted the entrance stub to a trace head
              * stub in mark_trace_head()
@@ -2857,7 +2857,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
         ASSERT_CURIOSITY((futflags & ~(FUTURE_FLAGS_ALLOWED)) == 0);
         /* sharedness must match */
         ASSERT(TEST(FRAG_SHARED, f->flags) == TEST(FRAG_SHARED, futflags));
-        /* FIXME: we will discard all of these flags, which right now only include
+        /* XXX: we will discard all of these flags, which right now only include
          * secondary shared trace heads from private traces, fortunately, and
          * we'll use that by converting to a trace head below.
          */
@@ -2888,7 +2888,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
      * to this fragment from other coarse units.
      * For sources inside this unit, they all point at the entrance stub, so
      * our only incoming link action is to link the entrance stub to us.
-     * FIXME: we assume that is_linkable() conditions haven't changed -- that
+     * XXX: we assume that is_linkable() conditions haven't changed -- that
      * it only needs to be called once for coarse-grain intra-unit links.
      * This means that trace head definitions, etc., will not see any changed
      * data about this target.
@@ -2932,7 +2932,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
                 if (!coarse_is_trace_head(self_stub)) {
                     /* mark_trace_head() was called for incoming and marked it for a
                      * different source coarse unit -- so we don't consider it a
-                     * trace head here.  FIXME: should we consider it one, and keep
+                     * trace head here.  XXX: should we consider it one, and keep
                      * path-dependent trace heads to a minimum?
                      */
                     f->flags &= ~FRAG_IS_TRACE_HEAD;
@@ -3016,7 +3016,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
              */
 #ifdef DGC_DIAGNOSTICS
             /* We don't support unlinked indirect branches.
-             * FIXME: should turn on -no_link_ibl
+             * XXX: should turn on -no_link_ibl
              */
             ASSERT_NOT_IMPLEMENTED(false);
 #endif
@@ -3395,8 +3395,8 @@ coarse_lazy_link(dcontext_t *dcontext, fragment_t *targetf)
                 set_fake_direct_linkstub(&temp_linkstub, dcontext->next_tag, NULL);
                 temp_linkstub.cdl.l.flags &= ~LINK_LINKED;
 
-                /* FIXME: we have targetf, we should use it here
-                 * FIXME: Our source f has no tag, so we pass in info -- fragile!
+                /* XXX: we have targetf, we should use it here
+                 * XXX: Our source f has no tag, so we pass in info -- fragile!
                  */
                 if (coarse_link_direct(
                         dcontext, &temp_sourcef, (linkstub_t *)&temp_linkstub, info, stub,
@@ -3432,7 +3432,7 @@ coarse_lazy_link(dcontext_t *dcontext, fragment_t *targetf)
         if (LINKSTUB_DIRECT(l->flags) && !LINKSTUB_FAKE(l) &&
             !TEST(FRAG_FAKE, f->flags) && !TEST(LINK_LINKED, l->flags)) {
             acquire_recursive_lock(&change_linking_lock);
-            /* FIXME: provide common routine for this: dup of link_fragment_outgoing */
+            /* XXX: provide common routine for this: dup of link_fragment_outgoing */
             if (!TEST(LINK_LINKED, l->flags) /* case 8825: test w/ lock! */ &&
                 is_linkable(dcontext, f, l, targetf, true /*have change_linking_lock*/,
                             true /*mark new trace heads*/)) {
@@ -3564,7 +3564,7 @@ coarse_deref_ibl_prefix(dcontext_t *dcontext, cache_pc target)
             ASSERT(*target == JMP_OPCODE);
             return (cache_pc)PC_RELATIVE_TARGET(target + 1);
 #elif defined(ARM)
-            /* FIXME i#1551: NYI on ARM */
+            /* TODO i#1551: NYI on ARM */
             ASSERT_NOT_IMPLEMENTED(false);
             return NULL;
 #endif /* X86/ARM */

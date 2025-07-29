@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -237,7 +237,7 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc);
  * even to 0, causes cl to put it into data and not bss.
  */
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
-#if _MSC_VER <= 1200 /* FIXME: __pragma may work w/ vc6: then don't need #if */
+#if _MSC_VER <= 1200 /* XXX: __pragma may work w/ vc6: then don't need #if */
 #    define ACTUAL_PRAGMA(p) _Pragma(#p)
 #else
 #    define ACTUAL_PRAGMA(p) __pragma(p)
@@ -383,7 +383,7 @@ enum tls_flags {
                                       * start at a cache line,
                                       * otherwise as long as all
                                       * entries should fit order doesn't matter */
-    TLS_FLAG_BITMAP_FILL = 0x4,      /* FIXME: NYI: reserve slots
+    TLS_FLAG_BITMAP_FILL = 0x4,      /* TODO: NYI: reserve slots
                                       * unused due to alignment,
                                       * should be needed only for
                                       * aligned bottom up xref case
@@ -408,13 +408,13 @@ enum {
     /* Does not override attack handling options (i.e. kill_thread etc. still
      * do their thing) only detaches if the we were going to kill the
      * process */
-    DETACH_UNHANDLED_VIOLATION = 0x01, /* FIXME : separate A, B, C etc.? */
+    DETACH_UNHANDLED_VIOLATION = 0x01, /* XXX : separate A, B, C etc.? */
     /* Subset of DETACH_UNHANDLED_VIOLATION, detaches if we see an unsupported
      * module */
     DETACH_UNSUPPORTED_MODULE = 0x02,
 
     /* Anything below this line is unsafe and will likely fail */
-    /* FIXME : this detaches on any internal process terminate, including from
+    /* XXX : this detaches on any internal process terminate, including from
      * a security violation (which we may want to allow to kill the process, as
      * opposed to an internal error in future), in future may also want to
      * further break it up into internal_exception, assertion, etc. */
@@ -489,7 +489,7 @@ void
 print_modules_safe(file_t f, bool dump_xml);
 void
 print_modules_ldrlist_and_ourlist(file_t f, bool dump_xml, bool conservative);
-/* FIXME: rename this to get_module_path, cf. get_module_short_name() */
+/* XXX: rename this to get_module_path, cf. get_module_short_name() */
 void
 get_module_name(app_pc, char *buf, int max_chars);
 bool

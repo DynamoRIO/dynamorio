@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -167,7 +167,7 @@ d_r_strncat(char *dest, const char *src, size_t n)
         const byte *src_b = (const byte *)src;          \
         if (dst < src)                                  \
             return memcpy(dst, src, n);                 \
-        /* FIXME: Could use reverse DF and rep movs. */ \
+        /* XXX: Could use reverse DF and rep movs. */ \
         for (i = n - 1; i >= 0; i--) {                  \
             dst_b[i] = src_b[i];                        \
         }                                               \

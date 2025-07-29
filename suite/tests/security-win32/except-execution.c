@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,11 +59,11 @@ run_test()
 
     badfunc = (char *)ALIGN_FORWARD(badfuncbuf, 256);
 
-    /* FIXME: make this fancier */
+    /* XXX: make this fancier */
     badfunc[0] = 0xc3; /* ret */
 
-    /* FIXME: move this to a general win32/ test */
-    /* Verifying RaiseException, FIXME: maybe move to a separate unit test */
+    /* XXX: move this to a general win32/ test */
+    /* Verifying RaiseException, XXX: maybe move to a separate unit test */
     __try {
         ULONG arguments[] = { 0, 0xabcd };
         initialize_registry_context();
@@ -78,7 +78,7 @@ run_test()
         print("In RaiseException handler\n");
     }
 
-    /* FIXME: move this to a general win32/ test except-unreadable.c
+    /* XXX: move this to a general win32/ test except-unreadable.c
           see case 197 and should also cover a direct CTI to bad memory,
           the latter not very likely in real apps though */
 
@@ -108,7 +108,7 @@ run_test()
                         dump_exception_info((GetExceptionInformation())->ExceptionRecord,
                                             context),
                         context->CXT_XAX = 0xcafebabe,
-                        /* FIXME: should get a CONTINUE to work  */
+                        /* XXX: should get a CONTINUE to work  */
                         EXCEPTION_CONTINUE_EXECUTION, EXCEPTION_EXECUTE_HANDLER) {
                 print("Inside first handler\n");
             }

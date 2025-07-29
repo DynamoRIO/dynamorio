@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -140,7 +140,7 @@ munmap_syscall(byte *addr, size_t len)
     return dynamorio_syscall(SYS_munmap, 2, addr, len);
 }
 
-/* FIXME - not available in 2.0 or earlier kernels, not really an issue since no one
+/* XXX - not available in 2.0 or earlier kernels, not really an issue since no one
  * should be running anything that old. */
 static int
 llseek_syscall(int fd, int64 offset, int origin, int64 *result)

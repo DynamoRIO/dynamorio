@@ -77,7 +77,7 @@ myload(char *lib, bool append_to_sysroot)
     } else {
         print("test map of %s succeeded\n", lib);
     }
-    /* FIXME - can't find a good way to get the size of the section, can't use file size
+    /* XXX - can't find a good way to get the size of the section, can't use file size
      * since as an image will be larger, msdn says to use VirtualQuery which of course
      * doesn't work on a image.  We'll just walk instead (what we really want is
      * NtQuerySection:SectionBasicInformation but the API routines don't appear to
@@ -91,8 +91,8 @@ myload(char *lib, bool append_to_sysroot)
 #endif
     UnmapViewOfFile(map_addr);
 
-    /* FIXME - for additional tests we could call into the section, we could also map
-     * at offset and call into as well.  FIXME - check what happes when we ask for
+    /* XXX - for additional tests we could call into the section, we could also map
+     * at offset and call into as well.  XXX - check what happes when we ask for
      * non-page multiple (esp if file and/or section alignment is < page. */
     for (size_to_map = PAGE_SIZE; size_to_map <= size; size_to_map += PAGE_SIZE) {
         map_addr = MapViewOfFile(mapping, FILE_MAP_COPY, 0, 0, size_to_map);
@@ -130,13 +130,13 @@ main()
     if (res == 0 || res > BUFFER_SIZE_ELEMENTS(sysroot))
         print("Unable to get system root\n");
 
-    /* FIXME - add specially crafted .exe/.dlls that have page boundaries at interesting
+    /* XXX - add specially crafted .exe/.dlls that have page boundaries at interesting
      * locations. */
 
     /* We don't yet safetly handle exports, so we limit the test to .exe's (which usually
      * don't have exports) to excessive test failures.  The case 9717, the driving case
      * for this test, partial maps are limited to only. exe's so we should be ok for
-     * now. FIXME */
+     * now. XXX */
     myload("\\system32\\user32.dll", true);
 #if 0
     /* still need to quiet some aslr asserts */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -77,7 +77,7 @@
 /* allow converting between data and function pointers */
 #pragma warning(disable : 4055)
 
-/* FIXME : assert stuff, internal error, display_message duplicated from
+/* XXX : assert stuff, internal error, display_message duplicated from
  * pre_inject, share? */
 
 /* for asserts, copied from utils.h */
@@ -110,7 +110,7 @@ get_application_name(void);
 extern char *
 get_application_pid(void);
 
-/* for convenience, duplicated from utils.h, FIXME share */
+/* for convenience, duplicated from utils.h, XXX share */
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 #define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
@@ -118,7 +118,7 @@ get_application_pid(void);
 
 /* can only set to 1 for debug builds, unless also set in inject_shared.c */
 /* must turn on VERBOSE in inject_shared.c as well since we're now
- * using display_verbose_message() -- FIXME: link them automatically */
+ * using display_verbose_message() -- XXX: link them automatically */
 #define VERBOSE 0
 
 #if VERBOSE
@@ -207,7 +207,7 @@ static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
             && /* check for 64-bit as well */
             (!wow64 ||
              read_and_verify_dr_marker_64(GetCurrentProcess(), &mark) != DR_MARKER_FOUND)
-        /* FIXME PR 251677: need 64-bit early injection to fully test
+        /* XXX PR 251677: need 64-bit early injection to fully test
          * read_and_verify_dr_marker_64
          */
 #endif
@@ -215,7 +215,7 @@ static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
             /* OK really going to load dr now, verify that we are injecting
              * early enough (i.e. user32.dll is statically linked).  This
              * presumes preinject is only used with app_init injection which is
-             * currently the case. FIXME - should we also check_sole_thread
+             * currently the case. XXX - should we also check_sole_thread
              * here?  We can't really handle more then one thread when dr is
              * loading, but this can happen with early remote injected threads
              * many of which (CTRL) are relatively harmless.
@@ -230,7 +230,7 @@ static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
 #endif
                     dll = LoadLibrary(path);
             } else {
-                /* FIXME - would be really nice to communicate this back to
+                /* XXX - would be really nice to communicate this back to
                  * the controller. */
 #ifdef DEBUG
                 _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
@@ -396,7 +396,7 @@ process_attach()
     int len;
     char exename[MAX_PATH];
 #endif
-    /* FIXME: append to event log to indicate we're in the address space */
+    /* XXX: append to event log to indicate we're in the address space */
     VERBOSE_MESSAGE("inside preinject dll\n");
 
     ntdll_init();

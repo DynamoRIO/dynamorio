@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2025 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -295,7 +295,7 @@ if (UNIX)
         if (LINKER_IS_LLVM_LLD)
           set(ldflags "-Wl,--image-base=${base}")
         else ()
-          # FIXME: This should be -Ttext-segment for bfd, but most golds want -Ttext.
+          # XXX: This should be -Ttext-segment for bfd, but most golds want -Ttext.
           # See http://sourceware.org/ml/binutils/2013-02/msg00194.html
           set(ldflags "-Wl,-Ttext=${base}")
         endif ()

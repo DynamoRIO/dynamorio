@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
 
 static char buffer[BUFFER_SIZE];
 
-/* FIXME: DR throws exception on unreadable memory w/o this: did we
+/* XXX: DR throws exception on unreadable memory w/o this: did we
  * used to behave differently?
  * Natively on modern hw+os this app dies right away due to NX.
  */

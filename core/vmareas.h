@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -492,7 +492,7 @@ vm_area_coarse_iter_hasnext(vmvector_iterator_t *vmvi, app_pc end);
 /* Note that NULL is a valid return value for intermediate iterations
  * if that coarse region has not yet been executed from, due to our
  * new lazy init scheme (case 8640).
- * FIXME: may need to return region bounds or something if have other callers.
+ * XXX: may need to return region bounds or something if have other callers.
  */
 coarse_info_t *
 vm_area_coarse_iter_next(vmvector_iterator_t *vmvi, app_pc end);
@@ -774,7 +774,7 @@ is_address_on_stack(dcontext_t *dcontext, app_pc address);
 bool
 is_driver_address(app_pc addr);
 
-/* FIXME clean up: safe_apc_or_thread_target, apc_thread_policy_helper and
+/* XXX clean up: safe_apc_or_thread_target, apc_thread_policy_helper and
  * aslr_report_violation should all be ifdef WINDOWS, and may be in a
  * different file
  */

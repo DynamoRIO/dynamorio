@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
 /*
  * retcheck.c
  * Routines for the RETURN_AFTER_CALL and CHECK_RETURNS_SSE2 security features.
- * FIXME: Experimental.
+ * XXX: Experimental.
  */
 
 #include "../globals.h"
@@ -241,7 +241,7 @@ check_return_handle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
           call ra_mangled
         ra_not_mangled:
           restore edx
-// FIXME: can't count on below esp not being clobbered!  (could get signal->handler!)
+// XXX: can't count on below esp not being clobbered!  (could get signal->handler!)
           mov -4(esp),ecx // restore return address
     */
     int i;
@@ -403,7 +403,7 @@ check_return_too_deep(dcontext_t *dcontext, volatile int errno, volatile reg_t e
     LOG(THREAD, LOG_ALL, 3, "check_return_too_deep\n");
 
     /* move from registers into memory where we can work with it */
-    /* FIXME: align xmm so can use movdqa! */
+    /* XXX: align xmm so can use movdqa! */
 #        ifdef UNIX
     asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
     asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
@@ -487,7 +487,7 @@ check_return_too_shallow(dcontext_t *dcontext, volatile int errno, volatile reg_
     if (dcontext->call_depth == 0) {
         LOG(THREAD, LOG_ALL, 3, "\tbottomed out of dynamo, ignoring\n");
         reg_ecx = 0; /* undo the set to 31 prior to this call */
-                     /* FIXME: would like to avoid rest of checks...but then have to put
+                     /* XXX: would like to avoid rest of checks...but then have to put
                       * clean-call-cleanup at bottom...instead we have a hack where we put
                       * in a ret addr that will match, namely the real ret addr, sitting in edx
                       */
@@ -899,7 +899,7 @@ check_return_too_deep(dcontext_t *dcontext, volatile int errno, volatile reg_t e
     LOG(THREAD, LOG_ALL, 3, "check_return_too_deep\n");
 
     /* move from registers into memory where we can work with it */
-    /* FIXME: align xmm so can use movdqa! */
+    /* XXX: align xmm so can use movdqa! */
 #        ifdef UNIX
     asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
     asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
@@ -1144,7 +1144,7 @@ static int INLINE_ONCE
 start_enforcing(dcontext_t *dcontext, app_pc target_pc)
 {
     static int start_enforcing =
-        0; /* FIXME: should be thread local. this will handle vfork */
+        0; /* XXX: should be thread local. this will handle vfork */
     int at_bottom;
 
     LOG(THREAD, LOG_INTERP, 3, "RCT: start_enforcing = %d\n", start_enforcing);
@@ -1161,11 +1161,11 @@ start_enforcing(dcontext_t *dcontext, app_pc target_pc)
         return 1;
     }
 
-    /* FIXME: we reach the stack bottom on Windows quite late at
+    /* XXX: we reach the stack bottom on Windows quite late at
        fragment_t 2768, tag 0x77f9fb67 <ntdll.dll~KiUserApcDispatcher+0x7>
        can we do better?
        All other threads running at that time will ignore attacks.
-       FIXME: therefore start_enforcing should be thread local
+       XXX: therefore start_enforcing should be thread local
     */
 
     if (at_bottom == 1) {
@@ -1330,7 +1330,7 @@ at_vbjmp_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc)
     instr_t *iret = instrlist_last(ilist);
     instr_t *ipush = iret ? instr_get_prev(iret) : NULL;
 
-    /* FIXME: need to restrict to only two instructions */
+    /* XXX: need to restrict to only two instructions */
     if (ipush && instr_get_opcode(ipush) == OP_push_imm && instr_is_return(iret) &&
         opnd_get_size(instr_get_src(ipush, 0)) == OPSZ_4) {
         ptr_uint_t immed = (ptr_uint_t)opnd_get_immed_int(instr_get_src(ipush, 0));
@@ -1369,17 +1369,17 @@ at_vbpop_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc)
      1100462A loc_1100462A:  ; DATA XREF: sub_11004510+D2
      1100462A                 mov     ecx, [ebp-14h]
      */
-    /* FIXME: make this part of at_vbjmp_exception() */
-    /* FIXME: also see security-common/vbjmp-rac-test.c and why
+    /* XXX: make this part of at_vbjmp_exception() */
+    /* XXX: also see security-common/vbjmp-rac-test.c and why
        we may end up having to treat specially a "push $code; jmp "
        for a slightly more general handling of this.
     */
 
     /* We assume that the RET instruction is a single one and is in
        its own basic block, so we expect it to be at source_pc.
-       FIXME: If it doesn't works this way, we'll have
+       XXX: If it doesn't works this way, we'll have
        to build a basic block like at_vbjmp_exception() does. */
-    /* FIXME: What if the source_pc is a trace, then we'd need to find
+    /* XXX: What if the source_pc is a trace, then we'd need to find
        the exiting branch and make sure it matches? */
     if ((source_pc + 1) == target_pc) {
         LOG(THREAD, LOG_INTERP, 2,
@@ -1548,7 +1548,7 @@ I am not sure if this is supposed to be data or instructions for something
    Exactly the same code appears at 0x55a65446 in the same dll on xp.
    in the win2003 version of it 0x62FB5478 and 0x62FB87AE have the same fragment.
 
-   FIXME: Of the three different SUB [esp] offsets 0A94FA28h, 0C98F744h, and 0EEF3E64h,
+   XXX: Of the three different SUB [esp] offsets 0A94FA28h, 0C98F744h, and 0EEF3E64h,
    the latter two exhibit different potential target patterns.  Need to test those.
 
    What we do when a RAC fails, see comments in
@@ -1557,7 +1557,7 @@ I am not sure if this is supposed to be data or instructions for something
    Note that this same fragment is both a source and a target, so
    it may be worthwhile matching it as close as possible.
 
-   1) FIXME: check if source fragment is in module licdll.dll
+   1) XXX: check if source fragment is in module licdll.dll
 
    2) In case the target is a future executable then we don't look at
    the target but instead look at the source in the next step.
@@ -1610,11 +1610,11 @@ static bool
 at_licdll_rct_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc)
 {
 
-    /* 1) FIXME: check if source fragment is in module licdll.dll
+    /* 1) XXX: check if source fragment is in module licdll.dll
        we could do that with get_module_short_name(source_pc),
        but it looks like both licdll and dpcdll need this */
 
-    /* 2) FIXME: In case the target is a future executable then we
+    /* 2) XXX: In case the target is a future executable then we
        don't look at the target but instead look at the source in the next step. */
 
     /* CHECK: in case we see many of these exceptions at the same target
@@ -1627,7 +1627,7 @@ at_licdll_rct_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc
         return true;
     }
     /* case 9398: set to source for our check
-     * FIXME: we could read off the end of the page!  Should use TRY or safe_read.
+     * XXX: we could read off the end of the page!  Should use TRY or safe_read.
      */
     ASSERT(check_in_last_thread_vm_area(dcontext, (app_pc)PAGE_START(target_pc)));
     set_thread_decode_page_start(dcontext, (app_pc)PAGE_START(source_pc));
@@ -1646,11 +1646,11 @@ at_licdll_rct_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc
 
 /* return after call check
    called by d_r_dispatch after inlined return lookup routine has failed */
-/* FIXME: return value is ignored */
+/* XXX: return value is ignored */
 int
 ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
 {
-    /* FIXME If we change shared_syscalls to use the ret table (instead of the jmp
+    /* XXX If we change shared_syscalls to use the ret table (instead of the jmp
      * table), we need to fix up the use of instr_addr further down, since it could
      * store a nonsensical value and cause reverse_check_ret_source() to return a
      * failure code.
@@ -1664,7 +1664,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
 
     STATS_INC(ret_after_call_validations);
 
-    /* FIXME: currently this is only a partial check,
+    /* XXX: currently this is only a partial check,
        a trace lookup will not exit the fcache for a check like this
        to fully provide the return-after-call guarantee.
 
@@ -1681,10 +1681,10 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
 
     /* Case 9398: handle unreadable races from derefs in checks below.
      * Any checks that read src must set back to target.
-     * FIXME: better to use TRY, or safe_read for each?  if use TRY
+     * XXX: better to use TRY, or safe_read for each?  if use TRY
      * then have to make sure to call bb_build_abort() if necessary,
      * since TRY fault takes precedence over decode fault.
-     * FIXME: we could read off the end of the page!  This is just a quick fix,
+     * XXX: we could read off the end of the page!  This is just a quick fix,
      * not foolproof.
      */
     set_thread_decode_page_start(dcontext, (app_pc)PAGE_START(target_addr));
@@ -1692,7 +1692,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
     if (!find_call_site(dcontext, target_addr)) {
         LOG(THREAD, LOG_INTERP, 1, "RCT: bad return target: " PFX "\n", target_addr);
         if (!start_enforcing(dcontext, target_addr)) {
-            /* FIXME to be fixed whenever we figure out how to start first */
+            /* XXX to be fixed whenever we figure out how to start first */
             LOG(THREAD, LOG_INTERP, 1, "RCT: haven't started yet --ok\n");
             STATS_INC(ret_after_call_before_start);
             /* do not add exemption */
@@ -1702,7 +1702,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         /* Now come the known cases of unjustified ugliness from Microsoft apps.
            For regression testing purposes we test for them on all platforms */
 
-        /* FIXME: see case 285 for a better method of obtaining source_pc,
+        /* XXX: see case 285 for a better method of obtaining source_pc,
            which for all uses here is assumed to be a bb tag,
            and will likely break if a trace containing these bb's is build.
            Also see case 1858 about storing into RAC table validated targets.
@@ -1739,7 +1739,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
             LOG(THREAD, LOG_INTERP, 1, "RCT: known exception on push reg; ret --ok\n");
             STATS_INC(ret_after_call_known_exceptions);
             STATS_INC(ret_after_call_pushregret);
-            /* FIXME: we don't want to cache the target of this pattern
+            /* XXX: we don't want to cache the target of this pattern
              * as the usage we've seen is once-only.  But, it has also been
              * to DGC-only, which is currently not cached anyway.
              */
@@ -1785,7 +1785,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
              * we flush the fragments after we flush the RAC during
              * process_mmap(), so there is a small chance that we'll
              * in fact completely allow execution - which is OK since
-             * still a possible APP race.)  FIXME: it may be
+             * still a possible APP race.)  XXX: it may be
              * preferable to throw our own exception here, if DLLs
              * are in inconsistent state a lot longer while unloaded
              * under us compared to native, then any execution during
@@ -1819,7 +1819,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                 /* we probably were just unreadable, bad app or possibly attack,
                  * leaving to rct_ret_unreadable further down
                  */
-                /* FIXME: case 6008 there is also a possibility of a
+                /* XXX: case 6008 there is also a possibility of a
                  * race (that we were during unload at the time we
                  * checked, but since we only keep the last unmap,
                  * another one could have taken place, so we would get
@@ -1836,7 +1836,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                 target_addr);
             /* fall through and report */
             ASSERT_NOT_TESTED();
-            /* FIXME: case 7017 ASLR_NORMALIZE_ID handling */
+            /* XXX: case 7017 ASLR_NORMALIZE_ID handling */
             STATS_INC(aslr_rct_ret_wouldbe);
         }
 
@@ -1853,7 +1853,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                  * e.g. if OPTION_NO_REPORT|OPTION_BLOCK we may kill a thread
                  */
                 /* the current defaults will let all of this through */
-                /* FIXME: for now only OPTION_NO_REPORT is supported
+                /* XXX: for now only OPTION_NO_REPORT is supported
                  * by security_violation() and that's all we currently need */
                 if (security_violation(dcontext, target_addr, RETURN_TARGET_VIOLATION,
                                        DYNAMO_OPTION(rct_ret_unreadable)) ==
@@ -1875,7 +1875,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
             /* running in detect mode */
             ASSERT(DYNAMO_OPTION(detect_mode)
                    /* case 9712: client security callback can modify the action.
-                    * FIXME: if a client changes the action to ACTION_CONTINUE,
+                    * XXX: if a client changes the action to ACTION_CONTINUE,
                     * this address will be exempted and we won't complain again.
                     * In the future we may need to add another action type. */
                    || CLIENTS_EXIST());
@@ -1891,7 +1891,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         if (DYNAMO_OPTION(rct_cache_exempt) == RCT_CACHE_EXEMPT_ALL ||
             (DYNAMO_OPTION(rct_cache_exempt) == RCT_CACHE_EXEMPT_MODULES &&
              (get_module_base(target_addr) != NULL))) {
-            /* FIXME: extra system calls may be become more expensive
+            /* XXX: extra system calls may be become more expensive
              * than extra exits for simple pattern matches, should
              * have a cheap way of determining whether an address is
              * in a module code section  */
@@ -1907,7 +1907,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
     else {
         /* extra check on direct calls */
         /* TODO: verify if target is direct call */
-        /* FIXME: make sure that instr_addr gets shifted properly on unit resize
+        /* XXX: make sure that instr_addr gets shifted properly on unit resize
            i.e. considered as a normal fragment address, then this check is ok to use a
            cache_pc */
         if (reverse_check_ret_source(target_addr, instr_addr) < 0) {

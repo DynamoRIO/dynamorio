@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,7 +63,7 @@
 #    ifdef INTERNAL
 /* cast to void to avoid gcc warning "statement with no effect" when used as
  * a statement and x is a compile-time false
- * FIXME: cl debug build allocates a local for each ?:, so if this gets
+ * XXX: cl debug build allocates a local for each ?:, so if this gets
  * unrolled in some optionsx or other expansion we could have stack problems!
  */
 #        define ASSERT(x)                                                 \
@@ -196,7 +196,7 @@ external_error(const char *file, int line, const char *msg);
 #    define CHECK_TRUNCATE_TYPE_stats_int_t CHECK_TRUNCATE_TYPE_int
 #endif
 
-/* FIXME: too bad typeof is a GCC only extension - so need to pass both var and type */
+/* XXX: too bad typeof is a GCC only extension - so need to pass both var and type */
 
 /* var = (type) val; should always be preceded by a call to ASSERT_TRUNCATE  */
 /* note that it is also OK to use ASSERT_TRUNCATE(type, type, val) for return values */
@@ -313,7 +313,7 @@ typedef struct _mutex_t {
     struct _mutex_t *next_process_lock;
     /* TODO: we should also add cycles spent while holding the lock, KSTATS-like */
 #    ifdef MUTEX_CALLSTACK
-    /* FIXME: case 5378: to avoid allocating memory in mutexes use a
+    /* XXX: case 5378: to avoid allocating memory in mutexes use a
      * static array that will get too fat if larger than 4
      */
 #        define MAX_MUTEX_CALLSTACK 4
@@ -351,7 +351,7 @@ typedef struct _recursive_lock_t {
 
 typedef struct _read_write_lock_t {
     mutex_t lock;
-    /* FIXME: could be merged w/ lock->state if want to get more sophisticated...
+    /* XXX: could be merged w/ lock->state if want to get more sophisticated...
      * we could use the lock->state as a 32-bit counter, incremented
      * by readers, and with the MSB bit (sign) set by writers
      */
@@ -378,7 +378,7 @@ enum {
     LOCK_RANK(trace_building_lock), /* < bb_building_lock, < table_rwlock */
 
     /* decode exception -> check if should_intercept requires all_threads
-     * FIXME: any other locks that could be interrupted by exception that
+     * XXX: any other locks that could be interrupted by exception that
      * could be app's fault?
      */
     LOCK_RANK(thread_initexit_lock), /* < all_threads_lock, < snapshot_lock */
@@ -388,7 +388,7 @@ enum {
 #    ifdef WINDOWS
     LOCK_RANK(exception_stack_lock), /* < all_threads_lock */
 #    endif
-    /* FIXME: grabbed on an exception, which could happen anywhere!
+    /* XXX: grabbed on an exception, which could happen anywhere!
      * possible deadlock if already held */
     LOCK_RANK(all_threads_lock), /* < global_alloc_lock */
 
@@ -487,7 +487,7 @@ enum {
 
     LOCK_RANK(process_module_vector_lock), /* < snapshot_lock > all_threads_synch_lock */
     /* For Loglevel 1 and higher, with LOG_MEMSTATS, the snapshot lock is
-     * grabbed on an exception, possible deadlock if already held FIXME */
+     * grabbed on an exception, possible deadlock if already held XXX */
     LOCK_RANK(snapshot_lock), /* < dynamo_areas */
 #    ifdef PROGRAM_SHEPHERDING
     LOCK_RANK(futureexec_areas), /* > executable_areas
@@ -584,18 +584,18 @@ enum {
 #    endif
     LOCK_RANK(reset_pending_lock), /* > heap_unit_lock */
 
-    LOCK_RANK(initstack_mutex), /* FIXME: NOT TESTED */
+    LOCK_RANK(initstack_mutex), /* XXX: NOT TESTED */
 
-    LOCK_RANK(event_lock),          /* FIXME: NOT TESTED */
-    LOCK_RANK(do_threshold_mutex),  /* FIXME: NOT TESTED */
-    LOCK_RANK(threads_killed_lock), /* FIXME: NOT TESTED */
-    LOCK_RANK(child_lock),          /* FIXME: NOT TESTED */
+    LOCK_RANK(event_lock),          /* XXX: NOT TESTED */
+    LOCK_RANK(do_threshold_mutex),  /* XXX: NOT TESTED */
+    LOCK_RANK(threads_killed_lock), /* XXX: NOT TESTED */
+    LOCK_RANK(child_lock),          /* XXX: NOT TESTED */
 
 #    ifdef SIDELINE
-    LOCK_RANK(sideline_lock),       /* FIXME: NOT TESTED */
-    LOCK_RANK(do_not_delete_lock),  /* FIXME: NOT TESTED */
-    LOCK_RANK(remember_lock),       /* FIXME: NOT TESTED */
-    LOCK_RANK(sideline_table_lock), /* FIXME: NOT TESTED */
+    LOCK_RANK(sideline_lock),       /* XXX: NOT TESTED */
+    LOCK_RANK(do_not_delete_lock),  /* XXX: NOT TESTED */
+    LOCK_RANK(remember_lock),       /* XXX: NOT TESTED */
+    LOCK_RANK(sideline_table_lock), /* XXX: NOT TESTED */
 #    endif
 #    ifdef SIMULATE_ATTACK
     LOCK_RANK(simulate_lock),
@@ -608,7 +608,7 @@ enum {
                                                        * < report_buf_lock (for assert) */
 #    endif
     LOCK_RANK(report_buf_lock),
-/* FIXME: if we crash while holding the all_threads_lock, snapshot_lock
+/* XXX: if we crash while holding the all_threads_lock, snapshot_lock
  * (for loglevel 1+, logmask LOG_MEMSTATS), or any lock below this
  * line (except the profile_dump_lock, and possibly others depending on
  * options) we will deadlock
@@ -694,7 +694,7 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
 #ifdef WINDOWS
 #    define STRUCTURE_TYPE(x)
 #else
-/* FIXME: gcc 4.1.1 complains "initializer element is not constant"
+/* XXX: gcc 4.1.1 complains "initializer element is not constant"
  * if we have our old (x) here; presumably some older gcc needed it;
  * once sure nobody does let's remove this define altogether.
  */
@@ -903,7 +903,7 @@ self_owns_write_lock(read_write_lock_t *rw);
 #define ASSERT_OWN_WRITE_LOCK(pred, rw) ASSERT(!(pred) || self_owns_write_lock(rw))
 #define ASSERT_DO_NOT_OWN_WRITE_LOCK(pred, rw) \
     ASSERT(!(pred) || !self_owns_write_lock(rw))
-/* FIXME: no way to tell if current thread is one of the readers */
+/* XXX: no way to tell if current thread is one of the readers */
 #define ASSERT_OWN_READ_LOCK(pred, rw) ASSERT(!(pred) || READ_LOCK_HELD(rw))
 #define READWRITE_LOCK_HELD(rw) (READ_LOCK_HELD(rw) || self_owns_write_lock(rw))
 #define ASSERT_OWN_READWRITE_LOCK(pred, rw) ASSERT(!(pred) || READWRITE_LOCK_HELD(rw))
@@ -998,8 +998,8 @@ dr_modload_hook_exists(void); /* hard to include instrument.h here */
  *   extern uint HASHTABLE_SIZE(int num_bits);
  */
 
-/* FIXME - xref 8139 which is best 2654435769U 2654435761U or 0x9e379e37
- * FIXME PR 212574 (==8139): would we want the 32-bit one for smaller index values?
+/* XXX - xref 8139 which is best 2654435769U 2654435761U or 0x9e379e37
+ * XXX PR 212574 (==8139): would we want the 32-bit one for smaller index values?
  */
 #define PHI_2_32 2654435769U           /* (sqrt(5)-1)/2 * (2^32) */
 #define PHI_2_64 11400714819323198485U /* (sqrt(5)-1)/2 * (2^64) */
@@ -1028,14 +1028,14 @@ dr_modload_hook_exists(void); /* hard to include instrument.h here */
 #    define HASH_FUNC_BITS(val, num_bits) ((uint)((val) & (HASH_MASK(num_bits))))
 #else
 /* do not use the lsb (alignment!) */
-/* FIXME: this function in product builds is in fact not used on
+/* XXX: this function in product builds is in fact not used on
  * addresses so ignoring the LSB is not helping.
  * Better use the more generic HASH_FUNC that allows for hash_offset other than 1
  */
 #    define HASH_FUNC_BITS(val, num_bits) (((val) & (HASH_MASK(num_bits))) >> 1)
 #endif
 
-/* FIXME - xref 8139, what's the best shift for multiply phi? In theory for
+/* XXX - xref 8139, what's the best shift for multiply phi? In theory for
  * m bit table should take the middle m bits of the qword result. We currently
  * take the top m bits of the lower dword which is prob. almost as good, but
  * could experiment (however, I suspect probing strategy might make more of a
@@ -1046,7 +1046,7 @@ dr_modload_hook_exists(void); /* hard to include instrument.h here */
          (val)                                :                         \
          ((table)->hash_func == HASH_FUNCTION_MULTIPLY_PHI ?            \
              /* All ibl tables use NONE so don't need to worry about    \
-              * the later hash_mask_offset shift. FIXME - structure all \
+              * the later hash_mask_offset shift. XXX - structure all \
               * these macros a little clearly/efficiently. */           \
              /* case 8457: keep in sync w/ hash_value()'s calc */       \
              (((val) * HASH_PHI) >> (HASH_TAG_BITS - (table)->hash_bits)) : \
@@ -1322,7 +1322,7 @@ get_short_name(const char *exename);
  * place the do_once var elsewhere than .data.  Since it's only written once we
  * go ahead and unprotect here.  Even if we have dozens of these (there aren't
  * that many in release builds currently) it shouldn't hurt us.
- * FIXME: this means that if the protection routines call a routine that has
+ * XXX: this means that if the protection routines call a routine that has
  * a do-once, we have a deadlock!  Could switch to a recursive lock.
  */
 extern int do_once_generation; /* for possible re-attach */
@@ -1388,10 +1388,10 @@ extern mutex_t do_threshold_mutex;
  *
  * Note we do not support filters in EXCEPT statements so the
  * innermost handler will be called.  Also finally blocks are not
- * implemented (FIXME: we would have to unwind all nested finally blocks
+ * implemented (XXX: we would have to unwind all nested finally blocks
  * before the EXCEPT block).
  *
- * Note no locks should be grabbed within a TRY/EXCEPT block (FIXME:
+ * Note no locks should be grabbed within a TRY/EXCEPT block (XXX:
  * until we have FINALLY support to release them).
  *
  * (tip: compile your TRY blocks first outside of this macro for
@@ -1476,7 +1476,7 @@ extern mutex_t do_threshold_mutex;
     } while (0)
 
 /* implementation notes: */
-/* FIXME: it is more secure yet not as flexible to use a scheme
+/* XXX: it is more secure yet not as flexible to use a scheme
  * like the Exception Tables in the Linux kernel where a static
  * mapping from a faulting PC to a fixup code (in
  * exception_table_entry) can be kept in read-only memory.  That
@@ -1489,7 +1489,7 @@ extern mutex_t do_threshold_mutex;
  */
 
 /* no filters
- * FIXME: we may want filters in debug builds to make sure we can
+ * XXX: we may want filters in debug builds to make sure we can
  * detect the proper EXCEPT condition (need to register in the TRY).
  * Alternatively, should match against a list of instructions that are
  * the only ones known to possibly fail.
@@ -1507,10 +1507,10 @@ extern mutex_t do_threshold_mutex;
         /* rollback first */                                     \
         POP_TRY_BLOCK(try_pointer, try__state);                  \
         statement;                                               \
-        /* FIXME: stop unwinding */                              \
+        /* XXX: stop unwinding */                              \
     }
 
-/* FIXME: should be called only nested within another TRY/EXCEPT
+/* XXX: should be called only nested within another TRY/EXCEPT
  * block.  (We don't support __leave so there is no other use).  If it
  * was called not nested in an EXCEPT handler, we can't just hide
  * there was an exception at all, otherwise this will change behavior
@@ -1537,7 +1537,7 @@ extern mutex_t do_threshold_mutex;
         /* executed for both normal execution, or exception */        \
         statement;                                                    \
         if ((try_pointer)->unwinding_exception) {                     \
-            /* FIXME: on nested exception must keep UNWINDing */      \
+            /* XXX: on nested exception must keep UNWINDing */      \
             /* and give control to the previous nested handler */     \
             /* until an EXCEPT handler resumes to normal execution */ \
             /* we don't keep any exception context */                 \
@@ -1557,7 +1557,7 @@ enum { LONGJMP_EXCEPTION = 1 };
 /* volatile to ensure the compiler doesn't completely skip a READ */
 #define PROBE_READ_PC(pc) ((*(volatile char *)(pc)))
 #define PROBE_WRITE_PC(pc) ATOMIC_ADD_PTR(volatile char *, (*(volatile char *)(pc)), 0)
-/* FIXME: while handling a read exception thread stack expansion in
+/* XXX: while handling a read exception thread stack expansion in
  * other threads may lose its guard page.  Since current thread won't
  * know if it is ok to expand, therefore the stacks won't grow any
  * further.  See MSDN: IsBadReadPtr(), We may want to mark back any
@@ -1748,7 +1748,7 @@ enum { LONGJMP_EXCEPTION = 1 };
         do {                   \
             statement          \
         } while (0)
-/* FIXME: move to stats.h */
+/* XXX: move to stats.h */
 /* Note : stats macros are called in places where it is not safe to hold any lock
  * (such as special_heap_create_unit, others?), if ever go back to using a mutex
  * to protect the stats need to update such places
@@ -1760,7 +1760,7 @@ enum { LONGJMP_EXCEPTION = 1 };
 /* In general should prob. be using stats_add_[peak, max] instead of
  * stats_[peak/max] since they tie the adjustment of the stat to the
  * setting of the max, otherwise you're open to race conditions involving
- * multiple threads adjusting the same stats and setting peak/max FIXME
+ * multiple threads adjusting the same stats and setting peak/max XXX
  */
 #    define GLOBAL_STATS_ON() (d_r_stats != NULL && INTERNAL_OPTION(global_stats))
 #    define THREAD_STAT(dcontext, stat) (dcontext->thread_stats)->stat##_thread
@@ -2017,7 +2017,7 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
  * string for LOG/stderr/msgbox to avoid breaking our regression suite,
  * NOTE assumes actual id passed, not name of id less MSG_ (so can use array
  * of id's in vmareas.c, another reason need separate fmt string)
- * FIXME : use events.mc string instead (SYSLOG_COMMON), breaks regression
+ * XXX : use events.mc string instead (SYSLOG_COMMON), breaks regression
  * This is now used for out-of-memory as well, for the same reason --
  * we should have a mechanism to strip the application name & pid prefix,
  * then we could use the eventlog string.
@@ -2066,11 +2066,11 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
         ASSERT_NOT_REACHED();                                                   \
     } while (0)
 
-/* FIXME, eventually want usage_error to also be external (may also eventually
+/* XXX, eventually want usage_error to also be external (may also eventually
  * need non dynamic option synch form as well for usage errors while updating
  * dynamic options), but lot of work to get all in eventlog and currently only
  * really triggered by internal options */
-/* FIXME : could leave out the asserts, this is a recoverable error */
+/* XXX : could leave out the asserts, this is a recoverable error */
 #define USAGE_ERROR(...)                    \
     do {                                    \
         SYSLOG_INTERNAL_ERROR(__VA_ARGS__); \
@@ -2203,7 +2203,7 @@ is_readable_without_exception_try(byte *pc, size_t size);
 
 /* NOTE - uses try/except when possible, is_readable_without_exception otherwise. NOTE -
  * like our other is_readable_without_exception routines this routine offers no guarantee
- * that the string will remain valid after the call returns.  FIXME - may be worthwhile
+ * that the string will remain valid after the call returns.  XXX - may be worthwhile
  * to extend this routine to copy the string into a buffer while in the try/using
  * safe_read instead of making the caller do it. */
 bool

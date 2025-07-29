@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,7 +75,7 @@
  * once at max size, we make new units, all of max size
  *
  * thus default is to do no quadrupling, just a single doubling and then no more resizing
- * FIXME: should we stop resizing altogether and just have variable-sized
+ * XXX: should we stop resizing altogether and just have variable-sized
  * separate units?  it's not like a 32K unit is too small to keep around...
  * OTOH, we want the flexibility of resizing, for servers apps with lots of threads
  * we may move the initial unit size smaller
@@ -126,7 +126,7 @@
 
 /* Minimum end-of-cache hole size -- anything smaller and the cache is "full"
  * This is 2x the smallest fragment size
- * FIXME: use larger size for trace cache?
+ * XXX: use larger size for trace cache?
  */
 #define MIN_UNIT_END_HOLE(cache) ((uint)2 * MIN_EMPTY_HOLE(cache))
 
@@ -145,12 +145,12 @@
                                              : DYNAMO_OPTION(cache_bb_align)))
 
 /* We use a header to have a backpointer to the fragment_t */
-/* FIXME: currently this abstraction type is unused, we rather use
+/* XXX: currently this abstraction type is unused, we rather use
  * *(fragment_t **) when working with the backpointer.  If are to add
  * more fields should use this.  Although fragment_t may be a better
  * place to keep such information.  */
 typedef struct _live_header_t {
-    /* FIXME: sizeof(live_header_t) should match HEADER_SIZE */
+    /* XXX: sizeof(live_header_t) should match HEADER_SIZE */
     fragment_t *f;
 } live_header_t;
 
@@ -206,7 +206,7 @@ typedef struct _empty_slot_t {
 
 /* N.B.: must hold cache lock across any set of a fragment's start_pc or size
  * once that fragment is in a cache, as contig-cache-walkers need a consistent view!
- * FIXME: we can't assert as we can't do a unit lookup at all use sites
+ * XXX: we can't assert as we can't do a unit lookup at all use sites
  */
 #define FRAG_START_ASSIGN(f, val)                    \
     do {                                             \
@@ -236,7 +236,7 @@ typedef struct _empty_slot_t {
 
 /* N.B.: must hold cache lock across any set of a fragment's start_pc or size
  * once that fragment is in a cache, as contig-cache-walkers need a consistent view!
- * FIXME: we can't assert as we can't do a unit lookup at all use sites
+ * XXX: we can't assert as we can't do a unit lookup at all use sites
  */
 #define FRAG_SIZE_ASSIGN(f, val)                                            \
     do {                                                                    \
@@ -320,7 +320,7 @@ static const uint FREE_LIST_SIZES[] = {
      * Tuned for bbs: smallest are 40 (with stubs), plurality are 56, distribution trails
      * off slowly beyond that.  Note that b/c of pad_jmps we request more than
      * the final sizes.
-     * FIXME: these #s are for inlined stubs, should re-tune w/ separate stubs
+     * XXX: these #s are for inlined stubs, should re-tune w/ separate stubs
      * (case 7163)
      */
     0, 44, 52, 56, 64, 72, 80, 112, 172
@@ -336,15 +336,15 @@ static const uint FREE_LIST_SIZES[] = {
  * Our free list coalescing assumes that a fragment_t that follows a
  * free list entry has the FRAG_FOLLOWS_FREE_ENTRY flag set.
  *
- * FIXME: could avoid heap w/ normal empty_slot_t scheme: if don't have
+ * XXX: could avoid heap w/ normal empty_slot_t scheme: if don't have
  * separate stubs, empty_slot_t @ 20 bytes (no start_pc) should fit in
  * any cache slot.  Could save a few MB of heap on large apps.
  * (This is case 4937.)
  *
- * FIXME: If free lists work well we could try using for private
+ * XXX: If free lists work well we could try using for private
  * caches as well, instead of the empty_slot_t-struct-on-FIFO scheme.
  *
- * FIXME: unit pointer may be useful to avoid fcache_lookup_unit
+ * XXX: unit pointer may be useful to avoid fcache_lookup_unit
  */
 typedef struct _free_list_header_t {
     struct _free_list_header_t *next;
@@ -454,7 +454,7 @@ enum {
  * multiple FcacheUnits
  */
 typedef struct _fcache {
-    /* FIXME: do we want space or perf here (bitfield vs full field)? */
+    /* XXX: do we want space or perf here (bitfield vs full field)? */
     bool is_trace : 1; /* for varying alignment, etc. */
     bool is_shared : 1;
 #ifdef DEBUG
@@ -565,7 +565,7 @@ typedef struct _fcache_list_t {
     /* These lists are protected by allunits_lock. */
     fcache_unit_t *units; /* list of all allocated fcache units */
     fcache_unit_t *dead;  /* list of deleted units ready for re-allocation */
-    /* FIXME: num_dead duplicates d_r_stats->fcache_num_free, but we want num_dead
+    /* XXX: num_dead duplicates d_r_stats->fcache_num_free, but we want num_dead
      * for release build too, so it's separate...can we do better?
      */
     uint num_dead;
@@ -586,7 +586,7 @@ typedef struct _fcache_list_t {
 
 /* Kept on the heap for selfprot (case 7957). */
 static fcache_list_t *allunits;
-/* FIXME: rename to fcache_unit_lock? */
+/* XXX: rename to fcache_unit_lock? */
 DECLARE_CXTSWPROT_VAR(static mutex_t allunits_lock, INIT_LOCK_FREE(allunits_lock));
 
 DECLARE_CXTSWPROT_VAR(static mutex_t unit_flush_lock, INIT_LOCK_FREE(unit_flush_lock));
@@ -608,7 +608,7 @@ vm_area_vector_t *fcache_unit_areas;
  */
 DECLARE_FREQPROT_VAR(bool reset_in_progress, false);
 /* protects reset triggers: reset_pending, reset_in_progress, reset_at_nth_thread
- * FIXME: use separate locks for separate triggers?
+ * XXX: use separate locks for separate triggers?
  * reset_at_nth_thread is wholly inside dynamo.c, e.g.
  */
 DECLARE_CXTSWPROT_VAR(mutex_t reset_pending_lock, INIT_LOCK_FREE(reset_pending_lock));
@@ -781,7 +781,7 @@ fcache_check_option_compatibility()
         }
         CHECK_PARAMS(shared_bb, "Shared bb", ret);
         CHECK_WSET_PARAM(shared_bb, ret);
-        /* FIXME: cannot handle resizing of cache, separate units only */
+        /* XXX: cannot handle resizing of cache, separate units only */
         /* case 7626: don't short-circuit checks, as later ones may be needed */
         ret = check_param_bounds(&FCACHE_OPTION(cache_shared_bb_unit_init),
                                  FCACHE_OPTION(cache_shared_bb_unit_max),
@@ -799,7 +799,7 @@ fcache_check_option_compatibility()
         }
         CHECK_PARAMS(shared_trace, "Shared trace", ret);
         CHECK_WSET_PARAM(shared_trace, ret);
-        /* FIXME: cannot handle resizing of cache, separate units only */
+        /* XXX: cannot handle resizing of cache, separate units only */
         ret = check_param_bounds(&FCACHE_OPTION(cache_shared_trace_unit_init),
                                  FCACHE_OPTION(cache_shared_trace_unit_max),
                                  FCACHE_OPTION(cache_shared_trace_unit_max),
@@ -841,7 +841,7 @@ static void
 fcache_reset_init(void)
 {
     /* case 7966: don't initialize at all for hotp_only & thin_client
-     * FIXME: could set initial sizes to 0 for all configurations, instead
+     * XXX: could set initial sizes to 0 for all configurations, instead
      */
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
@@ -990,7 +990,7 @@ fcache_stats_exit()
         fcache_t *cache = shared_cache_bb;
         /* cache may be NULL, for stats called after fcache_exit() */
         if (cache != NULL) {
-            /* FIXME: report_dynamorio_problem() calls
+            /* XXX: report_dynamorio_problem() calls
              * dump_global_stats() which currently regularly calls
              * this, so any ASSERTs on this path will deadlock
              * (workaround is to be vigilant and use msgbox_mask).
@@ -1022,12 +1022,12 @@ fcache_reset_free(void)
     fcache_unit_t *u, *next_u;
 
     /* case 7966: don't initialize at all for hotp_only & thin_client
-     * FIXME: could set initial sizes to 0 for all configurations, instead
+     * XXX: could set initial sizes to 0 for all configurations, instead
      */
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
 
-    /* FIXME: for reset (not exit), optimize to avoid calling
+    /* XXX: for reset (not exit), optimize to avoid calling
      * fcache_really_free_unit() to move units onto dead list only to delete
      * here: should directly delete, but maintain fcache stats.
      */
@@ -1290,7 +1290,7 @@ fcache_change_fragment_protection(dcontext_t *dcontext, fragment_t *f, bool writ
          * were allocated with separate calls so we don't try to combine
          * adjacent units here
          */
-        /* FIXME: right now no synch here, so one thread could unprot, another prots,
+        /* XXX: right now no synch here, so one thread could unprot, another prots,
          * and the first segfaults
          */
         d_r_mutex_lock(&allunits_lock);
@@ -1690,7 +1690,7 @@ fcache_free_list_consistency(dcontext_t *dcontext, fcache_t *cache, int bucket)
         ASSERT(size >= FREE_LIST_SIZES[bucket] && size <= MAX_FREE_ENTRY_SIZE &&
                (bucket == FREE_LIST_SIZES_NUM - 1 || size < FREE_LIST_SIZES[bucket + 1]));
 
-        /* FIXME: should ASSERT entries in a bucket are all sorted
+        /* XXX: should ASSERT entries in a bucket are all sorted
          * properly, when we start keeping them in order */
         ASSERT(prev_size < size || true /* not sorted yet */);
         prev_size = size;
@@ -1741,7 +1741,7 @@ fcache_free_list_consistency(dcontext_t *dcontext, fcache_t *cache, int bucket)
         bucket, FREE_LIST_SIZES[bucket], live, charge, waste);
 }
 
-/* FIXME: put w/ periodic stats dumps and not only at end? */
+/* XXX: put w/ periodic stats dumps and not only at end? */
 static void
 fcache_cache_stats(dcontext_t *dcontext, fcache_t *cache)
 {
@@ -1785,7 +1785,7 @@ fcache_cache_stats(dcontext_t *dcontext, fcache_t *cache)
         }
 
         DOLOG(1, LOG_CACHE, {
-            /* FIXME: add in all debug runs, if not too slow */
+            /* XXX: add in all debug runs, if not too slow */
             for (bucket = 0; bucket < FREE_LIST_SIZES_NUM; bucket++) {
                 fcache_free_list_consistency(dcontext, cache, bucket);
             }
@@ -1916,7 +1916,7 @@ cache_extend_commitment(fcache_unit_t *unit, size_t commit_size)
     ASSERT(unit->size <= UNIT_RESERVED_SIZE(unit));
 }
 
-/* FIXME case 8617: now that we have cache commit-on-demand we should
+/* XXX case 8617: now that we have cache commit-on-demand we should
  * make the private-configuration caches larger.  We could even get
  * rid of the fcache shifting.
  */
@@ -1950,7 +1950,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         new_size = cache->max_size - cache->size + unit->size;
     }
     commit_size = new_size; /* should be re-set below, this makes compiler happy */
-    /* FIXME: shouldn't this routine return whether it
+    /* XXX: shouldn't this routine return whether it
      * allocated enough space for slot_size?
      */
     ASSERT(unit->size + slot_size <= new_size);
@@ -2035,7 +2035,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         while (commit_size < slot_size && unit->size + commit_size < new_size) {
             commit_size += DYNAMO_OPTION(cache_commit_increment);
         }
-        /* FIXME: If not we have a problem -- this routine should return failure */
+        /* XXX: If not we have a problem -- this routine should return failure */
         ASSERT(commit_size >= slot_size);
         commit_size += unit->size;
         ASSERT(commit_size <= new_size);
@@ -2341,9 +2341,9 @@ fifo_prepend_empty(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         add_to_free_list(dcontext, cache, unit, f, start_pc, size);
         return;
     }
-    /* FIXME: make cache_shared_free_list always on and remove the option
+    /* XXX: make cache_shared_free_list always on and remove the option
      * as there really is no alternative implemented -- we just waste the space.
-     * FIXME case 8714: anything we can do for coarse-grain?
+     * XXX case 8714: anything we can do for coarse-grain?
      */
     if (!USE_FIFO_FOR_CACHE(cache))
         return;
@@ -2446,7 +2446,7 @@ check_regen_replace_ratio(dcontext_t *dcontext, fcache_t *cache, uint add_size)
                 return true;
             }
         }
-        /* FIXME: for shared w/ replace==100 perhaps remove this if */
+        /* XXX: for shared w/ replace==100 perhaps remove this if */
         if (cache->num_replaced >= cache->replace_param &&
             cache->num_regenerated >= cache->regen_param) {
             /* minimum regen/replaced ratio, compute w/o using floating point ops
@@ -2511,7 +2511,7 @@ extend_unit_end(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit, size
     }
     LOG(THREAD, LOG_CACHE, 5, "\t\textend_unit_end: %d + %d / %d => cur_pc = " PFX "\n",
         size, extra, left, unit->cur_pc);
-    /* FIXME: if extended b/c need new unit (size==0), extra is empty space, but
+    /* XXX: if extended b/c need new unit (size==0), extra is empty space, but
      * we cannot add it to stats b/c will never be removed!
      */
     STATS_FCACHE_ADD(cache, used, (size + extra));
@@ -2615,7 +2615,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                     oldest->next_local = allunits->units_to_flush;
                     allunits->units_to_flush = oldest;
                     STATS_ADD_PEAK(cache_units_toflush, 1);
-                    /* FIXME case 8743: we should call remove_unit_from_cache() here,
+                    /* XXX case 8743: we should call remove_unit_from_cache() here,
                      * but we need the cache field for chain_fragments_for_flush() --
                      * so we assume for now that there are no deletable caches that
                      * don't use fifos yet are finite, and let
@@ -2676,7 +2676,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
              */
         }
         /* tell user if fragment bigger than max size
-         * FIXME: but if trace cache has small max size, should just
+         * XXX: but if trace cache has small max size, should just
          * not build traces that big!
          */
         if (cache->max_size > 0 && slot_size > (int)cache->max_size) {
@@ -2719,7 +2719,7 @@ place_fragment(dcontext_t *dcontext, fragment_t *f, fcache_unit_t *unit,
 
     /* for shared caches we must track regen/replace on every placement */
     if (cache->record_wset) {
-        /* FIXME: how is this supposed to work for traces where a bb
+        /* XXX: how is this supposed to work for traces where a bb
          * may have replaced the future?  xref case 7151, though that
          * should be a problem for private as well...
          */
@@ -3009,7 +3009,7 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
             });
 
     if (size > MAX_FREE_ENTRY_SIZE) {
-        /* FIXME PR 203913: fifo_prepend_empty can handle larger sizes, but
+        /* XXX PR 203913: fifo_prepend_empty can handle larger sizes, but
          * we can't: we would need to split into two empty slots.
          * For now we bail and leak.
          */
@@ -3039,7 +3039,7 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                  */
                 STATS_FCACHE_ADD(cache, free_coalesce_next, 1);
             } else {
-                /* FIXME: if we have a few giant free entries we should
+                /* XXX: if we have a few giant free entries we should
                  * free the whole unit.
                  */
                 STATS_FCACHE_ADD(cache, free_coalesce_too_big, 1);
@@ -3089,7 +3089,7 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
             /* fall-through and add to free list anew */
             STATS_FCACHE_ADD(cache, free_coalesce_prev, 1);
         } else {
-            /* see FIXMEs for next-coalesce-too-large above */
+            /* see XXXs for next-coalesce-too-large above */
             STATS_FCACHE_ADD(cache, free_coalesce_too_big, 1);
         }
     }
@@ -3097,7 +3097,7 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     /* Invariant: no free entry can end at the append point of the current unit.
      * It we want to relax this we must mark an appended fragment as
      * FRAG_FOLLOWS_FREE_ENTRY.  We do allow a free entry at the very end of the
-     * now-full cur unit.  FIXME: this code is fragile wrt extend_unit_end's
+     * now-full cur unit.  XXX: this code is fragile wrt extend_unit_end's
      * fifo_prepend_empty(), which wants a free list at the end of the unit, and
      * only avoids disaster here by not incrementing cur_pc until afterward, so
      * our condition here is not triggered.  We could add another param to
@@ -3138,10 +3138,10 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         list_writable->prev = header;
     }
     cache->free_list[bucket] = header;
-    /* FIXME: case 7318 we should keep sorted */
+    /* XXX: case 7318 we should keep sorted */
 
     DOSTATS({
-        /* FIXME: we could split freed into pure-freed, split-freed, and coalesce-freed */
+        /* XXX: we could split freed into pure-freed, split-freed, and coalesce-freed */
         cache->free_stats_freed[bucket]++;
         cache->free_stats_charge[bucket] += size;
         LOG(GLOBAL, LOG_CACHE, 4, "add_to_free_list: %s bucket[%d] %d bytes @" PFX "\n",
@@ -3167,7 +3167,7 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
     DODEBUG({ cache->request_size_histogram[get_histogram_bucket(size)]++; });
 
     if (size > MAX_FREE_ENTRY_SIZE) {
-        /* FIXME: we may have adjacent un-coalesced free slots we could use */
+        /* XXX: we may have adjacent un-coalesced free slots we could use */
         return false;
     }
 
@@ -3176,7 +3176,7 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
      * always-upgrade strategy.
      */
     /* case 7318 for discussion on additional search strategies
-     * FIXME: for any bucket if we are
+     * XXX: for any bucket if we are
      * too close to the top we should look in the next bucket?  (We
      * used to have a scheme for FREE_LIST_BOTTOM_BUCKET_MARGIN)
      */
@@ -3190,9 +3190,9 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
         header = cache->free_list[bucket];
 
         while (header != NULL && header->size < size) {
-            /* FIXME: if we keep the list sorted, we'd not waste too
+            /* XXX: if we keep the list sorted, we'd not waste too
              * much space by picking the first large enough slot */
-            /* FIXME: if we want to coalesce here we can act on any
+            /* XXX: if we want to coalesce here we can act on any
              * fragment while walking list and make sure that it is
              * coalesced */
             header = header->next;
@@ -3216,7 +3216,7 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
     ASSERT(free_size >= size);
     ASSERT(free_size <= MAX_FREE_ENTRY_SIZE);
 
-    /* FIXME: if this vmarea lookup is expensive, we can also keep the
+    /* XXX: if this vmarea lookup is expensive, we can also keep the
      * unit ptr/tag in the free header.*/
     unit = fcache_lookup_unit(start_pc);
     ASSERT(unit != NULL);
@@ -3224,7 +3224,7 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
                               ASSERT(fcache_pc_in_live_unit(cache, start_pc));
     });
 
-    /* FIXME: if bucket sizes are spread apart further than
+    /* XXX: if bucket sizes are spread apart further than
      * MIN_EMPTY_HOLE() this will also kick in.  Currently an
      * issue only for traces and the bucket [112, 172).
      */
@@ -3416,7 +3416,7 @@ fcache_shift_start_pc(dcontext_t *dcontext, fragment_t *f, uint space)
     ASSERT(space <= START_PC_ALIGNMENT - 1); /* most we can shift */
     ASSERT(PAD_JMPS_SHIFT_START(f->flags));
 
-    /* FIXME : no need to set this memory to anything, but is easier to debug
+    /* XXX : no need to set this memory to anything, but is easier to debug
      * if it's valid instructions */
     SET_TO_DEBUG(vmcode_get_writable_addr(f->start_pc), space);
 
@@ -3528,7 +3528,7 @@ fcache_return_extra_space(dcontext_t *dcontext, fragment_t *f, size_t space_in)
                 ASSERT(FRAG_HDR_START(f) + FRAG_SIZE(f) < unit->cur_pc);
                 if ((FRAG_IS_FREE_LIST(subseq) &&
                      /* make sure will coalesce
-                      * FIXME: fragile if coalesce rules change -- perhaps have
+                      * XXX: fragile if coalesce rules change -- perhaps have
                       * free list routine return failure?
                       */
                      returnable_space +
@@ -3716,7 +3716,7 @@ fcache_remove_fragment(dcontext_t *dcontext, fragment_t *f)
      * We do this before fifo_prepend_empty to avoid figuring whether
      * to leave alone th1 st 4 bytes of fragment space or not (it's
      * used to store the size for cache_shared_free_list).
-     * FIXME: put in the rest of the patterns and checks to make this
+     * XXX: put in the rest of the patterns and checks to make this
      * parallel to heap DEBUG_MEMORY (==case 5657)
      */
     memset(vmcode_get_writable_addr(f->start_pc), DEBUGGER_INTERRUPT_BYTE, f->size);
@@ -3815,7 +3815,7 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
     ASSERT(is_self_flushing());
     LOG(THREAD, LOG_CACHE, 4, "\tchaining fragments in unit " PFX "-" PFX "\n",
         unit->start_pc, unit->end_pc);
-    /* FIXME: we walk all fragments here just to call
+    /* XXX: we walk all fragments here just to call
      * vm_area_remove_fragment(), and do another complete walk in
      * unlink_fragments_for_deletion() -- can we reduce to one walk?
      */
@@ -3863,7 +3863,7 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
              * pending delete list, to keep all our dependences together.
              * fragment_unlink_for_deletion() will not re-do the unlink for
              * the lazy fragment.
-             * FIXME: this is inefficient b/c no prev ptr in lazy list
+             * XXX: this is inefficient b/c no prev ptr in lazy list
              */
             add_to_list = remove_from_lazy_deletion_list(dcontext, f);
             /* if not found, we assume the fragment has already been moved to
@@ -3979,7 +3979,7 @@ fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
 
         /* Indicate that individual fragments in this unit must not be put
          * on free lists/FIFO empty slots.
-         * FIXME: would be nice to set this earlier when move to
+         * XXX: would be nice to set this earlier when move to
          * units_to_flush list, but then end up w/ freed fragments in the
          * middle of the cache that we can't identify in our walk -- so we
          * inefficiently put on free list and then take off in the walk.
@@ -4060,7 +4060,7 @@ static void
 fcache_mark_units_for_free(dcontext_t *dcontext, fcache_t *cache)
 {
     fcache_unit_t *u, *head;
-    ASSERT(is_self_flushing()); /* FIXME: want to assert in full synch */
+    ASSERT(is_self_flushing()); /* XXX: want to assert in full synch */
     PROTECT_CACHE(cache, lock);
     /* Mark all units as pending_free to avoid fragment deletion from adding
      * them to free lists.
@@ -4084,8 +4084,8 @@ fcache_mark_units_for_free(dcontext_t *dcontext, fcache_t *cache)
  * (while invalidate_code_cache() only flushes all fragments and does not try
  * to free any units -- it is meant for consistency purposes, while this is
  * meant for capacity purposes).
- * FIXME: currently only marks shared cache units for freeing.
- * FIXME: should add -stress_flush_units N parameter
+ * XXX: currently only marks shared cache units for freeing.
+ * XXX: should add -stress_flush_units N parameter
  */
 void
 fcache_flush_all_caches()
@@ -4093,8 +4093,8 @@ fcache_flush_all_caches()
     dcontext_t *dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     ASSERT_NOT_TESTED();
-    /* FIXME: share parameters w/ invalidate_code_cache()?
-     * FIXME: efficiency of region-based vs unit-based flushing
+    /* XXX: share parameters w/ invalidate_code_cache()?
+     * XXX: efficiency of region-based vs unit-based flushing
      */
     flush_fragments_in_region_start(
         dcontext, UNIVERSAL_REGION_BASE, UNIVERSAL_REGION_SIZE,
@@ -4106,7 +4106,7 @@ fcache_flush_all_caches()
      * so we can mess w/ global cache units in an atomic manner wrt the flush.
      * We can't do private here since threads are let go if no shared
      * fragments are enabled, but better to have each thread mark its
-     * own anyway.  FIXME -- put flag in delete-list entry
+     * own anyway.  XXX -- put flag in delete-list entry
      */
     if (DYNAMO_OPTION(shared_bbs)) {
         fcache_mark_units_for_free(dcontext, shared_cache_bb);
@@ -4114,7 +4114,7 @@ fcache_flush_all_caches()
     if (DYNAMO_OPTION(shared_traces)) {
         fcache_mark_units_for_free(dcontext, shared_cache_trace);
     }
-    /* FIXME: for thread-private units, should use a trigger in
+    /* XXX: for thread-private units, should use a trigger in
      * vm_area_flush_fragments() to call a routine here that frees all but
      * one unit
      */
@@ -4132,7 +4132,7 @@ fcache_flush_all_caches()
  * Simultaneous resets are not queued up -- one wins and the rest are canceled.
  * Use the schedule_reset() routine to queue up resets of different types, which
  * will all be combined.
- * FIXME: currently target is ignored and assumed to be RESET_ALL
+ * XXX: currently target is ignored and assumed to be RESET_ALL
  */
 void
 fcache_reset_all_caches_proactively(uint target)
@@ -4152,7 +4152,7 @@ fcache_reset_all_caches_proactively(uint target)
     ASSERT(!is_self_couldbelinking());
 
     /* synch with other threads also trying to call this routine */
-    /* FIXME: use a cleaner model than having callers grab this lock? */
+    /* XXX: use a cleaner model than having callers grab this lock? */
     ASSERT_OWN_MUTEX(true, &reset_pending_lock);
     if (reset_in_progress) {
         d_r_mutex_unlock(&reset_pending_lock);
@@ -4208,7 +4208,7 @@ fcache_reset_all_caches_proactively(uint target)
         LOG(GLOBAL, LOG_CACHE, 2,
             "fcache_reset_all_caches_proactively: aborting due to thread synch "
             "failure\n");
-        /* FIXME: may need DO_ONCE but only if we do a LOT of resets combined with
+        /* XXX: may need DO_ONCE but only if we do a LOT of resets combined with
          * other nudges or sources of thread permission problems */
         SYSLOG_INTERNAL_WARNING("proactive reset aborted due to thread synch failure");
         return;
@@ -4417,7 +4417,7 @@ fcache_reset_cache(dcontext_t *dcontext, fcache_t *cache)
     uint num_units = 0;
     uint sz;
 
-    /* FIXME: this is called when low on memory: safe to grab lock? */
+    /* XXX: this is called when low on memory: safe to grab lock? */
     PROTECT_CACHE(cache, lock);
 
     LOG(THREAD, LOG_CACHE, 2, "fcache_reset_cache %s\n", cache->name);
@@ -4437,18 +4437,18 @@ fcache_reset_cache(dcontext_t *dcontext, fcache_t *cache)
             ASSERT(FIFO_UNIT(f) == u);
             /* go to contiguously-next fragment_t in cache */
             sz = FRAG_SIZE(f);
-            /* FIXME: do we still need the notion of undeletable fragments?
+            /* XXX: do we still need the notion of undeletable fragments?
              * Should do an analysis and see if we ever use it anymore.
              * It is a powerful feature to support, but also a limiting one...
              */
             if (TEST(FRAG_CANNOT_DELETE, f->flags)) {
                 unit_empty = false;
-                /* FIXME: this allocates memory for the empty_slot_t data struct! */
+                /* XXX: this allocates memory for the empty_slot_t data struct! */
                 fifo_prepend_empty(dcontext, cache, u, NULL, last_pc, pc - last_pc);
                 STATS_FCACHE_SUB(cache, used, (pc - last_pc));
                 last_pc = pc + sz;
             } else {
-                /* FIXME: in low-memory situation, will we have problem
+                /* XXX: in low-memory situation, will we have problem
                  * with the future fragment that will be created?
                  * Even worse, what if it triggers a resize of its hashtable?
                  * Since we're deleting everyone, we should set some flag saying
@@ -4483,7 +4483,7 @@ fcache_reset_cache(dcontext_t *dcontext, fcache_t *cache)
         }
     }
 
-    /* FIXME: try to shrink remaining unit(s)?  Would we do that by freeing
+    /* XXX: try to shrink remaining unit(s)?  Would we do that by freeing
      * just the tail of the unit?
      */
     PROTECT_CACHE(cache, unlock);
@@ -4506,7 +4506,7 @@ fcache_low_on_memory()
 #if 0
     dcontext_t *dcontext = get_thread_private_dcontext();
     fcache_thread_units_t *tu = (fcache_thread_units_t *) dcontext->fcache_field;
-    /* FIXME: we cannot reset the cache at arbitrary points -- and we can
+    /* XXX: we cannot reset the cache at arbitrary points -- and we can
      * be called at any alloc point!  If in middle of fragment creation,
      * we can't just go delete the fragment!
      * STRATEGY:
@@ -4532,8 +4532,8 @@ fcache_low_on_memory()
      * b/c it could deadlock on the allocation itself! So we only have to worry
      * about the locks of rank between heap_alloc_lock and allunits_lock --
      * currently dynamo_areas, fcache_unit_areas and global_alloc_lock. We
-     * check for those locks here.  FIXME we have no way to check if holding
-     * a readlock on the dynamo/fcache_unit_areas lock.  FIXME owning the
+     * check for those locks here.  XXX we have no way to check if holding
+     * a readlock on the dynamo/fcache_unit_areas lock.  XXX owning the
      * dynamo_areas lock here is prob. not that uncommon, we may be able to
      * release and re-grab it but would have to be sure that works in all the
      * corner cases (if the failing alloc is for a dynamo_areas vector resize
@@ -4560,8 +4560,8 @@ fcache_low_on_memory()
 
     options_make_writable();
     /* be more aggressive about not resizing cache
-     * FIXME: I just made this up -- have param to control?
-     * FIXME: restore params back to original values at some point?
+     * XXX: I just made this up -- have param to control?
+     * XXX: restore params back to original values at some point?
      */
     if (dynamo_options.finite_bb_cache && dynamo_options.cache_bb_replace > 0) {
         dynamo_options.cache_bb_regen *= 2;
@@ -4586,7 +4586,7 @@ fcache_low_on_memory()
                 4 * dynamo_options.cache_shared_trace_replace / 5;
         }
     }
-    /* FIXME: be more or less aggressive about traces than bbs?
+    /* XXX: be more or less aggressive about traces than bbs?
      * could get rid of trace cache altogether...
      */
     if (dynamo_options.finite_trace_cache && dynamo_options.cache_trace_replace > 0) {

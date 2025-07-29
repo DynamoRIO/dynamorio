@@ -166,7 +166,7 @@ typedef struct _tcb_head_t {
     ptr_uint_t stack_guard;
     ptr_uint_t pointer_guard;
 #elif defined(AARCH64)
-    /* FIXME i#1569: This may be wrong! */
+    /* XXX i#1569: This may be wrong! */
     void *dtv;
     void *private;
 #elif defined(ARM)
@@ -182,7 +182,7 @@ typedef struct _tcb_head_t {
 #ifdef X86
 #    define TLS_PRE_TCB_SIZE 0
 #elif defined(AARCHXX)
-/* FIXME i#1569: This may be wrong for AArch64! */
+/* XXX i#1569: This may be wrong for AArch64! */
 /* Data structure to match libc pthread.
  * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
  * the size and member locations match to avoid gdb crash.
@@ -223,7 +223,7 @@ typedef struct _dr_pthread_t {
  */
 #    define APP_LIBC_TLS_SIZE 0x400
 #elif defined(AARCHXX)
-/* FIXME i#1551, i#1569: investigate the difference between ARM and X86 on TLS.
+/* XXX i#1551, i#1569: investigate the difference between ARM and X86 on TLS.
  * On ARM, it seems that TLS variables are not put before the thread pointer
  * as they are on X86.
  */
@@ -443,7 +443,7 @@ privload_tls_init(void *app_tp)
     tcb_head_t *dr_tcb;
     size_t tls_bytes_read;
 
-    /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
+    /* XXX: These should be a thread logs, but dcontext is not ready yet. */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is " PFX "\n", __FUNCTION__,
         app_tp);
     dr_tp = heap_mmap(client_tls_alloc_size, MEMPROT_READ | MEMPROT_WRITE,
@@ -574,7 +574,7 @@ redirect____tls_get_addr()
 #elif defined(X86)
     asm("mov %%" ASM_XAX ", %0" : "=m"((ti)) : : ASM_XAX);
 #elif defined(AARCH64)
-    /* FIXME i#1569: NYI */
+    /* TODO i#1569: NYI */
     asm("str x0, %0" : "=m"((ti)) : : "x0");
     ASSERT_NOT_REACHED();
 #elif defined(ARM)
@@ -582,7 +582,7 @@ redirect____tls_get_addr()
     asm("str r0, %0" : "=m"((ti)) : : "r0");
     ASSERT_NOT_REACHED();
 #elif defined(RISCV64)
-    /* FIXME i#3544: Check if ti is in a0. */
+    /* XXX i#3544: Check if ti is in a0. */
     asm("sd a0, %0" : "=m"((ti)) : : "a0");
     ASSERT_NOT_REACHED();
 #endif /* X86/ARM/RISCV64 */
