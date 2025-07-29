@@ -109,7 +109,8 @@ thread_routine(void *arg)
             ++eintr_count;
         }
     }
-    assert(eintr_count > 0);
+    // We see 5-15 eintrs in most runs but do not assert it's >0 as there is
+    // variation on loaded test machines and we do not want a flaky test.
     std::cerr << "eintrs=" << eintr_count << "\n";
     return nullptr;
 }
