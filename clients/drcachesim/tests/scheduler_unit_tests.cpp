@@ -7310,6 +7310,31 @@ test_random_schedule()
     }
 }
 
+void
+check_next(record_scheduler_t::stream_t *stream,
+           record_scheduler_t::stream_status_t expect_status,
+           trace_type_t expect_type = TRACE_TYPE_MARKER, addr_t expect_addr = 0,
+           addr_t expect_size = 0)
+{
+    trace_entry_t record;
+    record_scheduler_t::stream_status_t status = stream->next_record(record);
+    assert(status == expect_status);
+    if (status == record_scheduler_t::STATUS_OK) {
+        if (record.type != expect_type) {
+            std::cerr << "Expected type " << expect_type << " != " << record.type << "\n";
+            assert(false);
+        }
+        if (expect_size != 0 && record.size != expect_size) {
+            std::cerr << "Expected size " << expect_size << " != " << record.size << "\n";
+            assert(false);
+        }
+        if (expect_addr != 0 && record.addr != expect_addr) {
+            std::cerr << "Expected addr " << expect_addr << " != " << record.addr << "\n";
+            assert(false);
+        }
+    }
+};
+
 static void
 test_record_scheduler()
 {
@@ -7391,26 +7416,6 @@ test_record_scheduler()
         record_scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream0 = scheduler.get_stream(0);
-    auto check_next = [](record_scheduler_t::stream_t *stream,
-                         record_scheduler_t::stream_status_t expect_status,
-                         trace_type_t expect_type = TRACE_TYPE_MARKER,
-                         addr_t expect_addr = 0) {
-        trace_entry_t record;
-        record_scheduler_t::stream_status_t status = stream->next_record(record);
-        assert(status == expect_status);
-        if (status == record_scheduler_t::STATUS_OK) {
-            if (record.type != expect_type) {
-                std::cerr << "Expected type " << expect_type << " != " << record.type
-                          << "\n";
-                assert(false);
-            }
-            if (expect_addr != 0 && record.addr != expect_addr) {
-                std::cerr << "Expected addr " << expect_addr << " != " << record.addr
-                          << "\n";
-                assert(false);
-            }
-        }
-    };
     // Advance cpu0 on TID_A to its 1st context switch.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
@@ -7420,7 +7425,10 @@ test_record_scheduler()
     assert(stream0->get_instruction_ordinal() == 0);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 0);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
-    // The encoding should have incremented the ordinal.
+    // The encoding should have incremented the ordinal. Note that the
+    // record_reader_t and the corresponding scheduler both increment
+    // these ordinals upon seeing the pre-instr encoding or branch_target marker
+    // (if any).
     assert(stream0->get_instruction_ordinal() == 1);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
@@ -7475,6 +7483,14 @@ static void
 test_record_scheduler_i7574()
 {
     // Demonstrates how the scheduler responds to traces with the i#7574 issue.
+    // When there's an abandoned branch_target marker in the previous chunk, with
+    // other markers before the corresponding encoding+instr in the next chunk, it
+    // affects the scheduler in unexpected ways: the instr ordinals are erroneously
+    // incremented for just the branch_target and then again at the encoding+instr, and
+    // there may be a context switch that splits up the branch_target marker and its
+    // corresponding instruction.
+    // TODO i#7574: Workaround this issue in the scheduler and modify this test to
+    // prove correct operation.
     std::cerr << "\n----------------\nTesting record_scheduler_t for i#7574 workaround\n";
     static constexpr memref_tid_t TID_A = 42;
     static constexpr memref_tid_t TID_B = TID_A + 1;
@@ -7545,43 +7561,19 @@ test_record_scheduler_i7574()
         record_scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream0 = scheduler.get_stream(0);
-    auto check_next = [](record_scheduler_t::stream_t *stream,
-                         record_scheduler_t::stream_status_t expect_status,
-                         trace_type_t expect_type = TRACE_TYPE_MARKER,
-                         addr_t expect_addr = 0, addr_t expect_size = 0) {
-        trace_entry_t record;
-        static int idx = 0;
-        idx++;
-        record_scheduler_t::stream_status_t status = stream->next_record(record);
-        assert(status == expect_status);
-        if (status == record_scheduler_t::STATUS_OK) {
-            if (record.type != expect_type) {
-                std::cerr << "Expected type " << expect_type << " != " << record.type
-                          << "\n";
-                assert(false);
-            }
-            if (expect_size != 0 && record.size != expect_size) {
-                std::cerr << "Expected size " << expect_size << " != " << record.size
-                          << "\n";
-                assert(false);
-            }
-            if (expect_addr != 0 && record.addr != expect_addr) {
-                std::cerr << "Expected addr " << expect_addr << " != " << record.addr
-                          << "\n";
-                assert(false);
-            }
-        }
-    };
     // Advance cpu0 on TID_A to its 1st context switch.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
-    // Test ordinals.
+    // Test input/output instr ordinals.
     assert(stream0->get_instruction_ordinal() == 0);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 0);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
-    // The encoding should have incremented the ordinal.
+    // The encoding should have incremented the input/output instr ordinals. Note
+    // that the record_reader_t and the corresponding scheduler both increment
+    // these ordinals upon seeing the pre-instr encoding or branch_target marker
+    // (if any).
     assert(stream0->get_instruction_ordinal() == 1);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
@@ -7589,7 +7581,8 @@ test_record_scheduler_i7574()
     assert(stream0->get_instruction_ordinal() == 1);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
 
-    // The branch_target marker should have incremented the ordinal.
+    // The branch_target marker should have incremented the input/output
+    // instr ordinals.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
                TRACE_MARKER_TYPE_BRANCH_TARGET);
     assert(stream0->get_instruction_ordinal() == 2);
@@ -7606,6 +7599,9 @@ test_record_scheduler_i7574()
     // TODO i#7574: A context switch happens here because the input A has
     // seen all instrs for its quantum (the abandoned branch_target is erroneously
     // counted as one), and this is considered a safe spot for a context switch.
+    // This needs to be worked around in the scheduler so that, in traces affected
+    // by i#7574, the branch_target marker and the corresponding instr are not
+    // split up.
 
     // Input B on core 0.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
@@ -7616,12 +7612,16 @@ test_record_scheduler_i7574()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    assert(stream0->get_instruction_ordinal() == 4);
     // Back to input A because input B has seen all instrs for its quantum.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
 
     // TODO i#7574: This instr is split from its branch_target marker. Would
-    // increment ordinals again erroneously.
+    // increment the input/output instr ordinals again erroneously.
+    // Note that at this point, the encoding entry has been read from the
+    // input, but not returned by the scheduler yet; so only the input instr
+    // ordinal is seen incremented.
     assert(stream0->get_instruction_ordinal() == 4);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
