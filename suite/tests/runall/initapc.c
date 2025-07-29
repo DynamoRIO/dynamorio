@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,7 @@
  *   *** re-taking-over @INTERCEPT_EARLY_ASYNCH after losing control ***
  * and, of course, to have no .C violations from bottoming out
  *
- * FIXME: add mechanism to get info from core w/o getting start/stop and
+ * XXX: add mechanism to get info from core w/o getting start/stop and
  * w/o sending to eventlog since don't want customers to get even if
  * ask for info events!
  * Right now, since can't do DRview on test that completes right away,

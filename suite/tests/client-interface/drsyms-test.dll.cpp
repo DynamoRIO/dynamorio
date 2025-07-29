@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -638,7 +638,7 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
 static const char *dll_syms[] = { "dll_export", "dll_static", "dll_public", "stack_trace",
                                   NULL };
 
-/* FIXME: We don't support getting mangled or fully demangled symbols on
+/* XXX: We don't support getting mangled or fully demangled symbols on
  * Windows PDB.
  */
 static const char *dll_syms_mangled_pdb[] = { "dll_export", "dll_static", "dll_public",
@@ -903,7 +903,7 @@ lookup_glibc_syms(void *dc, const module_data_t *dll_data)
 
     libc_path = dll_data->full_path;
 
-    /* FIXME: When drsyms can read .dynsym we should always find malloc. */
+    /* XXX: When drsyms can read .dynsym we should always find malloc. */
     malloc_offs = 0;
     r = drsym_lookup_symbol(libc_path, "libc!malloc", &malloc_offs, DRSYM_DEFAULT_FLAGS);
     if (r == DRSYM_SUCCESS)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,7 +58,7 @@ typedef ushort cxt_seg_t;
  * in. We use the latter so that we don't have to hardcode the index.
  */
 #    define CXT_XMM(cxt, idx) ((dr_xmm_t *)&((cxt)->FltSave.XmmRegisters[idx]))
-/* FIXME i#437: need CXT_YMM */
+/* XXX i#437: need CXT_YMM */
 /* they kept the 32-bit EFlags field; sure, the upper 32 bits of Rflags
  * are undefined right now, but doesn't seem very forward-thinking. */
 #    define CXT_XFLAGS EFlags

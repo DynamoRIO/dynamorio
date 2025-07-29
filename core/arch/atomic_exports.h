@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,7 +68,7 @@
  * required for programs intended to run on the 486, but is recommended to
  * insure compatibility with pentium 4, xeon, P6 family and pentium
  * processors", so my take home is that it works now, but don't have any
- * expectations for the future - FIXME - */
+ * expectations for the future - XXX - */
 /* Ref case 3628, case 4397, empirically this only works for code where the
  * entire offset being written is within a cache line, so we can't use a locked
  * instruction to ensure atomicity */
@@ -150,7 +150,7 @@
 #    endif
 
 /* We use intrinsics since they eliminated inline asm support for x64.
- * FIXME: these intrinsics all use xadd even when no return value is needed!
+ * XXX: these intrinsics all use xadd even when no return value is needed!
  *   We assume these aren't performance-critical enough to care.
  *   If we do change to not have return value, need to change static inlines below.
  * Even if these turn into callouts, they should be reentrant.
@@ -600,7 +600,7 @@ atomic_dec_becomes_zero(volatile int *var)
             do {                                                                 \
                 ASSERT(sizeof(value) == 4);                                      \
                 /* Load and store instructions are atomic on ARM if aligned. */  \
-                /* FIXME i#1551: we need patch the whole instruction instead. */ \
+                /* XXX i#1551: we need patch the whole instruction instead. */ \
                 ASSERT(ALIGNED(target, 4));                                      \
                 __asm__ __volatile__("dmb ish; str %0, [%1]"                     \
                                      :                                           \
@@ -624,7 +624,7 @@ atomic_dec_becomes_zero(volatile int *var)
  * a non word-aligned memory address causes UNPREDICTABLE behavior.",
  * so we require alignment here.
  */
-/* FIXME i#1551: should we allow infinite loops for those ATOMIC ops */
+/* XXX i#1551: should we allow infinite loops for those ATOMIC ops */
 #        define ATOMIC_INC_suffix(suffix, var)                                     \
             __asm__ __volatile__("   dmb ish                        \n\t"          \
                                  "1: ldrex" suffix " r2, %0         \n\t"          \
@@ -1048,7 +1048,7 @@ atomic_inc_and_test(volatile int *var)
     ATOMIC_INC(int, *var);
     /* flags should be set according to resulting value, now we convert that back to C */
     SET_IF_NOT_ZERO(c);
-    /* FIXME: we add an extra memory reference to a local,
+    /* XXX: we add an extra memory reference to a local,
        although we could put the return value in EAX ourselves */
     return c == 0;
 }
@@ -1066,7 +1066,7 @@ atomic_dec_and_test(volatile int *var)
      * convert that back to C.
      */
     SET_IF_NOT_LESS(c);
-    /* FIXME: we add an extra memory reference to a local,
+    /* XXX: we add an extra memory reference to a local,
        although we could put the return value in EAX ourselves */
     return c == 0;
 }
@@ -1084,7 +1084,7 @@ atomic_dec_becomes_zero(volatile int *var)
      * convert that back to C.
      */
     SET_IF_NOT_ZERO(c);
-    /* FIXME: we add an extra memory reference to a local,
+    /* XXX: we add an extra memory reference to a local,
        although we could put the return value in EAX ourselves */
     return c == 0;
 }
@@ -1100,7 +1100,7 @@ atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
     /* ZF is set if matched, all other flags are as if a normal compare happened */
     /* we convert ZF value back to C */
     SET_IF_NOT_ZERO(c);
-    /* FIXME: we add an extra memory reference to a local,
+    /* XXX: we add an extra memory reference to a local,
        although we could put the return value in EAX ourselves */
     return c == 0;
 }
@@ -1126,7 +1126,7 @@ atomic_compare_exchange_int64(volatile int64 *var, int64 compare, int64 exchange
     /* ZF is set if matched, all other flags are as if a normal compare happened */
     /* we convert ZF value back to C */
     SET_IF_NOT_ZERO(c);
-    /* FIXME: we add an extra memory reference to a local,
+    /* XXX: we add an extra memory reference to a local,
        although we could put the return value in EAX ourselves */
     return c == 0;
 }

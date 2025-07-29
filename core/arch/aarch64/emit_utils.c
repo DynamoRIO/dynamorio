@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -115,21 +115,21 @@
 byte *
 insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
 byte *
 insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
 uint
 nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emitting)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return 0;
 }
 
@@ -177,7 +177,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     uint *write_stub_pc = (uint *)vmcode_get_writable_addr(stub_pc);
     uint *pc = write_stub_pc;
     uint num_nops_needed = 0;
-    /* FIXME i#1575: coarse-grain NYI on ARM */
+    /* TODO i#1575: coarse-grain NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
     if (LINKSTUB_DIRECT(l_flags)) {
         /* stp x0, x1, [x(stolen), #(offs)] */
@@ -382,7 +382,7 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 cache_pc
 exit_cti_disp_pc(cache_pc branch_pc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
@@ -447,7 +447,7 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 cache_pc
 cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
@@ -488,14 +488,14 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 cache_pc
 entrance_stub_jmp(cache_pc stub)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
 bool
 coarse_is_entrance_stub(cache_pc stub)
 {
-    /* FIXME i#1575: coarse-grain NYI on AArch64 */
+    /* TODO i#1575: coarse-grain NYI on AArch64 */
     return false;
 }
 
@@ -642,7 +642,7 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     int i;
 
-    /* FIXME i#1573: NYI on ARM with SELFPROT_DCONTEXT */
+    /* TODO i#1573: NYI on ARM with SELFPROT_DCONTEXT */
     ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     ASSERT(dr_reg_stolen != SCRATCH_REG0);
     /* Store stolen reg value into TLS slot. */
@@ -743,7 +743,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
                          opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
 
     if (linkstub != NULL) {
-        /* FIXME i#1575: NYI for coarse-grain stub */
+        /* TODO i#1575: NYI for coarse-grain stub */
         ASSERT_NOT_IMPLEMENTED(false);
     }
 
@@ -871,7 +871,7 @@ void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uint flags,
                    bool tls, bool absolute _IF_X86_64(bool x86_to_x64_ibl_opt))
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 
 void
@@ -879,14 +879,14 @@ insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                       uint flags, bool tls,
                       bool absolute _IF_X86_64(bool x86_to_x64_ibl_opt))
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 
 byte *
 emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
                      bool target_trace_table)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return pc;
 }
 
@@ -916,7 +916,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     instr_t *target_delete_entry = INSTR_CREATE_label(dc);
     instr_t *unlinked = INSTR_CREATE_label(dc);
 
-    /* FIXME i#1569: Use INSTR_CREATE macros when encoder is implemented. */
+    /* XXX i#1569: Use INSTR_CREATE macros when encoder is implemented. */
 
     /* On entry we expect:
      *     x0: link_stub entry

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -626,7 +626,7 @@ decode_sizeof_ex(void *drcontext, byte *start_pc, int *num_prefixes, uint *rip_r
     if (word_operands) {
 #ifdef X64
         /* for x64 Intel, always 64-bit addr ("f64" in Intel table)
-         * FIXME: what about 2-byte jcc?
+         * XXX: what about 2-byte jcc?
          */
         if (X64_MODE_DC(dcontext) && proc_get_vendor() == VENDOR_INTEL)
             sz += immed_adjustment_intel64[opc];
@@ -1348,7 +1348,7 @@ decode_cti(void *drcontext, byte *pc, instr_t *instr)
 
     /* Fill in SEG_FS and SEG_GS override prefixes, ignore rest for now.
      * We rely on having these set during bb building.
-     * FIXME - could be done in decode_sizeof which is already walking these
+     * XXX - could be done in decode_sizeof which is already walking these
      * bytes, but would need to complicate its interface and prefixes are
      * fairly rare to begin with.
      */
@@ -1459,14 +1459,14 @@ decode_cti(void *drcontext, byte *pc, instr_t *instr)
         return (start_pc + sz);
     }
 
-    /* FIXME: would further "interesting" table produce any noticeable
+    /* XXX: would further "interesting" table produce any noticeable
      * performance improvement?
      */
 
     if (prefixes > 0) {
         /* prefixes are rare on ctis
          * rather than handle them all here, just do full decode
-         * FIXME: if we start to see more and more jcc branch hints we
+         * XXX: if we start to see more and more jcc branch hints we
          * may change our minds here!  This is case 211206/6749.
          */
         if (decode(dcontext, start_pc, instr) == NULL)

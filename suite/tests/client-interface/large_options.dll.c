@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  * were truncating at 512 bytes, which is too short.  Now we accept DR options
  * strings up to 1024 chars in size.
  *
- * FIXME: 1024 chars is not very long, but we stack allocate these buffers on
+ * XXX: 1024 chars is not very long, but we stack allocate these buffers on
  * dstack before the heap is initialized.  We should go back and see what it
  * would take to remove this limitation.
  */

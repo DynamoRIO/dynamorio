@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -219,7 +219,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
     case TYPE_XLAT:
     case TYPE_MASKMOVQ:
         if (opnd_get_segment(opnd) != SEG_DS) {
-            /* FIXME: really we should put before opcode */
+            /* XXX: really we should put before opcode */
             if (prev)
                 print_to_buffer(buf, bufsz, sofar, ", ");
             reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", "");

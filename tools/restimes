@@ -57,12 +57,12 @@ while (<FIND>) {
         $val{$bmark,$opt,$dset} += $elapsed;
     } elsif ($_ =~ /real\t([0-9]+)m([0-9\.]+)s/) {
         # /usr/bin/time simple format
-        # FIXME: what do hours look like?
+        # XXX: what do hours look like?
         $elapsed = $1 + $2/60.; # minutes
         $val{$bmark,$opt,$dset} += $elapsed;
     } elsif ($_ =~ /(\d+):(\d+).(\d+)elapsed (\d+)%CPU/) {
         # /usr/bin/time and runstats compressed format
-        # FIXME: what do hours look like?
+        # XXX: what do hours look like?
         $elapsed = $1 + $2/60.; # minutes
         $val{$bmark,$opt,$dset} += $elapsed;
 

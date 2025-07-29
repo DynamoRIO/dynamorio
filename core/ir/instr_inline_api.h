@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -239,7 +239,7 @@ INSTR_INLINE
 bool
 opnd_is_far_rel_addr(opnd_t opnd)
 {
-    /* FIXME i#3544: Decide if this should differentiate between JAL and AUIPC+JALR. */
+    /* XXX i#3544: Decide if this should differentiate between JAL and AUIPC+JALR. */
     return false;
 }
 #        endif /* RISCV64 */
@@ -264,7 +264,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_reg(reg_id_t r)
 {
-    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* XXX: Needed until i#417 is fixed. */
     CLIENT_ASSERT(r < DR_REG_AFTER_LAST_VALID_ENUM && r != DR_REG_INVALID,
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
@@ -291,7 +291,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
 {
-    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* XXX: Needed until i#417 is fixed. */
 #    ifdef X86
     CLIENT_ASSERT(subsize == 0 || (r >= DR_REG_MM0 && r <= DR_REG_XMM31) ||
                       (r >= DR_REG_YMM0 && r <= DR_REG_ZMM31),
@@ -309,7 +309,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size)
 {
-    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* XXX: Needed until i#417 is fixed. */
     CLIENT_ASSERT(element_size != OPSZ_NA &&
                       (r < DR_REG_AFTER_LAST_VALID_ENUM && r != DR_REG_INVALID),
                   "opnd_create_reg_element_vector: invalid register or no size");
@@ -326,7 +326,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_predicate_reg(reg_id_t r, bool is_merge)
 {
-    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+    opnd_t opnd DR_IF_DEBUG(= { 0 }); /* XXX: Needed until i#417 is fixed. */
     CLIENT_ASSERT(r >= DR_REG_P0 && r <= DR_REG_P15,
                   "opnd_create_predicate_reg: invalid predicate register");
 
@@ -496,7 +496,7 @@ instr_num_dsts(instr_t *instr)
 }
 
 /* src0 is static, rest are dynamic. */
-/* FIXME: Double evaluation. */
+/* XXX: Double evaluation. */
 #    define INSTR_GET_SRC(instr, pos)                        \
         (MAKE_OPNDS_VALID(instr),                            \
          CLIENT_ASSERT_(pos >= 0 && pos < (instr)->num_srcs, \

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,10 +63,10 @@ get_simd_vals(priv_mcontext_t *mc)
         }
     }
 #elif defined(ARM)
-    /* FIXME i#1551: no xmm but SIMD regs on ARM */
+    /* XXX i#1551: no xmm but SIMD regs on ARM */
     ASSERT_NOT_REACHED();
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
 }
@@ -227,7 +227,7 @@ auto_setup(ptr_uint_t appstack)
         os_heap_free(addr, size, &error_code);
     }
 
-    /* FIXME : for transparency should we zero out the appstack where we
+    /* XXX : for transparency should we zero out the appstack where we
      * stored injection information? would be safe to do so here */
 
     LOG(THREAD, LOG_INTERP, 1, "DynamoRIO auto start at 0x%08x\n", dcontext->next_tag);

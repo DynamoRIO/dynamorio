@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -105,7 +105,7 @@ cur_trace_vmlist(dcontext_t *dcontext);
 /* This routine internally calls enter_couldbelinking, thus it is safe
  * to call from any linking state. Restores linking to previous state at exit.
  * If calling on another thread, caller should be synchornized with that thread
- * (either via flushing synch or thread_synch methods) FIXME : verify all users
+ * (either via flushing synch or thread_synch methods) XXX : verify all users
  * on other threads are properly synchronized
  */
 void
@@ -126,7 +126,7 @@ mangle_trace_at_end(void);
 
 /* trace head counters are thread-private and must be kept in a
  * separate table and not in the fragment_t structure.
- * FIXME: may want to do this for non-shared-cache, since persistent counters
+ * XXX: may want to do this for non-shared-cache, since persistent counters
  * may mitigate the performance hit of a small bb cache -- but for that
  * we could keep the counters in future_fragment_t when a bb dies and
  * re-initialize to that value when it comes back.
@@ -186,7 +186,7 @@ typedef struct _monitor_data_t {
     /* cache at start of trace building whether we're going to pass to client */
     bool pass_to_client;
     /* Record whether final block ends in syscall or int.
-     * FIXME: remove once we have PR 307284.
+     * XXX: remove once we have PR 307284.
      */
     uint final_exit_flags;
 

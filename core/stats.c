@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,7 +63,7 @@
 #ifdef KSTATS
 
 #    ifdef KSTAT_UNIT_TEST
-/* FIXME: add a Makefile rule for this */
+/* XXX: add a Makefile rule for this */
 kstat_variables_t tkv;
 kstat_stack_t ks;
 #    endif
@@ -147,7 +147,7 @@ static void
 kstat_report(file_t outf, kstat_variables_t *ks)
 {
     kstats_evaluate_expressions(ks);
-    /* FIXME: Outliers may make the minc number appear smaller than
+    /* XXX: Outliers may make the minc number appear smaller than
      * real, should at least mark with a '*' */
 #    define KSTAT_DEF(desc, name) \
         if (ks->name.num_self)    \
@@ -187,7 +187,7 @@ kstat_init()
     LOG(GLOBAL, LOG_STATS, 1, "Processor speed: " UINT64_FORMAT_STRING "MHz\n",
         kstat_frequency_per_msec / 1000);
 
-    /* FIXME: There is no check for TSC feature and whether CR4.TSD is set
+    /* XXX: There is no check for TSC feature and whether CR4.TSD is set
      * so we can read it at CPL 3
      */
 
@@ -233,9 +233,9 @@ kstat_calibrate()
         return;
     kstats_calibrated = true; /* slight innocent race */
 
-    /* FIXME: once we calculate the overhead of calibrate_empty we can
+    /* XXX: once we calculate the overhead of calibrate_empty we can
      * subtract that from every self_time measurement.
-     * FIXME: The cost of
+     * XXX: The cost of
      * overhead_nested-overhead_empty should be subtracted from each
      * subpath_time.
      */

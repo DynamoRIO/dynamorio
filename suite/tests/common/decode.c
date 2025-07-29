@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -577,7 +577,7 @@ DECL_EXTERN(SIGSETJMP_NAME)
 # endif
 #endif
 
-/* FIXME PR 271834: we need some far ctis that actually succeed, to fully test
+/* XXX PR 271834: we need some far ctis that actually succeed, to fully test
  * DR's handling of them.  We should test the resulting target address
  * and stack pointer.  We can do that initially by targeting the current
  * cs, and perhaps adding other segments once we have PR 271317.
@@ -697,7 +697,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov   ecx, HEX(deadbeef) /* needed for 64-bit where we target rcx
                                   * (may still get NX fault here, but won't
                                   * under DR: PR 210383) */
-        /* FIXME PR 271863: this dies on 64-bit AMD: not sure how to get
+        /* XXX PR 271863: this dies on 64-bit AMD: not sure how to get
          * SEH64 to recover from the stack misalignment.
          */
         RAW(66) RAW(ff) RAW(d1) /* call %cx */
@@ -716,7 +716,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * Note that on Intel this is a 64-bit ret, and since SEH64 looks only
          * from RIP forward it thinks this is an epilog, which is why the
          * unwind succeeds (else it would pop rax and mess up the stack).
-         * FIXME PR 271863: this will die on AMD, natively and in DR: can't have
+         * XXX PR 271863: this will die on AMD, natively and in DR: can't have
          * handler for this routine (matches epilog), so can we recover w/ an
          * outer handler, or will we die since stack is not aligned?
          */

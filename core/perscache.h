@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,7 +47,7 @@
  */
 
 /* Information kept per coarse-grain region.
- * FIXME: for sharing we want to keep htable, stubs, and incoming
+ * XXX: for sharing we want to keep htable, stubs, and incoming
  * per unit, not per cache.  That will require changing fcache_unit_t and
  * having a way to map from app pc to unit.  For this first step toward
  * sharing we stick with a per-cache scheme with the multiple units
@@ -65,7 +65,7 @@
  * all-thread-synch plus redirection to d_r_dispatch (rather than resuming
  * at suspended location, which we only do for native threads) to
  * allow us to free these shared structures that are read w/o locks.
- * FIXME: what about where we lack setcontext permission
+ * XXX: what about where we lack setcontext permission
  */
 struct _coarse_info_t {
     bool frozen : 1;
@@ -92,7 +92,7 @@ struct _coarse_info_t {
     void *cache; /* opaque type internal to fcache.c */
 
     /* For frozen units, htable holds body pcs, while th_htable holds stub pcs.
-     * FIXME case 8628: split these into a body table and a stub table for
+     * XXX case 8628: split these into a body table and a stub table for
      * non-frozen units.
      */
     void *htable;    /* opaque htable mapping app pc -> stub/cache entry point */
@@ -173,7 +173,7 @@ struct _coarse_info_t {
      */
     struct _coarse_info_t *non_frozen;
 
-    /* FIXME: add debug-build stats on #fragments, #stubs,
+    /* XXX: add debug-build stats on #fragments, #stubs,
      * #trace heads, etc.
      */
 
@@ -189,7 +189,7 @@ struct _coarse_info_t {
      * lock while changing target linked unit locks (case 9809) */
     mutex_t incoming_lock;
 
-    /* FIXME: once we persist/share we will need official labels to identify
+    /* XXX: once we persist/share we will need official labels to identify
      * source modules
      */
     app_pc base_pc; /* base of vm area this unit covers */
@@ -324,7 +324,7 @@ enum {
     /* Identify underlying architecture */
     PERSCACHE_X86_32 = 0x00000001,
     PERSCACHE_X86_64 = 0x00000002,
-    /* FIXME: should we add cache line info?  Currently we have no
+    /* XXX: should we add cache line info?  Currently we have no
      * -pad_jmps for coarse bbs, coarse bbs are aligned to 1, our only
      * hotpatched jmps are in stubs which are 16-byte-aligned and 15 bytes
      * long, and we have -tls_align 1, so we have no cache line
@@ -375,7 +375,7 @@ enum {
     PERSCACHE_MODULE_MD5_AT_LOAD = 0x00000010, /* else, at persist time */
 };
 
-/* FIXME: share with hotp_module_sig_t in hotpatch.c
+/* XXX: share with hotp_module_sig_t in hotpatch.c
  * Xref case 9543 on combining all these module structs.
  * N.B.: the precise layout of the fields here is relied upon
  * in persist_modinfo_cmp()
@@ -391,10 +391,10 @@ typedef struct _persisted_module_info_t {
     uint64 code_size; /* sum of sizes of executable sections in module */
     uint64 file_version;
 
-    /* FIXME case 10087: move to module list and share w/ module-level
+    /* XXX case 10087: move to module list and share w/ module-level
      * process control, aslr?
      */
-    /* FIXME: granularity: may want to support loading small pieces of the
+    /* XXX: granularity: may want to support loading small pieces of the
      * cache+stubs at a time, to reduce cache capacity and consistency checks
      * and RAC security loosening.  Should then have separate md5's.
      */
@@ -424,7 +424,7 @@ typedef struct _persisted_footer_t {
  * adding new sections (to the read-only-not-executable side at least)
  * that are ignored by older versions of the code.
  *
- * FIXME: we have our own format here which we keep page-aligned on disk and set
+ * XXX: we have our own format here which we keep page-aligned on disk and set
  * memory privileges properly ourselves upon loading in.  We could instead use
  * an image format (PE/ELF): with PE the kernel will set up the privileges for
  * us, though with ELF it's the user-mode loader that does that.  Our own format
@@ -520,22 +520,22 @@ typedef struct _coarse_persisted_info_t {
 #endif
 
     /* Relocations
-     * FIXME case 9581 NYI: other than app code relocs, all
+     * TODO case 9581 NYI: other than app code relocs, all
      * we add w/ coarse bbs are "call->push immed" manglings.  Once have traces,
      * also stay-on-trace cmp.  No off-fragment jmps are currently allowed
      * except for fcache/trace-head return and ibl, which are indirected.
      * For app relocs we can either store in our own format at freeze time
      * or do all processing at load time.
-     * FIXME: our non-entry pclookup is slow -- how slow will applying relocs be?
-     * FIXME case 9649: We could make our own call->push manglings
+     * XXX: our non-entry pclookup is slow -- how slow will applying relocs be?
+     * XXX case 9649: We could make our own call->push manglings
      * PIC using pc-relative addressing on x86-64.
      */
 
     /* RAC and RCT tables -- RCT only for Borland SEH
-     * FIXME case 8648: instead keep as flag hidden in msb of main htable?
+     * XXX case 8648: instead keep as flag hidden in msb of main htable?
      *   won't work for persisting the entire RCT tables, but will for Borland
      *   and RAC where all targets are present in cache.
-     * FIXME case 9777: we're loosening security by allowing ret to target any
+     * XXX case 9777: we're loosening security by allowing ret to target any
      * after-call executed in any prior run of this app or whatever
      * app is producing, instead of just this run.
      */
@@ -563,7 +563,7 @@ typedef struct _coarse_persisted_info_t {
      * read-only above here
      * --------------------------------------
      * writable below here
-     *   FIXME case 9650: we can make the prefixes read-only after
+     *   XXX case 9650: we can make the prefixes read-only after
      *   loading if we put them on their own page
      *
      *   fcache_return_prefix

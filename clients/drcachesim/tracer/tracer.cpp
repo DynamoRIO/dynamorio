@@ -841,7 +841,7 @@ insert_mode_comparison(void *drcontext, instrlist_t *ilist, instr_t *where,
             XINST_CREATE_sub(drcontext, opnd_create_reg(reg_mine),
                              opnd_create_reg(reg_global)));
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     DR_ASSERT_MSG(false, "Not implemented on RISC-V");
 #else
     // Our version of a flags-free reg-reg subtraction: 1's complement one reg
@@ -975,7 +975,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
         // every instr.  We skip if we're still on the same cache line.
         if (ud->last_app_pc != NULL) {
             ptr_uint_t prior_line = ((ptr_uint_t)ud->last_app_pc >> line_bits) & mask;
-            // FIXME i#2439: we simplify and ignore a 2nd cache line touched by an
+            // XXX i#2439: we simplify and ignore a 2nd cache line touched by an
             // instr that straddles cache lines.  However, that is not uncommon on
             // x86 and we should check the L0 cache for both lines, do regular instru
             // if either misses, and have some flag telling the regular instru to
@@ -1344,7 +1344,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #ifdef X86
     drreg_set_vector_entry(&rvec, DR_REG_XCX, true);
 #elif defined(RISCV64)
-    /* FIXME i#3544: Check if scratch reg can be used here. */
+    /* XXX i#3544: Check if scratch reg can be used here. */
     drreg_set_vector_entry(&rvec, DR_REG_T2, true);
 #else
     for (reg_ptr = DR_REG_R0; reg_ptr <= DR_REG_R7; reg_ptr++)
@@ -2491,7 +2491,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #else
         if (!ipc_pipe.open_for_write()) {
             if (GetLastError() == ERROR_PIPE_BUSY) {
-                // FIXME i#1727: add multi-process support to Windows named_pipe_t.
+                // XXX i#1727: add multi-process support to Windows named_pipe_t.
                 FATAL("Fatal error: multi-process applications not yet supported "
                       "for drcachesim on Windows\n");
             } else {

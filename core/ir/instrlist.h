@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -70,7 +70,7 @@ instrlist_get_our_mangling(instrlist_t *ilist);
 /* Adds every instr_t in prependee to the front of ilist (maintaining
  * the original order).
  * Then calls instrlist_destroy on prependee.
- * FIXME: get rid of this?
+ * XXX: get rid of this?
  */
 void
 instrlist_prepend_instrlist(dcontext_t *dcontext, instrlist_t *ilist,
@@ -79,7 +79,7 @@ instrlist_prepend_instrlist(dcontext_t *dcontext, instrlist_t *ilist,
 /* Adds every instr_t in appendee to the end of ilist (maintaining
  * the original order).
  * Then calls instrlist_destroy on appendee.
- * FIXME: get rid of this?
+ * XXX: get rid of this?
  */
 void
 instrlist_append_instrlist(dcontext_t *dcontext, instrlist_t *ilist,

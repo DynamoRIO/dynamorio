@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -143,7 +143,7 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
     for (i = 0; i < DR_WHERE_LAST; i++)
         info->where[i] = 0;
     info->file = open_log_file("pcsamples", NULL, 0);
-    /* FIXME PR 596808: we can easily fill up the initial special heap unit,
+    /* XXX PR 596808: we can easily fill up the initial special heap unit,
      * and creating a new one acquires global locks and can deadlock:
      * we should allocate many units up front or something
      */
@@ -188,7 +188,7 @@ void
 pcprofile_fork_init(dcontext_t *dcontext)
 {
     /* itimers are not inherited across fork */
-    /* FIXME: hmmm...I guess a forked child will just start from scratch?
+    /* XXX: hmmm...I guess a forked child will just start from scratch?
      */
     thread_pc_info_t *info = (thread_pc_info_t *)dcontext->pcprofile_field;
     info->thread_shared = false;
@@ -392,11 +392,11 @@ pcprofile_reset(thread_pc_info_t *info)
 }
 
 /* Print the profile results
- * FIXME: It would be nice to print counts integrated with fragment listings
+ * XXX: It would be nice to print counts integrated with fragment listings
  * That would require re-ordering *_exit() sequence (fragments are deleted first)
  * Instead of doing that, can use a script to combine these tag+offsets with
  * previously printed fragments
- * FIXME: this routine uses floating point ops, if ever called not at thread exit
+ * XXX: this routine uses floating point ops, if ever called not at thread exit
  * must preserve fp state around the whole routine!
  */
 static void
@@ -499,7 +499,7 @@ pcprofile_results(thread_pc_info_t *info)
                            e->counter, type, e->tag, e->offset);
 #endif
 #if USE_SYMTAB
-                /* FIXME: this only works for fragments whose tags are app pc's! */
+                /* XXX: this only works for fragments whose tags are app pc's! */
                 if (valid_symtab) {
                     print_file(info->file, "\tin app = %s\n",
                                symtab_lookup_pc((void *)(e->tag + e->offset)));

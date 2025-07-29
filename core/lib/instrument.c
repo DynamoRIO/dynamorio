@@ -765,7 +765,7 @@ instrument_init(void)
          */
         all_memory_areas_lock();
         update_all_memory_areas(client_libs[i].start, client_libs[i].end,
-                                /* FIXME: need to walk the sections: but may be
+                                /* XXX: need to walk the sections: but may be
                                  * better to obfuscate from clients anyway.
                                  * We can't set as MEMPROT_NONE as that leads to
                                  * bugs if the app wants to interpret part of
@@ -1720,7 +1720,7 @@ check_ilist_translations(instrlist_t *ilist)
             });
             CLIENT_ASSERT(instr_get_translation(in) == NULL ||
                               instr_is_our_mangling(in) || dr_xl8_hook_exists(),
-                          /* FIXME: if multiple clients, we need to check that this
+                          /* XXX: if multiple clients, we need to check that this
                            * particular client has the callback: but we have
                            * no way to do that other than looking at library
                            * bounds...punting for now */
@@ -1856,7 +1856,7 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
 }
 
 /* Notify user when a fragment is deleted from the cache
- * FIXME PR 242544: how does user know whether this is a shadowed copy or the
+ * XXX PR 242544: how does user know whether this is a shadowed copy or the
  * real thing?  The user might free memory that shouldn't be freed!
  */
 void
@@ -2237,7 +2237,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
     if (!priv_mcontext_to_dr_mcontext(&dr_mcontext, get_mcontext(dcontext)))
         return;
 
-    /* FIXME - the source_tag, source_pc, and context can all be incorrect if the
+    /* XXX - the source_tag, source_pc, and context can all be incorrect if the
      * violation ends up occurring in the middle of a bb we're building.  See case
      * 7380 which we should fix in interp.c.
      */
@@ -2251,7 +2251,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
         cache_pc pc = EXIT_CTI_PC(last, dcontext->last_exit);
         source_pc = recreate_app_pc(dcontext, pc, last);
     }
-    /* FIXME - set pc field of dr_mcontext_t.  We'll probably want it
+    /* XXX - set pc field of dr_mcontext_t.  We'll probably want it
      * for thread start and possibly apc/callback events as well.
      */
 
@@ -2288,7 +2288,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
     dr_action_original = dr_action;
 
     /* NOTE - last->tag should be valid here (even if the frag is fake since the
-     * coarse wrappers set the tag).  FIXME - for traces we really want the bb tag not
+     * coarse wrappers set the tag).  XXX - for traces we really want the bb tag not
      * the trace tag, should get that. Of course the only real reason we pass source
      * tag is because we can't always give a valid source_pc. */
 
@@ -2307,7 +2307,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
         case DR_VIOLATION_ACTION_KILL_THREAD: *action = ACTION_TERMINATE_THREAD; break;
         case DR_VIOLATION_ACTION_THROW_EXCEPTION: *action = ACTION_THROW_EXCEPTION; break;
         case DR_VIOLATION_ACTION_CONTINUE_CHANGED_CONTEXT:
-            /* FIXME - not safe to implement till case 7380 is fixed. */
+            /* XXX - not safe to implement till case 7380 is fixed. */
             CLIENT_ASSERT(false,
                           "action DR_VIOLATION_ACTION_CONTINUE_CHANGED_CONTEXT "
                           "not yet supported.");
@@ -2353,7 +2353,7 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
      */
     d_r_mutex_lock(&client_thread_count_lock);
     if (block_client_nudge_threads) {
-        /* FIXME - would be nice if there was a way to let the external agent know that
+        /* XXX - would be nice if there was a way to let the external agent know that
          * the nudge event wasn't delivered (but this only happens when the process
          * is detaching or exiting). */
         d_r_mutex_unlock(&client_thread_count_lock);
@@ -3334,7 +3334,7 @@ dr_memory_protect(void *base, size_t size, uint new_prot)
                 return false;
             } else {
                 /* SUBSET_APP_MEM_PROT_CHANGE should only happen for
-                 * PROGRAM_SHEPHERDING.  FIXME: not sure how common
+                 * PROGRAM_SHEPHERDING.  XXX: not sure how common
                  * this will be: for now we just fail.
                  */
                 return false;
@@ -3373,7 +3373,7 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
     /* xref PR 246897 - the cached all memory list can have problems when
      * out-of-process entities change the mapings. For now we use the from
      * os version instead (even though it's slower, and only if we have
-     * HAVE_MEMINFO_MAPS support). FIXME
+     * HAVE_MEMINFO_MAPS support). XXX
      * XXX i#853: We could decide allmem vs os with the use_all_memory_areas
      * option.
      */
@@ -4345,7 +4345,7 @@ dr_write_forensics_report(void *dcontext, file_t file,
         return;
     }
 
-    /* FIXME - could use a better message. */
+    /* XXX - could use a better message. */
     append_diagnostics(file, action_message[sec_action], violation_name, sec_violation);
 }
 
@@ -4890,7 +4890,7 @@ dr_suspend_all_other_threads_ex(DR_PARAM_OUT void ***drcontexts,
                            !TEST(DR_SUSPEND_NATIVE, flags)) {
                     out_unsuspended++;
                 } else if (thread_synch_state_no_xfer(dcontext)) {
-                    /* FIXME: for all other synchall callers, the app
+                    /* XXX: for all other synchall callers, the app
                      * context should be sitting in their mcontext, even
                      * though we can't safely get their native context and
                      * translate it.
@@ -5495,7 +5495,7 @@ dr_swap_to_clean_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
             ilist, where,
             instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
-         * work right.  FIXME - the dcontext accessing routines are a mess of shared
+         * work right.  XXX - the dcontext accessing routines are a mess of shared
          * vs. no shared support, separate context vs. no separate context support etc. */
         ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
         MINSERT(ilist, where,
@@ -5883,7 +5883,7 @@ dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
         ilist, where,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg), opnd_create_reg(DR_REG_NZCV)));
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented. Perhaps float flags should be saved here? */
+    /* XXX i#3544: Not implemented. Perhaps float flags should be saved here? */
     ASSERT_NOT_IMPLEMENTED(false);
     /* Marking as unused to silence -Wunused-variable. */
     (void)dcontext;
@@ -5923,7 +5923,7 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
         ilist, where,
         INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV), opnd_create_reg(reg)));
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented. Perhaps float flags should be restored here? */
+    /* XXX i#3544: Not implemented. Perhaps float flags should be restored here? */
     ASSERT_NOT_IMPLEMENTED(false);
     /* Marking as unused to silence -Wunused-variable. */
     (void)dcontext;
@@ -5968,7 +5968,7 @@ dr_insert_call_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *ins
                   "dr_insert_{ubr,call}_instrumentation: can't determine app address");
     if (opnd_is_pc(instr_get_target(instr))) {
         if (opnd_is_far_pc(instr_get_target(instr))) {
-            /* FIXME: handle far pc */
+            /* XXX: handle far pc */
             CLIENT_ASSERT(false,
                           "dr_insert_{ubr,call}_instrumentation: far pc not supported");
         }
@@ -5980,7 +5980,7 @@ dr_insert_call_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *ins
         CLIENT_ASSERT(target != 0,
                       "dr_insert_{ubr,call}_instrumentation: unknown target");
         if (opnd_is_far_instr(instr_get_target(instr))) {
-            /* FIXME: handle far instr */
+            /* XXX: handle far instr */
             CLIENT_ASSERT(false,
                           "dr_insert_{ubr,call}_instrumentation: far instr "
                           "not supported");
@@ -6132,7 +6132,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
      */
     ASSERT_NOT_IMPLEMENTED(false);
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 #elif defined(AARCH64)
     ptr_uint_t address;
@@ -6395,7 +6395,7 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
     /* i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 #elif defined(AARCH64)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
@@ -6855,7 +6855,7 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
     CLIENT_ASSERT(mcontext->flags == DR_MC_ALL, "dr_mcontext_t.flags must be DR_MC_ALL");
 
     /* PR 352429: squash current trace.
-     * FIXME: will clients use this so much that this will be a perf issue?
+     * XXX: will clients use this so much that this will be a perf issue?
      * samples/cbr doesn't hit this even at -trace_threshold 1
      */
     if (is_building_trace(dcontext)) {
@@ -7048,7 +7048,7 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
 }
 
 #ifdef UNSUPPORTED_API
-/* FIXME - doesn't work with shared fragments.  Consider removing since dr_flush_region
+/* XXX - doesn't work with shared fragments.  Consider removing since dr_flush_region
  * and dr_delay_flush_region give us most of this functionality. */
 DR_API
 /* Flushes all fragments containing 'flush_tag', or the entire code
@@ -7118,14 +7118,14 @@ dr_flush_region_ex(app_pc start, size_t size,
     LOG(THREAD, LOG_FRAGMENT, 2, "%s: " PFX "-" PFX "\n", __FUNCTION__, start,
         start + size);
 
-    /* Flush requires !couldbelinking. FIXME - not all event callbacks to the client are
+    /* Flush requires !couldbelinking. XXX - not all event callbacks to the client are
      * !couldbelinking (see PR 227619) restricting where this routine can be used. */
     CLIENT_ASSERT(!is_couldbelinking(dcontext),
                   "dr_flush_region: called from an event "
                   "callback that doesn't support calling this routine; see header file "
                   "for restrictions.");
     /* Flush requires caller to hold no locks that might block a couldbelinking thread
-     * (which includes almost all dr locks).  FIXME - some event callbacks are holding
+     * (which includes almost all dr locks).  XXX - some event callbacks are holding
      * dr locks (see PR 227619) so can't call this routine.  Since we are going to use
      * a synchall flush, holding client locks is disallowed too (could block a thread
      * at an unsafe spot for synch). */
@@ -7183,15 +7183,15 @@ dr_unlink_flush_region(app_pc start, size_t size)
                   "dr_unlink_flush_region is not supported with -opt_memory unless "
                   "-thread_private or -enable_full_api is also specified");
 
-    /* Flush requires !couldbelinking. FIXME - not all event callbacks to the client are
+    /* Flush requires !couldbelinking. XXX - not all event callbacks to the client are
      * !couldbelinking (see PR 227619) restricting where this routine can be used. */
     CLIENT_ASSERT(!is_couldbelinking(dcontext),
                   "dr_flush_region: called from an event "
                   "callback that doesn't support calling this routine, see header file "
                   "for restrictions.");
     /* Flush requires caller to hold no locks that might block a couldbelinking thread
-     * (which includes almost all dr locks).  FIXME - some event callbacks are holding
-     * dr locks (see PR 227619) so can't call this routine.  FIXME - some event callbacks
+     * (which includes almost all dr locks).  XXX - some event callbacks are holding
+     * dr locks (see PR 227619) so can't call this routine.  XXX - some event callbacks
      * are couldbelinking (see PR 227619) so can't allow the caller to hold any client
      * locks that could block threads in one of those events (otherwise we don't need
      * to care about client locks) */
@@ -7218,7 +7218,7 @@ DR_API
 /* Flush all fragments that contain code from the region [start, start+size) at the next
  * convenient time.  Unlike dr_flush_region() this routine has no restrictions on lock
  * or couldbelinking status; the downside is that the delay till the flush actually
- * occurs is unbounded (FIXME - we could do something safely here to try to speed it
+ * occurs is unbounded (XXX - we could do something safely here to try to speed it
  * up like unlinking shared_syscall etc.), but should occur before any new code is
  * executed or any nudges are processed. */
 bool
@@ -7243,7 +7243,7 @@ dr_delay_flush_region(app_pc start, size_t size, uint flush_id,
         return true;
     }
 
-    /* FIXME - would be nice if we could check the requirements and call
+    /* XXX - would be nice if we could check the requirements and call
      * dr_unlink_flush_region() here if it's safe. Is difficult to detect non-dr locks
      * that could block a couldbelinking thread though. */
 
@@ -7452,7 +7452,7 @@ DR_API
  * If coarse, headness depends on path: currently this will only have
  * links from tag's coarse unit unlinked.
  */
-bool /* FIXME: dynamorio_app_init returns an int! */
+bool /* XXX: dynamorio_app_init returns an int! */
 dr_mark_trace_head(void *drcontext, void *tag)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
@@ -7562,7 +7562,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr, reg_
 #        ifndef MACOS64
     CLIENT_ASSERT(INTERNAL_OPTION(mangle_app_seg),
                   "dr_insert_get_seg_base is supported with -mangle_app_seg only");
-    /* FIXME: we should remove the constraint below by always mangling SEG_TLS,
+    /* XXX: we should remove the constraint below by always mangling SEG_TLS,
      * 1. Getting TLS base could be a common request by clients.
      * 2. The TLS descriptor setup and selector setup can be separated,
      * so we must intercept all descriptor setup. It will not be large

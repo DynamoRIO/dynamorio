@@ -1,7 +1,7 @@
 ready to hook
 ok: can't write
 VirtualProtect(kernel32.dll!GetProcessHeaps[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
-//FIXME * is expanded to regexp in gen_expect.pl
+//XXX * is expanded to regexp in gen_expect.pl
 #if defined(PROGRAM_SHEPHERDING) && !defined(patch_proof_list___XXYYALL) && !defined(patch_proof_list___kernel32) && !defined(patch_proof_default_list___kernel32)
 hooked GetProcessHeaps
 #else

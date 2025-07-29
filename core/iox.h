@@ -528,7 +528,7 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                 break;
             }
             case _T('c'):
-                /* FIXME: using int instead of char seems to work for RH7.2 as
+                /* XXX: using int instead of char seems to work for RH7.2 as
                  * well as 8.0, but using char crashes 8.0 but not 7.2
                  */
 #ifdef VA_ARG_CHAR2INT
@@ -586,7 +586,7 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                 str = buf;
                 break;
             }
-                /* FIXME : support the following? */
+                /* XXX : support the following? */
             case _T('a'):
             case _T('A'):
             default: ASSERT_NOT_REACHED();

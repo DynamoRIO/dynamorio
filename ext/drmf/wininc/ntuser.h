@@ -469,14 +469,14 @@ typedef struct _CLS {
     INT cbclsExtra;
     INT cbwndExtra;
     HINSTANCE hModule;
-    HANDLE hIcon; /* FIXME - Use pointer! */
+    HANDLE hIcon; /* XXX - Use pointer! */
     // PCURSOR spicn;
-    HANDLE hCursor; /* FIXME - Use pointer! */
+    HANDLE hCursor; /* XXX - Use pointer! */
     // PCURSOR spcur;
     HBRUSH hbrBackground;
     PWSTR lpszMenuName;     // kernel use
     PSTR lpszAnsiClassName; // "
-    HANDLE hIconSm;         /* FIXME - Use pointer! */
+    HANDLE hIconSm;         /* XXX - Use pointer! */
     // PCURSOR spicnSm;
 
     UINT Unicode : 1; // !CSF_ANSIPROC
@@ -1114,7 +1114,7 @@ NtUserBuildPropList(HWND hWnd, LPVOID Buffer, DWORD BufferSize, DWORD *Count);
 
 /* apfnSimpleCall indices from Windows XP SP 2 */
 /* TODO: Check for differences in Windows 2000, 2003 and 2008 */
-#    define WIN32K_VERSION NTDDI_WINXPSP2 // FIXME: this should go somewhere else
+#    define WIN32K_VERSION NTDDI_WINXPSP2 // XXX: this should go somewhere else
 
 enum SimpleCallRoutines {
     NOPARAM_ROUTINE_CREATEMENU,
@@ -1507,7 +1507,7 @@ NtUserEnumDisplayMonitors (
   LPCRECT lprcClip,
   MONITORENUMPROC lpfnEnum,
   LPARAM dwData );*/
-/* FIXME:  The call below is ros-specific and should be rewritten to use the same params
+/* XXX:  The call below is ros-specific and should be rewritten to use the same params
  * as the correct call above.  */
 INT NTAPI
 NtUserEnumDisplayMonitors(OPTIONAL IN HDC hDC, OPTIONAL IN LPCRECT pRect,
@@ -1518,7 +1518,7 @@ NtUserEnumDisplayMonitors(OPTIONAL IN HDC hDC, OPTIONAL IN LPCRECT pRect,
 NTSTATUS
 NTAPI
 NtUserEnumDisplaySettings(IN PUNICODE_STRING lpszDeviceName, IN DWORD iModeNum,
-                          OUT LPDEVMODEW lpDevMode, /* FIXME is this correct? */
+                          OUT LPDEVMODEW lpDevMode, /* XXX is this correct? */
                           IN DWORD dwFlags);
 
 DWORD

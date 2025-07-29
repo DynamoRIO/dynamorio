@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,12 +36,12 @@
  *
  * fun code with 7 nested and 2 queued up APCs using user-mode QueueUserAPC
  * two shellcodes sent using native NtQueueApcThread as well as with QueueUserAPC
- * FIXME: sent to current thread only
+ * XXX: sent to current thread only
  */
 
 #ifndef ASM_CODE_ONLY
 
-/* FIXME: for case 8451 we'd want to add a library that gets loaded */
+/* XXX: for case 8451 we'd want to add a library that gets loaded */
 #    define _WIN32_WINNT 0x0400
 #    include <windows.h>
 #    include <winbase.h> /* for QueueUserAPC */
@@ -70,7 +70,7 @@ other_datacode(void);
 void
 other_native_datacode(void);
 
-/* FIXME: should be copied onto a bad VirtualAllocate page */
+/* XXX: should be copied onto a bad VirtualAllocate page */
 PAPCFUNC vse_apc_func = (PAPCFUNC)vse_datacode;
 
 PAPCFUNC other_apc_func = (PAPCFUNC)other_datacode;
@@ -97,7 +97,7 @@ native_queue_apc(HANDLE thread, PKNORMAL_ROUTINE apc_dispatch, PAPCFUNC func,
      *   0012fb64  00000006
      *   0012fb68  00000000
      */
-    /* FIXME: should really be (thread, apc_dispatch, func, arg, NULL)
+    /* XXX: should really be (thread, apc_dispatch, func, arg, NULL)
      * but for more devious testing using this broken version for now
      */
     status =
@@ -139,7 +139,7 @@ apc_func(ULONG_PTR arg)
     print("apc_func %d\n", (int)arg);
     /* nested APC */
     if (arg > 0) {
-        send_apc(arg % 3 == 0 ? apc_func : apc_func, /* FIXME: get fancy */
+        send_apc(arg % 3 == 0 ? apc_func : apc_func, /* XXX: get fancy */
                  arg - 1);
     }
 }
@@ -180,7 +180,7 @@ native_send_apc(PKNORMAL_ROUTINE native_func1, PKNORMAL_ROUTINE native_func2)
     /* we queue up two APCs at a time maybe of different type */
     /* note that these just queue, they WILL NOT stack up unless the
      * APC functions themselves get in Alertable state
-     * FIXME: should put a TestAlert in the loaded DLL,
+     * XXX: should put a TestAlert in the loaded DLL,
      * I don't think there is one already in LoadLibrary
      * (if there is it may be bad for hotpatch DLLs)
      */
@@ -193,7 +193,7 @@ native_send_apc(PKNORMAL_ROUTINE native_func1, PKNORMAL_ROUTINE native_func2)
      * well technically 192 is io completion interruption, but seems to
      * report that for any interrupting APC */
     print("SleepEx returned %d\n", res);
-    /* FIXME: don't have a good sign that the shellcodes did execute */
+    /* XXX: don't have a good sign that the shellcodes did execute */
 }
 
 int

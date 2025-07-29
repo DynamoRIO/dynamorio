@@ -94,7 +94,7 @@
 DO_TEST(detach, TESTER_1_BLOCK, {
     UINT pid;
     LAUNCH_APP(L"tester_1.exe 5000", &pid);
-    /* FIXME: if this isn't here, the first run (right after
+    /* XXX: if this isn't here, the first run (right after
      *  building the tests) always fails. */
     Sleep(LAUNCH_TIMEOUT * 2);
     VERIFY_UNDER_DR(pid);

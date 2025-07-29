@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -123,7 +123,7 @@
 #        define STR_LIB_SEG "tpidruro"
 #    endif /* 64/32-bit */
 #elif defined(RISCV64)
-/* FIXME i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
+/* XXX i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
 #    define SEG_TLS DR_REG_INVALID
 #    define LIB_SEG_TLS DR_REG_TP
 #    define STR_SEG "<none>"
@@ -146,7 +146,7 @@
 #endif
 
 #if defined(MACOS64) && defined(X86)
-/* FIXME i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
+/* XXX i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
  * provide a dynamic method to determine the first entry for forward compatability.
  * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
  * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
@@ -340,7 +340,7 @@ disable_env(const char *name);
  * name is a string
  * wx should contain one of the strings "w", "wx", "x", or ""
  */
-/* FIXME: also want control over where in rw region or ro region this
+/* XXX: also want control over where in rw region or ro region this
  * section goes -- for cl, order linked seems to do it, but for linux
  * will need a linker script (see unix/os.c for the nspdata problem)
  */

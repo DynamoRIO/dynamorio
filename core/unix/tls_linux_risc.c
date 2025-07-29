@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -100,7 +100,7 @@ tls_thread_free(tls_type_t tls_type, int index)
     ASSERT(dr_tls_base_addr != NULL);
     os_tls = (os_local_state_t *)*dr_tls_base_addr;
     ASSERT(os_tls->self == os_tls);
-    /* FIXME i#1578: support detach on ARM.  We need some way to
+    /* XXX i#1578: support detach on ARM.  We need some way to
      * determine whether a thread has exited (for deadlock_avoidance_unlock,
      * e.g.) after dcontext and os_tls are freed.  For now we store -1 in this
      * slot and assume the app will never use that value (we check in

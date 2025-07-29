@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -107,7 +107,7 @@ coarse_unit_mark_primary(coarse_info_t *info)
     if (!info->in_use)
         return;
 #ifdef WINDOWS
-    /* FIXME PR 295529: put in for Linux once we have per-module flags */
+    /* XXX PR 295529: put in for Linux once we have per-module flags */
     /* Go ahead and get write lock up front; else have to check again; not
      * frequently called so don't need perf opt here.
      */
@@ -129,7 +129,7 @@ static void
 coarse_unit_unmark_primary(coarse_info_t *info)
 {
 #ifdef WINDOWS
-    /* FIXME PR 295529: put in for Linux once we have per-module flags */
+    /* XXX PR 295529: put in for Linux once we have per-module flags */
     if (info->primary_for_module && info->in_use) {
         ASSERT(os_module_get_flag(info->base_pc, MODULE_HAS_PRIMARY_COARSE));
         os_module_clear_flag(info->base_pc, MODULE_HAS_PRIMARY_COARSE);
@@ -152,7 +152,7 @@ coarse_unit_create(app_pc base_pc, app_pc end_pc, module_digest_t *digest,
                    bool for_execution)
 {
     coarse_info_t *info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, coarse_info_t,
-                                          /* FIXME: have separate heap acct? */
+                                          /* XXX: have separate heap acct? */
                                           ACCT_VMAREAS, PROTECTED);
     memset(info, 0, sizeof(*info));
     ASSIGN_INIT_LOCK_FREE(info->lock, coarse_info_lock);
@@ -160,7 +160,7 @@ coarse_unit_create(app_pc base_pc, app_pc end_pc, module_digest_t *digest,
     info->base_pc = base_pc;
     /* XXX i#704: handle overflow: better to store size */
     info->end_pc = end_pc;
-    /* FIXME: set PERSCACHE_X86_{32,64} here since for x64 the live
+    /* XXX: set PERSCACHE_X86_{32,64} here since for x64 the live
      * unit's flags are used for 32-bit code in 64-bit processes.
      * app_memory_allocation() may need a "bool x86_mode" param that is at
      * least passed in to here: not clear if it should be stored in the
@@ -187,7 +187,7 @@ coarse_unit_create(app_pc base_pc, app_pc end_pc, module_digest_t *digest,
          * If we inject at different points we may see different views of
          * post-loader vs pre-loader module changes but we'll live with that.
          * Should have consistent injection points in steady state usage.
-         * FIXME PR 215036: for 4.4 we'll want to not record the at-mmap md5, but
+         * XXX PR 215036: for 4.4 we'll want to not record the at-mmap md5, but
          * rather the 1st-execution-time post-rebase md5.
          */
         app_pc modbase = get_module_base(info->base_pc);
@@ -414,7 +414,7 @@ perscache_init(void)
             } else {
                 /* either FAT32 or we are the proper owner */
 
-                /* FIXME: we have to verify that the final permissions and
+                /* XXX: we have to verify that the final permissions and
                  * sharing attributes for cache/ and for the current
                  * directory, do NOT allow anyone to rename our directory
                  * while in use, and replace it.  Otherwise we'd still
@@ -469,7 +469,7 @@ coarse_units_freeze_translate(thread_record_t *tr,
      */
     if (!res || !in_fcache((cache_pc)mc.pc) ||
         get_fcache_coarse_info((cache_pc)mc.pc) != NULL) {
-        /* FIXME optimization: pass cxt for translation */
+        /* XXX optimization: pass cxt for translation */
         translate_from_synchall_to_dispatch(tr, desired_state);
     } else {
         LOG(GLOBAL, LOG_FRAGMENT, 2,
@@ -478,7 +478,7 @@ coarse_units_freeze_translate(thread_record_t *tr,
 }
 
 /* If !in_place this routine freezes (if not already) and persists.
- * FIXME case 9975: provide support for freezing in place and
+ * XXX case 9975: provide support for freezing in place and
  * persisting in one call?  Should we support loading in a newly
  * persisted version to replace the in-memory unit?
  */
@@ -506,7 +506,7 @@ coarse_units_freeze_all(bool in_place)
          * coarse fragments so we're fine for now.
          */
         if (!synch_with_all_threads(desired_state, &threads, &num_threads,
-                                    /* FIXME: can we set mcontext->pc to next_tag and
+                                    /* XXX: can we set mcontext->pc to next_tag and
                                      * use THREAD_SYNCH_VALID_MCONTEXT?  not if nudge
                                      * comes here */
                                     THREAD_SYNCH_NO_LOCKS_NO_XFER, /* Case 6821 */
@@ -539,7 +539,7 @@ coarse_units_freeze_all(bool in_place)
     });
 
     /* This routine does the actual freeze and persist calls
-     * FIXME case 9641: should we end the synch after freezing
+     * XXX case 9641: should we end the synch after freezing
      * so other threads can make progress while we persist?
      */
     vm_area_coarse_units_freeze(in_place);
@@ -549,7 +549,7 @@ coarse_units_freeze_all(bool in_place)
         for (i = 0; i < num_threads; i++) {
             dcontext_t *dcontext = threads[i]->dcontext;
             if (dcontext != NULL && dcontext != my_dcontext) {
-                /* FIXME: share these checks w/ other synchall-and-abort users
+                /* XXX: share these checks w/ other synchall-and-abort users
                  * (reset) and synchall-and-don't-abort (flush).
                  */
                 /* Should have aborted if we had any synch failures */
@@ -576,7 +576,7 @@ coarse_units_freeze_all(bool in_place)
                     trace_abort(dcontext);
                 }
                 if (DYNAMO_OPTION(bb_ibl_targets)) {
-                    /* FIXME: we could just remove the coarse ibl entries */
+                    /* XXX: we could just remove the coarse ibl entries */
                     DEBUG_DECLARE(removed =)
                     fragment_remove_all_ibl_in_region(dcontext, UNIVERSAL_REGION_BASE,
                                                       UNIVERSAL_REGION_END);
@@ -585,7 +585,7 @@ coarse_units_freeze_all(bool in_place)
             }
         }
         if (DYNAMO_OPTION(bb_ibl_targets)) {
-            /* FIXME: we could just remove the coarse ibl entries */
+            /* XXX: we could just remove the coarse ibl entries */
             DEBUG_DECLARE(removed =)
             fragment_remove_all_ibl_in_region(GLOBAL_DCONTEXT, UNIVERSAL_REGION_BASE,
                                               UNIVERSAL_REGION_END);
@@ -671,7 +671,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
 
     LOG(THREAD, LOG_CACHE, 2, "coarse_unit_freeze %s\n", info->module);
     STATS_INC(coarse_units_frozen);
-    /* FIXME: Suspend world needed if not in-place?  Even though unit lock
+    /* XXX: Suspend world needed if not in-place?  Even though unit lock
      * is not held when changing unit links (e.g., unit flush holds only
      * target unit lock when unlinking incoming), the change_linking_lock
      * should give us guarantees.
@@ -680,7 +680,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
      *   grab the shared cache lock, which is higher rank than coarse unit lock!
      * - same issue w/ fcache_coarse_cache_delete (via coarse_unit_reset_free)
      */
-    /* FIXME: support single-unit freeze by having this routine itself
+    /* XXX: support single-unit freeze by having this routine itself
      * do a synch-all?
      */
     ASSERT(dynamo_all_threads_synched);
@@ -714,7 +714,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
      *    rounding up to a page boundary in the middle for +r->+rw
      * 3) Copy each fragment and stub over
      *
-     * FIXME case 9428: shrink the cache to take advantage of elided jmps!
+     * XXX case 9428: shrink the cache to take advantage of elided jmps!
      * Requires a separate pass to touch up jmps to stubs/prefixes, or
      * re-ordering w/ stubs on top and cache on bottom.  That would also
      * put a read-only page at the end, so no guard page needed -- unless we
@@ -729,7 +729,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     freeze_info->cache_start_pc = (cache_pc)heap_mmap(
         frozen_stub_size + frozen_cache_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
         VMM_CACHE | VMM_REACHABLE);
-    /* FIXME: should show full non-frozen size as well */
+    /* XXX: should show full non-frozen size as well */
     LOG(THREAD, LOG_CACHE, 2,
         "%d frozen stubs @ " SZFMT " bytes + %d fragments @ " SZFMT " bytes => " PFX "\n",
         num_stubs, frozen_stub_size, num_fragments, frozen_cache_size,
@@ -792,7 +792,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     if (frozen->fcache_return_prefix + frozen_stub_size == freeze_info->stubs_cur_pc)
         frozen->stubs_end_pc = freeze_info->stubs_cur_pc;
     else {
-        /* FIXME case 9428: strange history here: I don't see a problem now,
+        /* XXX case 9428: strange history here: I don't see a problem now,
          * but leaving some release-build code just in case.
          */
         ASSERT_NOT_REACHED();
@@ -816,7 +816,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
         freeze_info->stubs_cur_pc - freeze_info->stubs_start_pc,
         freeze_info->cache_cur_pc - freeze_info->cache_start_pc);
 
-    /* FIXME case 9687: mark cache as read-only */
+    /* XXX case 9687: mark cache as read-only */
 
     if (in_place) {
         coarse_replace_unit(dcontext, info, frozen);
@@ -914,7 +914,7 @@ transfer_coarse_stub(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info,
 #ifdef X86
     ASSERT(*(pc - 1) == JMP_OPCODE);
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
     /* if tgt unchanged we still need to re-relativize it */
@@ -1035,9 +1035,9 @@ void
 transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info,
                          cache_pc body)
 {
-    /* FIXME: for maximum code re-use, use decode_fragment instead of trying
+    /* XXX: for maximum code re-use, use decode_fragment instead of trying
      * to be efficient?
-     * FIXME case 9428: 8-bit conversion
+     * XXX case 9428: 8-bit conversion
      */
     cache_pc pc = body, next_pc = pc; /* source pcs */
     app_pc tgt;
@@ -1130,7 +1130,7 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
         freeze_info->cache_cur_pc =
             insert_relative_target(freeze_info->cache_cur_pc, tgt, NOT_HOT_PATCHABLE);
     } else {
-        /* FIXME: if we had profile info we could reverse the branch and
+        /* XXX: if we had profile info we could reverse the branch and
          * make our cache trace-like
          */
         DEBUG_DECLARE(bool is_cbr = false;)
@@ -1152,7 +1152,7 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
             tgt = opnd_get_pc(instr_get_target(instr));
             DODEBUG({
                 freeze_info->num_cbr++;
-                /* FIXME: assumes 32-bit cbr! */
+                /* XXX: assumes 32-bit cbr! */
                 freeze_info->app_code_size += cbr_len;
                 freeze_info->added_fallthrough += 5;
                 is_cbr = true;
@@ -1166,12 +1166,12 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
         DODEBUG({
             if (!is_cbr) {
                 if (pc >= body + 5 && *(pc - 5) == 0x68) {
-                    /* FIXME: could be an app push immed followed by app jmp */
+                    /* XXX: could be an app push immed followed by app jmp */
                     /* call => push immed: same size, but adding jmp */
                     freeze_info->num_call++;
                     freeze_info->added_fallthrough += 5; /* jmp */
                 } else {
-                    /* FIXME: assumes 32-bit jmp! */
+                    /* XXX: assumes 32-bit jmp! */
                     freeze_info->app_code_size += 5;
                     freeze_info->num_jmp++;
                 }
@@ -1417,7 +1417,7 @@ coarse_merge_update_jmps(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
     cache_pc stop_pc = freeze_info->src_info->cache_end_pc;
     app_pc tgt;
     uint sz;
-    /* FIXME: share code w/ decode_fragment() and transfer_coarse_fragment() */
+    /* XXX: share code w/ decode_fragment() and transfer_coarse_fragment() */
     instr_t *instr;
     /* Since mucking with caches, though if thread-private not necessary */
     ASSERT(dynamo_all_threads_synched);
@@ -1543,7 +1543,7 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
     cache_pc dst_body = NULL, last_dst_body;
     cache_pc stop_pc = freeze_info->src_info->cache_end_pc;
     app_pc tag, fallthrough_tag = NULL, tgt = NULL;
-    /* FIXME: share code w/ decode_fragment() and transfer_coarse_fragment() */
+    /* XXX: share code w/ decode_fragment() and transfer_coarse_fragment() */
     instr_t *instr;
     /* stored targets for fixup */
     jmp_tgt_list_t *jmp_list = NULL;
@@ -1781,7 +1781,7 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
     }
 
     /* Second pass to update intra-cache targets.
-     * FIXME: combine w/ later coarse_unit_shift_jmps()
+     * XXX: combine w/ later coarse_unit_shift_jmps()
      */
     while (jmp_list != NULL) {
         jmp_tgt_list_t *next = jmp_list->next;
@@ -1790,7 +1790,7 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
         ASSERT(dst_body != NULL);
         LOG(THREAD, LOG_FRAGMENT, 4, "\tintra-cache dst -" PFX "->" PFX " tag " PFX "\n",
             jmp_list->jmp_end_pc, dst_body, tgt); /* tgt always set here */
-        /* FIXME: make 4 a named constant; used elsewhere as well */
+        /* XXX: make 4 a named constant; used elsewhere as well */
         insert_relative_target(jmp_list->jmp_end_pc - 4, dst_body, NOT_HOT_PATCHABLE);
         HEAP_TYPE_FREE(dcontext, jmp_list, jmp_tgt_list_t, ACCT_VMAREAS, PROTECTED);
         jmp_list = next;
@@ -1923,7 +1923,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
 
     /* Try to size the dst tables to avoid collision asserts.
      * Put the larger unit's entries into the dst table up front.
-     * FIXME: do this earlier and if one is a subset of other then do
+     * XXX: do this earlier and if one is a subset of other then do
      * a simpler merge?
      */
     fragment_coarse_htable_merge(dcontext, merged, src_lg, src_sm,
@@ -2053,7 +2053,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
         } while (pc < merged->stubs_end_pc);
     });
 
-    /* FIXME case 9687: mark cache as read-only */
+    /* XXX case 9687: mark cache as read-only */
 
     if (in_place) {
         coarse_incoming_t *e;
@@ -2194,7 +2194,7 @@ coarse_unit_check_persist_space(file_t fd_in /*OPTIONAL*/, size_t size_needed)
     if (fd != INVALID_FILE) {
         room = check_low_disk_threshold(fd, (uint64)size_needed);
         if (fd_in == INVALID_FILE) {
-            /* FIXME: cache the handle, combine with -validate_owner_dir */
+            /* XXX: cache the handle, combine with -validate_owner_dir */
             os_close(fd);
         }
     } else
@@ -2294,7 +2294,7 @@ get_persist_filename(char *filename /*OUT*/, uint filename_max /* max #chars */,
     }
 
     /* Prepend the perscache dir.  We assume it has already been created.
-     * FIXME: cache this, or better, cache the dir handle and use an
+     * XXX: cache this, or better, cache the dir handle and use an
      * os_open that can take it in.  Note that the directory handle
      * doesn't help us in Linux - we can neither open files relative to it,
      * nor there is any strong chown guarantee that we depend on.
@@ -2304,7 +2304,7 @@ get_persist_filename(char *filename /*OUT*/, uint filename_max /* max #chars */,
         return false;
     }
 
-    /* FIXME case 8494: version-independent names so we clobber files
+    /* XXX case 8494: version-independent names so we clobber files
      * from old versions of modules and have less need of stale file
      * cleanup?  If so should add in (hash of) full path (w/ volume)
      * to avoid name conflicts?  But if try to share across machines
@@ -2326,7 +2326,7 @@ get_persist_filename(char *filename /*OUT*/, uint filename_max /* max #chars */,
 
     if (DYNAMO_OPTION(persist_per_app)) {
         char *dirend = dir + strlen(dir);
-        /* FIXME case 9692: put tls offs instead of "dbg" here, and then
+        /* XXX case 9692: put tls offs instead of "dbg" here, and then
          * sqlservr can have its own set if it ends up w/ separate tls offs
          * (once we have non-per-app persisted files, that is).
          */
@@ -2345,7 +2345,7 @@ get_persist_filename(char *filename /*OUT*/, uint filename_max /* max #chars */,
                 LOG(GLOBAL, LOG_CACHE, 2, "\tcreated per-app dir %s\n", dir);
         }
     }
-    /* FIXME PR 214088/case 9653: should we put the section ordinal or vmarea range into
+    /* XXX PR 214088/case 9653: should we put the section ordinal or vmarea range into
      * the name to support simultaneous sub-module files?  If sections are
      * adjacent they'll be one vmarea, so this affects very few dlls.  For now
      * we only support one file per module.  We could also support multiple
@@ -2367,7 +2367,7 @@ get_persist_filename(char *filename /*OUT*/, uint filename_max /* max #chars */,
 }
 
 #if defined(DEBUG) && defined(INTERNAL)
-/* FIXME: share w/ aslr.c */
+/* XXX: share w/ aslr.c */
 static void
 print_module_digest(file_t f, module_digest_t *digest, const char *prefix)
 {
@@ -2430,7 +2430,7 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
     }
     if (TEST(PERSCACHE_MODULE_MD5_SHORT, validation_option)) {
         /* Examine only the image header and the footer (if non-writable)
-         * FIXME: if view_size < modsize, better to skip the footer than have it
+         * XXX: if view_size < modsize, better to skip the footer than have it
          * cover a data section?  Should be ok w/ PERSCACHE_MODULE_MD5_AT_LOAD.
          */
         module_calculate_digest(digest, modbase, view_size, false /* not full */,
@@ -2494,9 +2494,9 @@ persist_record_base_mismatch(app_pc modbase)
 #endif
 
 /* key is meant to be a short string to help identify the purpose of this name.
- * FIXME: right now up to caller to figure out if the name collided w/ an
+ * XXX: right now up to caller to figure out if the name collided w/ an
  * existing file; maybe this routine should do that and return a file handle?
- * FIXME: combine w/ get_unique_logfile, which handles file creation race?
+ * XXX: combine w/ get_unique_logfile, which handles file creation race?
  * As it is this is not mkstemp, and caller must use OS_OPEN_REQUIRE_NEW.
  */
 static void
@@ -2509,8 +2509,8 @@ get_unique_name(const char *origname, const char *key, char *filename /*OUT*/,
      * 2) case 9701: to rename the existing file before we replace it, as for
      * images or mmaps with file handles open we must rename before deleting.
      */
-    /* FIXME: should we use full 64-bit TSC instead of pseudo-random 32-bit?
-     * FIXME: if we make name w/ full path too long we'll truncate:
+    /* XXX: should we use full 64-bit TSC instead of pseudo-random 32-bit?
+     * XXX: if we make name w/ full path too long we'll truncate:
      * could cache dir handle and use relative name only.
      */
     /* update aslr_get_unique_wide_name() with any improvements here */
@@ -2520,7 +2520,7 @@ get_unique_name(const char *origname, const char *key, char *filename /*OUT*/,
              get_process_id(), timestamp, key);
     ASSERT_CURIOSITY(trunc > 0 && trunc < (int)filename_max &&
                      "perscache new name truncated");
-    /* FIXME: case 10677 file name truncation */
+    /* XXX: case 10677 file name truncation */
 
     filename[filename_max - 1] = '\0';
 }
@@ -2539,7 +2539,7 @@ coarse_unit_merge_with_disk(dcontext_t *dcontext, coarse_info_t *info,
     size_t existing_size;
     /* We may have already merged new code with an inuse persisted unit, so we
      * check the stored size of that one if info is not itself persisted.
-     * FIXME: we could store the file handle: can we tell if two file handles
+     * XXX: we could store the file handle: can we tell if two file handles
      * refer to the same file?
      */
     size_t inuse_size =
@@ -2556,10 +2556,10 @@ coarse_unit_merge_with_disk(dcontext_t *dcontext, coarse_info_t *info,
     /* Strategy: check current pcache file size (not perfect but good enough):
      *   if different from source size, or source was not persisted, then
      *   load in and merge.
-     *   FIXME case 10356: need a better check since can have false positive
+     *   XXX case 10356: need a better check since can have false positive
      *   and false negatives by only looking at size.
      * Could repeat, and could also check again after writing to tmp file but
-     * before renaming. FIXME: should we do those things to reduce the race
+     * before renaming. XXX: should we do those things to reduce the race
      * window where we lose another process's appended code?
      */
     if (!os_get_file_size(filename, &file_size)) {
@@ -2578,7 +2578,7 @@ coarse_unit_merge_with_disk(dcontext_t *dcontext, coarse_info_t *info,
      */
     if ((!info->persisted && info->persisted_source_mmap_size == 0 &&
          DYNAMO_OPTION(coarse_lone_merge)) ||
-        /* FIXME case 10356: need a better check since can have false positive
+        /* XXX case 10356: need a better check since can have false positive
          * and false negatives by only looking at size.
          */
         (existing_size != inuse_size && DYNAMO_OPTION(coarse_disk_merge))) {
@@ -2586,7 +2586,7 @@ coarse_unit_merge_with_disk(dcontext_t *dcontext, coarse_info_t *info,
                                       false /*not for execution*/);
         /* We rely on coarse_unit_load to reject incompatible pcaches, whether for
          * tls, trace support, or other reasons.  We do need to check the region
-         * here.  FIXME: once we support relocs we need to handle appropriately.
+         * here.  XXX: once we support relocs we need to handle appropriately.
          */
         if (merge_with != NULL) {
             LOG(THREAD, LOG_CACHE, 2, "  merging to-be-persisted %s with on-disk %s\n",
@@ -2609,7 +2609,7 @@ coarse_unit_merge_with_disk(dcontext_t *dcontext, coarse_info_t *info,
                         STATS_INC(coarse_merge_disk);
                 });
             } else {
-                /* FIXME case 10357: w/o -unsafe_ignore_IAT_writes
+                /* XXX case 10357: w/o -unsafe_ignore_IAT_writes
                  * we're going to see a lot
                  * of this w/ process-shared pcaches.  Should we abort
                  * the persist at this point to keep the small-region
@@ -2714,10 +2714,10 @@ coarse_unit_calculate_persist_info(dcontext_t *dcontext, coarse_info_t *info)
          * some have up to 5.  So we could hardcode a max length; instead
          * we have a separate pass to get the size.
          */
-        /* FIXME: we could include the image entry point to avoid flushing the
+        /* XXX: we could include the image entry point to avoid flushing the
          * whole exe, but that only happens when we inject into secondary thread.
          */
-        /* FIXME: when merging live with in-use-persisted we don't need to
+        /* XXX: when merging live with in-use-persisted we don't need to
          * re-calculate this and can just use the persisted array, since we would
          * have flushed the unit on any new hotp
          */
@@ -2890,7 +2890,7 @@ pad_persist_file(dcontext_t *dcontext, file_t fd, size_t bytes, coarse_info_t *i
     size_t towrite = bytes;
     size_t thiswrite;
     /* We don't have a handy page of zeros so we just write the cache start.
-     * FIXME: better to use file positions (just setting the size doesn't
+     * XXX: better to use file positions (just setting the size doesn't
      * advance the pointer): write_file() has win32 support.
      */
     ASSERT(fd != INVALID_FILE);
@@ -2931,7 +2931,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
 
     /* Take flags from info */
     pers->flags = info->flags;
-    /* FIXME: see above: should be set earlier */
+    /* XXX: see above: should be set earlier */
     pers->flags |= IF_X64_ELSE(PERSCACHE_X86_64, PERSCACHE_X86_32);
     if (option_level == OP_PCACHE_LOCAL) {
         ASSERT(option_string != NULL);
@@ -2986,7 +2986,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     x_offs += pers->hotp_patch_list_len;
 #endif
 
-    /* FIXME case 9581 NYI: need to add to coarse_unit_calculate_persist_info()
+    /* TODO case 9581 NYI: need to add to coarse_unit_calculate_persist_info()
      * and coarse_unit_merge_persist_info() as well.
      */
     pers->reloc_len = 0;
@@ -3117,7 +3117,7 @@ coarse_unit_persist_rename(dcontext_t *dcontext, const char *filename,
                     success = true;
                 else {
                     /* Race: someone beat us to the rename (or else no permissions).
-                     * FIXME: should we try again? */
+                     * XXX: should we try again? */
                     ASSERT_CURIOSITY(os_file_exists(filename, false /*!dir*/));
                     STATS_INC(persist_rename_race);
                     ASSERT(!success);
@@ -3210,7 +3210,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
 {
     coarse_persisted_info_t pers;
     persisted_footer_t footer;
-    /* FIXME: this is a lot of stack space: make static and serialize? */
+    /* XXX: this is a lot of stack space: make static and serialize? */
     char filename[MAXIMUM_PATH];
     char tmpname[MAXIMUM_PATH];
     char option_buf[MAX_PCACHE_OPTIONS_STRING];
@@ -3273,11 +3273,11 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
     }
     LOG(THREAD, LOG_CACHE, 1, "  persisted filename = %s\n", filename);
     /* Open the file before unlinking since may be common point of failure.
-     * FIXME: better to cache base dir handle and pass just name here
+     * XXX: better to cache base dir handle and pass just name here
      * and to os_{rename,delete_mapped}_file?  Would be win32-specific code.
      */
     if (!DYNAMO_OPTION(coarse_freeze_rename) && !DYNAMO_OPTION(coarse_freeze_clobber) &&
-        os_file_exists(filename, false /*FIXME: would like to check all*/)) {
+        os_file_exists(filename, false /*XXX: would like to check all*/)) {
         /* Check up front to avoid work */
         LOG(THREAD, LOG_CACHE, 1, "  will be unable to replace existing file %s\n",
             filename);
@@ -3301,7 +3301,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
                      /* case 10884: needed only for validate_owner_file */
                      OS_OPEN_FORCE_OWNER);
     if (fd == INVALID_FILE) {
-        /* FIXME: it's possible but unlikely that our name collided: should we
+        /* XXX: it's possible but unlikely that our name collided: should we
          * try again?
          */
         LOG(THREAD, LOG_CACHE, 1, "  unable to open temp file %s\n", tmpname);
@@ -3313,7 +3313,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         "persisted while impersonating?");
 
     created_temp = true;
-    /* FIXME case 9758: we could mmap the file: would that be more efficient?
+    /* XXX case 9758: we could mmap the file: would that be more efficient?
      * We could then more easily write each body section at the same
      * time as we calculate its size for the header, instead of linear
      * write order.  We could also pass file offsets to out-of-order writes.
@@ -3328,7 +3328,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
     if (!info->has_persist_info)
         coarse_unit_calculate_persist_info(dcontext, info);
     ASSERT(info->has_persist_info);
-    /* FIXME: the lock situation in all these routines is ugly: here we must
+    /* XXX: the lock situation in all these routines is ugly: here we must
      * release since coarse_unit_merge() will acquire.  Should we not grab any
      * info lock?  We're already relying on dynamo_all_threads_synched.
      */
@@ -3401,7 +3401,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
     }
 #endif
 
-    /* FIXME case 9581 NYI: write reloc section */
+    /* TODO case 9581 NYI: write reloc section */
 
 #ifdef RETURN_AFTER_CALL
     if (pers.rac_htable_len > 0) {
@@ -3458,7 +3458,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
     }
 
     /* Write the cache + stubs.  We omit the guard pages of course.
-     * FIXME: when freezing and persisting at once, more efficient to
+     * XXX: when freezing and persisting at once, more efficient to
      * make our cache+stubs mmap backed by the file from the start.
      */
     if (!write_persist_file(dcontext, fd, info->cache_start_pc,
@@ -3475,7 +3475,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         uint which = DYNAMO_OPTION(persist_gen_validation);
         size_t sz = 0;
         if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, DYNAMO_OPTION(persist_gen_validation))) {
-            /* FIXME if mmap up front (case 9758) don't need this mmap */
+            /* XXX if mmap up front (case 9758) don't need this mmap */
             sz = pers.header_len + pers.data_len - sizeof(persisted_footer_t);
             map = d_r_map_file(fd, &sz, 0, NULL, MEMPROT_READ,
                                /* won't change so save pagefile by not asking for COW */
@@ -3556,7 +3556,7 @@ persist_check_option_compat(dcontext_t *dcontext, coarse_persisted_info_t *pers,
         /* Bail out
          * WARNING: if we ever change our -tls_align default from 1 we should
          * consider implications on platform-independence of persisted caches.
-         * FIXME: should we have release-build notification so we can know
+         * XXX: should we have release-build notification so we can know
          * when we have problems here?
          */
         LOG(THREAD, LOG_CACHE, 1, "  tls offset mismatch %d vs persisted %d\n",
@@ -3601,7 +3601,7 @@ persist_check_option_compat(dcontext_t *dcontext, coarse_persisted_info_t *pers,
         if (strcmp(option_string, pers_options) != 0) {
             /* Incompatible options!  In many cases the pcache may be safe to
              * execute but we play it conservatively and don't delve deeper (case 9799).
-             * FIXME: put local options in name?!?
+             * XXX: put local options in name?!?
              */
             LOG(THREAD, LOG_CACHE, 1, "  error: options mismatch \"%s\" vs \"%s\"\n",
                 pers_options, option_string);
@@ -3805,7 +3805,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
     ASSERT_TRUNCATE(map_size, size_t, file_size);
     map_size = (size_t)file_size;
     LOG(THREAD, LOG_CACHE, 1, "  size of %s is " SZFMT "\n", filename, map_size);
-    /* FIXME case 9642: control where in address space we map the file:
+    /* XXX case 9642: control where in address space we map the file:
      * right after vmheap?  Randomized?
      */
     map = d_r_map_file(fd, &map_size, 0, NULL,
@@ -3853,7 +3853,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
     }
 
     if (pers->version != PERSISTENT_CACHE_VERSION) {
-        /* FIXME case 9655: should we clobber such a file when we persist? */
+        /* XXX case 9655: should we clobber such a file when we persist? */
         LOG(THREAD, LOG_CACHE, 1, "  invalid persisted file version %d for %s\n",
             pers->version, filename);
         STATS_INC(perscache_version_mismatch);
@@ -3935,7 +3935,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
                 modbase, pers->modinfo.base);
         } else {
 #endif
-            /* FIXME case 9581/9649: Bail out for now since relocs NYI
+            /* TODO case 9581/9649: Bail out for now since relocs NYI
              * Once we do support them, make sure to do the right thing when merging:
              * current code will always apply relocs before merging.
              */
@@ -3984,7 +3984,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
             map2_size);
         if (!DYNAMO_OPTION(persist_lock_file)) {
             fd = os_open(filename, OS_OPEN_READ | OS_EXECUTE | OS_SHARE_DELETE);
-            /* FIXME: case 10547 what do we know about this second
+            /* XXX: case 10547 what do we know about this second
              * file that we just opened?  Nothing guarantees it is
              * still the same one we used earlier.
              */
@@ -4015,7 +4015,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
                                 MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
                                 MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
                                     MAP_FILE_REACHABLE);
-            /* FIXME: try again if racy alloc and they both don't fit */
+            /* XXX: try again if racy alloc and they both don't fit */
             if (!DYNAMO_OPTION(persist_lock_file)) {
                 os_close(fd);
                 fd = INVALID_FILE;
@@ -4057,7 +4057,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
 
     info->flags = pers->flags;
 #if defined(RETURN_AFTER_CALL) && defined(WINDOWS)
-    /* FIXME: provide win32/ interface for setting the flag? */
+    /* XXX: provide win32/ interface for setting the flag? */
     if (TEST(PERSCACHE_SEEN_BORLAND_SEH, pers->flags) && !seen_Borland_SEH) {
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         seen_Borland_SEH = true;
@@ -4125,7 +4125,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
         ASSERT(ok);
         info->stubs_readonly = true;
     } else {
-        /* FIXME case 9650: we could mark the prefixes as read-only now, if we put them
+        /* XXX case 9650: we could mark the prefixes as read-only now, if we put them
          * on their own page
          */
     }
@@ -4210,7 +4210,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
 #endif
     }
 
-    /* FIXME case 9581 NYI: reloc section */
+    /* TODO case 9581 NYI: reloc section */
     if (offsetof(coarse_persisted_info_t, reloc_len) < pers->header_len) {
         pc -= pers->reloc_len;
     }
@@ -4219,7 +4219,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
     if (offsetof(coarse_persisted_info_t, hotp_patch_list_len) < pers->header_len) {
         /* Case 9995: store list of active patch points in perscache file and don't
          * abort if those are the only matching points at this time.
-         * FIXME if we had an efficient way to see if an app pc is present
+         * XXX if we had an efficient way to see if an app pc is present
          * in the pcache (case 9969) we could be more precise.
          */
         pc -= pers->hotp_patch_list_len;
@@ -4236,7 +4236,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
                                info->hotp_ppoint_vec, info->hotp_ppoint_vec_num)) {
         LOG(THREAD, LOG_CACHE, 1, "  error: hotp match prevents using persistence\n");
         STATS_INC(perscache_hotp_conflict);
-        /* FIXME: we could duplicate the calculation of info->hotp_ppoint_vec
+        /* XXX: we could duplicate the calculation of info->hotp_ppoint_vec
          * to detect this error before allocating info.  Instead we have to
          * free what we've created.  A bonus of waiting to detect the error
          * is that we've already loaded the RCT entries, which the error does
@@ -4266,7 +4266,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
     set_protection(rx_pc, rwx_pc - rx_pc, MEMPROT_READ | MEMPROT_EXEC);
     ASSERT(ok);
 
-    /* FIXME case 9648: don't forget to append a guard page -- but we
+    /* XXX case 9648: don't forget to append a guard page -- but we
      * should only need it if we fill up the full allocation region,
      * so on win32 we will get a free guard page whenever we're not
      * end-aligned to 64KB.

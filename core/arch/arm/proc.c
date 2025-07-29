@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,7 +55,7 @@ proc_init_arch(void)
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
     num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
 
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     /* all of the CPUID registers are only accessible in privileged modes
      * so we either need read /proc/cpuinfo or auxiliary vector provided by
      * the Linux kernel.
@@ -65,7 +65,7 @@ proc_init_arch(void)
 bool
 proc_has_feature(feature_bit_t f)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -181,14 +181,14 @@ proc_restore_fpstate(byte *buf)
 void
 dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void
 dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 

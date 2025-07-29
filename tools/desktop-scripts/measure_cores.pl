@@ -36,7 +36,7 @@
 # NOTE: setup the new core for qatest configuration, need to change this to
 #       use for a different config
 
-# FIXME: clean up hardcoded dir srini
+# XXX: clean up hardcoded dir srini
 #
 
 use strict;

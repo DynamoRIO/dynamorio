@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -173,7 +173,7 @@ uint
 patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 {
     /* all our exit cti's currently use 4 byte offsets */
-    /* FIXME : would be better to use a instr_is_cti_long or some such
+    /* XXX : would be better to use a instr_is_cti_long or some such
      * also should check for addr16 flag (we shouldn't have any prefixes) */
     ASSERT((instr_is_cti(inst) && !instr_is_cti_short(inst) &&
             !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN | PREFIX_PRED_MASK),
@@ -204,7 +204,7 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
         /* mov %rbx, gs:os_tls_offset(tls_offs) */
         if (reg == REG_XAX) {
             /* shorter to use 0xa3 w/ addr32 prefix than 0x89/0x8b w/ sib byte */
-            /* FIXME: PR 209709: test perf and remove if outweighs space */
+            /* XXX: PR 209709: test perf and remove if outweighs space */
             *pc = ADDR_PREFIX_OPCODE;
             pc++;
         }
@@ -228,7 +228,7 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
         if (shared) {
             /* mov %ebx, fs:os_tls_offset(tls_offs) */
             /* trying hard to keep the size of the stub 5 for eax, 6 else */
-            /* FIXME: case 5231 when staying on trace space is better,
+            /* XXX: case 5231 when staying on trace space is better,
              * when going through this to the IBL routine speed asks for
              * not adding the prefix.
              */
@@ -318,7 +318,7 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
 #ifdef WINDOWS
     if (DYNAMO_OPTION(shared_syscalls) &&
         is_shared_syscall_routine(dcontext, exit_target)) {
-        /* FIXME We could reduce mem usage by not allocating a linkstub for
+        /* XXX We could reduce mem usage by not allocating a linkstub for
          * this exit since it's never referenced.
          */
         LOG(THREAD, LOG_LINKS, 4, "\tF%d using %s shared syscalls link stub\n", f->id,
@@ -329,14 +329,14 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
     }
 #endif
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
-        /* FIXME: once we separate these we should switch to 15-byte w/
+        /* XXX: once we separate these we should switch to 15-byte w/
          * store-to-mem instead of in a spilled xbx, to use same
          * slots as coarse direct stubs
          */
         /* There is no linkstub_t so we store source tag instead */
         *((ptr_uint_t *)pc) = (ptr_uint_t)f->tag;
         pc += sizeof(f->tag);
-        /* FIXME: once we separate the indirect stubs out we will need
+        /* XXX: once we separate the indirect stubs out we will need
          * a 15-byte stub .  For that we should simply store the
          * source cti directly into a tls slot.  For now though we inline
          * the stubs and spill xbx.
@@ -519,7 +519,7 @@ insert_inlined_ibl(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, byte *pc,
                                linked_exit_target, NOT_HOT_PATCHABLE);
         insert_relative_target(
             start_pc + ibl_code->inline_unlink_offs +
-                1 /* skip jmp opcode: see emit_inline_ibl_stub FIXME */,
+                1 /* skip jmp opcode: see emit_inline_ibl_stub XXX */,
             unlinked_exit_target, NOT_HOT_PATCHABLE);
     }
 
@@ -633,7 +633,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
              */
             pc = vmcode_get_writable_addr(pc);
             /* addr16 mov <target>, fs:<dir-stub-spill> */
-            /* FIXME: PR 209709: test perf and remove if outweighs space */
+            /* XXX: PR 209709: test perf and remove if outweighs space */
             *pc = ADDR_PREFIX_OPCODE;
             pc++;
             *pc = TLS_SEG_OPCODE;
@@ -771,7 +771,7 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 #ifndef X64
             ASSERT(INTERNAL_OPTION(unsafe_ignore_eflags_trace));
 #endif
-            /* FIXME: share this code w/ common path below: 1 opcode byte vs 2 */
+            /* XXX: share this code w/ common path below: 1 opcode byte vs 2 */
             /* get absolute address of target */
             cur_target = (app_pc)PC_RELATIVE_TARGET(pc + 2);
             exit_target = get_linked_entry(dcontext, cur_target);
@@ -818,7 +818,7 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     if (!TEST(LINK_LINKED, l->flags)) {
         /* the unlink target is not always the start of the stub */
         stub -= linkstub_unlink_entry_offset(dcontext, f, l);
-        /* FIXME: for -no_indirect_stubs we could point exit cti directly
+        /* XXX: for -no_indirect_stubs we could point exit cti directly
          * at unlink ibl routine if we could find the stub target for
          * linking here...should consider storing stub pc for ind exits
          * for that case to save 5 bytes in the inlined stub
@@ -879,8 +879,8 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             shared_syscall_routine_ex(
                 dcontext _IF_X64(FRAGMENT_GENCODE_MODE(f->flags))) ||
 #endif
-        /* FIXME: for -no_indirect_stubs and inlined ibl, we'd like to directly
-         * target the unlinked ibl entry but we don't yet -- see FIXME in
+        /* XXX: for -no_indirect_stubs and inlined ibl, we'd like to directly
+         * target the unlinked ibl entry but we don't yet -- see XXX in
          * emit_inline_ibl_stub()
          */
         !ibl_code->ibl_head_is_inlined) {
@@ -947,7 +947,7 @@ entrance_stub_jmp(cache_pc stub)
 }
 
 /* Returns whether stub is an entrance stub as opposed to a fragment
- * or a coarse indirect stub.  FIXME: if we separate coarse indirect
+ * or a coarse indirect stub.  XXX: if we separate coarse indirect
  * stubs from bodies we'll need to put them somewhere else, or fix up
  * decode_fragment() to be able to distinguish them in some other way
  * like first instruction tls slot.
@@ -956,7 +956,7 @@ bool
 coarse_is_entrance_stub(cache_pc stub)
 {
     bool res = false;
-    /* FIXME: case 10334: pass in info and if non-NULL avoid lookup here? */
+    /* XXX: case 10334: pass in info and if non-NULL avoid lookup here? */
     coarse_info_t *info = get_stub_coarse_info(stub);
     if (info != NULL) {
         res = ALIGNED(stub, coarse_stub_alignment(info)) &&
@@ -989,7 +989,7 @@ coarse_is_entrance_stub(cache_pc stub)
  * if we need to restore just using sahf, and one if we also need to restore
  * the overflow flag OF.
  *
- * FIXME: currently we cache-align the prefix, not the normal
+ * XXX: currently we cache-align the prefix, not the normal
  * entry point...if prefix gets much longer, might want to add
  * nops to get normal entry cache-aligned?
  */
@@ -1006,7 +1006,7 @@ coarse_is_entrance_stub(cache_pc stub)
 #    define PREFIX_BASE(flags) \
         (RESTORE_XAX_PREFIX(flags) + FRAGMENT_BASE_PREFIX_SIZE(flags))
 #else
-/* FIXME i#1551: implement ibl and prefix support */
+/* XXX i#1551: implement ibl and prefix support */
 #    define RESTORE_XAX_PREFIX(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
 #    define PREFIX_BASE(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
 #endif
@@ -1314,7 +1314,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
      * to use movdqa when sse2 is available.
      * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
      */
-    /* FIXME i#438: once have SandyBridge processor need to measure
+    /* XXX i#438: once have SandyBridge processor need to measure
      * cost of vmovdqu and whether worth arranging 32-byte alignment
      */
     int i;
@@ -1576,7 +1576,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
      * to use movdqa when sse2 is available.
      * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
      */
-    /* FIXME i#438: once have SandyBridge processor need to measure
+    /* XXX i#438: once have SandyBridge processor need to measure
      * cost of vmovdqu and whether worth arranging 32-byte alignment
      */
     int i;
@@ -1635,7 +1635,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  SAVE_TO_UPCONTEXT %xbx,xflags_OFFSET # save eflags value
  *
  *  # clear eflags now to avoid app's eflags messing up our ENTER_DR_HOOK
- *  # FIXME: this won't work at CPL0 if we ever run there!
+ *  # XXX: this won't work at CPL0 if we ever run there!
  *  push  0
  *  popf
  */
@@ -1647,7 +1647,7 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
     APP(ilist, INSTR_CREATE_RAW_pushf(dcontext));
     APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(reg)));
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif /* X86/ARM */
     APP(ilist, SAVE_TO_DC(dcontext, reg, XFLAGS_OFFSET));
@@ -1779,10 +1779,10 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uin
         PRE(ilist, where, SAVE_TO_REG(dcontext, REG_XAX, REG_R8));
     } else if (tls) {
         /* We need to save this in an easy location for the prefixes
-         * to restore from.  FIXME: This can be much more streamlined
+         * to restore from.  XXX: This can be much more streamlined
          * if TLS_SLOT_SCRATCH1 was the XAX spill slot for everyone
          */
-        /* FIXME: since the prefixes are trying to be smart now
+        /* XXX: since the prefixes are trying to be smart now
          * based on shared/privateness of the fragment, we also need
          * to know what would the target do if shared.
          */
@@ -2029,19 +2029,19 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
             hash_to_address_factor = (uint)sizeof(fragment_entry_t) /
                 (1 << HASHTABLE_IBL_OFFSET(ibl_code->branch_type));
         } else {
-            /* FIXME: we'll need to shift right a few more bits */
+            /* XXX: we'll need to shift right a few more bits */
             /* >>>   shrl  factor-3, %xcx */
             ASSERT_NOT_IMPLEMENTED(false);
             hash_to_address_factor = 1;
         }
-        /* FIXME: there is no good way to ASSERT that the table we're looking up
+        /* XXX: there is no good way to ASSERT that the table we're looking up
          * is using the correct hash_mask_offset
          */
 
-        /* FIXME: case 4893: three ADD's are faster than one LEA - if IBL
+        /* XXX: case 4893: three ADD's are faster than one LEA - if IBL
          * head is not inlined we may want to try that advice
          */
-        /* FIXME: case 4893 when hash_mask_offset==3 we can use a better encoding
+        /* XXX: case 4893 when hash_mask_offset==3 we can use a better encoding
          * since we don't need an index register we can switch to a non-SIB encoding
          * so that instead of 7 bytes we have 6 byte encoding going through the fast
          * decoder
@@ -2187,7 +2187,7 @@ emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
 
     /* initialize the ilist and the patch list */
     instrlist_init(&ilist);
-    /* FIXME: for !absolute need to optimize to PATCH_TYPE_INDIRECT_FS */
+    /* XXX: for !absolute need to optimize to PATCH_TYPE_INDIRECT_FS */
     init_patch_list(patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_XDI);
 
     /*
@@ -2278,7 +2278,7 @@ miss:
         append_ibl_head(dcontext, &ilist, ibl_code, patch, NULL, &cmp, NULL,
                         opnd_create_pc(linked_ibl_pc), false /*miss needs 32-bit offs*/,
                         target_trace_table, true /* inline of course */);
-        /* FIXME: we'd like to not have this jmp at all and instead have the cti
+        /* XXX: we'd like to not have this jmp at all and instead have the cti
          * go to the inlined stub when linked and straight to the unlinked ibl
          * entry when unlinked but we haven't put in the support in the link
          * routines (they all assume they can find the unlinked from the current
@@ -2286,7 +2286,7 @@ miss:
          */
         unlink = INSTR_CREATE_jmp(dcontext, opnd_create_pc(unlinked_ibl_pc));
         APP(&ilist, unlink);
-        /* FIXME: w/ private traces and htable stats we have a patch entry
+        /* XXX: w/ private traces and htable stats we have a patch entry
          * inserted inside app_ibl_head (in append_ibl_found) at a later instr
          * than the miss instr.  To fix, we must either put the miss patch point
          * in the middle of the array and shift it over to keep it sorted, or
@@ -2296,11 +2296,11 @@ miss:
 #ifdef HASHTABLE_STATISTICS
         ASSERT_NOT_IMPLEMENTED(!absolute || !INTERNAL_OPTION(hashtable_ibl_stats));
 #endif
-        /* FIXME: cleaner to have append_ibl_head pass back miss instr */
+        /* XXX: cleaner to have append_ibl_head pass back miss instr */
         add_patch_marker(patch, instr_get_next(cmp), PATCH_UINT_SIZED /* pc relative */,
                          2 /* skip jne opcode */,
                          (ptr_uint_t *)&ibl_code->inline_linkedjmp_offs);
-        /* FIXME: we would add a patch for inline_unlinkedjmp_offs at unlink+1,
+        /* XXX: we would add a patch for inline_unlinkedjmp_offs at unlink+1,
          * but encode_with_patch_list asserts, wanting 1 patch per instr, in order
          */
         add_patch_marker(patch, unlink, PATCH_UINT_SIZED /* pc relative */,
@@ -2315,7 +2315,7 @@ miss:
     return pc + ibl_code->inline_stub_length;
 }
 
-/* FIXME: case 5232 where this should really be smart -
+/* XXX: case 5232 where this should really be smart -
  * for now always using jmp rel32 with statistics
  *
  * Use with caution where jmp_short would really work in release - no
@@ -2487,7 +2487,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     }
 
     /*>>>    je      sentinel_check                                  */
-    /* FIXME: je_short ends up not reaching target for shared inline! */
+    /* XXX: je_short ends up not reaching target for shared inline! */
     APP(&ilist,
         INSTR_CREATE_jcc(dcontext, OP_je_short, opnd_create_instr(sentinel_check)));
 
@@ -2616,7 +2616,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         }
 
         /*>>>    jmp    compare_tag                                 */
-        /* FIXME: should fit in a jmp_short for release builds */
+        /* XXX: should fit in a jmp_short for release builds */
         /* case 5232: use INSTR_CREATE_jmp_smart here */
         APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(compare_tag)));
     }
@@ -2709,7 +2709,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
         }
     } /* else later will fill in fake linkstub anyway.
-       * FIXME: for -no_indirect_stubs, is this source of add_ibl curiosities on IIS?
+       * XXX: for -no_indirect_stubs, is this source of add_ibl curiosities on IIS?
        * but one at least was a post-syscall!
        */
 
@@ -2837,7 +2837,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         insert_shared_get_dcontext(dcontext, &ilist, NULL, true /* save register */);
     }
     /* note we are now saving XAX to the dcontext - no matter where it
-     * was saved before for saving and restoring eflags.  FIXME: in
+     * was saved before for saving and restoring eflags.  XXX: in
      * some incarnations of this routine it is redundant, yet this is
      * the slow path anyways
      */
@@ -2848,7 +2848,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     /*   app XBX is properly restored  */
     /*   XAX gets the linkstub_ptr */
     /*   app XAX is saved in slot1 */
-    /* FIXME: this all can be cleaned up at the cost of an extra byte in
+    /* XXX: this all can be cleaned up at the cost of an extra byte in
        direct exit stubs to use XBX */
 
     if (ibl_code->source_fragment_type == IBL_COARSE_SHARED) {
@@ -3026,7 +3026,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
                              0 /* beginning of instruction */,
                              (ptr_uint_t *)&ibl_code->unlinked_ibl_entry);
-            /* FIXME: for x64 -thread_private we enter here from trace,
+            /* XXX: for x64 -thread_private we enter here from trace,
              * and not from top of ibl, so we must save xdi.  Is this true
              * for all cases of only_spill_state_in_tls with !save_xdi?
              * Maybe should be saved in append_increment_counter's call to

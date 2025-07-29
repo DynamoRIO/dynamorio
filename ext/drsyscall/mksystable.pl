@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+# Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
 # Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -283,11 +283,11 @@ while (<STDIN>) {
                         # xcount requires additional handling done manually
                         # so far only seen in NtGdiExtTextOutW
                         $arg_ecount[$argnum] = 1;
-                        $arg_comment[$argnum] .= '/*FIXME size can be larger*/';
+                        $arg_comment[$argnum] .= '/*XXX size can be larger*/';
                     } elsif ($a =~ /^post/) {
                         # the buffer size is unknown at pre time: supposed to
                         # call twice, first w/ NULL buffer to get required size.
-                        $arg_comment[$argnum] .= '/*FIXME pre size from prior syscall ret*/';
+                        $arg_comment[$argnum] .= '/*XXX pre size from prior syscall ret*/';
                     } elsif ($a =~ /^deref/) {
                         # XXX: this one I don't quite get: it's used on things
                         # that look like regular OUT vars to me.
@@ -374,7 +374,7 @@ while (<STDIN>) {
             $type !~ /_INFORMATION_CLASS/ &&
             !defined($ptypes{$type});
         if ($name eq 'NtVdmControl' && $arg_var[$i] eq 'ServiceData') {
-            # FIXME: ServiceData arg to NtVdmControl in Metasploit is IN OUT
+            # XXX: ServiceData arg to NtVdmControl in Metasploit is IN OUT
             # but we don't know size so we ignore its OUT and hope we
             # never see it
         } elsif ($all_params || $param_in_memory) {
@@ -409,7 +409,7 @@ while (<STDIN>) {
                 }
                 if ($cap eq 'return') {
                     $cap = 0;
-                    $arg_comment[$i] .= "/*FIXME size from retval so earlier call*/";
+                    $arg_comment[$i] .= "/*XXX size from retval so earlier call*/";
                 }
                 if ($cap =~ /^\*/) {
                     $cap =~ s/^\*//;

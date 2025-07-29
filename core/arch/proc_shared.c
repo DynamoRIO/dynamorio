@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +57,7 @@
 #endif
 
 /* cache_line_size is exported for efficient access.
- * FIXME: In case the processor doesn't support the
+ * XXX: In case the processor doesn't support the
  * cpuid instruction, use a default value of 32.
  * (see case 463 for discussion)
  */
@@ -189,7 +189,7 @@ proc_get_type(void)
     return cpu_info.type;
 }
 
-/* FIXME: Add MODEL_ constants to proc.h?? */
+/* XXX: Add MODEL_ constants to proc.h?? */
 uint
 proc_get_model(void)
 {
@@ -285,7 +285,7 @@ proc_bump_to_end_of_cache_line(ptr_uint_t sz)
     return ((sz + cache_line_size) & ~mask);
 }
 
-/* yes same result as PAGE_START...FIXME: get rid of one of them? */
+/* yes same result as PAGE_START...XXX: get rid of one of them? */
 void *
 proc_get_containing_page(void *addr)
 {

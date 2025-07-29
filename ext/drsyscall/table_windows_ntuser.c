@@ -46,14 +46,14 @@
  * When we try to find the wrapper via symbol lookup we try with
  * and without the prefix.
  *
- * Unresolved issues are marked w/ FIXME in the table.
+ * Unresolved issues are marked w/ XXX in the table.
  */
 
-/* FIXME i#1089: fill in info on all the inlined args for all of
+/* XXX i#1089: fill in info on all the inlined args for all of
  * syscalls in this file.
  */
 
-/* FIXME i#1093: figure out the failure codes for all the int and uint return values */
+/* XXX i#1093: figure out the failure codes for all the int and uint return values */
 
 extern drsys_sysnum_t sysnum_UserSystemParametersInfo;
 extern drsys_sysnum_t sysnum_UserMenuInfo;
@@ -1258,7 +1258,7 @@ syscall_info_t syscall_user32_info[] = {
           { 2, sizeof(DWORD), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
           { 3, sizeof(DWORD), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
       } },
-    /* FIXME i#487: 1st param is OUT but shape is unknown. 2nd param seems to be an
+    /* XXX i#487: 1st param is OUT but shape is unknown. 2nd param seems to be an
      * info class, but not fully known.
      */
     { { 0, 0 },
@@ -1500,7 +1500,7 @@ syscall_info_t syscall_user32_info[] = {
           { 1, sizeof(UINT), SYSARG_NON_MEMARG, DRSYS_TYPE_UNSIGNED_INT },
           { 2, sizeof(UINT), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
       },
-      /*special-cased; FIXME: i#485: see handler*/ &sysnum_UserGetRawInputBuffer },
+      /*special-cased; XXX: i#485: see handler*/ &sysnum_UserGetRawInputBuffer },
     { { 0, 0 },
       "NtUserGetRawInputData",
       OK,
@@ -1717,7 +1717,7 @@ syscall_info_t syscall_user32_info[] = {
           { 1, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
           { 2, sizeof(HANDLE), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
       } },
-    /* FIXME i#487: not sure whether these are arrays and if so how long they are */
+    /* XXX i#487: not sure whether these are arrays and if so how long they are */
     { { 0, 0 },
       "NtUserInitializeClientPfnArrays",
       UNKNOWN,
@@ -2101,7 +2101,7 @@ syscall_info_t syscall_user32_info[] = {
           { 1, sizeof(HDC), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
           { 2, sizeof(UINT), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
       } },
-    /* FIXME i#487: lots of pointers inside USERCONNECT */
+    /* XXX i#487: lots of pointers inside USERCONNECT */
     { { 0, 0 },
       "NtUserProcessConnect",
       UNKNOWN,
@@ -2340,7 +2340,7 @@ syscall_info_t syscall_user32_info[] = {
       {
           { 0, sizeof(DWORD), SYSARG_INLINED, DRSYS_TYPE_UNSIGNED_INT },
       } },
-    /* FIXME i#487: not sure whether #2 is in or out */
+    /* XXX i#487: not sure whether #2 is in or out */
     { { 0, 0 },
       "NtUserSBGetParms",
       OK,
@@ -3101,7 +3101,7 @@ syscall_info_t syscall_user32_info[] = {
       {
           { 0, sizeof(HWINSTA), SYSARG_INLINED, DRSYS_TYPE_HANDLE },
       } },
-    /* FIXME i#487: CLSMENUNAME format is not fully known */
+    /* XXX i#487: CLSMENUNAME format is not fully known */
     { { 0, 0 },
       "NtUserUnregisterClass",
       UNKNOWN,
@@ -3296,7 +3296,7 @@ syscall_info_t syscall_user32_info[] = {
       } },
 
     /***************************************************/
-    /* FIXME i#1095: fill in the unknown info, esp Vista+ */
+    /* XXX i#1095: fill in the unknown info, esp Vista+ */
     {
         { 0, 0 },
         "NtUserCallUserpExitWindowsEx",
@@ -3815,7 +3815,7 @@ syscall_info_t syscall_user32_info[] = {
 
     /***************************************************/
     /* Added in Win8 */
-    /* FIXME i#1153: fill in details */
+    /* XXX i#1153: fill in details */
     {
         { WIN8, 0 },
         "NtUserAcquireIAMKey",
@@ -4387,7 +4387,7 @@ syscall_info_t syscall_user32_info[] = {
 
     /***************************************************/
     /* Added in Windows 8.1 */
-    /* FIXME i#1360: fill in details */
+    /* XXX i#1360: fill in details */
     {
         { WIN81, 0 },
         "NtUserClearForeground",
@@ -4538,7 +4538,7 @@ syscall_info_t syscall_user32_info[] = {
 
     /***************************************************/
     /* Added in Windows 10 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN10, 0 },
         "NtCreateImplicitCompositionInputSink",
@@ -4911,7 +4911,7 @@ syscall_info_t syscall_user32_info[] = {
         9,
     },
     /* Added in Windows 10 1511 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN11, 0 },
         "NtCompositionSetDropTarget",
@@ -4948,7 +4948,7 @@ syscall_info_t syscall_user32_info[] = {
         1,
     },
     /* Added in Windows 10 1607 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN12, 0 },
         "NtDCompositionProcessChannelBatchBuffer",
@@ -5090,7 +5090,7 @@ syscall_info_t syscall_user32_info[] = {
         1,
     },
     /* Added in Windows 10 1703 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN13, 0 },
         "NtDCompositionCommitSynchronizationObject",
@@ -5386,7 +5386,7 @@ syscall_info_t syscall_user32_info[] = {
         DRSYS_TYPE_UNKNOWN,
     },
     /* Added in Windows 10 1709 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN14, 0 },
         "NtDWMBindCursorToOutputConfig",
@@ -5532,7 +5532,7 @@ syscall_info_t syscall_user32_info[] = {
         DRSYS_TYPE_UNKNOWN,
     },
     /* Added in Windows 10 1803 */
-    /* FIXME i#1750: fill in details */
+    /* XXX i#1750: fill in details */
     {
         { WIN15, 0 },
         "NtCloseCompositionInputSink",

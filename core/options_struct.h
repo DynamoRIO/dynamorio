@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,7 +64,7 @@ typedef enum {
     /* If set, app action (i.e., bad behavior) is disallowed and remediation
      * action (kill thread, kill process, throw exception) is performed.
      * Note: detect_mode will override this flag.
-     * FIXME: app_thread_policy_helper seems to be the one place where
+     * XXX: app_thread_policy_helper seems to be the one place where
      * detect_mode doesn't override this; case 9088 tracks this; xref case 8451
      * for an explanation of why this seemed to leave as such.
      */
@@ -142,7 +142,7 @@ typedef enum {
  * In order for this to work optionsx.h strings must either be EMPTY_STRING or
  * a string in the OPTION_STRING() macro.
  * N.B.: for 64-bit presumably every enum value is 64-bit-wide b/c some
- * of them are.  FIXME: could split up the enums to save space: or are we
+ * of them are.  XXX: could split up the enums to save space: or are we
  * never actually storing these values?
  */
 #define OPTION_STRING(x) 0 /* no string in enum */

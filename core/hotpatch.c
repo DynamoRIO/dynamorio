@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -377,14 +377,14 @@ typedef enum {
     HOTP_TYPE_HOT_PATCH = 0x1,
 
     /* This represents all gbop hook points.  This type is different in that it:
-     * 1. Isn't specified by a config file; well not as of now (FIXME?),
-     * 2. Is specified by gbop_hooks and/or gbop_include_list (FIXME: NYI),
-     * 3. Can't be turned off by modes file; will not as of now (FIXME?),
-     * 4. Can be turned of by gbop_exclude_list (FIXME: NYI),
+     * 1. Isn't specified by a config file; well not as of now (XXX?),
+     * 2. Is specified by gbop_hooks and/or gbop_include_list (TODO: NYI),
+     * 3. Can't be turned off by modes file; will not as of now (XXX?),
+     * 4. Can be turned of by gbop_exclude_list (TODO: NYI),
      * 5. Uses a symbolic name rather than identifying the PE uniquely,
      * 6. Has a generic detector and protector which is part of the core, and,
      * 7. Uses the core defaults for events, actions, dumps & forensics
-     *      (FIXME: NYI).
+     *      (TODO: NYI).
      */
     HOTP_TYPE_GBOP_HOOK = 0x2,
 
@@ -427,7 +427,7 @@ typedef struct {
      *       thousands in number
      */
 
-    /* FIXME: right now this isn't specified by the config file because
+    /* XXX: right now this isn't specified by the config file because
      * config files are assumed to define only hotpatches.  Also, gbop_hooks
      * are added to the table by a different routine, so there is no room
      * for ambiguity.  If we decide to use the config file for all, then
@@ -449,7 +449,7 @@ typedef struct {
  * time.  Nudge for policy reading creates new tables.  The old ones should
  * be left alone so that races between hot patch execution and table freeing
  * are avoided (case 5521).  All such tables are freed during DR exit.
- * FIXME: Release tables using a ref_count in case there are many & memory usage
+ * XXX: Release tables using a ref_count in case there are many & memory usage
  *        is high.  It is highly unlikely that a given process will get more
  *        than a couple of policy read nudges during its lifetime.
  *        memory usage issue not correctness one, work on it after beta.
@@ -533,7 +533,7 @@ typedef struct hotp_globals_t {
                 goto error_reading_policy; /* Parse error. */                           \
         }
 
-/* FIXME: range check strs for min & max length; null check already done. */
+/* XXX: range check strs for min & max length; null check already done. */
 #    define SET_STR_DUP(var, input_ptr)                         \
         {                                                       \
             char *str = hotp_get_next_str(&(input_ptr));        \
@@ -624,7 +624,7 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls);
 
 hotp_policy_status_table_t *hotp_policy_status_table;
 
-/* FIXME: create hotp_vul_table_t and put these three into it */
+/* XXX: create hotp_vul_table_t and put these three into it */
 static hotp_vul_t *hotp_vul_table;
 static uint hotp_num_vuls;
 static hotp_vul_tab_t *hotp_old_vul_tabs;
@@ -957,12 +957,12 @@ hotp_read_policy_defs(uint *num_vuls_read)
                                   ACCT_HOT_PATCHING, PROTECTED, 0);
 
     for (vul = 0; vul < num_vuls; vul++) {
-        /* FIXME: bounds checking; length should be > 2 && < 32; not null */
+        /* XXX: bounds checking; length should be > 2 && < 32; not null */
         SET_STR(VUL(tab, vul).vul_id, start);
         SET_STR(VUL(tab, vul).policy_id, start);
         SET_NUM(VUL(tab, vul).policy_version, uint, POLICY_VERSION, start);
 
-        /* FIXME: strdup strings because the buffer/mapped file will be deleted
+        /* XXX: strdup strings because the buffer/mapped file will be deleted
          *        after processing; don't use strdup though!
          *        works right now till the next time I read in a policy file
          *        into buf[]; if that read fails the old data will be corrupt!
@@ -1069,7 +1069,7 @@ error_reading_policy:
     SYSLOG_INTERNAL_WARNING("Error reading or parsing hot patch definitions");
     /* Need this curiosity to make qa notice; the warning is handy for
      * development testing only.  No hot patching on Linux, so don't assert.
-     * FIXME: Convert to assert after case 9066 has been fixed & tested.
+     * XXX: Convert to assert after case 9066 has been fixed & tested.
      * Note: Warn for missing file, but assert for parsing error; latter is
      * bug, former may just be a hotpatch-less installation - mostly coredev.
      */
@@ -1203,7 +1203,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
              *       error exit mechanism while reading polcy-{defs,modes}.
              */
 
-            /* FIXME: currently our loadlibrary hits our own syscall_while_native
+            /* XXX: currently our loadlibrary hits our own syscall_while_native
              * hook and goes to d_r_dispatch, which expects protected data sections.
              * Once we have our own loader we can remove this.
              */
@@ -1808,7 +1808,7 @@ hotp_module_match(const hotp_module_t *module, const app_pc base, const uint che
             return false;
         } else if (IF_UNIX_ELSE(strncmp, strncasecmp)(module->sig.pe_name, name,
                                                       MAXIMUM_PATH) == 0) {
-            /* FIXME: strcmp() is faster than the ignore case version,
+            /* XXX: strcmp() is faster than the ignore case version,
              * but we shouldn't rely on the PE name case to be the
              * same in all versions of Windows.
              */
@@ -1823,7 +1823,7 @@ hotp_module_match(const hotp_module_t *module, const app_pc base, const uint che
      * First stage check: PE timestamp, PE checksum, PE code_size, PE file
      * version & PE name, i.e., signature match.
      *
-     * FIXME: Today error handling of PE parsing is not done by the core, so
+     * XXX: Today error handling of PE parsing is not done by the core, so
      * unavailability of an attribute isn't recorded.  Thus IGNORE and
      * UNAVAILABLE are treated the same for module matching.  When the core can
      * handle it the UNAVAILABLE part should be removed from the checks, and
@@ -1926,7 +1926,7 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
 
         /* Now, for each vmarea that overlaps, copy the original image bytes
          * into the buffer.
-         * FIXME: we do a linear walk as opposed to walking over only those
+         * XXX: we do a linear walk as opposed to walking over only those
          *  regions that overlap, ineffcient; see case 8211 about a new
          *  vmvector iterator that walks over only overlapping regions.
          */
@@ -2007,7 +2007,7 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
                  */
                 memcpy(dst, src, HOTP_PATCH_REGION_SIZE);
             }
-            /* FIXME: if the iterator guaranteed order, we can break out after
+            /* XXX: if the iterator guaranteed order, we can break out after
              *  the first non-match - optimization.
              */
         }
@@ -2128,7 +2128,7 @@ hotp_perscache_overlap(uint vul, uint set, uint module, app_pc base, size_t imag
  * The same holds good for removal, but today that isn't an
  * issue because loader safety uses hotp_remove_patches_from_module() to do
  * it, which doesn't modify ppoint areas.
- * FIXME: once hotp_inject_patches_into_module() is implemented
+ * XXX: once hotp_inject_patches_into_module() is implemented
  * based on loaded_module_areas and used in hotp_only_mem_prot_change() instead
  * of hotp_process_image_helper, this can go.
  */
@@ -2165,7 +2165,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
         return;
 #    ifdef WINDOWS
     if (num_threads == 0 && !just_check && DYNAMO_OPTION(hotp_only)) {
-        /* FIXME PR 225578: dr_register_probes passes 0 for the thread count
+        /* XXX PR 225578: dr_register_probes passes 0 for the thread count
          * b/c post-init probes are NYI: but to enable at-your-own risk probes
          * relaxing the assert
          */
@@ -2201,9 +2201,9 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
         ASSERT(needs_processing == NULL);
 
     /* get module information from PE once (case 7990) */
-    /* FIXME: once all pe information is available in loaded_module_areas, use
+    /* XXX: once all pe information is available in loaded_module_areas, use
      *        that here
-     * FIXME: file_version is obtained by walking the resouce section which is expensive;
+     * XXX: file_version is obtained by walking the resouce section which is expensive;
      *        the same is true for code_size to some extent, i.e., expensive but not
      *        that much.  So we may be better off by computing them in separate routines
      *        predicated by the first check - and put all these into hotp_get_module_sig()
@@ -2211,7 +2211,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
     os_get_module_info_lock();
     if (!os_get_module_info_all_names(base, &checksum, &timestamp, &image_size, &names,
                                       &code_size, &file_version)) {
-        /* FIXME: case 9778 - module info is now obtained from
+        /* XXX: case 9778 - module info is now obtained from
          * loaded_module_areas vector, which doesn't seem to have hotp dll
          * info, so we hit this.  As a first step this is converted to a log
          * to make tests work;  will have to read it from pe directly (using
@@ -2227,7 +2227,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
          * for liveshields, but not for gbop or probe api - they just specify a
          * module name, so we have to use any name that is available.  Note: as
          * of today, gbop hasn't been done on executables, which is why it
-         * worked - it is broken for hooks in exes - a FIXME, but gbop is going
+         * worked - it is broken for hooks in exes - a XXX, but gbop is going
          * away anyway. */
         pe_name = dr_strdup(names->module_name HEAPACCT(ACCT_HOT_PATCHING));
         mod_name = dr_strdup(GET_MODULE_NAME(names) HEAPACCT(ACCT_HOT_PATCHING));
@@ -2275,20 +2275,20 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
     /* TODO: assert that 'base' is the module's base address,
      *       get_dll_short_name() expects this; will be used for sig check
      *       use the fn() that gets only what is in the PE
-     * FIXME: eliminate this n^4 loop for each module {load,unload}; case 10683
+     * XXX: eliminate this n^4 loop for each module {load,unload}; case 10683
      */
     for (vul_idx = 0; vul_idx < NUM_GLOBAL_VULS; vul_idx++) {
         bool set_matched = false;
 
         if (TESTALL(HOTP_TYPE_PROBE, GLOBAL_VUL(vul_idx).type)
                 IF_GBOP(|| (TESTALL(HOTP_TYPE_GBOP_HOOK, GLOBAL_VUL(vul_idx).type)))) {
-            /* FIXME PR 533522: state in the docs/comments which name is
+            /* XXX PR 533522: state in the docs/comments which name is
              * used where!  pe_name vs mod_name
              */
             name = mod_name;
         } else {
             ASSERT(TESTALL(HOTP_TYPE_HOT_PATCH, GLOBAL_VUL(vul_idx).type));
-            /* FIXME PR 533522: state in the docs/comments which name is
+            /* XXX PR 533522: state in the docs/comments which name is
              * used where!  pe_name vs mod_name
              */
             name = pe_name;
@@ -2371,7 +2371,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                         file_version, name, GLOBAL_VUL(vul_idx).type));
                 }
 
-                /* FIXME: there's no reason to compute whether an OFF patch
+                /* XXX: there's no reason to compute whether an OFF patch
                  * matches; just wasted cycles, as we come back here on
                  * any path that later turns the patch on, and no external
                  * stats rely on knowing whether an off patch matches.
@@ -2433,7 +2433,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                          * patching will blow up.
                          */
                         if (TESTALL(HOTP_TYPE_GBOP_HOOK, GLOBAL_VUL(vul_idx).type)) {
-                            /* FIXME: assert on all patch point fields being 0,
+                            /* XXX: assert on all patch point fields being 0,
                              * except precedence.
                              * also, ASSERT on func_addr & func_name;
                              */
@@ -2527,7 +2527,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
              */
             vmvector_add(toflush, base, base + image_size, NULL);
             STATS_INC(hotp_persist_flush);
-            /* FIXME: we could eliminate this and rely on our later flush of the
+            /* XXX: we could eliminate this and rely on our later flush of the
              * patch area, as we're only coming here for nudges; we technically
              * only need an explicit check when loading a perscache, as long as
              * hotp defs are set up first.
@@ -2574,14 +2574,14 @@ hotp_patch_point_persist_helper(const app_pc start, const app_pc end, app_rva_t 
 {
     uint num_ppoints = 0;
     uint vul, set, module, pp;
-    /* FIXME: check [start,end) instead of module */
+    /* XXX: check [start,end) instead of module */
     app_pc modbase = get_module_base(start);
     ASSERT(modbase == get_module_base(end));
     ASSERT(start != NULL); /* only support single module for now */
     ASSERT_OWN_READ_LOCK(true, &hotp_vul_table_lock);
     if (GLOBAL_VUL_TABLE == NULL)
         return 0;
-    /* FIXME: once hotp_patch_point_areas is not just hotp_only, use it here */
+    /* XXX: once hotp_patch_point_areas is not just hotp_only, use it here */
     for (vul = 0; vul < NUM_GLOBAL_VULS; vul++) {
         bool set_processed = false;
 
@@ -2654,7 +2654,7 @@ hotp_point_not_on_list(const app_pc start, const app_pc end, bool own_hot_patch_
      */
     bool not_on_list = false;
     uint vul, set, module, pp;
-    /* FIXME: check [start,end) instead of module */
+    /* XXX: check [start,end) instead of module */
     app_pc modbase = get_module_base(start);
     DEBUG_DECLARE(bool matched = false;)
     ASSERT(modbase == get_module_base(end));
@@ -2663,7 +2663,7 @@ hotp_point_not_on_list(const app_pc start, const app_pc end, bool own_hot_patch_
     ASSERT_OWN_READWRITE_LOCK(true, &hotp_vul_table_lock);
     if (GLOBAL_VUL_TABLE == NULL)
         goto hotp_policy_list_exit;
-    /* FIXME: I would make an iterator to share w/ patch_point_persist_helper but
+    /* XXX: I would make an iterator to share w/ patch_point_persist_helper but
      * this many-nested loop lookup should go away in general ASAP and be
      * replaced w/ hotp_patch_point_areas which is currently only hotp_only.
      */
@@ -3012,7 +3012,7 @@ nudge_action_read_policies(void)
          * is now done without the hotp_vul_table_lock.  Then the vul table
          * lock is grabbed (see below) and the global table is setup.
          *
-         * FIXME: The longer term solution is to have our own loader to
+         * XXX: The longer term solution is to have our own loader to
          * load hot patch dlls.
          */
         hotp_load_hotp_dlls(new_vul_table, num_new_vuls);
@@ -3041,7 +3041,7 @@ nudge_action_read_policies(void)
                                     */
                                    &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
                                    /* if we fail to suspend a thread (e.g., privilege
-                                    * problems) ignore it. FIXME: retry instead? */
+                                    * problems) ignore it. XXX: retry instead? */
                                    THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
             ASSERT(ok);
 #    endif
@@ -3104,14 +3104,14 @@ nudge_action_read_policies(void)
             if (!vmvector_empty(&toflush)) {
                 ASSERT(DYNAMO_OPTION(coarse_units) && DYNAMO_OPTION(use_persisted));
                 /* case 9970: we must flush the perscache and ibl tables.
-                 * FIXME optimization: don't flush the fine-grained fragments
+                 * XXX optimization: don't flush the fine-grained fragments
                  * or non-persisted unit(s) (there can be multiple).
                  */
                 flush_vmvector_regions(get_thread_private_dcontext(), &toflush,
                                        false /*keep futures*/,
                                        false /*exec still valid*/);
             }
-            /* FIXME: don't need to flush non-persisted coarse units since
+            /* XXX: don't need to flush non-persisted coarse units since
              * patch points are fine-grained: would have to widen
              * flush interface.  Note that we do avoid flushing perscaches
              * that do not contain the old patch points.
@@ -3133,13 +3133,13 @@ nudge_action_read_policies(void)
          * be freed underneath us.  Thus we pay the cost of re-acquiring the lock.
          * This can also end up with tables on the old list in a different order
          * than their nudges, but that's not a problem.
-         * FIXME case 8921: -hotp_only should free the table up front
-         * FIXME: we should synch-all once, up front, and then avoid this ugliness
+         * XXX case 8921: -hotp_only should free the table up front
+         * XXX: we should synch-all once, up front, and then avoid this ugliness
          * as well as multiple flush synchs.
-         * FIXME: hotp could indirect the table like hotp_only to allow
+         * XXX: hotp could indirect the table like hotp_only to allow
          * earlier freeing.
          */
-        /* FIXME: don't add to old table list if in hotp_only mode, there is no
+        /* XXX: don't add to old table list if in hotp_only mode, there is no
          * eed because there is a lookup before execution and there is no lazy
          * flush going on.
          */
@@ -3209,7 +3209,7 @@ hotp_nudge_handler(uint nudge_action_mask)
                                     */
                                    &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
                                    /* if we fail to suspend a thread (e.g., privilege
-                                    * problems) ignore it. FIXME: retry instead? */
+                                    * problems) ignore it. XXX: retry instead? */
                                    THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
             ASSERT(ok);
         }
@@ -3254,7 +3254,7 @@ hotp_nudge_handler(uint nudge_action_mask)
         if (!DYNAMO_OPTION(hotp_only)) {
             if (!vmvector_empty(&toflush)) {
                 /* case 9970: we must flush the perscache and ibl tables.
-                 * FIXME optimization: don't flush the fine-grained fragments
+                 * XXX optimization: don't flush the fine-grained fragments
                  * or non-persisted unit(s) (there can be multiple).
                  */
                 flush_vmvector_regions(get_thread_private_dcontext(), &toflush,
@@ -3300,7 +3300,7 @@ hotp_nudge_handler(uint nudge_action_mask)
 #    endif /* WINDOWS */
 
 /* This is a faster lookup of hotp_vul_table, see case 8132.
- * FIXME: try to see if this can be merged with hotp_lookup_patch_addr.
+ * XXX: try to see if this can be merged with hotp_lookup_patch_addr.
  */
 static bool
 hotp_only_lookup_patch_addr(const app_pc pc, hotp_offset_match_t *match)
@@ -3466,7 +3466,7 @@ hotp_does_region_need_patch(const app_pc start, const app_pc end, bool own_hot_p
     /* Caller must come in with lock - that is the use today.  However, this
      * doesn't need the caller to hold the hotp_vul_table_lock; can do so by
      * itself.  Imposed by fix for case 8780 - excessive holding of hotp lock.
-     * need to find a better solution (FIXME).
+     * need to find a better solution (XXX).
      */
     ASSERT_OWN_READWRITE_LOCK(true, &hotp_vul_table_lock);
 
@@ -3601,7 +3601,7 @@ hotp_inject_gateway_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
         } while (0)
 
     /* Using client api to avoid duplicating code. */
-    /* FIXME PR 226036: set hotp_context_t pc field?  left as 0 by dr_prepare_for_call */
+    /* XXX PR 226036: set hotp_context_t pc field?  left as 0 by dr_prepare_for_call */
     dr_prepare_for_call(dcontext, ilist, where);
 
     /* DSTACK_OFFSET isn't within the upcontext so if it's separate our use of
@@ -3733,7 +3733,7 @@ hotp_inject(dcontext_t *dcontext, instrlist_t *ilist)
              *       the patchee; in that case we use that address itself
              *       though the exception handler will complain about not
              *       being able to create app state.  However, it will get the
-             *       right state, so we are fine in release builds.  FIXME.
+             *       right state, so we are fine in release builds.  XXX.
              * Part of fix for case 5981.
              */
             if (translation_target == NULL)
@@ -3764,7 +3764,7 @@ hotp_inject(dcontext_t *dcontext, instrlist_t *ilist)
  * ensure that no control flow can come into the middle of a patch region.
  * Those valid calls/jmps that can exist in the patch region should only target
  * some image address that belongs to the app, not stack or heap ==>
- * ==> FIXME case 7657: need to relax that to allow 3rd party hookers (and, app
+ * ==> XXX case 7657: need to relax that to allow 3rd party hookers (and, app
  * itself could be targeting heap).
  * Also, the patch region shouldn't be already hooked by the core's hooks, i.e.,
  * non hotp_only core hooks.
@@ -3815,7 +3815,7 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                  * of the patch region, i.e., this region is valid.
                  */
                 if (instr_is_call(inst)) {
-                    /* FIXME: Mangling calls in patch regions hasn't been done
+                    /* XXX: Mangling calls in patch regions hasn't been done
                      * yet.  See case 6839.
                      */
                     LOG(GLOBAL, LOG_HOT_PATCHING, 1,
@@ -3826,7 +3826,7 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                 if (instr_is_call_direct(inst) || instr_is_ubr(inst) ||
                     instr_is_cbr(inst)) {
                     app_pc target = instr_get_branch_target_pc(inst);
-                    /* FIXME: core doesn't handle far ctis today, see case 6962;
+                    /* XXX: core doesn't handle far ctis today, see case 6962;
                      * when far ctis are handled, this assert can go.
                      */
                     ASSERT(!instr_is_far_abs_cti(inst));
@@ -3870,7 +3870,7 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                                 /* On 2k3 loader lock isn't held during dll
                                  * loading before executing image entry, so we
                                  * can't tell for sure. */
-                                /* FIXME case 10636: what about vista? */
+                                /* XXX case 10636: what about vista? */
                                 reason = "2003; may be due to loader safety";
                             } else {
                                 ASSERT_NOT_REACHED(); /* Unknown reason. */
@@ -3892,7 +3892,7 @@ hotp_only_patch_region_valid(const app_pc addr_to_hook)
                      * conservatively conclude these to be hook conflicts.
                      * Note: Whether a hook targets image or heap has no
                      * bearing on how easily we can interop with it.
-                     * FIXME: track patch point from mmap to point of hooking
+                     * XXX: track patch point from mmap to point of hooking
                      * to see if it is hooked before concluding hook conflict;
                      * case 10433.
                      */
@@ -3947,18 +3947,18 @@ patch_cti_tgt(byte *tgt_loc, byte *new_val, bool hot_patch)
 
 /* Injects one hotp_only patch, i.e., inserts trampoline to execute a hot patch.
  *
- * FIXME: multi-thread safe injection hasn't been implemented; when that is
+ * XXX: multi-thread safe injection hasn't been implemented; when that is
  *        implemented this routine will have to assert that all threads in this
  *        process have stopped.  see case 6662.
  *        Note: injections are done per module, not for the whole policy table,
  *              so there might be performance issues with stopping and resuming
  *              all threads for each module to be patched.
  *
- * FIXME: injection currently doesn't check if loader is finished with a module
+ * XXX: injection currently doesn't check if loader is finished with a module
  *        before injecting; needs to be done.  also, while injecting the loader
  *        shouldn't be allowed to modify the module.  see case 6662.
  *
- * FIXME: patch removal hasn't been implemented yet for hotp_only; when doing so
+ * XXX: patch removal hasn't been implemented yet for hotp_only; when doing so
  *        trampoline code must be released, hook removed & image processed to
  *        set it to unmatched.  see case 6663.
  */
@@ -4021,7 +4021,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
     }
 
     if (cur_ppoint->trampoline != NULL) {
-        /* FIXME case 9148/7657: we can have hookers who chain off our old
+        /* XXX case 9148/7657: we can have hookers who chain off our old
          * trampoline via a +rwx prot change followed by a +rx change that
          * triggers us adding new hooks without removing the old.  We go ahead
          * and leave that bug in and live with the leak for now since it works
@@ -4072,7 +4072,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
 
     /* Trampoline code shouldn't overflow the trampoline buffer here.  By now
      * the damage is already done.  In a debug build it is ok, but in a release
-     * build?  FIXME: need to make intercept_call() take a buffer length.
+     * build?  XXX: need to make intercept_call() take a buffer length.
      */
     ASSERT((end - cur_ppoint->trampoline) <= HOTP_ONLY_TRAMPOLINE_SIZE);
 
@@ -4235,7 +4235,7 @@ hotp_only_inject_patch(const hotp_offset_match_t *ppoint_desc,
             if (eip > module->base_address && eip != addr_to_hook &&
                 HOTP_ONLY_IS_IN_PATCH_REGION(cur_ppoint,
                                              (app_rva_t)(eip - module->base_address))) {
-                /* FIXME: this is one place that may need work if we mangle
+                /* XXX: this is one place that may need work if we mangle
                  *       cti_short in the patch region;  see case 6839.
                  */
                 cxt.CXT_XIP =
@@ -4297,9 +4297,9 @@ hotp_only_remove_patch(dcontext_t *dcontext, const hotp_module_t *module,
      * memory efficient, but will handle the cases of the 3rd party reading our
      * hook before hooking and/or leaving the page marked rwx.   See cases
      * 9906, 9588, 9593, 9148 & 9157.
-     * FIXME: have a better mechanism to resolve hook conflict issues; currently
+     * XXX: have a better mechanism to resolve hook conflict issues; currently
      *          only a minimalist solution is in place; case 7657, case 10433.
-     * FIXME: make leaking selective, i.e., don't leak all trampoline, leak
+     * XXX: make leaking selective, i.e., don't leak all trampoline, leak
      *          only the ones that collide with 3rd party hooks - need to do
      *          some bookkeepping; not a big issue, but about 20k to 50k can be
      *          lost for each process otherwise, case 10433.
@@ -4395,7 +4395,7 @@ hotp_only_detach_helper(void)
  * and reinjecting them afterwards; done by monitoring memory protection
  * changes made.
  *
- * FIXME case 9148: this causes problems with hookers who read prior to marking
+ * XXX case 9148: this causes problems with hookers who read prior to marking
  * +w and thus chain with our old trampoline that we are about to remove here!
  * That's why we don't call here for +rwx changes, where we live with a leak on
  * the +rx change (case 9148), which is better than hookers who mark +rw and can
@@ -4457,7 +4457,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
     /* Inefficient check to see if this module has been matched for hot
      * patching.  hotp_process_image() is needed only when loading or
      * unloading a dll, not here, which is post module loading.
-     * FIXME: Use vmvector_overlap check on loaded_module_areas after
+     * XXX: Use vmvector_overlap check on loaded_module_areas after
      * integrating it with hotp.  Optimization.
      */
     hotp_process_image(base, inject ? true : false, false, true, &needs_processing, NULL,
@@ -4478,7 +4478,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
                             */
                            THREAD_SYNCH_NO_LOCKS_NO_XFER,
                            /* if we fail to suspend a thread (e.g., privilege
-                            * problems) ignore it. FIXME: retry instead? */
+                            * problems) ignore it. XXX: retry instead? */
                            THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
     ASSERT(ok);
 #    endif
@@ -4486,7 +4486,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
 
     /* Using hotp_process_image to inject is inefficient because it goes
      * through the whole vul table.
-     * FIXME: Optimization: write hotp_only_inject_patches() which should use
+     * XXX: Optimization: write hotp_only_inject_patches() which should use
      *      hotp_patch_point_areas; use that to do the injection here.
      */
     if (inject) {
@@ -4499,7 +4499,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
                                   true, NULL);
         DODEBUG(hotp_globals->ldr_safe_hook_injection = false;);
         /* Similarly, hotp_remove_patches_from_module() is inefficient too.
-         * FIXME: using loaded_module_areas in that routine.
+         * XXX: using loaded_module_areas in that routine.
          */
     } else if (remove) {
         LOG(THREAD_GET, LOG_HOT_PATCHING, 1,
@@ -4517,7 +4517,7 @@ hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remo
 
 /* This is the routine that will serve as the entry point into the core for
  * executing hot patches in the -hotp_only mode.
- * FIXME: for now, dr stack is used to execute the hot patch; later on a
+ * XXX: for now, dr stack is used to execute the hot patch; later on a
  *        separate stack should be used.
  */
 after_intercept_action_t
@@ -4584,7 +4584,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
              const uint set_index, const uint module_index, const uint ppoint_index,
              hotp_context_t *app_reg_ptr, const bool own_hot_patch_lock)
 {
-    /* FIXME: racy access here; getting lock may be expensive;  even if that is
+    /* XXX: racy access here; getting lock may be expensive;  even if that is
      *        ok, must make sure that no one will come in here and wait on the
      *        lock while a hot patch flush happens due to a nudge - deadlock.
      *        also, before executing each hot patch, it must be verfied
@@ -4605,7 +4605,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
     bool dump_excpt_info, dump_error_info;
     after_intercept_action_t res = AFTER_INTERCEPT_LET_GO;
 
-    /* FIXME: till hotp interface is expanded to send arguments to detectors
+    /* XXX: till hotp interface is expanded to send arguments to detectors
      *  and protectors, this spill is the simplest way to send/receive args.
      *  xref case 6804.
      */
@@ -4723,7 +4723,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
      * if it is faulty.  As hotp_context_t doesn't have eip as of now, we pass
      * it via edx.  eax is used to get the return value.
      * TODO: make this a function & move it to the gbop section
-     * FIXME PR 226036: hotp_context_t does have eip now, use it!
+     * XXX PR 226036: hotp_context_t does have eip now, use it!
      */
     if (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)) {
 #    ifdef GBOP
@@ -4928,7 +4928,7 @@ hotp_gateway_ret:
  *
  * Note: this routine uses a shadow app reg state to recover from a hot patch
  *       exception cleanly.
- * FIXME: using setjmp & longjmp can cause problems if the compiler decides
+ * XXX: using setjmp & longjmp can cause problems if the compiler decides
  *        to reuse unused args/locals; should probably use volatile for those.
  */
 static hotp_exec_status_t
@@ -5088,7 +5088,7 @@ hotp_event_notify(hotp_exec_status_t exec_status, bool protected,
     /* Determine the faulting address, violation type and threat id. */
     if (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)) { /* gbop hook type */
 #        ifdef GBOP
-        /* FIXME: share reporting code with gbop_validate_and_act() - have
+        /* XXX: share reporting code with gbop_validate_and_act() - have
          *  one reporting interface for gbop.  Case 8096.  Changes here or
          *  in gbop_validate_and_act() should be kept in sync.
          */
@@ -5207,19 +5207,19 @@ hotp_spill_before_notify(dcontext_t *dcontext, fragment_t **frag_spill /* OUT */
     if (cxt_type == CXT_TYPE_HOT_PATCH) {
         hotp_context_t *new = (hotp_context_t *)new_cxt;
         *mc = *new;
-        /* FIXME PR 226036: use hotp_context_t.xip */
+        /* XXX PR 226036: use hotp_context_t.xip */
         mc->pc = NULL; /* pc reported in source, so NULL here is ok. */
     } else if (cxt_type == CXT_TYPE_CORE_HOOK) {
         app_state_at_intercept_t *new = (app_state_at_intercept_t *)new_cxt;
         *mc = new->mc;
-        /* FIXME PR 226036: use hotp_context_t.xip */
+        /* XXX PR 226036: use hotp_context_t.xip */
         mc->pc = NULL; /* pc reported in source, so NULL here is ok. */
     } else
         ASSERT_NOT_REACHED();
 }
 
 /* Restore dcontext last_fragment & next_tag after reporting the violation. */
-/* FIXME: old_cxt is unused; see case 8099 about dumping context. */
+/* XXX: old_cxt is unused; see case 8099 about dumping context. */
 void
 hotp_restore_after_notify(dcontext_t *dcontext, const fragment_t *old_frag,
                           const app_pc old_next_tag, const priv_mcontext_t *old_cxt)
@@ -5237,7 +5237,7 @@ hotp_restore_after_notify(dcontext_t *dcontext, const fragment_t *old_frag,
 }
 
 #    if defined(DEBUG) && defined(INTERNAL)
-/* FIXME PR 226036: eip is now part of hotp_context_t */
+/* XXX PR 226036: eip is now part of hotp_context_t */
 static void
 hotp_dump_reg_state(const hotp_context_t *reg_state, const app_pc eip,
                     const uint loglevel)
@@ -5268,7 +5268,7 @@ hotp_update_vul_stats(const hotp_exec_status_t exec_status, const uint vul_index
            temp == HOTP_EXEC_CHANGE_CONTROL_FLOW || temp == HOTP_EXEC_PROTECTOR_ERROR ||
            temp == HOTP_EXEC_ABORTED);
 
-    /* FIXME: Grabbing the hot patch lock here to update stats will deadlock
+    /* XXX: Grabbing the hot patch lock here to update stats will deadlock
      *        if a nudge is waiting for this thread to get out.  If a lock
      *        isn't grabbed, then the stats may be slightly inaccurate if 2
      *        threads update the same stat for a given vulnerability at
@@ -5277,7 +5277,7 @@ hotp_update_vul_stats(const hotp_exec_status_t exec_status, const uint vul_index
      *        vulnerability for all process in all nodes using it is vague
      *        data anyway.
      *        if VUL_STAT_INC becomes atomic, we won't need a lock here.
-     * FIXME: Vlad suggested creating a stats lock; good idea;
+     * XXX: Vlad suggested creating a stats lock; good idea;
      */
     switch (temp) {
     case HOTP_EXEC_EXPLOIT_DETECTED: {
@@ -5362,7 +5362,7 @@ hotp_change_control_flow(const hotp_context_t *app_reg_ptr, const app_pc target)
 
     dcontext->next_tag = target; /* Set up actual control flow change. */
     dcontext->whereami = DR_WHERE_FCACHE;
-    /* FIXME: should determine the actual fragment exiting from */
+    /* XXX: should determine the actual fragment exiting from */
     set_last_exit(dcontext, (linkstub_t *)get_hot_patch_linkstub());
 
     STATS_INC(hotp_num_cflow_change);
@@ -5623,13 +5623,13 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls)
         ASSERT(gbop_hook != NULL);
         vul = &tab[vul_idx];
         vul->vul_id = dr_strdup(gbop_hook->func_name HEAPACCT(ACCT_HOT_PATCHING));
-        /* FIXME: construct this from a combination of {mod,func}_name, or
+        /* XXX: construct this from a combination of {mod,func}_name, or
          * func_name and bad_ret_address.  For now, just hard code it.
          * strdup because hotp_free() thinks this is allocated.
          */
         vul->policy_id = dr_strdup("GBOP.VIOL" HEAPACCT(ACCT_HOT_PATCHING));
 
-        /* FIXME: should this be used to track changes to the gbop detector
+        /* XXX: should this be used to track changes to the gbop detector
          * and protector?  does it matter, after all these patches will only
          * go as part of the core?
          */
@@ -5684,7 +5684,7 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls)
         /* The actual patch offset will be computed if the module matches.
          * vul_id holds the function name, which will be used to compute the
          * offset.  See hotp_process_image().
-         * FIXME: we could use a union for offset to hold offset or func_name;
+         * XXX: we could use a union for offset to hold offset or func_name;
          *  that would be elegant, but would require changing too many things
          *  in hotp - not a good idea, not at least for the first implementation
          */
@@ -5756,7 +5756,7 @@ dr_register_probes(dr_probe_desc_t *probes, unsigned int num_probes)
 
     if (num_probes < MIN_NUM_VULNERABILITIES || num_probes > MAX_NUM_VULNERABILITIES ||
         probes == NULL) {
-        /* FIXME PR 533384: return a status code! */
+        /* XXX PR 533384: return a status code! */
         return;
     }
 
@@ -5772,7 +5772,7 @@ dr_register_probes(dr_probe_desc_t *probes, unsigned int num_probes)
      *       threaded here, there is no need for a lock for this temp. bool.
      */
     if (probes_initialized) {
-        /* FIXME PR 533384: return a status code!
+        /* XXX PR 533384: return a status code!
          * actually I'm having this continue for at-your-own-risk probes
          */
         ASSERT_CURIOSITY_ONCE(false &&
@@ -5998,7 +5998,7 @@ dr_register_probes(dr_probe_desc_t *probes, unsigned int num_probes)
          * vm_areas_init() then this loader-list-walk can be eliminated.
          * UPDATE: no it can't b/c this can be called post-dr_client_main()!
          */
-        /* FIXME: to support calling post-dr_client_main() the actual num_threads needs
+        /* XXX: to support calling post-dr_client_main() the actual num_threads needs
          * to be passed (and should do a synchall): does PR 225578 cover this?
          */
         hotp_walk_loader_list(NULL, 0, NULL, true /* probe_init */);

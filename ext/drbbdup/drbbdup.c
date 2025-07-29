@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -1391,7 +1391,7 @@ drbbdup_insert_dynamic_handling(void *drcontext, void *tag, instrlist_t *bb,
                                              where, NULL, NULL);
 
 #ifdef RISCV64
-            ASSERT(false, "NYI on RISCV64"); /* FIXME i#3544 */
+            ASSERT(false, "NYI on RISCV64"); /* XXX i#3544 */
 #else
             /* Jump if hit reaches zero. */
             instr = XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ,

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -133,7 +133,7 @@ run(void *arg)
     nolibc_print("Sideline thread finished\n");
     child_done = true;
 #if defined(X64) || defined(ARM)
-    /* FIXME: returning here invokes SYS_exit_group and takes down the
+    /* XXX: returning here invokes SYS_exit_group and takes down the
      * parent...what's up with that?  Xref i#94.
      */
     dynamorio_syscall(SYS_exit, 0);
@@ -182,7 +182,7 @@ delete_thread(pid_t pid, void *stack)
     fprintf(stderr, "Waiting for child to exit\n");
     /* pid is really a tid, and since we used CLONE_THREAD, we cannot use
      * any wait() routine since our parent has the child not us.
-     * so we rely on CLONE_CHILD_CLEARTID.  FIXME: use futex here.
+     * so we rely on CLONE_CHILD_CLEARTID.  XXX: use futex here.
      * for now being really simple.
      */
     while (child != 0)

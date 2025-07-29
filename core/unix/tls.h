@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -191,7 +191,7 @@ read_thread_register(reg_id_t reg)
     if (reg == DR_REG_TP) {
         asm volatile("mv %0, tp" : "=r"(sel));
     } else if (reg == DR_REG_INVALID) {
-        /* FIXME i#3544: SEG_TLS is not used. See os_exports.h */
+        /* XXX i#3544: SEG_TLS is not used. See os_exports.h */
         return 0;
     } else {
         ASSERT_NOT_REACHED();
@@ -291,7 +291,7 @@ typedef struct _os_local_state_t {
     void *app_lib_tls_base; /* for mangling segmented memory ref */
     void *app_alt_tls_base; /* for mangling segmented memory ref */
 
-/* FIXME i#3990: For MACOS, we use a union to save tls space. Unfortunately, this
+/* XXX i#3990: For MACOS, we use a union to save tls space. Unfortunately, this
  * results in not initialising client tls slots which are allocated using
  * dr_raw_tls_calloc. Figuring where to perform memset to clear os_seg_info is not
  * apparently clear due to interleaved thread and instrum inits.

@@ -2174,7 +2174,7 @@ const instr_info_t * const op_instr[] =
 #define fWX   EFLAGS_WRITE_ALL
 #define fW6   EFLAGS_WRITE_6
 /* flags affected by OP_int*
- * FIXME: should we add AC and VM flags?
+ * XXX: should we add AC and VM flags?
  */
 #define fINT  (fRX|fWT|fWN|fWI|fWR)
 
@@ -2393,7 +2393,7 @@ const instr_info_t first_byte[] = {
     {OP_xchg, 0x960000, catMove, "xchg", eSI_x, eAX, eSI_x, eAX, xx, no, x, tfb[0x97]},
     {OP_xchg, 0x970000, catMove, "xchg", eDI_x, eAX, eDI_x, eAX, xx, no, x, tfb[0x87]},
     /* 98 */
-    {OP_cwde, 0x980000, catUncategorized, "cwde", eAX, xx, ax, xx, xx, no, x, END_LIST},/*16-bit=="cbw", src is al not ax; FIXME: newer gdb calls it "cwtl"?!?*/
+    {OP_cwde, 0x980000, catUncategorized, "cwde", eAX, xx, ax, xx, xx, no, x, END_LIST},/*16-bit=="cbw", src is al not ax; XXX: newer gdb calls it "cwtl"?!?*/
     /* PR 354096: does not write to ax/eax/rax: sign-extends into dx/edx/rdx */
     {OP_cdq,  0x990000, catUncategorized, "cdq", eDX, xx, eAX, xx, xx, no, x, END_LIST},/*16-bit=="cwd";64-bit=="cqo"*/
     {OP_call_far, 0x9a0000, catBranch, "lcall",  xsp, i_vSPo2, Ap, xsp, xx, i64, x, END_LIST},
@@ -2481,7 +2481,7 @@ const instr_info_t first_byte[] = {
     {OP_loope, 0xe10000, catBranch, "loope",  axCX, xx, Jb, axCX, xx, no, fRZ, END_LIST},
     {OP_loop,  0xe20000, catBranch, "loop",   axCX, xx, Jb, axCX, xx, no, x, END_LIST},
     {OP_jecxz, 0xe30000, catBranch, "jecxz",  xx, xx, Jb, axCX, xx, no, x, END_LIST},/*16-bit=="jcxz",64-bit="jrcxz"*/
-    /* FIXME: in & out access "I/O ports", are these memory addresses?
+    /* XXX: in & out access "I/O ports", are these memory addresses?
      * if so, change Ib to Ob and change dx to i_dx (move to dest for out)
      */
     {OP_in,  0xe40000, catUncategorized, "in", al, xx, Ib, xx, xx, no, x, tfb[0xed]},
@@ -2569,9 +2569,9 @@ const instr_info_t second_byte[] = {
   {OP_mov_priv, 0x0f2110, catMove, "mov", Rr, xx, Dr, xx, xx, mrm, fW6, tsb[0x22]},
   {OP_mov_priv, 0x0f2210, catMove, "mov", Cr, xx, Rr, xx, xx, mrm, fW6, tsb[0x23]},
   {OP_mov_priv, 0x0f2310, catMove, "mov", Dr, xx, Rr, xx, xx, mrm, fW6, END_LIST},
-  {INVALID, 0x0f2410, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA}, /* FIXME: gdb thinks ok! */
+  {INVALID, 0x0f2410, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA}, /* XXX: gdb thinks ok! */
   {INVALID, 0x0f2510, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-  {INVALID, 0x0f2610, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA}, /* FIXME: gdb thinks ok! */
+  {INVALID, 0x0f2610, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA}, /* XXX: gdb thinks ok! */
   {INVALID, 0x0f2710, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* 28 */
   {PREFIX_EXT, 0x0f2810, catUncategorized, "(prefix ext 8)", xx, xx, xx, xx, xx, mrm, x, 8},
@@ -4009,7 +4009,7 @@ const instr_info_t prefix_extensions[][12] = {
     {EVEX_Wb_EXT, 0xf20fc240, catUncategorized, "(evex_Wb ext 262)", xx, xx, xx, xx, xx, mrm|evex, x, 262},
   }, /* prefix extension 53: all assumed to have Ib */
   { /* note that gnu tools print immed first: pinsrw $0x0,(%esp),%xmm0 */
-    /* FIXME i#1388: pinsrw actually reads only bottom word of reg */
+    /* XXX i#1388: pinsrw actually reads only bottom word of reg */
     {OP_pinsrw,   0x0fc410, catSIMD, "pinsrw", Pw_q, xx, Rd_Mw, Ib, xx, mrm, x, tpe[53][2]},
     {INVALID,   0xf30fc410, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_pinsrw, 0x660fc410, catSIMD, "pinsrw", Vw_dq, xx, Rd_Mw, Ib, xx, mrm, x, END_LIST},
@@ -5140,14 +5140,14 @@ const instr_info_t prefix_extensions[][12] = {
   }, { /* prefix extension 134 */
     {OP_vmread,      0x0f7810, catUncategorized, "vmread",  Ey, xx, Gy, xx, xx, mrm|o64, x, END_LIST},
     {INVALID,      0xf30f7810, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* FIXME PR 338279: this is listed as /0 but I'm not going to chain it into
+    /* XXX PR 338279: this is listed as /0 but I'm not going to chain it into
      * the reg extensions table until I can verify, since gdb thinks it
      * does NOT need /0.  Waiting for a processor that actually supports it.
      * It's ok for DR proper to think a non-cti instr is valid when really it's not,
      * though for our decoding library use we should get it right.
      */
     {OP_extrq,     0x660f7810, catUncategorized, "extrq",   Udq, xx, Ib, Ib, xx, mrm, x, tpe[135][2]},
-    /* FIXME: is src or dst Udq? */
+    /* XXX: is src or dst Udq? */
     {OP_insertq,   0xf20f7810, catSIMD, "insertq", Vdq, xx, Udq, Ib, Ib, mrm, x, tpe[135][3]},
     {INVALID,        0x0f7810, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf30f7810, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5160,7 +5160,7 @@ const instr_info_t prefix_extensions[][12] = {
   }, { /* prefix extension 135 */
     {OP_vmwrite,     0x0f7910, catUncategorized, "vmwrite", Gy, xx, Ey, xx, xx, mrm|o64, x, END_LIST},
     {INVALID,      0xf30f7910, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    /* FIXME: is src or dst Udq? */
+    /* XXX: is src or dst Udq? */
     {OP_extrq,     0x660f7910, catUncategorized, "extrq",   Vdq, xx, Udq, xx, xx, mrm, x, END_LIST},
     {OP_insertq,   0xf20f7910, catSIMD, "insertq", Vdq, xx, Udq, xx, xx, mrm, x, END_LIST},
     {INVALID,        0x0f7910, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -6217,7 +6217,7 @@ const instr_info_t e_vex_extensions[][3] = {
     {OP_vpblendw, 0x663a0e18, catSIMD, "vpblendw",  Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, END_LIST},
     {INVALID, 0x663a0e18, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 47 */
-    /* FIXME i#1388: pinsrb actually reads only bottom byte of reg */
+    /* XXX i#1388: pinsrb actually reads only bottom byte of reg */
     {OP_pinsrb,   0x663a2018, catSIMD, "pinsrb",   Vb_dq, xx, Rd_Mb,  Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vpinsrb,  0x663a2018, catSIMD, "vpinsrb",   Vdq, xx, H15_dq, Rd_Mb, Ib, mrm|vex|reqp, x, tvex[47][2]},
     {OP_vpinsrb,  0x663a2008, catSIMD, "vpinsrb",   Vdq, xx, H15_dq, Rd_Mb, Ib, mrm|evex|reqp|ttt1s|inopsz1, x, END_LIST},
@@ -9859,7 +9859,7 @@ const instr_info_t xop_extensions[] = {
  * evidence contradict.
  */
 const instr_info_t rep_extensions[][4] = {
-    /* FIXME: ins and outs access "I/O ports", are these memory addresses?
+    /* XXX: ins and outs access "I/O ports", are these memory addresses?
      * if so, change Ib to Ob and change dx to i_dx (move to dest for outs)
      */
   { /* rep extension 0 */
@@ -9967,7 +9967,7 @@ const instr_info_t repne_extensions[][6] = {
  *   'y' to indicate 14/28 byte value in memory
  *   'z' to indicate 98/108 byte value in memory
  */
-/* FIXME: I ignore fp stack changes, should we model that? */
+/* XXX: I ignore fp stack changes, should we model that? */
 const instr_info_t float_low_modrm[] = {
   /* d8 */
   {OP_fadd,  0xd80020, catFP | catMath, "fadd",  st0, xx, Fd, st0, xx, mrm, x, tfl[0x20]}, /* 00 */
@@ -9985,8 +9985,8 @@ const instr_info_t float_low_modrm[] = {
   {OP_fstp,   0xd90023, catFP | catMove | catStore, "fstp",   Fd, xx, st0, xx, xx, mrm, x, tfl[0x1f]},
   {OP_fldenv, 0xd90024, catFP | catState, "fldenv", xx, xx, Ffy, xx, xx, mrm, x, END_LIST},
   {OP_fldcw,  0xd90025, catFP | catState, "fldcw",  xx, xx, Fw, xx, xx, mrm, x, END_LIST},
-  {OP_fnstenv, 0xd90026, catFP | catState | catStore, "fnstenv", Ffy, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, this is "fstenv"*/
-  {OP_fnstcw,  0xd90027, catFP | catState | catStore, "fnstcw",  Fw, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, this is "fstcw"*/
+  {OP_fnstenv, 0xd90026, catFP | catState | catStore, "fnstenv", Ffy, xx, xx, xx, xx, mrm, x, END_LIST},/*XXX: w/ preceding fwait instr, this is "fstenv"*/
+  {OP_fnstcw,  0xd90027, catFP | catState | catStore, "fnstcw",  Fw, xx, xx, xx, xx, mrm, x, END_LIST},/*XXX: w/ preceding fwait instr, this is "fstcw"*/
   /* da */
   {OP_fiadd,  0xda0020, catFP | catMath, "fiadd",  st0, xx, Md, st0, xx, mrm, x, tfl[0x30]}, /* 10 */
   {OP_fimul,  0xda0021, catFP | catMath, "fimul",  st0, xx, Md, st0, xx, mrm, x, tfl[0x31]},
@@ -10021,8 +10021,8 @@ const instr_info_t float_low_modrm[] = {
   {OP_fstp,  0xdd0023, catFP | catMove | catStore, "fstp",   Fq, xx, st0, xx, xx, mrm, x, tfh[5][0x18]},
   {OP_frstor,0xdd0024, catFP | catState, "frstor", xx, xx, Ffz, xx, xx, mrm, x, END_LIST},
   {INVALID,  0xdd0025, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-  {OP_fnsave, 0xdd0026, catFP | catState | catStore, "fnsave",  Ffz, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME:w/ preceding fwait instr, this is "fsave"*/
-  {OP_fnstsw, 0xdd0027, catFP | catState | catStore, "fnstsw",  Fw, xx, xx, xx, xx, mrm, x, tfh[7][0x20]},/*FIXME:w/ preceding fwait instr, this is "fstsw"*/
+  {OP_fnsave, 0xdd0026, catFP | catState | catStore, "fnsave",  Ffz, xx, xx, xx, xx, mrm, x, END_LIST},/*XXX:w/ preceding fwait instr, this is "fsave"*/
+  {OP_fnstsw, 0xdd0027, catFP | catState | catStore, "fnstsw",  Fw, xx, xx, xx, xx, mrm, x, tfh[7][0x20]},/*XXX:w/ preceding fwait instr, this is "fstsw"*/
   /* de */
   {OP_fiadd,  0xde0020, catFP | catMath, "fiadd",  st0, xx, Fw, st0, xx, mrm, x, END_LIST}, /* 30 */
   {OP_fimul,  0xde0021, catFP | catMath, "fimul",  st0, xx, Fw, st0, xx, mrm, x, END_LIST},
@@ -10284,8 +10284,8 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fcmovnu, 0xdbdf10, catFP | catMath, "fcmovnu", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
         {INVALID, 0xdbe010, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA}, /* e0 = [0x20] */
         {INVALID, 0xdbe110, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-        {OP_fnclex, 0xdbe210, catFP | catState, "fnclex", xx, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, called "fclex"*/
-        {OP_fninit, 0xdbe310, catFP | catState, "fninit", xx, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, called "finit"*/
+        {OP_fnclex, 0xdbe210, catFP | catState, "fnclex", xx, xx, xx, xx, xx, mrm, x, END_LIST},/*XXX: w/ preceding fwait instr, called "fclex"*/
+        {OP_fninit, 0xdbe310, catFP | catState, "fninit", xx, xx, xx, xx, xx, mrm, x, END_LIST},/*XXX: w/ preceding fwait instr, called "finit"*/
         {INVALID, 0xdbe410, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xdbe510, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xdbe610, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -10570,7 +10570,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fstp, 0xdfdd10, catFP | catMove | catStore, "fstp", st5, xx, st0, xx, xx, mrm, x, END_LIST},
         {OP_fstp, 0xdfde10, catFP | catMove | catStore, "fstp", st6, xx, st0, xx, xx, mrm, x, END_LIST},
         {OP_fstp, 0xdfdf10, catFP | catMove | catStore, "fstp", st7, xx, st0, xx, xx, mrm, x, END_LIST},
-        {OP_fnstsw, 0xdfe010, catFP | catState | catStore, "fnstsw", ax, xx, xx, xx, xx, mrm, x, END_LIST}, /* e0 = [0x20] */ /*FIXME:w/ preceding fwait instr, this is "fstsw"*/
+        {OP_fnstsw, 0xdfe010, catFP | catState | catStore, "fnstsw", ax, xx, xx, xx, xx, mrm, x, END_LIST}, /* e0 = [0x20] */ /*XXX:w/ preceding fwait instr, this is "fstsw"*/
         {INVALID, 0xdfe110, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xdfe210, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xdfe310, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},

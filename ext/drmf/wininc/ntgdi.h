@@ -82,7 +82,7 @@ NtGdiGetFontResourceInfoInternalW(__in_ecount(cwc) LPWSTR pwszFiles, __in ULONG 
 __kernel_entry W32KAPI DWORD APIENTRY
 NtGdiGetGlyphIndicesW(__in HDC hdc, __in_ecount_opt(cwc) LPWSTR pwc, __in int cwc,
                       __out_opt LPWORD
-                          pgi, // FIXME(bruening): should be __out_ecount_opt(cwc)?
+                          pgi, // XXX(bruening): should be __out_ecount_opt(cwc)?
                       __in DWORD iMode);
 
 __kernel_entry W32KAPI DWORD APIENTRY
@@ -157,7 +157,7 @@ NtGdiGetUFIPathname(
     __out_ecount_part_opt(MAX_PATH * 3, *pcwc) LPWSTR pwszPathname,
     __out_opt ULONG *pcNumFiles, __in FLONG fl, __out_opt BOOL *pbMemFont,
     __out_opt ULONG *pcjView,
-    __out_opt PVOID *pvView, // FIXME(bruening): was PVOID; should be bcount(pcjView)?
+    __out_opt PVOID *pvView, // XXX(bruening): was PVOID; should be bcount(pcjView)?
     __out_opt BOOL *pbTTC, __out_opt ULONG *piTTC);
 
 __kernel_entry W32KAPI BOOL APIENTRY
@@ -230,9 +230,9 @@ NtGdiSwapBuffers(__in HDC hdc);
 __kernel_entry W32KAPI DWORD APIENTRY
 NtGdiDxgGenericThunk(
     __in ULONG_PTR ulIndex, __in ULONG_PTR ulHandle, __inout SIZE_T *pdwSizeOfPtr1,
-    __inout PVOID *pvPtr1, // FIXME(bruening): was PVOID: should be bcount(pdwSizeOfPtr1)?
+    __inout PVOID *pvPtr1, // XXX(bruening): was PVOID: should be bcount(pdwSizeOfPtr1)?
     __inout SIZE_T *pdwSizeOfPtr2,
-    __inout PVOID *pvPtr2 // FIXME(bruening): was PVOID: should be bcount(pdwSizeOfPtr2)?
+    __inout PVOID *pvPtr2 // XXX(bruening): was PVOID: should be bcount(pdwSizeOfPtr2)?
 );
 
 __kernel_entry W32KAPI DWORD APIENTRY
@@ -1606,7 +1606,7 @@ __kernel_entry W32KAPI BOOL
 NtGdiSfmGetNotificationTokens(
     __in UINT cBytes, __out UINT *pNrOfTokensReturned,
     __out_bcount(cBytes)
-        PVOID pTokenBuffer); // FIXME(bruening): ecount_part(,*pNrOfTokensReturned)?
+        PVOID pTokenBuffer); // XXX(bruening): ecount_part(,*pNrOfTokensReturned)?
 
 __kernel_entry W32KAPI BOOL
 NtGdiSfmRegisterLogicalSurfaceForSignaling(__in HLSURF hlsurf, __in BOOL fSignalOnDirty);

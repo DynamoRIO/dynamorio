@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -217,11 +217,11 @@ extern timestamp_t kstat_ignore_context_switch;
 
 /* Most of these could be static inline's but DEBUG builds aren't
  * inlining these and we want to minimize the measurement overhead
- * FIXME: consider replacing them if we have too many copies, it will
+ * XXX: consider replacing them if we have too many copies, it will
  * also clean up the argument evaluation in KSTAT_THREAD_NO_PV.
  *
  * KSTAT_THREAD encloses these statements in a do {} while (0) block,
- * FIXME: if DEBUG stats are at all interesting may want to remove the
+ * XXX: if DEBUG stats are at all interesting may want to remove the
  * one's from here if a compiler in fact adds real loops - e.g. cl does
  */
 
@@ -281,7 +281,7 @@ extern timestamp_t kstat_ignore_context_switch;
                 (kstack)->node[depth].outlier_time;                                     \
             *pcum =                                                                     \
                 (kstack)->node[depth].self_time + (kstack)->node[depth].subpath_time;   \
-            /* FIXME: an outlier should be counted as a NaN for outliers on subpaths    \
+            /* XXX: an outlier should be counted as a NaN for outliers on subpaths    \
              */                                                                         \
             if (*pcum > 0 && (kstack)->node[depth].var->min_cum > *pcum)                \
                 (kstack)->node[depth].var->min_cum = *pcum;                             \
@@ -291,7 +291,7 @@ extern timestamp_t kstat_ignore_context_switch;
             (kstack)->depth--;                                                          \
         } while (0)
 
-/* FIXME: we may have to add a type argument to KSTAT_DEF saying whether
+/* XXX: we may have to add a type argument to KSTAT_DEF saying whether
  * a variable should be propagated or not - here we assume all are propagated
  */
 #    define kstat_stop_rewind_var(kstack, pvar)           \
@@ -300,7 +300,7 @@ extern timestamp_t kstat_ignore_context_switch;
         } while (kstack->node[kstack->depth /* the removed */].var != pvar)
 
 /* This is essentially rewind-until, stopping BEFORE deleting pvar
- * FIXME: we may have to add a type argument to KSTAT_DEF saying whether
+ * XXX: we may have to add a type argument to KSTAT_DEF saying whether
  * a variable should be propagated or not - here we assume all are propagated
  */
 #    define kstat_stop_longjmp_var(kstack, pvar)                                  \

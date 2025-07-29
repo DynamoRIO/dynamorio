@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,7 +116,7 @@ named_pipe_t::open_for_write()
         fd_ = CreateFileA(pipe_name_.c_str(), GENERIC_WRITE,
                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        // FIXME i#1727: support multiple processes.  We get ERROR_PIPE_BUSY if
+        // XXX i#1727: support multiple processes.  We get ERROR_PIPE_BUSY if
         // a 2nd process connects to the same pipe instance, so we need an array
         // of instances (we'll have to set a maximum) and to use overlapped i/o
         // and have read() wait on an event for each pipe instance (or, use a
@@ -169,7 +169,7 @@ named_pipe_t::write(const void *buf DR_PARAM_IN, size_t sz)
 const ssize_t
 named_pipe_t::get_atomic_write_size() const
 {
-    // FIXME i#1727: what's the atomic pipe write limit?
+    // XXX i#1727: what's the atomic pipe write limit?
     return 512; // POSIX.1-2001 limit
 }
 

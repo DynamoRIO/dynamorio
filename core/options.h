@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,7 +64,7 @@ extern const internal_options_t default_internal_options;
 
 #define IS_OPTION_INTERNAL(name) (OPTION_IS_INTERNAL_##name)
 #define IS_OPTION_STRING(name) (OPTION_IS_STRING_##name)
-/* FIXME : figure out a way to handle types here so that we don't have to cast
+/* XXX : figure out a way to handle types here so that we don't have to cast
  * strings to ints to avoid compiler warnings */
 #define DEFAULT_OPTION_VALUE(name) \
     (IS_OPTION_STRING(name) ? (int)default_options.name : OPTION_DEFAULT_VALUE_##name)
@@ -161,7 +161,7 @@ set_dynamo_options(options_t *options, const char *optstr);
 #    define SCRATCH_ALWAYS_TLS() (DYNAMO_OPTION(private_ib_in_tls))
 
 /* are any traces (potentially) private? */
-/* FIXME Fix this if we permit private & shared traces to co-exist */
+/* XXX Fix this if we permit private & shared traces to co-exist */
 #    define PRIVATE_TRACES_ENABLED() \
         (!DYNAMO_OPTION(disable_traces) && !DYNAMO_OPTION(shared_traces))
 

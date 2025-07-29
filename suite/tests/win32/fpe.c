@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -134,7 +134,7 @@ fpcheck(void)
     case _FPE_INVALID: strcpy(fpstr, "Invalid number"); break;
     case _FPE_OVERFLOW: strcpy(fpstr, "Overflow"); break;
     case _FPE_UNDERFLOW: strcpy(fpstr, "Underflow"); break;
-    /* FIXME i#910: on win8 this is raised instead of _FPE_ZERODIVIDE */
+    /* XXX i#910: on win8 this is raised instead of _FPE_ZERODIVIDE */
     case _FPE_MULTIPLE_TRAPS:
         fperr = _FPE_ZERODIVIDE;
         /* fall-through */

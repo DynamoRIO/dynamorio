@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -112,7 +112,7 @@ drfront_cleanup_args(char **argv, int argc)
 static bool
 drfront_is_system_install_dir(const char *dir)
 {
-    /* FIXME DrM-i#1730: there could be 8.3 name path or junction or other way
+    /* XXX DrM-i#1730: there could be 8.3 name path or junction or other way
      * to get to the system install dir, so we cannot just rely on path name to
      * check if dir is the system install dir.
      */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,7 +59,7 @@ static char THIS_FILE[] = __FILE__;
 
 #define HELP_PATH _T("\\docs\\html\\index.html")
 
-// FIXME: these are duplicated with the installation wizard, so
+// XXX: these are duplicated with the installation wizard, so
 // that the GUI can set env vars for new users (installer can only
 // set for user installing)
 #define INITIAL_OPTIONS _T("-stats -loglevel 1")
@@ -108,7 +108,7 @@ CDynamoRIOApp::CDynamoRIOApp()
 
 CDynamoRIOApp theApp;
 
-// FIXME: find better way to have other classes access this one
+// XXX: find better way to have other classes access this one
 
 /* static */ CDynamoRIOView *
 CDynamoRIOApp::GetActiveView()
@@ -315,7 +315,7 @@ CDynamoRIOApp::InitInstance()
         if (size > sizeof(TCHAR)) {
             // make sure we're the ones who set this value
             if (_tcscmp(m_inject_all_value, data) != 0) {
-                // FIXME: have user notify us of conflict?
+                // XXX: have user notify us of conflict?
                 int res = MessageBox(
                     NULL,
                     _T("DynamoRIO's RunAll system-wide injection method is ")
@@ -404,7 +404,7 @@ CDynamoRIOApp::InitInstance()
     if (m_bInjectAll) {
         MessageBox(NULL, _T("Run All is already set!"), _T("Warning"), MB_OK | MYMBFLAGS);
 
-        // FIXME: share this code with OnFileSystemwide
+        // XXX: share this code with OnFileSystemwide
         SetEnvVarPermanently(_T("DYNAMORIO_SYSTEMWIDE"), m_dll_path);
 
         // disable changing the library
@@ -786,7 +786,7 @@ CDynamoRIOApp::OnHelpHelp()
     // launch browser on documentation file!
     HINSTANCE res =
         ShellExecute(m_pMainWnd->m_hWnd, _T("open"), helppath, NULL, cwd, SW_SHOWNORMAL);
-    // FIXME: I get back 2 == SE_ERR_FNF == file not found, but netscape finds and
+    // XXX: I get back 2 == SE_ERR_FNF == file not found, but netscape finds and
     // displays it fine...
     if ((int)res <= 32) {
         TCHAR msg[MAX_PATH * 2];
@@ -810,7 +810,7 @@ CDynamoRIOApp::PreExit()
     assert(ok);
 
     if (m_bSystemwideAllowed && m_bInjectAll) {
-        // FIXME: MessageBox crashes...try to get this code into
+        // XXX: MessageBox crashes...try to get this code into
         // MFC's auto-framework for saving unsaved documents!
         int res = MessageBox(NULL, // m_pMainWnd is NULL now!
                              _T("Run All is currently set.  Turn it off?"),
@@ -849,7 +849,7 @@ CDynamoRIOApp::SetEnvVarPermanently(TCHAR *var, TCHAR *val)
     // user logs out and back in)
     DWORD dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
-    // it like that FIXME
+    // it like that XXX
     SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM) "Environment",
                        SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
 
@@ -882,7 +882,7 @@ CDynamoRIOApp::ConfigureForNewUser()
     }
     if (!ok) {
         // Second attempt: read Start Menu's link files
-        // FIXME: code that up
+        // XXX: code that up
 
         // Last resort: ask user to locate directory
         BROWSEINFO bi;
@@ -957,11 +957,11 @@ CDynamoRIOApp::ConfigureForNewUser()
     // user logs out and back in)
     DWORD dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
-    // it like that FIXME
+    // it like that XXX
     SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM) "Environment",
                        SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
 
-    // FIXME: Doc keeps its own internal var w/ home, must update here,
+    // XXX: Doc keeps its own internal var w/ home, must update here,
     // better to have Doc grab ours!
     CDynamoRIODoc *doc = (CDynamoRIODoc *)m_pMainFrame->GetActiveView()->GetDocument();
     doc->InitPaths();

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,7 +40,7 @@
 #include <sys/wait.h>
 #include <unistd.h> /* for fork */
 
-/* FIXME i#26: We can't reliably synch with threads that have just been created.
+/* XXX i#26: We can't reliably synch with threads that have just been created.
  * Raising NUM_FORK_THREADS above 1 means we spawn threads and fork at the same
  * time.  Raise NUM_FORK_THREADS when i#26 is fixed.
  */

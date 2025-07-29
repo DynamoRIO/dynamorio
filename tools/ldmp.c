@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -855,7 +855,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 allocation_size += mbi.RegionSize;
                 /* scan past data */
                 if (prot_is_readable(mbi.Protect)) {
-                    /* FIXME : hack, rc1 core doesn't check for guard page so
+                    /* XXX : hack, rc1 core doesn't check for guard page so
                      * sometimes memory is copied and sometimes it isn't if
                      * is guard! (why?), post rc1 should check
                      * MEM_COMMIT && !guard && is_readable */
@@ -907,7 +907,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                          allocation_base, allocation_size);
                 }
                 target = allocation_base;
-                /* FIXME : why can't we use VirtualAllocEx? it fails with
+                /* XXX : why can't we use VirtualAllocEx? it fails with
                  * code 487 == INVALID_ADDRESS */
                 res = nt_remote_allocate_virtual_memory(
                     hProc, &target, allocation_size, allocation_protect, MEMORY_COMMIT);
@@ -991,7 +991,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                         }
                     } else {
 #if RC1_HACK
-                        /* FIXME : rc1 hack, might have memory from guard page
+                        /* XXX : rc1 hack, might have memory from guard page
                          * somehow */
                         fpos_t hack_pos;
                         MEMORY_BASIC_INFORMATION hack_mbi;
@@ -1093,7 +1093,7 @@ DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
         res = fscanf(file, "0x%08x", &length);
         assert(res == 1);
         length = length + 1; /* newline after length, see comment above */
-        /* FIXME - should never happen, but we could handle by doing this in
+        /* XXX - should never happen, but we could handle by doing this in
          * pieces */
         assert(length < sizeof(buf));
         if (length >= sizeof(buf))

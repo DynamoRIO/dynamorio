@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /*
  * module_macho.c - Mach-O file parsing support
  *
- * FIXME i#58: NYI (see comments below as well):
+ * TODO i#58: NYI (see comments below as well):
  * + export iterator and forwarded exports (i#1360)
  * + imports
  * + relocations
@@ -78,7 +78,7 @@ module_file_has_module_header(const char *filename)
 bool
 module_is_partial_map(app_pc base, size_t size, uint memprot)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: implement MachO support */
     return false;
 }
 
@@ -236,7 +236,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 }
                 cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
             }
-            /* FIXME i#58: we need to fill in more of out_data, like preferred
+            /* XXX i#58: we need to fill in more of out_data, like preferred
              * base.  For alignment: it's per-section, so we pass the max.
              */
             out_data->base_address = seg_min_start;
@@ -254,7 +254,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
 uint
 module_num_program_headers(app_pc base)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: implement MachO support */
     return 0;
 }
 
@@ -265,7 +265,7 @@ module_read_program_header(app_pc base, uint segment_num,
                            DR_PARAM_OUT uint *segment_prot,
                            DR_PARAM_OUT size_t *segment_align)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: implement MachO support */
     return false;
 }
 
@@ -442,7 +442,7 @@ get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t load_delta,
             if (forw_name[0] == '\0') /* see if has different name */
                 forw_name = name;
             LOG(GLOBAL, LOG_SYMBOLS, 4, "\tforwarder %s\n", forw_name);
-            /* FIXME i#1360: handle forwards */
+            /* XXX i#1360: handle forwards */
         } else if (TEST(EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER, flags)) {
             /* Lazy or non-lazy pointer */
             DEBUG_DECLARE(size_t stub_offs =)
@@ -496,21 +496,21 @@ d_r_get_proc_address(module_base_t lib, const char *name)
 size_t
 module_get_header_size(app_pc module_base)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: implement MachO support */
     return 0;
 }
 
 bool
 module_has_text_relocs(app_pc base, bool at_map)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: implement MachO support */
     return false;
 }
 
 bool
 module_has_text_relocs_ex(app_pc base, os_privmod_data_t *pd)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: implement MachO support */
     return false;
 }
 
@@ -518,7 +518,7 @@ bool
 module_read_os_data(app_pc base, bool dyn_reloc, DR_PARAM_OUT ptr_int_t *load_delta,
                     DR_PARAM_OUT os_module_data_t *os_data, DR_PARAM_OUT char **soname)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: implement MachO support */
     return false;
 }
 
@@ -537,7 +537,7 @@ void
 module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
                            DR_PARAM_OUT os_privmod_data_t *pd)
 {
-    pd->load_delta = 0; /* FIXME i#58: need preferred base */
+    pd->load_delta = 0; /* XXX i#58: need preferred base */
     module_walk_program_headers(base, size, false,
                                 true, /* i#1589: ld.so relocated .dynamic */
                                 NULL, NULL, NULL, &pd->soname, NULL);
@@ -558,7 +558,7 @@ module_dynamorio_lib_base(void)
 ptr_uint_t
 module_get_text_section(app_pc file_map, size_t file_size)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#58: implement MachO support */
     return 0;
 }
 

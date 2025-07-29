@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -701,7 +701,7 @@ static bool
 size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
               opnd_size_t size_op, opnd_size_t size_template, uint prefix_data_addr)
 {
-    /* FIXME: this code is getting long and complex: is there a better way?
+    /* XXX: this code is getting long and complex: is there a better way?
      * Any way to resolve these var sizes further first?  Doesn't seem like it.
      */
     /* if identical sizes we shouldn't be called */
@@ -785,7 +785,7 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         if (size_template == OPSZ_4_rex8_short2) {
             if (TEST(prefix_data_addr, di->prefixes))
                 return true; /* Already shrinking so ok */
-            /* FIXME - ambiguous on 64-bit (could widen to 8 or shrink to 2).
+            /* XXX - ambiguous on 64-bit (could widen to 8 or shrink to 2).
              * We choose to widen by default for 64-bit as that seems the more likely
              * usage, but whatever choice we make here could conflict with a later
              * operand and lead to encoding failure even if there was a possible match. */
@@ -883,7 +883,7 @@ resolve_var_x64_size(decode_info_t *di /*x86_mode is IN*/, opnd_size_t sz,
 {
     /* Resolve what we can based purely on x64 and addr_short4
      * (gets rid of all NxM sizes), as well as vendor where the size
-     * differences are static.  FIXME - could also resolve rex
+     * differences are static.  XXX - could also resolve rex
      * availability and vendor rex-varying sizes here,
      * but not without adding more types that would make
      * size_ok routines more complicated.  */
@@ -1619,7 +1619,7 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
                  size_ok(di, opnd_get_size(opnd), opsize, false /*!addr*/) &&
                  immed_size_ok(di, opnd_get_immed_int(opnd), opsize)));
     case TYPE_1:
-        /* FIXME (xref PR 229127): Ib vs c1: if say "1, OPSZ_1" will NOT match c1 and
+        /* XXX (xref PR 229127): Ib vs c1: if say "1, OPSZ_1" will NOT match c1 and
          * will get the Ib version: do we want to match c1?  What if they really want
          * an immed byte in the encoding?  OTOH, we do match constant registers
          * automatically w/ no control from the user.
@@ -1629,10 +1629,10 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         return (opnd_is_immed_int(opnd) && opnd_get_immed_int(opnd) == 1 &&
                 size_ok(di, opnd_get_size(opnd), opsize, false /*!addr*/));
     case TYPE_FLOATCONST:
-        return (opnd_is_immed_float(opnd)); /* FIXME: is actual float const decoded? */
+        return (opnd_is_immed_float(opnd)); /* XXX: is actual float const decoded? */
     case TYPE_J:
-        /* FIXME PR 225937: support 16-bit data16 immediates */
-        /* FIXME: need relative pc offset to test immed_size_ok, but all we have
+        /* XXX PR 225937: support 16-bit data16 immediates */
+        /* XXX: need relative pc offset to test immed_size_ok, but all we have
          * here is absolute pc or instr: but we don't auto-select opcode, and opcode
          * selects immed size (except for data16 which we don't support),
          * so we don't need to choose among templates now: we'll complain
@@ -1731,7 +1731,7 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         /* far_ ok */
         return (opnd_is_base_disp(opnd) && opnd_get_base(opnd) == opsize &&
                 opnd_get_index(opnd) == REG_NULL && opnd_get_disp(opnd) == 0 &&
-                /* FIXME: how know data size?  for now just use reg size... */
+                /* XXX: how know data size?  for now just use reg size... */
                 size_ok(di, opnd_get_size(opnd), reg_get_size(opsize), false /*!addr*/));
     case TYPE_INDIR_VAR_XREG:         /* indirect reg that varies by ss only, base is 4x8,
                                        * opsize that varies by data16 */
@@ -1884,7 +1884,7 @@ encoding_meets_hints(instr_t *instr, const instr_info_t *info)
 }
 
 /* May be called a 2nd time to check size prefix consistency.
- * FIXME optimization: in 2nd pass we only need to call opnd_type_ok()
+ * XXX optimization: in 2nd pass we only need to call opnd_type_ok()
  * and don't need to check reg, modrm, numbers, etc.
  */
 static bool
@@ -2696,7 +2696,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
 
     case TYPE_L: {
         reg_id_t reg = opnd_get_reg(opnd);
-        CLIENT_ASSERT(!reg_is_strictly_zmm(reg), "FIXME i#1312: unsupported.");
+        CLIENT_ASSERT(!reg_is_strictly_zmm(reg), "XXX i#1312: unsupported.");
         ptr_int_t immed =
             (reg_is_strictly_ymm(reg) ? (reg - REG_START_YMM) : (reg - REG_START_XMM));
         immed = (immed << 4);
@@ -3230,7 +3230,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                 LOG(THREAD, LOG_EMIT, 1, "\n");
             });
             CLIENT_ASSERT(false, "instr_encode error: no encoding found (see log)");
-            /* FIXME: since labels (case 4468) have a legal length 0
+            /* XXX: since labels (case 4468) have a legal length 0
              * we may want to return a separate status code for failure.
              */
             return NULL;

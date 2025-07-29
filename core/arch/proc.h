@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,7 +64,7 @@ enum {
 
 /* information about a processor */
 typedef struct _cpu_info_t {
-    /* FIXME i#1551: x86 and arm use different description of cpu models
+    /* XXX i#1551: x86 and arm use different description of cpu models
      * - x86: vendor, family, type, model, steeping,
      * - arm: implementer, architecture, variant, part, revision, model name, hardware.
      */

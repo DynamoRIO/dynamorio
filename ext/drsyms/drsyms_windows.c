@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -186,7 +186,7 @@ drsym_init(const wchar_t *shmid_in)
     symbol_lock = dr_recurlock_create();
 
     if (IS_SIDELINE) {
-        /* FIXME NYI: establish connection with sideline server via
+        /* TODO NYI: establish connection with sideline server via
          * shared memory specified by shmid
          */
     } else {
@@ -194,7 +194,7 @@ drsym_init(const wchar_t *shmid_in)
                           true /*strdup*/, false /*!synch: using symbol_lock*/,
                           modtable_entry_free, NULL, NULL);
 
-        /* FIXME i#601: We'd like to honor the mangling flags passed to each
+        /* XXX i#601: We'd like to honor the mangling flags passed to each
          * search routine, but the demangling process used by SYMOPT_UNDNAME
          * loses information, so we can provide neither the fully mangled name
          * nor the parameter types for the symbol.  We can't change
@@ -389,7 +389,7 @@ load_module(HANDLE proc, const char *path, DR_PARAM_OUT uint64 *size_out)
                 size = 0;
                 continue;
             } else {
-                /* FIXME PR 463897: for !single_target, we should handle load
+                /* XXX PR 463897: for !single_target, we should handle load
                  * failure by trying a different address, informed by some
                  * memory queries.  For now we assume only one .exe and that
                  * it's below our start load address and that we won't fail.
@@ -944,7 +944,7 @@ demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled, uint
     size_t len;
 
     if (TEST(DRSYM_DEMANGLE_FULL, flags)) {
-        /* FIXME: I'd like to suppress "class" from the types, but I can't find
+        /* XXX: I'd like to suppress "class" from the types, but I can't find
          * an option to control it other than UNDNAME_NAME_ONLY, which
          * suppresses overloads, which we want.
          */
@@ -984,7 +984,7 @@ demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled, uint
         NOTIFY("UnDecorateSymbolName error %d\n", GetLastError());
     } else if (len + 2 >= dst_sz) {
         NOTIFY("UnDecorateSymbolName overflowed\n");
-        /* FIXME: This return value is made up and may not be large enough.
+        /* XXX: This return value is made up and may not be large enough.
          * It will work eventually if the caller reallocates their buffer
          * and retries in a loop, or if they just want to detect truncation.
          */

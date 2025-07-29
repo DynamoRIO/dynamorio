@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -27,7 +27,7 @@
 #include <string.h>
 #include <fcntl.h>
 
-/* FIXME i#1440: finish porting Dr. Syscall to Mac OSX */
+/* XXX i#1440: finish porting Dr. Syscall to Mac OSX */
 
 /***************************************************************************
  * SYSTEM CALLS FOR MAC
@@ -52,12 +52,12 @@ hashtable_t secondary_systable;
 extern syscall_info_t syscall_info_bsd[];
 extern size_t count_syscall_info_bsd;
 
-/* FIXME i#1440: add mach syscall table */
+/* XXX i#1440: add mach syscall table */
 #define SYSCALL_NUM_MARKER_MACH 0x1000000
 #define SYSCALL_NUM_MARKER_BSD 0x2000000 /* x64 only */
 #define SYSCALL_NUM_MARKER_MACHDEP 0x3000000
 
-/* FIXME i#1440: add machdep syscall table */
+/* XXX i#1440: add machdep syscall table */
 
 /***************************************************************************
  * PER-SYSCALL HANDLING
@@ -87,7 +87,7 @@ os_handle_post_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
 {
     /* each handler checks result for success */
     switch (ii->arg->sysnum.number) {
-        /* FIXME i#1440: add handling */
+        /* XXX i#1440: add handling */
     }
     /* If you add any handling here: need to check ii->abort first */
 }
@@ -143,7 +143,7 @@ os_handle_syscall_arg_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_in
     case SYSARG_TYPE_CSTRING: return handle_cstring_access(ii, arg_info, start, size);
     case DRSYS_TYPE_CSTRARRAY:
         return handle_strarray_access(ii, arg_info, start, size);
-        /* FIXME i#1440: add more handling -- probably also want
+        /* XXX i#1440: add more handling -- probably also want
          * SYSARG_TYPE_SOCKADDR?  Share w/ Linux?
          */
     }
@@ -285,7 +285,7 @@ bool
 os_syscall_succeeded(drsys_sysnum_t sysnum, syscall_info_t *info, cls_syscall_t *pt)
 {
     if (TEST(SYSCALL_NUM_MARKER_MACH, sysnum.number)) {
-        /* FIXME i#1440: Mach syscalls vary (for some KERN_SUCCESS=0 is success,
+        /* XXX i#1440: Mach syscalls vary (for some KERN_SUCCESS=0 is success,
          * for others that return mach_port_t 0 is failure (I think?).
          */
         return ((ptr_int_t)pt->mc.xax >= 0);

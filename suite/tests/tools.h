@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -265,7 +265,7 @@ page_size(void)
     }
     return size;
 #else
-    /* FIXME i#1680: On Windows determine page size using system call. */
+    /* XXX i#1680: On Windows determine page size using system call. */
     return 4096;
 #endif
 }
@@ -333,7 +333,7 @@ typedef enum {
 #if VERBOSE
 #    define VERBOSE_PRINT print
 #else
-/* FIXME: varargs for windows...for now since we don't care about efficiency we do this:
+/* XXX: varargs for windows...for now since we don't care about efficiency we do this:
  */
 static inline void
 VERBOSE_PRINT(const char *fmt, ...)
@@ -877,7 +877,7 @@ get_drmarker_field(uint offset)
         + (uint)landing_pad + 5;             /* relative */
 #    endif
     drmarker = (byte *)ALIGN_BACKWARD((ptr_uint_t)drmarker, PAGE_SIZE);
-    /* FIXME: check magic fields */
+    /* XXX: check magic fields */
     field = *((byte **)(drmarker + offset));
     return field;
 }

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -101,7 +101,7 @@ static bool on_WSL;
 /* Indicates that on the next request for a GDT entry, we should return the GDT
  * entry we stole for private library TLS.  The entry index is in
  * lib_tls_gdt_index.
- * FIXME i#107: For total segment transparency, we can use the same approach
+ * XXX i#107: For total segment transparency, we can use the same approach
  * with tls_gdt_index.
  */
 bool return_stolen_lib_tls_gdt;
@@ -309,7 +309,7 @@ choose_gdt_slots(os_local_state_t *os_tls)
     /* using local static b/c dynamo_initialized is not set for a client thread
      * when created in client's dr_client_main routine
      */
-    /* FIXME: Could be racy if we have multiple threads initializing during
+    /* XXX: Could be racy if we have multiple threads initializing during
      * startup.
      */
     if (tls_global_init)
@@ -491,7 +491,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                     res);
             }
         } else {
-            /* FIXME PR 205276: we don't currently handle it: fall back on ldt, but
+            /* XXX PR 205276: we don't currently handle it: fall back on ldt, but
              * we'll have the same conflict w/ the selector...
              */
             ASSERT_BUG_NUM(205276, cur_gs == NULL);
@@ -720,7 +720,7 @@ tls_get_fs_gs_segment_base(uint seg)
         }
     }
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_REACHED();
 #endif /* X86/ARM */
     return (byte *)POINTER_MAX;
@@ -760,7 +760,7 @@ tls_set_fs_gs_segment_base(tls_type_t tls_type, uint seg,
     }
     }
 #elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_REACHED();
 #endif /* X86/ARM */
     return (res >= 0);

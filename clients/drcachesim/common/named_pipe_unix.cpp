@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,7 +74,7 @@ named_pipe_t::~named_pipe_t()
 static const char *
 pipe_dir()
 {
-    // FIXME i#1703: check TMPDIR, TEMP, and TMP env vars first.
+    // XXX i#1703: check TMPDIR, TEMP, and TMP env vars first.
 #ifdef ANDROID
     // XXX i#1874: it still fails, even for ext4
     return "/data/local/tmp";

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -90,7 +90,7 @@ check_mem_usage(SIZE_T peakpage)
      * If we went up into the 100's of iters we could keep it even lower
      * but we want a short test.
 
-     FIXME: coarse units makes the increase larger, and traces do make
+     XXX: coarse units makes the increase larger, and traces do make
      a big difference:
       % for i in "" "-disable_traces" "-no_coarse_units" "-no_coarse_units
     -disable_traces"; do useops $i; (for j in 40 60 80 100; do rundr rel
@@ -143,10 +143,10 @@ check_mem_usage(SIZE_T peakpage)
       native  676; nocoarse 1988 +1312; desktop 1688 +1012; tot 1992 +1316
 
     So for now for short regression we allow the larger values we've seen.
-    FIXME: have a long regr test that does hundreds of iters!
+    XXX: have a long regr test that does hundreds of iters!
     */
     /* typical DR */
-    /* FIXME: I used to have a <32KB category but I seem to have nondet
+    /* XXX: I used to have a <32KB category but I seem to have nondet
      * behavior, make vs raw being different, etc. etc. so just checking
      * for under 80KB
      */

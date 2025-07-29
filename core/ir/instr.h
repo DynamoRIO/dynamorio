@@ -819,7 +819,7 @@ enum {
     RAW_PREFIX_xrelease = 0xf3,
 };
 
-enum { /* FIXME: vs RAW_OPCODE_* enum */
+enum { /* XXX: vs RAW_OPCODE_* enum */
        CS_SEG_OPCODE = RAW_PREFIX_jcc_not_taken,
        DS_SEG_OPCODE = RAW_PREFIX_jcc_taken,
        ES_SEG_OPCODE = 0x26,

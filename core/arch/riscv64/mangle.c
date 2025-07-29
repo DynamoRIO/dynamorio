@@ -438,7 +438,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 reg_id_t
 shrink_reg_for_param(reg_id_t regular, opnd_t arg)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return regular;
 }
@@ -536,7 +536,7 @@ void
 patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
                      instr_t *last)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -584,7 +584,7 @@ void
 mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -1247,7 +1247,7 @@ mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
 void
 float_pc_update(dcontext_t *dcontext)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 

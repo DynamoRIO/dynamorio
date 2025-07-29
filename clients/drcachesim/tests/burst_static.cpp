@@ -110,7 +110,7 @@ test_main(int argc, const char *argv[])
     return 0;
 }
 
-/* FIXME i#2099: the weak symbol is not supported on Windows. */
+/* XXX i#2099: the weak symbol is not supported on Windows. */
 #if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
 #    ifdef __cplusplus
 extern "C" {

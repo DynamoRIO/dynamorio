@@ -37,7 +37,7 @@ set(run_tests ON)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
 if (APPLE)
   # For now we run just a quarter of the tests, using a test label.
-  # FIXME i#1815: get all the tests working.
+  # XXX i#1815: get all the tests working.
   set(extra_ctest_args INCLUDE_LABEL OSX)
 endif ()
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")

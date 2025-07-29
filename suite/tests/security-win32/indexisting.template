@@ -9,7 +9,7 @@ calling via PLT-style call
 this is a normal function 123456
 calling via PLT-style call
 // the default value is currently -rct_ind_call 0
-// FIXME: we need support for option parameters when the default changes to 11
+// XXX: we need support for option parameters when the default changes to 11
 // .E expected
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(E) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)

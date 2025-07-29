@@ -297,7 +297,7 @@ _tmain(int argc, const TCHAR *targv[])
 
         if (drfront_is_64bit_app(app_name, &is64, &is32) == DRFRONT_SUCCESS &&
             IF_X64_ELSE(!is64, is64 && !is32)) {
-            /* FIXME i#1703: since drinjectlib doesn't support cross-arch
+            /* XXX i#1703: since drinjectlib doesn't support cross-arch
              * injection (DRi#803), we need to launch the other frontend.
              */
             FATAL_ERROR("application has bitwidth unsupported by this launcher");

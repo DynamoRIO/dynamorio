@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -964,7 +964,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
     get_scatter_gather_info(sg_instr, &sg_info);
 #ifndef X64
     if (sg_info.scalar_index_size == OPSZ_8 || sg_info.scalar_value_size == OPSZ_8) {
-        /* FIXME i#2985: we do not yet support expansion of the qword index and value
+        /* XXX i#2985: we do not yet support expansion of the qword index and value
          * scatter/gather versions in 32-bit mode.
          */
         return false;

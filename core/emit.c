@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -128,7 +128,7 @@ stress_test_recreate(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
     });
 
     recreated_pc = recreate_app_pc(dcontext, body_end_pc, NULL /*for full test*/);
-    /* FIXME: figure out how to test each instruction, while knowing the app state */
+    /* XXX: figure out how to test each instruction, while knowing the app state */
     LOG(THREAD, LOG_MONITOR, 2, "Testing recreating Fragment #%d recreated_pc=" PFX "\n",
         GLOBAL_STAT(num_fragments), recreated_pc);
 
@@ -147,7 +147,7 @@ final_exit_shares_prev_stub(dcontext_t *dcontext, instrlist_t *ilist, uint frag_
     if (INTERNAL_OPTION(cbr_single_stub) && !TEST(FRAG_COARSE_GRAIN, frag_flags)) {
         /* don't need to expand since is_exit_cti will rule out level 0 */
         instr_t *inst = instrlist_last(ilist);
-        /* FIXME: we could support code after the last cti (this is ubr so
+        /* XXX: we could support code after the last cti (this is ubr so
          * would be out-of-line code) or between cbr and ubr but for
          * simplicity of identifying exits for traces we don't
          */
@@ -219,7 +219,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
             });
             /* An alternative way of testing this is to match with
              * is_return_lookup_routine() whenever we get that */
-            /* FIXME: doing the above is much easier now and it is more reliable
+            /* XXX: doing the above is much easier now and it is more reliable
              * than expecting the branch type flags to propagate through
              */
             l->flags |= instr_exit_branch_type(inst);
@@ -276,7 +276,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                     ASSERT(prev_cti != NULL && instr_is_cbr(prev_cti));
                     /* should always qualify for single stub */
                     ASSERT(!INTERNAL_OPTION(cbr_single_stub) ||
-                           /* FIXME: this duplicates calc of final_cbr_single_stub
+                           /* XXX: this duplicates calc of final_cbr_single_stub
                             * bool cached in emit_fragment_common()
                             */
                            (inst == instrlist_last(ilist) &&
@@ -296,7 +296,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
             if (should_separate_stub(dcontext, target, f->flags))
                 l->flags |= LINK_SEPARATE_STUB;
 
-            /* FIXME: we don't yet support !emit ctis: need to avoid patching
+            /* XXX: we don't yet support !emit ctis: need to avoid patching
              * the cti when emit the exit stub */
             ASSERT_NOT_IMPLEMENTED(!emit || instr_ok_to_emit(inst));
 
@@ -341,7 +341,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
             DOCHECK(1, {
                 if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
                     ASSERT(!frag_offs_at_end);
-                    /* FIXME: indirect stubs should be separated
+                    /* XXX: indirect stubs should be separated
                      * eventually, but right now no good place to put them
                      * so keeping inline
                      */
@@ -401,7 +401,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
 
     KSTART(emit);
     /* we do entire cache b/c links may touch many units
-     * FIXME: change to lazier version triggered by segfaults or something?
+     * XXX: change to lazier version triggered by segfaults or something?
      */
     SELF_PROTECT_CACHE(dcontext, NULL, WRITABLE);
 
@@ -549,7 +549,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
         /* assume contiguous bb */
         app_pc end_bb_pc;
         ASSERT((flags & FRAG_HAS_DIRECT_CTI) == 0);
-        /* FIXME PR 215217: a client may have truncated or otherwise changed
+        /* XXX PR 215217: a client may have truncated or otherwise changed
          * the code, but we assume no new code has been added.  Thus, checking
          * the original full range can only result in a false positive selfmod
          * event, which is a performance issue only.
@@ -565,7 +565,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     }
 
     /* create a new fragment_t, or fill in the emit wrapper for coarse-grain */
-    /* FIXME : don't worry too much about whether padding should be requested in
+    /* XXX : don't worry too much about whether padding should be requested in
      * the stub or body argument, fragment_create doesn't distinguish between
      * the two */
     f = fragment_create(dcontext, tag, offset + extra_jmp_padding_body, num_direct_stubs,

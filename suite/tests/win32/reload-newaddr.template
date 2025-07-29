@@ -11,7 +11,7 @@
 # endif
 #endif
 iters is 40
-// FIXME: strange behavior: giving up on smaller categories
+// XXX: strange behavior: giving up on smaller categories
 #ifdef X64
 Memory check: pagefile usage increase is < 160 KB
 #elif defined(desktop) || (defined(disable_traces) && !defined(no_coarse_units))

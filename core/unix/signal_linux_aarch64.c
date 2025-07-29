@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -50,7 +50,7 @@
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 
 #ifdef DEBUG

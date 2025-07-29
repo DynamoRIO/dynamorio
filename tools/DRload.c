@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -295,7 +295,7 @@ main(int argc, char *argv[])
 
 #if 0
             map_file(DRpath, force_base, 1 /* image */);
-            /* FIXME: note that the DLL will not be relocated! */
+            /* XXX: note that the DLL will not be relocated! */
             /* we can't really initialize */
 #endif
         }
@@ -321,7 +321,7 @@ main(int argc, char *argv[])
                 goto done;
             }
             res = (*init_func)();
-            /* FIXME: ASSERT(res) */
+            /* XXX: ASSERT(res) */
             (*take_over_func)();
             res = 0;
         }

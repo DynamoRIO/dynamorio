@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -105,7 +105,7 @@
 # Note that you can make a cmake script that sets common variables and point at it
 # with the -C parameter to cmake.
 
-# FIXME i#66: should include pre-commit regression test suite results here
+# XXX i#66: should include pre-commit regression test suite results here
 
 if (NOT DEFINED LABEL)
   message(FATAL_ERROR "must set LABEL variable")
@@ -220,7 +220,7 @@ if (REVERT)
   endif (svn_result OR svn_err)
   if ("${svn_out}" MATCHES "^\\A")
     # svn revert doesn't delete local copy if new => svn delete
-    # FIXME: if AUTHOR was mistyped should we remove the directories too?
+    # XXX: if AUTHOR was mistyped should we remove the directories too?
     run_svn("delete;--force;${DEST}.diff")
   else ("${svn_out}" MATCHES "^\\A")
     run_svn("revert;${DEST}.diff")
@@ -361,7 +361,7 @@ else (REVERT)
     message("${ugly} (1 == var) vs. (var == 1): \"${bad}\"")
   endif (bad)
   # check that empty param list is declared void
-  # FIXME: should we only require for decls by only running on header files?
+  # XXX: should we only require for decls by only running on header files?
   # But we do want to catch static decls.
   string(REGEX MATCH "\n.. *[A-Za-z0-9][A-Za-z0-9_\\* ]+\\(\\);" bad "${string}")
   if (bad)
@@ -372,7 +372,7 @@ else (REVERT)
   # since we're only checking the diff and not the existing core we
   # go ahead and apply all the rules
   # Rules that should pass (and almost do, all have only a few violations left and
-  # no false positives). FIXME - should be cleaned up and moved to ugly xref 8806.
+  # no false positives). XXX - should be cleaned up and moved to ugly xref 8806.
   string(REGEX MATCH " (do|if|while|for|else|switch)\\(" bad "${string}")
   if (bad)
     message("${ugly} spacing, if( or if  ( vs if (: \"${bad}\"")
@@ -384,7 +384,7 @@ else (REVERT)
 
   # The old "really_ugly": see comments above.
   # Rules that don't pass at all, either because of excessive violations in the
-  # codebase or because of false positives. FIXME - for rules with few or no false
+  # codebase or because of false positives. XXX - for rules with few or no false
   # positives but numerous violations we could use a count or something to try and
   # keep things from getting worse xref case 8806.
 
@@ -395,7 +395,7 @@ else (REVERT)
     message("${ugly} line is too long: \"${bad}\"")
   endif (bad)
 
-  # FIXME: not bothering to try and catch multiple statements on one line
+  # XXX: not bothering to try and catch multiple statements on one line
   # at this time: look at old core/Makefile if interested.  Keeping comment below
   # for all the issues:
   #
@@ -430,7 +430,7 @@ else (REVERT)
     message("${ugly} use int/uint instead of long/ulong: \"${bad}\"")
   endif (bad)
   # Only a few false positives and not that many violations (for the "( " rule at
-  # least). FIXME - these could probably be moved to pretty_ugly at some point.
+  # least). XXX - these could probably be moved to pretty_ugly at some point.
   string(REGEX MATCH "\\( +[^\\ ]+" bad "${string}")
   if (bad)
     message("${ugly} spacing, ( foo, bar ) vs. (foo, bar): \"${bad}\"")

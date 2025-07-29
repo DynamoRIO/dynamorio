@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -167,7 +167,7 @@ static app_pc
 elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t view_size,
                 ptr_int_t load_delta, bool at_map, bool dyn_reloc)
 {
-    /* FIXME - if at_map this needs to be adjusted if not in the first segment
+    /* XXX - if at_map this needs to be adjusted if not in the first segment
      * since we haven't re-mapped later ones yet. Since it's read only I've
      * never seen it not be in the first segment, but should fix or at least
      * check. PR 307610.
@@ -1128,10 +1128,10 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 
     /* If not find the symbol in current module, iterate over all modules
      * in the dependency order.
-     * FIXME: i#461 We do not tell weak/global, but return on the first we see.
+     * XXX: i#461 We do not tell weak/global, but return on the first we see.
      */
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    /* FIXME i#3850: Symbols are currently looked up following the dependency chain
+    /* XXX i#3850: Symbols are currently looked up following the dependency chain
      * depth-first instead of breadth-first.
      */
     for (privmod_t *mod = privload_first_module(); mod != NULL;
@@ -1442,7 +1442,7 @@ tlsdesc_resolver(struct tlsdesc_t *);
 static ptr_int_t
 tlsdesc_resolver(struct tlsdesc_t *arg)
 {
-    /* FIXME i#1961: TLS descriptors are not implemented on other architectures. */
+    /* XXX i#1961: TLS descriptors are not implemented on other architectures. */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
@@ -1618,7 +1618,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         return;
     }
     switch (r_type) {
-#ifndef RISCV64 /* FIXME i#3544: Check whether ELF_R_DIRECT with !is_rela is OK */
+#ifndef RISCV64 /* XXX i#3544: Check whether ELF_R_DIRECT with !is_rela is OK */
     case ELF_R_GLOB_DAT:
 #endif
     case ELF_R_JUMP_SLOT:
@@ -1650,7 +1650,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         break;
 #    endif
 #endif
-    /* FIXME i#1551: add ARM specific relocs type handling */
+    /* XXX i#1551: add ARM specific relocs type handling */
     default:
         /* unhandled rel type */
         ASSERT_NOT_REACHED();

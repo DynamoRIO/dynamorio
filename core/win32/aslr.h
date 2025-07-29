@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,10 +54,10 @@ enum {
     /* Note option active in parent applies to its children */
 
     ASLR_HEAP = 0x04,       /* random initial virtual memory padding */
-    ASLR_MAPPED = 0x08,     /* FIXME: NYI case 2491, case 6737 */
-    ASLR_EXECUTABLE = 0x10, /* FIXME: NYI case 2491 + case 1948  */
+    ASLR_MAPPED = 0x08,     /* TODO: NYI case 2491, case 6737 */
+    ASLR_EXECUTABLE = 0x10, /* TODO: NYI case 2491 + case 1948  */
 
-    ASLR_PROCESS_PARAM = 0x20, /* FIXME: NYI case 6840 */
+    ASLR_PROCESS_PARAM = 0x20, /* TODO: NYI case 6840 */
     /* Note option active in parent applies to its children */
     /* controls earliest possible padding from parent, yet interop
      * problem with device drivers assuming ProcessParameters is at a
@@ -66,15 +66,15 @@ enum {
      */
 
     ASLR_HEAP_FILL = 0x40, /* random padding between virtual allocations */
-    ASLR_TEB = 0x80,       /* FIXME: NYI case 2491 */
+    ASLR_TEB = 0x80,       /* TODO: NYI case 2491 */
 
-    /* FIXME: for TEB can reserve the pages after the PEB allocation
+    /* XXX: for TEB can reserve the pages after the PEB allocation
      * unit, yet the first threads are still in the PEB allocation
      * unit.  We could fill the original threads space from the parent
      * before any other threads are created, but not that valuable
      * since still providing known writable location */
 
-    /* FIXME: PEB probably CAN'T be moved from user mode at all,
+    /* XXX: PEB probably CAN'T be moved from user mode at all,
      * definitely can't relocate in running process since can't change protections
      */
 
@@ -84,20 +84,20 @@ enum {
      * group is to add new areas bottom up (from a defined starting
      * value + random); after each mapping the size is known and some
      * smaller random padding can be added.
-     * FIXME: Reclaiming ranges is not currently controlled,
+     * XXX: Reclaiming ranges is not currently controlled,
      *  committed memory issues due to that tracked in case 6729
      */
     ASLR_RANGE_BOTTOM_UP = 0x00100, /* default behaviour, reserved */
-    ASLR_RANGE_TOP_DOWN = 0x00200,  /* NYI: FIXME: need size for
+    ASLR_RANGE_TOP_DOWN = 0x00200,  /* NYI: XXX: need size for
                                      * going top down requires an
                                      * extra system call */
-    ASLR_RANGE_RANDOM = 0x00400,    /* NYI: FIXME: may cause too
+    ASLR_RANGE_RANDOM = 0x00400,    /* NYI: XXX: may cause too
                                      * much fragmentation, best done
                                      * with full vmmap, then we can
                                      * choose a random location
                                      * anywhere in our range */
 
-    ASLR_SHARE_DR_DLL = 0x10000000, /* FIXME: NYI case 8129 */
+    ASLR_SHARE_DR_DLL = 0x10000000, /* TODO: NYI case 8129 */
     /* Note option active in parent applies to its children */
     /* In addition to the current -aslr_dr feature, should eventually
      * share views similar to ASLR_SHARED_CONTENTS */
@@ -186,7 +186,7 @@ enum {
      * and other shared objects.  Performance hit depends on
      * consistency checks performed.
      *
-     * FIXME: we may want to fallback to this option even if we use as
+     * XXX: we may want to fallback to this option even if we use as
      * default option a publisher and use any of the further options
      * tracked in case 8812
      */
@@ -196,21 +196,21 @@ enum {
      * process if not set, or may produce the relocated files from
      * within DR.
      *
-     * FIXME: can also queue up request to generate a particular file
+     * XXX: can also queue up request to generate a particular file
      * even if not materializing immediately in that case it will be
      * combined with ASLR_SHARED_WORKLIST modifier.
      */
 
     ASLR_SHARED_WORKLIST = 0x200,
     /* Process a worklist of modules to optionally produce and/or
-     * publish.  FIXME: Note that separate queues for publishing and
+     * publish.  XXX: Note that separate queues for publishing and
      * producing may be needed.
      */
 
     ASLR_SHARED_INITIALIZE = 0x1000,
     /* Creates object directories if not yet created - needs to be
      * done by first highly privileged process, although multiple ones
-     * attempting to do so is OK.  FIXME: TOFILE Security
+     * attempting to do so is OK.  XXX: TOFILE Security
      * risk for privileged processes if directories and subdirectories
      * can be created by non-privileged process, needs to make sure
      * there is no race in which a low-privileged process creates
@@ -222,7 +222,7 @@ enum {
     ASLR_SHARED_INITIALIZE_NONPERMANENT = 0x2000,
     /* make ASLR_SHARED_INITIALIZE initialize as a temporary object
      * instead of the default permanent directory, useful for running
-     * a user process without proper permissions.  FIXME: may want to
+     * a user process without proper permissions.  XXX: may want to
      * force it to use a per-user directory in this case.
      */
 
@@ -234,7 +234,7 @@ enum {
 
     /* non transparent option, not recommended */
     ASLR_ALLOW_ORIGINAL_CLOBBER = 0x1000000,
-    /* FIXME: as a feature case 9033 - would allow overwriting
+    /* XXX: as a feature case 9033 - would allow overwriting
      * original files without anyone noticiing.  This would allow one
      * to apply M$ patches without a reboot, and they would take
      * effect for any other service using them.  However, it may
@@ -251,7 +251,7 @@ enum {
      *   from the parent process (especially on Vista).
      * case 8902 - however shows in taskmgr the name of our mangled file
      *   we need to change our naming scheme to make this appear the same
-     * FIXME: to support !ASLR_ALLOW_ORIGINAL_CLOBBER
+     * XXX: to support !ASLR_ALLOW_ORIGINAL_CLOBBER
      * we also need to prevent overwrites of the executablewe by duplicating
      * our handle in the target process, so it gets closed when the child dies.
      *
@@ -309,7 +309,7 @@ enum {
     /* target corruption only: MD5 digest of the produced file,
      * nonmalicious corruption only, otherwise no guarantee of the
      * relationship between source and target */
-    /* FIXME: This one may not be very useful, but allows for a better
+    /* XXX: This one may not be very useful, but allows for a better
      * check for corrupt files in case we can't guarantee atomicity,
      * e.g. in case files are to be shared over the network.
      *
@@ -322,7 +322,7 @@ enum {
      */
 
     ASLR_PERSISTENT_MODIFIED_TIME = 0x8, /* NYI */
-    /* FIXME: currently not possible to read the source file time.
+    /* XXX: currently not possible to read the source file time.
      * Otherwise would provide a weak staleness check only, no
      * security: has potential for missing an update that preserves
      * file times.  Also has some possibility of false positives in
@@ -335,7 +335,7 @@ enum {
      */
 
     ASLR_PERSISTENT_NOTOWNER_PARANOIA = 0x10,
-    /* FIXME: NYI force paranoia in case file is not securely owned by
+    /* TODO: NYI force paranoia in case file is not securely owned by
      * the current user, e.g. could have never been overwritten by
      * another user.  This allows us to share between users even in
      * case files are produced by others, and skipping the check if we
@@ -353,13 +353,13 @@ enum {
     ASLR_PERSISTENT_PARANOID_TRANSFORM_EXPLICITLY = 0x10000, /* case 8858 */
     /* When set we'll do the comparison by explicitly making a private
      * copy just as a publisher, otherwise we compare in place
-     * relocation by relocation.  FIXME: this flag for
+     * relocation by relocation.  XXX: this flag for
      * ASLR_PERSISTENT_PARANOID should be internal, but for now
      * leaving the old implementation for perf comparison, and added
      * late in the game anyways.
      */
 
-    /* FIXME: not recommended in production, should really make INTERNAL */
+    /* XXX: not recommended in production, should really make INTERNAL */
     ASLR_PERSISTENT_PARANOID_PREFIX = 0x20000,
     /* This flag for ASLR_PERSISTENT_PARANOID similarly to
      * ASLR_PERSISTENT_SHORT_DIGESTS makes it not really so paranoid.
@@ -369,7 +369,7 @@ enum {
      * planting bad code for Administrator running explorer.exe is a
      * bad enough elevation of privileges.
      *
-     * FIXME: if in the future we do on-demand comparison, we may
+     * XXX: if in the future we do on-demand comparison, we may
      * still want to first verify a prefix before we decide that the
      * DLL is usable.
      */
@@ -388,11 +388,11 @@ enum {
     /* intercept execute faults when run native, or RCT violations
      * when targeting unreadable memory.
      *
-     * FIXME: if areas are not reserved an RCT violation in a
+     * XXX: if areas are not reserved an RCT violation in a
      * would_be area may also be attributed here.
      */
     ASLR_DETECT_EXECUTE = 0x10,
-    /* FIXME: cannot reliably distinguish read from Execute when not
+    /* XXX: cannot reliably distinguish read from Execute when not
      * enforcing DR security policies on a machine without NX */
     ASLR_DETECT_READ = 0x20,  /* NYI */
     ASLR_DETECT_WRITE = 0x40, /* NYI */
@@ -421,7 +421,7 @@ enum {
     /* doesn't increment base, so most requests will overlap */
     ASLR_INTERNAL_SAME_STRESS = 0x1000,
 
-    /* testing option - actually not choosing base, FIXME: remove soon */
+    /* testing option - actually not choosing base, XXX: remove soon */
     ASLR_INTERNAL_RANGE_NONE = 0x2000,
 
     ASLR_INTERNAL_SHARED_NONUNIQUE = 0x800000,
@@ -445,7 +445,7 @@ typedef struct {
     /* ASLR_SHARED_CONTENTS needs to preserve some context across
      * NtCreateSection and NtMapViewOfSection system calls
      * xref case 9028 about using a more robust scheme that doesn't depend
-     * on these being consecutive: FIXME: add to section2file table?
+     * on these being consecutive: XXX: add to section2file table?
      */
     HANDLE randomized_section_handle; /* for shared randomization */
     app_pc original_section_base;     /* for detecting attacks */
@@ -502,7 +502,7 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext, app_pc base, siz
 void
 aslr_pre_process_free_virtual_memory(dcontext_t *dcontext, app_pc base, size_t size);
 
-/* FIXME: wrap in aslr_post_process_create_or_open_section */
+/* XXX: wrap in aslr_post_process_create_or_open_section */
 bool
 aslr_post_process_create_section(DR_PARAM_IN HANDLE old_app_section_handle,
                                  DR_PARAM_IN HANDLE file_handle,
@@ -541,7 +541,7 @@ aslr_timestamp_transformation(uint old_timestamp)
  * or "Bypassing 3rd Party Windows Buffer Overflow Protection"
  *     http://www.phrack.org/show.php?p=62&a=5 on how to break one
  *
- * FIXME: For interoperability purposes need to identify a
+ * XXX: For interoperability purposes need to identify a
  * compatibility mode that doesn't do more than competitor's desktop
  * suite offerings, so their BOP functionality can be turned off.  Yet
  * to avoid reversing them (although legally allowed for
@@ -566,10 +566,10 @@ enum {
     GBOP_IS_X = 0x2,          /* allowing all ..X pages, cf -executable_if_x */
     GBOP_IS_IMAGE = 0x4,      /* allowing all MEM_IMAGE pages,
                                * c.f. -executable_if_image */
-    /* FIXME: another realistic policy would be to allow RWX as
+    /* XXX: another realistic policy would be to allow RWX as
      * long as it is in an image, but not otherwise
      */
-    /* FIXME: add GBOP_IS_NOT_W to allow as long as not writable */
+    /* XXX: add GBOP_IS_NOT_W to allow as long as not writable */
 
     GBOP_IS_NOT_STACK = 0x8,
     /* If set, allows returns to anything but the current stack.  Case 8085. */
@@ -584,9 +584,9 @@ enum {
      */
     GBOP_CHECK_INSTR_TYPE = 0x10, /* no source instruction type restriction if not set */
     GBOP_IS_CALL = 0x20,          /* verify source is at all a CALL instruction */
-    GBOP_IS_JMP = 0x40,           /* FIXME: not needed - app JMP won't be seen on TOS */
+    GBOP_IS_JMP = 0x40,           /* XXX: not needed - app JMP won't be seen on TOS */
     GBOP_IS_HOTPATCH_JMP = 0x80,  /* our JMP in case we hotpatched purported source */
-    /* FIXME: we can't find the source if it was a JMP or JMP*, unless
+    /* XXX: we can't find the source if it was a JMP or JMP*, unless
      * the caller explicitly wants to fool us with one.
      *
      * Note that in case of tail recursion elimination [TOS] is really
@@ -617,7 +617,7 @@ enum {
     /* target instruction check for simple ret2libc */
     GBOP_IS_RET_TO_ENTRY = 0x00200, /* NYI */
 
-    /* FIXME: See Szor's idea of checking whether PC=[ESP-4] as a
+    /* XXX: See Szor's idea of checking whether PC=[ESP-4] as a
      * check for RET_LIBC attack.  Is at all that safe to do - would
      * there be a valid program doing PUSH target, RET targeting the
      * exported routines, or simply remnants from a stack frame where
@@ -626,7 +626,7 @@ enum {
      * [ESP-8] and can no longer be validated
      */
 
-    /* FIXME: GBOP_WHEN_NATIVE_EXEC = 0x01000, NYI */
+    /* TODO: GBOP_WHEN_NATIVE_EXEC = 0x01000, NYI */
     /* should this be applied when running in native exec mode - need
      * to tell apart native_exec from hotp_only .NET, Java, maybe VB.
      * Today -gbop is not by default, and recommended to use only for
@@ -658,7 +658,7 @@ enum {
      * single run without staging.
      */
 
-    /* FIXME: we may want to further control whether the hooked
+    /* XXX: we may want to further control whether the hooked
      * locations for other purposes do a GBOP check, or leave it only
      * to the 'extra' hooks from gbop_include_list */
 

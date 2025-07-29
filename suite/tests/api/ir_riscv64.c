@@ -194,7 +194,7 @@ test_atomic(void *dc)
 {
     instr_t *instr;
 
-    /* FIXME i#3544: Use [aq][rl] instead of hex number when disassembling. */
+    /* XXX i#3544: Use [aq][rl] instead of hex number when disassembling. */
 
     /* LR/SC */
     instr = INSTR_CREATE_lr_w(dc, opnd_create_reg(DR_REG_A0),
@@ -319,7 +319,7 @@ test_fcvt(void *dc)
 {
     instr_t *instr;
 
-    /* FIXME i#3544: Use rounding mode string instead of hex number when disassembling. */
+    /* XXX i#3544: Use rounding mode string instead of hex number when disassembling. */
 
     instr = INSTR_CREATE_fcvt_l_s(dc, opnd_create_reg(DR_REG_A0),
                                   opnd_create_immed_int(0b000, OPSZ_3b),
@@ -480,7 +480,7 @@ test_float_arith(void *dc)
 {
     instr_t *instr;
 
-    /* FIXME i#3544: Use rounding mode string instead of hex number when disassembling. */
+    /* XXX i#3544: Use rounding mode string instead of hex number when disassembling. */
 
     instr = INSTR_CREATE_fmadd_d(dc, opnd_create_reg(DR_REG_F31),
                                  opnd_create_immed_int(0b000, OPSZ_3b),
@@ -954,7 +954,7 @@ test_jump_and_branch(void *dc)
     byte *pc;
     instr_t *instr;
 
-    /* FIXME i#3544: Need to be better formatted. */
+    /* XXX i#3544: Need to be better formatted. */
     instr = INSTR_CREATE_lui(dc, opnd_create_reg(DR_REG_A0),
                              opnd_create_immed_int(42, OPSZ_20b));
     pc = test_instr_encoding(dc, OP_lui, instr);
@@ -974,7 +974,7 @@ test_jump_and_branch(void *dc)
                               opnd_create_immed_int((1 << 5) - 1, OPSZ_5b));
     test_instr_encoding(dc, OP_c_li, instr);
 
-    /* FIXME i#3544: Need to be better formatted. */
+    /* XXX i#3544: Need to be better formatted. */
     instr = INSTR_CREATE_c_lui(dc, opnd_create_reg(DR_REG_A1),
                                opnd_create_immed_int(1, OPSZ_6b));
     test_instr_encoding(dc, OP_c_lui, instr);
@@ -1180,7 +1180,7 @@ test_misc(void *dc)
     instr = INSTR_CREATE_wfi(dc);
     test_instr_encoding(dc, OP_wfi, instr);
 
-    /* FIXME i#3544: Need to be better formatted. */
+    /* XXX i#3544: Need to be better formatted. */
     instr = INSTR_CREATE_fence(dc, opnd_create_immed_int(0x0, OPSZ_4b),
                                opnd_create_immed_int(0x0, OPSZ_4b),
                                opnd_create_immed_int(0x0, OPSZ_4b));
@@ -1266,7 +1266,7 @@ test_xinst(void *dc)
            opnd_get_immed_int(instr_get_src(instr, 1)) == 0);
     test_instr_encoding(dc, OP_addi, instr);
 
-    /* FIXME: i#3544 Currently, these two exist as placeholders on RISCV64:
+    /* XXX: i#3544 Currently, these two exist as placeholders on RISCV64:
      * XINST_CREATE_load_simd
      * XINST_CREATE_store_simd
      */

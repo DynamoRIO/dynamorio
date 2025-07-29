@@ -272,7 +272,7 @@ test_instr_create_encode_decode_disassemble_synthetic_x86_64(void *dc)
 }
 #endif
 
-/* FIXME i#6662.
+/* XXX i#6662.
  * Test currently not runningin in "ci-aarchxx-cross / arm-cross-compile" because of:
  * "/lib/ld-linux-armhf.so.3: No such file or directory".
  */

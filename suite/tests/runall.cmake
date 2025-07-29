@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2018-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2018-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -31,7 +31,7 @@
 
 # For testing apps that need to be running while another action is taken
 # in a separate process.
-# FIXME i#120: add in all the runall/runalltest.sh tests
+# XXX i#120: add in all the runall/runalltest.sh tests
 
 # input:
 # * precmd = pre processing command to run
@@ -297,7 +297,7 @@ elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>"
 else ()
   # for reset or other DR tests there won't be further output
   # so we have to guess how long to wait.
-  # FIXME: should we instead turn on stderr_mask?
+  # XXX: should we instead turn on stderr_mask?
   do_sleep(0.5)
 endif ()
 
@@ -360,7 +360,7 @@ string(REGEX REPLACE "[ \n]+$" "" output "${output}")
 string(CONCAT output ${output} ${tomatch})
 message("${output}")
 
-# Sometimes infloop keeps running: FIXME: figure out why.
+# Sometimes infloop keeps running: XXX: figure out why.
 if (UNIX)
   execute_process(COMMAND "${KILL}" -9 ${pid} ERROR_QUIET OUTPUT_QUIET)
   # we can't run pkill b/c there are other tests running infloop (i#1341)

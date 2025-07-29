@@ -482,7 +482,7 @@ test_avx2_avx512_scatter_gather(void)
                             output_xmm_ymm_zmm))
         return false;
 #        ifdef X64
-    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+    /* XXX i#2985: we do not yet support expansion of the qword index and value
      * scatter/gather versions in 32-bit mode.
      */
     if (!test_avx512_gather(test_avx512_vpgatherdq, ref_sparse_test_buf,
@@ -526,7 +526,7 @@ test_avx2_avx512_scatter_gather(void)
                              false /* 32-bit values */, output_sparse_test_buf))
         return false;
 #        ifdef X64
-    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+    /* XXX i#2985: we do not yet support expansion of the qword index and value
      * scatter/gather versions in 32-bit mode.
      */
     if (!test_avx512_scatter(test_avx512_vpscatterdq, ref_sparse_test_buf,
@@ -576,7 +576,7 @@ test_avx2_avx512_scatter_gather(void)
                           output_xmm_ymm_zmm))
         return false;
 #        ifdef X64
-    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+    /* XXX i#2985: we do not yet support expansion of the qword index and value
      * scatter/gather versions in 32-bit mode.
      */
     if (!test_avx2_gather(test_avx2_vpgatherdq, ref_sparse_test_buf,

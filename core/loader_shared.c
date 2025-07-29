@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -270,7 +270,7 @@ loader_thread_init(dcontext_t *dcontext)
          * holding privload_lock and the priv lib
          * DllMain may acquire the same lock that another thread acquired
          * in its app code before requesting a synchall (flush, exit).
-         * FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.
+         * XXX i#875: we do not have ntdll!RtlpFlsLock isolated.
          * Living w/ it for now.  It should be unlikely for the app to
          * hold RtlpFlsLock and then acquire privload_lock: privload_lock
          * is used for import redirection but those don't apply within

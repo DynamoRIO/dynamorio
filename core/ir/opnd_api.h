@@ -1342,7 +1342,7 @@ enum {
     DR_REG_FT10 = DR_REG_F30, /**< The 11th temporary floating-point (f30) register. */
     DR_REG_FT11 = DR_REG_F31, /**< The 12th temporary floating-point (f31) register. */
 
-    /* FIXME i#3544: CCSRs */
+    /* XXX i#3544: CCSRs */
 
     DR_REG_START_64 = DR_REG_X1,  /**< Start of 64-bit register enum values. */
     DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit register enum values. */
@@ -2165,7 +2165,7 @@ typedef enum _dr_pred_type_t {
 #    endif
 #endif
 #ifdef RISCV64
-    /* FIXME i#3544: RISC-V does not have compare flag register! */
+    /* XXX i#3544: RISC-V does not have compare flag register! */
     /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
     DR_PRED_EQ, /**< Condition code: equal. */
     DR_PRED_NE, /**< Condition code: not equal. */

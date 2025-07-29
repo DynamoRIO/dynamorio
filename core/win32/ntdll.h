@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2146,7 +2146,7 @@ our_create_thread_wrapper(void *param);
 /* NOTE : this isn't equivalent to nt_get_context(NT_CURRENT_THREAD, cxt)
  * (where the returned context is undefined) so use this to get the context
  * of the current thread */
-/* FIXME : no support for float/mmx/sse/debug,
+/* XXX : no support for float/mmx/sse/debug,
  *         also if integer or control does both
  * Xref PR 264138 where we have to preserve xmm registers: however, no
  * current uses need to get our own xmm registers, so we don't.
@@ -2258,7 +2258,7 @@ get_module_exports_directory_check(app_pc base_addr,
  * internally we use module_base_t which can be freely converted to HMODULE,
  * HANDLE, byte*, and app_pc.
  */
-/* FIXME: This duplicates the typedef in module_shared.h, but we can't include
+/* XXX: This duplicates the typedef in module_shared.h, but we can't include
  * that into drpreinject or drinjectlib.
  */
 struct _module_handle_t;

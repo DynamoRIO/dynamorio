@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -63,8 +63,8 @@
  * to try and avoid relocations (case 7852) we should avoid using it
  * to avoid confusion (though we can always pick a different register,
  * even varying by function).
- * FIXME: should we use virtual registers instead?
- * FIXME: should we have ARG1_IN_REG macro that is either nop or load from stack?
+ * XXX: should we use virtual registers instead?
+ * XXX: should we have ARG1_IN_REG macro that is either nop or load from stack?
  * For now not bothering, but if we add more routines we'll want more support.
  * Naturally the ARG* macros are only valid at function entry.
  */
@@ -817,7 +817,7 @@ GLOBAL_LABEL(global_do_syscall_sygate_sysenter:)
         pop      PTRSZ [REG_XSP]
         push     PTRSZ SYMREF(sysenter_ret_address)
 #if defined(X64) && defined(WINDOWS)
-        syscall  /* FIXME ml64 won't take "sysenter" so half-fixing now */
+        syscall  /* XXX ml64 won't take "sysenter" so half-fixing now */
 #else
         sysenter
 #endif
@@ -955,7 +955,7 @@ GLOBAL_LABEL(dynamorio_syscall_sysenter:)
         mov      eax, [4 + esp]
         mov      REG_XDX, REG_XSP
 #if defined(X64) && defined(WINDOWS)
-        syscall  /* FIXME ml64 won't take "sysenter" so half-fixing now */
+        syscall  /* XXX ml64 won't take "sysenter" so half-fixing now */
 #else
         sysenter
 #endif
@@ -997,7 +997,7 @@ GLOBAL_LABEL(dynamorio_syscall_sygate_sysenter:)
          * dr and we don't make alertable system calls.  An alternate scheme
          * kept the return address off the top of the stack which works fine
          * (nothing alertable), but just seemed too risky.
-         * FIXME - any perf impact from breaking hardware return predictor */
+         * XXX - any perf impact from breaking hardware return predictor */
         pop      REG_XDX
         mov      eax, DWORD SYMREF(sysenter_tls_offset)
         mov      SEGMEM(fs,eax), edx
@@ -1012,7 +1012,7 @@ GLOBAL_LABEL(dynamorio_syscall_sygate_sysenter:)
         push     PTRSZ SYMREF(sysenter_ret_address)
         mov      REG_XDX, REG_XSP
 #if defined(X64) && defined(WINDOWS)
-        syscall  /* FIXME ml64 won't take "sysenter" so half-fixing now */
+        syscall  /* XXX ml64 won't take "sysenter" so half-fixing now */
 #else
         sysenter
 #endif
@@ -1230,14 +1230,14 @@ GLOBAL_LABEL(dynamorio_sigreturn:)
         int      HEX(80)
 #endif
         /* should not return.  if we somehow do,infinite loop is intentional.
-         * FIXME: do better in release build! FIXME - why not an int3? */
+         * XXX: do better in release build! XXX - why not an int3? */
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 
 /* we need to exit without using any stack, to support
  * THREAD_SYNCH_TERMINATED_AND_CLEANED.
  * XXX: on MacOS this does use the stack.
- * FIXME i#1403: on MacOS we fail to free the app's stack: we need to pass it to
+ * XXX i#1403: on MacOS we fail to free the app's stack: we need to pass it to
  * bsdthread_terminate.
  */
         DECLARE_FUNC(dynamorio_sys_exit)
@@ -1292,7 +1292,7 @@ dynamorio_sys_exit_next:
 # endif
 #endif
         /* should not return.  if we somehow do, infinite loop is intentional.
-         * FIXME: do better in release build! FIXME - why not an int3? */
+         * XXX: do better in release build! XXX - why not an int3? */
 dynamorio_sys_exit_failed:
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
@@ -1399,7 +1399,7 @@ GLOBAL_LABEL(dynamorio_sys_exit_group:)
         int      HEX(80)
 #endif
         /* should not return.  if we somehow do, infinite loop is intentional.
-         * FIXME: do better in release build!  why not an int3? */
+         * XXX: do better in release build!  why not an int3? */
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit_group)
 
@@ -1414,7 +1414,7 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
         /* should not return.  if we somehow do,infinite loop is intentional.
-         * FIXME: do better in release build! FIXME - why not an int3? */
+         * XXX: do better in release build! XXX - why not an int3? */
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_nonrt_sigreturn)
 #endif
@@ -1592,7 +1592,7 @@ GLOBAL_LABEL(new_bsdthread_intercept:)
         DECLARE_FUNC(nt_continue_dynamo_start)
 GLOBAL_LABEL(nt_continue_dynamo_start:)
         /* assume valid esp
-         * FIXME: this routine should really not assume esp */
+         * XXX: this routine should really not assume esp */
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
         PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)
@@ -1662,7 +1662,7 @@ GLOBAL_LABEL(back_from_native:)
 Lback_from_native:
 #endif
         /* assume valid esp
-         * FIXME: more robust if don't use app's esp -- should use d_r_initstack
+         * XXX: more robust if don't use app's esp -- should use d_r_initstack
          */
         /* grab exec state and pass as param in a priv_mcontext_t struct */
         PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)
@@ -1915,7 +1915,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, ARG1
-        /* FIXME: do we need an fwait prior to the fnsave? */
+        /* XXX: do we need an fwait prior to the fnsave? */
         fnsave   [REG_XAX]
         fwait
         ret
@@ -2151,7 +2151,7 @@ GLOBAL_LABEL(get_own_context_helper:)
  *   xmm_caller_saved_buf need not be 16-byte aligned.
  *   for linux, also saves xmm6-15 (PR 302107).
  *   caller must ensure that the underlying processor supports SSE!
- * FIXME PR 266305: AMD optimization guide says to use movlps+movhps for unaligned
+ * XXX PR 266305: AMD optimization guide says to use movlps+movhps for unaligned
  * stores, instead of movups (movups is best for loads): but for
  * simplicity I'm sticking with movups (assumed not perf-critical here).
  */
@@ -2529,7 +2529,7 @@ inv64_transfer_to_64:
      * no address is above 4GB, as this is a WOW64 process.
      */
         /* Save WOW64 state.
-         * FIXME: if the x64 code makes any callbacks, not only do we need
+         * XXX: if the x64 code makes any callbacks, not only do we need
          * a wrapper to go back to x86 mode but we need to restore these
          * values in case the x86 callback invokes any syscalls!
          * Really messy and fragile.
@@ -2553,7 +2553,7 @@ inv64_transfer_to_64:
         je       inv64_arg_copy_done
 inv64_arg_copy_loop:
         mov      edx, dword ptr [12 + 4*ecx + eax] /* ecx = 1-based arg ordinal */
-        /* FIXME: sign-extension is not always what the user wants.
+        /* XXX: sign-extension is not always what the user wants.
          * But the only general way to solve it would be to take in type codes
          * for each arg!
          */

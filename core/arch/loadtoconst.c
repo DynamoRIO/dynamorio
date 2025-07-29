@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1544,7 +1544,7 @@ instr_replace_reg_with_const_in_src(dcontext_t *dcontext, instr_t *in, int reg, 
             if (instr_reg_in_src(in, reg)) {
                 d_r_loginst(
                     dcontext, 3, in,
-                    "FIXME: doesn't yet handle two src instances of the same register");
+                    "XXX: doesn't yet handle two src instances of the same register");
                 instr_set_src(in, a, oldop);
                 return false;
             }

@@ -317,7 +317,7 @@ ipmi_addr_len_adjust(struct ipmi_addr *addr)
 {
     /* Some types have the final byte as padding and when initialized
      * field-by-field with no memset we complain about uninit on that byte.
-     * FIXME: this is a general problem w/ syscall param checking!
+     * XXX: this is a general problem w/ syscall param checking!
      */
     if (addr->addr_type == IPMI_SYSTEM_INTERFACE_ADDR_TYPE ||
         addr->addr_type == IPMI_LAN_ADDR_TYPE)
@@ -355,7 +355,7 @@ handle_pre_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
 
     /* From "man ioctl_list".  This switch handles the special cases we've hit
      * so far, but the full table above has unhandled ioctls marked with
-     * "FIXME: more".
+     * "XXX: more".
      */
     switch (request) {
     // <include/linux/sockios.h>
@@ -941,7 +941,7 @@ ipc_sem_len(int semid)
     struct semid_ds ds;
     union semun ctlarg;
     ctlarg.buf = &ds;
-    /* FIXME PR 519781: not tested! */
+    /* XXX PR 519781: not tested! */
     if (
 #if defined(X64) || defined(ARM)
         raw_syscall(SYS_semctl, 4, semid, 0, IPC_STAT, (ptr_int_t)&ctlarg)
@@ -1388,7 +1388,7 @@ handle_pre_ipc(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
             return;
         if (!report_sysarg(ii, 4, SYSARG_READ))
             return;
-        /* FIXME: this should be treated as a new mmap by DR? */
+        /* XXX: this should be treated as a new mmap by DR? */
         break;
     case SHMDT:
         if (!report_sysarg(ii, 4, SYSARG_READ))
@@ -1575,7 +1575,7 @@ handle_post_prctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
         }
         break;
     case PR_GET_NAME:
-        /* FIXME PR 408539: actually only writes up to null char */
+        /* XXX PR 408539: actually only writes up to null char */
         if (!report_memarg_type(ii, 1, SYSARG_WRITE, SYSARG_AS_PTR(pt, 1, app_pc),
                                 PRCTL_NAME_SZ, NULL, DRSYS_TYPE_CARRAY, NULL))
             return;

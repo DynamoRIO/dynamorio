@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,7 +54,7 @@
 #    include "nudge.h"
 #endif
 
-/* FIXME: make these runtime parameters */
+/* XXX: make these runtime parameters */
 #define INIT_HTABLE_SIZE_SHARED_BB (DYNAMO_OPTION(coarse_units) ? 5 : 10)
 #define INIT_HTABLE_SIZE_SHARED_TRACE 10
 /* the only private bbs will be selfmod, so start small */
@@ -122,7 +122,7 @@ static per_thread_t *shared_pt;
 
 /* We keep track of "old" IBT target tables in a linked list and
  * deallocate them in fragment_exit(). */
-/* FIXME Deallocate tables more aggressively using a distributed, refcounting
+/* XXX Deallocate tables more aggressively using a distributed, refcounting
  * algo as is used for shared deletion. */
 typedef struct _dead_fragment_table_t {
     fragment_entry_t *table_unaligned;
@@ -514,7 +514,7 @@ print_size_results()
 
 #ifdef HASHTABLE_STATISTICS
 #    define UNPROT_STAT(stats) unprot_stats->stats
-/* FIXME: either put in nonpersistent heap as appropriate, or
+/* XXX: either put in nonpersistent heap as appropriate, or
  * preserve across resets
  */
 #    define ALLOC_UNPROT_STATS(dcontext, table)                               \
@@ -539,7 +539,7 @@ check_stay_on_trace_stats_overflow(dcontext_t *dcontext, ibl_branch_type_t branc
         lookup_stats->ib_stay_on_trace_stat_ovfl++;
     }
     lookup_stats->ib_stay_on_trace_stat_last = lookup_stats->ib_stay_on_trace_stat;
-    /* FIXME: ib_trace_last_ibl_exit should have an overflow check as well */
+    /* XXX: ib_trace_last_ibl_exit should have an overflow check as well */
 }
 #endif /* HASHTABLE_STATISTICS */
 
@@ -869,10 +869,10 @@ fragment_add_to_hashtable(dcontext_t *dcontext, fragment_t *e, fragment_table_t 
 /* updates all fragments in a given fragment table which may
  * have IBL routine heads inlined in the indirect exit stubs
  *
- * FIXME: [perf] should add a filter of which branch types need updating if
+ * XXX: [perf] should add a filter of which branch types need updating if
  * updating all is a noticeable performance hit.
  *
- * FIXME: [perf] Also it maybe better to traverse all fragments in an fcache
+ * XXX: [perf] Also it maybe better to traverse all fragments in an fcache
  * unit instead of entries in a half-empty hashtable
  */
 static void
@@ -888,7 +888,7 @@ update_indirect_exit_stubs_from_table(dcontext_t *dcontext, fragment_table_t *ft
             continue;
         for (l = FRAGMENT_EXIT_STUBS(f); l != NULL; l = LINKSTUB_NEXT_EXIT(l)) {
             if (LINKSTUB_INDIRECT(l->flags)) {
-                /* FIXME: should add a filter of which branch types need updating */
+                /* XXX: should add a filter of which branch types need updating */
                 update_indirect_exit_stub(dcontext, f, l);
                 LOG(THREAD, LOG_FRAGMENT, 5,
                     "\tIBL target table resizing: updating F%d\n", f->id);
@@ -1087,7 +1087,7 @@ hashtable_ibl_study_custom(dcontext_t *dcontext, ibl_table_t *table,
              branch_type++) {
             /* This is convoluted since given a table we have to
              * recover its branch type.
-             * FIXME: should simplify these assumptions one day
+             * XXX: should simplify these assumptions one day
              */
             /* Current table should be targeted only by one of the IBL routines */
             if (!((!DYNAMO_OPTION(disable_traces) &&
@@ -1224,7 +1224,7 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
 /*******************************************************************************
  * APP_PC HASHTABLE INSTANTIATION
  */
-/* FIXME: RCT tables no longer use future_fragment_t and can be moved out of
+/* XXX: RCT tables no longer use future_fragment_t and can be moved out of
  * fragment.c */
 
 /* The ENTRY_* defines are undef-ed at end of hashtablex.h so we make our own.
@@ -1378,7 +1378,7 @@ fragment_reset_init(void)
                 if (INTERNAL_OPTION(hashtable_ibl_stats)) {
                     /* for compatibility using an entry in the per-branch type stats */
                     CHECK_UNPROT_STATS(&shared_pt->bb_ibt[branch_type]);
-                    /* FIXME: we don't expect trace_ibl_stats yet */
+                    /* XXX: we don't expect trace_ibl_stats yet */
                     INIT_HASHTABLE_STATS(shared_pt->bb_ibt[branch_type].UNPROT_STAT(
                         bb_ibl_stats[branch_type]));
                 } else {
@@ -1405,7 +1405,7 @@ void
 fragment_init()
 {
     /* case 7966: don't initialize at all for hotp_only & thin_client
-     * FIXME: could set initial sizes to 0 for all configurations, instead
+     * XXX: could set initial sizes to 0 for all configurations, instead
      */
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
@@ -1515,7 +1515,7 @@ fragment_reset_free(void)
         d_r_mutex_unlock(&dead_tables_lock);
     }
 
-    /* FIXME: Take in a flag "permanent" that controls whether exiting or
+    /* XXX: Take in a flag "permanent" that controls whether exiting or
      * resetting.  If resetting only, do not free unprot stats and entry stats
      * (they're already in persistent heap, but we explicitly free them).
      * This will be easy w/ unprot but will take work for entry stats
@@ -1578,7 +1578,7 @@ void
 fragment_exit()
 {
     /* case 7966: don't initialize at all for hotp_only & thin_client
-     * FIXME: could set initial sizes to 0 for all configurations, instead
+     * XXX: could set initial sizes to 0 for all configurations, instead
      */
     if (RUNNING_WITHOUT_CODE_CACHE())
         goto cleanup;
@@ -1696,7 +1696,7 @@ fragment_exit()
     }
 #endif
 cleanup:
-    /* FIXME: we shouldn't need these locks anyway for hotp_only & thin_client */
+    /* XXX: we shouldn't need these locks anyway for hotp_only & thin_client */
     DELETE_LOCK(tracedump_mutex);
     process_client_flush_requests(NULL, GLOBAL_DCONTEXT, client_flush_requests,
                                   false /* no flush */);
@@ -1721,7 +1721,7 @@ dec_table_ref_count(dcontext_t *dcontext, ibl_table_t *table, bool could_be_live
 
     /* Search live tables. A live table's ref-count is decremented
      * during a thread exit. */
-    /* FIXME If the table is more likely to be dead, we can reverse the order
+    /* XXX If the table is more likely to be dead, we can reverse the order
      * and search dead tables first. */
     if (!DYNAMO_OPTION(ref_count_shared_ibt_tables))
         return;
@@ -1929,7 +1929,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
          * deal with trace heads and allow a trace to target a BB with
          * the intent of modifying its THCI.
          *
-         * (FIXME: having another table for THCI IBLs seems better than
+         * (XXX: having another table for THCI IBLs seems better than
          * adding a counter (starting at -1) to all blocks and
          * trapping when 0 for marking a trace head and again at 50
          * for creating a trace.  And that is all of course after proving
@@ -1960,7 +1960,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
                 if (INTERNAL_OPTION(hashtable_ibl_stats)) {
                     /* for compatibility using an entry in the per-branch type stats */
                     CHECK_UNPROT_STATS(pt->bb_ibt[branch_type]);
-                    /* FIXME: we don't expect trace_ibl_stats yet */
+                    /* XXX: we don't expect trace_ibl_stats yet */
                     INIT_HASHTABLE_STATS(
                         pt->bb_ibt[branch_type].UNPROT_STAT(bb_ibl_stats[branch_type]));
                 } else {
@@ -2003,7 +2003,7 @@ fragment_thread_init(dcontext_t *dcontext)
     per_thread_t *pt;
 
     /* case 7966: don't initialize un-needed data for hotp_only & thin_client.
-     * FIXME: could set htable initial sizes to 0 for all configurations, instead.
+     * XXX: could set htable initial sizes to 0 for all configurations, instead.
      * per_thread_t is pretty big, so we avoid it, though it costs us checks for
      * hotp_only in the islinking-related routines.
      */
@@ -2202,7 +2202,7 @@ fragment_thread_exited(dcontext_t *dcontext)
 void
 fragment_fork_init(dcontext_t *dcontext)
 {
-    /* FIXME: what about global file? */
+    /* XXX: what about global file? */
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
     if (TRACEDUMP_ENABLED() && PRIVATE_TRACES_ENABLED()) {
         /* new log dir has already been created, so just open a new log file */
@@ -2331,7 +2331,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         ASSERT(fragment_prefix_size(flags) == 0);
         ASSERT((direct_exits == 0 && indirect_exits == 1) ||
                (indirect_exits == 0 && (direct_exits == 1 || direct_exits == 2)));
-        /* FIXME: eliminate this temp fragment and linkstubs and
+        /* XXX: eliminate this temp fragment and linkstubs and
          * have custom emit and link code that does not require such data
          * structures?  It would certainly be faster code.
          * But would still want to record each exit's target in a convenient
@@ -2436,7 +2436,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
             dump_global_stats(false);
         }
         if (INTERNAL_OPTION(thread_stats_interval) && INTERNAL_OPTION(thread_stats)) {
-            /* FIXME: why do we need a new dcontext? */
+            /* XXX: why do we need a new dcontext? */
             dcontext_t *cur_dcontext = get_thread_private_dcontext();
             if (THREAD_STATS_ON(cur_dcontext) &&
                 THREAD_STAT(cur_dcontext, num_fragments) %
@@ -2484,7 +2484,7 @@ fragment_recreate_with_linkstubs(dcontext_t *dcontext, fragment_t *f_src)
      */
     uint flags = (f_src->flags & ~FRAG_FAKE);
     ASSERT_CURIOSITY(TEST(FRAG_COARSE_GRAIN, f_src->flags)); /* only use so far */
-    /* FIXME case 9325: build from tag here?  Need to exactly re-mangle + re-instrument.
+    /* XXX case 9325: build from tag here?  Need to exactly re-mangle + re-instrument.
      * We use _exact to get any elided final jmp not counted in size
      */
     ilist = decode_fragment_exact(dcontext, f_src, NULL, NULL, f_src->flags, &num_dir,
@@ -2628,7 +2628,7 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
 
     LOG(THREAD, LOG_MONITOR, 6, "fragment_lookup_type " PFX " 0x%x\n", tag, lookup_flags);
     if (dcontext != GLOBAL_DCONTEXT && TEST(LOOKUP_PRIVATE, lookup_flags)) {
-        /* FIXME: add a hashtablex.h wrapper that checks #entries and
+        /* XXX: add a hashtablex.h wrapper that checks #entries and
          * grabs lock for us for all lookups?
          */
         /* look at private tables */
@@ -2791,9 +2791,9 @@ fragment_pclookup_by_htable(dcontext_t *dcontext, cache_pc pc, fragment_t *wrapp
      * simply decode forward until we hit the stub and recover
      * the linkstub_t* from there -- much more efficient than walking
      * all the hashtables, plus nicely handles invisible & removed frags!
-     * FIXME: measure perf hit of pclookup, implement this decode strategy.
+     * XXX: measure perf hit of pclookup, implement this decode strategy.
      * also we can miss invisible or removed fragments (case 122) so we
-     * may want this regardless of performance -- see also FIXME below.
+     * may want this regardless of performance -- see also XXX below.
      */
     fragment_t *f;
     per_thread_t *pt = NULL;
@@ -2843,7 +2843,7 @@ fragment_pclookup_by_htable(dcontext_t *dcontext, cache_pc pc, fragment_t *wrapp
             ASSERT(info == NULL || !info->frozen);
         }
     }
-    /* FIXME: shared fragment may have been removed from hashtable but
+    /* XXX: shared fragment may have been removed from hashtable but
      * still be in cache, and e.g. handle_modified_code still needs to know about it --
      * should walk deletion vector
      */
@@ -2877,7 +2877,7 @@ fragment_pclookup(dcontext_t *dcontext, cache_pc pc, fragment_t *wrapper)
  * Returns in alloc whether the returned fragment_t was allocated and needs to be
  * freed by the caller via fragment_free().
  * If no result is found, alloc is set to false.
- * FIXME: use FRAG_RECREATED flag to indicate allocated instead?
+ * XXX: use FRAG_RECREATED flag to indicate allocated instead?
  */
 fragment_t *
 fragment_pclookup_with_linkstubs(dcontext_t *dcontext, cache_pc pc,
@@ -3141,7 +3141,7 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     /* Strategy: ensure no races in updating table or links by grabbing the high-level
      * locks that are used to synchronize additions to the table itself.
      * Then, simply remove directly from DR-only tables, and safely from ib tables.
-     * FIXME: There are still risks that the fragment's link state may change
+     * XXX: There are still risks that the fragment's link state may change
      */
     LOG(THREAD, LOG_FRAGMENT, 3, "fragment_remove_shared_no_flush: F%d\n", f->id);
     ASSERT(TEST(FRAG_SHARED, f->flags));
@@ -3162,7 +3162,7 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
         return;
     }
 
-    /* FIXME: try to share code w/ fragment_unlink_for_deletion() */
+    /* XXX: try to share code w/ fragment_unlink_for_deletion() */
 
     /* Make link changes atomic.  We also want vm_area_remove_fragment and
      * marking as deleted to be atomic so we grab vm_areas lock up front.
@@ -3170,7 +3170,7 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     acquire_recursive_lock(&change_linking_lock);
     acquire_vm_areas_lock(dcontext, f->flags);
 
-    /* FIXME: share all this code w/ vm_area_unlink_fragments()
+    /* XXX: share all this code w/ vm_area_unlink_fragments()
      * The work there is just different enough to make that hard, though.
      */
     if (TEST(FRAG_LINKED_OUTGOING, f->flags))
@@ -3185,7 +3185,7 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     fragment_prepare_for_removal(GLOBAL_DCONTEXT, f);
     /* fragment_remove ignores the ibl tables for shared fragments */
     fragment_remove(GLOBAL_DCONTEXT, f);
-    /* FIXME: we don't currently remove from thread-private ibl tables as that
+    /* XXX: we don't currently remove from thread-private ibl tables as that
      * requires walking all of the threads. */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(opt_jit) || !IS_IBL_TARGET(f->flags) ||
                            shared_ibt_table_used);
@@ -3502,7 +3502,7 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
      * operation might grab the same lock, if this remove is from a
      * shared IBT table.
      */
-    /* FIXME: why do we need to update here? */
+    /* XXX: why do we need to update here? */
     update_private_ibt_table_ptrs(dcontext, ftable _IF_DEBUG(NULL));
     TABLE_RWLOCK(ftable, write, lock);
     pg = hashtable_ibl_lookup_for_removal(fe, ftable, &hindex);
@@ -3520,7 +3520,7 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
          * take advantage of this but we'll leave the power in place.
          */
 
-        /* FIXME: [perf] we could memoize this value in the table itself */
+        /* XXX: [perf] we could memoize this value in the table itself */
         cache_pc pending_delete_pc =
             PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, ftable));
 
@@ -3545,7 +3545,7 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
          */
         ftable->table[hindex].start_pc_fragment = pending_delete_pc;
         ftable->table[hindex].tag_fragment = FAKE_TAG;
-        /* FIXME In a shared table, this means that the entry cannot
+        /* XXX In a shared table, this means that the entry cannot
          * be overwritten for a fragment with the same tag. */
         ftable->unlinked_entries++;
         ftable->entries--;
@@ -3581,7 +3581,7 @@ fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f)
         ASSERT(dcontext != NULL);
     }
     pt = GET_PT(dcontext);
-    /* FIXME: as an optimization we could test if IS_IBL_TARGET() is
+    /* XXX: as an optimization we could test if IS_IBL_TARGET() is
      * set before looking it up
      */
 
@@ -3623,7 +3623,7 @@ fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f)
 }
 
 #ifdef DEBUG
-/* FIXME: hashtable_fragment_reset() needs to walk the tables to get these
+/* XXX: hashtable_fragment_reset() needs to walk the tables to get these
  * stats, but then we'd need to subtract 1 from all smaller counts -
  * e.g. if an entry is found in 3 tables we can add (1,-1,0) then
  * we'll find it again and we should add (0,1,-1) and one more time
@@ -3676,7 +3676,7 @@ fragment_remove_from_ibt_tables(dcontext_t *dcontext, fragment_t *f, bool from_s
          * two step deletion process, we don't need to be holding nested locks when
          * removing any cached entries from the per-type IBL target tables.
          */
-        /* FIXME: the stats on ibls_targeted are not quite correct - we need to
+        /* XXX: the stats on ibls_targeted are not quite correct - we need to
          * gather these independently */
         DEBUG_DECLARE(uint ibls_targeted = 0;)
         ibl_branch_type_t branch_type;
@@ -4116,7 +4116,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
                      * table.  We limit to the first thread to ask for it by
                      * clearing the coarse_info_t pending_table fields.
                      */
-                    /* FIXME: combine w/ the coarse lookup to do this once only */
+                    /* XXX: combine w/ the coarse lookup to do this once only */
                     coarse_info_t *coarse = get_fragment_coarse_info(f);
                     ASSERT(coarse != NULL);
                     if (coarse->persisted &&
@@ -4446,7 +4446,7 @@ fragment_lookup_private_future(dcontext_t *dcontext, app_pc tag)
  **********************************************************************/
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
-/* FIXME: move to rct.c when we move the whole app_pc table there */
+/* XXX: move to rct.c when we move the whole app_pc table there */
 
 #    define STATS_RCT_ADD(which, stat, val) \
         DOSTATS({                           \
@@ -4520,7 +4520,7 @@ rct_table_add(dcontext_t *dcontext, app_pc tag, rct_type_t which)
     /* we use a higher-level lock to synchronize the lookup + add
      * combination with other simultaneous adds as well as with removals
      */
-    /* FIXME We could use just the table lock for the lookup+add. This is cleaner
+    /* XXX We could use just the table lock for the lookup+add. This is cleaner
      * than using another lock during the entire routine and acquiring & releasing
      * the table lock in read mode for the lookup and then acquiring & releasing
      * it again in write mode for the add. Also, any writes to the table outside
@@ -4800,7 +4800,7 @@ rct_module_table_persisted_invalidate(dcontext_t *dcontext, app_pc modpc)
              * currently ensures!  (We already have read lock; ok to grab again.)
              */
             if (!os_module_get_flag(modpc, MODULE_BEING_UNLOADED) && !dynamo_exited) {
-                /* FIXME case 10362: we could leave the file mapped in and
+                /* XXX case 10362: we could leave the file mapped in and
                  * use the persisted RCT table independently of the cache
                  */
                 /* Merging will remove any dups, though today we never re-load
@@ -4855,7 +4855,7 @@ rct_module_table_copy(dcontext_t *dcontext, app_pc modpc, rct_type_t which,
     permod = rct_get_table(modpc, which);
     ASSERT(permod != NULL);
     if (permod != NULL) {
-        /* FIXME: we could pass the limit range down to hashtable_app_pc_{copy,merge}
+        /* XXX: we could pass the limit range down to hashtable_app_pc_{copy,merge}
          * for more efficiency and to avoid over-sizing the table, but this
          * should be rare w/ -persist_rct_entire and single-+x-section modules
          */
@@ -4902,7 +4902,7 @@ rct_module_table_set(dcontext_t *dcontext, app_pc modpc, app_pc_table_t *table,
     ASSERT(table != NULL);
     /* Case 9834: avoid double-add from earlier entire-module resurrect */
     ASSERT(which == RCT_RAC || !os_module_get_flag(modpc, MODULE_RCT_LOADED));
-    /* FIXME case 8648: we're loosening security by allowing ret to target any
+    /* XXX case 8648: we're loosening security by allowing ret to target any
      * after-call executed in any prior run of this app or whatever
      * app is producing, instead of just this run.
      */
@@ -4916,7 +4916,7 @@ rct_module_table_set(dcontext_t *dcontext, app_pc modpc, app_pc_table_t *table,
          */
         permod->persisted_table = table;
         ASSERT(permod->persisted_table->entries > 0);
-        /* FIXME: for case 9639 if we had the ibl table set up (say, for shared
+        /* XXX: for case 9639 if we had the ibl table set up (say, for shared
          * ibl tables) and stored the cache pc (though I guess coarse htable is
          * set up) we could fill the ibl table here as well (but then we'd
          * have to abort for hotp conflicts earlier in coarse_unit_load()).
@@ -4977,19 +4977,19 @@ coarse_persisted_fill_ibl_helper(dcontext_t *dcontext, ibl_table_t *ibl_table,
     update_private_ibt_table_ptrs(dcontext, ibl_table _IF_DEBUG(NULL));
 
     /* Avoid hash collision asserts while adding by sizing up front;
-     * FIXME: we may over-size for INDJMP table
+     * XXX: we may over-size for INDJMP table
      */
     TABLE_RWLOCK(ibl_table, write, lock);
     hashtable_ibl_check_size(dcontext, ibl_table, 0, ptable->entries);
     TABLE_RWLOCK(ibl_table, write, unlock);
 
-    /* FIXME: we should hold ptable's read lock but it's lower ranked
+    /* XXX: we should hold ptable's read lock but it's lower ranked
      * than the fragment table's lock, so we rely on os module lock
      */
     for (i = 0; i < ptable->capacity; i++) {
         tag = ptable->table[i];
         if (APP_PC_ENTRY_IS_REAL(tag)) {
-            /* FIXME: should we persist the cache pcs to save time here?  That won't
+            /* XXX: should we persist the cache pcs to save time here?  That won't
              * be ideal if we ever use the mmapped table directly (for per-module
              * tables: case 9672).  We could support both tag-only and tag-cache
              * pairs by having the 1st entry be a flags word.
@@ -5058,7 +5058,7 @@ coarse_persisted_fill_ibl(dcontext_t *dcontext, coarse_info_t *info,
     /* We only fill for the 1st thread (if using per-thread ibl
      * tables).  We'd need per-thread flags to do otherwise, and the
      * goal is only to help startup performance.
-     * FIXME case 9639: later threads may do startup work in various apps,
+     * XXX case 9639: later threads may do startup work in various apps,
      * and we may want a better solution here.
      */
     info->ibl_pending_used |= COARSE_FILL_IBL_MASK(branch_type);
@@ -5125,7 +5125,7 @@ invalidate_after_call_target_range(dcontext_t *dcontext, app_pc text_start,
  * RCT indirect branch policy bookkeeping.  Mostly a set of wrappers
  * around the basic hashtable functionality.
  *
- * FIXME: all of these routines should be moved to rct.c after we move
+ * XXX: all of these routines should be moved to rct.c after we move
  * the hashtable primitives to fragment.h as static inline's
  */
 
@@ -5146,7 +5146,7 @@ rct_add_valid_ind_branch_target(dcontext_t *dcontext, app_pc tag)
     ASSERT_OWN_MUTEX(true, &rct_module_lock);
     DOLOG(2, LOG_FRAGMENT,
           {
-              /* FIXME: would be nice to add a heavy weight check that we're
+              /* XXX: would be nice to add a heavy weight check that we're
                * really only a PE IMAGE via is_in_code_section()
                */
           });
@@ -5159,7 +5159,7 @@ rct_add_valid_ind_branch_target(dcontext_t *dcontext, app_pc tag)
 }
 
 /* invalidate an indirect branch target and free any associated memory */
-/* FIXME: note that this is currently not used and
+/* XXX: note that this is currently not used and
  * invalidate_ind_branch_target_range() will be the likely method to
  * use for most cases when a whole module range is invalidated.
  */
@@ -5437,7 +5437,7 @@ check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed)
         not_flushed =
             not_flushed && vm_area_check_shared_pending(dcontext, was_I_flushed);
         /* Remove unlinked markers if called for.
-         * FIXME If a thread's flushtime is updated due to shared syscall sync,
+         * XXX If a thread's flushtime is updated due to shared syscall sync,
          * its tables won't be rehashed here -- the thread's flushtime will be
          * equal to the global flushtime so the 'if' isn't entered. We have
          * multiple options as to other points for rehashing -- a table add, a
@@ -5470,7 +5470,7 @@ check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed)
         }
     }
 
-    /* FIXME This is the ideal location for inserting refcounting logic
+    /* XXX This is the ideal location for inserting refcounting logic
      * for freeing a resized shared IBT table, as is done for shared
      * deletion above.
      */
@@ -5518,7 +5518,7 @@ is_couldbelinking(dcontext_t *dcontext)
     /* the lock is only needed for self writing or another thread reading
      * but if different thread we require thread is suspended or waiting for
      * flush so is ok */
-    /* FIXME : add an assert that the thread that owns the dcontext is either
+    /* XXX : add an assert that the thread that owns the dcontext is either
      * the caller, at the flush sync wait, or is suspended by thread_synch
      * routines */
     return (!RUNNING_WITHOUT_CODE_CACHE() /*case 7966: has no pt*/ &&
@@ -5528,7 +5528,7 @@ is_couldbelinking(dcontext_t *dcontext)
 static void
 wait_for_flusher_nolinking(dcontext_t *dcontext)
 {
-    /* FIXME: can have livelock w/ these types of synch loops,
+    /* XXX: can have livelock w/ these types of synch loops,
      * any way to work into deadlock-avoidance?
      */
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
@@ -5550,7 +5550,7 @@ wait_for_flusher_nolinking(dcontext_t *dcontext)
 static void
 wait_for_flusher_linking(dcontext_t *dcontext)
 {
-    /* FIXME: can have livelock w/ these types of synch loops,
+    /* XXX: can have livelock w/ these types of synch loops,
      * any way to work into deadlock-avoidance?
      */
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
@@ -5578,7 +5578,7 @@ check_safe_for_flush_synch(dcontext_t *dcontext)
      * could prevent forward progress of a couldbelinking thread that the
      * flusher will wait for.
      */
-    /* FIXME: will fail w/ -single_thread_in_DR, along w/ the other similar
+    /* XXX: will fail w/ -single_thread_in_DR, along w/ the other similar
      * asserts for flushing and cache entering
      */
 #    ifdef DEADLOCK_AVOIDANCE
@@ -5608,10 +5608,10 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
         if (flush) {
             /* Note that we don't free futures from potentially linked-to region b/c we
              * don't have lazy linking (xref case 2236) */
-            /* FIXME - if there's more then one of these would be nice to batch them
+            /* XXX - if there's more then one of these would be nice to batch them
              * especially for the synch all ones. */
             if (iter->flush_callback != NULL) {
-                /* FIXME - for implementation simplicity we do a synch-all flush so
+                /* XXX - for implementation simplicity we do a synch-all flush so
                  * that we can inform the client right away, it might be nice to use
                  * the more performant regular flush when possible. */
                 flush_fragments_from_region(
@@ -5650,7 +5650,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
 
     DOCHECK(1, { check_safe_for_flush_synch(dcontext); });
 
-    /* FIXME: once we have this working correctly, come up with scheme
+    /* XXX: once we have this working correctly, come up with scheme
      * that avoids synch in common case
      */
     d_r_mutex_lock(&pt->linking_lock);
@@ -5665,7 +5665,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
         return not_flushed;
 
     /* now we act on pending actions that can only be done while nolinking
-     * FIXME: optimization if add more triggers here: use a single
+     * XXX: optimization if add more triggers here: use a single
      * main trigger as a first test to avoid testing all
      * conditionals every time
      */
@@ -5685,7 +5685,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
         d_r_mutex_unlock(&reset_pending_lock);
     }
 
-    /* FIXME: perf opt: make global flag can check w/ making a call,
+    /* XXX: perf opt: make global flag can check w/ making a call,
      * or at least inline the call
      */
     if (fcache_is_flush_pending(dcontext)) {
@@ -5732,7 +5732,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
         d_r_mutex_unlock(&client_flush_request_lock);
         /* NOTE - we must release the lock before doing the flush. */
         process_client_flush_requests(dcontext, GLOBAL_DCONTEXT, req, true /*flush*/);
-        /* FIXME - this is an ugly, yet effective, hack.  The problem is there is no
+        /* XXX - this is an ugly, yet effective, hack.  The problem is there is no
          * good way to tell currently if we flushed was_I_flushed.  Since it could be
          * gone by now we pretend that it was flushed if we did any flushing at all.
          * Dispatch should refind the fragment if it wasn't flushed. */
@@ -5821,7 +5821,7 @@ increment_global_flushtime()
     uint local_flushtime_global;
     ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &local_flushtime_global);
     if (local_flushtime_global == UINT_MAX / 2) {
-        ASSERT_NOT_TESTED(); /* FIXME: add -stress_flushtime_global_max */
+        ASSERT_NOT_TESTED(); /* XXX: add -stress_flushtime_global_max */
         SYSLOG_INTERNAL_WARNING("flushtime_global approaching UINT_MAX, resetting");
         schedule_reset(RESET_ALL);
     }
@@ -5964,7 +5964,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
     /* We do NOT set flusher as is_self_flushing() is all about
      * couldbelinking, while our synch is of a different nature.  The
      * trace_abort() is_self_flushing() check is the only worrisome
-     * one: FIXME.
+     * one: XXX.
      */
     ASSERT(flusher == NULL);
     ASSERT(allsynch_flusher == NULL);
@@ -5993,7 +5993,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
         "\n",
         base, base + size, exec_start, exec_end);
 
-    /* FIXME: share some of this code that I duplicated from reset */
+    /* XXX: share some of this code that I duplicated from reset */
     for (i = 0; i < flush_num_threads; i++) {
         dcontext_t *dcontext = flush_threads[i]->dcontext;
         if (dcontext != NULL) { /* include my_dcontext here */
@@ -6003,7 +6003,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
             if (dcontext != my_dcontext) {
                 /* must translate BEFORE freeing any memory! */
                 if (!thread_synch_successful(flush_threads[i])) {
-                    /* FIXME case 9480: if we do get here for low-privilege handles
+                    /* XXX case 9480: if we do get here for low-privilege handles
                      * or exceeding our synch try count, best to not move the thread
                      * as we won't get a clean translation.  Chances are it is
                      * not in the region being flushed.
@@ -6053,7 +6053,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
              * bounds, we can bound their bodies by taking
              * executable_area_distinct_bounds().  This lets us remove by walking the
              * ibl tables and looking only at tags, rather than walking the htable of
-             * each coarse unit.  FIXME: not clear this is a perf win: I arbitrarily
+             * each coarse unit.  XXX: not clear this is a perf win: I arbitrarily
              * picked it under assumption that ibl tables are relatively small.  It
              * would be a clearer win if we could do the fine fragments this way
              * also, but fine fragments are not constrained and could be missed using
@@ -6270,11 +6270,11 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
     /* Take a snapshot of the threads in the system.
      * Grab the thread lock to prevent threads from being created or
      * exited for the duration of this routine
-     * FIXME -- is that wise?  could be a relatively long time!
+     * XXX -- is that wise?  could be a relatively long time!
      * It's unlikely a new thread will run code in a region being
      * unmapped...but we would like to prevent threads from exiting
      * while we're messing with their data.
-     * FIXME: need to special-case every instance where thread_initexit_lock
+     * XXX: need to special-case every instance where thread_initexit_lock
      * is grabbed, to avoid deadlocks!  we already do for a thread exiting.
      */
     if (!own_initexit_lock)
@@ -6286,7 +6286,7 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
     ASSERT(flush_last_stage == 0);
     DODEBUG({ flush_last_stage = 1; });
 
-    /* FIXME: we can optimize this even more to not grab thread_initexit_lock */
+    /* XXX: we can optimize this even more to not grab thread_initexit_lock */
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return;
 
@@ -6356,8 +6356,8 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
         }
 
         /* it is now safe to access link, vm, and trace info in tgt_dcontext
-         * => FIXME: rename, since not just accessing linking info?
-         * FIXME: if includes vm access, are syscalls now bad?
+         * => XXX: rename, since not just accessing linking info?
+         * XXX: if includes vm access, are syscalls now bad?
          * what about handle_modified_code, considered nolinking since straight
          * from cache via fault handler?  reading should be ok, but exec area splits
          * and whatnot?
@@ -6391,7 +6391,7 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
          * that we've already synched with for flushing go and change the exec areas
          * vector!  the simplest solution is to have thread-private, like thread-shared,
          * stop all threads at a cache exit point.
-         * FIXME: optimize thread-private by allowing already-synched threads to
+         * XXX: optimize thread-private by allowing already-synched threads to
          * continue but not grab executable_areas lock, while letting
          * to-be-synched threads grab the lock (otherwise could wait forever)
          */
@@ -6464,7 +6464,7 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
         /* Coarse units do not support individual unlinking (though prior to
          * freezing they do, we ignore that) and instead require all-thread-synch
          * in order to flush.  For that we cannot be already holding
-         * thread_initexit_lock!  FIXME case 8572: the only caller who does hold it
+         * thread_initexit_lock!  XXX case 8572: the only caller who does hold it
          * now is os_thread_stack_exit().  For now relying on that stack not
          * overlapping w/ any coarse regions.
          */
@@ -6671,7 +6671,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
     }
 
     /* now can let all threads at DR synch point go
-     * FIXME: if implement thread-private optimization above, this would turn into
+     * XXX: if implement thread-private optimization above, this would turn into
      * re-setting exec areas lock to treat all threads uniformly
      */
     for (i = flush_num_threads - 1; i >= 0; i--) {
@@ -6694,12 +6694,12 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
             /* Act on behalf of the thread as though it's at a synch point, but
              * only wrt shared fragments (we don't free private fragments here,
              * though we could -- should we?  may make flush time while holding
-             * lock take too long?  FIXME)
+             * lock take too long?  XXX)
              * Currently this works w/ syscalls from d_r_dispatch, and w/
              * -shared_syscalls by using unprotected storage (thus a slight hole
              * but very hard to exploit for security purposes: can get stale code
              * executed, but we already have that window, or crash us).
-             * FIXME: Does not work w/ -ignore_syscalls, but those are private
+             * XXX: Does not work w/ -ignore_syscalls, but those are private
              * for now.
              */
 #ifdef DEBUG
@@ -6721,7 +6721,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
                 /* we don't need to wait on a !could_be_linking thread
                  * so we use this bool to tell whether we should signal
                  * the event.
-                 * FIXME: really we want a pulse that wakes ALL waiting
+                 * XXX: really we want a pulse that wakes ALL waiting
                  * threads and then resets the event!
                  */
                 tgt_pt->wait_for_unlink = false;
@@ -6749,7 +6749,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
  * -- we return while holding both the thread_initexit_lock and the exec
  * areas lock
  *
- * FIXME: this only helps thread-shared: for thread-private, should let
+ * XXX: this only helps thread-shared: for thread-private, should let
  * already-synched threads continue but not grab executable_areas lock, while
  * letting to-be-synched threads grab the lock.
  *
@@ -6835,7 +6835,7 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 /* Flushes fragments from the region without any changes to the exec list.
  * Does not free futures and caller can't be holding the initexit lock.
  * Invokes the given callback after flushing and before resuming threads.
- * FIXME - add argument parameters (free futures etc.) as needed. */
+ * XXX - add argument parameters (free futures etc.) as needed. */
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
                             bool force_synchall,
@@ -6897,7 +6897,7 @@ flush_vmvector_regions(dcontext_t *dcontext, vm_area_vector_t *toflush, bool fre
     vmvector_iterator_start(toflush, &vmvi);
     while (vmvector_iterator_hasnext(&vmvi)) {
         vmvector_iterator_next(&vmvi, &start, &end);
-        /* FIXME case 10086: optimization: batch the flushes together so we only
+        /* XXX case 10086: optimization: batch the flushes together so we only
          * synch once.  Currently this is rarely used, and with few areas in the
          * vector, so we don't bother.  To batch them we'd need to assume the
          * worst and do a synchall up front, which could be more costly than 2
@@ -6952,7 +6952,7 @@ exit_trace_file(per_thread_t *pt)
 
 /* Binary trace dump is used to save time and space.
  * The format is in fragment.h.
- * FIXME: add general symbol table support to disassembly?
+ * XXX: add general symbol table support to disassembly?
  *   We'd dump num_targets, then fcache_enter, ibl, trace_cache_incr addrs?
  *   Reader would then add exit stubs & other traces to table?
  *   But links will target cache pcs...
@@ -6972,10 +6972,10 @@ static void
 output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
                     stats_int_t trace_num)
 {
-    /* FIXME:
+    /* XXX:
      * We do not support PROFILE_RDTSC or various small fields
      */
-    /* FIXME: should allocate buffer elsewhere */
+    /* XXX: should allocate buffer elsewhere */
     byte buf[TRACEBUF_SIZE];
     byte *p = buf;
     trace_only_t *t = TRACE_FIELDS(f);
@@ -7177,7 +7177,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     }
 
 #ifdef WINDOWS
-    /* FIXME: for fragments flushed by unloaded modules, naturally we
+    /* XXX: for fragments flushed by unloaded modules, naturally we
      * won't be able to get the module name b/c by now it is unloaded,
      * the only fix is to keep a listing of mapped modules and only
      * unmap in our listing at this point
@@ -7375,7 +7375,7 @@ profile_fragment_dispatch(dcontext_t *dcontext)
 static app_to_cache_t a2c_empty = { NULL, NULL };
 static app_to_cache_t a2c_sentinel = { /*assume invalid*/ (app_pc)PTR_UINT_MINUS_1,
                                        NULL };
-/* FIXME: want to inline the app_to_cache_t struct just like lookuptable
+/* XXX: want to inline the app_to_cache_t struct just like lookuptable
  * does and use it for main table -- no support for that right now
  */
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
@@ -7523,7 +7523,7 @@ fragment_coarse_htable_create(coarse_info_t *info, uint init_capacity,
             HASHTABLE_RELAX_CLUSTER_CHECKS _IF_DEBUG("coarse th htable"));
     th_htable->mod_shift = 0;
     /* We give th table a lower lock rank for coarse_body_from_htable_entry().
-     * FIXME: add param to init() that takes in lock rank?
+     * XXX: add param to init() that takes in lock rank?
      */
     ASSIGN_INIT_READWRITE_LOCK_FREE(th_htable->rwlock, coarse_th_table_rwlock);
     info->th_htable = (void *)th_htable;
@@ -7569,7 +7569,7 @@ fragment_coarse_htable_merge_helper(dcontext_t *dcontext, coarse_info_t *dst,
 /* Merges the main and th htables from info1 and info2 into new htables for dst.
  * If !add_info2, makes room for but does not add entries from info2.
  * If !add_th_htable, creates but does not add entries to dst->th_htable.
- * FIXME: we can't use hashtable_coarse_merge() b/c we don't want to add
+ * XXX: we can't use hashtable_coarse_merge() b/c we don't want to add
  * entries from the 2nd table, and we do custom mangling of entries when adding.
  * Is it worth parametrizing hashtable_coarse_merge() to share anything?
  */
@@ -7592,7 +7592,7 @@ fragment_coarse_htable_merge(dcontext_t *dcontext, coarse_info_t *dst,
 
     /* We go to the trouble of determining non-dup total entries to
      * avoid repeatedly increasing htable size on merges and hitting
-     * collision asserts.  FIXME: should we shrink afterward instead?
+     * collision asserts.  XXX: should we shrink afterward instead?
      * Or just ignore collision asserts until at full size?
      */
     merged_entries = hashtable_coarse_num_unique_entries(dcontext, ht1, ht2);
@@ -7607,7 +7607,7 @@ fragment_coarse_htable_merge(dcontext_t *dcontext, coarse_info_t *dst,
     fragment_coarse_htable_create(dst, merged_entries,
                                   /* Heuristic to never over-size, yet try to avoid
                                    * collision asserts while resizing the table;
-                                   * FIXME: if we shrink the main htable afterward
+                                   * XXX: if we shrink the main htable afterward
                                    * could do the same here and start at sum of
                                    * entries */
                                   MAX(thht1->entries, thht2->entries));
@@ -7878,7 +7878,7 @@ fragment_coarse_th_add(dcontext_t *dcontext, coarse_info_t *info, app_pc tag,
  * For a frozen unit, this actually looks up the stub pc since res is
  * always the body pc.
  * For a non-frozen unit this determines where to obtain the body pc.
- * FIXME: case 8628 will simplify this whole thing
+ * XXX: case 8628 will simplify this whole thing
  */
 /* exported only for assert in push_pending_freeze() */
 IF_DEBUG_ELSE(, static)
@@ -7914,7 +7914,7 @@ coarse_body_from_htable_entry(dcontext_t *dcontext, coarse_info_t *info, app_pc 
                  * trace has lookup order precedence, but the head must show up
                  * if asked about here!
                  */
-                /* FIXME: we could have a flags OUT param and set FRAG_IS_TRACE_HEAD
+                /* XXX: we could have a flags OUT param and set FRAG_IS_TRACE_HEAD
                  * to help out fragment_lookup_fine_and_coarse*().
                  */
             } else {
@@ -7957,7 +7957,7 @@ coarse_body_from_htable_entry(dcontext_t *dcontext, coarse_info_t *info, app_pc 
  */
 void
 fragment_coarse_lookup_in_unit(dcontext_t *dcontext, coarse_info_t *info, app_pc tag,
-                               /* FIXME: have separate type for stub pc vs body pc? */
+                               /* XXX: have separate type for stub pc vs body pc? */
                                cache_pc *stub_pc_out /*OUT*/,
                                cache_pc *body_pc_out /*OUT*/)
 {
@@ -8025,7 +8025,7 @@ fragment_coarse_wrapper(fragment_t *wrapper, app_pc tag, cache_pc body_pc)
         return;
     ASSERT(tag != NULL);
     ASSERT(body_pc != NULL);
-    /* FIXME: fragile to rely on other routines not inspecting other
+    /* XXX: fragile to rely on other routines not inspecting other
      * fields of fragment_t -- but setting to 0 perhaps no better than garbage
      * in that case.  We do need to set prefix_size, incoming_stubs, and
      * {next,prev}_vmarea to NULL, for sure.
@@ -8054,7 +8054,7 @@ fragment_coarse_lookup_wrapper(dcontext_t *dcontext, app_pc tag, fragment_t *wra
 }
 
 /* Takes in last_exit in order to mark trace headness.
- * FIXME case 8600: should we replace all other lookups with this one?
+ * XXX case 8600: should we replace all other lookups with this one?
  * Fragile to only have select callers use this and everyone else
  * ignore coarse fragments...
  */
@@ -8067,7 +8067,7 @@ fragment_lookup_fine_and_coarse(dcontext_t *dcontext, app_pc tag, fragment_t *wr
         ASSERT(wrapper != NULL);
         if (res == NULL) {
             res = fragment_coarse_lookup_wrapper(dcontext, tag, wrapper);
-            /* FIXME: no way to know if source is a fine fragment! */
+            /* XXX: no way to know if source is a fine fragment! */
             if (res != NULL && last_exit == get_coarse_trace_head_exit_linkstub())
                 res->flags |= FRAG_IS_TRACE_HEAD;
         } else {
@@ -8083,7 +8083,7 @@ fragment_lookup_fine_and_coarse(dcontext_t *dcontext, app_pc tag, fragment_t *wr
 }
 
 /* Takes in last_exit in order to mark trace headness.
- * FIXME: should we replace all other same_sharing lookups with this one?
+ * XXX: should we replace all other same_sharing lookups with this one?
  * Fragile to only have select callers use this and everyone else
  * ignore coarse fragments...
  */
@@ -8202,7 +8202,7 @@ pclookup_last_free(dcontext_t *dcontext, void *last)
 
 /* Returns the tag for the coarse fragment whose body contains pc.
  * If that returned tag != NULL, also returns the body pc in the optional OUT param.
- * FIXME: verify not called too often: watch the kstat.
+ * XXX: verify not called too often: watch the kstat.
  */
 app_pc
 fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
@@ -8357,7 +8357,7 @@ fragment_coarse_create_entry_pclookup_table(dcontext_t *dcontext, coarse_info_t 
              * while we hold info->lock and do not write it out to its
              * info-> field, so we could update the add() and
              * deadlock-avoidance routines instead (xref case 9522).
-             * FIXME: add param to init() that takes in lock rank?
+             * XXX: add param to init() that takes in lock rank?
              */
             ASSIGN_INIT_READWRITE_LOCK_FREE(pc_htable->rwlock,
                                             coarse_pclookup_table_rwlock);
@@ -8415,7 +8415,7 @@ fragment_coarse_entry_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_
     ASSERT(info != NULL);
     if (info->htable == NULL)
         return NULL;
-    /* FIXME: we could use this table for non-frozen if we updated it
+    /* XXX: we could use this table for non-frozen if we updated it
      * when we add to main htable; for now we only support frozen use
      */
     if (!DYNAMO_OPTION(coarse_pclookup_table) ||
@@ -8546,7 +8546,7 @@ fragment_coarse_entry_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_
  * augmented with the htable as we cannot find tags for arbitrary fragments in
  * the cache.  We use a pending-add stack to avoid a second pass.
  * By adding ubr targets last, we can elide fall-through jmps.
- * FIXME case 9428:
+ * XXX case 9428:
  *   - Sorting entrance stubs for faster lazy linking lookup
  *   - Use 8-bit-relative jmps when possible for compaction, though this
  *     requires pc translation support and probably an extra pass when freezing.
@@ -8593,7 +8593,7 @@ fragment_coarse_unit_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_i
      */
     DODEBUG({ frozen_htable->is_local = true; });
     ASSERT_NOT_IMPLEMENTED(dynamo_all_threads_synched && "case 9900");
-    /* FIXME case 9522: not grabbing TABLE_RWLOCK(htable, read, lock) due to
+    /* XXX case 9522: not grabbing TABLE_RWLOCK(htable, read, lock) due to
      * rank order violation with frozen_htable write lock!  We go w/ the write
      * lock since lookup routines check for it.  To solve we'll need a way to
      * tell deadlock checking that frozen_htable is private to this thread and
@@ -8602,7 +8602,7 @@ fragment_coarse_unit_freeze(dcontext_t *dcontext, coarse_freeze_info_t *freeze_i
      * a solution.
      */
     ASSERT_NOT_IMPLEMENTED(dynamo_all_threads_synched && "case 9522");
-    /* FIXME: we're doing htable order, better to use either tag (original app)
+    /* XXX: we're doing htable order, better to use either tag (original app)
      * or cache (execution) order?
      */
     for (i = 0; i < htable->capacity || freeze_info->pending != NULL; i++) {

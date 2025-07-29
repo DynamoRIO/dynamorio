@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -112,5 +112,5 @@ tls_thread_free(tls_type_t tls_type, int index)
         *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
     }
 
-    /* FIXME i#5383: support detach on macOS AARCH64 */
+    /* XXX i#5383: support detach on macOS AARCH64 */
 }
