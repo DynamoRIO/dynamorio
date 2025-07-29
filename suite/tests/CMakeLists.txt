@@ -2368,6 +2368,12 @@ if (NOT ANDROID) # FIXME i#1874: failing on Android
   tobuild(common.segfault common/segfault.c)
 endif ()
 
+if (AARCH64)
+  tobuild(common.fake_ctr_dic common/fake_ctr_dic.c)
+  torunonly(common.fake_ctr_dic common.fake_ctr_dic common/fake_ctr_dic.c
+    "-fake_ctr_dic" "")
+endif ()
+
 # PR 217255: these 4 removed to shorten the regression suite since not
 # adding much value in terms of testing corner cases
 #tobuild(common.hello common/hello.c)
