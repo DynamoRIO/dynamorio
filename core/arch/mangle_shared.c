@@ -1951,7 +1951,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
 #endif
 
 #ifdef AARCH64
-        /* FIXME i#5771: This may no longer be required when the issue is fixed. */
+        /* XXX i#5771: This may no longer be required when the issue is fixed. */
         if (INTERNAL_OPTION(fake_ctr_dic) && instr_get_opcode(instr) == OP_mrs &&
             instr_num_srcs(instr) == 1 && opnd_is_reg(instr_get_src(instr, 0)) &&
             opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_CTR_EL0 &&
@@ -1960,18 +1960,12 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
             // instruction after the MRS so that the app thinks the bit is clear.
             // This will (one hopes) make the app execute the OP_ic_ivau instruction
             // that DynamoRIO currently relies on for detecting code modifications.
-            const int ctr_el0_dic_bit = 29;
-            unsigned long ctr = -1;
-#    ifdef DR_HOST_AARCH64
-            asm volatile("mrs %[ctr], ctr_el0" : [ctr] "=r"(ctr));
-#    endif
-            if (ctr >> ctr_el0_dic_bit & 1) {
-                reg_t reg = opnd_get_reg(instr_get_dst(instr, 0));
-                POST(ilist, instr,
-                     INSTR_CREATE_and(dcontext, opnd_create_reg(reg),
-                                      opnd_create_reg(reg),
-                                      OPND_CREATE_INT64(~(1UL << ctr_el0_dic_bit))));
-            }
+            const int CTR_EL0_DIC_BIT = 29;
+            reg_t reg = opnd_get_reg(instr_get_dst(instr, 0));
+            POST(ilist, instr,
+                 INSTR_CREATE_and(dcontext, opnd_create_reg(reg),
+                                  opnd_create_reg(reg),
+                                  OPND_CREATE_INT64(~(1UL << CTR_EL0_DIC_BIT))));
         }
 #endif
 
