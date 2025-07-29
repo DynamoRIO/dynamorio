@@ -1963,8 +1963,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
             const int CTR_EL0_DIC_BIT = 29;
             reg_t reg = opnd_get_reg(instr_get_dst(instr, 0));
             POST(ilist, instr,
-                 INSTR_CREATE_and(dcontext, opnd_create_reg(reg),
-                                  opnd_create_reg(reg),
+                 INSTR_CREATE_and(dcontext, opnd_create_reg(reg), opnd_create_reg(reg),
                                   OPND_CREATE_INT64(~(1UL << CTR_EL0_DIC_BIT))));
         }
 #endif

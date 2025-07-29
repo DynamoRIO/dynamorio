@@ -36,7 +36,8 @@
 
 #include "tools.h"
 
-int main()
+int
+main()
 {
     const int CTR_EL0_DIC_BIT = 29;
     unsigned long ctr;
