@@ -7491,7 +7491,7 @@ test_record_scheduler_i7574()
     // corresponding instruction.
     // TODO i#7574: Workaround this issue in the scheduler and modify this test to
     // prove correct operation.
-    std::cerr << "\n----------------\nTesting record_scheduler_t for i#7574 workaround\n";
+    std::cerr << "\n----------------\nTesting record_scheduler_t to show the i#7574 issue\n";
     static constexpr memref_tid_t TID_A = 42;
     static constexpr memref_tid_t TID_B = TID_A + 1;
     static constexpr memref_tid_t PID_A = 142;
