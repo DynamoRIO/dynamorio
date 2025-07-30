@@ -862,14 +862,19 @@ test_chunk_boundaries(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         // Block 4
         check_entry(entries, idx, TRACE_TYPE_INSTR_TAKEN_JUMP, -1) &&
         // Third chunk split: Ensure the branch_target marker for the return
         // instr does not get abandoned in the prior chunk. This was seen to happen in
-        // i#7574 when the return instr is written as part of a sequence of delayed
-        // branches that happened to cross chunk boundary, and also had an occurence in
-        // the prior chunk so there was no encoding entry before it initially.
+        // i#7574 when a return instr at the beginning of a new chunk is written as part
+        // of a sequence of delayed branches that happened to cross chunk boundary, and
+        // also had an occurence in the prior chunk so there was no encoding entry before
+        // it initially (but was added later by raw2trace).
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
