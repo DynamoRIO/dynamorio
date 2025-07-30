@@ -43,7 +43,6 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syscall.h>
 
 #include <atomic>
 #include <iostream>
@@ -56,6 +55,7 @@
 #include "scheduler.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
+#include "../../core/unix/include/syscall_target.h"
 
 #ifndef LINUX
 #    error Only Linux supported for this test.
@@ -137,12 +137,20 @@ do_some_work()
     pthread_mutex_unlock(&lock);
     // Now take some time doing work so we can measure how many sleeps the child
     // accomplishes in this time period.
+#ifdef DEBUG
     constexpr int ITERS = 3000;
+    constexpr int EINTR_PERIOD = 30;
+#else
+    // Signal delivery is much faster, and we only want a few interruptions to test
+    // that path: too many results in too many sleep syscalls in the count.
+    constexpr int ITERS = 6000;
+    constexpr int EINTR_PERIOD = 600;
+#endif
     double val = static_cast<double>(ITERS);
     for (int i = 0; i < ITERS; ++i) {
         val += sin(val);
         // Test interrupting the thread's sleeps.
-        if (i % 30 == 0) {
+        if (i % EINTR_PERIOD == 0) {
             pthread_kill(thread, SIGUSR1);
         }
     }
