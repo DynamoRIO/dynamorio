@@ -78,6 +78,8 @@ static pthread_cond_t condvar;
 static bool child_ready;
 static pthread_mutex_t lock;
 static std::atomic<bool> child_should_exit;
+static std::atomic<bool> saw_eintr;
+static std::atomic<int> sleep_count;
 
 static void
 handler(int sig)
@@ -99,25 +101,31 @@ thread_routine(void *arg)
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 100000;
     struct timespec remaining;
-    int64_t eintr_count = 0;
     while (!child_should_exit.load(std::memory_order_acquire)) {
+        sleep_count.fetch_add(1, std::memory_order_release);
         int res = nanosleep(&sleeptime, &remaining);
         if (res != 0) {
             assert(errno == EINTR);
             // Ensure the remaining time was deflated.
             assert(remaining.tv_sec <= sleeptime.tv_sec);
-            ++eintr_count;
+            saw_eintr.store(true, std::memory_order_release);
         }
     }
-    // We see 5-15 eintrs in most runs but do not assert it's >0 as there is
-    // variation on loaded test machines and we do not want a flaky test.
-    std::cerr << "eintrs=" << eintr_count << "\n";
     return nullptr;
 }
 
 static double
 do_some_work()
 {
+    // It is difficult to use a constant iter count in our work loop and still
+    // produce a good sleep count across varying test machines: too few and we don't
+    // have enough to see a scale effect; too many and the test takes too long on
+    // slower machines.  We solve this by figuring out an iter count experimentally.
+    // The first time we're called, we run until we see MIN_SLEEPS sleeps and 1 EINTR
+    // in the other thread.  We record that iter count and use it next time.
+    constexpr int MIN_SLEEPS = 50;
+    static int computed_iters;
+
     pthread_t thread;
     void *retval;
     pthread_mutex_init(&lock, NULL);
@@ -126,6 +134,9 @@ do_some_work()
     pthread_mutex_lock(&lock);
     child_ready = false;
     pthread_mutex_unlock(&lock);
+    child_should_exit.store(false, std::memory_order_release);
+    saw_eintr.store(true /*false*/, std::memory_order_release);
+    sleep_count.store(0, std::memory_order_release);
     child_should_exit.store(false, std::memory_order_release);
 
     int res = pthread_create(&thread, NULL, thread_routine, nullptr);
@@ -138,19 +149,33 @@ do_some_work()
     // Now take some time doing work so we can measure how many sleeps the child
     // accomplishes in this time period.
 #ifdef DEBUG
-    constexpr int ITERS = 3000;
     constexpr int EINTR_PERIOD = 30;
 #else
     // Signal delivery is much faster, and we only want a few interruptions to test
     // that path: too many results in too many sleep syscalls in the count.
-    constexpr int ITERS = 6000;
     constexpr int EINTR_PERIOD = 600;
 #endif
-    double val = static_cast<double>(ITERS);
-    for (int i = 0; i < ITERS; ++i) {
+    double val = static_cast<double>(MIN_SLEEPS);
+    int i = 0;
+    while (true) {
+        if (computed_iters == 0) {
+            if (sleep_count.load(std::memory_order_acquire) >= MIN_SLEEPS) {
+                computed_iters = i;
+                std::cerr << "iters for >= " << MIN_SLEEPS
+                          << " sleeps: " << computed_iters << "\n";
+                break;
+            }
+        } else if (i >= computed_iters &&
+                   // We want to test the scaled (2nd run) EINTR path.
+                   // We don't require on the 1st as that slows down
+                   // debug test times (from 1.5s up to >10s) for no benefit.
+                   saw_eintr.load(std::memory_order_acquire)) {
+            break;
+        }
+        ++i;
         val += sin(val);
         // Test interrupting the thread's sleeps.
-        if (i % EINTR_PERIOD == 0) {
+        if (!saw_eintr.load(std::memory_order_acquire) && i % EINTR_PERIOD == 0) {
             pthread_kill(thread, SIGUSR1);
         }
     }
