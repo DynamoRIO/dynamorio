@@ -3002,8 +3002,8 @@ float_pc_update(dcontext_t *dcontext)
 void
 mangle_ctr_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
-    if (instr_get_opcode(instr) == OP_mrs &&
-        instr_num_srcs(instr) == 1 && opnd_is_reg(instr_get_src(instr, 0)) &&
+    if (instr_get_opcode(instr) == OP_mrs && instr_num_srcs(instr) == 1 &&
+        opnd_is_reg(instr_get_src(instr, 0)) &&
         opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_CTR_EL0 &&
         instr_num_dsts(instr) == 1 && opnd_is_reg(instr_get_dst(instr, 0))) {
         // Insert an AND (immediate) instruction after the MRS so that the
