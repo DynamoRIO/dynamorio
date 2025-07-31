@@ -168,7 +168,15 @@ do_some_work()
         } else if (i >= computed_iters &&
                    // We want to test the scaled (2nd run) EINTR path.
                    // We don't require on the 1st as that slows down
-                   // debug test times (from 1.5s up to >10s) for no benefit.
+                   // debug test times (from 1.5s up to >10s if we require an
+                   // EINTR: because there's so much other work being done it
+                   // dwarfs the short app sleep) for no benefit.
+                   // But in the inflated sleep run we hit EINTR pretty easily,
+                   // so we're comfortable requiring it without worrying it
+                   // will skew the results and make it seem there are more
+                   // sleeps because we have more requirements (that would
+                   // cause the test to move toward failure in any case and
+                   // we would be more likely to notice).
                    saw_eintr.load(std::memory_order_acquire)) {
             break;
         }
@@ -278,6 +286,8 @@ count_sleeps(const std::string &dir)
 int
 test_main(int argc, const char *argv[])
 {
+    // The first gather_trace call must be the default as computed_iters
+    // is determined in the first call.
     std::string dir_default = gather_trace("", "default");
     std::string dir_scale = gather_trace("-scale_timeouts 20", "scale");
 

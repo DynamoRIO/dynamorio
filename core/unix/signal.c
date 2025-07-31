@@ -143,7 +143,7 @@ sig_is_alarm_signal(int sig)
 static inline bool
 sig_is_real_time(int sig)
 {
-    return sig >= 32;
+    return sig >= OFFS_RT;
 }
 
 /* We do not use SIGSTKSZ b/c for things like code modification
