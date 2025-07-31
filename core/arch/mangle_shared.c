@@ -1952,20 +1952,8 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
 
 #ifdef AARCH64
         /* XXX i#5771: This may no longer be required when the issue is fixed. */
-        if (INTERNAL_OPTION(fake_ctr_dic) && instr_get_opcode(instr) == OP_mrs &&
-            instr_num_srcs(instr) == 1 && opnd_is_reg(instr_get_src(instr, 0)) &&
-            opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_CTR_EL0 &&
-            instr_num_dsts(instr) == 1 && opnd_is_reg(instr_get_dst(instr, 0))) {
-            // Insert an AND (immediate) instruction after the MRS so that the
-            // app thinks the bit is clear. This will (one hopes) make the app
-            // execute the OP_ic_ivau instruction that DynamoRIO currently relies
-            // on for detecting code modifications.
-            const int CTR_EL0_DIC_BIT = 29;
-            reg_t reg = opnd_get_reg(instr_get_dst(instr, 0));
-            POST(ilist, instr,
-                 INSTR_CREATE_and(dcontext, opnd_create_reg(reg), opnd_create_reg(reg),
-                                  OPND_CREATE_INT64(~(1UL << CTR_EL0_DIC_BIT))));
-        }
+        if (INTERNAL_OPTION(fake_ctr_dic))
+            mangle_ctr_read(dcontext, ilist, instr);
 #endif
 
 #ifdef AARCH64

@@ -763,6 +763,8 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 #endif /* ARM */
 
 #ifdef AARCH64
+void
+mangle_ctr_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 instr_t *
 mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr, app_pc pc);
