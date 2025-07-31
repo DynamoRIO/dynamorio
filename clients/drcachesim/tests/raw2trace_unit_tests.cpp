@@ -774,8 +774,9 @@ test_chunk_boundaries(void *drcontext)
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *jmp2 = XINST_CREATE_jump(drcontext, opnd_create_instr(move2));
     instr_t *jmp1 = XINST_CREATE_jump(drcontext, opnd_create_instr(jmp2));
-    instr_t *move3 =
-        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *ret1 = XINST_CREATE_return(drcontext);
+    instr_t *jcc1 =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(ret1));
     instrlist_append(ilist, nop);
     // Block 1.
     instrlist_append(ilist, move1);
@@ -784,13 +785,16 @@ test_chunk_boundaries(void *drcontext)
     instrlist_append(ilist, jmp2);
     // Block 3.
     instrlist_append(ilist, move2);
-    instrlist_append(ilist, move3);
+    instrlist_append(ilist, ret1);
+    instrlist_append(ilist, jcc1);
 
     size_t offs_nop = 0;
     size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
     size_t offs_jmp1 = offs_move1 + instr_length(drcontext, move1);
     size_t offs_jmp2 = offs_jmp1 + instr_length(drcontext, jmp1);
     size_t offs_move2 = offs_jmp2 + instr_length(drcontext, jmp2);
+    size_t offs_ret1 = offs_move2 + instr_length(drcontext, move2);
+    size_t offs_jcc1 = offs_ret1 + instr_length(drcontext, ret1);
 
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
@@ -803,6 +807,9 @@ test_chunk_boundaries(void *drcontext)
     raw.push_back(make_block(offs_move1, 2));
     raw.push_back(make_block(offs_jmp2, 1));
     raw.push_back(make_block(offs_move2, 2));
+    raw.push_back(make_block(offs_jcc1, 1));
+    raw.push_back(make_block(offs_ret1, 1));
+    raw.push_back(make_block(offs_move1, 1));
     // TODO i#5724: Add repeats of the same instrs to test re-emitting encodings
     // in new chunks.
     raw.push_back(make_exit());
@@ -853,7 +860,36 @@ test_chunk_boundaries(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        // Block 4
+        check_entry(entries, idx, TRACE_TYPE_INSTR_TAKEN_JUMP, -1) &&
+        // Third chunk split: Ensure the branch_target marker for the return
+        // instr does not get abandoned in the prior chunk. This was seen to happen in
+        // i#7574 when a return instr at the beginning of a new chunk is written as part
+        // of a sequence of delayed branches that happened to cross chunk boundary, and
+        // also had an occurence in the prior chunk so there was no encoding entry before
+        // it initially (but was added later by raw2trace).
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        // Block 5.
+        check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        // Block 6.
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }

@@ -3230,6 +3230,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             // encoding.  (We will put function markers for entry in the
             // prior chunk too: we live with that.)
             if ((type_is_instr(static_cast<trace_type_t>(it->type)) ||
+                 (it->type == TRACE_TYPE_MARKER &&
+                  it->size == TRACE_MARKER_TYPE_BRANCH_TARGET) ||
                  it->type == TRACE_TYPE_ENCODING) &&
                 tdata->cur_chunk_instr_count >= chunk_instr_count_) {
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
