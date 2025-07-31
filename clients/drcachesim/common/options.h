@@ -247,6 +247,7 @@ extern dynamorio::droption::droption_t<uint64_t> op_trim_after_instr;
 extern dynamorio::droption::droption_t<bool> op_abort_on_invariant_error;
 extern dynamorio::droption::droption_t<bool> op_pt2ir_best_effort;
 extern dynamorio::droption::droption_t<int> op_scale_timers;
+extern dynamorio::droption::droption_t<int> op_scale_timeouts;
 
 } // namespace drmemtrace
 } // namespace dynamorio

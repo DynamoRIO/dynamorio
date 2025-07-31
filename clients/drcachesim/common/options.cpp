@@ -1291,12 +1291,19 @@ droption_t<bool> op_pt2ir_best_effort(
     "seen in converted syscall traces).");
 
 droption_t<int> op_scale_timers(
-    DROPTION_SCOPE_ALL, "scale_timers", 0, 0, (std::numeric_limits<int>::max)(),
-    "If non-0, inflate application timer periods by this value",
-    "If non-zero, application timer initial durations and periodic durations are "
+    DROPTION_SCOPE_ALL, "scale_timers", 1, 1, (std::numeric_limits<int>::max)(),
+    "If >1, inflate application timer periods by this value",
+    "If >1, application timer initial durations and periodic durations are "
     "inflated by this scale.  This can help preserve relative timing between timer-based "
     "application work and other application work in the presence of "
     "significant slowdowns from tracing.  Currently only supported on Linux.");
+droption_t<int> op_scale_timeouts(
+    DROPTION_SCOPE_ALL, "scale_timeouts", 1, 1, (std::numeric_limits<int>::max)(),
+    "If >1, inflate syscall timeouts by this value",
+    "If >1, time arguments to certain system calls (currently Linux-only "
+    "sleeps) are multiplied by the specified value.  This can help preserve relative "
+    "timing among application threads in the presence of significant slowdowns from "
+    "tracing.");
 
 } // namespace drmemtrace
 } // namespace dynamorio

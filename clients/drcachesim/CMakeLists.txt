@@ -1275,6 +1275,15 @@ if (BUILD_TESTS)
       endif ()
       add_win32_flags(tool.drcacheoff.burst_futex ON)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_futex)
+
+      # -time_syscall_scale is Linux-only.
+      add_executable(tool.drcacheoff.burst_sleep
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_sleep.cpp")
+      configure_DynamoRIO_static(tool.drcacheoff.burst_sleep)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_sleep drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_sleep drmemtrace_raw2trace
+        drmemtrace_analyzer test_helpers)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_sleep)
     endif ()
 
   endif ()
