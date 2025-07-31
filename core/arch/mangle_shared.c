@@ -1956,10 +1956,10 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
             instr_num_srcs(instr) == 1 && opnd_is_reg(instr_get_src(instr, 0)) &&
             opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_CTR_EL0 &&
             instr_num_dsts(instr) == 1 && opnd_is_reg(instr_get_dst(instr, 0))) {
-            // If the bit in the system register is set, insert an AND (immediate)
-            // instruction after the MRS so that the app thinks the bit is clear.
-            // This will (one hopes) make the app execute the OP_ic_ivau instruction
-            // that DynamoRIO currently relies on for detecting code modifications.
+            // Insert an AND (immediate) instruction after the MRS so that the
+            // app thinks the bit is clear. This will (one hopes) make the app
+            // execute the OP_ic_ivau instruction that DynamoRIO currently relies
+            // on for detecting code modifications.
             const int CTR_EL0_DIC_BIT = 29;
             reg_t reg = opnd_get_reg(instr_get_dst(instr, 0));
             POST(ilist, instr,
