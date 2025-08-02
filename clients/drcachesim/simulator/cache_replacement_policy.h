@@ -71,7 +71,7 @@ public:
     }
     /// Informs the replacement policy that an access has occurred.
     virtual void
-    access_update(int set_idx, int way) = 0;
+    access_update(int set_idx, int way, bool is_hit) = 0;
     /// Informs the replacement policy that an eviction has occurred.
     virtual void
     eviction_update(int set_idx, int way) = 0;
