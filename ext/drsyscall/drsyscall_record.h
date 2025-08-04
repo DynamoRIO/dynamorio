@@ -31,10 +31,10 @@
  */
 
 #ifndef _DRSYSCALL_RECORD_H_
-#define _DRSYSCALL_RECORD_H_ 1
+#    define _DRSYSCALL_RECORD_H_ 1
 
-#include <stdint.h>
-#include "dr_api.h"
+#    include <stdint.h>
+#    include "dr_api.h"
 
 /**************************************************
  * TOP-LEVEL ROUTINES
@@ -46,27 +46,27 @@
 
 // XXX i#7472: Move definitions of START_PACKED_STRUCTURE and
 // END_PACKED_STRUCTURE to core.
-#ifdef WINDOWS
+#    ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
-#    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
-#    else
-#        define ACTUAL_PRAGMA(p) __pragma(p)
-#    endif
+#        if _MSC_VER <= 1200
+#            define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        else
+#            define ACTUAL_PRAGMA(p) __pragma(p)
+#        endif
 /* Usage: if planning to typedef, that must be done separately, as MSVC will
  * not take _pragma after typedef.
  */
-#    define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
-#    define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
-#else                              /* UNIX */
-#    define START_PACKED_STRUCTURE /* nothing */
-#    define END_PACKED_STRUCTURE __attribute__((__packed__))
-#endif
+#        define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
+#        define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
+#    else                              /* UNIX */
+#        define START_PACKED_STRUCTURE /* nothing */
+#        define END_PACKED_STRUCTURE __attribute__((__packed__))
+#    endif
 
 /** The type of the syscall record. */
 typedef enum {
     /** Start of a syscall. */
-    DRSYS_SYSCALL_NUMBER = 1,
+    DRSYS_SYSCALL_NUMBER_DEPRECATED = 1,
     /** Pre-syscall parameter.*/
     DRSYS_PRECALL_PARAM,
     /** Post-syscall parameter. */
@@ -76,14 +76,18 @@ typedef enum {
     /** Return value of the syscall. */
     DRSYS_RETURN_VALUE,
     /** End of a syscall. */
-    DRSYS_RECORD_END,
+    DRSYS_RECORD_END_DEPRECATED,
+    /** Start of a syscall with a timestamp. */
+    DRSYS_SYSCALL_NUMBER_TIMESTAMP,
+    /** End of a syscall with a timestamp. */
+    DRSYS_RECORD_END_TIMESTAMP,
 } syscall_record_type_t;
 
 /**
  * To enable #syscall_record_t to be default initialized reliably, a byte array is defined
  * with the same length as the largest member of the union.
  */
-#define SYSCALL_RECORD_UNION_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
+#    define SYSCALL_RECORD_UNION_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
 
 /**
  * Describes a system call number, parameter, memory region, or the return
@@ -102,8 +106,9 @@ typedef struct syscall_record_t_ {
          */
         uint8_t _raw_bytes[SYSCALL_RECORD_UNION_SIZE_BYTES];
         /**
-         * The syscall number. It is used for type #DRSYS_SYSCALL_NUMBER or
-         * #DRSYS_RECORD_END.
+         * The syscall number. It is used for type
+         * #DRSYS_SYSCALL_NUMBER_DEPRECATED or
+         * #DRSYS_RECORD_END_DEPRECATED.
          */
         uint16_t syscall_number;
         START_PACKED_STRUCTURE
@@ -129,6 +134,23 @@ typedef struct syscall_record_t_ {
         } END_PACKED_STRUCTURE content;
         /** The return value of the syscall. It is used for type #DRSYS_RETURN_VALUE. */
         reg_t return_value;
+        START_PACKED_STRUCTURE
+        /**
+         * The syscall number and a timestamp. It is used for type
+         * #DRSYS_SYSCALL_NUMBER_TIMESTAMP and #DRSYS_RECORD_END_TIMESTAMP.
+         */
+        struct {
+            /**
+             * The syscall number.
+             */
+            uint16_t syscall_number;
+            /**
+             * The timestamp marks the beginning of the syscall for
+             * #DRSYS_SYSCALL_NUMBER_TIMESTAMP, and the end of the
+             * syscall for #DRSYS_RECORD_END_TIMESTAMP.
+             */
+            uint64_t timestamp;
+        } END_PACKED_STRUCTURE syscall_number_timestamp;
     };
 } END_PACKED_STRUCTURE syscall_record_t;
 
