@@ -31,10 +31,10 @@
  */
 
 #ifndef _DRSYSCALL_RECORD_H_
-#    define _DRSYSCALL_RECORD_H_ 1
+#define _DRSYSCALL_RECORD_H_ 1
 
-#    include <stdint.h>
-#    include "dr_api.h"
+#include <stdint.h>
+#include "dr_api.h"
 
 /**************************************************
  * TOP-LEVEL ROUTINES
@@ -46,22 +46,22 @@
 
 // XXX i#7472: Move definitions of START_PACKED_STRUCTURE and
 // END_PACKED_STRUCTURE to core.
-#    ifdef WINDOWS
+#ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
-#        if _MSC_VER <= 1200
-#            define ACTUAL_PRAGMA(p) _Pragma(#        p)
-#        else
-#            define ACTUAL_PRAGMA(p) __pragma(p)
-#        endif
+#    if _MSC_VER <= 1200
+#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#    else
+#        define ACTUAL_PRAGMA(p) __pragma(p)
+#    endif
 /* Usage: if planning to typedef, that must be done separately, as MSVC will
  * not take _pragma after typedef.
  */
-#        define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
-#        define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
-#    else                              /* UNIX */
-#        define START_PACKED_STRUCTURE /* nothing */
-#        define END_PACKED_STRUCTURE __attribute__((__packed__))
-#    endif
+#    define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
+#    define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
+#else                              /* UNIX */
+#    define START_PACKED_STRUCTURE /* nothing */
+#    define END_PACKED_STRUCTURE __attribute__((__packed__))
+#endif
 
 /** The type of the syscall record. */
 typedef enum {
@@ -87,7 +87,7 @@ typedef enum {
  * To enable #syscall_record_t to be default initialized reliably, a byte array is defined
  * with the same length as the largest member of the union.
  */
-#    define SYSCALL_RECORD_UNION_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
+#define SYSCALL_RECORD_UNION_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
 
 /**
  * Describes a system call number, parameter, memory region, or the return

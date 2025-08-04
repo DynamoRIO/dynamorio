@@ -30,13 +30,13 @@
  * DAMAGE.
  */
 #ifndef _DRSYSCALL_RECORD_LIB_H_
-#    define _DRSYSCALL_RECORD_LIB_H_ 1
-#    include <stdio.h>
-#    include <unistd.h>
+#define _DRSYSCALL_RECORD_LIB_H_ 1
+#include <stdio.h>
+#include <unistd.h>
 
-#    include "dr_api.h"
-#    include "drsyscall.h"
-#    include "drsyscall_record.h"
+#include "dr_api.h"
+#include "drsyscall.h"
+#include "drsyscall_record.h"
 
 /**
  * A user provided function to read syscall records. Returns the number of bytes read.
