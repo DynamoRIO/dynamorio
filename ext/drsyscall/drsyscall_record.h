@@ -87,7 +87,14 @@ typedef enum {
  * To enable #syscall_record_t to be default initialized reliably, a byte array is defined
  * with the same length as the largest member of the union.
  */
-#define SYSCALL_RECORD_UNION_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
+#    define SYSCALL_RECORD_CONTENT_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
+#    define SYSCALL_RECORD_SYSCALL_NUMBER_TIMESTAMP_SIZE_BYTES \
+        (sizeof(uint64_t) + sizeof(uint16_t))
+#    define SYSCALL_RECORD_UNION_SIZE_BYTES                         \
+        (SYSCALL_RECORD_CONTENT_SIZE_BYTES >=                       \
+                 SYSCALL_RECORD_SYSCALL_NUMBER_TIMESTAMP_SIZE_BYTES \
+             ? SYSCALL_RECORD_CONTENT_SIZE_BYTES                    \
+             : SYSCALL_RECORD_SYSCALL_NUMBER_TIMESTAMP_SIZE_BYTES)
 
 /**
  * Describes a system call number, parameter, memory region, or the return
