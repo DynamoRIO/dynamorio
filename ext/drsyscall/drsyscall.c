@@ -175,7 +175,8 @@ check_syscall_gateway(instr_t *inst)
                    "multiple system call gateways not supported");
         }
     } else if (instr_get_opcode(inst) == OP_syscall) {
-        if (syscall_gateway == DRSYS_GATEWAY_UNKNOWN)
+        if (syscall_gateway == DRSYS_GATEWAY_UNKNOWN ||
+            syscall_gateway == DRSYS_GATEWAY_INT)
             syscall_gateway = DRSYS_GATEWAY_SYSCALL;
         else {
             ASSERT(syscall_gateway ==
