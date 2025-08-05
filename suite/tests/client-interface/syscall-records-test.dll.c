@@ -146,7 +146,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         return false;
     }
     if (drsyscall_write_syscall_number_timestamp_record(
-            write_file, sysnum, get_microsecond_timestamp()) == 0) {
+            write_file, sysnum_full, get_microsecond_timestamp()) == 0) {
         dr_fprintf(STDERR, "failed to write syscall number record, sysnum = %d", sysnum);
         return false;
     }
@@ -191,7 +191,7 @@ event_post_syscall(void *drcontext, int sysnum)
         dr_fprintf(STDERR, "drsys_iterate_memargs failed, sysnum = %d", sysnum);
         return;
     }
-    if (drsyscall_write_syscall_end_timestamp_record(write_file, sysnum,
+    if (drsyscall_write_syscall_end_timestamp_record(write_file, sysnum_full,
                                                      get_microsecond_timestamp()) == 0) {
         dr_fprintf(STDERR, "failed to write syscall end record, sysnum = %d", sysnum);
         return;

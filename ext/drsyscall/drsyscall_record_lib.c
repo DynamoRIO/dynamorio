@@ -200,7 +200,7 @@ drsyscall_write_syscall_end_record(DR_PARAM_IN drsyscall_record_write_t write_fu
 DR_EXPORT
 int
 drsyscall_write_syscall_number_timestamp_record(
-    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN int sysnum,
+    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
     DR_PARAM_IN uint64_t timestamp)
 {
     syscall_record_t record = {};
@@ -213,7 +213,7 @@ drsyscall_write_syscall_number_timestamp_record(
 DR_EXPORT
 int
 drsyscall_write_syscall_end_timestamp_record(
-    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN int sysnum,
+    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
     DR_PARAM_IN uint64_t timestamp)
 {
     syscall_record_t record = {};

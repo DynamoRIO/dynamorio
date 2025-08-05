@@ -89,7 +89,7 @@ typedef enum {
  */
 #define SYSCALL_RECORD_CONTENT_SIZE_BYTES (sizeof(uint8_t *) + sizeof(size_t))
 #define SYSCALL_RECORD_SYSCALL_NUMBER_TIMESTAMP_SIZE_BYTES \
-    (sizeof(uint64_t) + sizeof(uint16_t))
+    (sizeof(uint64_t) + sizeof(drsys_sysnum_t))
 #define SYSCALL_RECORD_UNION_SIZE_BYTES                         \
     (SYSCALL_RECORD_CONTENT_SIZE_BYTES >=                       \
              SYSCALL_RECORD_SYSCALL_NUMBER_TIMESTAMP_SIZE_BYTES \
@@ -157,7 +157,7 @@ typedef struct syscall_record_t_ {
             /**
              * The syscall number.
              */
-            uint16_t syscall_number;
+            drsys_sysnum_t syscall_number;
         } END_PACKED_STRUCTURE syscall_number_timestamp;
     } END_PACKED_STRUCTURE;
 } END_PACKED_STRUCTURE syscall_record_t;

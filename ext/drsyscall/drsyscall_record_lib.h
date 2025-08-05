@@ -110,7 +110,7 @@ drsyscall_write_memarg_record(DR_PARAM_IN drsyscall_record_write_t write_func,
 DR_EXPORT
 /**
  * Write a #syscall_record_t of type #DRSYS_SYSCALL_NUMBER based on \p
- * arg.
+ * sysnum.
  *
  * @param[in] write_func  A user provided function to write syscall record.
  * @param[in] sysnum      The system call number.
@@ -126,7 +126,7 @@ drsyscall_write_syscall_number_record(DR_PARAM_IN drsyscall_record_write_t write
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_RECORD_END based on \p arg.
+ * Write a #syscall_record_t of type #DRSYS_RECORD_END based on \p sysnum.
  *
  * @param[in] write_func  A user provided function to write syscall record.
  * @param[in] sysnum      The system call number.
@@ -143,7 +143,7 @@ drsyscall_write_syscall_end_record(DR_PARAM_IN drsyscall_record_write_t write_fu
 DR_EXPORT
 /**
  * Write a #syscall_record_t of type #DRSYS_SYSCALL_NUMBER_TIMESTAMP based on \p
- * arg.
+ * sysnum and \p timestamp.
  *
  * @param[in] write_func  A user provided function to write syscall record.
  * @param[in] sysnum      The system call number.
@@ -153,12 +153,13 @@ DR_EXPORT
  */
 int
 drsyscall_write_syscall_number_timestamp_record(
-    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN int sysnum,
+    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
     DR_PARAM_IN uint64_t timestamp);
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_RECORD_END_TIMESTAMP based on \p arg.
+ * Write a #syscall_record_t of type #DRSYS_RECORD_END_TIMESTAMP based on \p
+ * sysnum and \p timestamp.
  *
  * @param[in] write_func  A user provided function to write syscall record.
  * @param[in] sysnum      The system call number.
@@ -168,7 +169,7 @@ DR_EXPORT
  */
 int
 drsyscall_write_syscall_end_timestamp_record(
-    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN int sysnum,
+    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
     DR_PARAM_IN uint64_t timestamp);
 
 #endif /* _DRSYSCALL_RECORD_LIB_H_ */

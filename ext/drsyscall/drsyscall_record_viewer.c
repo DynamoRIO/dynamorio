@@ -81,12 +81,12 @@ record_cb(syscall_record_t *record, char *buffer, size_t size)
         break;
     case DRSYS_SYSCALL_NUMBER_TIMESTAMP:
         dr_printf("syscall: %d, timestamp: %ld\n",
-                  record->syscall_number_timestamp.syscall_number,
+                  record->syscall_number_timestamp.syscall_number.number,
                   record->syscall_number_timestamp.timestamp);
         break;
     case DRSYS_RECORD_END_TIMESTAMP:
         dr_printf("syscall end: %d, timestamp: %ld\n",
-                  record->syscall_number_timestamp.syscall_number,
+                  record->syscall_number_timestamp.syscall_number.number,
                   record->syscall_number_timestamp.timestamp);
         break;
     default: dr_printf("unknown record type %d\n", record->type); return false;
