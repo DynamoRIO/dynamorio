@@ -133,7 +133,7 @@ changes:
    dr_create_memory_dump() returns true and elf_path is not NULL, elf_path will be
    written with the path to the memory dump file.
  - The DRSYS_SYSCALL_NUMBER and DRSYS_RECORD_END record types have been deprecated and are
-   now superseded by #DRSYS_SYSCALL_NUMBER_TIMESTAMP and #DRSYS_SYSCALL_END_TIMESTAMP.
+   now superseded by #DRSYS_SYSCALL_NUMBER_TIMESTAMP and #DRSYS_RECORD_END_TIMESTAMP.
    This API change also affects the corresponding functions:
    drsyscall_write_syscall_number_record() and drsyscall_write_syscall_end_record() have
    been replaced by drsyscall_write_syscall_number_timestamp_record() and
