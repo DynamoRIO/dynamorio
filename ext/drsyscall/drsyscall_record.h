@@ -44,30 +44,11 @@
  * @brief Header for Dr. Syscall system call records.
  */
 
-// XXX i#7472: Move definitions of START_PACKED_STRUCTURE and
-// END_PACKED_STRUCTURE to core.
-#ifdef WINDOWS
-/* Use special C99 operator _Pragma to generate a pragma from a macro */
-#    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
-#    else
-#        define ACTUAL_PRAGMA(p) __pragma(p)
-#    endif
-/* Usage: if planning to typedef, that must be done separately, as MSVC will
- * not take _pragma after typedef.
- */
-#    define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
-#    define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
-#else                              /* UNIX */
-#    define START_PACKED_STRUCTURE /* nothing */
-#    define END_PACKED_STRUCTURE __attribute__((__packed__))
-#endif
-
 /** The type of the syscall record. */
 typedef enum {
-    /** Start of a syscall. */
+    /** \deprecated Replaced by DRSYS_SYSCALL_NUMBER_TIMESTAMP. */
     DRSYS_SYSCALL_NUMBER_DEPRECATED = 1,
-    /** Pre-syscall parameter.*/
+    /** Pre-syscall parameter. */
     DRSYS_PRECALL_PARAM,
     /** Post-syscall parameter. */
     DRSYS_POSTCALL_PARAM,
@@ -75,7 +56,7 @@ typedef enum {
     DRSYS_MEMORY_CONTENT,
     /** Return value of the syscall. */
     DRSYS_RETURN_VALUE,
-    /** End of a syscall. */
+    /** \deprecated Replaced by DRSYS_RECORD_END_TIMESTAMP. */
     DRSYS_RECORD_END_DEPRECATED,
     /** Start of a syscall with a timestamp. */
     DRSYS_SYSCALL_NUMBER_TIMESTAMP,
@@ -114,9 +95,11 @@ typedef struct syscall_record_t_ {
          */
         uint8_t _raw_bytes[SYSCALL_RECORD_UNION_SIZE_BYTES];
         /**
-         * The syscall number. It is used for type
-         * #DRSYS_SYSCALL_NUMBER_DEPRECATED or
-         * #DRSYS_RECORD_END_DEPRECATED.
+         * The syscall number. It is used for type #DRSYS_SYSCALL_NUMBER_DEPRECATED or
+         * #DRSYS_RECORD_END_DEPRECATED. This is limited to system call numbers
+         * that can fit in 16 bits.
+         *
+         * \deprecated Replaced by syscall_number_timestamp.syscall_number.
          */
         uint16_t syscall_number;
         START_PACKED_STRUCTURE

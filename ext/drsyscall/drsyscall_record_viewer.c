@@ -80,12 +80,12 @@ record_cb(syscall_record_t *record, char *buffer, size_t size)
         dr_printf("syscall end: %d\n", record->syscall_number);
         break;
     case DRSYS_SYSCALL_NUMBER_TIMESTAMP:
-        dr_printf("syscall: %d, timestamp: %ld\n",
+        dr_printf("syscall: %d, timestamp: %" INT64_FORMAT_CODE "\n",
                   record->syscall_number_timestamp.syscall_number.number,
                   record->syscall_number_timestamp.timestamp);
         break;
     case DRSYS_RECORD_END_TIMESTAMP:
-        dr_printf("syscall end: %d, timestamp: %ld\n",
+        dr_printf("syscall end: %d, timestamp: %" INT64_FORMAT_CODE "\n",
                   record->syscall_number_timestamp.syscall_number.number,
                   record->syscall_number_timestamp.timestamp);
         break;
