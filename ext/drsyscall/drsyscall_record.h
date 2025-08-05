@@ -104,6 +104,7 @@ START_PACKED_STRUCTURE
 typedef struct syscall_record_t_ {
     // type is one of syscall_record_type_t.
     uint16_t type;
+    START_PACKED_STRUCTURE
     union {
         /**
          * The _raw_bytes entry is for initialization purposes and must be first in
@@ -158,7 +159,7 @@ typedef struct syscall_record_t_ {
              */
             uint16_t syscall_number;
         } END_PACKED_STRUCTURE syscall_number_timestamp;
-    };
+    } END_PACKED_STRUCTURE;
 } END_PACKED_STRUCTURE syscall_record_t;
 
 #endif /* _DRSYSCALL_RECORD_H_ */
