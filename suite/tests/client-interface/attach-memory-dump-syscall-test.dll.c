@@ -54,6 +54,13 @@ static int offset = 0;
 static file_t record_file;
 static char buffer[WRITE_BUFFER_SIZE];
 
+static inline uint64_t
+get_microsecond_timestamp()
+{
+    static uint64_t fake_timestamp = 10000;
+    return ++fake_timestamp;
+}
+
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
 {
@@ -147,7 +154,8 @@ event_pre_syscall(void *drcontext, int sysnum)
         return false;
     }
 
-    if (drsyscall_write_syscall_number_record(write_file, sysnum) == 0) {
+    if (drsyscall_write_syscall_number_timestamp_record(
+            write_file, sysnum_full, get_microsecond_timestamp()) == 0) {
         dr_fprintf(STDERR, "failed to write syscall number record, sysnum = %d", sysnum);
         return false;
     }
@@ -192,7 +200,8 @@ event_post_syscall(void *drcontext, int sysnum)
         dr_fprintf(STDERR, "drsys_iterate_memargs failed, sysnum = %d", sysnum);
         return;
     }
-    if (drsyscall_write_syscall_end_record(write_file, sysnum) == 0) {
+    if (drsyscall_write_syscall_end_timestamp_record(write_file, sysnum_full,
+                                                     get_microsecond_timestamp()) == 0) {
         dr_fprintf(STDERR, "failed to write syscall end record, sysnum = %d", sysnum);
         return;
     }

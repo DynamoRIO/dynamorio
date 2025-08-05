@@ -207,6 +207,10 @@ Further non-compatibility-affecting changes include:
    ordinals. The trimming is approximated to the closest timestamp in the trace that
    follows the provided instuction ordinals, as timestamps are a safe spot to trim a
    trace.
+ - Added a new library, drsyscall_record_lib, for reading and writing detailed syscall
+   records. These records capture arguments, memory regions, and return codes. A new
+   viewer, drsyscall_record_viewer, was also added to display the contents of these
+   records.
 
 **************************************************
 <hr>

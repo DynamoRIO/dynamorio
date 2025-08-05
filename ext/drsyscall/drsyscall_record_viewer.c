@@ -48,7 +48,9 @@ static bool
 record_cb(syscall_record_t *record, char *buffer, size_t size)
 {
     switch (record->type) {
-    case DRSYS_SYSCALL_NUMBER: dr_printf("syscall: %d\n", record->syscall_number); break;
+    case DRSYS_SYSCALL_NUMBER_DEPRECATED:
+        dr_printf("syscall: %d\n", record->syscall_number);
+        break;
     case DRSYS_PRECALL_PARAM:
     case DRSYS_POSTCALL_PARAM:
         dr_printf("%s-syscall ordinal %d, value " PIFX "\n",
@@ -74,7 +76,19 @@ record_cb(syscall_record_t *record, char *buffer, size_t size)
     case DRSYS_RETURN_VALUE:
         dr_printf("return value " PIFX "\n", record->return_value);
         break;
-    case DRSYS_RECORD_END: dr_printf("syscall end: %d\n", record->syscall_number); break;
+    case DRSYS_RECORD_END_DEPRECATED:
+        dr_printf("syscall end: %d\n", record->syscall_number);
+        break;
+    case DRSYS_SYSCALL_NUMBER_TIMESTAMP:
+        dr_printf("syscall: %d, timestamp: %" INT64_FORMAT_CODE "\n",
+                  record->syscall_number_timestamp.syscall_number.number,
+                  record->syscall_number_timestamp.timestamp);
+        break;
+    case DRSYS_RECORD_END_TIMESTAMP:
+        dr_printf("syscall end: %d, timestamp: %" INT64_FORMAT_CODE "\n",
+                  record->syscall_number_timestamp.syscall_number.number,
+                  record->syscall_number_timestamp.timestamp);
+        break;
     default: dr_printf("unknown record type %d\n", record->type); return false;
     }
     return true;
