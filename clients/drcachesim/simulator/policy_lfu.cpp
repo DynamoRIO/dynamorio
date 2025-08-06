@@ -50,7 +50,7 @@ policy_lfu_t::policy_lfu_t(int num_sets, int associativity)
 }
 
 void
-policy_lfu_t::access_update(int set_idx, int way)
+policy_lfu_t::access_update(int set_idx, int way, bool is_hit)
 {
     access_counts_[set_idx][way]++;
 }
