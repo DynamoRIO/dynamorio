@@ -801,8 +801,8 @@ drx_unregister_time_scaling()
 
     return drmgr_unregister_tls_field(tls_idx) &&
         dr_unregister_filter_syscall_event(event_filter_syscall) &&
-        drmgr_register_pre_syscall_event(event_pre_syscall) &&
-        drmgr_register_post_syscall_event(event_post_syscall) &&
+        drmgr_unregister_pre_syscall_event(event_pre_syscall) &&
+        drmgr_unregister_post_syscall_event(event_post_syscall) &&
         drmgr_unregister_thread_init_event(event_thread_init) &&
         drmgr_unregister_thread_exit_event(event_thread_exit);
 }
