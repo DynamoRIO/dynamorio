@@ -218,7 +218,7 @@ public:
 
 protected:
     virtual void
-    access_update(int block_idx, int way);
+    access_update(int block_idx, int way, bool is_hit);
     virtual int
     replace_which_way(int block_idx);
     virtual int

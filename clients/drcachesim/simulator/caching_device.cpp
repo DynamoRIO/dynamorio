@@ -190,7 +190,7 @@ caching_device_t::request(const memref_t &memref_in)
             &get_caching_device_block(last_block_idx_, last_way_);
         assert(tag != TAG_INVALID && tag == cache_block->tag_);
         record_access_stats(memref_in, true /*hit*/, cache_block);
-        access_update(last_block_idx_, last_way_);
+        access_update(last_block_idx_, last_way_, true /*hit*/);
         return;
     }
 
@@ -258,7 +258,7 @@ caching_device_t::request(const memref_t &memref_in)
             insert_tag(tag, (memref.data.type == TRACE_TYPE_WRITE), way, block_idx);
         }
 
-        access_update(block_idx, way);
+        access_update(block_idx, way, !missed);
 
         // Issue a hardware prefetch, if any, before we remember the last tag,
         // so we remember this line and not the prefetched line.
@@ -279,9 +279,9 @@ caching_device_t::request(const memref_t &memref_in)
 }
 
 void
-caching_device_t::access_update(int block_idx, int way)
+caching_device_t::access_update(int block_idx, int way, bool is_hit)
 {
-    replacement_policy_->access_update(compute_set_index(block_idx), way);
+    replacement_policy_->access_update(compute_set_index(block_idx), way, is_hit);
 }
 
 int
@@ -408,7 +408,7 @@ caching_device_t::propagate_eviction(addr_t tag, const caching_device_t *request
         insert_tag(tag, /*is_write=*/false, way, block_idx);
         // Notify the cache policy as if this were a new access to the newly
         // inserted line.
-        access_update(block_idx, way);
+        access_update(block_idx, way, true /*hit*/);
         return;
     }
 

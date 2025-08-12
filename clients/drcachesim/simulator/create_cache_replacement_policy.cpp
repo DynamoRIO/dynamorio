@@ -40,6 +40,7 @@
 #include "policy_fifo.h"
 #include "policy_lfu.h"
 #include "policy_lru.h"
+#include "policy_rrip.h"
 #include "options.h"
 
 namespace dynamorio {
@@ -62,6 +63,9 @@ create_cache_replacement_policy(const std::string &policy, int num_sets,
     if (policy == REPLACE_POLICY_BIT_PLRU) {
         return std::unique_ptr<policy_bit_plru_t>(
             new policy_bit_plru_t(num_sets, associativity));
+    }
+    if (policy == REPLACE_POLICY_RRIP) {
+        return std::unique_ptr<policy_rrip_t>(new policy_rrip_t(num_sets, associativity));
     }
     return nullptr;
 }
