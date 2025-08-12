@@ -2731,7 +2731,7 @@ endif (ANNOTATIONS AND NOT ARM)
 if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   if ((LINUX OR WIN32) AND NOT RISCV64)
-    tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
+    tobuild_ci(client.detach_test client-interface/detach_test.runall "" "-loglevel 2" "")
   endif ()
   if (UNIX)
     # Test attaching during a blocking syscall.
@@ -3445,13 +3445,21 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
 endif (NOT RISCV64)
 if (LINUX AND X64 AND NOT RISCV64) # Will take extra work to port to 32-bit.
   # TODO i#3544: Port tests to RISC-V 64
-  tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
-  target_include_directories(api.detach_state PRIVATE
+  add_split_asm_target("${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.c"
+  detach_state_shared_asm generate_detach_state_asm "_asm" "${asm_defs}" "${asm_deps}")
+  add_library(detach_state_shared STATIC api/detach_state_shared.c
+    "${detach_state_shared_asm}")
+  target_include_directories(detach_state_shared PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
+  target_link_libraries(detach_state_shared tools)
+  set_avx_flags(detach_state_shared)
+  set_sve_flags(detach_state_shared)
+
+  tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
+  target_link_libraries(api.detach_state detach_state_shared)
   link_with_pthread(api.detach_state)
   set_source_files_properties(detach_state.c_asm.asm APPEND_LIST PROPERTIES
     OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.h")
-  set_avx_flags(api.detach_state)
 endif ()
 if (UNIX AND NOT RISCV64)
   if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
