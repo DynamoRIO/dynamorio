@@ -33,6 +33,7 @@
 #ifndef _RRIP_H_
 #define _RRIP_H_
 
+#include <cassert>
 #include <list>
 #include <string>
 #include <vector>
@@ -42,10 +43,18 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+// Default values for RRIP-based cache replacement policy
+const size_t RRPV_BITS_DEFAULT = 3;             // Bits to store RRPV for a cache block
+// The following two parameter defines the default frequency of "long" and "distant" RRPV
+// for cache misses. The default frequency of "long" values is: use the value "long"
+// for RRPV_LONG_PER_PERIOD_DEFAULT of each RRPV_PERIOD_DEFAULT cache misses.
+const size_t RRPV_PERIOD_DEFAULT = 64;
+const size_t RRPV_LONG_PER_PERIOD_DEFAULT = 1;
+
 /**
  * Re-Reference Interval Prediction (RRIP)-based cache replacement policy.
  *
- * Model RRIP and Not Recently Used (NRE) replacement policy.
+ * Model RRIP and Not Recently Used (NRU) replacement policy.
  * Replacement policy behavior:
  * - Static RRIP (always use "long" rrpv=rrpv_max-1):
  *      rrpv_long_per_period=0
@@ -53,7 +62,7 @@ namespace drmemtrace {
  * - Bi-modal RRIP (use "long" rrpv=rrpv_max-1 with frequency m/n; "distant" otherwise):
  *      rrpv_long_per_period=m
  *      rrpv_period=n
- * - NRE (1-bit RRPV, always use "distant" rrpv==1):
+ * - NRU (1-bit RRPV, always use "distant" rrpv==1):
  *      rrpv_bits=1
  *      rrpv_period=1
  *      rrpv_long_per_period=0
@@ -66,7 +75,10 @@ namespace drmemtrace {
  */
 class policy_rrip_t : public cache_replacement_policy_t {
 public:
-    policy_rrip_t(int num_sets, int associativity);
+    policy_rrip_t(int num_sets, int associativity,
+                  size_t rrpv_bits = RRPV_BITS_DEFAULT,
+                  size_t rrpv_period = RRPV_PERIOD_DEFAULT,
+                  size_t rrpv_long_per_period = RRPV_LONG_PER_PERIOD_DEFAULT);
     void
     access_update(int set_idx, int way, bool is_hit) override;
     void
@@ -86,17 +98,19 @@ private:
     std::vector<std::vector<rrpv_t>> rrpv_;
 
     // How many bits are used for re-reference reuse interval
-    // With the value of 1 RRIP cache is equal to NRE (Not Recently Used)
-    rrpv_t rrpv_bits_;
-    rrpv_t rrpv_distant_; // "Distant" RRPV equals to maxRRPV = 2**rrpv_bits_ - 1
-    rrpv_t rrpv_long_;    // "Long" RRPV equals to maxRRPV-1
+    // With the value of 1 RRIP cache is equal to NRU (Not Recently Used)
+    const size_t rrpv_bits_;
+    // Most new cache lines are inserted with rrpv_distant_ and few
+    // (rrpv_long_per_period of rrpv_period) lines are inserted with rrpv_long_.
+    const rrpv_t rrpv_distant_; // "Distant" RRPV equals to maxRRPV = 2**rrpv_bits_ - 1
+    const rrpv_t rrpv_long_;    // "Long" RRPV equals to maxRRPV-1
 
     // Frequency of "long" RRPV is rrpv_long_per_period_ / rrpv_period_
     size_t rrpv_period_;
     size_t rrpv_long_per_period_;
-    // The following values used to switch between "distant" and "long"
-    std::vector<rrpv_t> rrpv_miss_val_;
-    size_t rrpv_count_within_period_;
+    // The following values used to switch between "distant" and "long" at cache miss
+    std::vector<rrpv_t> rrpv_seed_val_at_miss_;
+    size_t at_rrpv_seed_idx_;
     // The next RRPV for cache miss
     inline rrpv_t
     increment_n_get_miss_rrpv()
@@ -105,9 +119,9 @@ private:
             return rrpv_long_;
         if (rrpv_long_per_period_ == 0)
             return rrpv_distant_;
-        if (rrpv_count_within_period_ >= rrpv_period_)
-            rrpv_count_within_period_ = 0;
-        return rrpv_miss_val_[rrpv_count_within_period_++];
+        if (at_rrpv_seed_idx_ >= rrpv_period_)
+            at_rrpv_seed_idx_ = 0;
+        return rrpv_seed_val_at_miss_[at_rrpv_seed_idx_++];
     }
 };
 

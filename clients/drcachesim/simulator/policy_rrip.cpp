@@ -40,14 +40,17 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-policy_rrip_t::policy_rrip_t(int num_sets, int associativity)
+policy_rrip_t::policy_rrip_t(int num_sets, int associativity,
+                             size_t rrpv_bits, size_t rrpv_period,
+                             size_t rrpv_long_per_period)
     : cache_replacement_policy_t(num_sets, associativity)
-    , rrpv_bits_(3)
-    , rrpv_period_(64)
-    , rrpv_long_per_period_(1)
+    , rrpv_bits_(rrpv_bits)
+    , rrpv_distant_((1 << rrpv_bits_) - 1)
+    , rrpv_long_((1 << rrpv_bits_) - 2)
+    , rrpv_period_(rrpv_period)
+    , rrpv_long_per_period_(rrpv_long_per_period)
 {
-    rrpv_distant_ = (1 << rrpv_bits_) - 1;
-    rrpv_long_ = (1 << rrpv_bits_) - 2;
+    assert(rrpv_long_per_period <= rrpv_period);
 
     // Initialize the RRPV list for each set with "distant" value.
     rrpv_.reserve(num_sets);
@@ -56,17 +59,18 @@ policy_rrip_t::policy_rrip_t(int num_sets, int associativity)
     }
 
     // Initialize sequence of RRPV values for cache misses: "long" vs. "distant"
-    rrpv_miss_val_.reserve(rrpv_period_);
+    rrpv_seed_val_at_miss_.reserve(rrpv_period_);
     size_t long_count = 0;
     for (size_t i = 0; i < rrpv_period_; ++i) {
         if ((i + 1) * rrpv_long_per_period_ > long_count * rrpv_period_) {
-            rrpv_miss_val_[i] = rrpv_long_;
+            rrpv_seed_val_at_miss_[i] = rrpv_long_;
             ++long_count;
         } else {
-            rrpv_miss_val_[i] = rrpv_distant_;
+            rrpv_seed_val_at_miss_[i] = rrpv_distant_;
         }
     }
-    rrpv_count_within_period_ = 0;
+    assert(long_count == rrpv_long_per_period);
+    at_rrpv_seed_idx_ = 0;
 }
 
 void
@@ -88,6 +92,7 @@ policy_rrip_t::eviction_update(int set_idx, int way)
     int d_rrpv = rrpv_distant_ - rrpv_[set_idx][way];
     if (d_rrpv > 0) {
         for (int w = 0; w < associativity_; ++w) {
+            assert(rrpv_[set_idx][w] + d_rrpv <= rrpv_distant_);
             rrpv_[set_idx][w] += d_rrpv;
         }
     }
@@ -117,6 +122,7 @@ policy_rrip_t::get_next_way_to_replace(int set_idx) const
         }
         if (rrpv_[set_idx][way] > rrpv_max) {
             ret_way = way;
+            rrpv_max = rrpv_[set_idx][way];
         }
     }
     return ret_way;

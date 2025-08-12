@@ -42,6 +42,7 @@
 #include "simulator/policy_fifo.h"
 #include "simulator/policy_lfu.h"
 #include "simulator/policy_lru.h"
+#include "simulator/policy_rrip.h"
 #include "simulator/tlb.h"
 
 namespace dynamorio {
@@ -410,6 +411,140 @@ unit_test_cache_lfu_eight_way()
 }
 
 void
+unit_test_cache_srrip_four_way()
+{
+    caching_device_policy_test_t<cache_t> cache_rrip_test(/*associativity=*/4,
+                                                         /*line_size=*/32);
+    cache_rrip_test.initialize_cache(std::unique_ptr<policy_rrip_t>(new policy_rrip_t(
+                                        /*num_blocks=*/256 / 4, /*associativity=*/4,
+                                        /*rrpv_bits=*/2, /*rrpv_period=*/0,
+                                        /*rrpv_long_per_period=*/0)),
+                                    256);
+
+    assert(cache_rrip_test.get_replace_policy() == "RRIP");
+    assert(cache_rrip_test.block_indices_are_identical(addr_vec));
+    assert(cache_rrip_test.tags_are_different(addr_vec));
+
+    // m: miss
+    // h: hit
+    // p: promotion
+
+    // Cache reuse #1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     m : A2 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     m : A2 B2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     m : A2 B2 C2 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 0); //     m : a2 B2 C2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     h : A0 b2 C2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1); //     h : A0 b2 C2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     h : A0 B0 b2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 0); //     h : a0 B0 C0 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 0); //     h : a0 B0 C0 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 0); //     h : a0 B0 C0 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 0); //     h : a0 B0 C0 D0
+
+    // Cache reuse #2
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_C], 2); //     A0 B0 x3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2); //     m : A0 B0 e2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 0); //     h : a0 B0 E0 D0
+
+    // Cache pollution: 1 block reused
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_D], 3); //     A0 G0 E0 x3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_E], 2); //     A0 G0 x3 X3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_B], 1); //     A0 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     h : A0 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     m : A0 B2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     m : A0 B2 C2 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1); //     m : A0 b2 C2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2); //     mp: A1 E2 c3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2); //     h : A0 E2 c3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 3); //     m : A0 E2 B2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 1); //     m : A0 e2 B2 C2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2); //     mp: A1 D2 b3 C3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 3); //     m : A1 D2 E2 c3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 3); //     h : A0 D2 E2 c3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 1); //     m : A0 d2 E2 B2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2); //     mp: A1 C2 e3 B3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 3); //     m : A1 C2 D2 b3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 1); //     m : A1 c2 D2 E2
+
+    // Cache pollution: 2 blocks reused
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_E], 3); //     A1 C2 D2 x3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_D], 2); //     A1 C2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2); //     h : A0 C2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 3); //     m : A0 C2 B2 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     h : A0 C0 B2 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2); //     m : A0 C0 b2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 3); //     mp: A1 C1 E2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 3); //     h : A0 C1 E2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     m : A0 C1 e2 B2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2); //     h : A0 C0 e2 B2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 3); //     mp: A1 C1 D2 b3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2); //     m : A1 C1 d2 E2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2); //     h : A0 C1 d2 E2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 3); //     mp: A1 C2 B2 e3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     h : A1 C0 B2 e3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2); //     m : A1 C0 b2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 3); //     mp: A2 C1 E2 d3
+}
+
+void
+unit_test_cache_brrip_four_way()
+{
+    caching_device_policy_test_t<cache_t> cache_rrip_test(/*associativity=*/4,
+                                                         /*line_size=*/32);
+    cache_rrip_test.initialize_cache(std::unique_ptr<policy_rrip_t>(new policy_rrip_t(
+                                        /*num_blocks=*/256 / 4, /*associativity=*/4,
+                                        /*rrpv_bits=*/2, /*rrpv_period=*/4,
+                                        /*rrpv_long_per_period=*/1)),
+                                    256);
+
+    assert(cache_rrip_test.get_replace_policy() == "RRIP");
+    assert(cache_rrip_test.block_indices_are_identical(addr_vec));
+    assert(cache_rrip_test.tags_are_different(addr_vec));
+
+    // m: miss
+    // h: hit
+    // p: promotion
+    // l: "long" RRPV == 2
+    // d: "distant" RRPV == 3
+
+    // Cache initialization
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     ml : A2 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     md : A2 B3 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     md : A2 B3 C3 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1); //     md : A2 b3 C3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     h  : A0 b3 C3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1); //     h  : A0 b3 C3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     h  : A0 B0 c3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 0); //     h  : a0 B0 C0 D0
+
+    // Cache pollution: 1 block reused, 2 cached
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_D], 3); //      A0 B0 C0 x3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_C], 2); //      A0 B0 x3 X3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_B], 1); //      A0 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     h  : A0 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     ml : A0 B2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     md : A0 B2 C3 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2); //     md : A0 B2 c3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2); //     md : A0 B2 e3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2); //     h  : A0 B2 e3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     h  : A0 B0 e3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     ml : A0 B0 C2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2); //     h  : A0 B0 c2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2); //     mdp: A1 B1 e3 D1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2); //     h  : A0 B1 e3 D1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     h  : A0 B0 e3 D1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2); //     md : A0 B0 c3 D1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2); //     h  : A0 B0 c3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2); //     md : A0 B0 e3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2); //     h  : A0 B0 e3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     h  : A0 B0 e3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2); //     ml : A0 B0 c2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2); //     h  : A0 B0 c2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2); //     md : A0 B0 e3 D0
+}
+
+void
 unit_test_tlb_plru_four_way()
 {
     caching_device_policy_test_t<tlb_t> tlb_plru_test(/*associativity=*/4,
@@ -464,6 +599,8 @@ unit_test_cache_replacement_policy()
     unit_test_cache_fifo_eight_way();
     unit_test_cache_lfu_four_way();
     unit_test_cache_lfu_eight_way();
+    unit_test_cache_srrip_four_way();
+    unit_test_cache_brrip_four_way();
     unit_test_tlb_plru_four_way();
     unit_test_tlb_lfu_four_way();
     // XXX i#4842: Add more test sequences.
