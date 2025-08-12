@@ -38,9 +38,7 @@
 // This is set globally in CMake for other tests so easier to undef here.
 #undef DR_REG_ENUM_COMPATIBILITY
 
-// Enable asserts in release build testing too.
-#undef NDEBUG
-
+#include "test_helpers.h"
 #include "analyzer.h"
 #include "tools/basic_counts.h"
 #include "tools/invariant_checker.h"
@@ -68,13 +66,13 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-#define PC_SYSCALL_GETPID 0xdeadbe00
+#define PC_SYSCALL_MEMBARRIER 0xdeadbe00
 #define PC_SYSCALL_GETTID 0x8badf000
 #define READ_MEMADDR_GETTID 0xdecafbad
 #define REP_MOVS_COUNT 1024
 #define SYSCALL_INSTR_COUNT 2
 
-static instr_t *instrs_in_getpid[SYSCALL_INSTR_COUNT];
+static instr_t *instrs_in_membarrier[SYSCALL_INSTR_COUNT];
 static instr_t *instrs_in_gettid[SYSCALL_INSTR_COUNT];
 
 #define FATAL_ERROR(msg, ...)                               \
@@ -84,8 +82,17 @@ static instr_t *instrs_in_gettid[SYSCALL_INSTR_COUNT];
         exit(1);                                            \
     } while (0)
 
+static int
+do_membarrier(void)
+{
+    // MEMBARRIER_CMD_QUERY is always supported, and returns
+    // a non-zero result.
+    return syscall(SYS_membarrier, /*MEMBARRIER_CMD_QUERY*/ 0,
+                   /*flags=*/0, /*cpuid=*/0);
+}
+
 static pid_t
-gettid(void)
+do_gettid(void)
 {
     return syscall(SYS_gettid);
 }
@@ -93,8 +100,11 @@ gettid(void)
 static int
 do_some_syscalls()
 {
-    getpid();
-    gettid();
+    // Considered as a "maybe blocking" syscall by raw2trace.
+    do_membarrier();
+    // Considered as a regular non-blocking syscall by raw2trace; we also
+    // specify it in -record_syscall for this test.
+    do_gettid();
 
     // Make some failing sigaction syscalls, which we record such that
     // syscall_mix will count the failure codes.
@@ -215,31 +225,32 @@ write_system_call_template(void *dr_context)
 
     write_header_entries(writer);
 
-    // Write the trace template for SYS_getpid.
+    // Write the trace template for SYS_membarrier.
     write_trace_entry(
         writer,
-        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_getpid));
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_membarrier));
     // Just a random instruction.
-    instrs_in_getpid[0] = XINST_CREATE_nop(dr_context);
-    write_instr_entry(dr_context, writer, instrs_in_getpid[0],
-                      reinterpret_cast<app_pc>(PC_SYSCALL_GETPID));
+    instrs_in_membarrier[0] = XINST_CREATE_nop(dr_context);
+    write_instr_entry(dr_context, writer, instrs_in_membarrier[0],
+                      reinterpret_cast<app_pc>(PC_SYSCALL_MEMBARRIER));
 
     constexpr uintptr_t SOME_VAL = 0xf00d;
 #ifdef X86
-    instrs_in_getpid[1] = INSTR_CREATE_sysret(dr_context);
+    instrs_in_membarrier[1] = INSTR_CREATE_sysret(dr_context);
 #elif defined(AARCHXX)
-    instrs_in_getpid[1] = INSTR_CREATE_eret(dr_context);
+    instrs_in_membarrier[1] = INSTR_CREATE_eret(dr_context);
 #endif
     // The value doesn't really matter as it will be replaced during trace injection.
     write_trace_entry(writer,
                       test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
     write_instr_entry(
-        dr_context, writer, instrs_in_getpid[1],
-        reinterpret_cast<app_pc>(PC_SYSCALL_GETPID +
-                                 instr_length(dr_context, instrs_in_getpid[0])),
+        dr_context, writer, instrs_in_membarrier[1],
+        reinterpret_cast<app_pc>(PC_SYSCALL_MEMBARRIER +
+                                 instr_length(dr_context, instrs_in_membarrier[0])),
         TRACE_TYPE_INSTR_INDIRECT_JUMP);
     write_trace_entry(
-        writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+        writer,
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_membarrier));
 
     // Write the trace template for SYS_gettid.
     write_trace_entry(
@@ -351,7 +362,10 @@ gather_trace()
 {
     std::cerr << "Collecting a trace...\n";
     std::string ops = "-stderr_mask 0xc -client_lib ';;-offline -record_syscall " +
-        std::to_string(SYS_rt_sigaction) + "|4";
+        // TODO i#7482: Specifying 0 args for any syscall to -record_syscall crashes.
+        // We specify 1 arg for gettid just to get around this, which is okay for this
+        // test as we'd like some func_arg markers.
+        std::to_string(SYS_rt_sigaction) + "|4&" + std::to_string(SYS_gettid) + "|1";
     if (setenv("DYNAMORIO_OPTIONS", ops.c_str(), 1 /*override*/) != 0)
         std::cerr << "failed to set env var!\n";
     dr_app_setup();
@@ -399,15 +413,22 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     }
     auto *stream = scheduler.get_stream(0);
     memref_t memref;
-    int getpid_instr_found = 0;
+    int membarrier_instr_found = 0;
     int gettid_instr_found = 0;
-    int getpid_instr_len = 0;
+    int membarrier_instr_len = 0;
     int gettid_instr_len = 0;
-
     bool found_gettid_read = false;
     bool have_syscall_trace_type = false;
+    // Non-sentinel only when we're actually between the syscall_trace_start and
+    // syscall_trace_end markers.
     int syscall_trace_num = -1;
+    // Non-sentinel only when we've seen a syscall marker without any intervening
+    // instr or any marker except the allowed ones till now.
     int prev_syscall_num_marker = -1;
+    // Always holds the last seen syscall number.
+    int last_syscall = -1;
+    bool saw_aux_syscall_markers_for_membarrier = false;
+    bool saw_aux_syscall_markers_for_gettid = false;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
@@ -436,7 +457,38 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: syscall_trace_num = -1; break;
             case TRACE_MARKER_TYPE_SYSCALL:
                 prev_syscall_num_marker = memref.marker.marker_value;
+                last_syscall = prev_syscall_num_marker;
                 break;
+            case TRACE_MARKER_TYPE_FUNC_RETVAL:
+                if (last_syscall == SYS_gettid && gettid_instr_found == 0) {
+                    std::cerr << "gettid trace not injected before func_retval marker.";
+                    return false;
+                } else if (last_syscall == SYS_membarrier) {
+                    std::cerr << "Did not expect func_retval marker for membarrier.";
+                    return false;
+                }
+                break;
+            case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+            case TRACE_MARKER_TYPE_FUNC_ARG:
+                if (last_syscall == SYS_gettid) {
+                    if (gettid_instr_found > 0) {
+                        std::cerr << "Found func_arg marker or maybe_blocking marker "
+                                  << "after the gettid trace.";
+                        return false;
+                    }
+                    saw_aux_syscall_markers_for_gettid = true;
+                } else if (last_syscall == SYS_membarrier) {
+                    if (membarrier_instr_found > 0) {
+                        std::cerr << "Found func_arg marker or maybe_blocking marker "
+                                  << "after the membarrier trace.";
+                        return false;
+                    }
+                    saw_aux_syscall_markers_for_membarrier = true;
+                }
+            case TRACE_MARKER_TYPE_FUNC_ID:
+                // The above markers are expected to be seen between the syscall
+                // marker and the injected trace, so we preserve prev_syscall_num_marker.
+                prev_syscall_num_marker = prev_syscall_num_marker_saved;
             }
             continue;
         }
@@ -480,23 +532,24 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 }
             }
             break;
-        case SYS_getpid:
+        case SYS_membarrier:
             if (is_instr) {
-                assert(getpid_instr_found < SYSCALL_INSTR_COUNT);
-                if (memref.instr.addr != PC_SYSCALL_GETPID + getpid_instr_len) {
+                assert(membarrier_instr_found < SYSCALL_INSTR_COUNT);
+                if (memref.instr.addr != PC_SYSCALL_MEMBARRIER + membarrier_instr_len) {
                     std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
-                              << " vs expected " << PC_SYSCALL_GETPID + getpid_instr_len
-                              << std::dec << ") for getpid trace instr.\n";
+                              << " vs expected "
+                              << PC_SYSCALL_MEMBARRIER + membarrier_instr_len << std::dec
+                              << ") for membarrier trace instr.\n";
                     return false;
                 }
                 if (!check_instr_same(dr_context, memref,
-                                      instrs_in_getpid[getpid_instr_found])) {
+                                      instrs_in_membarrier[membarrier_instr_found])) {
                     return false;
                 }
-                getpid_instr_len += memref.instr.size;
-                ++getpid_instr_found;
+                membarrier_instr_len += memref.instr.size;
+                ++membarrier_instr_found;
             } else {
-                std::cerr << "Found unexpected data memref in getpid trace\n";
+                std::cerr << "Found unexpected data memref in membarrier trace\n";
                 return false;
             }
             break;
@@ -506,10 +559,16 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
         std::cerr << "Trace did not have the expected file type\n";
     } else if (gettid_instr_found != SYSCALL_INSTR_COUNT) {
         std::cerr << "Did not find all instrs in gettid trace\n";
-    } else if (getpid_instr_found != SYSCALL_INSTR_COUNT) {
-        std::cerr << "Did not find all instrs in getpid trace\n";
+    } else if (membarrier_instr_found != SYSCALL_INSTR_COUNT) {
+        std::cerr << "Did not find all instrs in membarrier trace\n";
     } else if (!found_gettid_read) {
         std::cerr << "Did not find read data memref in gettid trace\n";
+    } else if (!saw_aux_syscall_markers_for_membarrier) {
+        std::cerr << "Did not see any auxillary syscall markers for membarrier. "
+                  << "Ensure test is setup properly\n";
+    } else if (!saw_aux_syscall_markers_for_gettid) {
+        std::cerr << "Did not see any auxillary syscall markers for gettid. "
+                  << "Ensure test is setup properly\n";
     } else {
         return true;
     }
@@ -564,7 +623,8 @@ write_system_call_template_with_repstr(void *dr_context)
         TRACE_TYPE_INSTR_INDIRECT_JUMP);
 
     write_trace_entry(
-        writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_getpid));
+        writer,
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_membarrier));
 
     write_footer_entries(writer);
 
@@ -650,7 +710,7 @@ test_trace_templates(void *dr_context)
                                         /*expected_injected_syscall_count=*/2, "");
     bool success = look_for_syscall_trace(dr_context, trace_dir);
     for (int i = 0; i < SYSCALL_INSTR_COUNT; ++i) {
-        instr_destroy(dr_context, instrs_in_getpid[i]);
+        instr_destroy(dr_context, instrs_in_membarrier[i]);
         instr_destroy(dr_context, instrs_in_gettid[i]);
     }
     if (!success) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -152,7 +152,7 @@ optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
      * one thing, here and in loadtoconst.c */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
 
-    /* FIXME: this routine is of course not in its final form
+    /* XXX: this routine is of course not in its final form
      * we are still playing with different optimizations
      */
 
@@ -381,10 +381,10 @@ generate_antialias_check(dcontext_t *dcontext, instrlist_t *pre_loop, opnd_t op1
         return false; /* guaranteed alias */
     if (!opnd_defines_use(op1, op2))
         return true; /* guaranteed non-alias */
-    /* FIXME: get pre-loop values of registers */
-    /* FIXME: get unroll factor -- pass to opnd_defines_use too */
+    /* XXX: get pre-loop values of registers */
+    /* XXX: get unroll factor -- pass to opnd_defines_use too */
     /* assumption: ebx and ecx are saved at start of pre_loop, restored at end
-     * FIXME: op1/op2 may use ebx/ecx!
+     * XXX: op1/op2 may use ebx/ecx!
      */
     lea1 = op1;
     opnd_set_size(&lea1, OPSZ_lea);
@@ -419,9 +419,9 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     instrlist_t pre_loop;
     instrlist_init(&pre_loop);
 
-    /* FIXME: what about loops with cbr at top and ubr at bottom? */
+    /* XXX: what about loops with cbr at top and ubr at bottom? */
 
-    /* FIXME: for now, we only look for single-basic-block traces */
+    /* XXX: for now, we only look for single-basic-block traces */
 
     LOG(THREAD, LOG_OPTS, 3, "identify_for_loop: examining trace with tag " PFX "\n",
         tag);
@@ -445,7 +445,7 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #    endif
 
-    /* FIXME: for each pair of read/write and write/write: insert pre-loop check to
+    /* XXX: for each pair of read/write and write/write: insert pre-loop check to
      * ensure no aliases
      */
 
@@ -463,7 +463,7 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         /* loop-carried dependence: a read with no writes prior in loop but
          *   with a write following in loop
          * loop invariant: a read with no writes anywhere in loop
-         * FIXME: better to store dependence info somehow, or to make passes
+         * XXX: better to store dependence info somehow, or to make passes
          * through instrlist whenever need info?
          */
         d_r_loginst(dcontext, 1, inst, "considering");
@@ -506,9 +506,9 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     has_lcd:
         d_r_loginst(dcontext, 1, inst, "\tfound a loop-carried dependence");
         /* find basic induction variables: i = i + constant
-         * FIXME: consider loop invariants as well as immeds as constants
-         * FIXME: only consider inc,dec,add,sub?
-         * FIXME: look for dependent induction vars too: j = i + constant
+         * XXX: consider loop invariants as well as immeds as constants
+         * XXX: only consider inc,dec,add,sub?
+         * XXX: look for dependent induction vars too: j = i + constant
          */
         /* assumption: immediate operands are always 1st source */
         if (instr_get_opcode(inst) == OP_inc || instr_get_opcode(inst) == OP_dec ||
@@ -628,7 +628,7 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (instrlist_first(&pre_loop) != NULL) {
         /* if we generated any tests, they assume we have two registers:
          * save two registers at start, then restore at end, of pre_loop
-         * FIXME: what about eflags?
+         * XXX: what about eflags?
          */
         instrlist_prepend(&pre_loop,
                           instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
@@ -692,7 +692,7 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             } else {
                 d_r_loginst(dcontext, 1, induction_var[i],
                             "couldn't replace inc w/ add b/c of eflags\n");
-                /* FIXME: undo earlier inc->adds */
+                /* XXX: undo earlier inc->adds */
                 return;
             }
         }
@@ -742,7 +742,7 @@ now do not have a pre-loop and do unaligned simd
                         instr_create_save_to_dcontext(dcontext, REG_EAX, XAX_OFFSET));
     instrlist_preinsert(trace, inst,
                         instr_create_save_to_dcontext(dcontext, REG_EDX, XDX_OFFSET));
-    /* FIXME: get termination index var & lower/upper bound
+    /* XXX: get termination index var & lower/upper bound
      * hardcoding to mmx.c loop for now
      */
     instrlist_preinsert(trace, inst,
@@ -759,7 +759,7 @@ now do not have a pre-loop and do unaligned simd
     instrlist_preinsert(trace, inst,
                         instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
     /* mod is now in edx */
-    /* FIXME:
+    /* XXX:
      *   test edx, edx
      *   restore eax and edx
      *   jz unrolled_loop
@@ -845,7 +845,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     opnd_t cmp_const;
     uint eflags_6 = 0;
 
-    /* FIXME: what about loops with cbr at top and ubr at bottom? */
+    /* XXX: what about loops with cbr at top and ubr at bottom? */
 
     LOG(THREAD, LOG_OPTS, 3, "unroll loop: examining trace with tag " PFX "\n", tag);
     /* first, make sure we end with a conditional branch (followed by uncond.
@@ -892,7 +892,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     /* if get here, eflags are written before read -- and we assume that
      * our cmp checks below will ensure that exiting the trace will not
      * have different eflags behavior than the unrolled loop
-     * FIXME: I'm not certain of this
+     * XXX: I'm not certain of this
      */
 
 #    ifdef DEBUG
@@ -925,7 +925,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
       }
     */
 
-    /* FIXME: determine best unroll factor, somehow */
+    /* XXX: determine best unroll factor, somehow */
     unroll_factor = 2;
 
     /* see if we can get the branch into a state that can
@@ -1007,7 +1007,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             return;
         }
     }
-    /* FIXME: detect loop invariants, and allow them as constants
+    /* XXX: detect loop invariants, and allow them as constants
      * requires adding extra instructions to compute bounds
      */
     if (!opnd_is_immed_int(instr_get_src(cmp, 1))) {
@@ -1070,7 +1070,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     instr_destroy(dcontext, cmp);
 
     /* control flow is all set, now combine induction var updates
-     * FIXME: NOT DONE YET
+     * XXX: NOT DONE YET
      */
 
 #    ifdef DEBUG
@@ -1404,7 +1404,7 @@ const_address_const_mem(opnd_t address, prop_state_t *state, bool prefix_data)
         return false;
     }
 
-    /* FIXME : is is_execuatable always right here? */
+    /* XXX : is is_execuatable always right here? */
     /* i.e. is it going to be true, forever, that this location isn't writable */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
     if (cp_global_aggr > 1 &&
@@ -1455,7 +1455,7 @@ propagate_address(opnd_t old, prop_state_t *state)
         ((state->reg_state[base_reg] & PS_VALID_VAL) != 0)) {
 
         disp += state->reg_vals[base_reg];
-        /* don't think this is necessary  *******FIXME*************
+        /* don't think this is necessary  *******XXX*************
            if ((seg == REG_NULL) && ((base_reg + REG_START_32 == REG_ESP) ||
            (base_reg + REG_START_32 == REG_EBP))) {
            seg = SEG_SS;
@@ -1758,7 +1758,7 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid,
         }
 
         // probably move to own method later if expanded to others
-        // FIXME cmov's other setcc's cmc
+        // XXX cmov's other setcc's cmc
         // don't bother to change to xor for zeroing, is not more efficient for 1 byte
         /* TODO : add set[n]be set[n]l set[n]le, skip p since never used and might not
          * be setting it right
@@ -2245,7 +2245,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                     break;
                 }
                 case OP_cmp: {
-                    // FIXME of and sf and af correct? FIXME!!
+                    // XXX of and sf and af correct? XXX!!
                     immed3 = immed1 - immed2;
                     eflags = calculate_zf_pf_sf(immed3);
                     if (((uint)immed1) < ((uint)immed2)) {
@@ -2626,14 +2626,14 @@ handle_stack(prop_state_t *state, instr_t *inst)
     return inst;
 }
 
-/* FIXME : (could affect correctness at higher levels of optimization)
+/* XXX : (could affect correctness at higher levels of optimization)
  * constant address and various operand sizes, at level 1 what if we write/read
  * a 16bit value, we'll actually do 32bit, hard to detect since ?believe? will
  * both be OPSZ_4_short2, look at prefix?  Similarly at level 2 we don't do any size
  * checking at all for constant address, what if is a byte of existing etc.
  * Ah, just trust the programmer, these are all addresses from him anyways
  * we can trust that he won't do anything that weird with them
- * FIXME :  more robust matching for the dynamorio stack call hints, the pattern
+ * XXX :  more robust matching for the dynamorio stack call hints, the pattern
  * matching at the moment is somewhat birttle, though should fail gracefully
  * TODO : (doesn't affect correctness only effectiveness)
  * Easy
@@ -2662,7 +2662,7 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     opnd_t opnd, prop_opnd;
     instr_t *inst, *backup;
 
-    /* FIXME: this is a data race!
+    /* XXX: this is a data race!
      * and why set this for every trace?  options are static!
      * have some kind of optimize_init to set these
      */
@@ -3884,7 +3884,7 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
          *   which will stop us from replacing, which is what we want
          */
         if (instr_is_exit_cti(in)) {
-            /* FIXME: what if branch is never taken and points to
+            /* XXX: what if branch is never taken and points to
              * bogus memory, or we walk beyond interrupt or some
              * non-cti that we normally stop at?
              */
@@ -3947,7 +3947,7 @@ void
 remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
     instr_t *instr, *next_inst, *first_mem_access, *reg_write_checker;
-    opnd_t mem_read, orig_reg_opnd = { 0 }; /* FIXME: check */
+    opnd_t mem_read, orig_reg_opnd = { 0 }; /* XXX: check */
     reg_id_t orig_reg;
     int dist;
     uint ctis;

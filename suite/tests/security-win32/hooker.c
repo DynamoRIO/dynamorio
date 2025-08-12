@@ -54,11 +54,11 @@ const char *hookfn = "VirtualProtect"; /* and then next page */
 #define NDEP /* for testing case 10387 */
 #define FARAWAY_DLL "ADVAPI32.DLL"
 const char *faraway_hook = "RegOpenKeyA";
-/* FIXME: a lot better will be in one another module */
+/* XXX: a lot better will be in one another module */
 
 #define NAKED __declspec(naked)
 
-/* FIXME: not fully fleshed out to add in regression suite need to
+/* XXX: not fully fleshed out to add in regression suite need to
  * find a function with the same prologue or actually do some real
  * work to get it copied around.
  */
@@ -94,7 +94,7 @@ hooker1()
 /* check for some unexpected behaviours with size = 5 and size = 0x1000, or even 0x2000 */
 enum { HOOK_SIZE = 0x1000 };
 
-/* FIXME: we have to test this on something other than kernel32!VirtualProtect for DEP
+/* XXX: we have to test this on something other than kernel32!VirtualProtect for DEP
  * machines, for now keeping here
  */
 void
@@ -143,7 +143,7 @@ ret_hook(DWORD *hooktarget)
 
     /* prev should remain unchanged */
     res = VirtualProtect(hooktarget, size, PAGE_EXECUTE_READWRITE, &prev);
-    /* FIXME: eax may be garbage - but seems to be the same as GLE */
+    /* XXX: eax may be garbage - but seems to be the same as GLE */
     print("VirtualProtect(%s[" PFX "],%d,PAGE_EXECUTE_READWRITE,prev) = %d GLE=" PFMT
           " prev=" PFMT "\n",
           hookfn, (hooktarget /* disabled */, 0), size, (res /* eax noisy */, 0),

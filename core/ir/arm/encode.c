@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 /* ARM encoder */
-/* FIXME i#1569: add A64 support: for now just A32 */
+/* XXX i#1569: add A64 support: for now just A32 */
 
 #include "../globals.h"
 #include "arch.h"
@@ -836,7 +836,7 @@ const char *const type_names[] = {
 
 /* Global data structure to track the decode state,
  * it should be only used for drdecodelib or early init/late exit.
- * FIXME i#1595: add multi-dcontext support to drdecodelib.
+ * XXX i#1595: add multi-dcontext support to drdecodelib.
  */
 static encode_state_t global_encode_state;
 
@@ -3278,7 +3278,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     /* We need to track the IT block state even for raw-bits-valid instrs.
      * Unlike x86, we have no fast decoder that skips opcodes, so we should
      * always have the opcode, except for decode_fragment cases:
-     * FIXME i#1551: investigate handling for decode_fragment for a branch inside
+     * XXX i#1551: investigate handling for decode_fragment for a branch inside
      * an IT block.  We should probably change decode_fragment() to fully
      * and separately decode all IT block instrs.
      */
@@ -3412,7 +3412,7 @@ encode_raw_jmp(dr_isa_mode_t isa_mode, byte *target_pc, byte *dst_pc, byte *fina
         *(ushort *)(dst_pc + 2) = valB;
         return dst_pc + THUMB_LONG_INSTR_SIZE;
     }
-    /* FIXME i#1569: add AArch64 support */
+    /* XXX i#1569: add AArch64 support */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }

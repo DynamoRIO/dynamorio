@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -53,7 +53,7 @@ static strhash_table_t *ntdll_win7_table;
  * of stuff to emulate to really be transparent: we're going to add it
  * incrementally as needed, now that we have the infrastructure.
  *
- * FIXME i#235: redirect the rest of the Ldr* routines.  For
+ * XXX i#235: redirect the rest of the Ldr* routines.  For
  * GetModuleHandle: why does kernel32 seem to do a lot of work?
  * BasepGetModuleHandleExW => RtlPcToFileHeader, RtlComputePrivatizedDllName_U
  * where should we intercept?  why isn't it calling LdrGetDllHandle{,Ex}?
@@ -110,7 +110,7 @@ static const redirect_import_t redirect_ntdll[] = {
     { "RtlFreeUnicodeString", (app_pc)redirect_RtlFreeUnicodeString },
     { "RtlFreeAnsiString", (app_pc)redirect_RtlFreeAnsiString },
     { "RtlFreeOemString", (app_pc)redirect_RtlFreeOemString },
-#if 0 /* FIXME i#235: redirect these: */
+#if 0 /* XXX i#235: redirect these: */
     {"RtlSetUserValueHeap",            (app_pc)redirect_RtlSetUserValueHeap},
     {"RtlGetUserInfoHeap",             (app_pc)redirect_RtlGetUserInfoHeap},
 #endif
@@ -344,7 +344,7 @@ RtlReAllocateHeap(HANDLE heap, ULONG flags, PVOID ptr, SIZE_T size);
 void *WINAPI
 redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, byte *ptr, SIZE_T size)
 {
-    /* FIXME i#235: on x64 using dbghelp, SymLoadModule64 calls
+    /* XXX i#235: on x64 using dbghelp, SymLoadModule64 calls
      * kernel32!CreateFileW which calls
      * ntdll!RtlDosPathNameToRelativeNtPathName_U_WithStatus which calls
      * ntdll!RtlpDosPathNameToRelativeNtPathName_Ustr which directly calls
@@ -872,7 +872,7 @@ ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
         UNPROTECTED, 0);
 
     /* Start with empty values, regardless of what app libs did prior to us
-     * taking over.  FIXME: if we ever have attach will have to verify this:
+     * taking over.  XXX: if we ever have attach will have to verify this:
      * can priv libs always live in their own universe that starts empty?
      */
     private_peb->FlsListHead.Flink = (LIST_ENTRY *)&private_peb->FlsListHead;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -343,7 +343,7 @@ enum {
     TYPE_SP,    /* Stack pointer */
     TYPE_PC,    /* PC register */
 
-    /* FIXME i#1551: some immediates have built-in shifting or scaling: we
+    /* XXX i#1551: some immediates have built-in shifting or scaling: we
      * need to add handling for that.
      */
     /* Immediates are at several different bit positions and come in several

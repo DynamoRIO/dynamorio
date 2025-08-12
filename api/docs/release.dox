@@ -151,6 +151,14 @@ compatibility changes:
    the form "Wn.Tmmm".
  - Changed the #dynamorio::drmemtrace::scheduler_tmpl_t::input_thread_info_t.
    regions_of_interest structure layout, requiring recompiling using code.
+ - Changed the #dynamorio::drmemtrace::analysis_tool_tmpl_t::process_memref and
+   #dynamorio::drmemtrace::analysis_tool_tmpl_t::parallel_shard_memref return
+   conditions to no longer indicate an error if the error string is empty.
+   This can now be used to exit early without reporting an error.
+ - Changed the -skip_refs drmemtrace option to not count markers, matching the
+   -sim_refs and -warmup_refs options.  (The new -skip_records counts markers.)
+ - Dropped support for -skip_refs and -sim_refs in the view tool (use the new
+   -skip_records and -exit_after_records instead).
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
@@ -184,6 +192,29 @@ Further non-compatibility-affecting changes include:
       generation alongside the scheduled traces.
  - Added AUX_SUBDIR (== "aux") to the subdirs in which get_aux_file_path() looks for
    auxiliary files (e.g., v2p.textproto).
+ - Added -memdump_on_window option to the drmemtrace trace analysis tools framework.
+   This option triggers a memory dump when a trace window opens by -trace_after_instrs,
+   -trace_instr_intervals_file, or -retrace_every_instrs. If -retrace_every_instrs is
+   also enabled, a memory dump will be captured for each individual tracing window.
+ - Added reg_is_avx512().
+ - Added routine dr_invoke_syscall_as_app() to invoke a system call as though the
+   application made it, meaning it goes through DR's handling.
+ - Added drx_register_time_scaling() which scales timers on UNIX to align with
+   the slowdown of heavyweight instrumentation.
+ - Added a new drmemtrace option -exit_after_records which applies to all
+   tools and exits after N records.
+ - Added get_output_record_ordinal() to the drmemtrace scheduler.
+ - Added a new drmemtrace option -skip_records which applies to all
+   tools and skips the first N records.
+ - Added -trim_before_instr and -trim_after_instr options to trim_filter (part of
+   drmemtrace's record_filter). They allow the trimming of a trace using instruction
+   ordinals. The trimming is approximated to the closest timestamp in the trace that
+   follows the provided instuction ordinals, as timestamps are a safe spot to trim a
+   trace.
+ - Added a new library, drsyscall_record_lib, for reading and writing detailed syscall
+   records. These records capture arguments, memory regions, and return codes. A new
+   viewer, drsyscall_record_viewer, was also added to display the contents of these
+   records.
  - Added the class #dynamorio::drmemtrace::policy_rrip_t which implements RRIP cache
    replacement policy model for the drcachesim tool.
 

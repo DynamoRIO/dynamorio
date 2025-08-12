@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -42,7 +42,7 @@
 #include "encode_api.h"
 #include "opnd.h"
 #include "arch.h"
-/* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
+/* XXX i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #ifndef AARCH64
 #    include "x86/decode_private.h"
 #endif
@@ -1455,7 +1455,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
 opnd_t
 opnd_create_increment_reg(opnd_t opnd, uint increment)
 {
-    opnd_t inc_opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+    opnd_t inc_opnd DR_IF_DEBUG(= { 0 }); /* XXX: Needed until i#417 is fixed. */
     CLIENT_ASSERT(opnd_is_reg(opnd), "opnd_create_increment_reg: not a register");
 
     reg_id_t reg = opnd.value.reg_and_element_size.reg;
@@ -1589,7 +1589,7 @@ opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
                 new_s, new_b, new_i, sc, disp, size, opnd_is_disp_encode_zero(*opnd),
                 opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
 #elif defined(RISCV64)
-            /* FIXME i#3544: RISC-V has no support for base + idx * scale + disp.
+            /* XXX i#3544: RISC-V has no support for base + idx * scale + disp.
              * We could support base + disp as long as disp == +/-1MB.
              * If needed, instructions with this operand should be transformed
              * to:
@@ -2538,13 +2538,19 @@ reg_is_extended(reg_id_t reg)
 bool
 reg_is_avx512_extended(reg_id_t reg)
 {
-    /* Note that we do consider spl, bpl, sil, and dil to be "extended" */
     return ((reg >= DR_REG_START_XMM + 16 && reg <= DR_REG_STOP_XMM) ||
             (reg >= DR_REG_START_YMM + 16 && reg <= DR_REG_STOP_YMM) ||
             (reg >= DR_REG_START_ZMM + 16 && reg <= DR_REG_STOP_ZMM));
 }
 #    endif
 #endif
+
+bool
+reg_is_avx512(reg_id_t reg)
+{
+    return reg_is_strictly_zmm(reg) ||
+        reg_is_opmask(reg) IF_X86_64(|| reg_is_avx512_extended(reg));
+}
 
 reg_id_t
 reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)

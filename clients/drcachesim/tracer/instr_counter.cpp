@@ -68,6 +68,7 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+static client_id_t client_id;
 static uint64 instr_count;
 /* For performance, we only increment the global instr_count exactly for
  * small thresholds.  If -trace_after_instrs is larger than this value, we
@@ -182,7 +183,10 @@ instr_count_threshold()
 
 // Enables tracing if we've reached the delay point.
 // For tracing windows going in the reverse direction and disabling tracing,
-// see reached_traced_instrs_threshold().
+// see reached_traced_instrs_threshold(). On Linux, call this function only from a clean
+// call. This is because it might invoke dr_redirect_execution() after a nudge to ensure
+// a cache exit. Refer to dr_nudge_client() for more details.
+// This function will not return when dr_redirect_execution() is called.
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
@@ -211,13 +215,34 @@ hit_instr_count_threshold(app_pc next_pc)
         dr_mutex_unlock(mutex);
         return;
     }
+#ifdef LINUX
+    bool redirect_execution = false;
+#endif
     if (get_initial_no_trace_for_instrs_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire)) {
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+        if (op_memdump_on_window.get_value()) {
+            dr_nudge_client(
+                client_id,
+                (static_cast<uint64>(TRACER_NUDGE_MEM_DUMP) << TRACER_NUDGE_TYPE_SHIFT) |
+                    tracing_window.load(std::memory_order_acquire));
+#ifdef LINUX
+            redirect_execution = true;
+#endif
+        }
         retrace_start_timestamp.store(instru_t::get_timestamp());
     } else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
+        if (op_memdump_on_window.get_value()) {
+            dr_nudge_client(
+                client_id,
+                (static_cast<uint64>(TRACER_NUDGE_MEM_DUMP) << TRACER_NUDGE_TYPE_SHIFT) |
+                    tracing_window.load(std::memory_order_acquire));
+#ifdef LINUX
+            redirect_execution = true;
+#endif
+        }
         retrace_start_timestamp.store(instru_t::get_timestamp());
         if (op_offline.get_value())
             open_new_window_dir(tracing_window.load(std::memory_order_acquire));
@@ -241,6 +266,21 @@ hit_instr_count_threshold(app_pc next_pc)
         mode = BBDUP_MODE_TRACE;
     tracing_mode.store(mode, std::memory_order_release);
     dr_mutex_unlock(mutex);
+#ifdef LINUX
+    // On Linux, the nudge is not delivered until this thread exits the code cache.
+    // As this is a clean call, `dr_redirect_execution()` is used to force a cache exit
+    // and ensure timely nudge delivery.
+    if (redirect_execution) {
+        void *drcontext = dr_get_current_drcontext();
+        dr_mcontext_t mcontext;
+        mcontext.size = sizeof(mcontext);
+        mcontext.flags = DR_MC_ALL;
+        dr_get_mcontext(drcontext, &mcontext);
+        mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
+        dr_redirect_execution(&mcontext);
+        ASSERT(false, "dr_redirect_execution should not return");
+    }
+#endif
 }
 
 #ifndef DELAYED_CHECK_INLINED
@@ -580,8 +620,9 @@ init_irregular_trace_windows()
 }
 
 void
-event_inscount_init()
+event_inscount_init(client_id_t id)
 {
+    client_id = id;
     init_irregular_trace_windows();
     DR_ASSERT(std::atomic_is_lock_free(&reached_trace_after_instrs));
 }

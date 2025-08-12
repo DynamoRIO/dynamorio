@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -83,7 +83,7 @@
 #endif
 #define FP stderr
 
-/* FIXME: case 64 would like ^C to kill child process, it doesn't.
+/* XXX: case 64 would like ^C to kill child process, it doesn't.
  * also, child process seems able to read stdin but not to write
  * to stdout or stderr (in fact it dies if it tries)
  * I think Ctrl-C is delivered only if you have a debugger(windbg) attached.
@@ -92,14 +92,14 @@
 
 /* global vars */
 static int limit;                   /* in seconds */
-static BOOL use_environment = TRUE; /* FIXME : for now default to using
+static BOOL use_environment = TRUE; /* XXX : for now default to using
                                      * the environment, below we check and
                                      * never use the environment if using
                                      * debug injection.  Revisit.
                                      */
 static double wallclock;            /* in seconds */
 
-/* FIXME : assert stuff, internal error, display_message duplicated from
+/* XXX : assert stuff, internal error, display_message duplicated from
  * pre_inject, share? */
 
 /* for asserts, copied from utils.h */
@@ -330,7 +330,7 @@ dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem
 /* Following code handles the copying of environment variables to the
  * registry (the -env option, default on) and unsetting them later
  *
- * FIXME : race conditions with someone else modifying this registry key,
+ * XXX : race conditions with someone else modifying this registry key,
  *         doesn't restore registry if -no_wait
  * NOTE : doesn't propagate if using debug injection method (by design)
  *
@@ -397,13 +397,13 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
     /* we always want to set the rununder to make sure RUNUNDER_ON is on
      * to support following children; we set RUNUNDER_EXPLICIT to allow
      * injecting even when preinject is configured. */
-    /* FIXME: we read only decimal */
+    /* XXX: we read only decimal */
     rununder_int_value = _ttoi(rununder_value);
     rununder_int_value |= RUNUNDER_ON | RUNUNDER_EXPLICIT;
 
     do_rununder = true;
     _itot(rununder_int_value, rununder_value,
-          10 /* FIXME : is the radix abstracted somewhere */);
+          10 /* XXX : is the radix abstracted somewhere */);
 
     /* for follow_children, we set DYNAMORIO_AUTOINJECT (unless
      * overridden by env var: then child will use env value, while
@@ -478,7 +478,7 @@ unset_registry_from_env(const TCHAR *image_name)
 #define TEMP_CMD(name, NAME)                                                           \
     if (overwrote_##name##_value) {                                                    \
         res = RegSetValueEx(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME), 0,            \
-                            REG_SZ /* FIXME : abstracted somewhere? */,                \
+                            REG_SZ /* XXX : abstracted somewhere? */,                \
                             (BYTE *)old_##name##_value,                                \
                             (DWORD)(_tcslen(old_##name##_value) + 1) * sizeof(TCHAR)); \
         ASSERT(res == ERROR_SUCCESS);                                                  \
@@ -515,7 +515,7 @@ unset_registry_from_env(const TCHAR *image_name)
  * debug key injection method
  *
  * This whole section can go away once we have our own version of create
- * process that doesn't check the debugger key FIXME
+ * process that doesn't check the debugger key XXX
  */
 
 static HKEY debugger_key;
@@ -546,7 +546,7 @@ using_debugger_key_injection(const TCHAR *image_name)
     res = RegQueryValueEx(debugger_key, _TEXT(DEBUGGER_INJECTION_VALUE_NAME), NULL, NULL,
                           (BYTE *)debugger_key_value, &debugger_key_value_size);
     if (ERROR_SUCCESS != res ||
-        /* FIXME : it would be better to check if our commandline matched
+        /* XXX : it would be better to check if our commandline matched
          * what was in the registry value, instead of looking for drinject */
         _tcsstr(debugger_key_value, _TEXT(DRINJECT_NAME)) == 0) {
         RegCloseKey(debugger_key);
@@ -623,7 +623,7 @@ get_image_name(const char *app_name)
     return name_start;
 }
 
-/* FIXME i#803: Until we have i#803 and support targeting cross-arch
+/* XXX i#803: Until we have i#803 and support targeting cross-arch
  * children, we require the child to match our bitwidth.
  * module_is_64bit() takes in a base, but there's no need to map the
  * whole thing in.  Thus we have our own impl.
@@ -816,7 +816,7 @@ dr_inject_process_create(const char *app_name, const char **argv,
     _tcsncpy(info->wimage_name, get_image_wname(wapp_name),
              BUFFER_SIZE_ELEMENTS(info->wimage_name));
 
-    /* FIXME, won't need to check this, or unset/restore debugger_key_injection
+    /* XXX, won't need to check this, or unset/restore debugger_key_injection
      * if we have our own version of CreateProcess that doesn't check the
      * debugger key */
     info->using_debugger_injection = using_debugger_key_injection(info->wimage_name);

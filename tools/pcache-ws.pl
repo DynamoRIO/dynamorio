@@ -60,13 +60,13 @@ $pid = $ARGV[0];
 $cmd = "$vadump -o -p $pid";
 print "Running $cmd\n" if ($verbose);
 
-# FIXME: win32 perl (non-cygwin) doesn't need the pipe-hang workaround;
+# XXX: win32 perl (non-cygwin) doesn't need the pipe-hang workaround;
 # we try to distinguish via the interpreter path: no guarantees though!
 if ($^X =~ /\/usr/) {
-    # FIXME: a direct pipe hangs, but passing through something else works
+    # XXX: a direct pipe hangs, but passing through something else works
     open(VADUMP, "$cmd 2>&1 | cat |") || die "Error running $cmd\n";
 } else {
-    # FIXME: can't get stderr redirection working for win32 perl
+    # XXX: can't get stderr redirection working for win32 perl
     open(VADUMP, "$cmd |") || die "Error running $cmd\n";
 }
 while (<VADUMP>) {

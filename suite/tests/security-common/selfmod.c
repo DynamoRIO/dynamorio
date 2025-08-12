@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -252,7 +252,7 @@ test_mov_abs(void)
     free_mem(rwx_mem, BUF_SIZE);
 }
 
-/* FIXME: Test reladdr. */
+/* XXX: Test reladdr. */
 #    endif /* X64 */
 
 static void

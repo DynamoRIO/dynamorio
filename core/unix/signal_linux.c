@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -413,7 +413,7 @@ handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask, size_t 
         if (pipe == NULL)
             return -EINVAL;
     } else {
-        /* FIXME i#1189: currently we do not properly handle two signalfds with
+        /* XXX i#1189: currently we do not properly handle two signalfds with
          * different but overlapping signal masks, as we do not monitor the
          * read/poll syscalls and thus cannot provide a set of pipes that
          * matches the two signal sets.  For now we err on the side of sending

@@ -37,6 +37,7 @@
 #include "mock_reader.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
+#include "test_helpers.h"
 #include <iostream>
 #include <sstream>
 
@@ -773,8 +774,9 @@ test_chunk_boundaries(void *drcontext)
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *jmp2 = XINST_CREATE_jump(drcontext, opnd_create_instr(move2));
     instr_t *jmp1 = XINST_CREATE_jump(drcontext, opnd_create_instr(jmp2));
-    instr_t *move3 =
-        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *ret1 = XINST_CREATE_return(drcontext);
+    instr_t *jcc1 =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(ret1));
     instrlist_append(ilist, nop);
     // Block 1.
     instrlist_append(ilist, move1);
@@ -783,13 +785,16 @@ test_chunk_boundaries(void *drcontext)
     instrlist_append(ilist, jmp2);
     // Block 3.
     instrlist_append(ilist, move2);
-    instrlist_append(ilist, move3);
+    instrlist_append(ilist, ret1);
+    instrlist_append(ilist, jcc1);
 
     size_t offs_nop = 0;
     size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
     size_t offs_jmp1 = offs_move1 + instr_length(drcontext, move1);
     size_t offs_jmp2 = offs_jmp1 + instr_length(drcontext, jmp1);
     size_t offs_move2 = offs_jmp2 + instr_length(drcontext, jmp2);
+    size_t offs_ret1 = offs_move2 + instr_length(drcontext, move2);
+    size_t offs_jcc1 = offs_ret1 + instr_length(drcontext, ret1);
 
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
@@ -802,6 +807,9 @@ test_chunk_boundaries(void *drcontext)
     raw.push_back(make_block(offs_move1, 2));
     raw.push_back(make_block(offs_jmp2, 1));
     raw.push_back(make_block(offs_move2, 2));
+    raw.push_back(make_block(offs_jcc1, 1));
+    raw.push_back(make_block(offs_ret1, 1));
+    raw.push_back(make_block(offs_move1, 1));
     // TODO i#5724: Add repeats of the same instrs to test re-emitting encodings
     // in new chunks.
     raw.push_back(make_exit());
@@ -852,7 +860,36 @@ test_chunk_boundaries(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        // Block 4
+        check_entry(entries, idx, TRACE_TYPE_INSTR_TAKEN_JUMP, -1) &&
+        // Third chunk split: Ensure the branch_target marker for the return
+        // instr does not get abandoned in the prior chunk. This was seen to happen in
+        // i#7574 when a return instr at the beginning of a new chunk is written as part
+        // of a sequence of delayed branches that happened to cross chunk boundary, and
+        // also had an occurence in the prior chunk so there was no encoding entry before
+        // it initially (but was added later by raw2trace).
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        // Block 5.
+        check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        // Block 6.
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
@@ -3521,8 +3558,27 @@ test_syscall_injection(void *drcontext)
     size_t offs_sys = offs_move1 + instr_length(drcontext, move1);
     size_t offs_move2 = offs_sys + instr_length(drcontext, sys);
 
+    // Syscall traces may be injected at different points in the trace:
+    // A) for syscalls whose args and retval are traced with -record_syscall, the
+    //    trace is injected before the func_id-func_retval markers.
+    // B) for syscalls that are interrupted by a signal and do not have a post-
+    //    syscall event, the trace is injected just before the kernel_event marker,
+    //    which is also after the func_id-func_arg markers (if any).
+    // C) for syscalls that are not traced with -record_syscall and are not
+    //    interrupted by a signal, the trace is injected just before the timestamp
+    //    marker after the syscall marker, which is also after the syscall and
+    //    maybe_blocking_syscall marker if any.
+    // D) for sigreturn, we inject just before the kernel_xfer marker (which is
+    //    before the post-syscall timestamp marker).
+    // E) if we reach the thread_exit with a pending injection, we inject the trace
+    //    before the thread_exit.
+    //
+    // We test each of the above cases below.
+
     // Now we synthesize our raw trace itself, including a valid header sequence.
     static constexpr int SYSCALL_NUM = 42; // Doesn't really matter.
+    static constexpr int FUNC_ID_SYSCALL =
+        static_cast<int>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + SYSCALL_NUM;
     std::vector<offline_entry_t> raw;
     raw.push_back(make_header());
     raw.push_back(make_tid());
@@ -3531,15 +3587,82 @@ test_syscall_injection(void *drcontext)
     raw.push_back(make_timestamp(1));
     raw.push_back(make_core());
     raw.push_back(make_block(offs_move1, 1));
+
+    // ---------- Type (A) ----------
     raw.push_back(make_timestamp(2));
     raw.push_back(make_core());
     raw.push_back(make_block(offs_sys, 1));
+    // Entries added by pre-syscall event.
     raw.push_back(make_timestamp(3));
     raw.push_back(make_core());
     raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, FUNC_ID_SYSCALL));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 1));
+    // Entries added by post-syscall event.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, FUNC_ID_SYSCALL));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 1));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL_FAILED, 0));
     raw.push_back(make_timestamp(4));
     raw.push_back(make_core());
+    // Trace continues after syscall.
     raw.push_back(make_block(offs_move2, 1));
+
+    // ---------- Type (B) ----------
+    raw.push_back(make_timestamp(5));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_sys, 1));
+    // Entries added by pre-syscall event.
+    raw.push_back(make_timestamp(6));
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, FUNC_ID_SYSCALL));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 1));
+    // Syscall interrupted by signal.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_sys));
+    raw.push_back(make_timestamp(7));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_XFER, offs_sys));
+
+    // ---------- Type (C) ----------
+    raw.push_back(make_timestamp(8));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_sys, 1));
+    // Entries added by pre-syscall event.
+    raw.push_back(make_timestamp(9));
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    // Entries added by post-syscall event.
+    raw.push_back(make_timestamp(10));
+    raw.push_back(make_core());
+    // Trace continues after syscall.
+    raw.push_back(make_block(offs_move2, 1));
+
+    // ---------- Type (D) ----------
+    raw.push_back(make_timestamp(11));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_sys, 1));
+    // Entries added by pre-syscall event.
+    raw.push_back(make_timestamp(12));
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, FUNC_ID_SYSCALL));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 1));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_XFER, offs_sys));
+    raw.push_back(make_timestamp(13));
+    raw.push_back(make_core());
+    // Trace continues after syscall.
+    raw.push_back(make_block(offs_move2, 1));
+
+    // ---------- Type (E) ----------
+    raw.push_back(make_timestamp(14));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_sys, 1));
+    // Entries added by pre-syscall event.
+    raw.push_back(make_timestamp(15));
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    // No post-syscall.
     raw.push_back(make_exit());
 
     static constexpr memref_tid_t TID_IN_SYSCALL = 1;
@@ -3574,8 +3697,8 @@ test_syscall_injection(void *drcontext)
         return false;
     int idx = 0;
     return (
-        stats[RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED] == 1 &&
-        stats[RAW2TRACE_STAT_KERNEL_INSTR_COUNT] == 2 &&
+        stats[RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED] == 5 &&
+        stats[RAW2TRACE_STAT_KERNEL_INSTR_COUNT] == 10 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -3589,12 +3712,87 @@ test_syscall_injection(void *drcontext)
         // The move1 instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        // ---------- Type (A) ----------
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 2) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // The sys instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, expected_syscall_instr_type, -1, offs_sys) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 3) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID,
+                    FUNC_ID_SYSCALL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, 1) &&
+        // Injected syscall trace.
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, SYSCALL_PC_START) &&
+        // Indirect branch at the end of the injected syscall trace that should point to
+        // the move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1,
+                    SYSCALL_PC_START + 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                    SYSCALL_NUM) &&
+        // Injected syscall trace -- done.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID,
+                    FUNC_ID_SYSCALL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL, 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_FAILED,
+                    0) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 4) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+
+        // ---------- Type (B) ----------
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 5) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The sys instr.
+        check_entry(entries, idx, expected_syscall_instr_type, -1, offs_sys) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 6) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID,
+                    FUNC_ID_SYSCALL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, 1) &&
+        // Injected syscall trace.
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, SYSCALL_PC_START) &&
+        // Indirect branch at the end of the injected syscall trace that should point to
+        // the move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1,
+                    SYSCALL_PC_START + 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                    SYSCALL_NUM) &&
+        // Injected syscall trace -- done.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                    offs_sys) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 7) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_XFER,
+                    offs_sys) &&
+
+        // ---------- Type (C) ----------
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 8) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The sys instr.
+        check_entry(entries, idx, expected_syscall_instr_type, -1, offs_sys) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 9) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
                     SYSCALL_NUM) &&
@@ -3612,11 +3810,70 @@ test_syscall_injection(void *drcontext)
                     SYSCALL_PC_START + 1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
                     SYSCALL_NUM) &&
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 4) &&
+        // Injected syscall trace -- done.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 10) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // The move2 instr.
-        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+
+        // ---------- Type (D) ----------
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 11) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The sys instr.
+        check_entry(entries, idx, expected_syscall_instr_type, -1, offs_sys) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 12) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID,
+                    FUNC_ID_SYSCALL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, 1) &&
+        // Injected syscall trace.
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, SYSCALL_PC_START) &&
+        // Indirect branch at the end of the injected syscall trace that should point to
+        // the move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1,
+                    SYSCALL_PC_START + 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                    SYSCALL_NUM) &&
+        // Injected syscall trace -- done.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_XFER,
+                    offs_sys) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 13) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+
+        // ---------- Type (E) ----------
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 14) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The sys instr.
+        check_entry(entries, idx, expected_syscall_instr_type, -1, offs_sys) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 15) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
+        // Injected syscall trace.
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, SYSCALL_PC_START) &&
+        // Indirect branch at the end of the injected syscall trace that should point to
+        // the move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET,
+                    offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_INDIRECT_JUMP, -1,
+                    SYSCALL_PC_START + 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                    SYSCALL_NUM) &&
+        // Injected syscall trace -- done.
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }

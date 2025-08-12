@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,7 @@
  * being 32-bit reachable from any available space for the code cache.
  */
 
+#include "test_helpers.h"
 /* Like burst_static we deliberately do not include configure.h here. */
 #include "dr_api.h"
 #include "../../common/utils.h"

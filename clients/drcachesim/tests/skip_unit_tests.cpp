@@ -97,14 +97,19 @@ test_skip_initial()
         std::unique_ptr<reader_t> iter_end =
             std::unique_ptr<reader_t>(new zipfile_file_reader_t());
         // Run the tool.
-        std::unique_ptr<analysis_tool_t> tool = std::unique_ptr<analysis_tool_t>(
-            view_tool_create("", /*skip_refs=*/0, /*sim_refs=*/view_count, "att"));
+        std::unique_ptr<analysis_tool_t> tool =
+            std::unique_ptr<analysis_tool_t>(view_tool_create("", "att"));
         std::string error = tool->initialize_stream(iter.get());
         CHECK(error.empty(), error.c_str());
         iter->skip_instructions(skip_instrs);
-        for (; *iter != *iter_end; ++(*iter)) {
+        for (int records = 0; records < view_count && *iter != *iter_end;
+             ++(*iter), ++records) {
             const memref_t &memref = **iter;
-            CHECK(tool->process_memref(memref), tool->get_error_string().c_str());
+            if (!tool->process_memref(memref)) {
+                if (tool->get_error_string().empty())
+                    break;
+                CHECK(false, tool->get_error_string().c_str());
+            }
         }
         // Check the result.
         std::string res = capture.str();

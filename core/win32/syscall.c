@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -514,7 +514,7 @@ SYS_CONST uint syscall_argsz[TRAMPOLINE_MAX] = {
 #undef SYSCALL
 };
 
-/* FIXME: currently whether a syscall needs action or not can't be
+/* XXX: currently whether a syscall needs action or not can't be
  * dynamically changed since this flag is used early on by
  * intercept_native_syscall() */
 static SYS_CONST int syscall_requires_action[TRAMPOLINE_MAX] = {
@@ -538,7 +538,7 @@ static app_pc syscall_trampoline_copy_pc[TRAMPOLINE_MAX];
 /* GBOP stack adjustment - currently either always 0 or always 4 for
  * vsyscall calls, but may need to be a more general array in case
  * HOOKED_TRAMPOLINE_HOOK_DEEPER allows different offsets
- * FIXME: case 7127 this can be compressed further, if really only a bitmask
+ * XXX: case 7127 this can be compressed further, if really only a bitmask
  * see intercept_syscall_wrapper
  */
 static byte syscall_trampoline_gbop_fpo_offset[TRAMPOLINE_MAX];
@@ -561,7 +561,7 @@ static byte syscall_trampoline_gbop_fpo_offset[TRAMPOLINE_MAX];
  * the difference, but we should be aware of it!  If this is true, why bother
  * filling in edx for sysenter?  Seems like the kernel must be hardcoding it
  * with 0x7ffe0304.
- * FIXME: think about whether want to
+ * XXX: think about whether want to
  * insert a trampoline (and risk clobbering entry point after the ret)
  * instead of the current method of clobbering the return address
  *
@@ -597,20 +597,20 @@ NtOpenKey:
 bool
 ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live)
 {
-    /* FIXME: this should really be a complete list of ignorable calls,
+    /* XXX: this should really be a complete list of ignorable calls,
      * just ntoskrnl ones that we understand, to avoid surprises
      * with added calls?
      */
-    /* FIXME: switch to a bit vector?
+    /* XXX: switch to a bit vector?
      * we may want an inverted bit vector instead (inw2k p.123  - lower 12 bits)
      * there are 285 syscalls on xp  - let's say we support 320
      * instead of the 40 ints (160 bytes) and a loop we're using now,
      * we can grab 40 bytes for 320 syscalls and do the bit extraction
      * precomputing from this table will be easy
      */
-    /* FIXME : it looks like most file IO/creation syscalls are alertable
+    /* XXX : it looks like most file IO/creation syscalls are alertable
      * ref bug 2520, should be added to non-ignorable */
-    /* FIXME : we just return false for all system calls, to be safe we should
+    /* XXX : we just return false for all system calls, to be safe we should
      * really be checking for known ignoreable system calls rather then the reverse,
      * see syscallx.h for old enumeration. */
     return false;
@@ -625,7 +625,7 @@ optimizable_system_call(int num)
 
         int i;
 
-        /* FIXME: switch to a bit vector, just as for the syscalls array? */
+        /* XXX: switch to a bit vector, just as for the syscalls array? */
         for (i = 0; i < SYS_MAX; i++) {
             if (num == syscalls[i])
                 return !syscall_requires_action[i];
@@ -643,7 +643,7 @@ after_intercept_action_t
 syscall_while_native(app_state_at_intercept_t *state)
 {
     int sysnum = (int)(ptr_int_t)state->callee_arg;
-    /* FIXME : if dr calls through ntdll functions that are hooked by a third
+    /* XXX : if dr calls through ntdll functions that are hooked by a third
      * party (say Sygate's sysfer.dll) then they could perform syscalls that
      * would get us here.  Most of the time we'll be ok, but if the current
      * thread is under_dyn_hack or native_exec we might try to process the
@@ -704,12 +704,12 @@ syscall_while_native(app_state_at_intercept_t *state)
          * hotp_only on native_exec
          */
         if (DYNAMO_OPTION(gbop) != GBOP_DISABLED) {
-            /* FIXME: case 7127: should enforce here GBOP_WHEN_NATIVE_EXEC if we
+            /* XXX: case 7127: should enforce here GBOP_WHEN_NATIVE_EXEC if we
              * want to apply for -hotp_only but not for native_exec.
              * Today we always validate.
              */
 
-            /* FIXME: case 7127: for -exclude_gbop_list need to check a flag
+            /* XXX: case 7127: for -exclude_gbop_list need to check a flag
              * whether this ntdll!Nt* hook has been excluded
              */
             /* state->xsp is the wishful thinking after syscall
@@ -723,13 +723,13 @@ syscall_while_native(app_state_at_intercept_t *state)
                                   syscall_trampoline_hook_pc[sysnum]);
             /* if the routine at all returns it passed the GBOP checks */
 
-            /* FIXME: case 7127: may want alternative handling
+            /* XXX: case 7127: may want alternative handling
              * and for system calls returning an error of some kind
              * like STATUS_INVALID_ADDRESS or STATUS_BUFFER_OVERFLOW
              * may be a somewhat useful attack handling alternative
              */
 
-            /* FIXME: case 7127 for completeness should be able to add
+            /* XXX: case 7127 for completeness should be able to add
              * this check to the regular DR syscalls where we'll be at
              * the PC calling sysenter, not necessarily at the start
              * of a function.  Though other than uniform testing it
@@ -740,14 +740,14 @@ syscall_while_native(app_state_at_intercept_t *state)
 #endif /* GBOP */
         /* Notes on handling syscalls for native threads:
          *
-         * FIXME: make sure each syscall handler can handle this thread being native,
+         * XXX: make sure each syscall handler can handle this thread being native,
          * as well as target being native.  E.g., will a native thread terminating
          * itself hit any assertion about not coming back under DR control first?
          * Another example, will GetCxt fail trying to translate a native thread's
          * context?
-         * FIXME: what about asynch event while in syscall?  none of ones we
+         * XXX: what about asynch event while in syscall?  none of ones we
          * intercept are alertable?
-         * FIXME: exception during pre-syscall sequence can cause us to miss
+         * XXX: exception during pre-syscall sequence can cause us to miss
          * the go-native trigger!
          *
          * Be careful with cache consistency events -- we assume in general that
@@ -791,7 +791,7 @@ syscall_while_native(app_state_at_intercept_t *state)
     /* This routine tries to handle syscalls from DR, but will fail in some
      * cases (if the current thread has certain under_dynamo_control values) --
      * so we use our own custom wrapper rather than go through ntdll when we
-     * expect going through wrapper to reach here (FIXME should do this for
+     * expect going through wrapper to reach here (XXX should do this for
      * all system calls). */
     /* i#924: this happens at exit during os_loader_exit(), and at thread init
      * when priv libs call routines we haven't yet redirected.  Best to disable
@@ -870,7 +870,7 @@ init_syscall_trampolines(void)
             syscall_trampoline_hook_pc[i] =
                 (app_pc)d_r_get_proc_address(h, syscall_names[i]);
             syscall_trampoline_pc[i] =
-                /* FIXME: would like to use static references to entry points -- yet,
+                /* XXX: would like to use static references to entry points -- yet,
                  * set of those we care about varies dynamically by platform, and
                  * we cannot include a pointer to a 2003-only Nt* entry point and
                  * avoid a loader link error on 2000, right?
@@ -1013,7 +1013,7 @@ is_newly_created_process(HANDLE process_handle)
      * NtQuerySystemInformation to tell there are no threads created
      * in the process, should use to verify new process since that
      * should be the rare case
-     * FIXME: could at least store the last created pid and a flag indicating if
+     * XXX: could at least store the last created pid and a flag indicating if
      * its thread has been created and use that as an auxiliary check
      *
      * May be easier to check the PEB
@@ -1091,7 +1091,7 @@ syscall_uses_edx_param_base()
             get_os_version() < WINDOWS_VERSION_8);
 }
 
-/* FIXME : For int/syscall we can just subtract 2 from the post syscall pc but for
+/* XXX : For int/syscall we can just subtract 2 from the post syscall pc but for
  * sysenter we do the post-syscall ret native and therefore we've lost the
  * address of the actual syscall, but we are only going to use this for
  * certain ntdll system calls so is almost certainly the ntdll sysenter.  As
@@ -1196,7 +1196,7 @@ syscall_interception_exit(void)
 /***************************************************************************
  * PRE SYSTEM CALL
  *
- * FIXME: should we pass mcontext to these routines to avoid
+ * XXX: should we pass mcontext to these routines to avoid
  * the get_mcontext() call and derefs?
  * => now we're forcing the inline of get_mcontext() so should be fine
  */
@@ -1322,7 +1322,7 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
     ASSERT_CURIOSITY(proc_access_mask == MAXIMUM_ALLOWED);
     ASSERT_CURIOSITY(thread_access_mask == MAXIMUM_ALLOWED);
     ASSERT_CURIOSITY(create_suspended);
-    /* FIXME - NYI - if any of the above curiosities don't hold we should
+    /* TODO - NYI - if any of the above curiosities don't hold we should
      * change them here and then fixup as needed in post. */
 
     /* Potentially dangerous deref of app ptr, but is only for debug logging */
@@ -1379,7 +1379,7 @@ presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
     });
     ASSERT(cxt != NULL);
     /* if not early injecting, we will unsafely modify cxt (for late follow
-     * children) FIXME
+     * children) XXX
      * if not injecting at all we won't change cxt.
      */
     maybe_inject_into_process(dcontext, process_handle, thread_handle, cxt);
@@ -1874,7 +1874,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         /* make sure client nudges are finished */
         wait_for_outstanding_nudges();
 
-        /* FIXME : issues with cleaning up here what if syscall fails */
+        /* XXX : issues with cleaning up here what if syscall fails */
         DEBUG_DECLARE(ok =)
         synch_with_all_threads(THREAD_SYNCH_SUSPENDED_AND_CLEANED, &threads, &num_threads,
                                /* Case 6821: while we're ok to be detached, we're
@@ -1885,7 +1885,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
                                 */
                                THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                                /* if we fail to suspend a thread (e.g., privilege
-                                * problems) ignore it. FIXME: retry instead? */
+                                * problems) ignore it. XXX: retry instead? */
                                /* XXX i#2345: add THREAD_SYNCH_SKIP_CLIENT_THREAD
                                 * to synch all application threads only.
                                 */
@@ -1918,7 +1918,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
     } else if (is_phandle_me((process_handle == 0) ? NT_CURRENT_PROCESS
                                                    : process_handle)) {
         /* case 10338: we don't synchall here for faster shutdown, but we have
-         * to try and not crash any other threads.  FIXME: if it's rare to get here
+         * to try and not crash any other threads.  XXX: if it's rare to get here
          * w/ > 1 thread perhaps we should do the synchall.
          */
         LOG(THREAD, LOG_SYSCALLS, 2, "\tterminating process w/ %d running thread(s)\n",
@@ -1931,7 +1931,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
              */
             dynamo_thread_under_dynamo(dcontext);
         }
-        /* FIXME: what if syscall returns w/ STATUS_PROCESS_IS_TERMINATING? */
+        /* XXX: what if syscall returns w/ STATUS_PROCESS_IS_TERMINATING? */
         os_terminate_wow64_write_args(true /*process*/, process_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateProcess],
                               /* r10, which will go to rcx in cleanup_and_terminate
@@ -1968,7 +1968,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 
     if (tid == 0xFFFFFFFF) {
         /* probably invalid handle, do nothing for now */
-        /* FIXME: case 2573 about adding ASSERT_CURIOSITY replacing the ASSERT we had */
+        /* XXX: case 2573 about adding ASSERT_CURIOSITY replacing the ASSERT we had */
     } else if (tid != tr->id) {
         priv_mcontext_t mcontext;
         DEBUG_DECLARE(thread_synch_result_t synch_res;)
@@ -1981,12 +1981,12 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
         synch_with_thread(tid, true, false, THREAD_SYNCH_VALID_MCONTEXT,
                           THREAD_SYNCH_SUSPENDED_AND_CLEANED,
                           /* if we fail to suspend a thread (e.g., privilege
-                           * problems) ignore it. FIXME: retry instead? */
+                           * problems) ignore it. XXX: retry instead? */
                           THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         ASSERT(synch_res == THREAD_SYNCH_RESULT_SUCCESS ||
                /* App could be calling on already exited thread (xref 8125)
                 * or thread could have exited while we were synching.
-                * FIXME - check is racy since for dr purposes the thread is
+                * XXX - check is racy since for dr purposes the thread is
                 * considered exited just before it is signaled, but is ok
                 * for an assert. */
                is_thread_exited(thread_handle) == THREAD_EXITED ||
@@ -2001,7 +2001,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
 
         bool exitproc = !secondary && (is_last_app_thread() && !dynamo_exited);
         /* this should really be check_sole_thread() */
-        /* FIXME: case 9461 - we may not control all threads,
+        /* XXX: case 9461 - we may not control all threads,
          * the syscall may fail and may not be allowed to kill last thread
          */
 
@@ -2033,7 +2033,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
     thread_id_t tid = thread_handle_to_tid(thread_handle);
     bool intercept = true;
     bool execute_syscall = true;
-    /* FIXME : we are going to read and write to cxt, which may be unsafe */
+    /* XXX : we are going to read and write to cxt, which may be unsafe */
     ASSERT(tid != 0xFFFFFFFF);
     LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
         "syscall: NtSetContextThread handle=" PFX " tid=%d cxt->Xip=" PFX " flags=" PFX
@@ -2041,7 +2041,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         thread_handle, tid, cxt->CXT_XIP, cxt->ContextFlags);
     if (d_r_get_thread_id() == tid) {
         /* Simple case when called on own thread. */
-        /* FIXME i#2249 : we should handle these flags. */
+        /* XXX i#2249 : we should handle these flags. */
         ASSERT_NOT_IMPLEMENTED(!TEST(CONTEXT_CONTROL, cxt->ContextFlags) &&
                                !TEST(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags));
         return execute_syscall;
@@ -2052,7 +2052,8 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         thread_record_t *tr = thread_lookup(tid);
         CONTEXT *my_cxt;
         NTSTATUS res;
-        const thread_synch_state_t desired_state = THREAD_SYNCH_VALID_MCONTEXT;
+        const thread_synch_state_t desired_state =
+            (const thread_synch_state_t)THREAD_SYNCH_VALID_MCONTEXT;
         DEBUG_DECLARE(thread_synch_result_t synch_res;)
         ASSERT(tr != NULL);
         SELF_PROTECT_LOCAL(tr->dcontext, WRITABLE);
@@ -2064,13 +2065,13 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
         synch_with_thread(tid, true, true, desired_state,
                           THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT,
                           /* if we fail to suspend a thread (e.g., privilege
-                           * problems) ignore it. FIXME: retry instead? */
+                           * problems) ignore it. XXX: retry instead? */
                           THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         ASSERT(synch_res == THREAD_SYNCH_RESULT_SUCCESS);
         copy_mcontext(&mcontext, mc);
         if (!TESTALL(CONTEXT_CONTROL /*2 bits so ALL*/, cxt->ContextFlags)) {
             /* app didn't request pc so we'd better get it now.
-             * FIXME: this isn't transparent as we have to clobber
+             * XXX: this isn't transparent as we have to clobber
              * fields in the app cxt: should restore in post-syscall.
              */
             DWORD cxt_flags = CONTEXT_DR_STATE;
@@ -2145,7 +2146,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
                 tr, NULL, (void *)my_cxt, CONTEXT_HEAP_SIZE(*my_cxt),
                 desired_state _IF_X64(cxt_alloc) _IF_WINDOWS(&res));
             /* We just tested permissions, but could be bad handle, etc.
-             * FIXME: if so and thread was waiting we have transparency violation
+             * XXX: if so and thread was waiting we have transparency violation
              */
             ASSERT_CURIOSITY(ok);
             SET_RETURN_VAL(tr->dcontext, res);
@@ -2293,7 +2294,7 @@ check_for_stack_free(dcontext_t *dcontext, byte *base, size_t size)
         ASSERT_CURIOSITY((byte *)get_mcontext(dcontext)->xsp >= (byte *)get_own_teb() &&
                          (byte *)get_mcontext(dcontext)->xsp <
                              ((byte *)get_own_teb()) + PAGE_SIZE);
-        /* FIXME - Instead of saying the teb stack is no longer valid, we could
+        /* XXX - Instead of saying the teb stack is no longer valid, we could
          * instead change the bounds to be the TEB region.  Other users could
          * then always we assert we have something valid set. Is slightly
          * greater dependence on observed behavior though. */
@@ -2352,7 +2353,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
             dcontext->alloc_no_reserve =
                 (base == NULL ||
                  (TEST(MEM_RESERVE, type) && !get_memory_info(base, NULL, NULL, NULL)));
-            /* FIXME: can one MEM_RESERVE an address previously
+            /* XXX: can one MEM_RESERVE an address previously
              * MEM_RESERVEd - at least on XP that's not allowed */
         }
     } else if (TEST(ASLR_STACK, DYNAMO_OPTION(aslr)) && !is_phandle_me(process_handle) &&
@@ -2367,7 +2368,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
          */
         if (d_r_safe_read(pbase, sizeof(base), &base)) {
             if (base == NULL) {
-                /* FIXME: make the above check stronger */
+                /* XXX: make the above check stronger */
                 ASSERT_CURIOSITY(prot == PAGE_READWRITE);
                 /* this is just a reservation, so can be anything */
 
@@ -2398,7 +2399,7 @@ static void
 presys_AllocateVirtualMemoryEx(dcontext_t *dcontext, reg_t *param_base)
 {
     /*
-        FIXME i#3090: The parameters for NtAllocateVirtualMemoryEx are undocumented.
+        XXX i#3090: The parameters for NtAllocateVirtualMemoryEx are undocumented.
     */
     ASSERT_CURIOSITY("unimplemented pre handler for NtAllocateVirtualMemoryEx");
 }
@@ -2470,7 +2471,7 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     }
 
     DODEBUG({
-        /* FIXME: this shouldn't be DODEBUG since we need to handle syscall failure */
+        /* XXX: this shouldn't be DODEBUG since we need to handle syscall failure */
         if (type == MEM_DECOMMIT && size != 0) {
             size_t real_size = get_allocation_size(base, NULL);
             if ((app_pc)ALIGN_BACKWARD(base, PAGE_SIZE) + real_size < base + size) {
@@ -2559,7 +2560,7 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
         /* go to page boundaries, since windows lets you pass non-aligned
          * values, unlike Linux
          */
-        /* FIXME: use align_page_boundary(dcontext, &base, &size) instead */
+        /* XXX: use align_page_boundary(dcontext, &base, &size) instead */
         if (!ALIGNED(base, PAGE_SIZE) || !ALIGNED(base + size, PAGE_SIZE)) {
             /* need to cover all pages between base and base + size */
             size = ALIGN_FORWARD(base + size, PAGE_SIZE) - PAGE_START(base);
@@ -2594,7 +2595,7 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
             } else if (res == PRETEND_APP_MEM_PROT_CHANGE ||
                        res == SUBSET_APP_MEM_PROT_CHANGE) {
                 /*
-                 * FIXME: is alternative of letting it go through and undoing in
+                 * XXX: is alternative of letting it go through and undoing in
                  * post-handler simpler and safer (here we have to emulate kernel
                  * behavior), if we remove +w flag to avoid other-thread issues?
                  */
@@ -2644,7 +2645,7 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                     ", oldprot=%s 0x%x\n",
                     base, size, prot_string(pretend_oldprot), pretend_oldprot);
 
-                /* FIXME: we really should be _probing_ these writes
+                /* XXX: we really should be _probing_ these writes
                  * to make sure not targeting DR addresses when
                  * PROTECT_FROM_APP
                  */
@@ -2657,15 +2658,15 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
 
             return false; /* do not execute system call */
         } else {
-            /* FIXME i#143: we still need to tweak the returned oldprot (in
+            /* XXX i#143: we still need to tweak the returned oldprot (in
              * post-syscall) for writable areas we've made read-only
              */
-            /* FIXME: ASSERT here that have not modified size unless using, e.g.
+            /* XXX: ASSERT here that have not modified size unless using, e.g.
              * fix_unsafe_hooker
              */
         }
     } else {
-        /* FIXME: should we try to alert any dynamo running the other process?
+        /* XXX: should we try to alert any dynamo running the other process?
          */
         LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
             "WARNING: ProtectVirtualMemory called on process " PFX " %d\n",
@@ -2718,7 +2719,7 @@ presys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base)
                  check_filter(DYNAMO_OPTION(block_mod_load_list_default), short_name))) {
                 string_option_read_unlock();
                 /* Modify args so call fails, stdcall so caller shouldn't care
-                 * about the args being modified. FIXME - alt. we could just
+                 * about the args being modified. XXX - alt. we could just
                  * do the stdcall ret here (for non-takeover need to supply
                  * a dr location with a ret 4 instruction at hook time and
                  * return alt_dyn here, for takeover need to modify the
@@ -2749,7 +2750,7 @@ static void
 presys_MapViewOfSectionEx(dcontext_t *dcontext, reg_t *param_base)
 {
     /*
-        FIXME i#3090: The parameters for NtMapViewOfSectionEx are undocumented.
+        XXX i#3090: The parameters for NtMapViewOfSectionEx are undocumented.
     */
     ASSERT_CURIOSITY("unimplemented pre handler for NtMapViewOfSectionEx");
 }
@@ -2767,7 +2768,7 @@ presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, int sysnum)
     MEMORY_BASIC_INFORMATION mbi;
     if (sysnum == syscalls[SYS_UnmapViewOfSectionEx]) {
         ptr_int_t arg3 = (ptr_int_t)sys_param(dcontext, param_base, 2);
-        /* FIXME i#899: new Win8 syscall w/ 3rd arg that's 0 by default.
+        /* XXX i#899: new Win8 syscall w/ 3rd arg that's 0 by default.
          * We want to know when we see non-zero so we have some code to study.
          */
         ASSERT_CURIOSITY(arg3 == 0 && "i#899: unknown new param");
@@ -2813,7 +2814,7 @@ presys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, int sysnum)
 
     /* we have to mark before any policy processing gets started */
 
-    /* FIXME: we could also allow MEM_MAPPED areas here, since .B
+    /* XXX: we could also allow MEM_MAPPED areas here, since .B
      * policies may in fact allow such to be executable areas, but
      * since we can keep track of only one, focusing on MEM_IMAGE only
      */
@@ -2860,7 +2861,7 @@ presys_FlushInstructionCache(dcontext_t *dcontext, reg_t *param_base)
         app_memory_flush(dcontext, base, size, prot);
 #endif
     } else {
-        /* FIXME: should we try to alert any dynamo running the other process?
+        /* XXX: should we try to alert any dynamo running the other process?
          * no reason to ASSERT here, not critical like alloc/dealloc in other process
          */
         LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
@@ -3011,7 +3012,7 @@ pre_system_call(dcontext_t *dcontext)
 
     /* save key register values for post_system_call (they get clobbered
      * in syscall itself)
-     * FIXME: our new stateless asynch handling means that these values
+     * XXX: our new stateless asynch handling means that these values
      * are wrong when we finally return to an interrupted syscall, so post-processing
      * looks at the wrong system call!
      * Fortunately it always looks at NtContinue, and we haven't yet implemented
@@ -3033,7 +3034,7 @@ pre_system_call(dcontext_t *dcontext)
 
     if (sysnum == syscalls[SYS_Continue]) {
         CONTEXT *cxt = (CONTEXT *)sys_param(dcontext, param_base, 0);
-        /* FIXME : we are going to read and write to cxt, which may be unsafe */
+        /* XXX : we are going to read and write to cxt, which may be unsafe */
         int flag = (int)sys_param(dcontext, param_base, 1);
         LOG(THREAD, LOG_SYSCALLS | LOG_ASYNCH, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtContinue cxt->Xip=" PFX " flag=" PFX "\n", cxt->CXT_XIP, flag);
@@ -3103,8 +3104,8 @@ pre_system_call(dcontext_t *dcontext)
         execute_syscall = presys_ProtectVirtualMemory(dcontext, param_base);
         KSTOP(pre_syscall_protect);
     } else if (sysnum == syscalls[SYS_WriteVirtualMemory]) {
-        /* FIXME NYI: case 8321: need to watch for cache consistency
-         * FIXME case 9103: note that we don't hook this for native_exec yet
+        /* TODO NYI: case 8321: need to watch for cache consistency
+         * XXX case 9103: note that we don't hook this for native_exec yet
          */
     } else if (sysnum == syscalls[SYS_MapViewOfSection]) {
         execute_syscall = presys_MapViewOfSection(dcontext, param_base);
@@ -3123,7 +3124,7 @@ pre_system_call(dcontext_t *dcontext)
         presys_Close(dcontext, param_base);
     }
 #ifdef DEBUG
-    /* FIXME: move this stuff to an strace-like client, not needed
+    /* XXX: move this stuff to an strace-like client, not needed
      * for core DynamoRIO (at least not that we know of)
      */
     else if (sysnum == syscalls[SYS_OpenFile]) {
@@ -3140,7 +3141,7 @@ pre_system_call(dcontext_t *dcontext)
         uint *page_frame_nums = (uint *)sys_param(dcontext, param_base, 2);
         LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtFreeUserPhysicalPages %d pages\n", num_pages);
-        /* FIXME: need to know base if currently mapped, must
+        /* XXX: need to know base if currently mapped, must
          * record every mapping to do so
          */
         SYSLOG_INTERNAL_WARNING_ONCE(PRODUCT_NAME " is using un-supported "
@@ -3170,7 +3171,7 @@ pre_system_call(dcontext_t *dcontext)
          */
     } else if (sysnum == syscalls[SYS_RaiseException]) {
         check_app_stack_limit(dcontext);
-        /* FIXME i#1691: detect whether we're inside SEH handling already, in which
+        /* XXX i#1691: detect whether we're inside SEH handling already, in which
          * case this process is about to die by this secondary exception and
          * we want to do a normal exit and give the client a chance to clean up.
          */
@@ -3197,7 +3198,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
     HANDLE *thread_handle_ptr = (HANDLE *)postsys_param(dcontext, param_base, 1);
     BOOL create_suspended = (BOOL)postsys_param(dcontext, param_base, 7);
     HANDLE proc_handle, thread_handle;
-    /* FIXME should have type for this */
+    /* XXX should have type for this */
     DEBUG_DECLARE(
         create_proc_thread_info_t *thread_stuff =
             (create_proc_thread_info_t *)postsys_param(dcontext, param_base, 10);)
@@ -3234,7 +3235,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
             "syscall: NtCreateUserProcess unable to get sufficient rights"
             " to follow children\n");
         /* This happens for Vista protected processes (drm). xref 8485 */
-        /* FIXME - could check against executable file name from
+        /* XXX - could check against executable file name from
          * thread_stuff to see if this was a process we're configured to
          * protect. */
         /* XXX: Should we make this a fatal release build error? */
@@ -3275,7 +3276,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
         if (NT_SUCCESS(res))
             cxt = context;
         else {
-            /* FIXME i#49: cross-arch injection can end up here w/
+            /* XXX i#49: cross-arch injection can end up here w/
              * STATUS_INVALID_PARAMETER.  Need to use proper platform's
              * CONTEXT for target.
              */
@@ -3341,7 +3342,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     size_t bufsz = nt_get_context_size(cxt_flags);
     char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
 
-    /* FIXME : we are going to read/write the context argument which is
+    /* XXX : we are going to read/write the context argument which is
      * potentially unsafe, since success it must have been readable when
      * at the os call, but there could always be multi-thread races */
 
@@ -3351,7 +3352,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     if (trec == NULL) {
         /* this can occur if the target thread hasn't been scheduled yet
          * and therefore we haven't initialized it yet, (scheduled for
-         * fixing), OR if the thread is in another process (FIXME : IPC)
+         * fixing), OR if the thread is in another process (XXX : IPC)
          * for either case we do nothing for now
          */
         DODEBUG({
@@ -3369,7 +3370,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 2,
             "NtGetContextThread on unknown thread " TIDFMT "\n", tid);
     } else {
-        /* FIXME : the following routine (and the routines it calls
+        /* XXX : the following routine (and the routines it calls
          * namely recreate_app_state) require that trec thread be
          * suspended at a consistent spot, but we could have that the
          * trec thread is not suspended (get_thread_context doesn't
@@ -3398,7 +3399,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 translate = false;
             } else if (!thread_get_context(trec, alt_cxt)) {
                 ASSERT_NOT_REACHED();
-                /* FIXME: just don't translate -- right now won't hurt us since
+                /* XXX: just don't translate -- right now won't hurt us since
                  * we don't translate other than the pc anyway.
                  */
                 d_r_mutex_unlock(&thread_initexit_lock);
@@ -3415,7 +3416,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
          */
         if (translate &&
             !translate_context(trec, xlate_cxt, false /*leave memory alone*/)) {
-            /* FIXME: can get here native if GetThreadContext on
+            /* XXX: can get here native if GetThreadContext on
              * an un-suspended thread, but then API says result is
              * undefined so just pass anything reasonable
              * PLUS, need to handle unknown (unscheduled yet) thread --
@@ -3492,14 +3493,14 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         dcontext->ignore_enterexit = false;
     }
     /* if we suspended ourselves then skip synchronization,
-     * already resumed, FIXME : what if someone else resumes the thread
+     * already resumed, XXX : what if someone else resumes the thread
      * while we are trying to synch with it */
     if (!success || tid == d_r_get_thread_id())
         return;
 
     pid = thread_handle_to_pid(thread_handle, tid);
     if (!is_pid_me(pid)) {
-        /* (FIXME : IPC) */
+        /* (XXX : IPC) */
         IPC_ALERT("Warning: SuspendThread called on thread in "
                   "different process, pid=" PFX,
                   pid);
@@ -3578,12 +3579,12 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend),
             THREAD_SYNCH_VALID_MCONTEXT, THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT,
             /* if we fail to suspend a thread (e.g., privilege
-             * problems) ignore it. FIXME: retry instead? */
+             * problems) ignore it. XXX: retry instead? */
             THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         if (synch_res != THREAD_SYNCH_RESULT_SUCCESS) {
             /* xref case 9488 - we failed to synch, could be we exceeded our loop count
              * for some reason, we lack GetContext permission (or the apps handle has
-             * suspend and ours doesn't somehow), or could be an unknown thread. FIXME -
+             * suspend and ours doesn't somehow), or could be an unknown thread. XXX -
              * we suspend the thread so the app doesn't get screwed up (it expects a
              * suspended thread) at the risk of possibly deadlocking DR if it holds
              * one of our locks etc. */
@@ -3615,7 +3616,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         if (DYNAMO_OPTION(suspend_on_synch_failure_for_app_suspend))
             d_r_mutex_unlock(&thread_initexit_lock);
 
-        /* FIXME - if the thread exited we should prob. change the return value to
+        /* XXX - if the thread exited we should prob. change the return value to
          * the app to a failure value. Only an assert_curiosity for now to see if any
          * apps suspend threads while the threads are exiting and if so what they expect
          * to happen. */
@@ -3689,7 +3690,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
     app_pc base;
     size_t size;
     if (!success) {
-        /* FIXME i#148: should try to recover from any prot change -- though today we
+        /* XXX i#148: should try to recover from any prot change -- though today we
          * don't even do so on NtProtectVirtualMemory failing.
          */
         return;
@@ -3716,7 +3717,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
 
     if (TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr)) && is_phandle_me(process_handle)) {
         /* We allocate our padding after the application region is
-         * successfully reserved.  FIXME: assuming that one cannot
+         * successfully reserved.  XXX: assuming that one cannot
          * pass MEM_RESERVE|MEM_COMMIT on an already reserved
          * region.  Yet note one can MEM_COMMIT a region that has
          * been committed already.  Note that it is OK to pass
@@ -3729,7 +3730,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
          * after an allocation but that may change.)
          */
 
-        /* FIXME: case 6287 we should TEST(MEM_RESERVE, type) if
+        /* XXX: case 6287 we should TEST(MEM_RESERVE, type) if
          * allocation has just been reserved, or if pre_syscall
          * base was NULL for a MEM_COMMIT.  Currently a pad is
          * reserved only in case immediate region has not been
@@ -3788,7 +3789,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
         });
 #endif
     } else {
-        /* FIXME: should we try to alert any dynamo running the other process?
+        /* XXX: should we try to alert any dynamo running the other process?
          */
         LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2,
             "WARNING: NtAllocateVirtualMemory for process " PFX " %d\n", process_handle,
@@ -3802,7 +3803,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
         });
 
         /* This actually happens in calc's help defn popup!
-         * FIXME: we need IPC!  Plus need to queue up msgs to child dynamo,
+         * XXX: we need IPC!  Plus need to queue up msgs to child dynamo,
          * for calc it did NtCreateProcess, NtAllocateVirtualMemory, then
          * the NtCreateThread that triggers our fork injection!
          * don't die with IPC_ALERT
@@ -3815,7 +3816,7 @@ static void
 postsys_AllocateVirtualMemoryEx(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     /*
-        FIXME i#3090: The parameters for NtAllocateVirtualMemoryEx are undocumented.
+        XXX i#3090: The parameters for NtAllocateVirtualMemoryEx are undocumented.
     */
     ASSERT_CURIOSITY("unimplemented post handler for NtAllocateVirtualMemoryEx");
 }
@@ -3839,7 +3840,7 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
         "syscall: NtQueryVirtualMemory base=" PFX " => " PIFX "\n", base, mc->xax);
     if (!success)
         return;
-    /* FIXME : since success we assume that all argument dereferences are
+    /* XXX : since success we assume that all argument dereferences are
      * safe though there could always be multi-thread races */
     if (is_phandle_me(process_handle)) {
         if (class == MemoryBasicInformation) {
@@ -3879,7 +3880,7 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                     }
                     /* now do an off-by-1 to fool any calls to GetModuleFileName
                      * (it doesn't turn into a syscall)
-                     * FIXME: app could still use a snapshot to get list
+                     * XXX: app could still use a snapshot to get list
                      * of modules, but that is covered by -hide
                      */
                     if (TEST(HIDE_FROM_QUERY_BASE_SIZE, DYNAMO_OPTION(hide_from_query))) {
@@ -3896,7 +3897,7 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                      * extreme of a solution, so this is off by default */
                     if (TEST(HIDE_FROM_QUERY_RETURN_INVALID,
                              DYNAMO_OPTION(hide_from_query))) {
-                        /* FIXME: SET_RETURN_VAL bug 5068 had return val as 0
+                        /* XXX: SET_RETURN_VAL bug 5068 had return val as 0
                          * Need to re-test this with this actual return val
                          */
                         SET_RETURN_VAL(dcontext, STATUS_INVALID_ADDRESS);
@@ -4068,14 +4069,14 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
           TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)))) &&
         obj_attr != NULL) {
         /* need to identify KnownDlls here */
-        /* FIXME: NtOpenSection doesn't give us section attributes,
+        /* XXX: NtOpenSection doesn't give us section attributes,
          * and we can't even query them - the only reasonable solution is to
          * match the directory handle
          *
-         * FIXME: case 9032 about possibly duplicating the handle if
+         * XXX: case 9032 about possibly duplicating the handle if
          * that is any faster than any other syscalls we're making here
          */
-        /* FIXME: we could restrict the check to potential DLLs
+        /* XXX: we could restrict the check to potential DLLs
          * based on access_mask, although most users use
          * SECTION_ALL_ACCESS */
         HANDLE root_directory = NULL;
@@ -4151,7 +4152,7 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
          * may have changed in aslr_post_process_mapview()!
          */
 
-        /* FIXME: registers may not necessarily match state of
+        /* XXX: registers may not necessarily match state of
          * mangled system call, but we assume only state->mc.xax matters
          */
     }
@@ -4177,7 +4178,7 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
     prot = (uint)postsys_param(dcontext, param_base, 9);
 
     /* we assume that since syscall succeeded these dereferences are safe
-     * FIXME : could always be multi-thread races though */
+     * XXX : could always be multi-thread races though */
     size = *view_size; /* ignore commit_size? */
     base = *((app_pc *)pbase_unsafe);
 
@@ -4215,7 +4216,7 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                  * warnings below (where we don't know whether image or not).
                  */
                 wchar_t buf[MAXIMUM_PATH];
-                /* FIXME: should we heap alloc to avoid these huge buffers */
+                /* XXX: should we heap alloc to avoid these huge buffers */
                 wchar_t buf2[MAXIMUM_PATH];
                 NTSTATUS res = get_mapped_file_name(base, buf, BUFFER_SIZE_BYTES(buf));
                 if (NT_SUCCESS(res)) {
@@ -4279,7 +4280,7 @@ static void
 postsys_MapViewOfSectionEx(dcontext_t *dcontext, reg_t *param_base, bool success)
 {
     /*
-        FIXME i#3090: The parameters for NtMapViewOfSectionEx are undocumented.
+        XXX i#3090: The parameters for NtMapViewOfSectionEx are undocumented.
     */
     ASSERT_CURIOSITY("unimplemented post handler for NtMapViewOfSectionEx");
 }
@@ -4294,7 +4295,7 @@ postsys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success
     if (dcontext->expect_last_syscall_to_fail) {
         ASSERT(!success);
     } else {
-        /* FIXME : try to recover if the syscall fails, could re-walk this
+        /* XXX : try to recover if the syscall fails, could re-walk this
          * region but that gets us in trouble with the stateful policies */
         ASSERT_CURIOSITY(success || !is_phandle_me(process_handle));
     }
@@ -4305,7 +4306,7 @@ postsys_UnmapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success
     if (DYNAMO_OPTION(unloaded_target_exception) && is_phandle_me(process_handle)) {
         app_pc base = (app_pc)postsys_param(dcontext, param_base, 1);
         /* We always mark end of unmap no matter what the original
-         * section really was.  FIXME: Note we can't get the real_base
+         * section really was.  XXX: Note we can't get the real_base
          * of the allocation, unless we keep it in dcontext from
          * presys_UnmapViewOfSection, but we don't really need it in
          * release build.  We don't care about success or !success
@@ -4398,7 +4399,7 @@ post_system_call(dcontext_t *dcontext)
         HANDLE thread_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
         thread_id_t tid = thread_handle_to_tid(thread_handle);
         ASSERT(tid != 0xFFFFFFFF);
-        /* FIXME : we modified the passed in context, we should restore it
+        /* XXX : we modified the passed in context, we should restore it
          * to app state (same for SYS_Continue though is more difficult there)
          */
         if (tid != d_r_get_thread_id()) {
@@ -4487,9 +4488,9 @@ post_system_call(dcontext_t *dcontext)
         postsys_DuplicateObject(dcontext, param_base, success);
 #ifdef DEBUG
         /* Check to see if any system calls for which we did non-reversible
-         * processing in pre_system_call() failed. FIXME : handle failure
+         * processing in pre_system_call() failed. XXX : handle failure
          * cases as needed */
-        /* FIXME : because of our stateless apc handling we can't check
+        /* XXX : because of our stateless apc handling we can't check
          * SYS_Continue for success (all syscalls interrupted by an APC will
          * look like a continue at post)
          */
@@ -4498,12 +4499,12 @@ post_system_call(dcontext_t *dcontext)
          * STATUS_CALLBACK_POP_STACK (case 10579) */
         ASSERT_CURIOSITY((NTSTATUS)postsys_param(dcontext, param_base, 2) ==
                          STATUS_CALLBACK_POP_STACK);
-        /* FIXME: should provide a routine to swap the dcontexts back so we can
+        /* XXX: should provide a routine to swap the dcontexts back so we can
          * handle any future cases like case 10579 */
     } else if (sysnum == syscalls[SYS_TerminateProcess]) {
         HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 0);
         NTSTATUS exit_status = (NTSTATUS)postsys_param(dcontext, param_base, 1);
-        /* FIXME : no way to recover if syscall fails and handle is 0 or us */
+        /* XXX : no way to recover if syscall fails and handle is 0 or us */
         /* Don't allow success && handle == us since we should never get here
          * in that case */
         ASSERT((process_handle == 0 && success) || !is_phandle_me(process_handle));
@@ -4514,7 +4515,7 @@ post_system_call(dcontext_t *dcontext)
             thread_id_t tid = thread_handle_to_tid(thread_handle);
             process_id_t pid = thread_handle_to_pid(thread_handle, tid);
             ASSERT(tid != d_r_get_thread_id()); /* not current thread */
-            /* FIXME : if is thread in this process and syscall fails then
+            /* XXX : if is thread in this process and syscall fails then
              * no way to recover since we already cleaned up the thread */
             /* Don't allow success && handle == us since we should never get
              * here in that case */
@@ -4529,7 +4530,7 @@ post_system_call(dcontext_t *dcontext)
     } else if (sysnum == syscalls[SYS_CreateThread]) {
         HANDLE process_handle = (HANDLE)postsys_param(dcontext, param_base, 3);
         CONTEXT *cxt = (CONTEXT *)postsys_param(dcontext, param_base, 5);
-        /* FIXME : we are going to read cxt, this is potentially unsafe */
+        /* XXX : we are going to read cxt, this is potentially unsafe */
         if (is_first_thread_in_new_process(process_handle, cxt)) {
             /* we might have tried to inject into the process with this
              * new thread, assert curiosity to see if this ever fails */
@@ -4543,7 +4544,7 @@ post_system_call(dcontext_t *dcontext)
         if (dcontext->expect_last_syscall_to_fail) {
             ASSERT(!success);
         } else {
-            /* FIXME i#148: try to recover if the syscall fails, could re-walk this
+            /* XXX i#148: try to recover if the syscall fails, could re-walk this
              * region but that gets us in trouble with the stateful policies */
             ASSERT_CURIOSITY_ONCE(success || !is_phandle_me(process_handle));
             ;
@@ -4553,7 +4554,7 @@ post_system_call(dcontext_t *dcontext)
         if (dcontext->expect_last_syscall_to_fail) {
             ASSERT(!success);
         } else {
-            /* FIXME : try to recover if the syscall fails, could re-walk this
+            /* XXX : try to recover if the syscall fails, could re-walk this
              * region but that gets us in trouble with the stateful policies */
             ASSERT_CURIOSITY(success || !is_phandle_me(process_handle));
         }

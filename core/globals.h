@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,7 +81,7 @@
 #    pragma warning( \
         disable : 4159) // #pragma pack has popped previously pushed identifier
 
-/* FIXME case 191729: this is coming from our own code.  We could
+/* XXX case 191729: this is coming from our own code.  We could
  * switch to the _s versions when on Windows.
  */
 #    pragma warning(disable : 4996) //'sscanf' was declared deprecated
@@ -191,7 +191,7 @@ typedef unsigned long ulong;
 #    define ALT_DIRSEP DIRSEP
 #endif
 
-/* FIXME: what is range of thread_id_t on linux and on win32?
+/* XXX: what is range of thread_id_t on linux and on win32?
  * linux routines use -1 as sentinel, right?
  * on win32, are ids only 16 bits?
  * if so, change thread_id_t to be a signed int and use -1?
@@ -373,7 +373,7 @@ typedef struct _client_data_t {
      * the client is in client library code.  For dr_mutex_lock() we set client_grab_mutex
      * to the client mutex that is being locked so that we can set
      * client_thread_safe_for_sync only around the actual wait.
-     * FIXME - PR 231301, we may need a way for clients that call ntdll directly to
+     * XXX - PR 231301, we may need a way for clients that call ntdll directly to
      * mark client_thread_safe_for_synch for client-owned threads when calling out to
      * ntdll. Especially if they're calling system calls that wait or take a long time
      * to finish etc. Applies to generated code and other libraries called by the client
@@ -413,6 +413,9 @@ typedef struct _client_data_t {
      * but only upon failures.
      */
     dr_error_code_t error_code;
+
+    /* Flag for dr_invoke_syscall_as_app(). */
+    bool skip_client_syscall_events;
 } client_data_t;
 
 #ifdef UNIX
@@ -666,7 +669,7 @@ enum {
 /* Number of nested calls into native modules that we support.  This number
  * needs to equal the number of stubs in x86.asm:back_from_native_retstubs,
  * which is checked at startup in native_exec.c.
- * FIXME: Remove this limitation if we ever need to support true mutual
+ * XXX: Remove this limitation if we ever need to support true mutual
  * recursion between native and non-native modules.
  */
 enum { MAX_NATIVE_RETSTACK = 10 };
@@ -678,7 +681,7 @@ typedef struct _retaddr_and_retloc_t {
 
 /* To handle TRY/EXCEPT/FINALLY setjmp */
 typedef struct try_except_context_t {
-    /* FIXME: we are using a local dr_jmp_buf which is relatively
+    /* XXX: we are using a local dr_jmp_buf which is relatively
      * small so minimal risk of dstack pressure.  Alternatively, we
      * can disallow nesting and have a single buffer per dcontext.
      */
@@ -763,7 +766,7 @@ struct _dcontext_t {
     /* The next application pc to execute.
      * Also used to store the cache pc to execute when entering the code cache,
      * and set to the sentinel value BACK_TO_NATIVE_AFTER_SYSCALL for native_exec.
-     * FIXME: change to a union?
+     * XXX: change to a union?
      */
     app_pc next_tag;
 
@@ -788,7 +791,7 @@ struct _dcontext_t {
     byte *teb_base;
     /* storage for an extra app value around sysenter system calls for the
      * case 5441 Sygate interoperability hack */
-    /* FIXME - this needs to be moved into the upcontext as is written to
+    /* XXX - this needs to be moved into the upcontext as is written to
      * in cache by ignore/shared_syscall, ramifications? */
     app_pc sysenter_storage;
 
@@ -819,7 +822,7 @@ struct _dcontext_t {
 
     /************* end of offset-crucial fields *********************/
 
-    /* FIXME: now that we initialize a new thread's dcontext right away, and
+    /* XXX: now that we initialize a new thread's dcontext right away, and
      * a new callback's as well, we should be able to get rid of this
      */
     bool initialized; /* has this context been used yet? */
@@ -968,7 +971,7 @@ struct _dcontext_t {
     bool is_client_thread_exiting;
 #endif
 
-    /* FIXME trace_sysenter_exit is used to capture an exit from a trace that
+    /* XXX trace_sysenter_exit is used to capture an exit from a trace that
      * ends in a SYSENTER and to enable trace head marking. So it's really a
      * monitor-centric variable. It's placed in the context for now so that
      * it's not shared across contexts (as the monitor data is). Cross-context
@@ -1006,7 +1009,7 @@ struct _dcontext_t {
      * generic_nudge_target).  We can then check this
      * value in those routines after we come out of the cache as a security
      * measure (xref case 552).  This gives us some protection against an
-     * attacker leveraging our own detach routines and the like.  FIXME - if
+     * attacker leveraging our own detach routines and the like.  XXX - if
      * the attacker is able to specify the start address for a newly created
      * thread then they can fake this. */
     void *nudge_target;
@@ -1068,7 +1071,7 @@ struct _dcontext_t {
  */
 #define GLOBAL_DCONTEXT ((dcontext_t *)PTR_UINT_MINUS_1)
 
-/* FIXME: why do we need to force the inline for this simple function? */
+/* XXX: why do we need to force the inline for this simple function? */
 static INLINE_FORCED priv_mcontext_t *
 get_mcontext(dcontext_t *dcontext)
 {

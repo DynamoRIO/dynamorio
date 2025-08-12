@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -2929,7 +2929,7 @@ drmgr_cls_stack_exit(void *drcontext)
 #ifdef WINDOWS
 /* Determines the syscall from its Nt* wrapper.
  * Returns -1 on error.
- * FIXME: does not handle somebody hooking the wrapper.
+ * XXX: does not handle somebody hooking the wrapper.
  */
 /* XXX: exporting this so drwrap can use it but I might prefer to
  * have this in drutil or the upcoming drsys, especially since

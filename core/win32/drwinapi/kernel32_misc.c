@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,7 +48,7 @@ redirect_SetLastError(__in DWORD dwErrCode)
     set_last_error(dwErrCode);
 }
 
-/* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
+/* XXX i#1063: add the rest of the routines in kernel32_redir.h under
  * Miscellaneous
  */
 

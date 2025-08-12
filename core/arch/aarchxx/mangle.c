@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -419,11 +419,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (cci == NULL)
         cci = &default_clean_call_info;
     if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
-        /* FIXME i#1551: once we add skipping of regs, need to keep shape here.
+        /* XXX i#1551: once we add skipping of regs, need to keep shape here.
          * Also, num_opmask_skip is not applicable to ARM/AArch64.
          */
     }
-    /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
+    /* XXX i#1551: once we have cci->num_simd_skip, skip this if possible */
 #ifdef AARCH64
     ASSERT(proc_num_simd_registers() ==
            (MCXT_NUM_SIMD_SVE_SLOTS +
@@ -791,7 +791,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     PRE(ilist, instr,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP), OPND_CREATE_INT(XSP_SZ)));
 
-    /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
+    /* XXX i#1551: once we have cci->num_simd_skip, skip this if possible */
     PRE(ilist, instr,
         INSTR_CREATE_vldm_wb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP), SIMD_REG_LIST_LEN,
                              SIMD_REG_LIST_0_15));
@@ -881,7 +881,7 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
 
     return get_clean_call_switch_stack_size();
 #else
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1621: NYI on AArch32. */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1621: NYI on AArch32. */
     return 0;
 #endif
 }
@@ -939,7 +939,7 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist, instr_
                                 reg_id_t reg, ushort slot)
 {
 #ifdef AARCH64
-    /* FIXME i#1569: not yet optimized */
+    /* XXX i#1569: not yet optimized */
     PRE(ilist, where, instr_create_save_to_tls(dcontext, reg, slot));
 #else
     instr_t *prev;
@@ -1197,7 +1197,7 @@ void
 mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1551, i#1569 */
 }
 
 #ifndef AARCH64
@@ -1681,7 +1681,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* must be simple cases like "pop pc" */
         ASSERT(opnd_is_base_disp(memop));
         ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_PC);
-        /* FIXME i#1551: on A32, ldm* can have only one reg in the reglist,
+        /* XXX i#1551: on A32, ldm* can have only one reg in the reglist,
          * i.e., "ldm r10, {pc}" is valid, so we should check dr_reg_stolen usage.
          */
         ASSERT_NOT_IMPLEMENTED(!opnd_uses_reg(memop, dr_reg_stolen));
@@ -1775,7 +1775,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         remove_instr = true;
     } else if (opc == OP_rfe || opc == OP_rfedb || opc == OP_rfeda || opc == OP_rfeib ||
                opc == OP_eret) {
-        /* FIXME i#1551: NYI on ARM */
+        /* TODO i#1551: NYI on ARM */
         ASSERT_NOT_IMPLEMENTED(false);
     } else {
         /* Explicitly writes just the pc */
@@ -1870,7 +1870,7 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
     if (should_restore != NULL)
         *should_restore = true;
 
-#ifndef AARCH64 /* FIXME i#1569: not yet optimized */
+#ifndef AARCH64 /* XXX i#1569: not yet optimized */
     if (find_prior_scratch_reg_restore(dcontext, instr, &reg) != NULL &&
         reg != REG_NULL && !instr_uses_reg(instr, reg) &&
         !reg_overlap(reg, do_not_pick_a) && !reg_overlap(reg, do_not_pick_b) &&
@@ -2197,7 +2197,7 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     ASSERT(!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen));
 
-#ifndef AARCH64 /* FIXME i#1569: recognise "move" on AArch64 */
+#ifndef AARCH64 /* XXX i#1569: recognise "move" on AArch64 */
     /* optimization, convert simple mov to ldr/str:
      * - "mov r0  -> r10"  ==> "str r0 -> [r10_slot]"
      * - "mov r10 -> r0"   ==> "ldr [r10_slot] -> r0"
@@ -2549,7 +2549,7 @@ normalize_ldm_instr(dcontext_t *dcontext, instr_t *instr, /* ldm */
     dr_pred_type_t pred = instr_get_predicate(instr);
     app_pc pc = get_app_instr_xl8(instr);
 
-    /* FIXME i#1551: NYI on case like "ldm r10, {r10, pc}": if base reg
+    /* TODO i#1551: NYI on case like "ldm r10, {r10, pc}": if base reg
      * is clobbered, "ldr pc [base, disp]" will use wrong base value.
      * It seems the only solution is load the target value first and store
      * it into some TLS slot for later "ldr pc".
@@ -2958,7 +2958,7 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
         PRE(ilist, instr, bound_start);
     }
 
-    /* FIXME i#1551: for indirect branch mangling, we first mangle the instr here
+    /* XXX i#1551: for indirect branch mangling, we first mangle the instr here
      * for possible pc read and dr_reg_stolen read/write,
      * and leave pc write mangling later in mangle_indirect_jump, which is
      * error-prone and inefficient.
@@ -2994,11 +2994,30 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 void
 float_pc_update(dcontext_t *dcontext)
 {
-    /* FIXME i#1551, i#1569: NYI on ARM */
+    /* TODO i#1551, i#1569: NYI on ARM */
     ASSERT_NOT_REACHED();
 }
 
 #ifdef AARCH64
+void
+mangle_ctr_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    if (instr_get_opcode(instr) == OP_mrs && instr_num_srcs(instr) == 1 &&
+        opnd_is_reg(instr_get_src(instr, 0)) &&
+        opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_CTR_EL0 &&
+        instr_num_dsts(instr) == 1 && opnd_is_reg(instr_get_dst(instr, 0))) {
+        // Insert an AND (immediate) instruction after the MRS so that the
+        // app thinks the bit is clear. This will (one hopes) make the app
+        // execute the OP_ic_ivau instruction that DynamoRIO currently relies
+        // on for detecting code modifications.
+        const int CTR_EL0_DIC_BIT = 29;
+        reg_t reg = opnd_get_reg(instr_get_dst(instr, 0));
+        POST(ilist, instr,
+             INSTR_CREATE_and(dcontext, opnd_create_reg(reg), opnd_create_reg(reg),
+                              OPND_CREATE_INT64(~(1UL << CTR_EL0_DIC_BIT))));
+    }
+}
+
 instr_t *
 mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr, app_pc pc)

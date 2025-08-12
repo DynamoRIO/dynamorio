@@ -481,7 +481,7 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         }
 #    elif defined(ARM)
         if (ibl_name == NULL && in_coarse_stub_prefixes(target)) {
-            /* FIXME i#1575: NYI on ARM */
+            /* TODO i#1575: NYI on ARM */
             ASSERT_NOT_IMPLEMENTED(false);
         }
 #    endif
@@ -559,7 +559,7 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
             /* Unfortunately our fast lookup by fcache unit has lock
              * ordering issues which we get around by using the htable
              * method, though that won't find invisible fragments
-             * (FIXME: for those could perhaps pass in a pointer).
+             * (XXX: for those could perhaps pass in a pointer).
              * For !DEADLOCK_AVOIDANCE, OWN_MUTEX's conservative imprecision
              * is fine.
              */
@@ -954,7 +954,7 @@ disassemble_with_bytes(dcontext_t *dcontext, byte *pc, file_t outfile)
 /* Disassembles a single instruction, optionally printing its pc (if show_pc)
  * and its raw bytes (show_bytes) beforehand.
  * Returns the pc of the next instruction.
- * FIXME: vs disassemble_with_bytes -- didn't want to update all callers
+ * XXX: vs disassemble_with_bytes -- didn't want to update all callers
  * so leaving, though should probably remove.
  * Returns NULL if the instruction at pc is invalid.
  */
@@ -1270,7 +1270,7 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT
         return;
     } else if (instr_opcode_valid(instr)) {
 #ifdef AARCH64
-        /* We do not use instr_info_t encoding info on AArch64. FIXME i#1569 */
+        /* We do not use instr_info_t encoding info on AArch64. XXX i#1569 */
         name = get_opcode_name(instr_get_opcode(instr));
 #else
         const instr_info_t *info = instr_get_instr_info(instr);
@@ -1411,7 +1411,7 @@ exit_stub_type_desc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         if (EXIT_IS_JMP(l->flags))
             return "jmp/jcc";
         return "fall-through/speculated/IAT";
-        /* FIXME: mark these appropriately */
+        /* XXX: mark these appropriately */
     } else {
         CLIENT_ASSERT(LINKSTUB_INDIRECT(l->flags), "invalid exit stub");
         if (TEST(LINK_RETURN, l->flags))
@@ -1472,7 +1472,7 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
             (TEST(FRAG_MUST_END_TRACE, f->flags)) ? ", must end trace" : "",
             (TEST(FRAG_CANNOT_DELETE, f->flags)) ? ", cannot delete" : "");
 
-        DOLOG(2, LOG_SYMBOLS, { /* FIXME: affects non-logging uses... dump_traces, etc. */
+        DOLOG(2, LOG_SYMBOLS, { /* XXX: affects non-logging uses... dump_traces, etc. */
                                 char symbolbuf[MAXIMUM_SYMBOL_LENGTH];
                                 print_symbolic_address(f->tag, symbolbuf,
                                                        sizeof(symbolbuf), false);

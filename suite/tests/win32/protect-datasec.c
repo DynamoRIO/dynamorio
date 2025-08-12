@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -168,7 +168,7 @@ main()
         for (i = 0; i < DATASEC_NUM; i++) {
             byte *start, *end, *pc;
             bool found = get_named_section_bounds(DR_base,
-                                                  /*FIXME use drmarker to find*/
+                                                  /*XXX use drmarker to find*/
                                                   datasec_names[i], &start, &end);
             assert(found);
 #if VERBOSE

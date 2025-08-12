@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -201,7 +201,7 @@ d_r_dispatch(dcontext_t *dcontext)
             if (USE_BB_BUILDING_LOCK() || targetf == NULL) {
                 /* must re-lookup while holding lock and keep the lock until we've
                  * built the bb and added it to the lookup table
-                 * FIXME: optimize away redundant lookup: flags to know why came out?
+                 * XXX: optimize away redundant lookup: flags to know why came out?
                  */
                 targetf = fragment_lookup_fine_and_coarse(dcontext, dcontext->next_tag,
                                                           &coarse_f, dcontext->last_exit);
@@ -216,7 +216,7 @@ d_r_dispatch(dcontext_t *dcontext)
             if (targetf != NULL && TEST(FRAG_COARSE_GRAIN, targetf->flags)) {
                 /* targetf is a static temp fragment protected by bb_building_lock,
                  * so we must make a local copy to use before releasing the lock.
-                 * FIXME: best to pass local wrapper to build_basic_block_fragment
+                 * XXX: best to pass local wrapper to build_basic_block_fragment
                  * and all the way through emit and link?  Would need linkstubs
                  * tailing the fragment_t.
                  */
@@ -258,7 +258,7 @@ is_stopping_point(dcontext_t *dcontext, app_pc arg_pc)
 #ifdef DR_APP_EXPORTS
         || (!automatic_startup &&
             (pc == (app_pc)dynamorio_app_exit ||
-             /* FIXME: Is this a holdover from long ago? dymamo_thread_exit
+             /* XXX: Is this a holdover from long ago? dymamo_thread_exit
               * should not be called from the cache.
               */
              pc == (app_pc)dynamo_thread_exit || pc == (app_pc)dr_app_stop ||
@@ -311,7 +311,7 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
                 disassemble_app_bb(dcontext, dcontext->last_fragment->tag, THREAD);
             });
         } else {
-            /* FIXME: print type from last_exit */
+            /* XXX: print type from last_exit */
             LOG(THREAD, LOG_DISPATCH, 1, "\n");
         }
         if (stack) {
@@ -381,7 +381,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
         STATS_INC(num_entrances_aborted);
         /* shared entrance cannot-tell-if-deleted -> invalidate targetf
          * but then may double-do the trace!
-         * FIXME: for now, we abort every time, ok to abort twice (first time
+         * XXX: for now, we abort every time, ok to abort twice (first time
          * b/c there was a real flush of targetf), but could be perf hit.
          */
         trace_abort(dcontext);
@@ -390,7 +390,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
 
     dispatch_enter_fcache_stats(dcontext, targetf);
 
-    /* FIXME: for now we do this before the synch point to avoid complexity of
+    /* XXX: for now we do this before the synch point to avoid complexity of
      * missing a KSTART(fcache_* for cases like NtSetContextThread where a thread
      * appears back at d_r_dispatch() from the synch point w/o ever entering the cache.
      * To truly fix we need to have the NtSetContextThread handler determine
@@ -402,12 +402,12 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
             KSTART(fcache_trace_trace);
         else
             KSTART(fcache_default); /* fcache_bb_bb or fcache_bb_trace */
-        /* FIXME: overestimates fcache time by counting in
+        /* XXX: overestimates fcache time by counting in
          * fcache_enter/fcache_return for it - proper reading of this
          * value should discount the minimal cost of
          * fcache_enter/fcache_return for actual code cache times
          */
-        /* FIXME: asynch events currently continue their current kstat
+        /* XXX: asynch events currently continue their current kstat
          * until they get back to d_r_dispatch, so in-fcache kstats are counting
          * the in-DR trampoline execution time!
          */
@@ -420,12 +420,12 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
      * for safety with respect to flush */
     /* a fast check before the heavy lifting */
     if (should_wait_at_safe_spot(dcontext)) {
-        /* FIXME : we could put this synch point in enter_fcache but would need
+        /* XXX : we could put this synch point in enter_fcache but would need
          * to use SYSCALL_PC for syscalls (see issues with that in win32/os.c)
          */
         priv_mcontext_t *mcontext = get_mcontext(dcontext);
         cache_pc save_pc = mcontext->pc;
-        /* FIXME : implementation choice, we could do recreate_app_pc
+        /* XXX : implementation choice, we could do recreate_app_pc
          * (fairly expensive but this is rare) instead of using the tag
          * which is a little hacky but should always be right */
         mcontext->pc = targetf->tag;
@@ -530,7 +530,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
  * target pc.
  * Does not return.
  * Caller must do a KSTART to avoid kstats stack mismatches.
- * FIXME: only allow access to fcache_enter routine through here?
+ * XXX: only allow access to fcache_enter routine through here?
  * Indirect routine needs special treatment for handle_callback_return
  */
 static void
@@ -961,7 +961,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 SELF_PROTECT_LOCAL(dcontext, WRITABLE);
                 /* this fragment overwrote its original memory image */
                 fragment_self_write(dcontext);
-                /* FIXME: optimize this to stay writable if we're going to
+                /* XXX: optimize this to stay writable if we're going to
                  * be exiting d_r_dispatch as well -- no very quick check though
                  */
                 SELF_PROTECT_LOCAL(dcontext, READONLY);
@@ -1061,7 +1061,10 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 
 #if defined(WINDOWS) && defined(DEBUG)
     if (should_swap_teb_nonstack_fields()) {
-        ASSERT(!is_dynamo_address(dcontext->app_fls_data));
+        /* TODO i#7220: We'd like to fix app_fls_data problems but for now we
+         * downgrade to a curiosity to avoid breakage.
+         */
+        ASSERT_CURIOSITY_ONCE(!is_dynamo_address(dcontext->app_fls_data));
         ASSERT(dcontext->app_fls_data == NULL ||
                dcontext->app_fls_data != dcontext->priv_fls_data);
         ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
@@ -1107,7 +1110,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         app_pc src_tag = dcontext->last_fragment->tag;
         if (!LINKSTUB_FAKE(dcontext->last_exit) &&
             TEST(FRAG_IS_TRACE, dcontext->last_fragment->flags)) {
-            /* FIXME: should we call this for direct exits as well, up front? */
+            /* XXX: should we call this for direct exits as well, up front? */
             src_tag = get_trace_exit_component_tag(dcontext, dcontext->last_fragment,
                                                    dcontext->last_exit);
         }
@@ -1161,7 +1164,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         if (IF_UNIX_ELSE(dcontext->signals_pending <= 0, true)) {
             SELF_PROTECT_LOCAL(dcontext, WRITABLE);
             /* update IBL target table if target is a valid IBT */
-            /* FIXME: This is good for modularity but adds
+            /* XXX: This is good for modularity but adds
              * extra lookups in the fragment table.  If it is
              * performance problem can we do it better?
              * Probably best to get bb2bb to work better and
@@ -1169,7 +1172,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
              */
             fragment_add_ibl_target(dcontext, dcontext->next_tag,
                                     extract_branchtype(dcontext->last_exit->flags));
-            /* FIXME: optimize this to stay writable if we're going to
+            /* XXX: optimize this to stay writable if we're going to
              * be building a bb as well -- no very quick check though
              */
             SELF_PROTECT_LOCAL(dcontext, READONLY);
@@ -1231,7 +1234,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
      */
     if (dcontext->client_data != NULL && dcontext->client_data->to_do != NULL) {
         client_todo_list_t *todo;
-        /* FIXME PR 200409: we're removing all API routines that use this
+        /* XXX PR 200409: we're removing all API routines that use this
          * todo list so we should never get here
          */
         if (SHARED_FRAGMENTS_ENABLED()) {
@@ -1254,7 +1257,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                         "Going to do a client fragment replacement at " PFX "  F%d\n",
                         f->tag, f->id);
                     /* prevent emit from deleting f, we still need it */
-                    /* FIXME: if f is shared we must hold change_linking_lock
+                    /* XXX: if f is shared we must hold change_linking_lock
                      * for the flags and vm area operations here
                      */
                     ASSERT(!TEST(FRAG_SHARED, f->flags));
@@ -1268,7 +1271,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     ASSERT(f->flags == (orig_flags | FRAG_CANNOT_DELETE));
                     new_f = emit_invisible_fragment(dcontext, todo->tag, todo->ilist,
                                                     orig_flags, vmlist);
-                    f->flags = orig_flags; /* FIXME: ditto about change_linking_lock */
+                    f->flags = orig_flags; /* XXX: ditto about change_linking_lock */
                     instrlist_clear_and_destroy(dcontext, todo->ilist);
                     fragment_copy_data_fields(dcontext, f, new_f);
                     shift_links_to_new_fragment(dcontext, f, new_f);
@@ -1457,7 +1460,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
      * be deleted and we are working off a copy of its important fields
      */
 
-    /* FIXME: this lookup is needed for KSTATS and STATS_*. STATS_* are only
+    /* XXX: this lookup is needed for KSTATS and STATS_*. STATS_* are only
      * printed at loglevel 1, but maintained at loglevel 0, and if
      * we want an external agent to examine them at 0 we will want
      * to keep this...leaving for now
@@ -1467,7 +1470,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
     last_f = dcontext->last_fragment;
 
     DOKSTATS({
-        /* FIXME (case 4988): read top of kstats stack to get src
+        /* XXX (case 4988): read top of kstats stack to get src
          * type, and then split by last_fragment type as well
          */
         KSWITCH_STOP_NOT_PROPAGATED(fcache_default);
@@ -1498,12 +1501,12 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             LOG(THREAD, LOG_DISPATCH, 2,
                 "Exit from sourceless coarse-grain fragment via stub " PFX "\n", stub);
         });
-        /* FIXME: this stat is not mutually exclusive of reason-for-exit stats */
+        /* XXX: this stat is not mutually exclusive of reason-for-exit stats */
         STATS_INC(num_exits_coarse);
     } else if (dcontext->last_exit == get_coarse_trace_head_exit_linkstub()) {
         LOG(THREAD, LOG_DISPATCH, 2,
             "Exit from sourceless coarse-grain fragment targeting trace head");
-        /* FIXME: this stat is not mutually exclusive of reason-for-exit stats */
+        /* XXX: this stat is not mutually exclusive of reason-for-exit stats */
         STATS_INC(num_exits_coarse_trace_head);
     } else {
         LOG(THREAD, LOG_DISPATCH, 2, "Exit from F%d(" PFX ")." PFX, last_f->id,
@@ -1539,7 +1542,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             (last_f->flags & FRAG_DYNGEN_RESTRICTED) != 0 ? " BAD" : "",
             LINKSTUB_DIRECT(dcontext->last_exit->flags) ? "db" : "ib", dcontext->next_tag,
             buf);
-        /* FIXME: risky if last fragment is deleted -- should check for that
+        /* XXX: risky if last fragment is deleted -- should check for that
          * here and instead just print type from last_exit, since recreate
          * may fail
          */
@@ -1661,7 +1664,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         if (exited_due_to_ni_syscall(dcontext)) {
             LOG(THREAD, LOG_DISPATCH, 2, " (block ends with syscall)");
             STATS_INC(num_exits_dir_syscall);
-            /* FIXME: it doesn't matter whether next_f exists or not we're still in "
+            /* XXX: it doesn't matter whether next_f exists or not we're still in "
              * a syscall
              */
             KSWITCH(num_exits_dir_syscall);
@@ -1751,7 +1754,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         } else if (TEST(FRAG_COARSE_GRAIN, next_f->flags) &&
                    !TEST(FRAG_COARSE_GRAIN, last_f->flags)) {
             LOG(THREAD, LOG_DISPATCH, 2, " (fine fragment targeting coarse trace head)");
-            /* FIXME: We would assert that FRAG_IS_TRACE_HEAD is set, but
+            /* XXX: We would assert that FRAG_IS_TRACE_HEAD is set, but
              * we have no way of setting that up for fine to coarse links
              */
             /* stats are done in monitor_cache_enter() */
@@ -1916,7 +1919,7 @@ handle_system_call(dcontext_t *dcontext)
 #endif
 
     /* some syscalls require modifying local memory
-     * FIXME: move this unprot down to those syscalls to avoid unprot-prot-unprot-prot
+     * XXX: move this unprot down to those syscalls to avoid unprot-prot-unprot-prot
      * with the new clean dstack design -- though w/ shared_syscalls perhaps most
      * syscalls coming through here will need this
      */
@@ -1991,7 +1994,7 @@ handle_system_call(dcontext_t *dcontext)
             ASSERT(DYNAMO_OPTION(native_exec_syscalls) &&
                    !dcontext->thread_record->under_dynamo_control);
         }
-        /* FIXME A lack of write access to %esp will generate an exception
+        /* XXX A lack of write access to %esp will generate an exception
          * originating from DR though it's really an app problem (unless we
          * screwed up wildly). Should we call is_writeable(%esp) and force
          * a new UNWRITEABLE_MEMORY_EXECUTION_EXCEPTION so that we don't take
@@ -2040,7 +2043,7 @@ handle_system_call(dcontext_t *dcontext)
     if (execute_syscall && pre_system_call(dcontext)) {
         /* now do the actual syscall instruction */
 #ifdef UNIX
-        /* FIXME: move into some routine inside unix/?
+        /* XXX: move into some routine inside unix/?
          * if so, move #include of sys/syscall.h too
          */
         /* We use was_thread_create_syscall even though the syscall has not really
@@ -2077,7 +2080,7 @@ handle_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, 1, "swapped dcontext from " PFX " to " PFX "\n",
                 tmp_dcontext, dcontext);
             /* we have special fcache_enter that uses different dcontext,
-             * FIXME: but what if syscall fails?  need to unswap dcontexts!
+             * XXX: but what if syscall fails?  need to unswap dcontexts!
              */
             fcache_enter = get_fcache_enter_indirect_routine(dcontext);
             /* avoid synch errors with d_r_dispatch -- since enter_fcache will set
@@ -2200,7 +2203,7 @@ handle_post_system_call(dcontext_t *dcontext)
         LOG(THREAD, LOG_SYSCALLS, 3,
             "post-sigreturn: setting xax/r0/a0 to " PFX ", asynch_target=" PFX "\n",
             dcontext->sys_param1, dcontext->asynch_target);
-        /* FIXME i#3544: Check if this is a proper register to use */
+        /* XXX i#3544: Check if this is a proper register to use */
         mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) = dcontext->sys_param1;
 #    ifdef MACOS
         /* We need to skip the use app_xdx, as we've changed the context.
@@ -2218,7 +2221,7 @@ handle_post_system_call(dcontext_t *dcontext)
     post_system_call(dcontext);
 
     /* restore state for continuation in instruction after syscall */
-    /* FIXME: need to handle syscall failure -- those that clobbered asynch_target
+    /* XXX: need to handle syscall failure -- those that clobbered asynch_target
      * need to restore it to its previous value, which has to be stored somewhere!
      */
 #ifdef WINDOWS

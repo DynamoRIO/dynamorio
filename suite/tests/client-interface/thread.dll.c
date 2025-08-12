@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -106,7 +106,7 @@ static TLS_ATTR int tls = 42;
 static void
 thread_func(void *arg)
 {
-    /* FIXME: should really test corner cases: do raw system calls, etc. to
+    /* XXX: should really test corner cases: do raw system calls, etc. to
      * ensure we're treating it as a true native thread
      */
     ASSERT(arg == THREAD_ARG);
@@ -155,7 +155,7 @@ at_instruction(uint opc, app_pc tag)
            dr_get_process_id() + 1 /*we added 1 inline*/);
     dr_set_tls_field(dr_get_current_drcontext(), (void *)(ptr_uint_t)dr_get_process_id());
     num_times_opcode_encountered++;
-    /* FIXME: should do some fp ops and really test the fp state preservation */
+    /* XXX: should do some fp ops and really test the fp state preservation */
 }
 
 static dr_emit_flags_t

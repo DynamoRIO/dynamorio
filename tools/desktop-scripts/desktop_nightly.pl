@@ -33,7 +33,7 @@
 # NOTE: ASSUMES drview, drcontrol, svccntrl and perl are in path
 # NOTE: ASSUMES c:\desktop-nightly\boot_data_scripts and
 #               c:\desktop-nightly\boot_data exist  #TODO do a mkdir
-# NOTE: ASSUMES this script is in c:\desktop-nightly\boot_data_scripts #FIXME
+# NOTE: ASSUMES this script is in c:\desktop-nightly\boot_data_scripts #XXX
 #
 # To run:
 #   1. Setup $NIGHTLY_DIR and $NIGHTLY_SUMMARY to your liking
@@ -86,7 +86,7 @@ print "$PROG: measuring memory until cpu utilization is <= 2%\n";
 # run it three times to see noise
 my $NIGHTLY_DIR = qq(\\\\10.1.5.85\\g_shares\\desktop-nightly\\results\\boot_data\\nightly3);
 
-#FIXME this works?
+#XXX this works?
 #mkdir $NIGHTLY_DIR unless (-d $NIGHTLY_DIR)
 
 my $NIGHTLY_SUMMARY = qq(qatest_xp_nightly_summary.txt);

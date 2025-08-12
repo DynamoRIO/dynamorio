@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -97,6 +97,7 @@ protected:
     int
     find_emptiest_core(std::vector<int> &counts) const;
 
+    // Returns INVALID_CORE_INDEX during headers before the first cpuid marker is seen.
     virtual int
     core_for_thread(memref_tid_t tid);
 
@@ -145,6 +146,7 @@ protected:
     std::vector<int> cpu_counts_;
     std::vector<int> thread_counts_;
     std::vector<int> thread_ever_counts_;
+    int non_marker_count_ = 0;
 
     // For virtual to physical page mappings.
     size_t page_size_ = 0;

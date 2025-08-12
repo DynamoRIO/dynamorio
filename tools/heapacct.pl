@@ -33,7 +33,7 @@
 # Prints out summary of memory statistics from a global log file
 # This script is a merger of old heapacct.pl and new memsummary.sh
 
-# FIXME: add cmd line arg -v
+# XXX: add cmd line arg -v
 $verbose = 0;
 $debug = 0;
 
@@ -120,7 +120,7 @@ if (!defined($p{'Peak heap align space'})) {
     $pnm[$pnms++]='(Estimated) Peak heap align space';
     $p{$pnm[$pnms-1]} = $align;
 }
-# FIXME: don't have peak
+# XXX: don't have peak
 $pnm[$pnms++]='(Estimated) Peak heap headers';
 $p{$pnm[$pnms-1]} = $header;
 
@@ -144,13 +144,13 @@ if ($verbose) {
     printf "Adding align %10d\n", $p{'Peak heap align space'}/1024;
     $hsum += $p{'Peak heap align space'}/1024;
     $hsum += $p{'Peak special heap capacity'}/1024;
-    # FIXME: this often comes out negative, presumably b/c the heapacct
+    # XXX: this often comes out negative, presumably b/c the heapacct
     # maxes are not all simultaneous
     printf "Rest of heap: %10d KB\n", ($p{'Peak heap capacity'}/1024) - $hsum;
 }
 
 if ($verbose) {
-    # FIXME: could print out detailed bucket info w/ new stats in logfiles
+    # XXX: could print out detailed bucket info w/ new stats in logfiles
     $tot_alloc = $bucket + $variable;
     printf "Tot alloc: %10d\n", $tot_alloc;
     printf "Buckets:   %10d => %7.3f%%\n", $bucket, 100*$bucket/$tot_alloc;

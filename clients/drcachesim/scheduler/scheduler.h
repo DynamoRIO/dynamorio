@@ -740,7 +740,8 @@ public:
          * or concatenated into a single file.
          * Each sequence should be in the regular offline drmemtrace format.
          * The sequence is inserted into the output stream on each context switch
-         * of the indicated type.
+         * of the indicated type. Each record in the inserted sequence holds the
+         * next input stream's tid and pid.
          * The same file (or reader) must be passed when replaying as this kernel
          * code is not stored when recording.
          * An alternative to passing the file path is to pass #kernel_switch_reader
@@ -1059,6 +1060,15 @@ public:
          */
         uint64_t
         get_record_ordinal() const override;
+        /**
+         * Identical to get_record_ordinal() but ignores the
+         * #SCHEDULER_USE_INPUT_ORDINALS flag.
+         */
+        uint64_t
+        get_output_record_ordinal() const
+        {
+            return cur_ref_count_;
+        }
         /**
          * Returns the count of instructions from the start of the trace to this point.
          * For record_scheduler_t, if any encoding records or the internal record

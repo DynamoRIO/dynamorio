@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -504,6 +504,10 @@ void
 drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
                           instr_t *where, reg_id_t dst, reg_id_t src, ushort len);
 
+/***************************************************************************
+ * SCATTER/GATHER EXPANSION
+ */
+
 DR_EXPORT
 /**
  * Expands AVX2 gather and AVX-512 gather and scatter instructions to a sequence of
@@ -537,6 +541,86 @@ DR_EXPORT
  */
 bool
 drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *expanded);
+
+/***************************************************************************
+ * TIME AND TIMER SCALING
+ */
+
+/**
+ * Specifies how much to scale each time-based application behavior.
+ */
+typedef struct _drx_time_scale_t {
+    /**
+     * Users must set this to the structure size.  This provides compatibility when
+     * fields are added.
+     */
+    size_t struct_size;
+    /**
+     * Specifies how much to scale timers set up by the application.
+     * Only positive values are supported.
+     * Each timer's duration (both initial and periodic) is multiplied by this value.
+     */
+    uint timer_scale;
+    /**
+     * Specifies how to scale timeouts passed by the application to system calls.
+     * This is separated from timers to provide more granular control over these
+     * two conceptually different types of delayed actions with often different
+     * application uses and impacts from modifications.
+     * Only positive values are supported.
+     * Each timeout is multiplied by this value.
+     * \note This only supports the Linux nanosleep and clock_nanosleep system calls
+     * at this time.
+     */
+    uint timeout_scale;
+} drx_time_scale_t;
+
+/**
+ * Priorities of drmgr instrumentation passes used for time scaling. Users can use these
+ * priorities in the #drmgr_priority_t "priority" field or the associated names
+ * DRMGR_PRIORITY_NAME_DRX_SCALE* in the #drmgr_priority_t "before" field to ensure
+ * proper instrumentation pass ordering.
+ */
+enum {
+    /** Priority of drx time scaling thread init event: before client. */
+    DRMGR_PRIORITY_THREAD_INIT_DRX_SCALE = -7500,
+    /** Priority of drx time scaling thread exit event: before client. */
+    DRMGR_PRIORITY_THREAD_EXIT_DRX_SCALE = -7500,
+    /** Priority of drx time scaling pre-syscall event: before client. */
+    DRMGR_PRIORITY_PRE_SYS_DRX_SCALE = -7500,
+    /** Priority of drx time post-syscall event: before client. */
+    DRMGR_PRIORITY_POST_SYS_DRX_SCALE = -7500,
+};
+
+/** Name of drx time scaling thread init event priority. */
+#define DRMGR_PRIORITY_NAME_DRX_SCALE_INIT "drx_scale.init"
+/** Name of drx time scaling thread exit event priority. */
+#define DRMGR_PRIORITY_NAME_DRX_SCALE_EXIT "drx_scale.exit"
+/** Name of drx time scaling pre-syscall event priority. */
+#define DRMGR_PRIORITY_NAME_DRX_SCALE_PRE_SYS "drx_scale.pre_sys"
+/** Name of drx time scaling post-syscall event priority. */
+#define DRMGR_PRIORITY_NAME_DRX_SCALE_POST_SYS "drx_scale.post_sys"
+
+DR_EXPORT
+/**
+ * Enables time scaling with the options specified in "options".
+ * Must be called at initialization time.
+ * Can only be called once (until drx_unregister_time_scaling() is called).
+ *
+ * \return whether successful.
+ *
+ * \note Currently Linux-only.
+ */
+bool
+drx_register_time_scaling(drx_time_scale_t *options);
+
+DR_EXPORT
+/**
+ * Disables time scaling and cleans up resources.
+ *
+ * \return whether successful.
+ */
+bool
+drx_unregister_time_scaling();
 
 /**@}*/ /* end doxygen group */
 

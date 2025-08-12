@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -256,7 +256,7 @@ module_copy_os_data(os_module_data_t *dst, os_module_data_t *src);
  * Should clean up and see if these can be shared/obsoleted by the os shared mod list. */
 bool
 os_get_module_info_all_names(const app_pc pc,
-                             /* FIXME PR 215890: does ELF64 use 64-bit timestamp
+                             /* XXX PR 215890: does ELF64 use 64-bit timestamp
                               * or checksum?
                               */
                              uint *checksum, uint *timestamp, size_t *size,
@@ -375,12 +375,12 @@ typedef struct {
      * specified by aslr_short_digest */
     byte short_MD5[MD5_RAW_BYTES];
 
-    /* FIXME: case 4678 about possible NYI subregion checksums
+    /* TODO: case 4678 about possible NYI subregion checksums
      * amenable to lazy evaluation.  Such digests which will be of
      * dynamic size and file offset which will have to be specified
      * here. */
 } module_digest_t;
-/* FIXME: rename since being used for module-independent purposes? */
+/* XXX: rename since being used for module-independent purposes? */
 
 void
 module_calculate_digest(/*OUT*/ module_digest_t *digest, app_pc module_base,

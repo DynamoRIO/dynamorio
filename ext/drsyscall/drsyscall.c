@@ -175,7 +175,8 @@ check_syscall_gateway(instr_t *inst)
                    "multiple system call gateways not supported");
         }
     } else if (instr_get_opcode(inst) == OP_syscall) {
-        if (syscall_gateway == DRSYS_GATEWAY_UNKNOWN)
+        if (syscall_gateway == DRSYS_GATEWAY_UNKNOWN ||
+            syscall_gateway == DRSYS_GATEWAY_INT)
             syscall_gateway = DRSYS_GATEWAY_SYSCALL;
         else {
             ASSERT(syscall_gateway ==
@@ -814,7 +815,7 @@ report_memarg_ex(sysarg_iter_info_t *ii, int ordinal, drsys_param_mode_t mode, a
     drsys_arg_t *arg = ii->arg;
 
 #ifdef UNIX
-    /* FIXME i#1171: this assertion fails on Windows. */
+    /* XXX i#1171: this assertion fails on Windows. */
     ASSERT(sz > 0, "drsyscall shouldn't report empty memargs");
 #endif
 
@@ -1091,7 +1092,7 @@ safe_strnlen(const char *str, size_t max)
     register char *s = (char *)str;
     if (str == NULL)
         return 0;
-    /* FIXME PR 408539: use safe_read(), in a general routine that can be used
+    /* XXX PR 408539: use safe_read(), in a general routine that can be used
      * for SYSARG_SIZE_CSTRING in process_syscall_reads_and_writes()
      */
     while ((s - str) < max && *s != '\0')
@@ -1149,7 +1150,7 @@ handle_sockaddr(cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *ptr, size_t soc
     switch (family) {
 #ifdef WINDOWS
     case AF_UNSPEC: {
-        /* FIXME i#386: I'm seeing 0 (AF_UNSPEC) a lot, e.g., with
+        /* XXX i#386: I'm seeing 0 (AF_UNSPEC) a lot, e.g., with
          * IOCTL_AFD_SET_CONTEXT where the entire sockaddrs are just zero.  Not sure
          * whether to require that anything beyond sa_family be defined.  Sometimes
          * there is further data and the family is set later.  For now ignoring
@@ -1198,7 +1199,7 @@ handle_sockaddr(cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *ptr, size_t soc
             !report_memarg_type(ii, ordinal, arg_flags, (app_pc)&sin6->sin6_addr,
                                 sizeof(sin6->sin6_addr), id, DRSYS_TYPE_STRUCT, NULL))
             return true;
-        /* FIXME: when is sin6_scope_struct used? */
+        /* XXX: when is sin6_scope_struct used? */
         if (socklen >= offsetof(struct sockaddr_in6, sin6_scope_id) +
                     sizeof(sin6->sin6_scope_id) &&
             !report_memarg_type(ii, ordinal, arg_flags, (app_pc)&sin6->sin6_scope_id,
@@ -1457,8 +1458,8 @@ process_pre_syscall_reads_and_writes(cls_syscall_t *pt, sysarg_iter_info_t *ii)
         if (ii->abort)
             break;
 
-        /* FIXME PR 406355: we don't record which params are optional
-         * FIXME: some OUT params may not be written if the IN is bogus:
+        /* XXX PR 406355: we don't record which params are optional
+         * XXX: some OUT params may not be written if the IN is bogus:
          * we should check here since harder to undo post-syscall on failure.
          */
         if (start != NULL && size > 0) {
@@ -1765,7 +1766,7 @@ drsys_iterate_args_common(void *drcontext, cls_syscall_t *pt, syscall_info_t *sy
         arg->type = DRSYS_TYPE_UNKNOWN;
         arg->mode = DRSYS_PARAM_IN;
 
-        /* FIXME i#1089: add type info for the non-memory-complex-type args */
+        /* XXX i#1089: add type info for the non-memory-complex-type args */
         if (!sysarg_invalid(&sysinfo->arg[compacted]) &&
             sysinfo->arg[compacted].param == i) {
             if (SYSARG_MISC_HAS_TYPE(sysinfo->arg[compacted].flags)) {

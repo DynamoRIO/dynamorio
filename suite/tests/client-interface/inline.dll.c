@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
@@ -202,7 +202,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool tra
         /* Default behavior is to call instrumentation with no-args and
          * assert it gets inlined.
          */
-        /* FIXME i#1569: passing instruction operands is NYI on AArch64.
+        /* TODO i#1569: passing instruction operands is NYI on AArch64.
          * We use a workaround involving ADR. */
         IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_start_pc, before_label));
         PRE(bb, entry, before_label);
@@ -216,7 +216,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool tra
     case FN_compiler_inscount:
     case FN_gcc47_inscount:
 #endif
-        /* FIXME i#1569: passing instruction operands is NYI on AArch64.
+        /* TODO i#1569: passing instruction operands is NYI on AArch64.
          * We use a workaround involving ADR. */
         IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_start_pc, before_label));
         PRE(bb, entry, before_label);
@@ -290,7 +290,7 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
         instr_t *before_label;
         instr_t *after_label;
 
-        /* FIXME: We should test passing the app %xsp to an inlined function,
+        /* XXX: We should test passing the app %xsp to an inlined function,
          * but I hesitate to store a non-stack location in XSP.
          */
         if (reg == DR_REG_XSP)

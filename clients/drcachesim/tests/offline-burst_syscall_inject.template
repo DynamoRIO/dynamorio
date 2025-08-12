@@ -20,10 +20,10 @@ Output format:
            4           0:       W0.T1 <marker: page size 4096>
            5           0:       W0.T1 <marker: timestamp 1>
 #ifdef X86
-           6           0:       W0.T1 <marker: trace start for system call number 39>
+           6           0:       W0.T1 <marker: trace start for system call number 324>
            7           1:       W0.T1 ifetch       1 byte\(s\) @ 0x00000000deadbe00 90                   nop
            8           2:       W0.T1 ifetch       2 byte\(s\) @ 0x00000000deadbe01 0f 07                sysret \(target 0xf00d\)
-           9           2:       W0.T1 <marker: trace end for system call number 39>
+           9           2:       W0.T1 <marker: trace end for system call number 324>
           10           2:       W0.T1 <marker: trace start for system call number 186>
           11           3:       W0.T1 ifetch       3 byte\(s\) @ 0x000000008badf000 48 8b 12             mov    \(%rdx\), %rdx
           12           3:       W0.T1 read         8 byte\(s\) @ 0x00000000decafbad by PC 0x000000008badf000
@@ -31,10 +31,10 @@ Output format:
           14           4:       W0.T1 <marker: trace end for system call number 186>
 
 #else
-           6           0:       W0.T1 <marker: trace start for system call number 172>
+           6           0:       W0.T1 <marker: trace start for system call number 283>
            7           1:       W0.T1 ifetch       4 byte\(s\) @ 0x00000000deadbe00 d503201f   nop
            8           2:       W0.T1 ifetch       4 byte\(s\) @ 0x00000000deadbe04 d69f03e0   eret \(target 0xf00d\)
-           9           2:       W0.T1 <marker: trace end for system call number 172>
+           9           2:       W0.T1 <marker: trace end for system call number 283>
           10           2:       W0.T1 <marker: trace start for system call number 178>
           11           3:       W0.T1 ifetch       4 byte\(s\) @ 0x000000008badf000 f9400084   ldr    \(%x4\)\[8byte\] -> %x4
           12           3:       W0.T1 read         8 byte\(s\) @ 0x00000000decafbad by PC 0x000000008badf000

@@ -252,7 +252,7 @@ endif ()
 
 if (WIN32 AND NOT X64)
   # PR 219380: to avoid __ftol2_sse from libc
-  # FIXME: There is no supported way to suppress a "command line" warning
+  # XXX: There is no supported way to suppress a "command line" warning
   # used to do:
   #   $(BUILD)/io.obj: FILTER_CC = 2>&1 | $(GREP) -v "D9035 : option 'QIfist'";
   # we just live with it for now:
@@ -324,7 +324,7 @@ set(ARCH_SRCS
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
-  arch/x86_code.c
+  arch/asm_aux.c
   ${arch_core_asm_src}
   ${archshared_core_asm_src}
   arch/${ARCH_NAME}/optimize.c
@@ -421,7 +421,11 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/memquery.c)
     set(OS_SRCS ${OS_SRCS} unix/module_macho.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_macos.c)
-    set(OS_SRCS ${OS_SRCS} unix/tls_macos.c)
+    if (AARCH64)
+      set(OS_SRCS ${OS_SRCS} unix/tls_macos_aarch64.c)
+    elseif (X86)
+      set(OS_SRCS ${OS_SRCS} unix/tls_macos_x86.c)
+    endif()
     set(OS_SRCS ${OS_SRCS} unix/signal_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/native_macho.c)
     # XXX i#1286: implement nudge_macos.c
@@ -964,7 +968,7 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
   COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;RC_IS_PRELOAD;DR_NO_FAST_IR")
 
 if (UNIX)
-  # FIXME case 69/1891: -z initfirst = initialize first at runtime (before libc)
+  # XXX case 69/1891: -z initfirst = initialize first at runtime (before libc)
   set_target_properties(${PRELOAD_NAME} PROPERTIES
     LINK_FLAGS "-nostartfiles")
   if (APPLE)

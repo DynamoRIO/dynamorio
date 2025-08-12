@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -103,7 +103,7 @@ main(int argc, char **argv)
      * Load and unload a module to cause a module unload event
      */
 
-    /* FIXME: We used to test a module with a large .bss here.  Try to do that
+    /* XXX: We used to test a module with a large .bss here.  Try to do that
      * again.
      */
     hmod = dlopen(argv[1], RTLD_LAZY | RTLD_LOCAL);

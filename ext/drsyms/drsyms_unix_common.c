@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -237,7 +237,7 @@ error:
  * Gdb's search algorithm for finding debug info files is documented here:
  * http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
  *
- * FIXME: We should allow the user to register additional search directories.
+ * XXX: We should allow the user to register additional search directories.
  * XXX: We may need to support the --build-id debug file mechanism documented at
  * the above URL, but for now, .gnu_debuglink seems to work for most Linux
  * systems.
@@ -626,7 +626,7 @@ drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs DR_PA
         /* Ignore the module portion of the match string.  We search the module
          * specified by modpath.
          *
-         * FIXME #574: Change the interface for both Linux and Windows
+         * XXX #574: Change the interface for both Linux and Windows
          * implementations to not include the module name.
          */
         sym_no_mod = strchr(symbol, '!');
@@ -774,13 +774,13 @@ drsym_unix_demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *ma
         if (status == 0) {
             return strlen(dst) + 1;
         } else if (errno == ENAMETOOLONG) {
-            /* FIXME: libelftc actually doesn't copy the output into dst and
+            /* XXX: libelftc actually doesn't copy the output into dst and
              * truncate it, so we do the next best thing and put the truncated
              * mangled name in there.
              */
             strncpy(dst, mangled, dst_sz);
             dst[dst_sz - 1] = '\0';
-            /* FIXME: This return value is made up and may not be large enough.
+            /* XXX: This return value is made up and may not be large enough.
              * It will work eventually if the caller reallocates their buffer
              * and retries in a loop, or if they just want to detect truncation.
              */

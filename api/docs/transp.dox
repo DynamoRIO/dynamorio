@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -236,7 +236,7 @@ incorrectly executing stale code.  If the client needs to modify
 application code, it should do so through the basic block event, rather
 than directly.
 \if future
-FIXME: if we provide routine to modify app memory should
+XXX: if we provide routine to modify app memory should
 talk about it here.
 \endif
 
@@ -273,7 +273,7 @@ cache.  We then walk through the reproduction and the code cache version
 in lockstep until we reach the target instruction.  In order to
 accomplish this algorithm in code that has been modified or re-arranged
 by a client, DynamoRIO needs client support.  We have not yet implemented
-this support.  \if future FIXME: say anything else? \endif
+this support.  \if future XXX: say anything else? \endif
 
 \par Error Transparency
 

@@ -161,7 +161,7 @@ get_opcode_name(int opc)
 bool
 instr_is_mov(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -323,7 +323,7 @@ instr_saves_float_pc(instr_t *instr)
 bool
 instr_is_undefined(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -349,7 +349,7 @@ instr_invert_cbr(instr_t *instr)
 bool
 instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -357,7 +357,7 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -449,7 +449,7 @@ instr_is_opmask(instr_t *instr)
 bool
 reg_is_fp(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -478,7 +478,7 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 instr_t *
 instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -509,7 +509,7 @@ DR_API
 bool
 instr_is_scatter(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -518,7 +518,7 @@ DR_API
 bool
 instr_is_gather(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -529,7 +529,7 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
                              DR_PARAM_OUT bool *have_addr, DR_PARAM_OUT app_pc *addr,
                              DR_PARAM_OUT bool *write)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }

@@ -157,9 +157,9 @@
     GBOP_DEFINE_HOOK(module, SetEndOfFile)                           \
     /* interesting if a handle is open */                            \
     GBOP_DEFINE_HOOK(module, WriteFile)                              \
-    /* FIXME: performance, interesting if a handle is open */        \
+    /* XXX: performance, interesting if a handle is open */        \
     GBOP_DEFINE_HOOK(module, WriteFileEx)                            \
-    /* FIXME: performance, interesting if a handle is open */        \
+    /* XXX: performance, interesting if a handle is open */        \
     /* KERNEL32 presumed to be complete */
 
 #define GBOP_DEFINE_WININET_BASE_HOOKS(module) /* "WININET.dll" */ \
@@ -177,7 +177,7 @@
 #define GBOP_DEFINE_MSVCRT_BASE_HOOKS(module) /* "MSVCRT.dll" */ \
     GBOP_DEFINE_HOOK(module, system)
 
-/* FIXME: case 8006 currently unused */
+/* XXX: case 8006 currently unused */
 #define GBOP_DEFINE_MSVCRT_MORE_HOOKS(module) /* "MSVCRT.dll" */ \
     GBOP_DEFINE_HOOK(module, _execl)                             \
     GBOP_DEFINE_HOOK(module, _execle)                            \
@@ -218,7 +218,7 @@
     GBOP_DEFINE_HOOK(module, _wspawnvp)                          \
     GBOP_DEFINE_HOOK(module, _wspawnvpe)                         \
     GBOP_DEFINE_HOOK(module, _wsystem)                           \
-    /* FIXME: more file creation related to add */
+    /* XXX: more file creation related to add */
 
 #define GBOP_DEFINE_WS2_32_BASE_HOOKS(module) /* "WS2_32.dll" */ \
     GBOP_DEFINE_HOOK(module, WSASocketA)                         \
@@ -228,7 +228,7 @@
     GBOP_DEFINE_HOOK(module, socket)
 /* most operations create a new socket(), or reuse one */
 
-/* FIXME: case 8006 currently unused in default gbop_include_set */
+/* XXX: case 8006 currently unused in default gbop_include_set */
 #define GBOP_DEFINE_WS2_32_MORE_HOOKS(module) /* "WS2_32.dll" */ \
     GBOP_DEFINE_HOOK(module, connect)                            \
     GBOP_DEFINE_HOOK(module, listen)                             \
@@ -253,7 +253,7 @@
     GBOP_DEFINE_HOOK(module, ExitWindowsEx)
 /* USER32 presumed to be complete */
 
-/* FIXME: case 8006 currently unused in default gbop_include_set */
+/* XXX: case 8006 currently unused in default gbop_include_set */
 #define GBOP_DEFINE_SHELL32_BASE_HOOKS(module) /* "SHELL32.dll" */   \
     GBOP_DEFINE_HOOK(module, RealShellExecuteA)                      \
     GBOP_DEFINE_HOOK(module, RealShellExecuteExA)                    \
@@ -288,13 +288,13 @@
     GBOP_DEFINE_HOOK(module, NtSetValueKey)                    \
     GBOP_DEFINE_HOOK(module, NtShutdownSystem)                 \
     GBOP_DEFINE_HOOK(module, NtWriteVirtualMemory)
-/* FIXME: case 8006 have to add a complete set for NTDLL.DLL */
+/* XXX: case 8006 have to add a complete set for NTDLL.DLL */
 
-/* FIXME: case 8006, need to add ADVAPI32 wrappers as
+/* XXX: case 8006, need to add ADVAPI32 wrappers as
  * ADVAPI32!CreateProcessAsUser*
  */
 
-/* FIXME: I am not sure if this will scale to the number of modules -
+/* XXX: I am not sure if this will scale to the number of modules -
  * since there is a limit on the macro size (at least in cl) */
 /* all users are expected to define appropriately
  * GBOP_DEFINE_HOOK_MODULE and GBOP_DEFINE_HOOK
@@ -314,7 +314,7 @@
     GBOP_DEFINE_HOOK_MODULE(KERNEL32, MORE) /*0x200 */   \
     GBOP_DEFINE_HOOK_MODULE(MSVCRT, MORE)   /* 0x400 */  \
     GBOP_DEFINE_HOOK_MODULE(WS2_32, MORE)   /*0x800 */   \
-    /* FIXME: need GBOP_DEFINE_NTDLL_MORE_HOOKS */
+    /* XXX: need GBOP_DEFINE_NTDLL_MORE_HOOKS */
 
 enum {
     GBOP_SET_NTDLL_BASE = 0x1,

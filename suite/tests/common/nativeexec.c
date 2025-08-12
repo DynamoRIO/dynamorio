@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -164,10 +164,10 @@ main(int argc, char **argv)
     call_plt(&import_me2);
 
     /* funky ind call is only caught by us w/ -native_exec_guess_calls
-     * FIXME: add a -no_native_exec_guess_calls runregression run
+     * XXX: add a -no_native_exec_guess_calls runregression run
      * for that run:
-     *    FIXME: assert curiosity in debug run, would like to add to template!
-     *    FIXME: have way for nativeexec.dll.c to know whether native or not?
+     *    XXX: assert curiosity in debug run, would like to add to template!
+     *    XXX: have way for nativeexec.dll.c to know whether native or not?
      *      call DR routine?
      *      then can have release build die too
      *

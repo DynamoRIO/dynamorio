@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -123,7 +123,7 @@
 #        define STR_LIB_SEG "tpidruro"
 #    endif /* 64/32-bit */
 #elif defined(RISCV64)
-/* FIXME i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
+/* XXX i#3544: Not used on RISC-V, so set to invalid. Check if this is true. */
 #    define SEG_TLS DR_REG_INVALID
 #    define LIB_SEG_TLS DR_REG_TP
 #    define STR_SEG "<none>"
@@ -145,18 +145,23 @@
 #    error NYI
 #endif
 
-#ifdef MACOS64
-/* FIXME i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
+#if defined(MACOS64) && defined(X86)
+/* XXX i#1568: current pthread_t struct has the first TLS entry at offset 28. We should
  * provide a dynamic method to determine the first entry for forward compatability.
  * Starting w/ libpthread-218.1.3 they now leave slots 6 and 11 unused to allow
  * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
  * for our own use.
+ * https://github.com/apple-oss-distributions/xnu
+ * /blob/e3723e1f17661b24996789d8afc084c0c3303b26/libsyscall/os/tsd.h#L42
  */
 /* XXX i#5383: This is used as *8 so it's really a slot not a byte offset. */
 #    define SEG_TLS_BASE_SLOT 28 /* offset from pthread_t struct to segment base */
 #    define DR_TLS_BASE_SLOT 6   /* the TLS slot for DR's TLS base */
 /* offset from pthread_t struct to slot 6 */
 #    define DR_TLS_BASE_OFFSET (sizeof(void *) * (SEG_TLS_BASE_SLOT + DR_TLS_BASE_SLOT))
+#elif defined(MACOS) && defined(AARCH64)
+#    define DR_TLS_BASE_SLOT 6 /* the TLS slot for DR's TLS base */
+#    define DR_TLS_BASE_OFFSET (sizeof(void *) * DR_TLS_BASE_SLOT)
 #endif
 
 #if defined(AARCHXX) && !defined(MACOS64)
@@ -249,12 +254,21 @@ os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
  * mode (a process mixing 64-bit and 32-bit code) is not supported.
  */
 bool
-os_dump_core_live(dcontext_t *dcontext, char *path DR_PARAM_OUT, size_t path_sz);
+os_dump_core_live(dcontext_t *dcontext, char *output_directory DR_PARAM_IN,
+                  char *path DR_PARAM_OUT, size_t path_sz);
 #endif
 
 #if defined(AARCHXX) || defined(RISCV64)
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
+#endif
+
+#if defined(MACOS) && defined(AARCH64)
+void *
+os_tls_thread_init_temp();
+
+void
+os_tls_thread_free_temp(void *temp_tls);
 #endif
 
 #ifdef DEBUG
@@ -326,7 +340,7 @@ disable_env(const char *name);
  * name is a string
  * wx should contain one of the strings "w", "wx", "x", or ""
  */
-/* FIXME: also want control over where in rw region or ro region this
+/* XXX: also want control over where in rw region or ro region this
  * section goes -- for cl, order linked seems to do it, but for linux
  * will need a linker script (see unix/os.c for the nspdata problem)
  */

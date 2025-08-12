@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -279,7 +279,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
                             int *idx DR_PARAM_OUT)
 {
-    /* FIXME i#1683: we need to avoid the implicit dst-as-src regs for instrs
+    /* XXX i#1683: we need to avoid the implicit dst-as-src regs for instrs
      * such as OP_smlal.
      */
     /* XXX i#1683: we're relying on flags added by the decoder and by the
@@ -418,13 +418,13 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
         CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
         print_to_buffer(buf, bufsz, sofar, ", ");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, memop, false);
-        /* FIXME i#1683: we need to print "!" but how do we tell whether
+        /* XXX i#1683: we need to print "!" but how do we tell whether
          * the memop has a disp?
          */
     }
     /* Writeback "!" */
     if (nonlist_load && opnd_is_base_disp(opnd)) {
-        /* FIXME i#1683: we need to print "!" but how do we tell whether
+        /* XXX i#1683: we need to print "!" but how do we tell whether
          * the memop has a disp?
          */
     }

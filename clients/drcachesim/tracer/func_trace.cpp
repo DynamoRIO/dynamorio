@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -192,7 +192,7 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
         // it in the module loaded by reading the module file in mod->full_path.
         // NOTE: mod->full_path could be invalid in the case where the original
         // module file is remapped and deleted (e.g. hugepage_text).
-        // FIXME: find a way to find the PC of the symbol even if the original module file
+        // XXX: find a way to find the PC of the symbol even if the original module file
         // is deleted.
         size_t offset;
         drsym_error_t err =

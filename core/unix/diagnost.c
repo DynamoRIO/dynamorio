@@ -35,13 +35,13 @@
 #include "../globals.h"
 
 /* Collects and displays diagnostic information.
- * FIXME: Stub for future development; diagnostics not supported on linux (yet)
+ * XXX: Stub for future development; diagnostics not supported on linux (yet)
  */
 void
 report_diagnostics(DR_PARAM_IN const char *message, DR_PARAM_IN const char *name,
                    security_violation_t violation_type)
 {
-    /* FIXME: Diagnostics not implemented for Linux */
+    /* XXX: Diagnostics not implemented for Linux */
 }
 
 void

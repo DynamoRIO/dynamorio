@@ -751,6 +751,8 @@ protected:
         addr_t rseq_commit_pc_ = 0;
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
+        int to_inject_syscall_ = INJECT_NONE;
+        bool saw_first_func_id_marker_after_syscall_ = false;
         std::vector<trace_entry_t> rseq_buffer_;
         int rseq_commit_idx_ = -1; // Index into rseq_buffer_.
         std::vector<branch_info_t> rseq_branch_targets_;
@@ -762,6 +764,9 @@ protected:
         bool pt_metadata_processed = false;
         pt2ir_t pt2ir;
 #endif
+
+        // Sentinel value for to_inject_syscall.
+        static constexpr int INJECT_NONE = -1;
     };
 
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -880,6 +885,10 @@ protected:
     bool
     process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                DR_PARAM_OUT bool *end_of_record);
+
+    bool
+    maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdata,
+                                          const offline_entry_t &entry, byte *buf_base);
 
     std::string
     aggregate_and_write_schedule_files();

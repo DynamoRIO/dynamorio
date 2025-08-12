@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2021-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -490,7 +490,7 @@ drstatecmp_check_simd_value
 #elif defined(RISCV64)
     (void *tag, dr_simd_t *value, dr_simd_t *expected)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT(false, "Not implemented");
 }
 #endif

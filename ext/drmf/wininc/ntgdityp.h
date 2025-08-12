@@ -171,7 +171,7 @@ typedef enum GDILoObjType {
 #define GdiPageSpaceToDeviceSpace 0x304
 #define GdiDeviceSpaceToWorldSpace 0x402
 
-/* FIXME: Unknown */
+/* XXX: Unknown */
 typedef DWORD FULLSCREENCONTROL;
 typedef DWORD LFTYPE;
 

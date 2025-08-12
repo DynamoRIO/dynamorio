@@ -72,7 +72,7 @@ void
 event_inscount_thread_init(void *drcontext);
 
 void
-event_inscount_init();
+event_inscount_init(client_id_t id);
 
 } // namespace drmemtrace
 } // namespace dynamorio

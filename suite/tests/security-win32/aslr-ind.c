@@ -31,7 +31,7 @@
  */
 
 /* aslr-ind.c */
-/* FIXME: should make this process start itself so that can test with early injection
+/* XXX: should make this process start itself so that can test with early injection
  * enabled */
 
 #include <windows.h>
@@ -92,7 +92,7 @@ main(int argc)
     }
 
     /* in wrong address space, but a good entry!
-     * FIXME: we may want
+     * XXX: we may want
      * to flag that explicitly - could be an FP!
      */
     __try {
@@ -125,7 +125,7 @@ main(int argc)
         print("invalid return caught\n");
     }
 
-    /* FIXME: should be able to allocate memory with VirtualAlloc() at
+    /* XXX: should be able to allocate memory with VirtualAlloc() at
      * the would be location and verify our handling of execution
      * there in that case
      */

@@ -59,7 +59,7 @@ while ($line = <IN>) {
         if ($line = <IN>) {
             $line =~ s/\r?\n$//; # chomp not sufficient for cross-plaform perl
             if ($line !~ /^Language *= *English\s*$/) {
-                # may need to remove once have multilingual support? FIXME
+                # may need to remove once have multilingual support? XXX
                 die("Error : gen_event_strings : pattern match for Language=English failed for ",$name,"\n");
             }
             $success = 0;
@@ -78,7 +78,7 @@ while ($line = <IN>) {
             if ($sucess == 0) {
                 die("Error : file ended unexpectedly");
             }
-            # FIXME we only need %s for now, but following should be general
+            # XXX we only need %s for now, but following should be general
             # as long as the letter codes match (seems to be the case), what
             # about 1, 2, 3 can the .mc fmt string reorder the arguments?
             $val =~ s/%.!([^!]+)!/%\1/g;

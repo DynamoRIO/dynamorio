@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -248,9 +248,9 @@ main()
          *          for (pc = dstack_base; pc++; pc < dstack)
          *              *pc = (int) evil;
          * we assume df is cleared
-         * FIXME: popf in old fcache_return can trigger a trap crash before
+         * XXX: popf in old fcache_return can trigger a trap crash before
          * get to ret that goes to evil!
-         * FIXME: I had this getting to evil w/o crashing first, but it's
+         * XXX: I had this getting to evil w/o crashing first, but it's
          * a little fragile, and on win32 I get issues later b/c we have
          * trampolines, etc. and so don't completely lose control.
          * But, in all cases we fail, so whether it's a nice shell code

@@ -55,7 +55,7 @@ d_r_print_encoding_second_line_to_buffer(char *buf, size_t bufsz,
                                          byte *next_pc, int extra_sz,
                                          const char *extra_bytes_prefix)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -89,7 +89,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
                             opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
                             int *idx DR_PARAM_OUT)
 {
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }

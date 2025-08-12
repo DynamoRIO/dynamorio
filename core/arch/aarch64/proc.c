@@ -136,7 +136,7 @@ read_feature_regs(uint64 isa_features[])
 static void
 get_processor_specific_info(void)
 {
-    /* FIXME i#5474: Catch and handle SIGILL if MRS not supported.
+    /* XXX i#5474: Catch and handle SIGILL if MRS not supported.
      * Placeholder for some older kernels on v8.0 systems which do not support
      * this, raising a SIGILL.
      */
@@ -464,7 +464,7 @@ DR_API
 size_t
 proc_fpstate_save_size(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return 0;
 }
 
@@ -556,18 +556,18 @@ proc_restore_fpstate(byte *buf)
 void
 dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 
 void
 dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 
 uint64
 proc_get_timestamp(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return 0;
 }

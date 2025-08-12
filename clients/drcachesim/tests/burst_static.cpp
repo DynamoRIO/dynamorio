@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,7 @@
  * a "burst" of execution in the middle of the application.  It then detaches.
  */
 
+#include "test_helpers.h"
 /* We deliberately do not include configure.h here to simulate what an
  * actual app will look like.  configure_DynamoRIO_static sets DR_APP_EXPORTS
  * for us.
@@ -109,7 +110,7 @@ test_main(int argc, const char *argv[])
     return 0;
 }
 
-/* FIXME i#2099: the weak symbol is not supported on Windows. */
+/* XXX i#2099: the weak symbol is not supported on Windows. */
 #if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
 #    ifdef __cplusplus
 extern "C" {
@@ -137,3 +138,12 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
+// Used by our build-and-test to test external use (where there's no test_helpers).
+#ifdef DEFINE_MAIN
+int
+main(int argc, const char *argv[])
+{
+    return dynamorio::drmemtrace::test_main(argc, argv);
+}
+#endif

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -78,7 +78,7 @@ main(int argc, char *argv[])
     is_x86_to_x64 = (strcmp(argv[1], "x86_to_x64") == 0);
 
     if (is_x86_to_x64) {
-        /* FIXME i#865: 64-bit regs are not preserved currently.
+        /* XXX i#865: 64-bit regs are not preserved currently.
          * We don't test it for now -- just store the result to global_data
          * in order to pass the test suite.
          */

@@ -1,0 +1,16 @@
+#ifdef X86
+#    ifdef X64
+#        define SYSCALL_WRITE 1
+#        define SYSCALL_READ 0
+#    else
+#        define SYSCALL_WRITE 4
+#        define SYSCALL_READ 3
+#    endif
+#elif defined(AARCH64)
+#    define SYSCALL_WRITE 64
+#    define SYSCALL_READ 63
+#endif
+.*thread init
+.*nudge delivered 1
+.*done.*
+.*syscall.*

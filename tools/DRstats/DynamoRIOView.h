@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,7 +51,7 @@ extern "C" {
 #    include "processes.h"
 };
 
-/* client stats -- FIXME: put this stuff in shared header file, for
+/* client stats -- XXX: put this stuff in shared header file, for
  * now duplicated here and in client
  */
 #    include "afxwin.h"

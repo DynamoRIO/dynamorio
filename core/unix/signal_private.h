@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -237,7 +237,7 @@ typedef struct sigframe {
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];
 #    endif
-    /* FIXME: this is a field I added, so our frame looks different from
+    /* XXX: this is a field I added, so our frame looks different from
      * the kernel's...but where else can I store sig where the app won't
      * clobber it?
      * WARNING: our handler receives only rt frames, and we construct

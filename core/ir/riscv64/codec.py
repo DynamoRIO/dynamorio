@@ -35,7 +35,7 @@
 # - instr_create_api.h - Instruction generation macros.
 # - instr_info_trie.h - Instruction info table and a lookup trie for known instructions.
 #
-# FIXME i#3544: To be done:
+# XXX i#3544: To be done:
 # - Generate instruction encoding (at format + fields level?).
 # - Gather statistics on instruction usage frequency. If there is a small set
 #   of instructions which are used most frequently, then having an
@@ -994,7 +994,7 @@ class IslGenerator:
             inst.flds.append(b_imm)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
 
-        # FIXME i#3544: Should we fixup the 4B wide NOP (00000013) for the sake
+        # XXX i#3544: Should we fixup the 4B wide NOP (00000013) for the sake
         # of disassembly? Though it might cause issues in encoding because we'd
         # need an extra entry in the instr_infos table since NOP aliases with
         # ADDI (it's an alias).
@@ -1221,7 +1221,7 @@ class IslGenerator:
         trie_buckets: dict[int: List[Instruction]] = {
             0: [i for i in self.instructions if not i.is_compressed()]
         }
-        # FIXME i#3544: There is an issue with the current construction
+        # XXX i#3544: There is an issue with the current construction
         # algorithm for instructions which may alias other instructions, i.e.
         # prefetch.[irw] is encoded as ori with rd=0. So we need to change the
         # prefix creation mechanism here.

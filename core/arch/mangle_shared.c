@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
@@ -81,7 +81,7 @@ get_clean_call_temp_stack_size(void)
 
 /* utility routines for inserting clean calls to an instrumentation routine
  * strategy is very similar to fcache_enter/return
- * FIXME: try to share code with fcache_enter/return?
+ * XXX: try to share code with fcache_enter/return?
  * TODO i#3544: Return the correct mcontext base when DCONTEXT_TLS_MIDPTR_OFFSET is used.
  * This will need calls like opnd_create_dcontext_field_via_reg_sz to be replaced
  * with something else. Currently we work around that by assuming that we have the
@@ -232,7 +232,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
             instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
 #endif
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
-         * work right.  FIXME - the dcontext accessing routines are a mess of shared
+         * work right.  XXX - the dcontext accessing routines are a mess of shared
          * vs. no shared support, separate context vs. no separate context support etc. */
         ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
 
@@ -503,7 +503,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                            reg_get_size(opnd_get_reg(args[i])) == OPSZ_PTR) ||
                           opnd_is_base_disp(args[i]),
                       "insert_parameter_preparation: bad argument type");
-        ASSERT_NOT_IMPLEMENTED(!opnd_is_base_disp(args[i])); /* FIXME i#2210 */
+        ASSERT_NOT_IMPLEMENTED(!opnd_is_base_disp(args[i])); /* TODO i#2210 */
     }
 
     /* The strategy here is to first set up the arguments that can be set up
@@ -1071,7 +1071,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
     if (skip_pc == NULL) {
         /* signal happened after skip jmp: nothing we can do here
          *
-         * FIXME PR 213040: we should tell caller difference between
+         * XXX PR 213040: we should tell caller difference between
          * "no syscalls" and "too-close syscall" and have it take
          * other actions to bound signal delay
          */
@@ -1116,7 +1116,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
         /* target is exit cti */
         target = cti_pc;
     }
-    /* FIXME : this should work out to just a 1 byte write, but let's make
+    /* XXX : this should work out to just a 1 byte write, but let's make
      * it more clear that this is atomic! */
     if (opnd_get_pc(instr_get_target(&instr)) != target) {
         byte *nxt_pc;
@@ -1206,7 +1206,7 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
                            ilist, insert_at, NULL, NULL);
 #    endif
 #    ifdef RISCV64
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 #    endif
     PRE(ilist, insert_at,
@@ -1384,7 +1384,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
         opnd_create_reg(scratch_reg));
     instrlist_preinsert(ilist, insert_at, start_mangling);
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     instr_t *start_mangling = NULL;
 #    else
@@ -1516,7 +1516,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
                                                rseq_get_tls_ptr_offset(), OPSZ_PTR),
                                            OPND_CREATE_INT32(0)));
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
 #    else
     PRE(ilist, insert_at, instr_create_save_to_tls(dcontext, scratch2, TLS_REG2_SLOT));
@@ -1948,6 +1948,12 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
         if (instr_saves_float_pc(instr) && instr_is_app(instr)) {
             mangle_float_pc(dcontext, ilist, instr, next_instr, flags);
         }
+#endif
+
+#ifdef AARCH64
+        /* XXX i#5771: This may no longer be required when the issue is fixed. */
+        if (INTERNAL_OPTION(fake_ctr_dic))
+            mangle_ctr_read(dcontext, ilist, instr);
 #endif
 
 #ifdef AARCH64

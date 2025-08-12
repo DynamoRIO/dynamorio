@@ -31,9 +31,9 @@
  */
 
 /* Generates a .B from a trace.
- * FIXME: need to put in a template
- * FIXME: need to make native work (exception handling stuff)
- * FIXME: need to make it work with -detect_mode
+ * XXX: need to put in a template
+ * XXX: need to make native work (exception handling stuff)
+ * XXX: need to make it work with -detect_mode
  */
 
 #define NEED_HANDLER 1

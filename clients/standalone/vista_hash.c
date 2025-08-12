@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -252,7 +252,7 @@ main(int argc, char *argv[])
     uint arg_offs = 1;
     bool use_second_pass = true;
     bool assume_header_match = true;
-    uint second_pass_offset = 16; /* FIXME arbitrary, what's a good choice? */
+    uint second_pass_offset = 16; /* XXX arbitrary, what's a good choice? */
     bool assume_IAT_written = true;
     bool spin_for_debugger = false;
 

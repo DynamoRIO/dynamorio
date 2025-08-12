@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -50,7 +50,7 @@
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 
 #ifdef DEBUG
@@ -306,6 +306,12 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         esr->size = sizeof(struct esr_context);
 
         struct sve_context *sve = (void *)((byte *)esr + sizeof(struct esr_context));
+        // Set other fields of sve_context to zero. New fields may be added and
+        // unexpected values in those fields may cause problems. This is a small
+        // struct so the compiler will allocate it to a virtual register and
+        // optimise this initialisation.
+        const struct sve_context sve_zero = { 0 };
+        *sve = sve_zero;
         sve->head.magic = SVE_MAGIC;
         sve->vl = proc_get_vector_length_bytes();
         const uint quads_per_vector = sve_vecquad_from_veclen(sve->vl);

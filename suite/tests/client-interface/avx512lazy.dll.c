@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,7 +44,8 @@
 #endif
 
 /* This library assumes a single-threaded test. */
-static bool seen_before;
+static bool seen_mov_mov;
+static bool seen_avx512;
 
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
@@ -60,7 +61,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                 val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(instr, 0)) &&
                 opnd_get_reg(instr_get_dst(instr, 0)) == REG_XAX) {
-                if (seen_before) {
+                if (seen_mov_mov) {
                     CHECK(dr_mcontext_zmm_fields_valid(),
                           "Error: dr_mcontext_zmm_fields_valid() should return true.");
                     dr_fprintf(STDERR, "After\n");
@@ -68,19 +69,30 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                     /* The *-initial version of this test runs the client compiled with
                      * AVX-512. Even in this case, the initial value of
                      * dr_mcontext_zmm_fields_valid() is expected to be false. The only
-                     * time it should be true before application AVX-512 code has actually
-                     * been seen is the "attach" case. This is tested by
-                     * api.startstop_avx512lazy.
+                     * time it should be true before our application AVX-512 code has
+                     * actually been seen is the "attach" case, tested by
+                     * api.startstop_avx512lazy, or if libraries run avx-512 code
+                     * before we hit our app's avx-512 code, covered by seen_avx512.
                      */
-                    CHECK(!dr_mcontext_zmm_fields_valid(),
+                    CHECK(!dr_mcontext_zmm_fields_valid() || seen_avx512,
                           "Error: dr_mcontext_zmm_fields_valid() should return false.");
                     dr_fprintf(STDERR, "Before\n");
                 }
-                seen_before = true;
+                seen_mov_mov = true;
             } else
                 prev_was_mov_const = true;
         } else
             prev_was_mov_const = false;
+        /* If libc or ld.so has AVX-512 code we have to relax a check above. */
+        for (int i = 0; i < instr_num_dsts(instr); ++i) {
+            opnd_t dst = instr_get_dst(instr, i);
+            if (opnd_is_reg(dst)) {
+                if (reg_is_avx512(opnd_get_reg(dst))) {
+                    seen_avx512 = true;
+                    break;
+                }
+            }
+        }
     }
     return DR_EMIT_DEFAULT;
 }

@@ -31,7 +31,6 @@
  */
 
 #define NOMINMAX // Avoid windows.h messing up std::min.
-#undef NDEBUG
 #include <assert.h>
 #include <algorithm>
 #include <cctype>
@@ -58,6 +57,7 @@
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
 #endif
+#include "test_helpers.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -232,6 +232,13 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
                 continue;
             }
             assert(status == scheduler_t::STATUS_OK);
+            // Ensure stream API and the trace records are consistent.
+            assert(outputs[i]->get_input_interface()->get_tid() == IDLE_THREAD_ID ||
+                   outputs[i]->get_input_interface()->get_tid() ==
+                       tid_from_memref_tid(memref.instr.tid));
+            assert(outputs[i]->get_input_interface()->get_workload_id() == INVALID_PID ||
+                   outputs[i]->get_input_interface()->get_workload_id() ==
+                       workload_from_memref_tid(memref.instr.tid));
             if (type_is_instr(memref.instr.type)) {
                 bool is_kernel = outputs[i]->is_record_kernel();
                 sched_as_string[i] +=
@@ -1308,6 +1315,10 @@ test_only_threads()
         int idle_count = 0;
         for (scheduler_t::stream_status_t status = stream->next_record(memref);
              status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            if (status == scheduler_t::STATUS_IDLE) {
+                ++idle_count;
+                continue;
+            }
             assert(status == scheduler_t::STATUS_OK);
             assert(memref.instr.tid == TID_A || memref.instr.tid == IDLE_THREAD_ID ||
                    // In 32-bit the -1 is unsigned so the 64-bit .tid field is not
@@ -1315,9 +1326,6 @@ test_only_threads()
                    static_cast<uint64_t>(memref.instr.tid) ==
                        static_cast<addr_t>(IDLE_THREAD_ID) ||
                    memref.instr.tid == INVALID_THREAD_ID);
-            if (memref.marker.type == TRACE_TYPE_MARKER &&
-                memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
-                ++idle_count;
         }
         assert(idle_count == 3);
     }
@@ -6465,12 +6473,19 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                 continue;
             }
             assert(status == scheduler_t::STATUS_OK);
+            // Ensure stream API and the trace records are consistent.
+            assert(outputs[i]->get_input_interface()->get_tid() == IDLE_THREAD_ID ||
+                   outputs[i]->get_input_interface()->get_tid() ==
+                       tid_from_memref_tid(memref.instr.tid));
+            assert(outputs[i]->get_input_interface()->get_workload_id() == INVALID_PID ||
+                   outputs[i]->get_input_interface()->get_workload_id() ==
+                       workload_from_memref_tid(memref.instr.tid));
             refs[i].push_back(memref);
-            if (memref.instr.tid != prev_tid[i]) {
+            if (tid_from_memref_tid(memref.instr.tid) != prev_tid[i]) {
                 if (!sched_as_string[i].empty())
                     sched_as_string[i] += ',';
-                sched_as_string[i] +=
-                    'A' + static_cast<char>(memref.instr.tid - tid_base);
+                sched_as_string[i] += 'A' +
+                    static_cast<char>(tid_from_memref_tid(memref.instr.tid) - tid_base);
             }
             if (memref.marker.type == TRACE_TYPE_MARKER) {
                 if (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START)
@@ -6497,17 +6512,22 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                             TRACE_MARKER_TYPE_CONTEXT_SWITCH_START));
                 assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
             } else if (in_syscall[i]) {
+                bool is_trace_start = memref.marker.type == TRACE_TYPE_MARKER &&
+                    memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START;
+                bool is_trace_end = memref.marker.type == TRACE_TYPE_MARKER &&
+                    memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END;
                 // Test that syscall code is marked synthetic.
                 assert(outputs[i]->is_record_synthetic());
                 // Test that it's marked as kernel, unless it's the end marker.
-                assert(
-                    outputs[i]->is_record_kernel() ||
-                    (memref.marker.type == TRACE_TYPE_MARKER &&
-                     memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END));
+                assert(outputs[i]->is_record_kernel() || is_trace_end);
                 // Test that dynamically injected syscall code doesn't count toward
                 // input ordinals, but does toward output ordinals.
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
-                       prev_in_ord[i]);
+                           prev_in_ord[i] ||
+                       // We readahead by one record to decide when to inject the
+                       // syscall trace, so the input interface record ordinal will
+                       // be advanced by one at trace start.
+                       is_trace_start);
                 assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
             } else
                 assert(!outputs[i]->is_record_synthetic());
@@ -6529,7 +6549,12 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     else
                         assert(false && "unknown context switch type");
                     break;
-                case TRACE_MARKER_TYPE_SYSCALL: sched_as_string[i] += 's'; break;
+                case TRACE_MARKER_TYPE_FUNC_ID:
+                case TRACE_MARKER_TYPE_FUNC_ARG:
+                case TRACE_MARKER_TYPE_FUNC_RETVAL: sched_as_string[i] += 'F'; break;
+                case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+                case TRACE_MARKER_TYPE_SYSCALL_FAILED: sched_as_string[i] += 's'; break;
+                case TRACE_MARKER_TYPE_SYSCALL: sched_as_string[i] += 'S'; break;
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
                     in_syscall[i] = false;
                     ANNOTATE_FALLTHROUGH;
@@ -6537,10 +6562,22 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     sched_as_string[i] += '1' +
                         static_cast<char>(memref.marker.marker_value - syscall_base);
                     break;
+                case TRACE_MARKER_TYPE_KERNEL_EVENT:
+                case TRACE_MARKER_TYPE_KERNEL_XFER: sched_as_string[i] += 'k'; break;
                 default: sched_as_string[i] += '?'; break;
                 }
+                // A context switch should happen only at the context_switch_start marker.
+                // TODO i#7495: Add invariant checks that ensure this property for
+                // core-sharded-on-disk traces. This would need moving the synthetic
+                // tid-pid markers before the injected switch trace.
+                if (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
+                    assert(prev_tid[i] != tid_from_memref_tid(memref.instr.tid));
+                } else {
+                    assert(for_syscall_seq || prev_tid[i] == INVALID_THREAD_ID ||
+                           prev_tid[i] == tid_from_memref_tid(memref.instr.tid));
+                }
             }
-            prev_tid[i] = memref.instr.tid;
+            prev_tid[i] = tid_from_memref_tid(memref.instr.tid);
             prev_in_ord[i] = outputs[i]->get_input_interface()->get_record_ordinal();
             prev_out_ord[i] = outputs[i]->get_record_ordinal();
         }
@@ -6563,9 +6600,9 @@ test_kernel_switch_sequences()
         test_util::make_thread(TID_IN_SWITCHES),
         test_util::make_pid(TID_IN_SWITCHES),
         test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(PROCESS_SWITCH_TIMESTAMP),
         test_util::make_marker(
             TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
-        test_util::make_timestamp(PROCESS_SWITCH_TIMESTAMP),
         test_util::make_instr(PROCESS_SWITCH_PC_START),
         test_util::make_instr(PROCESS_SWITCH_PC_START + 1),
         test_util::make_marker(
@@ -6578,9 +6615,9 @@ test_kernel_switch_sequences()
         test_util::make_thread(TID_IN_SWITCHES),
         test_util::make_pid(TID_IN_SWITCHES),
         test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(THREAD_SWITCH_TIMESTAMP),
         test_util::make_marker(
             TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_THREAD),
-        test_util::make_timestamp(THREAD_SWITCH_TIMESTAMP),
         test_util::make_instr(THREAD_SWITCH_PC_START),
         test_util::make_instr(THREAD_SWITCH_PC_START+1),
         test_util::make_marker(
@@ -6589,10 +6626,6 @@ test_kernel_switch_sequences()
         test_util::make_footer(),
         /* clang-format on */
     };
-    auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
-        new test_util::mock_reader_t(switch_sequence));
-    auto switch_reader_end =
-        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
     static constexpr int NUM_WORKLOADS = 3;
     static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
     static constexpr int NUM_OUTPUTS = 2;
@@ -6601,8 +6634,11 @@ test_kernel_switch_sequences()
     static constexpr uint64_t TIMESTAMP = 44226688;
     static constexpr memref_tid_t TID_BASE = 100;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
+    std::vector<record_scheduler_t::input_workload_t> sched_record_inputs;
+
     for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
         std::vector<scheduler_t::input_reader_t> readers;
+        std::vector<record_scheduler_t::input_reader_t> record_readers;
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
             std::vector<trace_entry_t> inputs;
             inputs.push_back(test_util::make_header(TRACE_ENTRY_VERSION));
@@ -6616,94 +6652,244 @@ test_kernel_switch_sequences()
                 inputs.push_back(test_util::make_instr(42 + instr_idx * 4));
             }
             inputs.push_back(test_util::make_exit(tid));
+
             readers.emplace_back(
                 std::unique_ptr<test_util::mock_reader_t>(
                     new test_util::mock_reader_t(inputs)),
                 std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
                 tid);
+            record_readers.emplace_back(std::unique_ptr<test_util::mock_record_reader_t>(
+                                            new test_util::mock_record_reader_t(inputs)),
+                                        std::unique_ptr<test_util::mock_record_reader_t>(
+                                            new test_util::mock_record_reader_t()),
+                                        tid);
         }
         sched_inputs.emplace_back(std::move(readers));
+        sched_record_inputs.emplace_back(std::move(record_readers));
     }
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/3);
-    sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
-    sched_ops.kernel_switch_reader = std::move(switch_reader);
-    sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
-    scheduler_t scheduler;
-    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
+    {
+        auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
+            new test_util::mock_reader_t(switch_sequence));
+        auto switch_reader_end =
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_switch_reader = std::move(switch_reader);
+        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
 
-    std::vector<std::vector<memref_t>> refs;
-    std::vector<std::string> sched_as_string =
-        run_lockstep_simulation_for_kernel_seq(scheduler, NUM_OUTPUTS, TID_BASE, 0, refs,
-                                               /*for_syscall_seq=*/false);
-    // Check the high-level strings.
-    for (int i = 0; i < NUM_OUTPUTS; i++) {
-        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        std::vector<std::vector<memref_t>> refs;
+        std::vector<std::string> sched_as_string = run_lockstep_simulation_for_kernel_seq(
+            scheduler, NUM_OUTPUTS, TID_BASE, 0, refs,
+            /*for_syscall_seq=*/false);
+        // Check the high-level strings.
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] ==
+               "Av0iii,Ctiitv0iii,Epiipv0iii,Gpiipv0iii,Itiitv0iii,Apiipiii,Ctiitiii,"
+               "Epiipiii,Gpiipiii,Itiitiii,Apiipiii,Ctiitiii,Epiipiii,Gpiipiii,"
+               "Itiitiii");
+        assert(sched_as_string[1] ==
+               "Bv0iii,Dpiipv0iii,Ftiitv0iii,Hpiipv0iii,Bpiipiii,Dpiipiii,Ftiitiii,"
+               "Hpiipiii,Bpiipiii,Dpiipiii,Ftiitiii,Hpiipiii________________________");
+        // Zoom in and check the first sequence record by record with value checks.
+        int idx = 0;
+        bool res = true;
+        memref_tid_t workload1_tid1_final =
+            (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4);
+        res = res &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            // Thread switch.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                      scheduler_t::SWITCH_THREAD) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_THREAD) &&
+            // We now see the headers for this thread.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            // The 3-instr quantum should not count the 2 switch instrs.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
+            // Process switch.
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                      scheduler_t::SWITCH_PROCESS) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                      scheduler_t::SWITCH_PROCESS) &&
+            // We now see the headers for this thread.
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            // The 3-instr quantum should not count the 2 switch instrs.
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR);
+        assert(res);
     }
-    assert(sched_as_string[0] ==
-           "Av0iii,Ct0iitv0iii,Ep0iipv0iii,Gp0iipv0iii,It0iitv0iii,Ap0iipiii,Ct0iitiii,"
-           "Ep0iipiii,Gp0iipiii,It0iitiii,Ap0iipiii,Ct0iitiii,Ep0iipiii,Gp0iipiii,"
-           "It0iitiii");
-    assert(
-        sched_as_string[1] ==
-        "Bv0iii,Dp0iipv0iii,Ft0iitv0iii,Hp0iipv0iii,Bp0iipiii,Dp0iipiii,Ft0iitiii,"
-        "Hp0iipiii,Bp0iipiii,Dp0iipiii,Ft0iitiii,Hp0iipiii___________________________");
+    {
+        auto switch_reader = std::unique_ptr<test_util::mock_record_reader_t>(
+            new test_util::mock_record_reader_t(switch_sequence));
+        auto switch_reader_end = std::unique_ptr<test_util::mock_record_reader_t>(
+            new test_util::mock_record_reader_t());
+        record_scheduler_t scheduler;
 
-    // Zoom in and check the first sequence record by record with value checks.
-    int idx = 0;
-    bool res = true;
-    memref_tid_t workload1_tid1_final =
-        (1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4);
-    res = res &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                  TIMESTAMP) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
-        // Thread switch.
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_THREAD) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  // Verify that the timestamp is updated.
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_THREAD) &&
-        // We now see the headers for this thread.
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        // The 3-instr quantum should not count the 2 switch instrs.
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
-        // Process switch.
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  // Verify that the timestamp is updated.
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS) &&
-        // We now see the headers for this thread.
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_VERSION) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
-                  TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-        // The 3-instr quantum should not count the 2 switch instrs.
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
-        check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR);
-    assert(res);
+        record_scheduler_t::scheduler_options_t sched_ops(
+            record_scheduler_t::MAP_TO_ANY_OUTPUT,
+            record_scheduler_t::DEPENDENCY_TIMESTAMPS,
+            record_scheduler_t::SCHEDULER_DEFAULTS,
+            /*verbosity=*/3);
+        sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
+        sched_ops.kernel_switch_reader = std::move(switch_reader);
+        sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
+        if (scheduler.init(sched_record_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            record_scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream0 = scheduler.get_stream(0);
+        auto check_next = [](record_scheduler_t::stream_t *stream,
+                             record_scheduler_t::stream_status_t expect_status,
+                             trace_type_t expect_type = TRACE_TYPE_MARKER,
+                             addr_t expect_addr = 0, addr_t expect_size = 0) {
+            trace_entry_t record;
+            record_scheduler_t::stream_status_t status = stream->next_record(record);
+            assert(status == expect_status);
+            if (status == record_scheduler_t::STATUS_OK) {
+                if (record.type != expect_type) {
+                    std::cerr << "Expected type " << expect_type << " != " << record.type
+                              << "\n";
+                    assert(false);
+                }
+                if (expect_size != 0 && record.size != expect_size) {
+                    std::cerr << "Expected size " << expect_size << " != " << record.size
+                              << "\n";
+                    assert(false);
+                }
+                if (expect_addr != 0 && record.addr != expect_addr) {
+                    std::cerr << "Expected addr " << expect_addr << " != " << record.addr
+                              << "\n";
+                    assert(false);
+                }
+            }
+        };
+
+        // cpu0 at TID_BASE.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_BASE);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, 1);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_VERSION);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_TIMESTAMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        assert(stream0->get_instruction_ordinal() == 3);
+        assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+        // The synthetic TRACE_TYPE_THREAD and TRACE_TYPE_PID for the new
+        // input before the injected context switch trace. This allows identifying
+        // the injected context switch sequence records with the new input's
+        // tid/pid, like what the stream APIs do.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+                   TID_BASE + 2);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, 1);
+        // Injected context switch sequence.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 1,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 1,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+
+        // cpu0 at TID_BASE+2.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
+        // Original tid-pid entries from the input.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+                   TID_BASE + 2);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, 1);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_VERSION);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_TIMESTAMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        assert(stream0->get_instruction_ordinal() == 8);
+        assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+        // Synthetic tid-pid records.
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4)));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
+                   static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
+        // Injected context switch sequence.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 2,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 2,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+        // cpu0 at TID_BASE+4.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
+        // Original tid-pid records from the input.
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 4)));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
+                   static_cast<addr_t>((1ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_VERSION);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+                   TRACE_MARKER_TYPE_TIMESTAMP);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        assert(stream0->get_instruction_ordinal() == 13);
+        assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+
+        // Synthetic tid-pid records.
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 6)));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
+                   static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
+        // Injected context switch sequence.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 2,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 2,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
+        // cpu0 at TID_BASE+6.
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_HEADER);
+        // Original tid-pid records from the input.
+        check_next(
+            stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD,
+            static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | (TID_BASE + 6)));
+        check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID,
+                   static_cast<addr_t>((2ULL << MEMREF_ID_WORKLOAD_SHIFT) | 1));
+    }
 
     {
         // Test a bad input sequence.
@@ -6820,9 +7006,58 @@ test_kernel_syscall_sequences()
                 inputs.push_back(test_util::make_instr(
                     static_cast<addr_t>(42 * tid + instr_idx * 4), TRACE_TYPE_INSTR,
                     /*size=*/4));
+                // Every other instr is a syscall.
                 if (instr_idx % 2 == 0) {
+                    // The markers after the syscall instr are supposed to be bracketed
+                    // by timestamp markers.
+                    bool add_post_timestamp = true;
+                    inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
                     inputs.push_back(test_util::make_marker(
                         TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 2));
+                    // Every other syscall is a blocking syscall.
+                    if (instr_idx % 4 == 0) {
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, /*value=*/0));
+                    }
+                    if (instr_idx == 0) {
+                        // Assuming the first syscall was specified in -record_syscall,
+                        // so we'll have additional markers.
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_FUNC_ID,
+                            static_cast<uintptr_t>(
+                                func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                                SYSCALL_BASE));
+                        inputs.push_back(test_util::make_marker(
+                            TRACE_MARKER_TYPE_FUNC_ARG, /*value=*/10));
+                        if (input_idx == 0) {
+                            // First syscall on first input was interrupted by a signal,
+                            // so no post-syscall event.
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_KERNEL_EVENT, /*value=*/1));
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_KERNEL_XFER, /*value=*/1));
+                            add_post_timestamp = false;
+                        } else if (input_idx == 1) {
+                            // First syscall on second input is a sigreturn that also
+                            // adds a kernel_xfer marker.
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_KERNEL_XFER, /*value=*/1));
+                        } else {
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_FUNC_ID,
+                                static_cast<uintptr_t>(
+                                    func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                                    SYSCALL_BASE));
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_FUNC_RETVAL, /*value=*/1));
+                            inputs.push_back(test_util::make_marker(
+                                TRACE_MARKER_TYPE_SYSCALL_FAILED, /*value=*/1));
+                        }
+                    }
+                    if (add_post_timestamp) {
+                        inputs.push_back(
+                            test_util::make_timestamp(TIMESTAMP + instr_idx + 1));
+                    }
                 }
             }
             inputs.push_back(test_util::make_exit(tid));
@@ -6855,17 +7090,17 @@ test_kernel_syscall_sequences()
         // The instrs in the injected syscall sequence count towards the #instr
         // quantum, but no context switch happens in the middle of the syscall seq.
         assert(sched_as_string[0] ==
-               "Avf0is1ii1,Cvf0is1ii1,Aiis2iii2,Ciis2iii2,Aiis1ii1,Ciis1ii1,Aiis2iii2,"
-               "Ciis2iii2,Aiis1ii1,Ciis1ii1");
+               "Avf0i0SsFF1ii1kk,Cvf0i0SsFF1ii1FFs0,Aii0S2iii20,Cii0S2iii20,"
+               "Aii0Ss1ii10,Cii0Ss1ii10,Aii0S2iii20,Cii0S2iii20,Aii0Ss1ii10,Cii0Ss1ii10");
         assert(sched_as_string[1] ==
-               "Bvf0is1ii1iis2iii2iis1ii1iis2iii2iis1ii1_____________________________"
-               "___________");
-
+               "Bvf0i0SsFF1ii1k0ii0S2iii20ii0Ss1ii10ii0S2iii20ii0Ss1ii10______________"
+               "____________________________________________");
         // Zoom in and check the first few syscall sequences on the first output record
         // by record with value checks.
         int idx = 0;
         bool res = true;
         res = res &&
+            // First thread.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
@@ -6875,7 +7110,17 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ARG, 10) &&
 
             // Syscall_1 trace on first thread.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
@@ -6886,6 +7131,13 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
+            // Signal interruption on first thread.
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_KERNEL_EVENT, 1) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_KERNEL_XFER, 1) &&
+
+            // Second thread.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
@@ -6895,7 +7147,17 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ARG, 10) &&
 
             // Syscall_1 trace on second thread.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
@@ -6906,8 +7168,24 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
+            // Post-syscall markers
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_ID,
+                      static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                          SYSCALL_BASE) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_RETVAL, 1) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_SYSCALL_FAILED, 1) &&
+
+            // Post syscall timestamp.
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
+
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + 1) &&
             // Syscall_2 trace on first thread.
@@ -6918,7 +7196,11 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR_INDIRECT_JUMP,
                       TRACE_MARKER_TYPE_RESERVED_END, 42 * TID_BASE + 3 * 4) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1);
+                      TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1) &&
+
+            // Post syscall timestamp.
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP);
         assert(res);
     }
     {
@@ -7028,6 +7310,31 @@ test_random_schedule()
     }
 }
 
+void
+check_next(record_scheduler_t::stream_t *stream,
+           record_scheduler_t::stream_status_t expect_status,
+           trace_type_t expect_type = TRACE_TYPE_MARKER, addr_t expect_addr = 0,
+           addr_t expect_size = 0)
+{
+    trace_entry_t record;
+    record_scheduler_t::stream_status_t status = stream->next_record(record);
+    assert(status == expect_status);
+    if (status == record_scheduler_t::STATUS_OK) {
+        if (record.type != expect_type) {
+            std::cerr << "Expected type " << expect_type << " != " << record.type << "\n";
+            assert(false);
+        }
+        if (expect_size != 0 && record.size != expect_size) {
+            std::cerr << "Expected size " << expect_size << " != " << record.size << "\n";
+            assert(false);
+        }
+        if (expect_addr != 0 && record.addr != expect_addr) {
+            std::cerr << "Expected addr " << expect_addr << " != " << record.addr << "\n";
+            assert(false);
+        }
+    }
+};
+
 static void
 test_record_scheduler()
 {
@@ -7109,26 +7416,6 @@ test_record_scheduler()
         record_scheduler_t::STATUS_SUCCESS)
         assert(false);
     auto *stream0 = scheduler.get_stream(0);
-    auto check_next = [](record_scheduler_t::stream_t *stream,
-                         record_scheduler_t::stream_status_t expect_status,
-                         trace_type_t expect_type = TRACE_TYPE_MARKER,
-                         addr_t expect_addr = 0) {
-        trace_entry_t record;
-        record_scheduler_t::stream_status_t status = stream->next_record(record);
-        assert(status == expect_status);
-        if (status == record_scheduler_t::STATUS_OK) {
-            if (record.type != expect_type) {
-                std::cerr << "Expected type " << expect_type << " != " << record.type
-                          << "\n";
-                assert(false);
-            }
-            if (expect_addr != 0 && record.addr != expect_addr) {
-                std::cerr << "Expected addr " << expect_addr << " != " << record.addr
-                          << "\n";
-                assert(false);
-            }
-        }
-    };
     // Advance cpu0 on TID_A to its 1st context switch.
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
@@ -7138,7 +7425,10 @@ test_record_scheduler()
     assert(stream0->get_instruction_ordinal() == 0);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 0);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
-    // The encoding should have incremented the ordinal.
+    // The encoding should have incremented the ordinal. Note that the
+    // record_reader_t and the corresponding scheduler both increment
+    // these ordinals upon seeing the pre-instr encoding or branch_target marker
+    // (if any).
     assert(stream0->get_instruction_ordinal() == 1);
     assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
@@ -7183,6 +7473,168 @@ test_record_scheduler()
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
+    check_next(stream0, record_scheduler_t::STATUS_EOF);
+}
+
+static void
+test_record_scheduler_i7574()
+{
+    // Demonstrates how the scheduler responds to traces with the i#7574 issue.
+    // When there's an abandoned branch_target marker in the previous chunk, with
+    // other markers before the corresponding encoding+instr in the next chunk, it
+    // affects the scheduler in unexpected ways: the instr ordinals are erroneously
+    // incremented for just the branch_target and then again at the encoding+instr, and
+    // there may be a context switch that splits up the branch_target marker and its
+    // corresponding instruction.
+    // TODO i#7574: Workaround this issue in the scheduler and modify this test to
+    // prove correct operation.
+    std::cerr
+        << "\n----------------\nTesting record_scheduler_t to show the i#7574 issue\n";
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr memref_tid_t TID_B = TID_A + 1;
+    static constexpr memref_tid_t PID_A = 142;
+    static constexpr memref_tid_t PID_B = PID_A + 1;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr addr_t ENCODING_SIZE = 2;
+    static constexpr addr_t ENCODING_IGNORE = 0xfeed;
+    static constexpr uint64_t INITIAL_TIMESTAMP_A = 10;
+    static constexpr uint64_t INITIAL_TIMESTAMP_B = 20;
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        test_util::make_thread(TID_A),
+        test_util::make_pid(PID_A),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_A),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(10),
+        // Second instr, but the chunk end breaks up the
+        // branch_target marker and the instr (i#7574).
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_RECORD_ORDINAL, 1),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_A + 1),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(30),
+        // No encoding for repeated instr.
+        test_util::make_instr(10),
+        test_util::make_exit(TID_A),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_B = {
+        /* clang-format off */
+        test_util::make_thread(TID_B),
+        test_util::make_pid(PID_B),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(INITIAL_TIMESTAMP_B),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(20),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(40),
+        test_util::make_encoding(ENCODING_SIZE, ENCODING_IGNORE),
+        test_util::make_instr(60),
+        test_util::make_exit(TID_B),
+        /* clang-format on */
+    };
+    std::vector<record_scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t(refs_A)),
+                         std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t()),
+                         TID_A);
+    readers.emplace_back(std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t(refs_B)),
+                         std::unique_ptr<test_util::mock_record_reader_t>(
+                             new test_util::mock_record_reader_t()),
+                         TID_B);
+    record_scheduler_t scheduler;
+    std::vector<record_scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    record_scheduler_t::scheduler_options_t sched_ops(
+        record_scheduler_t::MAP_TO_ANY_OUTPUT, record_scheduler_t::DEPENDENCY_IGNORE,
+        record_scheduler_t::SCHEDULER_DEFAULTS,
+        /*verbosity=*/4);
+    sched_ops.quantum_duration_instrs = 2;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        record_scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    auto *stream0 = scheduler.get_stream(0);
+    // Advance cpu0 on TID_A to its 1st context switch.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    // Test input/output instr ordinals.
+    assert(stream0->get_instruction_ordinal() == 0);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 0);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    // The encoding should have incremented the input/output instr ordinals. Note
+    // that the record_reader_t and the corresponding scheduler both increment
+    // these ordinals upon seeing the pre-instr encoding or branch_target marker
+    // (if any).
+    assert(stream0->get_instruction_ordinal() == 1);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    // The instr should not have further incremented it.
+    assert(stream0->get_instruction_ordinal() == 1);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 1);
+
+    // The branch_target marker should have incremented the input/output
+    // instr ordinals.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_BRANCH_TARGET);
+    assert(stream0->get_instruction_ordinal() == 2);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 2);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_CHUNK_FOOTER);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_RECORD_ORDINAL);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_TIMESTAMP);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER, 0,
+               TRACE_MARKER_TYPE_CPU_ID);
+
+    // TODO i#7574: A context switch happens here because the input A has
+    // seen all instrs for its quantum (the abandoned branch_target is erroneously
+    // counted as one), and this is considered a safe spot for a context switch.
+    // This needs to be worked around in the scheduler so that, in traces affected
+    // by i#7574, the branch_target marker and the corresponding instr are not
+    // split up.
+
+    // Input B on core 0.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_MARKER);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    assert(stream0->get_instruction_ordinal() == 4);
+    // Back to input A because input B has seen all instrs for its quantum.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_A);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_A);
+
+    // TODO i#7574: This instr is split from its branch_target marker. Would
+    // increment the input/output instr ordinals again erroneously.
+    // Note that at this point, the encoding entry has been read from the
+    // input, but not returned by the scheduler yet; so only the input instr
+    // ordinal is seen incremented.
+    assert(stream0->get_instruction_ordinal() == 4);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    assert(stream0->get_instruction_ordinal() == 5);
+    assert(stream0->get_input_interface()->get_instruction_ordinal() == 3);
+
+    // Remaining content from inputs A and B.
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD, TID_B);
+    check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_PID, PID_B);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_ENCODING);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_INSTR);
     check_next(stream0, record_scheduler_t::STATUS_OK, TRACE_TYPE_THREAD_EXIT);
@@ -7523,7 +7975,7 @@ test_exit_early()
 }
 
 static void
-test_marker_updates()
+test_dynamic_marker_updates()
 {
     std::cerr << "\n----------------\nTesting marker and tid/pid updates\n";
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
@@ -7631,6 +8083,100 @@ test_marker_updates()
         assert(last_timestamp[i] - first_timestamp[i] >= TIMESTAMP_GAP_US);
     }
     assert(instrs_seen == NUM_INPUTS * NUM_INSTRS);
+}
+
+static void
+test_static_marker_updates()
+{
+    std::cerr << "\n----------------\nTesting static marker updates\n";
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_CONSISTENT_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/2);
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 2;
+    const int NUM_INSTRS = 12;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_pid_t PID_BASE = 200;
+    static constexpr uint64_t TIMESTAMP_BASE = 12340000;
+
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE;
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(PID_BASE));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        uint64_t cur_timestamp = TIMESTAMP_BASE + i;
+        inputs[i].push_back(test_util::make_timestamp(cur_timestamp));
+        inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 1));
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+            // Include idle and wait markers, which should get transformed.
+            // We have one idle and one wait for every instruction.
+            inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CORE_IDLE, 0));
+            inputs[i].push_back(test_util::make_marker(TRACE_MARKER_TYPE_CORE_WAIT, 0));
+        }
+        inputs[i].push_back(test_util::make_exit(tid));
+    }
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(inputs[i])),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_BASE);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+    std::vector<bool> eof(NUM_OUTPUTS, false);
+    for (int i = 0; i < NUM_OUTPUTS; i++)
+        outputs[i] = scheduler.get_stream(i);
+    int num_eof = 0, num_idle = 0, num_wait = 0, num_instr = 0;
+    while (num_eof < NUM_OUTPUTS) {
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            if (eof[i])
+                continue;
+            memref_t memref;
+            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+            if (status == scheduler_t::STATUS_EOF) {
+                ++num_eof;
+                eof[i] = true;
+                continue;
+            }
+            if (status == scheduler_t::STATUS_IDLE) {
+                ++num_idle;
+                continue;
+            }
+            if (status == scheduler_t::STATUS_WAIT) {
+                ++num_wait;
+                continue;
+            }
+            assert(status == scheduler_t::STATUS_OK);
+            // The idle and wait markers should have turned into statuses above.
+            assert(memref.marker.type != TRACE_TYPE_MARKER ||
+                   (memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_IDLE &&
+                    memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_WAIT));
+            if (type_is_instr(memref.instr.type))
+                ++num_instr;
+        }
+    }
+    assert(num_instr == NUM_INSTRS * NUM_INPUTS);
+    // We should have one idle and one wait for every instruction.
+    assert(num_instr == num_idle);
+    assert(num_instr == num_wait);
+}
+
+static void
+test_marker_updates()
+{
+    test_dynamic_marker_updates();
+    test_static_marker_updates();
 }
 
 class test_options_t : public scheduler_fixed_tmpl_t<memref_t, reader_t> {
@@ -7860,6 +8406,7 @@ test_main(int argc, const char *argv[])
     test_kernel_syscall_sequences();
     test_random_schedule();
     test_record_scheduler();
+    test_record_scheduler_i7574();
     test_rebalancing();
     test_initial_migrate();
     test_exit_early();

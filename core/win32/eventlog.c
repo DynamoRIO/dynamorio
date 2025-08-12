@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -106,7 +106,7 @@ set_event_source_registry_values()
     _snwprintf(wide_message_file, MAXIMUM_PATH, L"%S", message_file);
     NULL_TERMINATE_BUFFER(wide_message_file);
 
-    // FIXME: BUFOV? is the conversion locale dependent
+    // XXX: BUFOV? is the conversion locale dependent
 
     res = reg_set_dword_key_value(heventsource,
                                   L"TypesSupported", // which messages can go in
@@ -122,7 +122,7 @@ set_event_source_registry_values()
        entry. For example: EventMessageFile="%WINDIR%\\dynamorio.dll"
     */
 
-    // FIXME: I'd rather set the full REG_EXPAND_SZ to be prepared
+    // XXX: I'd rather set the full REG_EXPAND_SZ to be prepared
     res |= reg_set_key_value(heventsource, L"EventMessageFile",
                              /* should be the name of our DLL (or RLL if we put in
                               * a separate file) */
@@ -146,13 +146,13 @@ static int
 init_registry_source(void)
 {
     static int initialized = 0;
-    /* FIXME: we assume no one should have access to modify after we check */
-    /* FIXME: may want to register for notifications .. */
-    /* FIXME: if we fail we'll do this over and over for each event .. */
+    /* XXX: we assume no one should have access to modify after we check */
+    /* XXX: may want to register for notifications .. */
+    /* XXX: if we fail we'll do this over and over for each event .. */
 
     /* use our registry routines to avoid Win32 reentrancy issues */
 
-    /* FIXME: let's do it with access rights only as needed- I got fed up at one point*/
+    /* XXX: let's do it with access rights only as needed- I got fed up at one point*/
     if (!initialized) {
         /* first make sure all keys are created */
         HANDLE heventsource = reg_open_key(L_EVENT_SOURCE_KEY, KEY_READ | KEY_WRITE);
@@ -309,7 +309,7 @@ prepend_header(char *p, char *pend, char *header, int length, int sequence, DWOR
     return p;
 }
 
-/* FIXME: this value needs to be decoded using Ethereal too. See case 5655. */
+/* XXX: this value needs to be decoded using Ethereal too. See case 5655. */
 #define EVENTLOG "\20\0\0\0" /* always 16 */
 
 /* The first byte of the hello_message string should be \x05, but this
@@ -597,7 +597,7 @@ eventlog_report(eventlog_state_t *evconnection, WORD severity, WORD category,
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, message_id);
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), WORD, substitutions_num);
 
-    /* FIXME: should write this constant in hex instead - \333 is not meaningful anyways
+    /* XXX: should write this constant in hex instead - \333 is not meaningful anyways
      * with the following broken code we've been writing
      * $SG23701 DB     0dbH, 'w', 00H
      *   which is 0x77db.
@@ -605,30 +605,30 @@ eventlog_report(eventlog_state_t *evconnection, WORD severity, WORD category,
      * or figure out what should have really been written there.
      */
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), WORD,
-          *(WORD *)"\333w"); /* FIXME: ReservedFlags? */
+          *(WORD *)"\333w"); /* XXX: ReservedFlags? */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(raw_data_size)));
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, (DWORD)raw_data_size);
     append_string(&p, evconnection->buf + sizeof(evconnection->buf), get_computer_name());
 
-    /* FIXME: This used to be type DWORD: I'm guessing that it should be widened */
+    /* XXX: This used to be type DWORD: I'm guessing that it should be widened */
     IF_X64(ASSERT_NOT_TESTED());
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), void *, pSID);
     if (pSID) {
-        // FIXME: dump a SID in binary format
-        // FIXME: the actual structure order seems to be
+        // XXX: dump a SID in binary format
+        // XXX: the actual structure order seems to be
         // WORD(sub_authorities_num),
         // 48 bit authority value,
         // sub_authorities_num * ( 48 bit sub-authority values)
     }
 
-    // FIXME: these don't seem to be either offsets nor pointers
+    // XXX: these don't seem to be either offsets nor pointers
     // but are some function of the number of substitutions
 
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
-          *(DWORD *)"\230y\23\0"); /* FIXME pointer placeholder */
+          *(DWORD *)"\230y\23\0"); /* XXX pointer placeholder */
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, substitutions_num);
     for (i = 0; i < substitutions_num; i++) {
-        /* FIXME unknown pointer placeholder */
+        /* XXX unknown pointer placeholder */
         FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
               *(DWORD *)"\210y\23\0");
     }
@@ -639,7 +639,7 @@ eventlog_report(eventlog_state_t *evconnection, WORD severity, WORD category,
     }
 
     /* just the pointer */
-    /* FIXME: This used to be type DWORD: I'm guessing that it should be widened */
+    /* XXX: This used to be type DWORD: I'm guessing that it should be widened */
     IF_X64(ASSERT_NOT_TESTED());
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), char *, raw_data);
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, raw_data_size);
@@ -652,7 +652,7 @@ eventlog_report(eventlog_state_t *evconnection, WORD severity, WORD category,
                 sizeof(DWORD));
     }
 
-    /* FIXME: extra padding
+    /* XXX: extra padding
        It seems like the server can handle more but not less padding */
     VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf), "\0\0\0\0", 4);
     VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf), "\0\0\0\0", 4);
@@ -793,7 +793,7 @@ eventlog_init()
      * while we are still single threaded */
     get_computer_name();
 
-    /* FIXME: We don't actually get our own log as intended  */
+    /* XXX: We don't actually get our own log as intended  */
     /* on error we just go in the Application EventLog */
     if (DYNAMO_OPTION(syslog_init) &&
         !init_registry_source()) { /* update registry keys */
@@ -845,7 +845,7 @@ eventlog_slow_exit()
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, shared_eventlog_connection, eventlog_state_t,
                    ACCT_OTHER, PROTECTED);
     /* try to let syslogs during later cleanup go through
-     * FIXME: won't re-deregister in that case
+     * XXX: won't re-deregister in that case
      */
     shared_eventlog_connection = &temp_shared_eventlog_connection;
     ASSIGN_INIT_LOCK_FREE(shared_eventlog_connection->eventlog_mutex, eventlog_mutex);

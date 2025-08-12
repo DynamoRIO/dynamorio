@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -88,7 +88,7 @@ if (UNIX)
   set(tool_cflags "")
   set(RESOURCES "")
 
-  if (NOT APPLE) # FIXME i#1286: add MacOS nudge support
+  if (NOT APPLE) # XXX i#1286: add MacOS nudge support
     DR_install(TARGETS drnudgeunix DESTINATION ${INSTALL_BIN})
     # for backward compatibility we add a symlink to the old name
     add_custom_command(TARGET drnudgeunix POST_BUILD
@@ -96,7 +96,7 @@ if (UNIX)
       COMMAND ${CMAKE_COMMAND} -E create_symlink drnudgeunix nudgeunix)
   endif ()
 else (UNIX)
-  # FIXME i#98: eventually upgrade to W4 with pragma exceptions.
+  # XXX i#98: eventually upgrade to W4 with pragma exceptions.
   # W2 is default (we're using W3).  We should also replace
   # all references to unsafe functions (e.g., fopen) and
   # remove /wd4996
@@ -119,7 +119,7 @@ else (UNIX)
     create_process
     )
   if (NOT X64)
-    # FIXME i#118: ldmp not yet 64-bit
+    # XXX i#118: ldmp not yet 64-bit
     set(tgts ${tgts} ldmp)
   endif (NOT X64)
 

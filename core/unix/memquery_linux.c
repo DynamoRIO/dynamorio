@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -93,7 +93,7 @@ static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
  */
 /* since we're called from signal handler, etc., keep our stack usage
  * low by using static bufs (it's over 4K after all).
- * FIXME: now we're using 16K right here: should we shrink?
+ * XXX: now we're using 16K right here: should we shrink?
  */
 #define BUFSIZE (MAPS_LINE_LENGTH + 8)
 static char buf_scratch[BUFSIZE];
@@ -221,14 +221,14 @@ memquery_iterator_next(memquery_iter_t *iter)
         line = mi->newline + 1;
         mi->newline = strchr(line, '\n');
         if (mi->newline == NULL) {
-            /* FIXME clean up: factor out repetitive code */
+            /* XXX clean up: factor out repetitive code */
             /* shift 1st part of line to start of buf, then read in rest */
             /* the memory for the processed part can be reused  */
             mi->bufwant = line - mi->buf;
             ASSERT(mi->bufwant <= mi->bufread);
             len = mi->bufread - mi->bufwant; /* what is left from last time */
             /* since strings may overlap, should use memmove, not strncpy */
-            /* FIXME corner case: if len == 0, nothing to move */
+            /* XXX corner case: if len == 0, nothing to move */
             memmove(mi->buf, line, len);
             mi->bufread = os_read(mi->maps, mi->buf + len, mi->bufwant);
             ASSERT(mi->bufread <= mi->bufwant);

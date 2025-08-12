@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  * based on code from Giuseppe Desoli
  * modified by bruening, Jan 2001
  * need to add to build command "-lbfd -liberty"
- * FIXME: assumes ELF executable compiled w/ -static
+ * XXX: assumes ELF executable compiled w/ -static
  */
 
 #include <errno.h>
@@ -139,7 +139,7 @@ prepare_symtab()
     nonnull_symcount = bfd_symcount;
     for (i = 0; i < bfd_symcount; i++) {
         if (bfd_syms[i]) {
-            /* FIXME: the BSF_FUNCTION flag is only for ELF
+            /* XXX: the BSF_FUNCTION flag is only for ELF
              * other ideas: remove all non-text-section symbols
              */
             if (!(bfd_syms[i]->flags & BSF_FUNCTION)) {
@@ -235,7 +235,7 @@ symtab_lookup_pc(void *pc)
     if (bfd_syms[idx] == NULL)
         return "(null)";
     else {
-        /* FIXME: try to find line number? */
+        /* XXX: try to find line number? */
         return bfd_syms[idx]->name;
     }
 }

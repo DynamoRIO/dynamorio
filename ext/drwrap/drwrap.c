@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -80,7 +80,7 @@ static uint verbose = 0;
 #    define CALL_POINT_SCRATCH_REG DR_REG_X12
 #    define RETURN_POINT_SCRATCH_REG DR_REG_X1
 #elif defined(RISCV64)
-/* FIXME i#3544: Check if T6 is valid */
+/* XXX i#3544: Check if T6 is valid */
 #    define CALL_POINT_SCRATCH_REG DR_REG_T6
 #    define RETURN_POINT_SCRATCH_REG DR_REG_A1
 #elif defined(X64)
@@ -1434,7 +1434,7 @@ drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
             break;
     }
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     ASSERT(false, "Not implemented");
 #else
     if (stacksz == OPSZ_4 IF_X64(&&x86)) {
@@ -1827,7 +1827,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, per_thread_t *pt, app_pc decorat
     post_call_entry_t *e;
     app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
     /* We will come here again after the flush-redirect.
-     * FIXME: should we try to flush the call instr itself: don't
+     * XXX: should we try to flush the call instr itself: don't
      * know size though but can be pretty sure.
      */
     /* Ensure we have the retaddr instrumented for post-call events */
@@ -2021,7 +2021,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
 
     app_pc retaddr =
         IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)IF_AARCHXX_ELSE(lr, ra));
-    if (TEST(DRWRAP_REPLACE_RETADDR, global_flags)) {
+    if (wrap != NULL && TEST(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
         /* In case of a tailcall, the return address has already been replaced by
          * the sentinel in the stack, we need to retrieve the return address from the
          * outer level.

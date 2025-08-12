@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,7 +59,7 @@
 #        define RUN_SIG
 typedef pid_t thread_t;
 #        define THREAD_STACK_SIZE \
-            (32 * 1024) /* FIXME: why different than DYNAMORIO_STACK_SIZE? */
+            (32 * 1024) /* XXX: why different than DYNAMORIO_STACK_SIZE? */
 #    endif
 
 #    include "sideline.h"
@@ -504,7 +504,7 @@ sideline_sample()
     }
 
     /* we would clear the entry -- but a write to the shared memory is a big
-     * performance hit on SMP (not on SMT though...FIXME: distinguish?)
+     * performance hit on SMP (not on SMT though...XXX: distinguish?)
      * we'll just accept an inability to distinguish a loop from
      * a blocked thread.
      */
@@ -645,10 +645,10 @@ sideline_optimize(fragment_t *f,
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
 
-        /* FIXME: separate always-do-online optimizations from
+        /* XXX: separate always-do-online optimizations from
          * sideline optimizations
          * for now, we do all online or all sideline
-         * FIXME: our ilist is already fully decoded, so we could avoid the
+         * XXX: our ilist is already fully decoded, so we could avoid the
          * full decode pass in optimize_trace
          */
 #    ifdef DEBUG
@@ -679,7 +679,7 @@ sideline_optimize(fragment_t *f,
 
     /* Emit fragment but don't make visible yet */
     /* mark both old and new as DO_NOT_SIDELINE */
-    /* FIXME: if f is shared we must hold change_linking_lock here */
+    /* XXX: if f is shared we must hold change_linking_lock here */
     ASSERT(!TEST(FRAG_SHARED, f->flags));
     f->flags |= FRAG_DO_NOT_SIDELINE;
     flags = f->flags;

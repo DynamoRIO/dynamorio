@@ -56,7 +56,7 @@ pthread_jit_write_protect_np(int enabled);
 
 #    ifdef WINDOWS
 /* returns 0 on failure */
-/* FIXME - share with core get_os_version() */
+/* XXX - share with core get_os_version() */
 int
 get_windows_version(void)
 {
@@ -111,7 +111,7 @@ get_windows_version(void)
     return 0;
 }
 
-/* FIXME: share w/ libutil is_wow64() */
+/* XXX: share w/ libutil is_wow64() */
 bool
 is_wow64(HANDLE hProcess)
 {
@@ -233,7 +233,7 @@ void
 protect_mem_check(void *start, size_t len, int prot, int expected)
 {
 #    ifdef UNIX
-    /* FIXME : add check */
+    /* XXX : add check */
     protect_mem(start, len, prot);
 #    else
     DWORD old;
@@ -274,7 +274,7 @@ reserve_memory(int size)
 #    define VENDOR_AMD 1
 #    define VENDOR_UNKNOWN 2
 
-/* Pentium IV -- FIXME: need to distinguish extended family bits? */
+/* Pentium IV -- XXX: need to distinguish extended family bits? */
 #    define FAMILY_PENTIUM_IV 15
 /* Pentium Pro, Pentium II, Pentium III, Athlon */
 #    define FAMILY_PENTIUM_III 6

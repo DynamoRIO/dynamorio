@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2006 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -305,7 +305,7 @@ main()
         tok = next_token(ptr, &len);
         DO_ASSERT(len == strlen("\\bar.dll"));
 
-        /* FIXME: long string / overrun tets.. */
+        /* XXX: long string / overrun tets.. */
     }
 
     /* get_message_block_size tests */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -255,7 +255,7 @@ redirect_GetModuleFileNameW(HMODULE modbase, wchar_t *buf, DWORD bufcnt)
         return cnt;
 }
 
-/* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
+/* XXX i#1063: add the rest of the routines in kernel32_redir.h under
  * Libraries
  */
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2024 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2025 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -333,9 +333,9 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to d_r_initstack for cleanup of dstack */
-        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x26)
+        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x0)
 cat_spin:
-        CALLC2(GLOBAL_REF(atomic_swap), x26, #1)
+        CALLC2(GLOBAL_REF(atomic_swap), x0, #1)
         cbz      w0, cat_have_lock
         yield
         b        cat_spin
@@ -368,7 +368,7 @@ cat_have_lock:
         mov      SYSNUM_REG, w20 /* sys_call */
 
         br       x25  /* go do the syscall! */
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        bl       GLOBAL_REF(unexpected_return) /* TODO i#1569: NYI */
         END_FUNC(cleanup_and_terminate)
 
 #endif /* NOT_DYNAMORIO_CORE_PROPER */
@@ -387,7 +387,7 @@ GLOBAL_LABEL(global_do_syscall_int:)
 #ifdef MACOS
         svc      #0x80
 #else
-        /* FIXME i#1569: NYI on AArch64 */
+        /* TODO i#1569: NYI on AArch64 */
         svc      #0
 #endif
         bl       GLOBAL_REF(unexpected_return)
@@ -400,10 +400,10 @@ DECLARE_GLOBAL(safe_read_asm_recover)
 
 /* i#350: Xref comment in x86.asm about safe_read.
  *
- * FIXME i#1569: NYI: We need to save the PC's that can fault and have
+ * TODO i#1569: NYI: We need to save the PC's that can fault and have
  * is_safe_read_pc() identify them.
  *
- * FIXME i#1569: We should optimize this as it can be on the critical path.
+ * XXX i#1569: We should optimize this as it can be on the critical path.
  *
  * void *safe_read_asm(void *dst, const void *src, size_t n);
  */
@@ -499,17 +499,17 @@ GLOBAL_LABEL(atomic_swap:)
 #ifdef UNIX
         DECLARE_FUNC(client_int_syscall)
 GLOBAL_LABEL(client_int_syscall:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        bl       GLOBAL_REF(unexpected_return) /* TODO i#1569: NYI */
         END_FUNC(client_int_syscall)
 
         DECLARE_FUNC(native_plt_call)
 GLOBAL_LABEL(native_plt_call:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        bl       GLOBAL_REF(unexpected_return) /* TODO i#1569: NYI */
         END_FUNC(native_plt_call)
 
         DECLARE_FUNC(_dynamorio_runtime_resolve)
 GLOBAL_LABEL(_dynamorio_runtime_resolve:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        bl       GLOBAL_REF(unexpected_return) /* TODO i#1569: NYI */
         END_FUNC(_dynamorio_runtime_resolve)
 #endif /* UNIX */
 
@@ -560,8 +560,21 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 
         DECLARE_FUNC(new_bsdthread_intercept)
 GLOBAL_LABEL(new_bsdthread_intercept:)
-        /* TODO i#5383: Get correct syscall number for svc. */
-        brk 0xb003 /* For now we break with a unique code. */
+        /* We assume we can clobber callee-saved */
+        mov      x9, ARG1 /* This is the clone_rec argument set in pre_system_call */
+
+        /* Push a priv_mcontext on the stack */
+        sub      sp, sp, #priv_mcontext_t_SIZE
+        stp      x0, x1, [sp, #(0 * ARG_SZ*2)]
+        add      x0, sp, #(priv_mcontext_t_SIZE) /* compute original SP */
+        stp      x30, x0, [sp, #(15 * ARG_SZ*2)]
+        str      x30, [sp, #(16 * ARG_SZ*2)] /* save LR as PC */
+
+        CALLC1(save_priv_mcontext_helper, sp)
+
+        CALLC1(GLOBAL_REF(new_bsdthread_setup), sp)
+        /* Should not return */
+        bl       GLOBAL_REF(unexpected_return)
         END_FUNC(new_bsdthread_intercept)
 #endif
 
@@ -584,19 +597,19 @@ GLOBAL_LABEL(main_signal_handler:)
 
         DECLARE_FUNC(hashlookup_null_handler)
 GLOBAL_LABEL(hashlookup_null_handler:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        bl       GLOBAL_REF(unexpected_return) /* TODO i#1569: NYI */
         END_FUNC(hashlookup_null_handler)
 
         DECLARE_FUNC(back_from_native_retstubs)
 GLOBAL_LABEL(back_from_native_retstubs:)
 DECLARE_GLOBAL(back_from_native_retstubs_end)
 ADDRTAKEN_LABEL(back_from_native_retstubs_end:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        bl       GLOBAL_REF(unexpected_return) /* TODO i#1569: NYI */
         END_FUNC(back_from_native_retstubs)
 
         DECLARE_FUNC(back_from_native)
 GLOBAL_LABEL(back_from_native:)
-        bl       GLOBAL_REF(unexpected_return) /* FIXME i#1569: NYI */
+        bl       GLOBAL_REF(unexpected_return) /* TODO i#1569: NYI */
         END_FUNC(back_from_native)
 
 /* A static resolver for TLS descriptors, implemented in assembler as

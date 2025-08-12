@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,6 +54,8 @@
 #        define SYSNUM_SIGPROCMASK SYS_sigprocmask
 #    endif
 #    include <errno.h>
+#    include <unistd.h>
+#    include <sys/resource.h>
 #endif
 
 /* Due to differences among platforms we don't display syscall #s and args
@@ -137,6 +139,34 @@ dr_init(client_id_t id)
 #    endif
         dr_fprintf(STDERR, "Client syscall is running\n");
     }
+#endif
+
+    /* We don't run the code below on Mac b/c syscall() is deprecated there. */
+#ifdef LINUX
+    /* Test that dr_invoke_syscall_as_app() goes through DR's handling by ensuring
+     * a request for the file limit is correctly reduced for -steal_fds.
+     */
+    uint64 steal_fd_value = 0;
+    bool got_value = dr_get_integer_option("steal_fds", &steal_fd_value);
+    DR_ASSERT(got_value);
+    DR_ASSERT(steal_fd_value > 0);
+    int sysnum_getrlimit =
+#    if defined(X64) || defined(MACOS)
+        SYS_getrlimit
+#    else
+        SYS_ugetrlimit
+#    endif
+        ;
+    struct rlimit rlim_raw, rlim_dr;
+    int res = syscall(sysnum_getrlimit, RLIMIT_NOFILE, &rlim_raw);
+    if (res < 0)
+        dr_fprintf(STDERR, "raw syscall failed with %d\n", res);
+    res = dr_invoke_syscall_as_app(dr_get_current_drcontext(), sysnum_getrlimit, 2,
+                                   RLIMIT_NOFILE, &rlim_dr);
+    if (res < 0)
+        dr_fprintf(STDERR, "dr_invoke_syscall_as_app failed with %d\n", res);
+    if (rlim_raw.rlim_cur == rlim_dr.rlim_cur)
+        dr_fprintf(STDERR, "dr_invoke_syscall_as_app failed to go through DR\n");
 #endif
 }
 

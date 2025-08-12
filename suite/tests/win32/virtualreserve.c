@@ -72,7 +72,7 @@ main()
     assert(p);
     print("committed %d\n", commit);
 
-    /* FIXME: should add VirtualQuery calls here to verify it all */
+    /* XXX: should add VirtualQuery calls here to verify it all */
     /* case 4494 - VirtualFree special cases */
     res = VirtualFree((char *)p + 0x2000 - 1, 3, MEM_DECOMMIT);
     print("attempting to decommit 3 byte cross-page 0 - should decommit two pages\n",
@@ -101,7 +101,7 @@ main()
           "region\n");
     if (version == WINDOWS_VERSION_NT) {
         /* on NT NtFreeVirtualMemory does NOT back-align the base and fails instead */
-        /* FIXME: change message above -- but then have to change template */
+        /* XXX: change message above -- but then have to change template */
         assert(res == 0 && GetLastError() == 487);
     } else {
         assert(res);
@@ -120,7 +120,7 @@ main()
     print("releasing p+0x10 - will actually free\n");
     if (version == WINDOWS_VERSION_NT) {
         /* on NT NtFreeVirtualMemory does NOT back-align the base and fails instead */
-        /* FIXME: change message above -- but then have to change template */
+        /* XXX: change message above -- but then have to change template */
         assert(res == 0 && GetLastError() == 487);
     } else {
         assert(res);

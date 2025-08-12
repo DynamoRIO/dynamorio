@@ -72,11 +72,13 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
         while (remaining >= sizeof(syscall_record_t)) {
             syscall_record_t *record = (syscall_record_t *)(buffer + offset);
             switch (record->type) {
-            case DRSYS_SYSCALL_NUMBER:
+            case DRSYS_SYSCALL_NUMBER_DEPRECATED:
             case DRSYS_PRECALL_PARAM:
             case DRSYS_POSTCALL_PARAM:
             case DRSYS_RETURN_VALUE:
-            case DRSYS_RECORD_END:
+            case DRSYS_RECORD_END_DEPRECATED:
+            case DRSYS_SYSCALL_NUMBER_TIMESTAMP:
+            case DRSYS_RECORD_END_TIMESTAMP:
                 if (!record_cb(record, NULL, 0)) {
                     global_free(buffer, buffer_size, HEAPSTAT_MISC);
                     return true;
@@ -179,7 +181,7 @@ drsyscall_write_syscall_number_record(DR_PARAM_IN drsyscall_record_write_t write
                                       DR_PARAM_IN int sysnum)
 {
     syscall_record_t record = {};
-    record.type = DRSYS_SYSCALL_NUMBER;
+    record.type = DRSYS_SYSCALL_NUMBER_DEPRECATED;
     record.syscall_number = sysnum;
     return write_func((char *)&record, sizeof(record));
 }
@@ -190,7 +192,33 @@ drsyscall_write_syscall_end_record(DR_PARAM_IN drsyscall_record_write_t write_fu
                                    DR_PARAM_IN int sysnum)
 {
     syscall_record_t record = {};
-    record.type = DRSYS_RECORD_END;
+    record.type = DRSYS_RECORD_END_DEPRECATED;
     record.syscall_number = sysnum;
+    return write_func((char *)&record, sizeof(record));
+}
+
+DR_EXPORT
+int
+drsyscall_write_syscall_number_timestamp_record(
+    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
+    DR_PARAM_IN uint64_t timestamp)
+{
+    syscall_record_t record = {};
+    record.type = DRSYS_SYSCALL_NUMBER_TIMESTAMP;
+    record.syscall_number_timestamp.syscall_number = sysnum;
+    record.syscall_number_timestamp.timestamp = timestamp;
+    return write_func((char *)&record, sizeof(record));
+}
+
+DR_EXPORT
+int
+drsyscall_write_syscall_end_timestamp_record(
+    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
+    DR_PARAM_IN uint64_t timestamp)
+{
+    syscall_record_t record = {};
+    record.type = DRSYS_RECORD_END_TIMESTAMP;
+    record.syscall_number_timestamp.syscall_number = sysnum;
+    record.syscall_number_timestamp.timestamp = timestamp;
     return write_func((char *)&record, sizeof(record));
 }

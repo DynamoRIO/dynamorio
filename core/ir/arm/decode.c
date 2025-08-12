@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,11 +55,11 @@
  *   widely varying unpredictable conditions when pc or lr is used:
  *   xref notes at the top of table_a32_pred.c.
  */
-/* FIXME i#1569: add A64 support: for now just A32 */
+/* XXX i#1569: add A64 support: for now just A32 */
 
 /* Global data structure to track the decode state,
  * it should be only used for drdecodelib or early init/late exit.
- * FIXME i#1595: add multi-dcontext support to drdecodelib.
+ * XXX i#1595: add multi-dcontext support to drdecodelib.
  */
 static decode_state_t global_decode_state;
 
@@ -253,7 +253,7 @@ decode_cur_pc(app_pc instr_pc, dr_isa_mode_t mode, uint opcode, instr_t *instr)
         } else
             return instr_pc + THUMB_CUR_PC_OFFS;
     } else {
-        /* FIXME i#1569: A64 NYI */
+        /* TODO i#1569: A64 NYI */
         ASSERT_NOT_IMPLEMENTED(false);
         return instr_pc;
     }
@@ -3062,7 +3062,7 @@ decode_debug_checks_arch(void)
 #endif /* DEBUG */
 
 #ifdef DECODE_UNIT_TEST
-/* FIXME i#1551: add unit tests here.  How divide vs suite/tests/api/ tests? */
+/* XXX i#1551: add unit tests here.  How divide vs suite/tests/api/ tests? */
 #    include "instr_create_shared.h"
 
 int

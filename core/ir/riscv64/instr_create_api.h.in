@@ -129,7 +129,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  *
- * FIXME i#3544: Serve as a placeholder for now. Add a proper implementation once it makes
+ * XXX i#3544: Serve as a placeholder for now. Add a proper implementation once it makes
  * sense.
  */
 #define XINST_CREATE_load_simd(dc, r, m) XINST_CREATE_load(dc, r, m)
@@ -141,7 +141,7 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  *
- * FIXME i#3544: Serve as a placeholder for now. Add a proper implementation once it makes
+ * XXX i#3544: Serve as a placeholder for now. Add a proper implementation once it makes
  * sense.
  */
 #define XINST_CREATE_store_simd(dc, m, r) XINST_CREATE_store(dc, m, r)

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /*
  * ksynch_macos.c - synchronization via the kernel
  *
- * FIXME i#58: NYI (see comments below as well):
+ * TODO i#58: NYI (see comments below as well):
  * + Haven't really tested this yet
  * + Longer-term i#1291: use raw syscalls instead of libSystem wrappers.
  *   Some of these are basically just Mach syscall wrappers, but others like

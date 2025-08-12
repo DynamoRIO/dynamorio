@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -201,7 +201,7 @@ drsym_init(int shmid_in)
     drsym_unix_init();
 
     if (IS_SIDELINE) {
-        /* FIXME NYI i#446: establish connection with sideline server via shared
+        /* TODO NYI i#446: establish connection with sideline server via shared
          * memory specified by shmid
          */
     } else {
@@ -226,7 +226,7 @@ drsym_exit(void)
 
     drsym_unix_exit();
     if (IS_SIDELINE) {
-        /* FIXME NYI i#446 */
+        /* TODO NYI i#446 */
     }
     hashtable_delete(&modtable);
     dr_recurlock_destroy(symbol_lock);

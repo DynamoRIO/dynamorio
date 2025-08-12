@@ -65,7 +65,7 @@ int discard1 = 2;
 int discard2;
 #pragma data_seg()
 
-/* FIXME: case 8677 keeps track of PAGE_NOCACHE problems with ASLR !K*/
+/* XXX: case 8677 keeps track of PAGE_NOCACHE problems with ASLR !K*/
 #pragma comment(linker, "/SECTION:.nocache,RK")
 #pragma data_seg(".nocache")
 int nocache1 = 3;
@@ -98,7 +98,7 @@ int erw1 = 5;
 int erw2;
 #pragma data_seg()
 
-/* FIXME: we can't use _Pragma as we do in core in ACTUAL_PRAGMA since we're
+/* XXX: we can't use _Pragma as we do in core in ACTUAL_PRAGMA since we're
  * not using gcc as a preprocessor here! */
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #define ACTUAL_PRAGMA(p) _Pragma(#p)
@@ -117,7 +117,7 @@ int erw2;
     int r##id;                            \
     END_DATA_SECTION()
 
-/* FIXME: plan was to just use SECTION_SET(1) ...
+/* XXX: plan was to just use SECTION_SET(1) ...
  * but for now doing manually
  */
 
@@ -171,7 +171,7 @@ funcer3()
     cer3 = 3;
 }
 #pragma code_seg()
-/* FIXME: could add more code sections, but to avoid triggering the
+/* XXX: could add more code sections, but to avoid triggering the
  * curiosity in add_rct_module() not adding many code sections */
 
 #pragma bss_seg(".bss1")
@@ -197,7 +197,7 @@ int er1 = 5;
 int wer1 = 5;
 #pragma data_seg()
 
-/* FIXME: just doing manually in emacs for now
+/* XXX: just doing manually in emacs for now
  *  (query-replace "er1" "er2" nil nil nil)
  */
 #pragma comment(linker, "/SECTION:.er2,ER")

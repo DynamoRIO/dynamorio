@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -381,6 +381,12 @@ typedef struct _dr_memory_dump_spec_t {
      * in bytes, of elf_path.
      */
     size_t elf_path_size;
+    /**
+     * This field only applies to #DR_MEMORY_DUMP_ELF. This is an optional input
+     * field that, if non-NULL, specifies the output directory of the created
+     * file.
+     */
+    char *elf_output_directory;
 } dr_memory_dump_spec_t;
 
 DR_API
@@ -1124,9 +1130,15 @@ dr_syscall_get_param(void *drcontext, int param_num);
 DR_API
 /**
  * Usable only from a pre-syscall (dr_register_pre_syscall_event())
- * event, or from a post-syscall (dr_register_post_syscall_event())
- * event when also using dr_syscall_invoke_another().  Sets the value
- * of system call parameter number \p param_num to \p new_value.
+ * event or a post-syscall (dr_register_post_syscall_event()) event.
+ * From a post-syscall event this will not affect the syscall that
+ * just happened (but it will affect a second syscall when using
+ * dr_syscall_invoke_another(); additionally, be careful when using
+ * from a post-syscall event as for some architectures the first
+ * syscall parameter becomes the return value.
+ *
+ * Sets the value of system call parameter number \p param_num to \p
+ * new_value.
  *
  * It is up to the caller to ensure that writing this parameter is
  * safe: this routine does not know the number of parameters for each
@@ -1258,6 +1270,21 @@ DR_API
 bool
 dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
                               int wow64_index);
+#endif
+
+#ifdef UNIX
+DR_API
+/**
+ * Invokes a system call and applies handling as though the application had executed it,
+ * but does not trigger system call events such as dr_register_pre_syscall_event().
+ * This is safer than a client invoking raw system calls that bypass DR's handling, which
+ * can cause numerous problems such as breaking DR's timer multiplexing or file
+ * descriptor isolation.
+ *
+ * \note UNIX only.
+ */
+reg_t
+dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...);
 #endif
 
 /**************************************************
@@ -2165,7 +2192,7 @@ typedef enum {
     DR_SUSPEND_NATIVE = 0x0001,
 } dr_suspend_flags_t;
 
-/* FIXME - xref PR 227619 - some other event handler are safe (image_load/unload for*
+/* XXX - xref PR 227619 - some other event handler are safe (image_load/unload for*
  * example) which we could note here. */
 DR_API
 /**
@@ -2404,7 +2431,7 @@ DR_API
 bool
 dr_delete_fragment(void *drcontext, void *tag);
 
-/* FIXME - xref PR 227619 - some other event handler are safe (image_load/unload for*
+/* XXX - xref PR 227619 - some other event handler are safe (image_load/unload for*
  * example) which we could note here. */
 DR_API
 /**
@@ -2453,15 +2480,15 @@ DR_API
 bool
 dr_flush_region(app_pc start, size_t size);
 
-/* FIXME - get rid of the no locks requirement by making event callbacks !couldbelinking
+/* XXX - get rid of the no locks requirement by making event callbacks !couldbelinking
  * and no dr locks (see PR 227619) so that client locks owned by this thread can't block
- * any couldbelinking thread.  FIXME - would be nice to make this available for
+ * any couldbelinking thread.  XXX - would be nice to make this available for
  * windows since there's less of a performance hit than using synch_all flushing, but
  * with coarse_units can't tell if we need a synch all flush or not and that confuses
- * the interface a lot. FIXME - xref PR 227619 - some other event handler are safe
+ * the interface a lot. XXX - xref PR 227619 - some other event handler are safe
  * (image_load/unload for example) which we could note here. */
-/* FIXME - add a completion callback (see vm_area_check_shared_pending()). */
-/* FIXME - could enable on windows when -thread_private since no coarse then. */
+/* XXX - add a completion callback (see vm_area_check_shared_pending()). */
+/* XXX - could enable on windows when -thread_private since no coarse then. */
 DR_API
 /**
  * Flush all fragments containing any code from the region [\p start, \p start + \p size).
@@ -2488,7 +2515,7 @@ DR_API
 bool
 dr_unlink_flush_region(app_pc start, size_t size);
 
-/* FIXME - can we better bound when the flush will happen?  Maybe unlink shared syscalls
+/* XXX - can we better bound when the flush will happen?  Maybe unlink shared syscalls
  * or similar or check the queue in more locations?  Should always hit the flush before
  * executing new code in the cache, and I think we'll always hit it before a nudge is
  * processed too.  Could trigger a nudge, or do this in a nudge, but that's rather

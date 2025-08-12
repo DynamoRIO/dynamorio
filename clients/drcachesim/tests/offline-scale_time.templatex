@@ -1,0 +1,5 @@
+gathering no-scaling trace
+gathering scaled-timer trace.*
+processing results
+signals default=.*
+all done

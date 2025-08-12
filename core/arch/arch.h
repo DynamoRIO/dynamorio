@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -79,7 +79,7 @@ mixed_mode_enabled(void)
  * unprotected are raw 0..sizeof(unprotected_context_t)
  * protected are raw + sizeof(unprotected_context_t)
  * (see the instr_shared.c routines for dcontext instr building)
- * FIXME: we could get rid of this hack if unprotected_context_t == priv_mcontext_t
+ * XXX: we could get rid of this hack if unprotected_context_t == priv_mcontext_t
  */
 #define PROT_OFFS (sizeof(unprotected_context_t))
 #define MC_OFFS (offsetof(unprotected_context_t, mcontext))
@@ -302,7 +302,7 @@ static inline void
 d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 {
 #    if !defined(UNIX) || !defined(X64)
-    /* FIXME i#1312: we warn about unsupported AVX-512 present in the app. */
+    /* XXX i#1312: we warn about unsupported AVX-512 present in the app. */
     DO_ONCE({
         if (pc != NULL) {
             char pc_addr[IF_X64_ELSE(20, 12)];
@@ -359,7 +359,7 @@ typedef enum {
 /* we should allow for all {{bb,trace} x {ret,ind call, ind jmp} x {shared, private}} */
 /* combinations of routines which are in turn  x {unlinked, linked} */
 typedef enum {
-    /* FIXME: have a separate flag for private vs shared */
+    /* XXX: have a separate flag for private vs shared */
     IBL_BB_SHARED,
     IBL_SOURCE_TYPE_START = IBL_BB_SHARED,
     IBL_TRACE_SHARED,
@@ -410,7 +410,7 @@ typedef struct {
  * a unique generated_code_t.  Rather than add GLOBAL_DCONTEXT_X86 everywhere,
  * we add mode parameters to a handful of routines that take in GLOBAL_DCONTEXT.
  */
-/* FIXME i#1551: do we want separate Thumb vs ARM gencode, or we'll always
+/* XXX i#1551: do we want separate Thumb vs ARM gencode, or we'll always
  * transition?  For fcache exit that's reasonable, but for ibl it would
  * require two mode transitions.
  */
@@ -763,6 +763,8 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 #endif /* ARM */
 
 #ifdef AARCH64
+void
+mangle_ctr_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 instr_t *
 mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr, app_pc pc);
@@ -781,7 +783,7 @@ enum {
      * TLS_REG1_SLOT for this because those are used in fragment prefix.
      */
     FCACHE_ENTER_TARGET_SLOT = TLS_REG2_SLOT,
-    /* FIXME: put register name in each enum name to avoid conflicts
+    /* XXX: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
      */
     /* ok for the next_tag and direct_stub to overlap as next_tag is
@@ -800,7 +802,7 @@ enum {
      */
     FLOAT_PC_STATE_SLOT = TLS_REG1_SLOT,
     MANGLE_XCX_SPILL_SLOT = TLS_REG2_SLOT,
-/* FIXME: edi is used as the base, yet I labeled this slot for edx
+/* XXX: edi is used as the base, yet I labeled this slot for edx
  * since it's next in the progression -- change one or the other?
  * (this is case 5239)
  */
@@ -1030,7 +1032,7 @@ typedef struct _generated_code_t {
      * Direct exits use entrance stubs that record the target app pc,
      * while coarse indirect stubs record the source cache cti.
      */
-    /* FIXME: these two return routines are only needed in the global struct */
+    /* XXX: these two return routines are only needed in the global struct */
     byte *fcache_return_coarse;
     byte *fcache_return_coarse_end;
     byte *trace_head_return_coarse;
@@ -1232,7 +1234,7 @@ update_syscalls(dcontext_t *dcontext);
 #endif
 
 #ifdef WINDOWS
-/* FIXME If we widen the interface any further, do we want to use an options
+/* XXX If we widen the interface any further, do we want to use an options
  * struct or OR-ed flags to replace the bool args? */
 byte *
 emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
@@ -1664,7 +1666,7 @@ static inline bool
 use_ibt_prefix(uint flags)
 {
     /* when no traces, all bbs use IBT prefix */
-    /* FIXME: currently to allow bb2bb we simply have a prefix on all BB's
+    /* XXX: currently to allow bb2bb we simply have a prefix on all BB's
      * should experiment with a shorter prefix for targetting BBs
      * by restoring the flags in the IBL routine,
      * or even jump through memory to avoid having the register restore prefix
@@ -1691,7 +1693,7 @@ ibl_use_target_prefix(ibl_code_t *ibl_code)
              ((ibl_code->source_fragment_type == IBL_COARSE_SHARED &&
                DYNAMO_OPTION(bb_ibl_targets)) ||
               (IS_IBL_BB(ibl_code->source_fragment_type) &&
-               /* FIXME case 147/9636: if -coarse_units -bb_ibl_targets
+               /* XXX case 147/9636: if -coarse_units -bb_ibl_targets
                 * but traces are enabled, we won't put prefixes on regular
                 * bbs but will assume we have them here!  We don't support
                 * that combination yet.  When we do this routine should return

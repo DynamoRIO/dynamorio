@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -624,7 +624,7 @@ DR_API
 bool
 dr_memory_is_readable(const byte *pc, size_t size);
 
-/* FIXME - this is a real view of memory including changes made for dr cache consistency,
+/* XXX - this is a real view of memory including changes made for dr cache consistency,
  * but what we really want to show the client is the apps view of memory (which would
  * requires fixing correcting the view and fixing up exceptions for areas we made read
  * only) - see PR 198873 */

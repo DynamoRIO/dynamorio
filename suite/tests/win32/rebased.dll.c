@@ -55,13 +55,13 @@
  * is being loaded, ignoring flush intercept_unload_dll:
  * i:\vlk\trees\t4347-rebase\suite\tests\win32\rebased.dll.dll @0x10000000 size 0x29000
  *
- * FIXME: add these to the Makefile
+ * XXX: add these to the Makefile
  * # force rebasing conflicts
  * # LDFLAGS_B = /base:"0x00400000"
- * # FIXME: even more evil would be to set to conflict with dynamorio.dll
+ * # XXX: even more evil would be to set to conflict with dynamorio.dll
  *
  * LINK = $(LDFLAGS_B) $(WINLIBS) /link /subsystem:console
- * # FIXME: should also reorder when user32.dll is mapped in
+ * # XXX: should also reorder when user32.dll is mapped in
  */
 
 #include "tools.h"
@@ -99,7 +99,7 @@ dlltest(void)
 int __declspec(dllexport) data_attack(int arg)
 {
     print("data_attack\n");
-    /* FIXME: will do this some other time */
+    /* XXX: will do this some other time */
     dlltest();
     return 1;
 }
