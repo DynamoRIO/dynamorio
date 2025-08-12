@@ -232,11 +232,17 @@ check_gpr_value(const char *name, ptr_uint_t value, ptr_uint_t expect)
 }
 
 static void
-check_simd_value(const char *prefix, int idx, const char *suffix, ptr_uint_t value,
+check_simd_value(const char *prefix, int idx,
+                 const char *suffix _IF_AARCH64(uint element_num), ptr_uint_t value,
                  ptr_uint_t expect)
 {
     char name[16];
+#    if defined(AARCH64)
+    int len = snprintf(name, BUFFER_SIZE_ELEMENTS(name), "%s%d.%s[%u]", prefix, idx,
+                       suffix, element_num);
+#    else
     int len = snprintf(name, BUFFER_SIZE_ELEMENTS(name), "%s%d.%s", prefix, idx, suffix);
+#    endif
     assert(len > 0 && len < BUFFER_SIZE_ELEMENTS(name));
     check_gpr_value(name, value, expect);
 }
@@ -354,7 +360,86 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
     check_gpr_value("x28", *(xsp + 28), MAKE_HEX_C(X28_BASE()));
     check_gpr_value("x29", *(xsp + 29), MAKE_HEX_C(X29_BASE()));
     check_gpr_value("x30", *(xsp + 30), MAKE_HEX_C(X30_BASE()));
-    /* TODO i#4698: Check SIMD values on AArch64. */
+
+#        if defined(__ARM_FEATURE_SVE)
+    size_t vector_length_in_bytes;
+    asm("rdvl %[dest], 1" : [dest] "=r"(vector_length_in_bytes));
+    static const char *prefix = "z";
+#        else
+    static const size_t vector_length_in_bytes = 16;
+    static const char *prefix = "v";
+#        endif
+
+    const size_t num_vector_registers = 32;
+    const size_t simd_sz_in_ptrs = vector_length_in_bytes / sizeof(ptr_uint_t);
+
+    /* The expected value for 2048-bit Z0. This is directly compared to the value of
+     * z0/v0 and used to calculate expected values for all other vector registers.
+     * We just use a subset of the array for vector lengths < 2048-bits.
+     */
+    ptr_uint_t vec_expected[32] = {
+        0xf7f6f5f4f3f2f1f0, 0xfffefdfcfbfaf9f8, 0x0706050403020100, 0x0f0e0d0c0b0a0908,
+        0x1716151413121110, 0x1f1e1d1c1b1a1918, 0x2726252423222120, 0x2f2e2d2c2b2a2928,
+        0x3736353433323130, 0x3f3e3d3c3b3a3938, 0x4746454443424140, 0x4f4e4d4c4b4a4948,
+        0x5756555453525150, 0x5f5e5d5c5b5a5958, 0x6766656463626160, 0x6f6e6d6c6b6a6968,
+        0x7776757473727170, 0x7f7e7d7c7b7a7978, 0x8786858483828180, 0x8f8e8d8c8b8a8988,
+        0x9796959493929190, 0x9f9e9d9c9b9a9998, 0xa7a6a5a4a3a2a1a0, 0xafaeadacabaaa9a8,
+        0xb7b6b5b4b3b2b1b0, 0xbfbebdbcbbbab9b8, 0xc7c6c5c4c3c2c1c0, 0xcfcecdcccbcac9c8,
+        0xd7d6d5d4d3d2d1d0, 0xdfdedddcdbdad9d8, 0xe7e6e5e4e3e2e1e0, 0xefeeedecebeae9e8,
+    };
+    /* There are 31 AArch64 general purpose registers but x0 is saved twice in order to
+     * keep the stack 16-byte aligned.
+     */
+    static const ptr_uint_t gprs_on_stack = 32;
+    for (i = 0; i < num_vector_registers; i++) {
+        const ptr_uint_t const *vector_reg_data =
+            xsp + gprs_on_stack + (i * simd_sz_in_ptrs);
+
+        for (uint element = 0; element < simd_sz_in_ptrs; element++) {
+            check_simd_value(prefix, i, "d", element, vector_reg_data[element],
+                             vec_expected[element]);
+        }
+
+        /* Increment each byte to generate the expected value for the next register. */
+        for (size_t j = 0; j < vector_length_in_bytes; j++) {
+            ((byte *)vec_expected)[j]++;
+        }
+    }
+#        if defined(__ARM_FEATURE_SVE)
+    /* Predicate registers are 1/8 the size of the vector registers. We check the vector
+     * register 8 bytes at a time so we check the predicate registers 1 byte at a time.
+     */
+    byte ffr_expected[32] = {
+        0xf5, 0x06, 0x17, 0x28, 0x39, 0x4a, 0x5b, 0x6c, 0x7d, 0x8e, 0x9f,
+        0xa0, 0xb1, 0xc2, 0xd3, 0xe4, 0xf5, 0x06, 0x17, 0x28, 0x39, 0x4a,
+        0x5b, 0x6c, 0x7d, 0x8e, 0x9f, 0xa0, 0xb1, 0xc2, 0xd3, 0xe4,
+    };
+    const byte const *ffr =
+        (byte *)(xsp + gprs_on_stack + (num_vector_registers * simd_sz_in_ptrs));
+    for (uint element = 0; element < simd_sz_in_ptrs; element++) {
+        check_simd_value("ffr", 0, "d", element, ffr[element], ffr_expected[element]);
+    }
+
+    byte pred_expected[32] = {
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa,
+        0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+        0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+    };
+    const byte const *predicate_reg_start = ffr + 32;
+    for (i = 0; i < 16; i++) {
+        const byte const *predicate_reg =
+            predicate_reg_start + (i * (vector_length_in_bytes / 8));
+        for (uint element = 0; element < simd_sz_in_ptrs; element++) {
+            check_simd_value("p", i, "d", element, predicate_reg[element],
+                             pred_expected[element]);
+        }
+
+        /* Increment each byte to generate the expected value for the next register. */
+        for (size_t j = 0; j < vector_length_in_bytes; j++) {
+            pred_expected[j] += 0x11;
+        }
+    }
+#        endif
 #    else
 #        error NYI /* TODO i#3160: Add 32-bit support. */
 #    endif
@@ -775,9 +860,83 @@ START_FILE
         stp      x4, x5, [sp, #-16]! @N@\
         stp      x2, x3, [sp, #-16]! @N@\
         stp      x0, x1, [sp, #-16]!
+#if defined(__ARM_FEATURE_SVE)
 #    define PUSHALL \
+        /* p0 does not keep its pre-push value */ @N@\
+        addpl    sp, sp, #-16 @N@\
+        str      p15, [sp, #15, mul vl] @N@\
+        str      p14, [sp, #14, mul vl] @N@\
+        str      p13, [sp, #13, mul vl] @N@\
+        str      p12, [sp, #12, mul vl] @N@\
+        str      p11, [sp, #11, mul vl] @N@\
+        str      p10, [sp, #10, mul vl] @N@\
+        str      p9, [sp, #9, mul vl] @N@\
+        str      p8, [sp, #8, mul vl] @N@\
+        str      p7, [sp, #7, mul vl] @N@\
+        str      p6, [sp, #6, mul vl] @N@\
+        str      p5, [sp, #5, mul vl] @N@\
+        str      p4, [sp, #4, mul vl] @N@\
+        str      p3, [sp, #3, mul vl] @N@\
+        str      p2, [sp, #2, mul vl] @N@\
+        str      p1, [sp, #1, mul vl] @N@\
+        str      p0, [sp, #0, mul vl] @N@\
+        sub      sp, sp, #32 @N@\
+        rdffr    p0.b @N@ \
+        str      p0, [sp, #0, mul vl] @N@\
+        addvl    sp, sp, #-32 @N@\
+        str      z31, [sp, #31, mul vl] @N@\
+        str      z30, [sp, #30, mul vl] @N@\
+        str      z29, [sp, #29, mul vl] @N@\
+        str      z28, [sp, #28, mul vl] @N@\
+        str      z27, [sp, #27, mul vl] @N@\
+        str      z26, [sp, #26, mul vl] @N@\
+        str      z25, [sp, #25, mul vl] @N@\
+        str      z24, [sp, #24, mul vl] @N@\
+        str      z23, [sp, #23, mul vl] @N@\
+        str      z22, [sp, #22, mul vl] @N@\
+        str      z21, [sp, #21, mul vl] @N@\
+        str      z20, [sp, #20, mul vl] @N@\
+        str      z19, [sp, #19, mul vl] @N@\
+        str      z18, [sp, #18, mul vl] @N@\
+        str      z17, [sp, #17, mul vl] @N@\
+        str      z16, [sp, #16, mul vl] @N@\
+        str      z15, [sp, #15, mul vl] @N@\
+        str      z14, [sp, #14, mul vl] @N@\
+        str      z13, [sp, #13, mul vl] @N@\
+        str      z12, [sp, #12, mul vl] @N@\
+        str      z11, [sp, #11, mul vl] @N@\
+        str      z10, [sp, #10, mul vl] @N@\
+        str      z9, [sp, #9, mul vl] @N@\
+        str      z8, [sp, #8, mul vl] @N@\
+        str      z7, [sp, #7, mul vl] @N@\
+        str      z6, [sp, #6, mul vl] @N@\
+        str      z5, [sp, #5, mul vl] @N@\
+        str      z4, [sp, #4, mul vl] @N@\
+        str      z3, [sp, #3, mul vl] @N@\
+        str      z2, [sp, #2, mul vl] @N@\
+        str      z1, [sp, #1, mul vl] @N@\
+        str      z0, [sp, #0, mul vl] @N@\
         PUSH_GPRS
-        /* TODO i#4698: Push and check SIMD regs. */
+#else /* defined(__ARM_FEATURE_SVE) */
+#    define PUSHALL \
+        stp      q30, q31, [sp, #-32]! @N@\
+        stp      q28, q29, [sp, #-32]! @N@\
+        stp      q26, q27, [sp, #-32]! @N@\
+        stp      q24, q25, [sp, #-32]! @N@\
+        stp      q22, q23, [sp, #-32]! @N@\
+        stp      q20, q21, [sp, #-32]! @N@\
+        stp      q18, q19, [sp, #-32]! @N@\
+        stp      q16, q17, [sp, #-32]! @N@\
+        stp      q14, q15, [sp, #-32]! @N@\
+        stp      q12, q13, [sp, #-32]! @N@\
+        stp      q10, q11, [sp, #-32]! @N@\
+        stp      q8, q9, [sp, #-32]! @N@\
+        stp      q6, q7, [sp, #-32]! @N@\
+        stp      q4, q5, [sp, #-32]! @N@\
+        stp      q2, q3, [sp, #-32]! @N@\
+        stp      q0, q1, [sp, #-32]! @N@\
+        PUSH_GPRS
+#endif /* defined(__ARM_FEATURE_SVE) */
 #    define PUSH_CALLEE_SAVED \
         stp      x29, x30, [sp, #-16]! @N@\
         stp      x27, x28, [sp, #-16]! @N@\
@@ -804,9 +963,85 @@ START_FILE
         ldp      x30, x0, [sp], #16
 #    define ALIGN_STACK_ON_FUNC_ENTRY /* Nothing. */
 #    define UNALIGN_STACK_ON_FUNC_EXIT /* Nothing. */
+#if defined(__ARM_FEATURE_SVE)
 #    define POPALL \
-        POP_GPRS
-        /* TODO i#4698: Pop SIMD regs. */
+        POP_GPRS @N@\
+        ldr      z31, [sp, #31, mul vl] @N@\
+        ldr      z30, [sp, #30, mul vl] @N@\
+        ldr      z29, [sp, #29, mul vl] @N@\
+        ldr      z28, [sp, #28, mul vl] @N@\
+        ldr      z27, [sp, #27, mul vl] @N@\
+        ldr      z26, [sp, #26, mul vl] @N@\
+        ldr      z25, [sp, #25, mul vl] @N@\
+        ldr      z24, [sp, #24, mul vl] @N@\
+        ldr      z23, [sp, #23, mul vl] @N@\
+        ldr      z22, [sp, #22, mul vl] @N@\
+        ldr      z21, [sp, #21, mul vl] @N@\
+        ldr      z20, [sp, #20, mul vl] @N@\
+        ldr      z19, [sp, #19, mul vl] @N@\
+        ldr      z18, [sp, #18, mul vl] @N@\
+        ldr      z17, [sp, #17, mul vl] @N@\
+        ldr      z16, [sp, #16, mul vl] @N@\
+        ldr      z15, [sp, #15, mul vl] @N@\
+        ldr      z14, [sp, #14, mul vl] @N@\
+        ldr      z13, [sp, #13, mul vl] @N@\
+        ldr      z12, [sp, #12, mul vl] @N@\
+        ldr      z11, [sp, #11, mul vl] @N@\
+        ldr      z10, [sp, #10, mul vl] @N@\
+        ldr      z9, [sp, #9, mul vl] @N@\
+        ldr      z8, [sp, #8, mul vl] @N@\
+        ldr      z7, [sp, #7, mul vl] @N@\
+        ldr      z6, [sp, #6, mul vl] @N@\
+        ldr      z5, [sp, #5, mul vl] @N@\
+        ldr      z4, [sp, #4, mul vl] @N@\
+        ldr      z3, [sp, #3, mul vl] @N@\
+        ldr      z2, [sp, #2, mul vl] @N@\
+        ldr      z1, [sp, #1, mul vl] @N@\
+        ldr      z0, [sp, #0, mul vl] @N@\
+        /* We need to add 32*vector_length_in_bytes to sp but addvl has a maximum */ @N@\
+        /* immediate value of 31 so we have to split it into two instructions. */ @N@\
+        addvl    sp, sp, #31 @N@\
+        addvl    sp, sp, #1 @N@\
+        ldr      p0, [sp] @N@\
+        wrffr    p0.b @N@\
+        add      sp, sp, #32 @N@\
+        ldr      p15, [sp, #15, mul vl] @N@\
+        ldr      p14, [sp, #14, mul vl] @N@\
+        ldr      p13, [sp, #13, mul vl] @N@\
+        ldr      p12, [sp, #12, mul vl] @N@\
+        ldr      p11, [sp, #11, mul vl] @N@\
+        ldr      p10, [sp, #10, mul vl] @N@\
+        ldr      p9, [sp, #9, mul vl] @N@\
+        ldr      p8, [sp, #8, mul vl] @N@\
+        ldr      p7, [sp, #7, mul vl] @N@\
+        ldr      p6, [sp, #6, mul vl] @N@\
+        ldr      p5, [sp, #5, mul vl] @N@\
+        ldr      p4, [sp, #4, mul vl] @N@\
+        ldr      p3, [sp, #3, mul vl] @N@\
+        ldr      p2, [sp, #2, mul vl] @N@\
+        ldr      p1, [sp, #1, mul vl] @N@\
+        ldr      p0, [sp, #0, mul vl] @N@\
+        addpl    sp, sp, #16
+#else /* defined(__ARM_FEATURE_SVE) */
+#    define POPALL \
+        POP_GPRS @N@\
+        ldp      q0, q1, [sp, #32]! @N@\
+        ldp      q2, q3, [sp, #32]! @N@\
+        ldp      q4, q5, [sp, #32]! @N@\
+        ldp      q6, q7, [sp, #32]! @N@\
+        ldp      q8, q9, [sp, #32]! @N@\
+        ldp      q10, q11, [sp, #32]! @N@\
+        ldp      q12, q13, [sp, #32]! @N@\
+        ldp      q14, q15, [sp, #32]! @N@\
+        ldp      q16, q17, [sp, #32]! @N@\
+        ldp      q18, q19, [sp, #32]! @N@\
+        ldp      q20, q21, [sp, #32]! @N@\
+        ldp      q22, q23, [sp, #32]! @N@\
+        ldp      q24, q25, [sp, #32]! @N@\
+        ldp      q26, q27, [sp, #32]! @N@\
+        ldp      q28, q29, [sp, #32]! @N@\
+        ldp      q30, q31, [sp, #32]!
+#endif /* defined(__ARM_FEATURE_SVE) */
 #    define POP_CALLEE_SAVED \
         ldp      x19, x20, [sp], #16 @N@\
         ldp      x21, x22, [sp], #16 @N@\
@@ -977,8 +1212,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movk reg, @P@((val) >> 32 & 0xffff), lsl @P@32 @N@\
         movk reg, @P@((val) >> 48 & 0xffff), lsl @P@48
 
-    /* We can't set LR in a callee so we inline: */
-#    define SET_UNIQUE_REGISTER_VALS \
+#    define SET_GPR_UNIQUE_REGISTER_VALS \
         SET_GPR_IMMED(x0, MAKE_HEX_C(X0_BASE())) @N@\
         SET_GPR_IMMED(x1, MAKE_HEX_C(X1_BASE())) @N@\
         SET_GPR_IMMED(x2, MAKE_HEX_C(X2_BASE())) @N@\
@@ -1010,6 +1244,118 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_GPR_IMMED(x28, MAKE_HEX_C(X28_BASE())) @N@\
         SET_GPR_IMMED(x29, MAKE_HEX_C(X29_BASE())) @N@\
         SET_GPR_IMMED(x30, MAKE_HEX_C(X30_BASE()))
+
+#if defined (__ARM_FEATURE_SVE)
+/* It is not possible to move arbitrary patterns into P registers directly so we go via
+ * memory.
+ */
+# define SET_P_PATTERN(reg, start) \
+        movz     w0, start @N@\
+        movz     w1, MAKE_HEX_ASM(11) @N@\
+        index    z0.b, w0, w1 @N@\
+        str      z0, [sp] @N@\
+        ldr      reg, [sp]
+
+    /* We can't set LR in a callee so we inline: */
+#    define SET_UNIQUE_REGISTER_VALS \
+        addvl    sp, sp, #-1 @N@\
+        SET_P_PATTERN(p0, MAKE_HEX_ASM(f5)) @N@\
+        wrffr    p0.b @N@\
+        SET_P_PATTERN(p0, MAKE_HEX_ASM(00)) @N@\
+        SET_P_PATTERN(p1, MAKE_HEX_ASM(11)) @N@\
+        SET_P_PATTERN(p2, MAKE_HEX_ASM(22)) @N@\
+        SET_P_PATTERN(p3, MAKE_HEX_ASM(33)) @N@\
+        SET_P_PATTERN(p4, MAKE_HEX_ASM(44)) @N@\
+        SET_P_PATTERN(p5, MAKE_HEX_ASM(55)) @N@\
+        SET_P_PATTERN(p6, MAKE_HEX_ASM(66)) @N@\
+        SET_P_PATTERN(p7, MAKE_HEX_ASM(77)) @N@\
+        SET_P_PATTERN(p8, MAKE_HEX_ASM(88)) @N@\
+        SET_P_PATTERN(p9, MAKE_HEX_ASM(99)) @N@\
+        SET_P_PATTERN(p10, MAKE_HEX_ASM(aa)) @N@\
+        SET_P_PATTERN(p11, MAKE_HEX_ASM(bb)) @N@\
+        SET_P_PATTERN(p12, MAKE_HEX_ASM(cc)) @N@\
+        SET_P_PATTERN(p13, MAKE_HEX_ASM(dd)) @N@\
+        SET_P_PATTERN(p14, MAKE_HEX_ASM(ee)) @N@\
+        SET_P_PATTERN(p15, MAKE_HEX_ASM(ff)) @N@\
+        addvl    sp, sp, #1 @N@\
+        index    z0.b, #-16, #1 @N@\
+        index    z1.b, #-15, #1 @N@\
+        index    z2.b, #-14, #1 @N@\
+        index    z3.b, #-13, #1 @N@\
+        index    z4.b, #-12, #1 @N@\
+        index    z5.b, #-11, #1 @N@\
+        index    z6.b, #-10, #1 @N@\
+        index    z7.b, #-9, #1 @N@\
+        index    z8.b, #-8, #1 @N@\
+        index    z9.b, #-7, #1 @N@\
+        index    z10.b, #-6, #1 @N@\
+        index    z11.b, #-5, #1 @N@\
+        index    z12.b, #-4, #1 @N@\
+        index    z13.b, #-3, #1 @N@\
+        index    z14.b, #-2, #1 @N@\
+        index    z15.b, #-1, #1 @N@\
+        index    z16.b, #0, #1 @N@\
+        index    z17.b, #1, #1 @N@\
+        index    z18.b, #2, #1 @N@\
+        index    z19.b, #3, #1 @N@\
+        index    z20.b, #4, #1 @N@\
+        index    z21.b, #5, #1 @N@\
+        index    z22.b, #6, #1 @N@\
+        index    z23.b, #7, #1 @N@\
+        index    z24.b, #8, #1 @N@\
+        index    z25.b, #9, #1 @N@\
+        index    z26.b, #10, #1 @N@\
+        index    z27.b, #11, #1 @N@\
+        index    z28.b, #12, #1 @N@\
+        index    z29.b, #13, #1 @N@\
+        index    z30.b, #14, #1 @N@\
+        index    z31.b, #15, #1 @N@\
+        SET_GPR_UNIQUE_REGISTER_VALS
+# else
+    /* We can't set LR in a callee so we inline: */
+#    define SET_UNIQUE_REGISTER_VALS \
+        /* Create a pattern that mimics the SVE index instruction we use to */ @N@\
+        /* generate Z register patterns. */ @N@\
+        SET_GPR_IMMED(x0, MAKE_HEX_C(V0_0_BASE())) @N@\
+        SET_GPR_IMMED(x1, MAKE_HEX_C(V0_1_BASE())) @N@\
+        mov      v0.d[0], x0 @N@\
+        mov      v0.d[1], x1 @N@\
+        movi     v31.16b, #1 @N@\
+        add      v1.16b, v0.16b, v31.16b @N@\
+        add      v2.16b, v1.16b, v31.16b @N@\
+        add      v3.16b, v2.16b, v31.16b @N@\
+        add      v4.16b, v3.16b, v31.16b @N@\
+        add      v5.16b, v4.16b, v31.16b @N@\
+        add      v6.16b, v5.16b, v31.16b @N@\
+        add      v7.16b, v6.16b, v31.16b @N@\
+        add      v8.16b, v7.16b, v31.16b @N@\
+        add      v9.16b, v8.16b, v31.16b @N@\
+        add      v10.16b, v9.16b, v31.16b @N@\
+        add      v11.16b, v10.16b, v31.16b @N@\
+        add      v12.16b, v11.16b, v31.16b @N@\
+        add      v13.16b, v12.16b, v31.16b @N@\
+        add      v14.16b, v13.16b, v31.16b @N@\
+        add      v15.16b, v14.16b, v31.16b @N@\
+        add      v16.16b, v15.16b, v31.16b @N@\
+        add      v17.16b, v16.16b, v31.16b @N@\
+        add      v18.16b, v17.16b, v31.16b @N@\
+        add      v19.16b, v18.16b, v31.16b @N@\
+        add      v20.16b, v19.16b, v31.16b @N@\
+        add      v21.16b, v20.16b, v31.16b @N@\
+        add      v22.16b, v21.16b, v31.16b @N@\
+        add      v23.16b, v22.16b, v31.16b @N@\
+        add      v24.16b, v23.16b, v31.16b @N@\
+        add      v25.16b, v24.16b, v31.16b @N@\
+        add      v26.16b, v25.16b, v31.16b @N@\
+        add      v27.16b, v26.16b, v31.16b @N@\
+        add      v28.16b, v27.16b, v31.16b @N@\
+        add      v29.16b, v28.16b, v31.16b @N@\
+        add      v30.16b, v29.16b, v31.16b @N@\
+        add      v31.16b, v30.16b, v31.16b @N@\
+        SET_GPR_UNIQUE_REGISTER_VALS
+#endif /*defined (__ARM_FEATURE_SVE) */
+
+
 #elif defined(RISCV64)
     /* XXX i#3544: Not implemented */
 #    define SET_UNIQUE_REGISTER_VALS

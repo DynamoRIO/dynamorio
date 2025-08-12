@@ -147,6 +147,8 @@
 #    define X28_BASE() fdef0123456789ab
 #    define X29_BASE() fef0123456789abc
 #    define X30_BASE() ff0123456789abcd
+#    define V0_0_BASE() f7f6f5f4f3f2f1f0
+#    define V0_1_BASE() fffefdfcfbfaf9f8
 #endif
 
 #endif /* _DETACH_STATE_SHARED_H_ */
