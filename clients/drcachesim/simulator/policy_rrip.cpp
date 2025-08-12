@@ -40,9 +40,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-policy_rrip_t::policy_rrip_t(int num_sets, int associativity,
-                             size_t rrpv_bits, size_t rrpv_period,
-                             size_t rrpv_long_per_period)
+policy_rrip_t::policy_rrip_t(int num_sets, int associativity, size_t rrpv_bits,
+                             size_t rrpv_period, size_t rrpv_long_per_period)
     : cache_replacement_policy_t(num_sets, associativity)
     , rrpv_bits_(rrpv_bits)
     , rrpv_distant_((1 << rrpv_bits_) - 1)

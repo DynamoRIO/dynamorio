@@ -44,7 +44,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 // Default values for RRIP-based cache replacement policy
-const size_t RRPV_BITS_DEFAULT = 3;             // Bits to store RRPV for a cache block
+const size_t RRPV_BITS_DEFAULT = 3; // Bits to store RRPV for a cache block
 // The following two parameter defines the default frequency of "long" and "distant" RRPV
 // for cache misses. The default frequency of "long" values is: use the value "long"
 // for RRPV_LONG_PER_PERIOD_DEFAULT of each RRPV_PERIOD_DEFAULT cache misses.
@@ -75,8 +75,7 @@ const size_t RRPV_LONG_PER_PERIOD_DEFAULT = 1;
  */
 class policy_rrip_t : public cache_replacement_policy_t {
 public:
-    policy_rrip_t(int num_sets, int associativity,
-                  size_t rrpv_bits = RRPV_BITS_DEFAULT,
+    policy_rrip_t(int num_sets, int associativity, size_t rrpv_bits = RRPV_BITS_DEFAULT,
                   size_t rrpv_period = RRPV_PERIOD_DEFAULT,
                   size_t rrpv_long_per_period = RRPV_LONG_PER_PERIOD_DEFAULT);
     void
