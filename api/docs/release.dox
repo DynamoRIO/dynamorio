@@ -133,8 +133,8 @@ changes:
    dr_create_memory_dump() returns true and elf_path is not NULL, elf_path will be
    written with the path to the memory dump file.
  - Added new argument is_hit to the method access_update() of the classes
-   #dynamorio::drmemtrace::cache_replacement_policy_t and
-   #dynamorio::drmemtrace::caching_device_t which is set to true if the access is
+   dynamorio::drmemtrace::cache_replacement_policy_t and
+   dynamorio::drmemtrace::caching_device_t which is set to true if the access is
    cache hit, false otherwise.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
@@ -215,7 +215,7 @@ Further non-compatibility-affecting changes include:
    records. These records capture arguments, memory regions, and return codes. A new
    viewer, drsyscall_record_viewer, was also added to display the contents of these
    records.
- - Added the class #dynamorio::drmemtrace::policy_rrip_t which implements RRIP cache
+ - Added the class dynamorio::drmemtrace::policy_rrip_t which implements RRIP cache
    replacement policy model for the drcachesim tool.
 
 **************************************************
