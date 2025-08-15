@@ -109,11 +109,56 @@ typedef struct _per_thread_t {
 static int tls_idx;
 static drx_time_scale_t scale_options;
 
-/* Globals access via DR atomics. */
+/* Globals accessed via DR atomics. */
 static int init_count;
+static drx_time_scale_stat_t stats[DRX_SCALE_STAT_TYPES];
 
 static const int MAX_TV_NSEC = 1000000000ULL;
 static const int MAX_TV_USEC = 1000000ULL;
+
+static inline void
+increment_attempt(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_attempted, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_attempted, 1);
+#endif
+}
+
+static inline void
+increment_failure(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_failed, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_failed, 1);
+#endif
+}
+
+static inline void
+increment_attempt_and_failure(drx_time_scale_type_t type)
+{
+    increment_attempt(type);
+    increment_failure(type);
+}
+
+static inline void
+increment_nop(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_nop, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_nop, 1);
+#endif
+}
+
+static inline void
+increment_attempt_and_nop(drx_time_scale_type_t type)
+{
+    increment_attempt(type);
+    increment_nop(type);
+}
 
 static inline bool
 is_timespec_zero(struct timespec *spec)
@@ -136,12 +181,16 @@ is_timeval_zero(struct timeval *val)
 }
 
 static void
-inflate_timespec(void *drcontext, struct timespec *spec, int scale)
+inflate_timespec(void *drcontext, struct timespec *spec, int scale,
+                 drx_time_scale_type_t type)
 {
     NOTIFY(2, "T" TIDFMT "  Original time %" SSZFC ".%.12" SSZFC "\n",
            dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
-    if (is_timespec_zero(spec) || scale == 1)
+    increment_attempt(type);
+    if (is_timespec_zero(spec) || scale == 1) {
+        increment_nop(type);
         return;
+    }
     spec->tv_nsec *= scale;
     spec->tv_sec *= scale;
     spec->tv_sec += spec->tv_nsec / MAX_TV_NSEC;
@@ -152,14 +201,18 @@ inflate_timespec(void *drcontext, struct timespec *spec, int scale)
 
 #ifndef X64
 static void
-inflate_timespec64(void *drcontext, timespec64_t *spec, int scale)
+inflate_timespec64(void *drcontext, timespec64_t *spec, int scale,
+                   drx_time_scale_type_t type)
 {
     NOTIFY(2,
            "T" TIDFMT "  Original time %" INT64_FORMAT_CODE ".%.12" INT64_FORMAT_CODE
            "\n",
            dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
-    if (is_timespec64_zero(spec) || scale == 1)
+    increment_attempt(type);
+    if (is_timespec64_zero(spec) || scale == 1) {
+        increment_nop(type);
         return;
+    }
     spec->tv_nsec *= scale;
     spec->tv_sec *= scale;
     spec->tv_sec += spec->tv_nsec / MAX_TV_NSEC;
@@ -200,12 +253,16 @@ deflate_timespec64(void *drcontext, timespec64_t *spec, int scale)
 #endif
 
 static void
-inflate_timeval(void *drcontext, struct timeval *val, int scale)
+inflate_timeval(void *drcontext, struct timeval *val, int scale,
+                drx_time_scale_type_t type)
 {
     NOTIFY(2, "T" TIDFMT "  Original time %" SSZFC ".%.9" SSZFC "\n",
            dr_get_thread_id(drcontext), val->tv_sec, val->tv_usec);
-    if (is_timeval_zero(val) || scale == 1)
+    increment_attempt(type);
+    if (is_timeval_zero(val) || scale == 1) {
+        increment_nop(type);
         return;
+    }
     val->tv_usec *= scale;
     val->tv_sec *= scale;
     val->tv_sec += val->tv_usec / MAX_TV_USEC;
@@ -277,6 +334,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
+            increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
             return true;
         }
         size_t wrote;
@@ -284,11 +342,12 @@ event_pre_syscall(void *drcontext, int sysnum)
                          &wrote) &&
             wrote == sizeof(data->itimer_spec)) {
             inflate_timespec(drcontext, &data->itimer_spec.it_interval,
-                             scale_options.timer_scale);
+                             scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
             inflate_timespec(drcontext, &data->itimer_spec.it_value,
-                             scale_options.timer_scale);
+                             scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec);
-        }
+        } else
+            increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
         break;
     }
 #ifndef X64
@@ -304,6 +363,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
+            increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
             return true;
         }
         size_t wrote;
@@ -311,11 +371,12 @@ event_pre_syscall(void *drcontext, int sysnum)
                          &wrote) &&
             wrote == sizeof(data->itimer_spec64)) {
             inflate_timespec64(drcontext, &data->itimer_spec64.it_interval,
-                               scale_options.timer_scale);
+                               scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
             inflate_timespec64(drcontext, &data->itimer_spec64.it_value,
-                               scale_options.timer_scale);
+                               scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec64);
-        }
+        } else
+            increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
         break;
     }
 #endif
@@ -341,11 +402,12 @@ event_pre_syscall(void *drcontext, int sysnum)
         if (dr_safe_read(new_val, sizeof(data->itimer_val), &data->itimer_val, &wrote) &&
             wrote == sizeof(data->itimer_val)) {
             inflate_timeval(drcontext, &data->itimer_val.it_interval,
-                            scale_options.timer_scale);
+                            scale_options.timer_scale, DRX_SCALE_ITIMER);
             inflate_timeval(drcontext, &data->itimer_val.it_value,
-                            scale_options.timer_scale);
+                            scale_options.timer_scale, DRX_SCALE_ITIMER);
             dr_syscall_set_param(drcontext, 1, (reg_t)&data->itimer_val);
-        }
+        } else
+            increment_attempt_and_failure(DRX_SCALE_ITIMER);
         break;
     }
     case SYS_getitimer:
@@ -362,9 +424,11 @@ event_pre_syscall(void *drcontext, int sysnum)
         size_t wrote;
         if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
             wrote == sizeof(data->time_spec)) {
-            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale);
+            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                             DRX_SCALE_SLEEP);
             dr_syscall_set_param(drcontext, 0, (reg_t)&data->time_spec);
-        }
+        } else
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
         break;
     }
     case SYS_clock_nanosleep: {
@@ -379,14 +443,17 @@ event_pre_syscall(void *drcontext, int sysnum)
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
             return true;
         }
         size_t wrote;
         if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
             wrote == sizeof(data->time_spec)) {
-            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale);
+            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                             DRX_SCALE_SLEEP);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->time_spec);
-        }
+        } else
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
         break;
     }
 #ifndef X64
@@ -402,15 +469,17 @@ event_pre_syscall(void *drcontext, int sysnum)
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
             return true;
         }
         size_t wrote;
         if (dr_safe_read(spec, sizeof(data->time_spec64), &data->time_spec64, &wrote) &&
             wrote == sizeof(data->time_spec64)) {
-            inflate_timespec64(drcontext, &data->time_spec64,
-                               scale_options.timeout_scale);
+            inflate_timespec64(drcontext, &data->time_spec64, scale_options.timeout_scale,
+                               DRX_SCALE_SLEEP);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->time_spec64);
-        }
+        } else
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
         break;
     }
 #endif
@@ -575,12 +644,15 @@ scale_itimers(void *drcontext, bool inflate)
         res = dr_invoke_syscall_as_app(drcontext, SYS_getitimer, 2, TIMER_TYPES[i], &val);
         if (res != 0) {
             NOTIFY(0, "Failed to call getitimer for id %d: %d\n", i, res);
+            if (inflate)
+                increment_attempt_and_failure(DRX_SCALE_ITIMER);
             continue;
         }
         NOTIFY(3, "As-queried: value=%lu.%lu interval=%lu.%lu\n", val.it_value.tv_sec,
                val.it_value.tv_usec, val.it_interval.tv_sec, val.it_interval.tv_usec);
         if (is_timeval_zero(&val.it_value) && is_timeval_zero(&val.it_interval)) {
             /* Disabled; nothing to do. */
+            increment_attempt_and_nop(DRX_SCALE_ITIMER);
             continue;
         }
         /* If the timer just fired, we can have a zero it_value.  If we send that
@@ -591,16 +663,21 @@ scale_itimers(void *drcontext, bool inflate)
             val.it_value.tv_usec = val.it_interval.tv_usec;
         }
         if (inflate) {
-            inflate_timeval(drcontext, &val.it_interval, scale_options.timer_scale);
-            inflate_timeval(drcontext, &val.it_value, scale_options.timer_scale);
+            inflate_timeval(drcontext, &val.it_interval, scale_options.timer_scale,
+                            DRX_SCALE_ITIMER);
+            inflate_timeval(drcontext, &val.it_value, scale_options.timer_scale,
+                            DRX_SCALE_ITIMER);
         } else {
             deflate_timeval(drcontext, &val.it_interval, scale_options.timer_scale);
             deflate_timeval(drcontext, &val.it_value, scale_options.timer_scale);
         }
         res = dr_invoke_syscall_as_app(drcontext, SYS_setitimer, 3, TIMER_TYPES[i], &val,
                                        NULL);
-        if (res != 0)
+        if (res != 0) {
             NOTIFY(0, "Failed to call setitimer for id %d: %d\n", i, res);
+            if (inflate)
+                increment_failure(DRX_SCALE_ITIMER);
+        }
     }
 }
 
@@ -660,10 +737,13 @@ scale_posix_timers(void *drcontext, bool inflate)
             res = dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime, 2, id, &spec);
             if (res != 0) {
                 NOTIFY(0, "Failed to call timer_gettime for id %d: %d\n", id, res);
+                if (inflate)
+                    increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
                 continue;
             }
             if (is_timespec_zero(&spec.it_value) && is_timespec_zero(&spec.it_interval)) {
                 /* Disabled; nothing to do. */
+                increment_attempt_and_nop(DRX_SCALE_POSIX_TIMER);
                 continue;
             }
             /* If the timer just fired, we can have a zero it_value.  If we send that
@@ -674,27 +754,35 @@ scale_posix_timers(void *drcontext, bool inflate)
                 spec.it_value.tv_nsec = spec.it_interval.tv_nsec;
             }
             if (inflate) {
-                inflate_timespec(drcontext, &spec.it_interval, scale_options.timer_scale);
-                inflate_timespec(drcontext, &spec.it_value, scale_options.timer_scale);
+                inflate_timespec(drcontext, &spec.it_interval, scale_options.timer_scale,
+                                 DRX_SCALE_POSIX_TIMER);
+                inflate_timespec(drcontext, &spec.it_value, scale_options.timer_scale,
+                                 DRX_SCALE_POSIX_TIMER);
             } else {
                 deflate_timespec(drcontext, &spec.it_interval, scale_options.timer_scale);
                 deflate_timespec(drcontext, &spec.it_value, scale_options.timer_scale);
             }
             res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime, 4, id, 0, &spec,
                                            NULL);
-            if (res != 0)
+            if (res != 0) {
                 NOTIFY(0, "Failed to call timer_settime for id %d: %d\n", id, res);
+                if (inflate)
+                    increment_failure(DRX_SCALE_POSIX_TIMER);
+            }
 #else
             itimerspec64_t spec;
             /* See above comment about dr_invoke_syscall_as_app(). */
             res = dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime64, 2, id, &spec);
             if (res != 0) {
                 NOTIFY(0, "Failed to call timer_gettime64 for id %d: %d\n", id, res);
+                if (inflate)
+                    increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
                 continue;
             }
             if (is_timespec64_zero(&spec.it_value) &&
                 is_timespec64_zero(&spec.it_interval)) {
                 /* Disabled; nothing to do. */
+                increment_attempt_and_nop(DRX_SCALE_POSIX_TIMER);
                 continue;
             }
             /* If the timer just fired, we can have a zero it_value.  If we send that
@@ -706,8 +794,9 @@ scale_posix_timers(void *drcontext, bool inflate)
             }
             if (inflate) {
                 inflate_timespec64(drcontext, &spec.it_interval,
-                                   scale_options.timer_scale);
-                inflate_timespec64(drcontext, &spec.it_value, scale_options.timer_scale);
+                                   scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
+                inflate_timespec64(drcontext, &spec.it_value, scale_options.timer_scale,
+                                   DRX_SCALE_POSIX_TIMER);
             } else {
                 deflate_timespec64(drcontext, &spec.it_interval,
                                    scale_options.timer_scale);
@@ -715,8 +804,11 @@ scale_posix_timers(void *drcontext, bool inflate)
             }
             res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime64, 4, id, 0,
                                            &spec, NULL);
-            if (res != 0)
+            if (res != 0) {
                 NOTIFY(0, "Failed to call timer_settime64 for id %d: %d\n", id, res);
+                if (inflate)
+                    increment_failure(DRX_SCALE_POSIX_TIMER);
+            }
 #endif
         }
     }
@@ -771,6 +863,8 @@ drx_register_time_scaling(drx_time_scale_t *options)
     if (tls_idx == -1)
         return false;
 
+    memset(stats, 0, sizeof(stats));
+
     void *drcontext = dr_get_current_drcontext();
     /* XXX i#7504: For dynamic attach, at process init time other threads are not
      * yet taken over and so our timer sweep here can be inaccurate with the
@@ -805,4 +899,11 @@ drx_unregister_time_scaling()
         drmgr_unregister_post_syscall_event(event_post_syscall) &&
         drmgr_unregister_thread_init_event(event_thread_init) &&
         drmgr_unregister_thread_exit_event(event_thread_exit);
+}
+
+bool
+drx_get_time_scaling_stats(drx_time_scale_stat_t **stats_array)
+{
+    *stats_array = stats;
+    return true;
 }

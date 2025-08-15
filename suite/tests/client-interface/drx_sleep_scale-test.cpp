@@ -117,6 +117,18 @@ thread_routine(void *arg)
 #endif
     int64_t eintr_count = 0;
     while (!child_should_exit.load(std::memory_order_acquire)) {
+        // Test a sleep of 0 to test nop stats.
+        if (sleep_count == 0) {
+            sleeptime.tv_nsec = 0;
+#ifndef X64
+            sleeptime64.tv_nsec = 0;
+#endif
+        } else {
+            sleeptime.tv_nsec = SLEEP_NSEC;
+#ifndef X64
+            sleeptime64.tv_nsec = SLEEP_NSEC;
+#endif
+        }
         ++sleep_count;
         int res;
         if (clock_version) {
@@ -193,7 +205,18 @@ do_some_work(bool clock_version)
 static void
 event_exit(void)
 {
-    bool ok = drx_unregister_time_scaling();
+    drx_time_scale_stat_t *stats;
+    bool ok = drx_get_time_scaling_stats(&stats);
+    assert(ok);
+    for (int i = 0; i < DRX_SCALE_STAT_TYPES; ++i) {
+        dr_fprintf(STDERR, "type %d: attempt " SZFMT " fail " SZFMT " nop " SZFMT "\n", i,
+                   stats[i].count_attempted, stats[i].count_failed, stats[i].count_nop);
+    }
+    assert(stats[DRX_SCALE_SLEEP].count_attempted > 0);
+    assert(stats[DRX_SCALE_SLEEP].count_failed == 0);
+    assert(stats[DRX_SCALE_SLEEP].count_nop > 0);
+
+    ok = drx_unregister_time_scaling();
     assert(ok);
     drx_exit();
     dr_fprintf(STDERR, "client done\n");
