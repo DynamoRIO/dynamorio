@@ -132,10 +132,11 @@ changes:
  - Added new fields elf_path and elf_path_size to dr_memory_dump_spec_t. When
    dr_create_memory_dump() returns true and elf_path is not NULL, elf_path will be
    written with the path to the memory dump file.
- - Added new argument is_hit to the method access_update() of the classes
-   dynamorio::drmemtrace::cache_replacement_policy_t and
-   dynamorio::drmemtrace::caching_device_t which is set to true if the access is
-   cache hit, false otherwise.
+ - Added new argument access_type of enum cache_access_type_t to the method
+   access_update() of the classes dynamorio::drmemtrace::cache_replacement_policy_t and
+   dynamorio::drmemtrace::caching_device_t. Possible values are:
+   - cache_access_type_t::HIT,
+   - cache_access_type_t::MISS.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:

@@ -88,7 +88,7 @@ tlb_t::request(const memref_t &memref_in)
         assert(tag != TAG_INVALID && tag == tlb_entry->tag_ &&
                pid == ((tlb_entry_t *)tlb_entry)->pid_);
         record_access_stats(memref_in, true /*hit*/, tlb_entry);
-        access_update(last_block_idx_, last_way_, true /*hit*/);
+        access_update(last_block_idx_, last_way_, HIT);
         return;
     }
 
@@ -125,7 +125,7 @@ tlb_t::request(const memref_t &memref_in)
             ((tlb_entry_t *)tlb_entry)->pid_ = pid;
         }
 
-        access_update(block_idx, way, is_hit);
+        access_update(block_idx, way, is_hit ? HIT : MISS);
 
         if (tag + 1 <= final_tag) {
             addr_t next_addr = (tag + 1) << block_size_bits_;

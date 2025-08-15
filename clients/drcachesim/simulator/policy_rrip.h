@@ -71,7 +71,7 @@ const size_t RRPV_LONG_PER_PERIOD_DEFAULT = 1;
  *   rrpv_bits=3
  *   rrpv_period=64
  *   rrpv_long_per_period=1
- * TODO: Read them from cache configuration file
+ * TODO i#7590: Read them from cache configuration file
  */
 class policy_rrip_t : public cache_replacement_policy_t {
 public:
@@ -79,7 +79,7 @@ public:
                   size_t rrpv_period = RRPV_PERIOD_DEFAULT,
                   size_t rrpv_long_per_period = RRPV_LONG_PER_PERIOD_DEFAULT);
     void
-    access_update(int set_idx, int way, bool is_hit) override;
+    access_update(int set_idx, int way, cache_access_type_t access_type) override;
     void
     eviction_update(int set_idx, int way) override;
     void

@@ -49,7 +49,7 @@ class policy_lfu_t : public cache_replacement_policy_t {
 public:
     policy_lfu_t(int num_sets, int associativity);
     void
-    access_update(int set_idx, int way, bool is_hit) override;
+    access_update(int set_idx, int way, cache_access_type_t access_type) override;
     void
     eviction_update(int set_idx, int way) override;
     void

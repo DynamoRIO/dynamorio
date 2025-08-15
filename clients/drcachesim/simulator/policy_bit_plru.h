@@ -53,7 +53,7 @@ public:
     /// If seed is -1, a random seed will be used.
     policy_bit_plru_t(int num_sets, int associativity, int seed = -1);
     void
-    access_update(int set_idx, int way, bool is_hit) override;
+    access_update(int set_idx, int way, cache_access_type_t access_type) override;
     void
     eviction_update(int set_idx, int way) override;
     int

@@ -73,11 +73,11 @@ policy_rrip_t::policy_rrip_t(int num_sets, int associativity, size_t rrpv_bits,
 }
 
 void
-policy_rrip_t::access_update(int set_idx, int way, bool is_hit)
+policy_rrip_t::access_update(int set_idx, int way, cache_access_type_t access_type)
 {
     // Cache hit: set counter to 0
     // Cache miss: set block counter to "long" or "distant" with specified frequency
-    rrpv_[set_idx][way] = is_hit ? 0 : increment_n_get_miss_rrpv();
+    rrpv_[set_idx][way] = (access_type == HIT) ? 0 : increment_n_get_miss_rrpv();
 }
 
 void
