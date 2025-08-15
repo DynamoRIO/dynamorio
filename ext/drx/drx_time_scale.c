@@ -103,6 +103,7 @@ typedef struct _per_thread_t {
 #endif
     void *app_read_timer_param;
     void *app_set_timer_param;
+    bool was_zero;
 } per_thread_t;
 
 /* Globals only written at init time. */
@@ -115,6 +116,12 @@ static drx_time_scale_stat_t stats[DRX_SCALE_STAT_TYPES];
 
 static const int MAX_TV_NSEC = 1000000000ULL;
 static const int MAX_TV_USEC = 1000000ULL;
+
+/* Rather than not scaling a sleep of 0, since it is not a nop and does incur a
+ * switch we change it to a small non-0 value (10us, chosen so drmemtrace's 50x scale
+ * hits its scheduler's blocking syscall threshold) which will then be scaled.
+ */
+static const int ZERO_PRE_INFLATE_NSEC = 10000ULL;
 
 static inline void
 increment_attempt(drx_time_scale_type_t type)
@@ -421,9 +428,14 @@ event_pre_syscall(void *drcontext, int sysnum)
                dr_get_thread_id(drcontext), spec, remain);
         data->app_set_timer_param = spec;
         data->app_read_timer_param = remain;
+        data->was_zero = false;
         size_t wrote;
         if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
             wrote == sizeof(data->time_spec)) {
+            if (is_timespec_zero(&data->time_spec)) {
+                data->was_zero = true;
+                data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+            }
             inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
                              DRX_SCALE_SLEEP);
             dr_syscall_set_param(drcontext, 0, (reg_t)&data->time_spec);
@@ -439,6 +451,7 @@ event_pre_syscall(void *drcontext, int sysnum)
                dr_get_thread_id(drcontext), flags, spec, remain);
         data->app_set_timer_param = spec;
         data->app_read_timer_param = remain;
+        data->was_zero = false;
         if (TEST(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
@@ -449,6 +462,10 @@ event_pre_syscall(void *drcontext, int sysnum)
         size_t wrote;
         if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
             wrote == sizeof(data->time_spec)) {
+            if (is_timespec_zero(&data->time_spec)) {
+                data->was_zero = true;
+                data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+            }
             inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
                              DRX_SCALE_SLEEP);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->time_spec);
@@ -465,6 +482,7 @@ event_pre_syscall(void *drcontext, int sysnum)
                dr_get_thread_id(drcontext), flags, spec, remain);
         data->app_set_timer_param = spec;
         data->app_read_timer_param = remain;
+        data->was_zero = false;
         if (TEST(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
@@ -475,6 +493,10 @@ event_pre_syscall(void *drcontext, int sysnum)
         size_t wrote;
         if (dr_safe_read(spec, sizeof(data->time_spec64), &data->time_spec64, &wrote) &&
             wrote == sizeof(data->time_spec64)) {
+            if (is_timespec64_zero(&data->time_spec64)) {
+                data->was_zero = true;
+                data->time_spec64.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+            }
             inflate_timespec64(drcontext, &data->time_spec64, scale_options.timeout_scale,
                                DRX_SCALE_SLEEP);
             dr_syscall_set_param(drcontext, 2, (reg_t)&data->time_spec64);
@@ -590,7 +612,13 @@ event_post_syscall(void *drcontext, int sysnum)
                    dr_safe_read(data->app_read_timer_param, sizeof(data->time_spec),
                                 &data->time_spec, &wrote) &&
                    wrote == sizeof(data->time_spec)) {
-            deflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale);
+            if (data->was_zero) {
+                data->time_spec.tv_sec = 0;
+                data->time_spec.tv_nsec = 0;
+            } else {
+                deflate_timespec(drcontext, &data->time_spec,
+                                 scale_options.timeout_scale);
+            }
             if (!dr_safe_write(data->app_read_timer_param, sizeof(data->time_spec),
                                &data->time_spec, &wrote) ||
                 wrote != sizeof(data->time_spec)) {
@@ -611,8 +639,13 @@ event_post_syscall(void *drcontext, int sysnum)
                    dr_safe_read(data->app_read_timer_param, sizeof(data->time_spec64),
                                 &data->time_spec64, &wrote) &&
                    wrote == sizeof(data->time_spec64)) {
-            deflate_timespec64(drcontext, &data->time_spec64,
-                               scale_options.timeout_scale);
+            if (data->was_zero) {
+                data->time_spec64.tv_sec = 0;
+                data->time_spec64.tv_nsec = 0;
+            } else {
+                deflate_timespec64(drcontext, &data->time_spec64,
+                                   scale_options.timeout_scale);
+            }
             if (!dr_safe_write(data->app_read_timer_param, sizeof(data->time_spec64),
                                &data->time_spec64, &wrote) ||
                 wrote != sizeof(data->time_spec64)) {
