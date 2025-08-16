@@ -232,10 +232,15 @@ event_exit(void)
     }
     assert(stats[DRX_SCALE_ITIMER].count_attempted > 0);
     assert(stats[DRX_SCALE_ITIMER].count_failed == 0);
+    assert(stats[DRX_SCALE_ITIMER].count_attempted >=
+           stats[DRX_SCALE_ITIMER].count_failed + stats[DRX_SCALE_ITIMER].count_nop);
     // The nop for timers will be >0 as it counts it_value too so we
     // do not require it to be 0.
     assert(stats[DRX_SCALE_POSIX_TIMER].count_attempted > 0);
     assert(stats[DRX_SCALE_POSIX_TIMER].count_failed == 0);
+    assert(stats[DRX_SCALE_POSIX_TIMER].count_attempted >=
+           stats[DRX_SCALE_POSIX_TIMER].count_failed +
+               stats[DRX_SCALE_POSIX_TIMER].count_nop);
 
     ok = drx_unregister_time_scaling();
     assert(ok);

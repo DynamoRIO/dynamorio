@@ -213,6 +213,8 @@ event_exit(void)
                    stats[i].count_attempted, stats[i].count_failed, stats[i].count_nop);
     }
     assert(stats[DRX_SCALE_SLEEP].count_attempted > 0);
+    assert(stats[DRX_SCALE_SLEEP].count_attempted >=
+           stats[DRX_SCALE_SLEEP].count_failed + stats[DRX_SCALE_SLEEP].count_nop);
     assert(stats[DRX_SCALE_SLEEP].count_failed == 0);
     assert(stats[DRX_SCALE_SLEEP].count_nop > 0);
 
