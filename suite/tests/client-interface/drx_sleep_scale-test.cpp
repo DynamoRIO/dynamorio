@@ -145,12 +145,19 @@ thread_routine(void *arg)
         if (res != 0) {
             assert(errno == EINTR);
             // Ensure the remaining time was deflated.
+            // Nanosleep rounds up to and the remainder can be slightly larger
+            // so we allow up to 2x.
 #ifndef X64
-            if (clock_version)
-                assert(remaining64.tv_sec <= sleeptime64.tv_sec);
-            else
+            if (clock_version) {
+                assert(remaining64.tv_sec == 0 &&
+                       remaining64.tv_nsec <= 2 * sleeptime64.tv_nsec);
+            } else {
 #endif
-                assert(remaining.tv_sec <= sleeptime.tv_sec);
+                assert(remaining.tv_sec == 0 &&
+                       remaining.tv_nsec <= 2 * sleeptime.tv_nsec);
+#ifndef X64
+            }
+#endif
             ++eintr_count;
         }
     }
