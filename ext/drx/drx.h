@@ -574,6 +574,40 @@ typedef struct _drx_time_scale_t {
     uint timeout_scale;
 } drx_time_scale_t;
 
+/** Application action types for #drx_time_scale_stat_t. */
+typedef enum {
+    DRX_SCALE_ITIMER,      /**< Any of the 3 itimers. */
+    DRX_SCALE_POSIX_TIMER, /**< Any POSIX timer. */
+    DRX_SCALE_SLEEP,       /**< Any sleep system call. */
+    DRX_SCALE_STAT_TYPES,  /**< Count of stat types. */
+} drx_time_scale_type_t;
+
+/**
+ * Statistics on scaling attempts for one application action type.
+ */
+typedef struct _drx_time_scale_stat_t {
+    /* Since dr_atomic_add64_return_sum() is not supported for 32-bit, we make
+     * the counters match the bitwidth.
+     * An alternative would be to use thread-local counters, but we have no
+     * simple way to aggregate all threads prior to exit time.
+     */
+    /**
+     * Count of the instances that might need scaling.
+     * For timers, this counts the initial value and the interval separately.
+     * If #count_failed and #count_nop are subtracted from this, the result
+     * is the count that were successfully scaled to a larger duration.
+     */
+    ptr_int_t count_attempted;
+    /**
+     * Count of the instances where scaling was attempted but failed.
+     */
+    ptr_int_t count_failed;
+    /**
+     * Count of the instances ignored (disabled timers, sleep of 0, scale of 1, etc.).
+     */
+    ptr_int_t count_nop;
+} drx_time_scale_stat_t;
+
 /**
  * Priorities of drmgr instrumentation passes used for time scaling. Users can use these
  * priorities in the #drmgr_priority_t "priority" field or the associated names
@@ -621,6 +655,15 @@ DR_EXPORT
  */
 bool
 drx_unregister_time_scaling();
+
+DR_EXPORT
+/**
+ * Returns a pointer to an array with #DRX_SCALE_STAT_TYPES entries, with the entry
+ * at index "i" containing statistics on scaling for the #drx_time_scale_type_t with
+ * value equal to "i".
+ */
+bool
+drx_get_time_scaling_stats(drx_time_scale_stat_t **stats_array);
 
 /**@}*/ /* end doxygen group */
 
