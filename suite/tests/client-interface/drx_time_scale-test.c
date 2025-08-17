@@ -223,7 +223,26 @@ disable_timers(void)
 static void
 event_exit(void)
 {
-    bool ok = drx_unregister_time_scaling();
+    drx_time_scale_stat_t *stats;
+    bool ok = drx_get_time_scaling_stats(&stats);
+    assert(ok);
+    for (int i = 0; i < DRX_SCALE_STAT_TYPES; ++i) {
+        dr_fprintf(STDERR, "type %d: attempt " SZFMT " fail " SZFMT " nop " SZFMT "\n", i,
+                   stats[i].count_attempted, stats[i].count_failed, stats[i].count_nop);
+    }
+    assert(stats[DRX_SCALE_ITIMER].count_attempted > 0);
+    assert(stats[DRX_SCALE_ITIMER].count_failed == 0);
+    assert(stats[DRX_SCALE_ITIMER].count_attempted >=
+           stats[DRX_SCALE_ITIMER].count_failed + stats[DRX_SCALE_ITIMER].count_nop);
+    // The nop for timers will be >0 as it counts it_value too so we
+    // do not require it to be 0.
+    assert(stats[DRX_SCALE_POSIX_TIMER].count_attempted > 0);
+    assert(stats[DRX_SCALE_POSIX_TIMER].count_failed == 0);
+    assert(stats[DRX_SCALE_POSIX_TIMER].count_attempted >=
+           stats[DRX_SCALE_POSIX_TIMER].count_failed +
+               stats[DRX_SCALE_POSIX_TIMER].count_nop);
+
+    ok = drx_unregister_time_scaling();
     assert(ok);
     drx_exit();
     dr_fprintf(STDERR, "client done\n");
