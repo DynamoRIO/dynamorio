@@ -77,8 +77,7 @@ namespace drmemtrace {
  * also provides more information about the trace using the
  * #dynamorio::drmemtrace::memtrace_stream_t API.
  */
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t>,
-                 public memtrace_stream_t {
+class reader_t : public memtrace_stream_t {
 public:
     reader_t()
     {

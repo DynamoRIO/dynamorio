@@ -111,8 +111,7 @@ namespace drmemtrace {
  * record_reader_t is expected to provide the exact stream of
  * #dynamorio::drmemtrace::trace_entry_t as stored on disk.
  */
-class record_reader_t : public std::iterator<std::input_iterator_tag, trace_entry_t>,
-                        public memtrace_stream_t {
+class record_reader_t : public memtrace_stream_t {
 public:
     record_reader_t(int verbosity, const char *prefix)
         : verbosity_(verbosity)
