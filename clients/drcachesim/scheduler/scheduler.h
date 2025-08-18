@@ -704,6 +704,10 @@ public:
          * blocking and trigger a context switch.
          */
         uint64_t syscall_switch_threshold = 30000000;
+        /* If we change this, we should change drx time scaling's zero sleep
+         * conversion ZERO_PRE_INFLATE_NSEC so that it hits this threshold
+         * with a 50x (commonly applied) scale.
+         */
         /**
          * Determines the minimum latency in the unit of the trace's timestamps
          * (microseconds) for which a maybe-blocking system call (one with

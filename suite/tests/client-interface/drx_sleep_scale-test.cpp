@@ -117,7 +117,7 @@ thread_routine(void *arg)
 #endif
     int64_t eintr_count = 0;
     while (!child_should_exit.load(std::memory_order_acquire)) {
-        // Test a sleep of 0 to test nop stats.
+        // Test a sleep of 0.
         if (sleep_count == 0) {
             sleeptime.tv_nsec = 0;
 #ifndef X64
@@ -223,7 +223,11 @@ event_exit(void)
     assert(stats[DRX_SCALE_SLEEP].count_attempted >=
            stats[DRX_SCALE_SLEEP].count_failed + stats[DRX_SCALE_SLEEP].count_nop);
     assert(stats[DRX_SCALE_SLEEP].count_failed == 0);
-    assert(stats[DRX_SCALE_SLEEP].count_nop > 0);
+    // Either scale was 1 and everything is a nop, or if scaling then our 0-duration
+    // sleep should have become non-0.
+    assert(stats[DRX_SCALE_SLEEP].count_nop == stats[DRX_SCALE_SLEEP].count_attempted ||
+           stats[DRX_SCALE_SLEEP].count_nop == 0);
+    assert(stats[DRX_SCALE_SLEEP].count_zero_to_nonzero > 0);
 
     ok = drx_unregister_time_scaling();
     assert(ok);
