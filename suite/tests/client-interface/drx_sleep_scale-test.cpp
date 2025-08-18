@@ -227,6 +227,7 @@ event_exit(void)
     // sleep should have become non-0.
     assert(stats[DRX_SCALE_SLEEP].count_nop == stats[DRX_SCALE_SLEEP].count_attempted ||
            stats[DRX_SCALE_SLEEP].count_nop == 0);
+    assert(stats[DRX_SCALE_SLEEP].count_zero_to_nonzero > 0);
 
     ok = drx_unregister_time_scaling();
     assert(ok);

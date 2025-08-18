@@ -606,6 +606,10 @@ typedef struct _drx_time_scale_stat_t {
      * Count of the instances ignored (disabled timers, sleep of 0, scale of 1, etc.).
      */
     ptr_int_t count_nop;
+    /**
+     * Count of instances converted from zero to non-zero before scaling.
+     */
+    ptr_int_t count_zero_to_nonzero;
 } drx_time_scale_stat_t;
 
 /**

@@ -119,7 +119,7 @@ static const int MAX_TV_USEC = 1000000ULL;
 
 /* Rather than not scaling a sleep of 0, since it is not a nop and does incur a
  * switch we change it to a small non-0 value (10us, chosen so drmemtrace's 50x scale
- * hits its scheduler's blocking syscall threshold) which will then be scaled.
+ * hits its scheduler's blocking_switch_threshold) which will then be scaled.
  */
 static const int ZERO_PRE_INFLATE_NSEC = 10000ULL;
 
@@ -140,6 +140,16 @@ increment_failure(drx_time_scale_type_t type)
     dr_atomic_add64_return_sum(&stats[type].count_failed, 1);
 #else
     dr_atomic_add32_return_sum(&stats[type].count_failed, 1);
+#endif
+}
+
+static inline void
+increment_convert_zero(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_zero_to_nonzero, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_zero_to_nonzero, 1);
 #endif
 }
 
@@ -435,6 +445,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             if (is_timespec_zero(&data->time_spec)) {
                 data->was_zero = true;
                 data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                increment_convert_zero(DRX_SCALE_SLEEP);
             }
             inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
                              DRX_SCALE_SLEEP);
@@ -465,6 +476,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             if (is_timespec_zero(&data->time_spec)) {
                 data->was_zero = true;
                 data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                increment_convert_zero(DRX_SCALE_SLEEP);
             }
             inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
                              DRX_SCALE_SLEEP);
@@ -496,6 +508,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             if (is_timespec64_zero(&data->time_spec64)) {
                 data->was_zero = true;
                 data->time_spec64.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                increment_convert_zero(DRX_SCALE_SLEEP);
             }
             inflate_timespec64(drcontext, &data->time_spec64, scale_options.timeout_scale,
                                DRX_SCALE_SLEEP);
