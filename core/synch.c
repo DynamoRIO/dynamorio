@@ -2385,6 +2385,7 @@ detach_externally_on_new_stack()
             my_idx = i;
             my_tr = threads[i];
             my_mcontext = *get_mcontext(my_dcontext);
+            my_mcontext.pc = my_dcontext->next_tag;
             DEBUG_DECLARE(ok =)
             translate_mcontext(threads[i], &my_mcontext, true /*restore mem*/,
                                NULL /*f*/);
