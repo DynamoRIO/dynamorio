@@ -57,6 +57,10 @@
 #    error Only Linux supported for this test.
 #endif
 
+#ifndef FUTEX_LOCK_PI2
+#    define FUTEX_LOCK_PI2 13
+#endif
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -88,7 +92,6 @@ my_setenv(const char *var, const char *value)
 static void *
 thread_routine(void *arg)
 {
-    bool clock_version = static_cast<bool>(reinterpret_cast<size_t>(arg));
     int64_t futex_count = 0;
 
     pthread_mutex_lock(&lock);
@@ -124,7 +127,8 @@ thread_routine(void *arg)
         res = clock_gettime(realtime ? CLOCK_REALTIME : CLOCK_MONOTONIC, &cur_time);
         assert(res == 0);
         constexpr int MAX_TV_NSEC = 1000000000ULL;
-        int64_t cur_nanos = cur_time.tv_sec * MAX_TV_NSEC + cur_time.tv_nsec;
+        int64_t cur_nanos =
+            static_cast<int64_t>(cur_time.tv_sec) * MAX_TV_NSEC + cur_time.tv_nsec;
         int64_t target_nanos = cur_nanos + FUTEX_NSEC;
         struct timespec timeout_abs;
         timeout_abs.tv_sec = target_nanos / MAX_TV_NSEC;
@@ -141,7 +145,7 @@ thread_routine(void *arg)
 }
 
 static int64_t
-do_some_work(bool clock_version)
+do_some_work()
 {
     pthread_t thread;
     void *retval;
@@ -153,8 +157,7 @@ do_some_work(bool clock_version)
     pthread_mutex_unlock(&lock);
     child_should_exit.store(false, std::memory_order_release);
 
-    int res = pthread_create(&thread, NULL, thread_routine,
-                             reinterpret_cast<void *>(clock_version));
+    int res = pthread_create(&thread, NULL, thread_routine, NULL);
     assert(res == 0);
     // Wait for the child to start running.
     pthread_mutex_lock(&lock);
@@ -207,13 +210,13 @@ event_exit(void)
 }
 
 static int64_t
-test_futex(bool clock_version, int scale)
+test_futex(int scale)
 {
     std::string dr_ops("-stderr_mask 0xc -client_lib ';;" + std::to_string(scale) + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup_and_start();
-    int64_t count = do_some_work(clock_version);
+    int64_t count = do_some_work();
     dr_app_stop_and_cleanup();
     return count;
 }
@@ -221,9 +224,9 @@ test_futex(bool clock_version, int scale)
 static void
 test_futex_scale()
 {
-    int64_t futexes_default = test_futex(/*clock_version=*/true, 1);
+    int64_t futexes_default = test_futex(/*scale=*/1);
     constexpr int SCALE = 100;
-    int64_t futexes_scaled = test_futex(/*clock_version=*/true, SCALE);
+    int64_t futexes_scaled = test_futex(SCALE);
     std::cerr << "futexes default=" << futexes_default << " scaled=" << futexes_scaled
               << "\n";
     // Ensure the scaling ends up within an order of magnitude.

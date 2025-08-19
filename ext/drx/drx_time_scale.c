@@ -232,8 +232,8 @@ inflate_absolute_timespec(void *drcontext, struct timespec *spec, int scale,
         increment_attempt_and_failure(type);
         return false;
     }
-    int64_t cur_nanos = cur_time.tv_sec * MAX_TV_NSEC + cur_time.tv_nsec;
-    int64_t target_nanos = spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
+    int64_t cur_nanos = (int64_t)cur_time.tv_sec * MAX_TV_NSEC + cur_time.tv_nsec;
+    int64_t target_nanos = (int64_t)spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
     int64_t diff_nanos = target_nanos < cur_nanos ? 0 : target_nanos - cur_nanos;
     if (diff_nanos == 0) {
         diff_nanos = ZERO_PRE_INFLATE_NSEC;
@@ -245,7 +245,7 @@ inflate_absolute_timespec(void *drcontext, struct timespec *spec, int scale,
     /* Now inflate the relative. */
     inflate_timespec(drcontext, &rel, scale, type);
     /* Now convert back to absolute. */
-    int64_t scaled_diff_nanos = rel.tv_sec * MAX_TV_NSEC + rel.tv_nsec;
+    int64_t scaled_diff_nanos = (int64_t)rel.tv_sec * MAX_TV_NSEC + rel.tv_nsec;
     int64_t scaled_target_nanos = cur_nanos + scaled_diff_nanos;
     spec->tv_sec = scaled_target_nanos / MAX_TV_NSEC;
     spec->tv_nsec = scaled_target_nanos % MAX_TV_NSEC;
