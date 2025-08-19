@@ -45,6 +45,9 @@
 #    ifdef LINUX
 #        include "../../core/unix/include/syscall.h"
 #        include <linux/futex.h>
+#        ifndef FUTEX_LOCK_PI2
+#            define FUTEX_LOCK_PI2 13
+#        endif
 #    else
 #        error Non-Linux not yet supported
 #        include <sys/syscall.h>

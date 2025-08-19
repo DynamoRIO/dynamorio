@@ -57,10 +57,6 @@
 #    error Only Linux supported for this test.
 #endif
 
-#ifndef FUTEX_LOCK_PI2
-#    define FUTEX_LOCK_PI2 13
-#endif
-
 namespace dynamorio {
 namespace drmemtrace {
 
