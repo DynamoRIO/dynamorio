@@ -147,47 +147,6 @@
 #    define X28_BASE() fdef0123456789ab
 #    define X29_BASE() fef0123456789abc
 #    define X30_BASE() ff0123456789abcd
-#    define V0_BASE0() f7f6f5f4f3f2f1f0
-#    define V0_BASE1() fffefdfcfbfaf9f8
-#    define NZCV_BASE() 0f000000
 #endif
-
-
-#ifndef ASM_CODE_ONLY
-#include "thread.h"
-
-extern void
-thread_check_gprs_from_cache(void);
-extern void
-thread_check_gprs_from_DR(void);
-extern void
-thread_check_eflags_from_cache(void);
-extern void
-thread_check_eflags_from_DR(void);
-extern void
-thread_check_xsp_from_cache(void);
-extern void
-thread_check_xsp_from_DR(void);
-#if defined(UNIX)
-void
-thread_check_sigstate(void);
-void
-thread_check_sigstate_from_handler(void);
-#endif
-
-THREAD_FUNC_RETURN_TYPE
-sideline_func(void *arg);
-
-void sideline_init(void);
-void sideline_destroy(void);
-void sideline_reset(void);
-
-void wait_until_ready_for_attach(void);
-void signal_attached(void);
-bool ready_for_detach(void);
-void
-signal_exit(void);
-
-#endif /* ASM_CODE_ONLY */
 
 #endif /* _DETACH_STATE_SHARED_H_ */

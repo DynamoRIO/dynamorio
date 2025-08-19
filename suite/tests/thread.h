@@ -68,13 +68,13 @@ join_thread(thread_t thread)
     pthread_join(thread, NULL);
 }
 
-static inline void
+void
 thread_sleep(int ms)
 {
     usleep(1000 * ms);
 }
 
-static inline void
+void
 thread_yield(void)
 {
     sched_yield();
