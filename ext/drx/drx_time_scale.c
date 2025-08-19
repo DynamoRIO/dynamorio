@@ -364,9 +364,13 @@ event_filter_syscall(void *drcontext, int sysnum)
 #ifndef X64
     case SYS_timer_gettime64:
     case SYS_timer_settime64:
+    case SYS_clock_nanosleep_time64:
 #endif
     case SYS_setitimer:
-    case SYS_getitimer: return true;
+    case SYS_getitimer:
+    case SYS_nanosleep:
+    case SYS_clock_nanosleep:
+    case SYS_futex: return true;
     }
     return false;
 }
