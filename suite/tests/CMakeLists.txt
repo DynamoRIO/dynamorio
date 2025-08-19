@@ -2987,6 +2987,12 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
       "" "" OFF ON OFF)
     use_DynamoRIO_extension(client.drx_sleep_scale-test drx_static)
     link_with_pthread(client.drx_sleep_scale-test)
+
+    set(client.drx_timeout_scale-test_no_reg_compat) # Avoid REG_ name conflicts.
+    tobuild_api(client.drx_timeout_scale-test client-interface/drx_timeout_scale-test.cpp
+      "" "" OFF ON OFF)
+    use_DynamoRIO_extension(client.drx_timeout_scale-test drx_static)
+    link_with_pthread(client.drx_timeout_scale-test)
   endif ()
 endif (NOT RISCV64)
 

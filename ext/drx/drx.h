@@ -579,6 +579,7 @@ typedef enum {
     DRX_SCALE_ITIMER,      /**< Any of the 3 itimers. */
     DRX_SCALE_POSIX_TIMER, /**< Any POSIX timer. */
     DRX_SCALE_SLEEP,       /**< Any sleep system call. */
+    DRX_SCALE_FUTEX,       /**< The futex system call. */
     DRX_SCALE_STAT_TYPES,  /**< Count of stat types. */
 } drx_time_scale_type_t;
 

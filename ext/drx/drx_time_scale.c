@@ -44,6 +44,7 @@
 #ifdef UNIX
 #    ifdef LINUX
 #        include "../../core/unix/include/syscall.h"
+#        include <linux/futex.h>
 #    else
 #        error Non-Linux not yet supported
 #        include <sys/syscall.h>
@@ -104,6 +105,7 @@ typedef struct _per_thread_t {
     void *app_read_timer_param;
     void *app_set_timer_param;
     bool was_zero;
+    int app_op;
 } per_thread_t;
 
 /* Globals only written at init time. */
@@ -214,6 +216,40 @@ inflate_timespec(void *drcontext, struct timespec *spec, int scale,
     spec->tv_nsec = spec->tv_nsec % MAX_TV_NSEC;
     NOTIFY(2, "T" TIDFMT " Inflated time by %dx: now %" SSZFC ".%.12" SSZFC "\n",
            dr_get_thread_id(drcontext), scale, spec->tv_sec, spec->tv_nsec);
+}
+
+static bool
+inflate_absolute_timespec(void *drcontext, struct timespec *spec, int scale,
+                          drx_time_scale_type_t type, bool realtime)
+{
+    /* First, convert to relative. */
+    struct timespec cur_time;
+    int res =
+        dr_invoke_syscall_as_app(drcontext, SYS_clock_gettime, 2,
+                                 realtime ? CLOCK_REALTIME : CLOCK_MONOTONIC, &cur_time);
+    if (res != 0) {
+        NOTIFY(0, "Failed to call clock_gettime\n");
+        increment_attempt_and_failure(type);
+        return false;
+    }
+    int64_t cur_nanos = cur_time.tv_sec * MAX_TV_NSEC + cur_time.tv_nsec;
+    int64_t target_nanos = spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
+    int64_t diff_nanos = target_nanos < cur_nanos ? 0 : target_nanos - cur_nanos;
+    if (diff_nanos == 0) {
+        diff_nanos = ZERO_PRE_INFLATE_NSEC;
+        increment_convert_zero(type);
+    }
+    struct timespec rel;
+    rel.tv_sec = diff_nanos / MAX_TV_NSEC;
+    rel.tv_nsec = diff_nanos % MAX_TV_NSEC;
+    /* Now inflate the relative. */
+    inflate_timespec(drcontext, &rel, scale, type);
+    /* Now convert back to absolute. */
+    int64_t scaled_diff_nanos = rel.tv_sec * MAX_TV_NSEC + rel.tv_nsec;
+    int64_t scaled_target_nanos = cur_nanos + scaled_diff_nanos;
+    spec->tv_sec = scaled_target_nanos / MAX_TV_NSEC;
+    spec->tv_nsec = scaled_target_nanos % MAX_TV_NSEC;
+    return true;
 }
 
 #ifndef X64
@@ -518,6 +554,43 @@ event_pre_syscall(void *drcontext, int sysnum)
         break;
     }
 #endif
+    case SYS_futex: {
+        int flags = (int)dr_syscall_get_param(drcontext, 1);
+        int op = flags & FUTEX_CMD_MASK;
+        struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = spec;
+        data->app_op = op;
+        NOTIFY(2, "T" TIDFMT " futex op=%d, time=%p\n", dr_get_thread_id(drcontext), op,
+               spec);
+        if (spec == NULL ||
+            !(op == FUTEX_WAIT || op == FUTEX_WAIT_BITSET || op == FUTEX_LOCK_PI ||
+              op == FUTEX_LOCK_PI2 || op == FUTEX_WAIT_REQUEUE_PI)) {
+            /* The timeout parameter is ignored by the kernel. */
+            break;
+        }
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
+            wrote == sizeof(data->time_spec)) {
+            if (op == FUTEX_WAIT) {
+                /* The timeout is relative. */
+                if (is_timespec_zero(&data->time_spec)) {
+                    data->was_zero = true;
+                    data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                    increment_convert_zero(DRX_SCALE_FUTEX);
+                }
+                inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                                 DRX_SCALE_FUTEX);
+            } else {
+                /* The timeout is absolute via the realtime or monotonic clock. */
+                inflate_absolute_timespec(drcontext, &data->time_spec,
+                                          scale_options.timeout_scale, DRX_SCALE_FUTEX,
+                                          TESTANY(FUTEX_CLOCK_REALTIME, flags));
+            }
+            dr_syscall_set_param(drcontext, 3, (reg_t)&data->time_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_FUTEX);
+        break;
+    }
     }
     return true;
 }
@@ -668,6 +741,16 @@ event_post_syscall(void *drcontext, int sysnum)
         break;
     }
 #endif
+    case SYS_futex: {
+        int op = data->app_op;
+        if (!(op == FUTEX_WAIT || op == FUTEX_WAIT_BITSET || op == FUTEX_LOCK_PI ||
+              op == FUTEX_LOCK_PI2 || op == FUTEX_WAIT_REQUEUE_PI)) {
+            /* The timeout parameter is ignored by the kernel. */
+            break;
+        }
+        dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);
+        break;
+    }
     }
 }
 
