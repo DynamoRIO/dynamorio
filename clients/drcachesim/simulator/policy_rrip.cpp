@@ -62,13 +62,14 @@ policy_rrip_t::policy_rrip_t(int num_sets, int associativity, size_t rrpv_bits,
     size_t long_count = 0;
     for (size_t i = 0; i < rrpv_period_; ++i) {
         if ((i + 1) * rrpv_long_per_period_ > long_count * rrpv_period_) {
-            rrpv_seed_val_at_miss_[i] = rrpv_long_;
+            rrpv_seed_val_at_miss_.emplace_back(rrpv_long_);
             ++long_count;
         } else {
-            rrpv_seed_val_at_miss_[i] = rrpv_distant_;
+            rrpv_seed_val_at_miss_.emplace_back(rrpv_distant_);
         }
     }
     assert(long_count == rrpv_long_per_period);
+    assert(rrpv_seed_val_at_miss_.size() == rrpv_period_);
     at_rrpv_seed_idx_ = 0;
 }
 
