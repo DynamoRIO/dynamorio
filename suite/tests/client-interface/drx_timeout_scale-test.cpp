@@ -30,6 +30,12 @@
  * DAMAGE.
  */
 
+/* Tests system calls with timeouts.  This does share some boilerplate
+ * with drx_sleep_scale-test.cpp and drx_time_scale-test.cpp but it's
+ * not trivial to share and the other tests are too long in duration to
+ * combine into one test.
+ */
+
 #include <assert.h>
 #include <linux/futex.h>
 #include <math.h>
@@ -106,10 +112,11 @@ thread_routine(void *arg)
     timeout_zero.tv_sec = 0;
     timeout_zero.tv_nsec = 0;
     while (!child_should_exit.load(std::memory_order_acquire)) {
-        // Test a zero timeout.
         struct timespec *timeout = &timeout_default;
-        if (futex_count == 0)
+        if (futex_count == 0) {
+            // Test a zero timeout.
             timeout = &timeout_zero;
+        }
 
         // Test a relative timeout.
         int res = syscall(SYS_futex, &futex_var, FUTEX_WAIT, FUTEX_VAL, timeout,

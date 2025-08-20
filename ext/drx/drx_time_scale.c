@@ -45,6 +45,9 @@
 #    ifdef LINUX
 #        include "../../core/unix/include/syscall.h"
 #        include <linux/futex.h>
+/* This is a recent Linux Priority Inheritance futex operation with clock control not
+ * present in the headers on some of our test machines so we define it here if missing.
+ */
 #        ifndef FUTEX_LOCK_PI2
 #            define FUTEX_LOCK_PI2 13
 #        endif
@@ -122,9 +125,10 @@ static drx_time_scale_stat_t stats[DRX_SCALE_STAT_TYPES];
 static const int MAX_TV_NSEC = 1000000000ULL;
 static const int MAX_TV_USEC = 1000000ULL;
 
-/* Rather than not scaling a sleep of 0, since it is not a nop and does incur a
- * switch we change it to a small non-0 value (10us, chosen so drmemtrace's 50x scale
- * hits its scheduler's blocking_switch_threshold) which will then be scaled.
+/* Rather than not scaling a sleep or timeout of 0 where a 0 value is not a nop
+ * and does incur a switch we change it to a small non-0 value (10us, chosen so
+ * drmemtrace's 50x scale hits its scheduler's blocking_switch_threshold) which
+ * will then be scaled.
  */
 static const int ZERO_PRE_INFLATE_NSEC = 10000ULL;
 
@@ -202,6 +206,19 @@ is_timeval_zero(struct timeval *val)
     return val->tv_sec == 0 && val->tv_usec == 0;
 }
 
+static inline int64_t
+timespec_to_nanos(struct timespec *spec)
+{
+    return (int64_t)spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
+}
+
+static inline void
+nanos_to_timespec(int64_t nanos, struct timespec *spec)
+{
+    spec->tv_sec = nanos / MAX_TV_NSEC;
+    spec->tv_nsec = nanos % MAX_TV_NSEC;
+}
+
 static void
 inflate_timespec(void *drcontext, struct timespec *spec, int scale,
                  drx_time_scale_type_t type)
@@ -235,8 +252,8 @@ inflate_absolute_timespec(void *drcontext, struct timespec *spec, int scale,
         increment_attempt_and_failure(type);
         return false;
     }
-    int64_t cur_nanos = (int64_t)cur_time.tv_sec * MAX_TV_NSEC + cur_time.tv_nsec;
-    int64_t target_nanos = (int64_t)spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
+    int64_t cur_nanos = timespec_to_nanos(&cur_time);
+    int64_t target_nanos = timespec_to_nanos(spec);
     int64_t diff_nanos = target_nanos < cur_nanos ? 0 : target_nanos - cur_nanos;
     if (diff_nanos == 0) {
         diff_nanos = ZERO_PRE_INFLATE_NSEC;
@@ -248,10 +265,9 @@ inflate_absolute_timespec(void *drcontext, struct timespec *spec, int scale,
     /* Now inflate the relative. */
     inflate_timespec(drcontext, &rel, scale, type);
     /* Now convert back to absolute. */
-    int64_t scaled_diff_nanos = (int64_t)rel.tv_sec * MAX_TV_NSEC + rel.tv_nsec;
+    int64_t scaled_diff_nanos = timespec_to_nanos(&rel);
     int64_t scaled_target_nanos = cur_nanos + scaled_diff_nanos;
-    spec->tv_sec = scaled_target_nanos / MAX_TV_NSEC;
-    spec->tv_nsec = scaled_target_nanos % MAX_TV_NSEC;
+    nanos_to_timespec(scaled_target_nanos, spec);
     return true;
 }
 
@@ -373,6 +389,13 @@ event_filter_syscall(void *drcontext, int sysnum)
     case SYS_futex: return true;
     }
     return false;
+}
+
+static inline bool
+futex_operation_takes_timeout(int op)
+{
+    return op == FUTEX_WAIT || op == FUTEX_WAIT_BITSET || op == FUTEX_LOCK_PI ||
+        op == FUTEX_LOCK_PI2 || op == FUTEX_WAIT_REQUEUE_PI;
 }
 
 static bool
@@ -569,9 +592,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         data->app_op = op;
         NOTIFY(2, "T" TIDFMT " futex op=%d, time=%p\n", dr_get_thread_id(drcontext), op,
                spec);
-        if (spec == NULL ||
-            !(op == FUTEX_WAIT || op == FUTEX_WAIT_BITSET || op == FUTEX_LOCK_PI ||
-              op == FUTEX_LOCK_PI2 || op == FUTEX_WAIT_REQUEUE_PI)) {
+        if (spec == NULL || !futex_operation_takes_timeout(op)) {
             /* The timeout parameter is ignored by the kernel. */
             break;
         }
@@ -750,8 +771,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #endif
     case SYS_futex: {
         int op = data->app_op;
-        if (!(op == FUTEX_WAIT || op == FUTEX_WAIT_BITSET || op == FUTEX_LOCK_PI ||
-              op == FUTEX_LOCK_PI2 || op == FUTEX_WAIT_REQUEUE_PI)) {
+        if (!futex_operation_takes_timeout(op)) {
             /* The timeout parameter is ignored by the kernel. */
             break;
         }
