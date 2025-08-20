@@ -392,8 +392,7 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
      */
     static const ptr_uint_t gprs_on_stack = 32;
     for (i = 0; i < num_vector_registers; i++) {
-        const ptr_uint_t const *vector_reg_data =
-            xsp + gprs_on_stack + (i * simd_sz_in_ptrs);
+        const ptr_uint_t *vector_reg_data = xsp + gprs_on_stack + (i * simd_sz_in_ptrs);
 
         for (uint element = 0; element < simd_sz_in_ptrs; element++) {
             check_simd_value(prefix, i, "d", element, vector_reg_data[element],
@@ -414,7 +413,7 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
         0xa0, 0xb1, 0xc2, 0xd3, 0xe4, 0xf5, 0x06, 0x17, 0x28, 0x39, 0x4a,
         0x5b, 0x6c, 0x7d, 0x8e, 0x9f, 0xa0, 0xb1, 0xc2, 0xd3, 0xe4,
     };
-    const byte const *ffr =
+    const byte *ffr =
         (byte *)(xsp + gprs_on_stack + (num_vector_registers * simd_sz_in_ptrs));
     for (uint element = 0; element < simd_sz_in_ptrs; element++) {
         check_simd_value("ffr", 0, "d", element, ffr[element], ffr_expected[element]);
@@ -425,9 +424,9 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
         0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
         0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     };
-    const byte const *predicate_reg_start = ffr + 32;
+    const byte *predicate_reg_start = ffr + 32;
     for (i = 0; i < 16; i++) {
-        const byte const *predicate_reg =
+        const byte *predicate_reg =
             predicate_reg_start + (i * (vector_length_in_bytes / 8));
         for (uint element = 0; element < simd_sz_in_ptrs; element++) {
             check_simd_value("p", i, "d", element, predicate_reg[element],
