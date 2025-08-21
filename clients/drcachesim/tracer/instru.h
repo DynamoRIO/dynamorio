@@ -73,9 +73,13 @@ public:
         memset(present_, 0, sizeof(present_));
     }
 
-    class reg_id_set_iterator_t
-        : public std::iterator<std::input_iterator_tag, reg_id_t> {
+    class reg_id_set_iterator_t {
     public:
+        using iterator_category = std::input_iterator_tag;
+        using value_type = reg_id_t;
+        using difference_type = std::ptrdiff_t;
+        using pointer = value_type *;
+        using reference = value_type &;
         reg_id_set_iterator_t(reg_id_set_t *set)
             : set_(set)
             , index_(-1)
