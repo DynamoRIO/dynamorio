@@ -78,8 +78,8 @@ public:
         using iterator_category = std::input_iterator_tag;
         using value_type = reg_id_t;
         using difference_type = std::ptrdiff_t;
-        using pointer = value_type*;
-        using reference = value_type&;
+        using pointer = value_type *;
+        using reference = value_type &;
         reg_id_set_iterator_t(reg_id_set_t *set)
             : set_(set)
             , index_(-1)

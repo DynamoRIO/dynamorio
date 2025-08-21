@@ -62,8 +62,8 @@ public:
     using iterator_category = std::input_iterator_tag;
     using value_type = std::string;
     using difference_type = std::ptrdiff_t;
-    using pointer = value_type*;
-    using reference = value_type&;
+    using pointer = value_type *;
+    using reference = value_type &;
     directory_iterator_t()
     {
     }

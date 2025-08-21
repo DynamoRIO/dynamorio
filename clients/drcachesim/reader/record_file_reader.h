@@ -116,8 +116,8 @@ public:
     using iterator_category = std::input_iterator_tag;
     using value_type = trace_entry_t;
     using difference_type = std::ptrdiff_t;
-    using pointer = value_type*;
-    using reference = value_type&;
+    using pointer = value_type *;
+    using reference = value_type &;
     record_reader_t(int verbosity, const char *prefix)
         : verbosity_(verbosity)
         , output_prefix_(prefix)
