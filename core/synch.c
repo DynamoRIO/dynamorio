@@ -2384,8 +2384,8 @@ detach_externally_on_new_stack()
         if (threads[i]->dcontext == my_dcontext) {
             my_idx = i;
             my_tr = threads[i];
-            DEBUG_DECLARE(ok =)
-            thread_get_nudged_mcontext(threads[i], &my_mcontext);
+            my_mcontext = *get_mcontext(my_dcontext);
+            my_mcontext.pc = my_dcontext->next_tag;
             DEBUG_DECLARE(ok =)
             translate_mcontext(threads[i], &my_mcontext, true /*restore mem*/,
                                NULL /*f*/);

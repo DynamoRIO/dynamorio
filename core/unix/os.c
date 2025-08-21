@@ -4053,21 +4053,6 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
     return true;
 }
 
-#ifdef LINUX
-bool
-thread_get_nudged_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
-{
-    /* This only works for a thread that just received a nduge signal. */
-    os_thread_data_t *ostd = (os_thread_data_t *)tr->dcontext->os_field;
-    ASSERT(ostd != NULL);
-    ASSERT(ostd->nudged_sigcxt != NULL);
-    sigcontext_to_mcontext(mc, ostd->nudged_sigcxt, DR_MC_ALL);
-    IF_ARM(dr_set_isa_mode(tr->dcontext, get_sigcontext_isa_mode(ostd->nudged_sigcxt),
-                           NULL));
-    return true;
-}
-#endif
-
 bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
