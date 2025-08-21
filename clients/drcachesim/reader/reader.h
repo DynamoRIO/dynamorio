@@ -79,6 +79,11 @@ namespace drmemtrace {
  */
 class reader_t : public memtrace_stream_t {
 public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type = memref_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type*;
+    using reference = value_type&;
     reader_t()
     {
         cur_ref_ = {};
