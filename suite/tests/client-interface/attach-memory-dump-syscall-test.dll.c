@@ -69,8 +69,10 @@ event_filter_syscall(void *drcontext, int sysnum)
     }
     switch (sysnum) {
     case SYS_close:
+    case SYS_lseek:
     case SYS_openat:
     case SYS_read:
+    case SYS_unlinkat:
     case SYS_write: return true;
     default: return false;
     }
