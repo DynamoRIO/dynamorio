@@ -388,7 +388,9 @@ event_filter_syscall(void *drcontext, int sysnum)
     case SYS_nanosleep:
     case SYS_clock_nanosleep:
     case SYS_futex:
+#ifdef SYS_epoll_wait
     case SYS_epoll_wait:
+#endif
     case SYS_epoll_pwait:
     case SYS_epoll_pwait2: return true;
     }
@@ -623,7 +625,9 @@ event_pre_syscall(void *drcontext, int sysnum)
             increment_attempt_and_failure(DRX_SCALE_FUTEX);
         break;
     }
+#ifdef SYS_epoll_wait
     case SYS_epoll_wait:
+#endif
     case SYS_epoll_pwait: {
         int timeout_ms = (int)dr_syscall_get_param(drcontext, 3);
         data->app_set_timer_param = (void *)(ptr_int_t)timeout_ms;
@@ -820,7 +824,9 @@ event_post_syscall(void *drcontext, int sysnum)
         dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);
         break;
     }
+#ifdef SYS_epoll_wait
     case SYS_epoll_wait:
+#endif
     case SYS_epoll_pwait:
     case SYS_epoll_pwait2:
         dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);

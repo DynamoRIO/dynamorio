@@ -169,8 +169,12 @@ perform_epolls()
             timeout = &timeout_zero;
         }
 
-        int res = epoll_wait(epoll_fd, &events, EPOLL_MAX_EVENTS, EPOLL_MS);
+        int res;
+
+#ifdef SYS_epoll_wait
+        res = epoll_wait(epoll_fd, &events, EPOLL_MAX_EVENTS, EPOLL_MS);
         assert(res == 0);
+#endif
 
         res = epoll_pwait(epoll_fd, &events, EPOLL_MAX_EVENTS, EPOLL_MS,
                           /*sigmask=*/nullptr);
