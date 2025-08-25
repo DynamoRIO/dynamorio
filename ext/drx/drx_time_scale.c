@@ -55,6 +55,7 @@
 #        error Non-Linux not yet supported
 #        include <sys/syscall.h>
 #    endif
+#    include <sys/epoll.h>
 #    include <sys/time.h>
 #else
 #    error Non-UNIX not supported
@@ -386,7 +387,10 @@ event_filter_syscall(void *drcontext, int sysnum)
     case SYS_getitimer:
     case SYS_nanosleep:
     case SYS_clock_nanosleep:
-    case SYS_futex: return true;
+    case SYS_futex:
+    case SYS_epoll_wait:
+    case SYS_epoll_pwait:
+    case SYS_epoll_pwait2: return true;
     }
     return false;
 }
@@ -619,6 +623,44 @@ event_pre_syscall(void *drcontext, int sysnum)
             increment_attempt_and_failure(DRX_SCALE_FUTEX);
         break;
     }
+    case SYS_epoll_wait:
+    case SYS_epoll_pwait: {
+        int timeout_ms = (int)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = (void *)(ptr_int_t)timeout_ms;
+        NOTIFY(2, "T" TIDFMT " epoll_{,p}wait timeout=%d\n", dr_get_thread_id(drcontext),
+               timeout_ms);
+        if (timeout_ms == -1 || /* Infinite. */
+            timeout_ms == 0) {  /* Returns immediately. */
+            break;
+        }
+        timeout_ms *= scale_options.timeout_scale;
+        dr_syscall_set_param(drcontext, 3, (reg_t)timeout_ms);
+        increment_attempt(DRX_SCALE_EPOLL);
+        if (scale_options.timeout_scale == 1)
+            increment_nop(DRX_SCALE_EPOLL);
+        break;
+    }
+    case SYS_epoll_pwait2: {
+        struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = spec;
+        NOTIFY(2, "T" TIDFMT " epoll_pwait2 time=%p\n", dr_get_thread_id(drcontext),
+               spec);
+        if (spec == NULL) /* Infinite. */
+            break;
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
+            wrote == sizeof(data->time_spec)) {
+            if (is_timespec_zero(&data->time_spec)) {
+                /* Zero returns immediately. */
+                break;
+            }
+            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                             DRX_SCALE_EPOLL);
+            dr_syscall_set_param(drcontext, 3, (reg_t)&data->time_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_EPOLL);
+        break;
+    }
     }
     return true;
 }
@@ -778,6 +820,11 @@ event_post_syscall(void *drcontext, int sysnum)
         dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);
         break;
     }
+    case SYS_epoll_wait:
+    case SYS_epoll_pwait:
+    case SYS_epoll_pwait2:
+        dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);
+        break;
     }
 }
 

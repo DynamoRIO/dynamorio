@@ -45,6 +45,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syscall.h>
+#include <sys/epoll.h>
 
 #include <atomic>
 #include <cstdint>
@@ -84,6 +85,7 @@ static pthread_cond_t condvar;
 static bool child_ready;
 static pthread_mutex_t lock;
 static std::atomic<bool> child_should_exit;
+static drx_time_scale_type_t cur_optype;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -91,17 +93,11 @@ my_setenv(const char *var, const char *value)
     return setenv(var, value, 1 /*override*/) == 0;
 }
 
-static void *
-thread_routine(void *arg)
+static int64_t
+perform_futexes()
 {
-    int64_t futex_count = 0;
-
-    pthread_mutex_lock(&lock);
-    child_ready = true;
-    pthread_cond_signal(&condvar);
-    pthread_mutex_unlock(&lock);
-
     // We perform a futex that will always time out as our value never changes.
+    int64_t futex_count = 0;
     constexpr int FUTEX_VAL = 0xabcd;
     int32_t futex_var = FUTEX_VAL;
     constexpr int FUTEX_NSEC = 100000;
@@ -144,11 +140,73 @@ thread_routine(void *arg)
 
         ++futex_count;
     }
-    return reinterpret_cast<void *>(futex_count);
+    return futex_count;
 }
 
 static int64_t
-do_some_work()
+perform_epolls()
+{
+    // Our epoll* calls always time out.
+    int64_t epoll_count = 0;
+    int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+    struct epoll_event events;
+    constexpr int EPOLL_MAX_EVENTS = 24;
+    constexpr int EPOLL_NSEC = 100000;
+    // We'd like 100us as EPOLL_NSEC but _wait and _pwait take milliseconds.
+    constexpr int EPOLL_MS = 1;
+
+    struct timespec timeout_default;
+    timeout_default.tv_sec = 0;
+    timeout_default.tv_nsec = EPOLL_NSEC;
+    struct timespec timeout_zero;
+    timeout_zero.tv_sec = 0;
+    timeout_zero.tv_nsec = 0;
+
+    while (!child_should_exit.load(std::memory_order_acquire)) {
+        struct timespec *timeout = &timeout_default;
+        if (epoll_count == 0) {
+            // Test a zero timeout.
+            timeout = &timeout_zero;
+        }
+
+        int res = epoll_wait(epoll_fd, &events, EPOLL_MAX_EVENTS, EPOLL_MS);
+        assert(res == 0);
+
+        res = epoll_pwait(epoll_fd, &events, EPOLL_MAX_EVENTS, EPOLL_MS,
+                          /*sigmask=*/nullptr);
+        assert(res == 0);
+
+        res = epoll_pwait2(epoll_fd, &events, EPOLL_MAX_EVENTS, timeout,
+                           /*sigmask=*/nullptr);
+        assert(res == 0);
+
+        epoll_count += 3;
+    }
+    return epoll_count;
+}
+
+static void *
+thread_routine(void *arg)
+{
+    drx_time_scale_type_t optype =
+        static_cast<drx_time_scale_type_t>(reinterpret_cast<ptr_int_t>(arg));
+    int64_t result = 0;
+
+    pthread_mutex_lock(&lock);
+    child_ready = true;
+    pthread_cond_signal(&condvar);
+    pthread_mutex_unlock(&lock);
+
+    switch (optype) {
+    case DRX_SCALE_FUTEX: result = perform_futexes(); break;
+    case DRX_SCALE_EPOLL: result = perform_epolls(); break;
+    default: assert(false); break;
+    }
+    return reinterpret_cast<void *>(result);
+}
+
+static int64_t
+do_some_work(drx_time_scale_type_t optype)
 {
     pthread_t thread;
     void *retval;
@@ -160,7 +218,8 @@ do_some_work()
     pthread_mutex_unlock(&lock);
     child_should_exit.store(false, std::memory_order_release);
 
-    int res = pthread_create(&thread, NULL, thread_routine, NULL);
+    int res =
+        pthread_create(&thread, NULL, thread_routine, reinterpret_cast<void *>(optype));
     assert(res == 0);
     // Wait for the child to start running.
     pthread_mutex_lock(&lock);
@@ -169,9 +228,14 @@ do_some_work()
     pthread_mutex_unlock(&lock);
     // Now take some time doing work so we can measure how many futexes the child
     // accomplishes in this time period.
-    constexpr int ITERS = 10000000;
-    double val = static_cast<double>(ITERS);
-    for (int i = 0; i < ITERS; ++i) {
+    int iters = 10000000;
+    if (optype == DRX_SCALE_EPOLL) {
+        // Some epoll variants have long min timeouts so we need more time to
+        // ensure we get more than one loop iteration in the child.
+        iters *= 3;
+    }
+    double val = static_cast<double>(iters);
+    for (int i = 0; i < iters; ++i) {
         val += sin(val);
     }
     // Clean up.
@@ -196,15 +260,21 @@ event_exit(void)
                    i, stats[i].count_attempted, stats[i].count_failed, stats[i].count_nop,
                    stats[i].count_zero_to_nonzero);
     }
-    assert(stats[DRX_SCALE_FUTEX].count_attempted > 0);
-    assert(stats[DRX_SCALE_FUTEX].count_attempted >=
-           stats[DRX_SCALE_FUTEX].count_failed + stats[DRX_SCALE_FUTEX].count_nop);
-    assert(stats[DRX_SCALE_FUTEX].count_failed == 0);
+    assert(stats[cur_optype].count_attempted > 0);
+    assert(stats[cur_optype].count_attempted >=
+           stats[cur_optype].count_failed + stats[cur_optype].count_nop);
+    assert(stats[cur_optype].count_failed == 0);
     // Either scale was 1 and everything is a nop, or if scaling then our 0-duration
     // futex should have become non-0.
-    assert(stats[DRX_SCALE_FUTEX].count_nop == stats[DRX_SCALE_FUTEX].count_attempted ||
-           stats[DRX_SCALE_FUTEX].count_nop == 0);
-    assert(stats[DRX_SCALE_FUTEX].count_zero_to_nonzero > 0);
+    assert(stats[cur_optype].count_nop == stats[cur_optype].count_attempted ||
+           stats[cur_optype].count_nop == 0);
+    if (cur_optype == DRX_SCALE_FUTEX) {
+        assert(stats[cur_optype].count_zero_to_nonzero > 0);
+    } else if (cur_optype == DRX_SCALE_EPOLL) {
+        // Zero returns immediately so we shouldn't scale it.
+        assert(stats[cur_optype].count_zero_to_nonzero == 0);
+    } else
+        assert(false);
 
     ok = drx_unregister_time_scaling();
     assert(ok);
@@ -213,13 +283,13 @@ event_exit(void)
 }
 
 static int64_t
-test_futex(int scale)
+test_optype_scale(drx_time_scale_type_t optype, int scale)
 {
     std::string dr_ops("-stderr_mask 0xc -client_lib ';;" + std::to_string(scale) + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup_and_start();
-    int64_t count = do_some_work();
+    int64_t count = do_some_work(optype);
     dr_app_stop_and_cleanup();
     return count;
 }
@@ -227,13 +297,29 @@ test_futex(int scale)
 static void
 test_futex_scale()
 {
-    int64_t futexes_default = test_futex(/*scale=*/1);
+    // XXX: If we had a user_data param to event_exit we wouldn't need this.
+    cur_optype = DRX_SCALE_FUTEX;
+    int64_t futexes_default = test_optype_scale(DRX_SCALE_FUTEX, /*scale=*/1);
     constexpr int SCALE = 100;
-    int64_t futexes_scaled = test_futex(SCALE);
+    int64_t futexes_scaled = test_optype_scale(DRX_SCALE_FUTEX, SCALE);
     std::cerr << "futexes default=" << futexes_default << " scaled=" << futexes_scaled
               << "\n";
     // Ensure the scaling ends up within an order of magnitude.
     assert(futexes_default > SCALE / 10 * futexes_scaled);
+}
+
+static void
+test_epoll_scale()
+{
+    // XXX: If we had a user_data param to event_exit we wouldn't need this.
+    cur_optype = DRX_SCALE_EPOLL;
+    int64_t epolls_default = test_optype_scale(DRX_SCALE_EPOLL, /*scale=*/1);
+    constexpr int SCALE = 100;
+    int64_t epolls_scaled = test_optype_scale(DRX_SCALE_EPOLL, SCALE);
+    std::cerr << "epolls default=" << epolls_default << " scaled=" << epolls_scaled
+              << "\n";
+    // Ensure the scaling ends up within an order of magnitude.
+    assert(epolls_default > SCALE / 10 * epolls_scaled);
 }
 
 } // namespace drmemtrace
@@ -264,6 +350,7 @@ int
 main(int argc, char *argv[])
 {
     dynamorio::drmemtrace::test_futex_scale();
+    dynamorio::drmemtrace::test_epoll_scale();
     print("app done\n");
     return 0;
 }
