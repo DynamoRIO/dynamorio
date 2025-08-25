@@ -36,22 +36,6 @@
  * combine into one test.
  */
 
-#include <assert.h>
-#include <linux/futex.h>
-#include <math.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syscall.h>
-#include <sys/epoll.h>
-
-#include <atomic>
-#include <cstdint>
-#include <iostream>
-#include <thread>
-
 // This is set globally in CMake for other tests so easier to undef here.
 #undef DR_REG_ENUM_COMPATIBILITY
 
@@ -63,6 +47,23 @@
 #ifndef LINUX
 #    error Only Linux supported for this test.
 #endif
+
+#include "../../core/unix/include/syscall.h"
+
+#include <assert.h>
+#include <linux/futex.h>
+#include <math.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/epoll.h>
+
+#include <atomic>
+#include <cstdint>
+#include <iostream>
+#include <thread>
 
 namespace dynamorio {
 namespace drmemtrace {
