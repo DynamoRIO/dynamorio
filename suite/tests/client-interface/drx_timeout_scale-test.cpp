@@ -180,8 +180,10 @@ perform_epolls()
                           /*sigmask=*/nullptr);
         assert(res == 0);
 
-        res = epoll_pwait2(epoll_fd, &events, EPOLL_MAX_EVENTS, timeout,
-                           /*sigmask=*/nullptr);
+        // epoll_pwait2 is not provided by musl so we do a direct
+        // syscall.
+        res = syscall(SYS_epoll_pwait2, epoll_fd, &events, EPOLL_MAX_EVENTS, timeout,
+                      /*sigmask=*/nullptr, /*sigmask_size==*/8);
         assert(res == 0);
 
         epoll_count += 3;
