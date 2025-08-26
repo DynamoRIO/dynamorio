@@ -79,7 +79,7 @@ public:
                   size_t rrpv_period = RRPV_PERIOD_DEFAULT,
                   size_t rrpv_long_per_period = RRPV_LONG_PER_PERIOD_DEFAULT);
     void
-    access_update(int set_idx, int way, cache_access_type_t access_type) override;
+    access_update(int set_idx, int way, cache_access_outcome_t access_type) override;
     void
     eviction_update(int set_idx, int way) override;
     void

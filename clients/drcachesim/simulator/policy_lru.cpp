@@ -51,7 +51,7 @@ policy_lru_t::policy_lru_t(int num_sets, int associativity)
 }
 
 void
-policy_lru_t::access_update(int set_idx, int way, cache_access_type_t access_type)
+policy_lru_t::access_update(int set_idx, int way, cache_access_outcome_t access_type)
 {
     int count = lru_counters_[set_idx][way];
     // Optimization: return early if it is a repeated access.

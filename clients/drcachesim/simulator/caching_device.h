@@ -219,7 +219,7 @@ public:
 
 protected:
     virtual void
-    access_update(int block_idx, int way, cache_access_type_t access_type);
+    access_update(int block_idx, int way, cache_access_outcome_t access_type);
     virtual int
     replace_which_way(int block_idx);
     virtual int

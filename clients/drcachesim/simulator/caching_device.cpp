@@ -281,7 +281,7 @@ caching_device_t::request(const memref_t &memref_in)
 }
 
 void
-caching_device_t::access_update(int block_idx, int way, cache_access_type_t access_type)
+caching_device_t::access_update(int block_idx, int way, cache_access_outcome_t access_type)
 {
     replacement_policy_->access_update(compute_set_index(block_idx), way, access_type);
 }
