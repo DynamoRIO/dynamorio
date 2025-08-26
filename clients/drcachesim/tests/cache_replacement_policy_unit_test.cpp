@@ -102,10 +102,11 @@ public:
     }
 
     void
-    invalidate_and_check(const addr_t addr,
-                         const int expected_replacement_way_after_access)
+    invalidate_and_check(
+        const addr_t addr, const int expected_replacement_way_after_access,
+        const invalidation_type_t invalidation_type = INVALIDATION_INCLUSIVE)
     {
-        this->invalidate(this->compute_tag(addr), INVALIDATION_INCLUSIVE);
+        this->invalidate(this->compute_tag(addr), invalidation_type);
         check(addr, expected_replacement_way_after_access);
     }
 
@@ -653,7 +654,8 @@ unit_test_cache_srrip_exclusive()
     l1_test.access_and_check(addr_vec[ADDR_F], 3); //     m : I1 E2 F2 l3
     l2_test.check(addr_vec[ADDR_F], 0);            //     m :               j2 K2 G2 H2
 
-    std::cerr << "Testing SRRIP exclusive cache L2 reuse for serviced block" << std::endl;
+    std::cerr << "Testing SRRIP exclusive cache L2 reuse for previously serviced block"
+              << std::endl;
     // Eviction from L1 to exclusive L2 previously serviced cache line E
     // Prepare victim E: Reuse the cache lines F and L (from L1)
     l1_test.access_and_check(addr_vec[ADDR_F], 3); //     m : I1 E2 F0 l3
@@ -665,6 +667,28 @@ unit_test_cache_srrip_exclusive()
     // E was previously serviced in the L2, re-insertion of E in L2 treated as cache hit
     l1_test.access_and_check(addr_vec[ADDR_J], 0); //     mp: i2 J2 F1 L1
     l2_test.check(addr_vec[ADDR_J], 1);            //     m :               E0 k2 G2 H2
+
+    std::cerr << "Testing SRRIP exclusive cache L2 block invalidation" << std::endl;
+    // Invalidate F in L2.
+    // Since L2 is exclusive and F actually stored in L1, it should actually be
+    // invalidated in L1.
+    l2_test.invalidate_and_check(addr_vec[ADDR_F], 1,
+                                 INVALIDATION_COHERENCE); //:               E0 k2 G2 H2
+    l1_test.check(addr_vec[ADDR_F], 2);                   //: I2 J2 x3 L1
+    // Check F removed from the list of cache blocks previously serviced in L2:
+    // First, access F to insert it in L1
+    l1_test.access_and_check(addr_vec[ADDR_F], 0); //     m : i2 J2 F2 L1
+    l2_test.check(addr_vec[ADDR_F], 1);            //       :               E0 k2 G2 H2
+    // Second, make F victim to evict it from L1 to L2
+    l1_test.access_and_check(addr_vec[ADDR_I], 1); //     h : I0 j2 F2 L1
+    l2_test.check(addr_vec[ADDR_I], 1);            //       :               E0 k2 G2 H2
+    l1_test.access_and_check(addr_vec[ADDR_J], 2); //     h : I0 J0 f2 L1
+    l2_test.check(addr_vec[ADDR_J], 1);            //       :               E0 k2 G2 H2
+    // Finally, access E to insert F in L2.
+    // Since F was removed from list of previously serviced in L2, it is treated as
+    // cache miss
+    l1_test.access_and_check(addr_vec[ADDR_E], 2); //     mp: I1 J1 e2 L2
+    l2_test.check(addr_vec[ADDR_E], 0);            //     m :               f2 K2 G2 H2
 }
 
 void

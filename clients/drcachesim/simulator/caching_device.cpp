@@ -327,6 +327,12 @@ caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type)
             }
         }
     }
+    if (is_exclusive() && (invalidation_type != INVALIDATION_EXCLUSIVE)) {
+        // Exclusive cache saves list of previously serviced tags.
+        // If the cache block is invalidated due to coherence, remove this tag from the
+        // list of previously serviced.
+        prev_serviced_tags_.erase(tag);
+    }
     // If this is a coherence invalidation, we must invalidate children caches.
     if (invalidation_type == INVALIDATION_COHERENCE && !children_.empty()) {
         for (auto &child : children_) {
