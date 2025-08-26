@@ -165,29 +165,42 @@ perform_epolls()
 
     while (!child_should_exit.load(std::memory_order_acquire)) {
         struct timespec *timeout = &timeout_default;
+        int timeout_ms = EPOLL_MS;
         if (epoll_count == 0) {
-            // Test a zero timeout.
+            // Test zero timeouts.
             timeout = &timeout_zero;
+            timeout_ms = 0;
         }
 
         int res;
 
-#ifdef SYS_epoll_wait
-        res = epoll_wait(epoll_fd, &events, EPOLL_MAX_EVENTS, EPOLL_MS);
+#ifdef SYS_epoll_wait // Not on aarch64.
+        res = epoll_wait(epoll_fd, &events, EPOLL_MAX_EVENTS, timeout_ms);
         assert(res == 0);
+        ++epoll_count;
 #endif
 
-        res = epoll_pwait(epoll_fd, &events, EPOLL_MAX_EVENTS, EPOLL_MS,
+        res = epoll_pwait(epoll_fd, &events, EPOLL_MAX_EVENTS, timeout_ms,
                           /*sigmask=*/nullptr);
         assert(res == 0);
+        ++epoll_count;
 
+#ifdef MUSL
+#    ifdef X64
         // epoll_pwait2 is not provided by musl so we do a direct
-        // syscall.
+        // syscall for x64. For 32-bit we'd need a timespec64 struct: we
+        // just skip pwait2 there for simplicity.
         res = syscall(SYS_epoll_pwait2, epoll_fd, &events, EPOLL_MAX_EVENTS, timeout,
                       /*sigmask=*/nullptr, /*sigmask_size==*/8);
         assert(res == 0);
-
-        epoll_count += 3;
+        ++epoll_count;
+#    endif
+#else
+        res = epoll_pwait2(epoll_fd, &events, EPOLL_MAX_EVENTS, timeout,
+                           /*sigmask=*/nullptr);
+        assert(res == 0);
+        ++epoll_count;
+#endif
     }
     return epoll_count;
 }
