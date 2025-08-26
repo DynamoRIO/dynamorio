@@ -470,6 +470,7 @@
 #    define __NR_pidfd_getfd (__NR_SYSCALL_BASE + 438)
 #    define __NR_faccessat2 (__NR_SYSCALL_BASE + 439)
 #    define __NR_process_madvise (__NR_SYSCALL_BASE + 440)
+#    define __NR_epoll_pwait2 (__NR_SYSCALL_BASE + 441)
 
 /*
  * The following SWIs are ARM private.
@@ -2983,6 +2984,10 @@
 
 #    ifdef __NR_openat2
 #        define SYS_openat2 __NR_openat2
+#    endif
+
+#    ifdef __NR_epoll_pwait2
+#        define SYS_epoll_pwait2 __NR_epoll_pwait2
 #    endif
 #endif /* ARM */
 
