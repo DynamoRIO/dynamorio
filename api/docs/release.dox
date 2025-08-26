@@ -136,6 +136,9 @@ changes:
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
 
+ - Added drmgr_register_filter_syscall_event() and
+   drmgr_register_filter_syscall_event_user_data() which are required to be used
+   instead of dr_register_filter_syscall_event() when using drmgr.
  - Added a separate cache replacement policy object to `caching_device_t`. `init` now
    takes an `std::unique_ptr<cache_replacement_policy_t>` that defines the replacement
    policy. It can be created manually or by using `create_cache_replacement_policy`.

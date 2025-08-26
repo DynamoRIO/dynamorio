@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -335,7 +335,7 @@ dr_init(client_id_t id)
         drmgr_register_cls_field(event_thread_context_init, event_thread_context_exit);
     CHECK(cls_idx != -1, "drmgr_register_tls_field failed");
 
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     ok = drmgr_register_pre_syscall_event_ex(event_pre_sys_A, &sys_pri_A) &&
         drmgr_register_pre_syscall_event_user_data(event_pre_sys_A_user_data,
                                                    &sys_pri_A_user_data,

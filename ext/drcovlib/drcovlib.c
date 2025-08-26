@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -589,7 +589,7 @@ drcovlib_init(drcovlib_options_t *ops)
     drmgr_register_thread_init_event(event_thread_init);
     drmgr_register_thread_exit_event(event_thread_exit);
     drmgr_register_bb_instrumentation_event(event_basic_block_analysis, NULL, NULL);
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
 #ifdef UNIX
     dr_register_fork_init_event(event_fork);

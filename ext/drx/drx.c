@@ -1299,7 +1299,7 @@ soft_kills_init(void)
     if (!drmgr_register_pre_syscall_event(soft_kills_pre_syscall) ||
         !drmgr_register_post_syscall_event(soft_kills_post_syscall))
         return false;
-    dr_register_filter_syscall_event(soft_kills_filter_syscall);
+    drmgr_register_filter_syscall_event(soft_kills_filter_syscall);
 
     return true;
 }
