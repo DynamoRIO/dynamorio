@@ -646,10 +646,10 @@ unit_test_cache_srrip_exclusive()
     // Eviction from L1 to exclusive L2 previously not serviced cache line J
     // Access the cache line E (from L2)
     // Expected behavior: E moved from L2 to L1, victim J moved from L1 to L2
-    // J previously not serviced in the L2 => access to J treated as L2 cache miss
+    // J previously not serviced in the L2 => insertion of J in L2 treated as cache miss
     l1_test.access_and_check(addr_vec[ADDR_E], 2); //     mp: I1 E2 k3 L3
     l2_test.check(addr_vec[ADDR_E], 0);            //     m :               j2 F2 G2 H2
-    // Same for F and K
+    // Same for F
     l1_test.access_and_check(addr_vec[ADDR_F], 3); //     m : I1 E2 F2 l3
     l2_test.check(addr_vec[ADDR_F], 0);            //     m :               j2 K2 G2 H2
 
@@ -662,7 +662,7 @@ unit_test_cache_srrip_exclusive()
     l2_test.check(addr_vec[ADDR_E], 0);            //     m :               j2 K2 G2 H2
     // Reuse the cache line J (from L2)
     // Expected behavior: J moved from L2 to L1, victim E moved from L1 to L2
-    // E was serviced in the L2, access to K treated as L2 cache hit
+    // E was previously serviced in the L2, re-insertion of E in L2 treated as cache hit
     l1_test.access_and_check(addr_vec[ADDR_J], 0); //     mp: i2 J2 F1 L1
     l2_test.check(addr_vec[ADDR_J], 1);            //     m :               E0 k2 G2 H2
 }
