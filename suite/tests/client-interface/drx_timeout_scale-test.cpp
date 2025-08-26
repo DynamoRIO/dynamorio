@@ -185,16 +185,16 @@ perform_epolls()
         assert(res == 0);
         ++epoll_count;
 
-#ifdef MUSL
-#    ifdef X64
-        // epoll_pwait2 is not provided by musl so we do a direct
-        // syscall for x64. For 32-bit we'd need a timespec64 struct: we
-        // just skip pwait2 there for simplicity.
+#if defined(AARCH64) || (defined(MUSL) && defined(X64))
+        // epoll_pwait2 is not provided by musl nor on our Ubuntu20 aarch64 test
+        // machines, so we do a direct syscall for x64.
         res = syscall(SYS_epoll_pwait2, epoll_fd, &events, EPOLL_MAX_EVENTS, timeout,
                       /*sigmask=*/nullptr, /*sigmask_size==*/8);
         assert(res == 0);
         ++epoll_count;
-#    endif
+#elif defined(MUSL) && !defined(X64)
+        // For 32-bit we'd need a timespec64 struct. We just skip pwait2 there for
+        // simplicity.
 #else
         res = epoll_pwait2(epoll_fd, &events, EPOLL_MAX_EVENTS, timeout,
                            /*sigmask=*/nullptr);
