@@ -1083,7 +1083,7 @@ drx_register_time_scaling(drx_time_scale_t *options)
                                           DRMGR_PRIORITY_NAME_DRX_SCALE_POST_SYS, NULL,
                                           NULL, DRMGR_PRIORITY_POST_SYS_DRX_SCALE };
 
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
 
     if (!drmgr_register_thread_init_event_ex(event_thread_init, &init_priority) ||
         !drmgr_register_thread_exit_event_ex(event_thread_exit, &exit_priority) ||
@@ -1126,7 +1126,7 @@ drx_unregister_time_scaling()
     scale_posix_timers(drcontext, /*inflate=*/false);
 
     return drmgr_unregister_tls_field(tls_idx) &&
-        dr_unregister_filter_syscall_event(event_filter_syscall) &&
+        drmgr_unregister_filter_syscall_event(event_filter_syscall) &&
         drmgr_unregister_pre_syscall_event(event_pre_syscall) &&
         drmgr_unregister_post_syscall_event(event_post_syscall) &&
         drmgr_unregister_thread_init_event(event_thread_init) &&
