@@ -6469,6 +6469,10 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     -client ${strace_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(client.strace-test.dll drmgr)
   use_DynamoRIO_extension(client.strace-test.dll drsyscall)
+  # Test building with drsyscall_drstatic.
+  tobuild_ci(client.strace-static-test client-interface/drsyscall-test.c "" "" "")
+  use_DynamoRIO_extension(client.strace-static-test.dll drmgr_drstatic)
+  use_DynamoRIO_extension(client.strace-static-test.dll drsyscall_drstatic)
 
   tobuild_ci(sample.strace client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(strace_sample_test_libpath sample.strace.dll
@@ -6515,11 +6519,6 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     drsyscall)
   use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
     drsyscall_record_lib)
-
-  # Test building with drsyscall_drstatic.
-  add_exe(client.drsyscall-test-drstatic client-interface/drsyscall-test.c "" "" "")
-  use_DynamoRIO_extension(client.drsyscall-test-drstatic drmgr_drstatic)
-  use_DynamoRIO_extension(client.drsyscall-test-drstatic drsyscall_drstatic)
 endif ()
 
 ###########################################################################
