@@ -188,11 +188,6 @@ typedef struct _cb_list_t {
     size_t num_def;   /* defined (may not all be valid) entries in array */
     size_t num_valid; /* valid entries in array */
     size_t capacity;  /* allocated entries in array */
-    /* We support only keeping events when a user has requested them.
-     * This helps with things like DR's assert about a filter event (i#2991).
-     */
-    void (*lazy_register)(void);
-    void (*lazy_unregister)(void);
 } cb_list_t;
 
 #define EVENTS_INITIAL_SZ 10
@@ -633,8 +628,6 @@ cblist_init(cb_list_t *l, size_t per_entry)
     l->num_valid = 0;
     l->capacity = EVENTS_INITIAL_SZ;
     l->cbs.array = dr_global_alloc(l->capacity * l->entry_sz);
-    l->lazy_register = NULL;
-    l->lazy_unregister = NULL;
 }
 
 static void
@@ -1343,8 +1336,6 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
     pri->valid = true;
     pri->in_priority = *new_pri;
     list->num_valid++;
-    if (list->num_valid == 1 && list->lazy_register != NULL)
-        (*list->lazy_register)();
     return (int)i;
 }
 
@@ -1513,8 +1504,6 @@ drmgr_bb_cb_remove(cb_list_t *list, void *func,
             e->pri.valid = false;
             ASSERT(list->num_valid > 0, "invalid num_valid");
             list->num_valid--;
-            if (list->num_valid == 0 && list->lazy_unregister != NULL)
-                (*list->lazy_unregister)();
             if (i == list->num_def - 1)
                 list->num_def--;
             if (e->has_quintet)
@@ -1906,8 +1895,6 @@ drmgr_generic_event_remove(cb_list_t *list, void *rwlock, void (*func)(void))
             e->pri.valid = false;
             ASSERT(list->num_valid > 0, "invalid num_valid");
             list->num_valid--;
-            if (list->num_valid == 0 && list->lazy_unregister != NULL)
-                (*list->lazy_unregister)();
             break;
         }
     }
