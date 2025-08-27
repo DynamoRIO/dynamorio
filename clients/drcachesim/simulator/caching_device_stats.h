@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -57,9 +57,19 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+// Enumerates the different types of cache line invalidation events that
+// may be seen by a cache.
 enum invalidation_type_t {
+    // Invalidation performed to maintain inclusivity of the parent cache,
+    // which evicted a cache line due to its replacement policy, or to
+    // maintain its own parent's inclusivity. Inclusive caches also
+    // propagate this events to their children.
     INVALIDATION_INCLUSIVE,
+    // Invalidation performed to honor cache coherence protocols. This
+    // is also propagated to the cache's children.
     INVALIDATION_COHERENCE,
+    // Invalidation performed when a line is moved to a child cache of
+    // an exclusive cache.
     INVALIDATION_EXCLUSIVE,
 };
 
