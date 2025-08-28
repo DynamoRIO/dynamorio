@@ -267,6 +267,7 @@ event_exit(void)
     ok = drx_unregister_time_scaling();
     assert(ok);
     drx_exit();
+    drmgr_exit();
     dr_fprintf(STDERR, "client done\n");
 }
 
