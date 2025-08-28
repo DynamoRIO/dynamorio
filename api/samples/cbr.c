@@ -501,5 +501,5 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
         DR_ASSERT_MSG(false, "fail to register event_app_instruction!");
-    dr_register_exit_event(dr_exit);
+    drmgr_register_exit_event(dr_exit);
 }

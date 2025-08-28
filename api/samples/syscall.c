@@ -115,7 +115,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     tcls_idx =
         drmgr_register_cls_field(event_thread_context_init, event_thread_context_exit);
     DR_ASSERT(tcls_idx != -1);

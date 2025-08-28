@@ -80,7 +80,7 @@ dr_init(client_id_t id)
     ok = drpttracer_init();
     CHECK(ok, "drpttracer_init failed");
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     ok = drmgr_register_thread_init_event(event_thread_init) &&
         drmgr_register_thread_exit_event(event_thread_exit) &&

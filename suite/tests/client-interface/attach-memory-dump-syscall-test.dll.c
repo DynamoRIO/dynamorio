@@ -311,7 +311,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     client_id = id;
     thread_id = dr_get_thread_id(dr_get_current_drcontext());
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     drmgr_register_thread_init_event(event_thread_init);
     dr_register_nudge_event(event_nudge, id);
     drmgr_register_filter_syscall_event(event_filter_syscall);

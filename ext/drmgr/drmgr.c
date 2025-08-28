@@ -51,6 +51,8 @@
 #undef dr_set_tls_field
 #undef dr_insert_read_tls_field
 #undef dr_insert_write_tls_field
+#undef dr_register_exit_event
+#undef drmgr_unregister_exit_event
 #undef dr_register_thread_init_event
 #undef dr_unregister_thread_init_event
 #undef dr_register_thread_exit_event
@@ -132,6 +134,10 @@ typedef struct _generic_event_entry_t {
     void *user_data;
     union {
         void (*generic_cb)(void);
+        union {
+            void (*cb_no_user_data)();
+            void (*cb_user_data)(void *);
+        } exit_cb;
         union {
             void (*cb_no_user_data)(void *);
             void (*cb_user_data)(void *, void *);
@@ -332,6 +338,9 @@ static void *tls_lock;
 
 static void *note_lock;
 
+static cb_list_t cb_list_exit;
+static void *exit_event_lock;
+
 /* Thread event cbs and rwlock */
 static cb_list_t cb_list_thread_init;
 static cb_list_t cb_list_thread_exit;
@@ -389,6 +398,9 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri);
 
 static void
 drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table);
+
+static void
+drmgr_exit_event(void);
 
 static void
 drmgr_thread_init_event(void *drcontext);
@@ -457,6 +469,7 @@ is_bbdup_enabled();
  */
 
 static int drmgr_init_count;
+static int drmgr_exit_event_finished;
 
 DR_EXPORT
 bool
@@ -470,6 +483,7 @@ drmgr_init(void)
     note_lock = dr_mutex_create();
 
     bb_cb_lock = dr_rwlock_create();
+    exit_event_lock = dr_rwlock_create();
     thread_event_lock = dr_rwlock_create();
     tls_lock = dr_mutex_create();
     cls_event_lock = dr_rwlock_create();
@@ -489,6 +503,8 @@ drmgr_init(void)
     exception_event_lock = dr_rwlock_create();
 #endif
     fault_event_lock = dr_rwlock_create();
+
+    dr_register_exit_event(drmgr_exit_event);
 
     dr_register_thread_init_event(drmgr_thread_init_event);
     dr_register_thread_exit_event(drmgr_thread_exit_event);
@@ -521,15 +537,9 @@ drmgr_init(void)
     return true;
 }
 
-DR_EXPORT
-void
-drmgr_exit(void)
+static void
+our_exit_event(void)
 {
-    /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&drmgr_init_count, -1);
-    if (count != 0)
-        return;
-
     drmgr_unregister_tls_field(our_tls_idx);
     drmgr_unregister_thread_init_event(our_thread_init_event);
     drmgr_unregister_thread_exit_event(our_thread_exit_event);
@@ -582,6 +592,7 @@ drmgr_exit(void)
     dr_rwlock_destroy(cls_event_lock);
     dr_mutex_destroy(tls_lock);
     dr_rwlock_destroy(thread_event_lock);
+    dr_rwlock_destroy(exit_event_lock);
     dr_rwlock_destroy(bb_cb_lock);
 
     dr_mutex_destroy(note_lock);
@@ -603,6 +614,27 @@ drmgr_exit(void)
         bbdup_extract_cb = NULL;
         bbdup_stitch_cb = NULL;
     }
+}
+
+DR_EXPORT
+void
+drmgr_exit(void)
+{
+    /* Handle multiple sets of init/exit calls. */
+    int count = dr_atomic_add32_return_sum(&drmgr_init_count, -1);
+    if (count != 0)
+        return;
+
+    /* We could document this as a nop now that drmgr controls the exit event as we
+     * have to do our cleanup after all other exit events: but we try to support
+     * legacy clients that do not use drmgr and register a DR exit event yet use a
+     * library that does use drmgr. In such a case it is possible to have a crash
+     * with drmgr state accessed after the drmgr exit event was called, which we
+     * avoid by only cleaning up after *both* the drmgr exit event being called
+     * *and* drmgr_init_count reaching 0.
+     */
+    if (dr_atomic_load32(&drmgr_exit_event_finished) == 1)
+        our_exit_event();
 }
 
 /***************************************************************************
@@ -1905,6 +1937,7 @@ drmgr_generic_event_remove(cb_list_t *list, void *rwlock, void (*func)(void))
 static void
 drmgr_event_init(void)
 {
+    cblist_init(&cb_list_exit, sizeof(generic_event_entry_t));
     cblist_init(&cb_list_thread_init, sizeof(generic_event_entry_t));
     cblist_init(&cb_list_thread_exit, sizeof(generic_event_entry_t));
     cblist_init(&cblist_cls_init, sizeof(generic_event_entry_t));
@@ -1934,6 +1967,7 @@ drmgr_event_exit(void)
      * mid-event.  drmgr_exit() is already ensuring we're only
      * called by one thread.
      */
+    cblist_delete(&cb_list_exit);
     cblist_delete(&cb_list_thread_init);
     cblist_delete(&cb_list_thread_exit);
     cblist_delete(&cblist_cls_init);
@@ -1952,6 +1986,75 @@ drmgr_event_exit(void)
     cblist_delete(&cblist_exception);
 #endif
     cblist_delete(&cblist_fault);
+}
+
+DR_EXPORT
+bool
+drmgr_register_exit_event(void (*func)(void))
+{
+    return drmgr_generic_event_add(&cb_list_exit, exit_event_lock, func, NULL, false,
+                                   NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_exit_event_user_data(void (*func)(void *user_data),
+                                    drmgr_priority_t *priority, void *user_data)
+{
+    return drmgr_generic_event_add(&cb_list_exit, exit_event_lock, (void (*)(void))func,
+                                   priority, true, user_data);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_exit_event(void (*func)(void))
+{
+    return drmgr_generic_event_remove(&cb_list_exit, exit_event_lock,
+                                      (void (*)(void))func);
+}
+
+bool
+drmgr_unregister_exit_event_user_data(void (*func)(void *user_data))
+{
+    return drmgr_generic_event_remove(&cb_list_exit, exit_event_lock,
+                                      (void (*)(void))func);
+}
+
+static void
+drmgr_exit_event(void)
+{
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
+    void *drcontext = GLOBAL_DCONTEXT;
+    dr_rwlock_read_lock(exit_event_lock);
+    cblist_create_local(drcontext, &cb_list_exit, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(exit_event_lock);
+
+    for (i = 0; i < iter.num_def; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
+        if (is_using_user_data == false)
+            (*iter.cbs.generic[i].cb.exit_cb.cb_no_user_data)();
+        else {
+            (*iter.cbs.generic[i].cb.exit_cb.cb_user_data)(user_data);
+        }
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
+
+    /* If all users used the drmgr exit event, drmgr_init_count will be
+     * 0 and we can exit now.
+     * If not, we have a legacy user using the DR exit event, so we wait
+     * for that exit event to call drmgr_exit().
+     * I.e., we clean up after *both* the drmgr exit event is called
+     * *and* drmgr_init_count reaches 0.
+     */
+    if (dr_atomic_load32(&drmgr_init_count) == 0)
+        our_exit_event();
+    dr_atomic_store32(&drmgr_exit_event_finished, 1);
 }
 
 DR_EXPORT
