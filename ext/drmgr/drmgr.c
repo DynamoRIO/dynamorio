@@ -613,6 +613,7 @@ our_exit_event(void)
         bbdup_insert_encoding_cb = NULL;
         bbdup_extract_cb = NULL;
         bbdup_stitch_cb = NULL;
+        dr_atomic_store32(&drmgr_exit_event_finished, 0);
     }
 }
 
@@ -2044,6 +2045,7 @@ drmgr_exit_event(void)
         }
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
+    dr_atomic_store32(&drmgr_exit_event_finished, 1);
 
     /* If all users used the drmgr exit event, drmgr_init_count will be
      * 0 and we can exit now.
@@ -2054,7 +2056,6 @@ drmgr_exit_event(void)
      */
     if (dr_atomic_load32(&drmgr_init_count) == 0)
         our_exit_event();
-    dr_atomic_store32(&drmgr_exit_event_finished, 1);
 }
 
 DR_EXPORT
