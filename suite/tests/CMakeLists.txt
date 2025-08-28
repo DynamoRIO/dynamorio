@@ -6469,15 +6469,18 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     -client ${strace_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(client.strace-test.dll drmgr)
   use_DynamoRIO_extension(client.strace-test.dll drsyscall)
-  # Test building with drsyscall_drstatic.
-  add_exe(client.drsyscall-static-test client-interface/drsyscall-test.dll.c "" "" "")
-  configure_DynamoRIO_static_client(client.drsyscall-static-test)
+  # Test building with drsyscall_drstatic, this is a build-only test.
+  # TODO i#7613: Add a unit test that builds and executes with drsyscall_drstatic library.
+  add_exe(client.drsyscall-drstatic-build-only-test client-interface/drsyscall-test.dll.c
+    "" "" "")
+  configure_DynamoRIO_static_client(client.drsyscall-drstatic-build-only-test)
   if (UNIX)
     # Static libs must be PIC to be linked into clients.
-    append_property_string(TARGET client.drsyscall-static-test COMPILE_FLAGS "-fPIC")
+    append_property_string(TARGET client.drsyscall-drstatic-build-only-test
+      COMPILE_FLAGS "-fPIC")
   endif ()
-  use_DynamoRIO_extension(client.drsyscall-static-test drmgr_drstatic)
-  use_DynamoRIO_extension(client.drsyscall-static-test drsyscall_drstatic)
+  use_DynamoRIO_extension(client.drsyscall-drstatic-build-only-test drmgr_drstatic)
+  use_DynamoRIO_extension(client.drsyscall-drstatic-build-only-test drsyscall_drstatic)
 
   tobuild_ci(sample.strace client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(strace_sample_test_libpath sample.strace.dll
