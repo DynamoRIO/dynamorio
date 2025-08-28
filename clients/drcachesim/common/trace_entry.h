@@ -406,6 +406,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_FILETYPE,
 
+    // Enum value == 10.
     /**
      * The marker value contains the traced processor's cache line size in
      * bytes.
@@ -491,6 +492,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_IDX,
 
+    // Enum value == 20.
     /**
      * This top-level marker identifies the instruction count in each chunk
      * of the output file.  This is the granularity of a fast seek.
@@ -573,6 +575,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 
+    // Enum value == 30.
     // Although it is only for Mac that syscall success requires more than the
     // main return value register, we include the failure marker for all platforms
     // as mmap is complex and it is simpler to not have Mac-only code paths.
@@ -709,6 +712,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT,
 
+    // Enum value == 40.
     /**
      * This marker is emitted prior to the invocation of a signal handler,
      * after the #TRACE_MARKER_TYPE_KERNEL_EVENT record for the handler.
