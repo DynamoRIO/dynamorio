@@ -4472,7 +4472,7 @@ expand_should_set_translation(dcontext_t *dcontext)
 static bool
 mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 {
-#ifdef X86
+#if defined(AARCH64) || defined(X86)
     if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
         byte *selfmod_start, *selfmod_end;
         /* sandbox requires that bb have no direct cti followings!
@@ -4517,7 +4517,7 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
         STATS_INC(num_sandboxed_fragments);
     }
-#endif /* X86 */
+#endif /* AARCH64 || X86 */
 
     /* We make "before mangling" level 5 b/c there's not much there (just final jmp)
      * beyond "after instrumentation".
