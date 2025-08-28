@@ -229,7 +229,7 @@ caching_device_t::request(const memref_t &memref_in)
                 // we know the child cache contains the evicted line.
                 invalidate(tag, INVALIDATION_EXCLUSIVE);
                 // Mark the tag as previously stored in this cache.
-                prev_serviced_tags_.insert(tag);
+                prev_serviced_exclusive_tags_.insert(tag);
                 // Done with this line.
                 continue;
             }
@@ -327,11 +327,16 @@ caching_device_t::invalidate(addr_t tag, invalidation_type_t invalidation_type)
             }
         }
     }
-    if (is_exclusive() && (invalidation_type != INVALIDATION_EXCLUSIVE)) {
-        // Exclusive cache saves list of previously serviced tags.
-        // If the cache block is invalidated due to coherence, remove this tag from the
-        // list of previously serviced.
-        prev_serviced_tags_.erase(tag);
+    if (is_exclusive() && invalidation_type != INVALIDATION_EXCLUSIVE) {
+        // Exclusive cache stores list of previously serviced tags in
+        // prev_serviced_exclusive_tags_.
+        // If the tag is invalidated due to coherence,
+        //    invalidation_type != INVALIDATION_EXCLUSIVE
+        // remove this tag from prev_serviced_exclusive_tags_.
+        // Moving the tag to a child cache also causes invalidation event with
+        //    invalidation_type == INVALIDATION_EXCLUSIVE
+        // In this case we must retain the tag in prev_serviced_exclusive_tags_.
+        prev_serviced_exclusive_tags_.erase(tag);
     }
     // If this is a coherence invalidation, we must invalidate children caches.
     if (invalidation_type == INVALIDATION_COHERENCE && !children_.empty()) {
@@ -417,7 +422,8 @@ caching_device_t::propagate_eviction(addr_t tag, const caching_device_t *request
         insert_tag(tag, /*is_write=*/false, way, block_idx);
         // Notify the cache policy as if this were a new access to the newly
         // inserted line.
-        if (prev_serviced_tags_.erase(tag)) {
+        // TODO i#7590: Handle cache_inclusion_policy_t::NON_INC_NON_EXC inclusion policy.
+        if (prev_serviced_exclusive_tags_.erase(tag)) {
             // The cache block previously serviced in this cache.
             // Consider eviction as cache HIT
             access_update(block_idx, way, HIT);

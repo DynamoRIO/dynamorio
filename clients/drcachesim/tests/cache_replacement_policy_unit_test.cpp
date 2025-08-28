@@ -686,7 +686,8 @@ unit_test_cache_srrip_exclusive()
     l2_test.check(addr_vec[ADDR_J], 1);            //       :               E0 k2 G2 H2
     // Finally, access E to insert F in L2.
     // Since F was removed from list of previously serviced in L2, it is treated as
-    // cache miss
+    // cache miss, therefore F become a victim cache block in L2 and
+    // next-replacement-way changes from 1 (K) to 0 (F).
     l1_test.access_and_check(addr_vec[ADDR_E], 2); //     mp: I1 J1 e2 L2
     l2_test.check(addr_vec[ADDR_E], 0);            //     m :               f2 K2 G2 H2
 }

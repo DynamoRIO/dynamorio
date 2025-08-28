@@ -332,8 +332,9 @@ protected:
     mutable std::unique_ptr<cache_replacement_policy_t> replacement_policy_;
 
     // For exclusive cache: Tags which previously were serviced in this cache,
-    // but moved to a child cache
-    std::unordered_set<addr_t> prev_serviced_tags_;
+    // but moved to a child cache.
+    // This container expected to be empty for inclusive cache.
+    std::unordered_set<addr_t> prev_serviced_exclusive_tags_;
 
     // Name for this cache.
     const std::string name_;
