@@ -2251,7 +2251,7 @@ drsys_init(client_id_t client_id, drsys_options_t *ops)
     drmgr_register_post_syscall_event_ex(drsys_event_post_syscall_last,
                                          &pri_postsys_last);
 
-    dr_register_filter_syscall_event(drsys_event_filter_syscall);
+    drmgr_register_filter_syscall_event(drsys_event_filter_syscall);
     hashtable_init(&filtered_table, FILTERED_TABLE_HASH_BITS, HASH_INTPTR,
                    false /*!strdup*/);
 

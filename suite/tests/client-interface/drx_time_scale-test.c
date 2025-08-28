@@ -227,8 +227,11 @@ event_exit(void)
     bool ok = drx_get_time_scaling_stats(&stats);
     assert(ok);
     for (int i = 0; i < DRX_SCALE_STAT_TYPES; ++i) {
-        dr_fprintf(STDERR, "type %d: attempt " SZFMT " fail " SZFMT " nop " SZFMT "\n", i,
-                   stats[i].count_attempted, stats[i].count_failed, stats[i].count_nop);
+        dr_fprintf(STDERR,
+                   "type %d: attempt " SZFMT " fail " SZFMT " nop " SZFMT
+                   " was-zero " SZFMT "\n",
+                   i, stats[i].count_attempted, stats[i].count_failed, stats[i].count_nop,
+                   stats[i].count_zero_to_nonzero);
     }
     assert(stats[DRX_SCALE_ITIMER].count_attempted > 0);
     assert(stats[DRX_SCALE_ITIMER].count_failed == 0);

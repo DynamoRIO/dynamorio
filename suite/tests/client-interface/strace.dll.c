@@ -124,7 +124,7 @@ dr_init(client_id_t id)
 {
     drmgr_init();
     write_sysnum = get_write_sysnum();
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
     dr_register_exit_event(event_exit);

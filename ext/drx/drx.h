@@ -568,7 +568,8 @@ typedef struct _drx_time_scale_t {
      * application uses and impacts from modifications.
      * Only positive values are supported.
      * Each timeout is multiplied by this value.
-     * \note This only supports the Linux nanosleep and clock_nanosleep system calls
+     * \note This only supports the Linux nanosleep, clock_nanosleep, futex,
+     * epoll_wait, epoll_pwait, and epoll_pwait2 system calls
      * at this time.
      */
     uint timeout_scale;
@@ -579,6 +580,8 @@ typedef enum {
     DRX_SCALE_ITIMER,      /**< Any of the 3 itimers. */
     DRX_SCALE_POSIX_TIMER, /**< Any POSIX timer. */
     DRX_SCALE_SLEEP,       /**< Any sleep system call. */
+    DRX_SCALE_FUTEX,       /**< The futex system call. */
+    DRX_SCALE_EPOLL,       /**< The epoll_{wait,pwait,pwait2} system calls. */
     DRX_SCALE_STAT_TYPES,  /**< Count of stat types. */
 } drx_time_scale_type_t;
 

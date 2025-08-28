@@ -44,10 +44,18 @@
 #ifdef UNIX
 #    ifdef LINUX
 #        include "../../core/unix/include/syscall.h"
+#        include <linux/futex.h>
+/* This is a recent Linux Priority Inheritance futex operation with clock control not
+ * present in the headers on some of our test machines so we define it here if missing.
+ */
+#        ifndef FUTEX_LOCK_PI2
+#            define FUTEX_LOCK_PI2 13
+#        endif
 #    else
 #        error Non-Linux not yet supported
 #        include <sys/syscall.h>
 #    endif
+#    include <sys/epoll.h>
 #    include <sys/time.h>
 #else
 #    error Non-UNIX not supported
@@ -104,6 +112,7 @@ typedef struct _per_thread_t {
     void *app_read_timer_param;
     void *app_set_timer_param;
     bool was_zero;
+    int app_op;
 } per_thread_t;
 
 /* Globals only written at init time. */
@@ -117,9 +126,10 @@ static drx_time_scale_stat_t stats[DRX_SCALE_STAT_TYPES];
 static const int MAX_TV_NSEC = 1000000000ULL;
 static const int MAX_TV_USEC = 1000000ULL;
 
-/* Rather than not scaling a sleep of 0, since it is not a nop and does incur a
- * switch we change it to a small non-0 value (10us, chosen so drmemtrace's 50x scale
- * hits its scheduler's blocking_switch_threshold) which will then be scaled.
+/* Rather than not scaling a sleep or timeout of 0 where a 0 value is not a nop
+ * and does incur a switch we change it to a small non-0 value (10us, chosen so
+ * drmemtrace's 50x scale hits its scheduler's blocking_switch_threshold) which
+ * will then be scaled.
  */
 static const int ZERO_PRE_INFLATE_NSEC = 10000ULL;
 
@@ -197,6 +207,19 @@ is_timeval_zero(struct timeval *val)
     return val->tv_sec == 0 && val->tv_usec == 0;
 }
 
+static inline int64_t
+timespec_to_nanos(struct timespec *spec)
+{
+    return (int64_t)spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
+}
+
+static inline void
+nanos_to_timespec(int64_t nanos, struct timespec *spec)
+{
+    spec->tv_sec = nanos / MAX_TV_NSEC;
+    spec->tv_nsec = nanos % MAX_TV_NSEC;
+}
+
 static void
 inflate_timespec(void *drcontext, struct timespec *spec, int scale,
                  drx_time_scale_type_t type)
@@ -214,6 +237,39 @@ inflate_timespec(void *drcontext, struct timespec *spec, int scale,
     spec->tv_nsec = spec->tv_nsec % MAX_TV_NSEC;
     NOTIFY(2, "T" TIDFMT " Inflated time by %dx: now %" SSZFC ".%.12" SSZFC "\n",
            dr_get_thread_id(drcontext), scale, spec->tv_sec, spec->tv_nsec);
+}
+
+static bool
+inflate_absolute_timespec(void *drcontext, struct timespec *spec, int scale,
+                          drx_time_scale_type_t type, bool realtime)
+{
+    /* First, convert to relative. */
+    struct timespec cur_time;
+    int res =
+        dr_invoke_syscall_as_app(drcontext, SYS_clock_gettime, 2,
+                                 realtime ? CLOCK_REALTIME : CLOCK_MONOTONIC, &cur_time);
+    if (res != 0) {
+        NOTIFY(0, "Failed to call clock_gettime\n");
+        increment_attempt_and_failure(type);
+        return false;
+    }
+    int64_t cur_nanos = timespec_to_nanos(&cur_time);
+    int64_t target_nanos = timespec_to_nanos(spec);
+    int64_t diff_nanos = target_nanos < cur_nanos ? 0 : target_nanos - cur_nanos;
+    if (diff_nanos == 0) {
+        diff_nanos = ZERO_PRE_INFLATE_NSEC;
+        increment_convert_zero(type);
+    }
+    struct timespec rel;
+    rel.tv_sec = diff_nanos / MAX_TV_NSEC;
+    rel.tv_nsec = diff_nanos % MAX_TV_NSEC;
+    /* Now inflate the relative. */
+    inflate_timespec(drcontext, &rel, scale, type);
+    /* Now convert back to absolute. */
+    int64_t scaled_diff_nanos = timespec_to_nanos(&rel);
+    int64_t scaled_target_nanos = cur_nanos + scaled_diff_nanos;
+    nanos_to_timespec(scaled_target_nanos, spec);
+    return true;
 }
 
 #ifndef X64
@@ -325,11 +381,27 @@ event_filter_syscall(void *drcontext, int sysnum)
 #ifndef X64
     case SYS_timer_gettime64:
     case SYS_timer_settime64:
+    case SYS_clock_nanosleep_time64:
 #endif
     case SYS_setitimer:
-    case SYS_getitimer: return true;
+    case SYS_getitimer:
+    case SYS_nanosleep:
+    case SYS_clock_nanosleep:
+    case SYS_futex:
+#ifdef SYS_epoll_wait // Not on aarch64.
+    case SYS_epoll_wait:
+#endif
+    case SYS_epoll_pwait:
+    case SYS_epoll_pwait2: return true;
     }
     return false;
+}
+
+static inline bool
+futex_operation_takes_timeout(int op)
+{
+    return op == FUTEX_WAIT || op == FUTEX_WAIT_BITSET || op == FUTEX_LOCK_PI ||
+        op == FUTEX_LOCK_PI2 || op == FUTEX_WAIT_REQUEUE_PI;
 }
 
 static bool
@@ -518,6 +590,104 @@ event_pre_syscall(void *drcontext, int sysnum)
         break;
     }
 #endif
+    case SYS_futex: {
+        int flags = (int)dr_syscall_get_param(drcontext, 1);
+        int op = flags & FUTEX_CMD_MASK;
+        struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = spec;
+        data->app_op = op;
+        NOTIFY(2, "T" TIDFMT " futex op=%d, time=%p\n", dr_get_thread_id(drcontext), op,
+               spec);
+        if (spec == NULL || !futex_operation_takes_timeout(op)) {
+            /* The timeout parameter is ignored by the kernel. */
+            break;
+        }
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
+            wrote == sizeof(data->time_spec)) {
+            if (op == FUTEX_WAIT) {
+                /* The timeout is relative. */
+                if (is_timespec_zero(&data->time_spec)) {
+                    data->was_zero = true;
+                    data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                    increment_convert_zero(DRX_SCALE_FUTEX);
+                }
+                inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                                 DRX_SCALE_FUTEX);
+            } else {
+                /* The timeout is absolute via the realtime or monotonic clock. */
+                inflate_absolute_timespec(drcontext, &data->time_spec,
+                                          scale_options.timeout_scale, DRX_SCALE_FUTEX,
+                                          TESTANY(FUTEX_CLOCK_REALTIME, flags));
+            }
+            dr_syscall_set_param(drcontext, 3, (reg_t)&data->time_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_FUTEX);
+        break;
+    }
+#ifdef SYS_epoll_wait // Not on aarch64.
+    case SYS_epoll_wait:
+#endif
+    case SYS_epoll_pwait: {
+        int timeout_ms = (int)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = (void *)(ptr_int_t)timeout_ms;
+        NOTIFY(2, "T" TIDFMT " epoll_{,p}wait timeout=%d\n", dr_get_thread_id(drcontext),
+               timeout_ms);
+        if (timeout_ms == -1 || /* Infinite. */
+            timeout_ms == 0) {  /* Returns immediately. */
+            break;
+        }
+        timeout_ms *= scale_options.timeout_scale;
+        dr_syscall_set_param(drcontext, 3, (reg_t)timeout_ms);
+        increment_attempt(DRX_SCALE_EPOLL);
+        if (scale_options.timeout_scale == 1)
+            increment_nop(DRX_SCALE_EPOLL);
+        break;
+    }
+    case SYS_epoll_pwait2: {
+#ifdef X64
+        struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = spec;
+        NOTIFY(2, "T" TIDFMT " epoll_pwait2 time=%p %" SSZFC ".%.12" SSZFC "\n",
+               dr_get_thread_id(drcontext), spec, spec->tv_sec, spec->tv_nsec);
+        if (spec == NULL) /* Infinite. */
+            break;
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
+            wrote == sizeof(data->time_spec)) {
+            if (is_timespec_zero(&data->time_spec)) {
+                /* Zero returns immediately. */
+                break;
+            }
+            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                             DRX_SCALE_EPOLL);
+            dr_syscall_set_param(drcontext, 3, (reg_t)&data->time_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_EPOLL);
+#else
+        timespec64_t *spec = (timespec64_t *)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = spec;
+        NOTIFY(2,
+               "T" TIDFMT " epoll_pwait2 time=%p %" INT64_FORMAT_CODE
+               ".%.12" INT64_FORMAT_CODE "\n",
+               dr_get_thread_id(drcontext), spec, spec->tv_sec, spec->tv_nsec);
+        if (spec == NULL) /* Infinite. */
+            break;
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec64), &data->time_spec64, &wrote) &&
+            wrote == sizeof(data->time_spec64)) {
+            if (is_timespec64_zero(&data->time_spec64)) {
+                /* Zero returns immediately. */
+                break;
+            }
+            inflate_timespec64(drcontext, &data->time_spec64, scale_options.timeout_scale,
+                               DRX_SCALE_EPOLL);
+            dr_syscall_set_param(drcontext, 3, (reg_t)&data->time_spec64);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_EPOLL);
+#endif
+        break;
+    }
     }
     return true;
 }
@@ -668,6 +838,22 @@ event_post_syscall(void *drcontext, int sysnum)
         break;
     }
 #endif
+    case SYS_futex: {
+        int op = data->app_op;
+        if (!futex_operation_takes_timeout(op)) {
+            /* The timeout parameter is ignored by the kernel. */
+            break;
+        }
+        dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);
+        break;
+    }
+#ifdef SYS_epoll_wait // Not on aarch64.
+    case SYS_epoll_wait:
+#endif
+    case SYS_epoll_pwait:
+    case SYS_epoll_pwait2:
+        dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);
+        break;
     }
 }
 
@@ -897,7 +1083,7 @@ drx_register_time_scaling(drx_time_scale_t *options)
                                           DRMGR_PRIORITY_NAME_DRX_SCALE_POST_SYS, NULL,
                                           NULL, DRMGR_PRIORITY_POST_SYS_DRX_SCALE };
 
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
 
     if (!drmgr_register_thread_init_event_ex(event_thread_init, &init_priority) ||
         !drmgr_register_thread_exit_event_ex(event_thread_exit, &exit_priority) ||
@@ -940,7 +1126,7 @@ drx_unregister_time_scaling()
     scale_posix_timers(drcontext, /*inflate=*/false);
 
     return drmgr_unregister_tls_field(tls_idx) &&
-        dr_unregister_filter_syscall_event(event_filter_syscall) &&
+        drmgr_unregister_filter_syscall_event(event_filter_syscall) &&
         drmgr_unregister_pre_syscall_event(event_pre_syscall) &&
         drmgr_unregister_post_syscall_event(event_post_syscall) &&
         drmgr_unregister_thread_init_event(event_thread_init) &&

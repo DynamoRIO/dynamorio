@@ -5818,6 +5818,11 @@ dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
      * arches that's just the return value which equals the 1st parameter.
      */
     reg_t saved[MAX_PARAM_COUNT];
+    /* Save the sysnum and result before we call set_syscall_param() as
+     * there can be overlap between the args or number and the result.
+     */
+    reg_t saved_sysnum = MCXT_SYSNUM_REG(mc);
+    reg_t saved_res = MCXT_SYSCALL_RES(mc);
     va_list ap;
     va_start(ap, arg_count);
     /* In some builds, Werror=array-bounds complains about saved[i] despite our
@@ -5829,9 +5834,7 @@ dr_invoke_syscall_as_app(void *drcontext, int sysnum, int arg_count, ...)
         set_syscall_param(dcontext, i, args[i]);
     }
     va_end(ap);
-    reg_t saved_sysnum = MCXT_SYSNUM_REG(mc);
     MCXT_SYSNUM_REG(mc) = sysnum;
-    reg_t saved_res = MCXT_SYSCALL_RES(mc);
     reg_t res;
     /* Skip client syscall events. */
     dcontext->client_data->skip_client_syscall_events = true;

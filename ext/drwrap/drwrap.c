@@ -1011,7 +1011,7 @@ drwrap_init(void)
         if (wrapper != NULL) {
             sysnum_NtContinue = drmgr_decode_sysnum_from_wrapper(wrapper);
             ASSERT(sysnum_NtContinue != -1, "error decoding NtContinue");
-            dr_register_filter_syscall_event(drwrap_event_filter_syscall);
+            drmgr_register_filter_syscall_event(drwrap_event_filter_syscall);
             drmgr_register_pre_syscall_event(drwrap_event_pre_syscall);
         }
         dr_free_module_data(ntdll);
@@ -1047,7 +1047,7 @@ drwrap_exit(void)
 
 #ifdef WINDOWS
     if (sysnum_NtContinue != -1) {
-        if (!dr_unregister_filter_syscall_event(drwrap_event_filter_syscall) ||
+        if (!drmgr_unregister_filter_syscall_event(drwrap_event_filter_syscall) ||
             !drmgr_unregister_pre_syscall_event(drwrap_event_pre_syscall))
             ASSERT(false, "failed to unregister in drwrap_exit");
     }
