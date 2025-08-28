@@ -53,6 +53,8 @@ static int cb_depth;
 static volatile bool in_opcode_A;
 static volatile bool in_insert_B;
 static volatile bool in_opcode_C;
+static volatile bool in_filter_syscall;
+static volatile bool in_filter_syscall_user_data;
 static volatile bool in_syscall_A;
 static volatile bool in_syscall_A_user_data;
 static volatile bool in_syscall_B;
@@ -113,6 +115,8 @@ static void
 event_mod_unload(void *drcontext, const module_data_t *mod, void *user_data);
 static bool
 event_filter_syscall(void *drcontext, int sysnum);
+static bool
+event_filter_syscall_user_data(void *drcontext, int sysnum, void *user_data);
 static bool
 event_pre_sys_A(void *drcontext, int sysnum);
 static bool
@@ -197,6 +201,7 @@ event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data);
 
 static const uintptr_t thread_user_data_test = 9090;
 static const uintptr_t opcode_user_data_test = 3333;
+static const uintptr_t filter_syscall_user_data_test = 4242;
 static const uintptr_t syscall_A_user_data_test = 7189;
 static const uintptr_t syscall_B_user_data_test = 3218;
 static const uintptr_t mod_user_data_test = 1070;
@@ -211,6 +216,8 @@ dr_init(client_id_t id)
     drmgr_priority_t priority = { sizeof(priority), "drmgr-test", NULL, NULL, 0 };
     drmgr_priority_t priority4 = { sizeof(priority), "drmgr-test4", NULL, NULL, 0 };
     drmgr_priority_t priority5 = { sizeof(priority), "drmgr-test5", NULL, NULL, -10 };
+    drmgr_priority_t filter_sys_pri_user_data = { sizeof(priority), "drmgr-filter", NULL,
+                                                  NULL, -1 };
     drmgr_priority_t sys_pri_A = { sizeof(priority), "drmgr-test-A", NULL, NULL, 10 };
     drmgr_priority_t sys_pri_A_user_data = { sizeof(priority),
                                              "drmgr-test-A-usr-data-test", "drmgr-test-A",
@@ -335,7 +342,11 @@ dr_init(client_id_t id)
         drmgr_register_cls_field(event_thread_context_init, event_thread_context_exit);
     CHECK(cls_idx != -1, "drmgr_register_tls_field failed");
 
-    drmgr_register_filter_syscall_event(event_filter_syscall);
+    ok = drmgr_register_filter_syscall_event(event_filter_syscall) &&
+        drmgr_register_filter_syscall_event_user_data(
+             event_filter_syscall_user_data, &filter_sys_pri_user_data,
+             (void *)filter_syscall_user_data_test);
+    CHECK(ok, "drmgr register filter failed");
     ok = drmgr_register_pre_syscall_event_ex(event_pre_sys_A, &sys_pri_A) &&
         drmgr_register_pre_syscall_event_user_data(event_pre_sys_A_user_data,
                                                    &sys_pri_A_user_data,
@@ -446,6 +457,20 @@ event_exit(void)
 
     if (!drmgr_unregister_bb_meta_instru_event(event_bb_meta_instru))
         CHECK(false, "drmgr meta_instru unregistration failed");
+
+    if (!drmgr_unregister_filter_syscall_event(event_filter_syscall) ||
+        !drmgr_unregister_filter_syscall_event_user_data(event_filter_syscall_user_data))
+        CHECK(false, "drmgr unregister filter failed");
+    if (!drmgr_unregister_pre_syscall_event(event_pre_sys_A) ||
+        !drmgr_unregister_pre_syscall_event_user_data(event_pre_sys_A_user_data) ||
+        !drmgr_unregister_pre_syscall_event(event_pre_sys_B) ||
+        !drmgr_unregister_pre_syscall_event_user_data(event_pre_sys_B_user_data))
+        CHECK(false, "drmgr unregister sys failed");
+    if (!drmgr_unregister_post_syscall_event(event_post_sys_A) ||
+        !drmgr_unregister_post_syscall_event_user_data(event_post_sys_A_user_data) ||
+        !drmgr_unregister_post_syscall_event(event_post_sys_B) ||
+        !drmgr_unregister_post_syscall_event_user_data(event_post_sys_B_user_data))
+        CHECK(false, "drmgr unregister sys failed");
 
     drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
@@ -889,6 +914,30 @@ event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data)
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
 {
+    if (!in_filter_syscall) {
+        dr_mutex_lock(syslock);
+        if (!in_filter_syscall) {
+            dr_fprintf(STDERR, "in filter_syscall\n");
+            in_filter_syscall = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
+    return true;
+}
+
+static bool
+event_filter_syscall_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_filter_syscall_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_filter_syscall_user_data) {
+            dr_fprintf(STDERR, "in filter_syscall_user_data\n");
+            in_filter_syscall_user_data = true;
+            CHECK(user_data == (void *)filter_syscall_user_data_test,
+                  "incorrect user data filter syscall");
+        }
+        dr_mutex_unlock(syslock);
+    }
     return true;
 }
 

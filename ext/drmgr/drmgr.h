@@ -1247,6 +1247,16 @@ drmgr_unregister_filter_syscall_event(bool (*func)(void *drcontext, int sysnum))
 
 DR_EXPORT
 /**
+ * Unregister a callback function, which takes user data, for the syscall filter event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_filter_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                             void *user_data));
+
+DR_EXPORT
+/**
  * Registers a callback function for the pre-syscall event, which
  * behaves just like DR's pre-syscall event dr_register_pre_syscall_event().
  * In particular, a filter event is still needed to ensure that a pre- or post-syscall
