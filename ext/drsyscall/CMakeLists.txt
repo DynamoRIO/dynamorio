@@ -172,8 +172,9 @@ configure_drsyscall_target(drsyscall_static)
 
 add_library(drsyscall_drstatic STATIC ${srcs_static})
 configure_extension(drsyscall_drstatic ON ON)
-use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatuc)
-use_DynamoRIO_extension(drsyscall_drstatic drmgr_static)
+use_DynamoRIO_extension(drsyscall_drstatic drmgr_drstatic)
+use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatic)
+use_DynamoRIO_extension(drsyscall_drstatic drsyms_drstatic)
 configure_drsyscall_target(drsyscall_drstatic)
 
 if (LINUX)
