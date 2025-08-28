@@ -79,6 +79,13 @@ static bool child_ready;
 static pthread_mutex_t lock;
 static std::atomic<bool> child_should_exit;
 
+// Our 3 varieties of system call invocation.
+typedef enum {
+    TEST_PLAIN,   // SYS_nanosleep.
+    TEST_CLOCK,   // SYS_clock_nanosleep{,_time64}
+    TEST_INLINED, // Ensure syscall # is determined by DR.
+} test_type_t;
+
 bool
 my_setenv(const char *var, const char *value)
 {
@@ -94,7 +101,7 @@ handler(int sig)
 static void *
 thread_routine(void *arg)
 {
-    bool clock_version = static_cast<bool>(reinterpret_cast<size_t>(arg));
+    test_type_t test_type = static_cast<test_type_t>(reinterpret_cast<size_t>(arg));
     int64_t sleep_count = 0;
 
     signal(SIGUSR1, handler);
@@ -117,7 +124,7 @@ thread_routine(void *arg)
 #endif
     int64_t eintr_count = 0;
     while (!child_should_exit.load(std::memory_order_acquire)) {
-        // Test a sleep of 0 to test nop stats.
+        // Test a sleep of 0.
         if (sleep_count == 0) {
             sleeptime.tv_nsec = 0;
 #ifndef X64
@@ -131,7 +138,7 @@ thread_routine(void *arg)
         }
         ++sleep_count;
         int res;
-        if (clock_version) {
+        if (test_type == TEST_CLOCK) {
             // This is what modern libc nanosleep() calls.
 #ifdef X64
             res = syscall(SYS_clock_nanosleep, CLOCK_REALTIME, 0, &sleeptime, &remaining);
@@ -139,16 +146,40 @@ thread_routine(void *arg)
             res = syscall(SYS_clock_nanosleep_time64, CLOCK_REALTIME, 0, &sleeptime64,
                           &remaining64);
 #endif
-        } else {
+        } else if (test_type == TEST_PLAIN) {
             res = syscall(SYS_nanosleep, &sleeptime, &remaining);
         }
+#ifdef X86_64
+        // We only support x86-64 for simplicity.
+        // The other tests cover other arches.
+        else if (test_type == TEST_INLINED) {
+            // Include a test where DR can find the syscall # so ensure we test the
+            // filter event (syscall() puts the syscall instr in a separate block).
+            struct timespec *ptr_sleeptime = &sleeptime;
+            struct timespec *ptr_remaining = &remaining;
+            __asm__ __volatile__(
+                "mov %[duration], %%rdi\n\t"
+                "mov %[remaining], %%rsi\n\t"
+                "mov %[num], %%eax\n\t"
+                "syscall\n\t"
+                "mov %%eax, %[result]\n\t"
+                : [result] "=m"(res)
+                : [duration] "m"(ptr_sleeptime), [remaining] "m"(ptr_remaining),
+                  [num] "i"(SYS_nanosleep)
+                : "rdi", "rsi", "rax", "memory");
+            if (res < 0)
+                errno = -res;
+        }
+#endif
+        else
+            assert(false);
         if (res != 0) {
             assert(errno == EINTR);
             // Ensure the remaining time was deflated.
             // Nanosleep rounds up to and the remainder can be slightly larger
             // so we allow up to 2x.
 #ifndef X64
-            if (clock_version) {
+            if (test_type == TEST_CLOCK) {
                 assert(remaining64.tv_sec == 0 &&
                        remaining64.tv_nsec <= 2 * sleeptime64.tv_nsec);
             } else {
@@ -167,7 +198,7 @@ thread_routine(void *arg)
 }
 
 static int64_t
-do_some_work(bool clock_version)
+do_some_work(test_type_t test_type)
 {
     pthread_t thread;
     void *retval;
@@ -180,7 +211,7 @@ do_some_work(bool clock_version)
     child_should_exit.store(false, std::memory_order_release);
 
     int res = pthread_create(&thread, NULL, thread_routine,
-                             reinterpret_cast<void *>(clock_version));
+                             reinterpret_cast<void *>(test_type));
     assert(res == 0);
     // Wait for the child to start running.
     pthread_mutex_lock(&lock);
@@ -216,14 +247,21 @@ event_exit(void)
     bool ok = drx_get_time_scaling_stats(&stats);
     assert(ok);
     for (int i = 0; i < DRX_SCALE_STAT_TYPES; ++i) {
-        dr_fprintf(STDERR, "type %d: attempt " SZFMT " fail " SZFMT " nop " SZFMT "\n", i,
-                   stats[i].count_attempted, stats[i].count_failed, stats[i].count_nop);
+        dr_fprintf(STDERR,
+                   "type %d: attempt " SZFMT " fail " SZFMT " nop " SZFMT
+                   " was-zero " SZFMT "\n",
+                   i, stats[i].count_attempted, stats[i].count_failed, stats[i].count_nop,
+                   stats[i].count_zero_to_nonzero);
     }
     assert(stats[DRX_SCALE_SLEEP].count_attempted > 0);
     assert(stats[DRX_SCALE_SLEEP].count_attempted >=
            stats[DRX_SCALE_SLEEP].count_failed + stats[DRX_SCALE_SLEEP].count_nop);
     assert(stats[DRX_SCALE_SLEEP].count_failed == 0);
-    assert(stats[DRX_SCALE_SLEEP].count_nop > 0);
+    // Either scale was 1 and everything is a nop, or if scaling then our 0-duration
+    // sleep should have become non-0.
+    assert(stats[DRX_SCALE_SLEEP].count_nop == stats[DRX_SCALE_SLEEP].count_attempted ||
+           stats[DRX_SCALE_SLEEP].count_nop == 0);
+    assert(stats[DRX_SCALE_SLEEP].count_zero_to_nonzero > 0);
 
     ok = drx_unregister_time_scaling();
     assert(ok);
@@ -232,13 +270,13 @@ event_exit(void)
 }
 
 static int64_t
-test_sleep(bool clock_version, int scale)
+test_sleep(test_type_t test_type, int scale)
 {
     std::string dr_ops("-stderr_mask 0xc -client_lib ';;" + std::to_string(scale) + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup_and_start();
-    int64_t count = do_some_work(clock_version);
+    int64_t count = do_some_work(test_type);
     dr_app_stop_and_cleanup();
     return count;
 }
@@ -246,18 +284,26 @@ test_sleep(bool clock_version, int scale)
 static void
 test_sleep_scale()
 {
-    int64_t sleeps_default = test_sleep(/*clock_version=*/true, 1);
+    int64_t sleeps_default = test_sleep(TEST_CLOCK, 1);
     constexpr int SCALE = 100;
-    int64_t sleeps_scaled = test_sleep(/*clock_version=*/true, SCALE);
+    int64_t sleeps_scaled = test_sleep(TEST_CLOCK, SCALE);
     std::cerr << "sleeps default=" << sleeps_default << " clock scaled=" << sleeps_scaled
               << "\n";
     // Ensure the scaling ends up within an order of magnitude.
     assert(sleeps_default > SCALE / 10 * sleeps_scaled);
+
     // Test SYS_nanosleep.
-    sleeps_scaled = test_sleep(/*clock_version=*/false, SCALE);
+    sleeps_scaled = test_sleep(TEST_PLAIN, SCALE);
     std::cerr << "sleeps default=" << sleeps_default
               << " noclock scaled=" << sleeps_scaled << "\n";
     assert(sleeps_default > SCALE / 10 * sleeps_scaled);
+#ifdef X86_64
+    // Test inlined.
+    sleeps_scaled = test_sleep(TEST_INLINED, SCALE);
+    std::cerr << "sleeps default=" << sleeps_default
+              << " inlined scaled=" << sleeps_scaled << "\n";
+    assert(sleeps_default > SCALE / 10 * sleeps_scaled);
+#endif
 }
 
 } // namespace drmemtrace

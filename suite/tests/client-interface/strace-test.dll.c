@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -256,7 +256,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         ASSERT(false, "drsys failed to init");
     dr_register_exit_event(exit_event);
 
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
     if (drsys_filter_all_syscalls() != DRMF_SUCCESS)

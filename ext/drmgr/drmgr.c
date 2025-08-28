@@ -55,6 +55,8 @@
 #undef dr_unregister_thread_init_event
 #undef dr_register_thread_exit_event
 #undef dr_unregister_thread_exit_event
+#undef dr_register_filter_syscall_event
+#undef dr_unregister_filter_syscall_event
 #undef dr_register_pre_syscall_event
 #undef dr_unregister_pre_syscall_event
 #undef dr_register_post_syscall_event
@@ -138,6 +140,10 @@ typedef struct _generic_event_entry_t {
         union {
             bool (*cb_no_user_data)(void *, int);
             bool (*cb_user_data)(void *, int, void *);
+        } filter_sys_cb;
+        union {
+            bool (*cb_no_user_data)(void *, int);
+            bool (*cb_user_data)(void *, int, void *);
         } presys_cb;
         union {
             void (*cb_no_user_data)(void *, int);
@@ -182,11 +188,6 @@ typedef struct _cb_list_t {
     size_t num_def;   /* defined (may not all be valid) entries in array */
     size_t num_valid; /* valid entries in array */
     size_t capacity;  /* allocated entries in array */
-    /* We support only keeping events when a user has requested them.
-     * This helps with things like DR's assert about a filter event (i#2991).
-     */
-    void (*lazy_register)(void);
-    void (*lazy_unregister)(void);
 } cb_list_t;
 
 #define EVENTS_INITIAL_SZ 10
@@ -340,6 +341,9 @@ static cb_list_t cblist_cls_init;
 static cb_list_t cblist_cls_exit;
 static void *cls_event_lock;
 
+static cb_list_t cblist_filter_sys;
+static void *filter_sys_event_lock;
+
 /* Yet another event we must wrap to ensure we go last */
 static cb_list_t cblist_presys;
 static void *presys_event_lock;
@@ -405,6 +409,9 @@ static void
 drmgr_event_exit(void);
 
 static bool
+drmgr_filter_syscall_event(void *drcontext, int sysnum);
+
+static bool
 drmgr_presyscall_event(void *drcontext, int sysnum);
 
 static void
@@ -466,6 +473,7 @@ drmgr_init(void)
     thread_event_lock = dr_rwlock_create();
     tls_lock = dr_mutex_create();
     cls_event_lock = dr_rwlock_create();
+    filter_sys_event_lock = dr_rwlock_create();
     presys_event_lock = dr_rwlock_create();
     postsys_event_lock = dr_rwlock_create();
     modload_event_lock = dr_rwlock_create();
@@ -484,6 +492,11 @@ drmgr_init(void)
 
     dr_register_thread_init_event(drmgr_thread_init_event);
     dr_register_thread_exit_event(drmgr_thread_exit_event);
+
+    dr_register_filter_syscall_event(drmgr_filter_syscall_event);
+    dr_register_pre_syscall_event(drmgr_presyscall_event);
+    dr_register_post_syscall_event(drmgr_postsyscall_event);
+
     dr_register_module_load_event(drmgr_modload_event);
     dr_register_module_unload_event(drmgr_modunload_event);
     dr_register_low_on_memory_event(drmgr_low_on_memory_event);
@@ -528,7 +541,7 @@ drmgr_exit(void)
     dr_unregister_thread_init_event(drmgr_thread_init_event);
     dr_unregister_thread_exit_event(drmgr_thread_exit_event);
 
-    /* We blindly unregister even if we never (lazily) registered. */
+    dr_unregister_filter_syscall_event(drmgr_filter_syscall_event);
     dr_unregister_pre_syscall_event(drmgr_presyscall_event);
     dr_unregister_post_syscall_event(drmgr_postsyscall_event);
 
@@ -564,6 +577,7 @@ drmgr_exit(void)
     dr_rwlock_destroy(modunload_event_lock);
     dr_rwlock_destroy(modload_event_lock);
     dr_rwlock_destroy(postsys_event_lock);
+    dr_rwlock_destroy(filter_sys_event_lock);
     dr_rwlock_destroy(presys_event_lock);
     dr_rwlock_destroy(cls_event_lock);
     dr_mutex_destroy(tls_lock);
@@ -614,8 +628,6 @@ cblist_init(cb_list_t *l, size_t per_entry)
     l->num_valid = 0;
     l->capacity = EVENTS_INITIAL_SZ;
     l->cbs.array = dr_global_alloc(l->capacity * l->entry_sz);
-    l->lazy_register = NULL;
-    l->lazy_unregister = NULL;
 }
 
 static void
@@ -1324,8 +1336,6 @@ priority_event_add(cb_list_t *list, drmgr_priority_t *new_pri)
     pri->valid = true;
     pri->in_priority = *new_pri;
     list->num_valid++;
-    if (list->num_valid == 1 && list->lazy_register != NULL)
-        (*list->lazy_register)();
     return (int)i;
 }
 
@@ -1494,8 +1504,6 @@ drmgr_bb_cb_remove(cb_list_t *list, void *func,
             e->pri.valid = false;
             ASSERT(list->num_valid > 0, "invalid num_valid");
             list->num_valid--;
-            if (list->num_valid == 0 && list->lazy_unregister != NULL)
-                (*list->lazy_unregister)();
             if (i == list->num_def - 1)
                 list->num_def--;
             if (e->has_quintet)
@@ -1887,39 +1895,11 @@ drmgr_generic_event_remove(cb_list_t *list, void *rwlock, void (*func)(void))
             e->pri.valid = false;
             ASSERT(list->num_valid > 0, "invalid num_valid");
             list->num_valid--;
-            if (list->num_valid == 0 && list->lazy_unregister != NULL)
-                (*list->lazy_unregister)();
             break;
         }
     }
     dr_rwlock_write_unlock(rwlock);
     return res;
-}
-
-/* We delay registering syscall events until a client does, to avoid triggering DR's
- * assert about having a syscall event and no filter event (we can't register our own
- * filter and provide the warning ourselves unless we replace DR's filter).  Today we
- * have no action of our own on pre or post syscall so this works out.
- */
-static void
-drmgr_lazy_register_presys(void)
-{
-    dr_register_pre_syscall_event(drmgr_presyscall_event);
-}
-static void
-drmgr_lazy_register_postsys(void)
-{
-    dr_register_post_syscall_event(drmgr_postsyscall_event);
-}
-static void
-drmgr_lazy_unregister_presys(void)
-{
-    dr_unregister_pre_syscall_event(drmgr_presyscall_event);
-}
-static void
-drmgr_lazy_unregister_postsys(void)
-{
-    dr_unregister_post_syscall_event(drmgr_postsyscall_event);
 }
 
 static void
@@ -1930,12 +1910,9 @@ drmgr_event_init(void)
     cblist_init(&cblist_cls_init, sizeof(generic_event_entry_t));
     cblist_init(&cblist_cls_exit, sizeof(generic_event_entry_t));
 
+    cblist_init(&cblist_filter_sys, sizeof(generic_event_entry_t));
     cblist_init(&cblist_presys, sizeof(generic_event_entry_t));
-    cblist_presys.lazy_register = drmgr_lazy_register_presys;
-    cblist_presys.lazy_unregister = drmgr_lazy_unregister_presys;
     cblist_init(&cblist_postsys, sizeof(generic_event_entry_t));
-    cblist_postsys.lazy_register = drmgr_lazy_register_postsys;
-    cblist_postsys.lazy_unregister = drmgr_lazy_unregister_postsys;
 
     cblist_init(&cblist_modload, sizeof(generic_event_entry_t));
     cblist_init(&cblist_modunload, sizeof(generic_event_entry_t));
@@ -1961,6 +1938,7 @@ drmgr_event_exit(void)
     cblist_delete(&cb_list_thread_exit);
     cblist_delete(&cblist_cls_init);
     cblist_delete(&cblist_cls_exit);
+    cblist_delete(&cblist_filter_sys);
     cblist_delete(&cblist_presys);
     cblist_delete(&cblist_postsys);
     cblist_delete(&cblist_modload);
@@ -2060,6 +2038,62 @@ drmgr_unregister_thread_exit_event_user_data(void (*func)(void *drcontext,
 
 DR_EXPORT
 bool
+drmgr_register_filter_syscall_event(bool (*func)(void *drcontext, int sysnum))
+{
+    return drmgr_generic_event_add(&cblist_filter_sys, filter_sys_event_lock,
+                                   (void (*)(void))func, NULL, false, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_filter_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                           void *user_data),
+                                              drmgr_priority_t *priority, void *user_data)
+{
+    return drmgr_generic_event_add(&cblist_filter_sys, filter_sys_event_lock,
+                                   (void (*)(void))func, priority, true, user_data);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_filter_syscall_event(bool (*func)(void *drcontext, int sysnum))
+{
+    return drmgr_generic_event_remove(&cblist_filter_sys, filter_sys_event_lock,
+                                      (void (*)(void))func);
+}
+
+static bool
+drmgr_filter_syscall_event(void *drcontext, int sysnum)
+{
+    bool filter = false;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
+    dr_rwlock_read_lock(filter_sys_event_lock);
+    cblist_create_local(drcontext, &cblist_filter_sys, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(filter_sys_event_lock);
+    for (i = 0; i < iter.num_def; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
+        if (is_using_user_data == false) {
+            filter = (*iter.cbs.generic[i].cb.filter_sys_cb.cb_no_user_data)(drcontext,
+                                                                             sysnum) ||
+                filter;
+        } else {
+            filter = (*iter.cbs.generic[i].cb.filter_sys_cb.cb_user_data)(
+                         drcontext, sysnum, user_data) ||
+                filter;
+        }
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
+    return filter;
+}
+
+DR_EXPORT
+bool
 drmgr_register_pre_syscall_event(bool (*func)(void *drcontext, int sysnum))
 {
     return drmgr_generic_event_add(&cblist_presys, presys_event_lock,
@@ -2132,8 +2166,7 @@ drmgr_presyscall_event(void *drcontext, int sysnum)
 
     /* We used to track NtCallbackReturn for CLS (before DR provided the kernel xfer
      * event) and had to handle it last here.  Now we have nothing ourselves to
-     * do here.  If we do add something we'll need to redo the lazy
-     * drmgr_lazy_register_presys(), etc.
+     * do here.
      */
 
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
