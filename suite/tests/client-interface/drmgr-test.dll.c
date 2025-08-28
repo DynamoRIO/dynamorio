@@ -261,7 +261,7 @@ dr_init(client_id_t id)
     bool ok;
 
     drmgr_init();
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     drmgr_register_thread_init_event(event_thread_init);
     drmgr_register_thread_exit_event(event_thread_exit);
     drmgr_register_thread_init_event_ex(event_thread_init_ex, &thread_init_pri);

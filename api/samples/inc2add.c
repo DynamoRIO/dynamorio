@@ -85,7 +85,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
      * We're changing the app's code, rather than just inserting observational
      * instrumentation.
      */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_app2app_event(event_instruction_change, NULL))
         DR_ASSERT(false);
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,8 +34,6 @@
 
 #ifndef _DRCOVLIB_H_
 #define _DRCOVLIB_H_ 1
-
-#include "drmgr.h"
 
 /**
  * @file drcovlib.h

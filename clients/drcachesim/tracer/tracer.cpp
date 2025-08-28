@@ -2079,7 +2079,7 @@ event_exit(void)
             DR_ASSERT(false);
         }
     }
-    dr_unregister_exit_event(event_exit);
+    drmgr_unregister_exit_event(event_exit);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
@@ -2530,7 +2530,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     }
 
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 #ifdef UNIX
     dr_register_fork_init_event(fork_init);
 #endif

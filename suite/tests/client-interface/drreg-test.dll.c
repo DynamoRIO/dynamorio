@@ -1207,7 +1207,7 @@ dr_init(client_id_t id)
     ASSERT(note_base != DRMGR_NOTE_NONE);
 
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_ex_event(event_app2app, event_app_analysis,
                                                     event_app_instruction,
                                                     event_instru2instru, NULL))

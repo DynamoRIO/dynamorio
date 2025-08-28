@@ -266,5 +266,5 @@ dr_init(client_id_t id)
 
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 }

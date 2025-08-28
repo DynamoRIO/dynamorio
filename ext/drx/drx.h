@@ -646,6 +646,7 @@ DR_EXPORT
  * Enables time scaling with the options specified in "options".
  * Must be called at initialization time.
  * Can only be called once (until drx_unregister_time_scaling() is called).
+ * This uses drmgr, so any client using this must also use drmgr.
  *
  * \return whether successful.
  *

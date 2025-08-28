@@ -41,6 +41,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drx.h"
 #include "tools.h"
 
@@ -86,7 +87,6 @@ static pthread_cond_t condvar;
 static bool child_ready;
 static pthread_mutex_t lock;
 static std::atomic<bool> child_should_exit;
-static drx_time_scale_type_t cur_optype;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -268,8 +268,10 @@ do_some_work(drx_time_scale_type_t optype)
 }
 
 static void
-event_exit(void)
+event_exit(void *user_data)
 {
+    auto cur_optype =
+        static_cast<drx_time_scale_type_t>(reinterpret_cast<ptr_int_t>(user_data));
     drx_time_scale_stat_t *stats;
     bool ok = drx_get_time_scaling_stats(&stats);
     assert(ok);
@@ -299,13 +301,15 @@ event_exit(void)
     ok = drx_unregister_time_scaling();
     assert(ok);
     drx_exit();
+    drmgr_exit();
     dr_fprintf(STDERR, "client done\n");
 }
 
 static int64_t
 test_optype_scale(drx_time_scale_type_t optype, int scale)
 {
-    std::string dr_ops("-stderr_mask 0xc -client_lib ';;" + std::to_string(scale) + "'");
+    std::string dr_ops("-stderr_mask 0xc -client_lib ';;" + std::to_string(optype) + " " +
+                       std::to_string(scale) + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup_and_start();
@@ -317,8 +321,6 @@ test_optype_scale(drx_time_scale_type_t optype, int scale)
 static void
 test_futex_scale()
 {
-    // XXX: If we had a user_data param to event_exit we wouldn't need this.
-    cur_optype = DRX_SCALE_FUTEX;
     int64_t futexes_default = test_optype_scale(DRX_SCALE_FUTEX, /*scale=*/1);
     constexpr int SCALE = 100;
     int64_t futexes_scaled = test_optype_scale(DRX_SCALE_FUTEX, SCALE);
@@ -331,8 +333,6 @@ test_futex_scale()
 static void
 test_epoll_scale()
 {
-    // XXX: If we had a user_data param to event_exit we wouldn't need this.
-    cur_optype = DRX_SCALE_EPOLL;
     int64_t epolls_default = test_optype_scale(DRX_SCALE_EPOLL, /*scale=*/1);
     constexpr int SCALE = 100;
     int64_t epolls_scaled = test_optype_scale(DRX_SCALE_EPOLL, SCALE);
@@ -349,12 +349,19 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     uint timeout_scale = 1;
-    if (argc >= 2)
-        timeout_scale = atoi(argv[1]);
+    drx_time_scale_type_t optype = DRX_SCALE_FUTEX;
+    if (argc >= 3) {
+        optype = static_cast<drx_time_scale_type_t>(atoi(argv[1]));
+        timeout_scale = atoi(argv[2]);
+    }
     dr_fprintf(STDERR, "in dr_client_main scale=%u\n", timeout_scale);
 
-    dr_register_exit_event(dynamorio::drmemtrace::event_exit);
-    bool ok = drx_init();
+    bool ok = drmgr_init();
+    assert(ok);
+    ok = drmgr_register_exit_event_user_data(dynamorio::drmemtrace::event_exit, nullptr,
+                                             reinterpret_cast<void *>(optype));
+    assert(ok);
+    ok = drx_init();
     assert(ok);
 
     drx_time_scale_t scale = {

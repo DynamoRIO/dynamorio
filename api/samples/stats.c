@@ -250,7 +250,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         strncpy(stats->names[i], stat_names[i], CLIENTSTAT_NAME_MAX_LEN);
         stats->names[i][CLIENTSTAT_NAME_MAX_LEN - 1] = '\0';
     }
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_analyze_bb,
                                                  event_insert_instrumentation, NULL))
         DR_ASSERT(false);

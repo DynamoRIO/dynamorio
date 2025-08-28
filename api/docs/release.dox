@@ -136,9 +136,15 @@ changes:
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
 
- - Added drmgr_register_filter_syscall_event() and
-   drmgr_register_filter_syscall_event_user_data() which are required to be used
-   instead of dr_register_filter_syscall_event() when using drmgr.
+ - Added drmgr_register_exit_event(), drmgr_unregister_exit_event(),
+   drmgr_register_exit_event_user_data(), and drmgr_unregister_exit_event_user_data(),
+   which are required to be used instead of dr_register_exit_event() when using drmgr
+   and provide priorities and user data to the exit event.
+ - Added drmgr_register_filter_syscall_event(), drmgr_unregister_filter_syscall_event(),
+   drmgr_register_filter_syscall_event_user_data(), and
+   drmgr_unregister_filter_syscall_event_user_data(), which are required to be used
+   instead of dr_register_filter_syscall_event() when using drmgr and provide
+   priorities and user data to the filter event.
  - Added a separate cache replacement policy object to `caching_device_t`. `init` now
    takes an `std::unique_ptr<cache_replacement_policy_t>` that defines the replacement
    policy. It can be created manually or by using `create_cache_replacement_policy`.

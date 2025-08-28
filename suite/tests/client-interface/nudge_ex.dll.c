@@ -271,7 +271,7 @@ dr_init(client_id_t id)
     drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, NULL, NULL);
     ASSERT(ok);

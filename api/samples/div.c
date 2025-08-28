@@ -62,7 +62,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Sample Client 'div'", "http://dynamorio.org/issues");
     if (!drmgr_init())
         DR_ASSERT(false);
-    dr_register_exit_event(exit_event);
+    drmgr_register_exit_event(exit_event);
     if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
         DR_ASSERT(false);
     count_mutex = dr_mutex_create();

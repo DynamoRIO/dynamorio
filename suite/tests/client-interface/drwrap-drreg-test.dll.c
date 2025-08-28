@@ -385,7 +385,7 @@ dr_init(client_id_t id)
     drreg_options_t ops = { sizeof(ops), 3 /*max slots needed*/, false };
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drwrap_init())
         CHECK(false, "init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_analysis, event_app_instruction,
                                                  NULL) ||
         !drmgr_register_module_load_event(module_load_event) ||

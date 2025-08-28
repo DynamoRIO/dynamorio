@@ -81,7 +81,7 @@ dr_init(client_id_t id)
     drmgr_register_post_syscall_event(event_post_syscall);
     if (drsys_init(id, &ops) != DRMF_SUCCESS)
         DR_ASSERT(false);
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 #ifdef WINDOWS
     dr_enable_console_printing(); /* ensure output shows up in cmd */
 #endif

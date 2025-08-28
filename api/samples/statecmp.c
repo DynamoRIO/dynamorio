@@ -151,5 +151,5 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                                  NULL))
         DR_ASSERT(false);
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 }

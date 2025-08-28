@@ -392,7 +392,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_init();
     if (drsys_init(id, &ops) != DRMF_SUCCESS)
         ASSERT(false, "drsys failed to init");
-    dr_register_exit_event(exit_event);
+    drmgr_register_exit_event(exit_event);
 
     drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
