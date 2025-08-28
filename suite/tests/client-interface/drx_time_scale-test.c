@@ -259,7 +259,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         timer_scale = atoi(argv[1]);
     dr_fprintf(STDERR, "in dr_client_main scale=%u\n", timer_scale);
 
-    /* We deliberately do not use drmgr as test of drmgr's exit event being robust
+    /* We deliberately do not use drmgr, as a test of drmgr's exit event being robust
      * and handling a client not using drmgr and having a separate exit event
      * while using a library that does use drmgr, with the client's exit event
      * registered first and thus going last after drmgr's exit event.

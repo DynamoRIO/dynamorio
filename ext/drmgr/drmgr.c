@@ -468,16 +468,20 @@ is_bbdup_enabled();
  * INIT
  */
 
-static int drmgr_init_count;
-static int drmgr_exit_event_finished;
+/* We initialize to 1 to account for the extra call at the end of our exit event.
+ * This ensures we do not clean up until both our exit event is finished and
+ * every user has called drmgr_exit() (to support legacy clients using the DR
+ * exit event).
+ */
+static int drmgr_init_count = 1;
 
 DR_EXPORT
 bool
 drmgr_init(void)
 {
-    /* handle multiple sets of init/exit calls */
+    /* Handle multiple sets of init/exit calls. Remember it starts at 1. */
     int count = dr_atomic_add32_return_sum(&drmgr_init_count, 1);
-    if (count > 1)
+    if (count > 2)
         return true;
 
     note_lock = dr_mutex_create();
@@ -613,7 +617,7 @@ our_exit_event(void)
         bbdup_insert_encoding_cb = NULL;
         bbdup_extract_cb = NULL;
         bbdup_stitch_cb = NULL;
-        dr_atomic_store32(&drmgr_exit_event_finished, 0);
+        dr_atomic_store32(&drmgr_init_count, 1);
     }
 }
 
@@ -625,17 +629,11 @@ drmgr_exit(void)
     int count = dr_atomic_add32_return_sum(&drmgr_init_count, -1);
     if (count != 0)
         return;
-
-    /* We could document this as a nop now that drmgr controls the exit event as we
-     * have to do our cleanup after all other exit events: but we try to support
-     * legacy clients that do not use drmgr and register a DR exit event yet use a
-     * library that does use drmgr. In such a case it is possible to have a crash
-     * with drmgr state accessed after the drmgr exit event was called, which we
-     * avoid by only cleaning up after *both* the drmgr exit event being called
-     * *and* drmgr_init_count reaching 0.
+    /* Because we started at 1, we know we have now seen both the end
+     * of our exit event and every user finish calling drmgr_exit() (to
+     * handle legacy clients using the DR exit event).
      */
-    if (dr_atomic_load32(&drmgr_exit_event_finished) == 1)
-        our_exit_event();
+    our_exit_event();
 }
 
 /***************************************************************************
@@ -1819,7 +1817,7 @@ drmgr_current_bb_phase(void *drcontext)
 {
     per_thread_t *pt;
     /* Support being called w/o being set up, for detection of whether under drmgr */
-    if (drmgr_init_count == 0)
+    if (drmgr_init_count <= 1)
         return DRMGR_PHASE_NONE;
     pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
     /* Support being called during process init (i#2910). */
@@ -2045,17 +2043,12 @@ drmgr_exit_event(void)
         }
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
-    dr_atomic_store32(&drmgr_exit_event_finished, 1);
 
-    /* If all users used the drmgr exit event, drmgr_init_count will be
-     * 0 and we can exit now.
-     * If not, we have a legacy user using the DR exit event, so we wait
-     * for that exit event to call drmgr_exit().
-     * I.e., we clean up after *both* the drmgr exit event is called
-     * *and* drmgr_init_count reaches 0.
+    /* We make one extra call here to drmgr_exit(). drmgr_init_count started
+     * at 1, so this will make it hit 0 if all users have called it: if not
+     * we want to wait for them, to handle legacy clients using DR's exit event.
      */
-    if (dr_atomic_load32(&drmgr_init_count) == 0)
-        our_exit_event();
+    drmgr_exit();
 }
 
 DR_EXPORT
