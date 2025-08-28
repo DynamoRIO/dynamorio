@@ -2062,6 +2062,15 @@ drmgr_unregister_filter_syscall_event(bool (*func)(void *drcontext, int sysnum))
                                       (void (*)(void))func);
 }
 
+DR_EXPORT
+bool
+drmgr_unregister_filter_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                             void *user_data))
+{
+    return drmgr_generic_event_remove(&cblist_filter_sys, filter_sys_event_lock,
+                                      (void (*)(void))func);
+}
+
 static bool
 drmgr_filter_syscall_event(void *drcontext, int sysnum)
 {
