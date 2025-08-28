@@ -6470,9 +6470,14 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
   use_DynamoRIO_extension(client.strace-test.dll drmgr)
   use_DynamoRIO_extension(client.strace-test.dll drsyscall)
   # Test building with drsyscall_drstatic.
-  tobuild_ci(client.strace-static-test client-interface/drsyscall-test.c "" "" "")
-  use_DynamoRIO_extension(client.strace-static-test.dll drmgr_drstatic)
-  use_DynamoRIO_extension(client.strace-static-test.dll drsyscall_drstatic)
+  tobuild(client.drsyscall-static-test client-interface/drsyscall-test.dll.c)
+  setup_test_client_dll_basics(client.drsyscall-static-test)
+  if (UNIX)
+    # Static libs must be PIC to be linked into clients.
+    append_property_string(TARGET client.drsyscall-static-test COMPILE_FLAGS "-fPIC")
+  endif ()
+  use_DynamoRIO_extension(client.drsyscall-static-test drmgr_drstatic)
+  use_DynamoRIO_extension(client.drsyscall-static-test drsyscall_drstatic)
 
   tobuild_ci(sample.strace client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(strace_sample_test_libpath sample.strace.dll
