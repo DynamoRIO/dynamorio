@@ -1957,7 +1957,8 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
 #endif
 
 #ifdef AARCH64
-        if (instr_is_icache_op(instr) && instr_is_app(instr)) {
+        if (!INTERNAL_OPTION(hw_cache_consistency) && instr_is_icache_op(instr) &&
+            instr_is_app(instr)) {
             next_instr = mangle_icache_op(dcontext, ilist, instr, next_instr,
                                           get_app_instr_xl8(instr) + AARCH64_INSTR_SIZE);
             continue;

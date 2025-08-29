@@ -1872,4 +1872,9 @@ typedef struct _rseq_entry_state_t {
 #    define DCONTEXT_TLS_TO_ACTUAL_OFFSET(x) x
 #endif
 
+/* See INTERNAL_OPTION(hw_cache_consistency). */
+#if defined(AARCH64) || defined(X86)
+#    define ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
+#endif
+
 #endif /* _ARCH_EXPORTS_H_ */
