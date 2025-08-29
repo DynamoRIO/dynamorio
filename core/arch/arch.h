@@ -751,12 +751,12 @@ void
 set_selfmod_sandbox_offsets(dcontext_t *dcontext);
 #endif /* X86 */
 
-#if defined(AARCH64) || defined(X86)
+#ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
 bool
 insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                        app_pc start_pc, app_pc end_pc, /* end is open */
                        bool record_translation, bool for_cache);
-#endif /* AARCH64 || X86 */
+#endif /* ARCH_SUPPORTS_HW_CACHE_CONSISTENCY */
 
 #ifdef ARM
 /* mangle the instruction that reads thread register */

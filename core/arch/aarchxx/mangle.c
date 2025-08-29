@@ -4030,6 +4030,7 @@ mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
  *###########################################################################
  */
 
+#ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
 /* SELF-MODIFYING-CODE SANDBOXING
  *
  * When we detect it, we take an exit that targets our own routine
@@ -4046,3 +4047,4 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     ASSERT_NOT_IMPLEMENTED(false); /* TODO i#7585 */
     return true;
 }
+#endif /* ARCH_SUPPORTS_HW_CACHE_CONSISTENCY */
