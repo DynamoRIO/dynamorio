@@ -322,7 +322,8 @@ config_reader_t::configure_cache(cache_params_t &cache)
             if (cache.replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
                 cache.replace_policy != REPLACE_POLICY_LRU &&
                 cache.replace_policy != REPLACE_POLICY_LFU &&
-                cache.replace_policy != REPLACE_POLICY_FIFO) {
+                cache.replace_policy != REPLACE_POLICY_FIFO &&
+                cache.replace_policy != REPLACE_POLICY_RRIP) {
                 ERRMSG("Unknown replacement policy: %s\n", cache.replace_policy.c_str());
                 return false;
             }

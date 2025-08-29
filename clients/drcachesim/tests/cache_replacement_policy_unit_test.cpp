@@ -41,6 +41,7 @@
 #include "simulator/policy_fifo.h"
 #include "simulator/policy_lfu.h"
 #include "simulator/policy_lru.h"
+#include "simulator/policy_rrip.h"
 #include "simulator/tlb.h"
 #include "test_helpers.h"
 
@@ -81,6 +82,13 @@ public:
     {
     }
 
+    inline void
+    check(const addr_t addr, const int expected_replacement_way_after_access)
+    {
+        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
+               expected_replacement_way_after_access);
+    }
+
     void
     access_and_check(const addr_t addr, const int expected_replacement_way_after_access)
     {
@@ -90,17 +98,16 @@ public:
         ref.data.addr = addr;
         ref.data.pid = 1;
         this->request(ref);
-        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
-               expected_replacement_way_after_access);
+        check(addr, expected_replacement_way_after_access);
     }
 
     void
-    invalidate_and_check(const addr_t addr,
-                         const int expected_replacement_way_after_access)
+    invalidate_and_check(
+        const addr_t addr, const int expected_replacement_way_after_access,
+        const invalidation_type_t invalidation_type = INVALIDATION_INCLUSIVE)
     {
-        this->invalidate(this->compute_tag(addr), INVALIDATION_INCLUSIVE);
-        assert(this->get_next_way_to_replace(this->get_block_index(addr)) ==
-               expected_replacement_way_after_access);
+        this->invalidate(this->compute_tag(addr), invalidation_type);
+        check(addr, expected_replacement_way_after_access);
     }
 
     bool
@@ -136,13 +143,15 @@ public:
     // number of entries.
     void
     initialize_cache(std::unique_ptr<cache_replacement_policy_t> replacement_policy,
-                     int size)
+                     int size,
+                     cache_inclusion_policy_t inclusion_policy =
+                         cache_inclusion_policy_t::NON_INC_NON_EXC)
     {
         caching_device_stats_t *stats =
             new cache_stats_t(this->line_size_, /*miss_file=*/"",
                               /*warmup_enabled=*/true);
         if (!this->init(this->associativity_, this->line_size_, size, nullptr, stats,
-                        std::move(replacement_policy), nullptr)) {
+                        std::move(replacement_policy), nullptr, inclusion_policy)) {
             std::cerr << this->get_replace_policy() << " cache failed to initialize\n";
             exit(1);
         }
@@ -410,6 +419,280 @@ unit_test_cache_lfu_eight_way()
 }
 
 void
+unit_test_cache_srrip_four_way()
+{
+    std::cerr << "Testing SRRIP replacement policy" << std::endl;
+    caching_device_policy_test_t<cache_t> cache_rrip_test(/*associativity=*/4,
+                                                          /*line_size=*/32);
+    cache_rrip_test.initialize_cache(std::unique_ptr<policy_rrip_t>(new policy_rrip_t(
+                                         /*num_blocks=*/256 / 4, /*associativity=*/4,
+                                         /*rrpv_bits=*/2, /*rrpv_period=*/0,
+                                         /*rrpv_long_per_period=*/0)),
+                                     256);
+
+    assert(cache_rrip_test.get_replace_policy() == "RRIP");
+    assert(cache_rrip_test.block_indices_are_identical(addr_vec));
+    assert(cache_rrip_test.tags_are_different(addr_vec));
+
+    // m: miss
+    // h: hit
+    // p: promotion (RRPV increased for all the ways)
+
+    std::cerr << "Testing SRRIP cache reuse" << std::endl;
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     m : A2 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     m : A2 B2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     m : A2 B2 C2 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 0); //     m : a2 B2 C2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     h : A0 b2 C2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1); //     h : A0 b2 C2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     h : A0 B0 c2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 0); //     h : a0 B0 C0 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 0); //     h : a0 B0 C0 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 0); //     h : a0 B0 C0 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 0); //     h : a0 B0 C0 D0
+
+    std::cerr << "Testing SRRIP partial cache reuse" << std::endl;
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_C], 2); //     A0 B0 x3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2);     // m : A0 B0 e2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 0);     // h : a0 B0 E0 D0
+
+    std::cerr << "Testing SRRIP cache pollution with 1-block reuse" << std::endl;
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_D], 3); //     A0 B0 E0 x3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_B], 1); //     A0 x3 E0 X3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_E], 1); //     A0 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1);     // h : A0 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2);     // m : A0 B2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3);     // m : A0 B2 C2 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1);     // m : A0 b2 C2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2);     // mp: A1 E2 c3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2);     // h : A0 E2 c3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 3);     // m : A0 E2 B2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 1);     // m : A0 e2 B2 C2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2);     // mp: A1 D2 b3 C3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 3);     // m : A1 D2 E2 c3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 3);     // h : A0 D2 E2 c3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 1);     // m : A0 d2 E2 B2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2);     // mp: A1 C2 e3 B3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 3);     // m : A1 C2 D2 b3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 1);     // m : A1 c2 D2 E2
+
+    std::cerr << "Testing SRRIP cache pollution with 2-blocks reuse" << std::endl;
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_E], 3); //     A1 C2 D2 x3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_D], 2); //     A1 C2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2);     // h : A0 C2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 3);     // m : A0 C2 B2 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3);     // h : A0 C0 B2 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2);     // m : A0 C0 b2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 3);     // mp: A1 C1 E2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 3);     // h : A0 C1 E2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2);     // m : A0 C1 e2 B2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2);     // h : A0 C0 e2 B2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 3);     // mp: A1 C1 D2 b3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2);     // m : A1 C1 d2 E2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2);     // h : A0 C1 d2 E2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 3);     // mp: A1 C2 B2 e3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3);     // h : A1 C0 B2 e3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2);     // m : A1 C0 b2 D2
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 3);     // mp: A2 C1 E2 d3
+
+    std::cerr << "Testing SRRIP: RRPV for new inserted value" << std::endl;
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_E], 2); //     A2 C1 x3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2);     // h : A0 C1 x3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2);     // h : A0 C0 x3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2);     // h : A0 C0 x3 D0
+    // Insert new value with RRPV=2. Check the way to replace not changed
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     m : A0 C0 b2 D0
+}
+
+void
+unit_test_cache_brrip_four_way()
+{
+    std::cerr << "Testing BRRIP replacement policy" << std::endl;
+    caching_device_policy_test_t<cache_t> cache_rrip_test(/*associativity=*/4,
+                                                          /*line_size=*/32);
+    cache_rrip_test.initialize_cache(std::unique_ptr<policy_rrip_t>(new policy_rrip_t(
+                                         /*num_blocks=*/256 / 4, /*associativity=*/4,
+                                         /*rrpv_bits=*/2, /*rrpv_period=*/4,
+                                         /*rrpv_long_per_period=*/1)),
+                                     256);
+
+    assert(cache_rrip_test.get_replace_policy() == "RRIP");
+    assert(cache_rrip_test.block_indices_are_identical(addr_vec));
+    assert(cache_rrip_test.tags_are_different(addr_vec));
+
+    // m: miss
+    // h: hit
+    // p: promotion (RRPV increased for all the ways)
+    // l: "long" RRPV == 2
+    // d: "distant" RRPV == 3
+
+    std::cerr << "Testing BRRIP cache reuse" << std::endl;
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     ml : A2 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     md : A2 B3 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3); //     md : A2 B3 C3 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1); //     md : A2 b3 C3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1); //     h  : A0 b3 C3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1); //     h  : A0 b3 C3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2); //     h  : A0 B0 c3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 0); //     h  : a0 B0 C0 D0
+
+    std::cerr << "Testing BRRIP cache pollution" << std::endl;
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_D], 3); //      A0 B0 C0 x3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_C], 2); //      A0 B0 x3 X3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_B], 1); //      A0 x3 X3 X3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_A], 0); //      x3 X3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1);     // ml : A2 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2);     // md : A2 B3 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3);     // md : A2 B3 C3 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 1);     // md : A2 b3 C3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2);     // ml : A2 E2 c3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_F], 2);     // md : A2 E2 f3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_G], 2);     // md : A2 E2 g3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_H], 2);     // md : A2 E2 h3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_I], 3);     // ml : A2 E2 I2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_J], 3);     // md : A2 E2 I2 j3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_K], 3);     // md : A2 E2 I2 k3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_L], 3);     // md : A2 E2 I2 l3
+
+    std::cerr << "Testing BRRIP cache pollution with 1-block reuse" << std::endl;
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_L], 3); //      A0 E0 I0 x3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_I], 2); //      A0 E0 x3 X3
+    cache_rrip_test.invalidate_and_check(addr_vec[ADDR_E], 1); //      A0 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 1);     // h  : A0 x3 X3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2);     // ml : A0 B2 x3 X3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3);     // md : A0 B2 C3 x3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2);     // md : A0 B2 c3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2);     // md : A0 B2 e3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2);     // h  : A0 B2 e3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2);     // h  : A0 B0 e3 D3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 3);     // ml : A0 B0 C2 d3
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2);     // h  : A0 B0 c2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2);     // mdp: A1 B1 e3 D1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2);     // h  : A0 B1 e3 D1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2);     // h  : A0 B0 e3 D1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2);     // md : A0 B0 c3 D1
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2);     // h  : A0 B0 c3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2);     // md : A0 B0 e3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_A], 2);     // h  : A0 B0 e3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_B], 2);     // h  : A0 B0 e3 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_C], 2);     // ml : A0 B0 c2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_D], 2);     // h  : A0 B0 c2 D0
+    cache_rrip_test.access_and_check(addr_vec[ADDR_E], 2);     // mdp: A1 B1 e3 D1
+}
+
+void
+unit_test_cache_srrip_exclusive()
+{
+    std::cerr << "Testing SRRIP replacement policy for exclusive cache" << std::endl;
+    caching_device_policy_test_t<cache_t> l1_test(/*associativity=*/4,
+                                                  /*line_size=*/32);
+    caching_device_policy_test_t<cache_t> l2_test(/*associativity=*/4,
+                                                  /*line_size=*/32);
+    l1_test.initialize_cache(std::unique_ptr<policy_rrip_t>(new policy_rrip_t(
+                                 /*num_blocks=*/256 / 4, /*associativity=*/4,
+                                 /*rrpv_bits=*/2, /*rrpv_period=*/0,
+                                 /*rrpv_long_per_period=*/0)),
+                             256, cache_inclusion_policy_t::INCLUSIVE);
+    l2_test.initialize_cache(std::unique_ptr<policy_rrip_t>(new policy_rrip_t(
+                                 /*num_blocks=*/256 / 4, /*associativity=*/4,
+                                 /*rrpv_bits=*/2, /*rrpv_period=*/0,
+                                 /*rrpv_long_per_period=*/0)),
+                             256, cache_inclusion_policy_t::EXCLUSIVE);
+    l1_test.set_parent(&l2_test);
+    assert(l2_test.get_replace_policy() == "RRIP");
+    assert(l2_test.block_indices_are_identical(addr_vec));
+    assert(l2_test.tags_are_different(addr_vec));
+    assert(l2_test.get_children().size() == 1);
+    assert(l2_test.get_children().front() == &l1_test);
+    assert(l1_test.get_parent() == &l2_test);
+
+    // m: miss
+    // h: hit
+    // p: promotion (RRPV increased for all the ways)
+
+    std::cerr << "Testing SRRIP L1 cache initialization" << std::endl;
+    l1_test.access_and_check(addr_vec[ADDR_A], 1); //     m : A2 x3 X3 X3
+    l2_test.check(addr_vec[ADDR_A], 0);            //                       x3 X3 X3 X3
+    l1_test.access_and_check(addr_vec[ADDR_B], 2); //     m : A2 B2 x3 X3
+    l2_test.check(addr_vec[ADDR_B], 0);            //                       x3 X3 X3 X3
+    l1_test.access_and_check(addr_vec[ADDR_C], 3); //     m : A2 B2 C2 x3
+    l2_test.check(addr_vec[ADDR_C], 0);            //                       x3 X3 X3 X3
+    l1_test.access_and_check(addr_vec[ADDR_D], 0); //     m : a2 B2 C2 D2
+    l2_test.check(addr_vec[ADDR_D], 0);            //                       x3 X3 X3 X3
+
+    std::cerr << "Testing SRRIP cache eviction from L1 to exclusive L2" << std::endl;
+    l1_test.access_and_check(addr_vec[ADDR_E], 1); //     mp: E2 b3 C3 D3
+    l2_test.check(addr_vec[ADDR_E], 1);            //     m :               A2 x3 X3 X3
+    l1_test.access_and_check(addr_vec[ADDR_F], 2); //     m : E2 F2 c3 D3
+    l2_test.check(addr_vec[ADDR_F], 2);            //     m :               A2 B2 x3 X3
+    l1_test.access_and_check(addr_vec[ADDR_G], 3); //     m : E2 F2 G2 d3
+    l2_test.check(addr_vec[ADDR_G], 3);            //     m :               A2 B2 C2 x3
+    l1_test.access_and_check(addr_vec[ADDR_H], 0); //     m : e2 F2 G2 H2
+    l2_test.check(addr_vec[ADDR_H], 0);            //     m :               a2 B2 C2 D2
+
+    std::cerr << "Testing SRRIP cache eviction from exclusive L2" << std::endl;
+    l1_test.access_and_check(addr_vec[ADDR_I], 1); //     mp: I2 f3 G3 H3
+    l2_test.check(addr_vec[ADDR_I], 1);            //     mp:               E2 b3 C3 D3
+    l1_test.access_and_check(addr_vec[ADDR_J], 2); //     m : I2 J2 g3 H3
+    l2_test.check(addr_vec[ADDR_J], 2);            //     m :               E2 F2 c3 D3
+    l1_test.access_and_check(addr_vec[ADDR_K], 3); //     m : I2 J2 K2 h3
+    l2_test.check(addr_vec[ADDR_K], 3);            //     m :               E2 F2 G2 d3
+    l1_test.access_and_check(addr_vec[ADDR_L], 0); //     m : i2 J2 K2 L2
+    l2_test.check(addr_vec[ADDR_L], 0);            //     m :               e2 F2 G2 H2
+    // Reuse the cache line I (from L1)
+    l1_test.access_and_check(addr_vec[ADDR_I], 1); //     m : I0 j2 K2 L2
+    l2_test.check(addr_vec[ADDR_I], 0);            //     m :               e2 F2 G2 H2
+
+    std::cerr << "Testing SRRIP exclusive cache L2 reuse for new block" << std::endl;
+    // Eviction from L1 to exclusive L2 previously not serviced cache line J
+    // Access the cache line E (from L2)
+    // Expected behavior: E moved from L2 to L1, victim J moved from L1 to L2
+    // J previously not serviced in the L2 => insertion of J in L2 treated as cache miss
+    l1_test.access_and_check(addr_vec[ADDR_E], 2); //     mp: I1 E2 k3 L3
+    l2_test.check(addr_vec[ADDR_E], 0);            //     m :               j2 F2 G2 H2
+    // Same for F
+    l1_test.access_and_check(addr_vec[ADDR_F], 3); //     m : I1 E2 F2 l3
+    l2_test.check(addr_vec[ADDR_F], 0);            //     m :               j2 K2 G2 H2
+
+    std::cerr << "Testing SRRIP exclusive cache L2 reuse for previously serviced block"
+              << std::endl;
+    // Eviction from L1 to exclusive L2 previously serviced cache line E
+    // Prepare victim E: Reuse the cache lines F and L (from L1)
+    l1_test.access_and_check(addr_vec[ADDR_F], 3); //     m : I1 E2 F0 l3
+    l2_test.check(addr_vec[ADDR_F], 0);            //     m :               j2 K2 G2 H2
+    l1_test.access_and_check(addr_vec[ADDR_L], 1); //     m : I1 e2 F0 L0
+    l2_test.check(addr_vec[ADDR_E], 0);            //     m :               j2 K2 G2 H2
+    // Reuse the cache line J (from L2)
+    // Expected behavior: J moved from L2 to L1, victim E moved from L1 to L2
+    // E was previously serviced in the L2, re-insertion of E in L2 treated as cache hit
+    l1_test.access_and_check(addr_vec[ADDR_J], 0); //     mp: i2 J2 F1 L1
+    l2_test.check(addr_vec[ADDR_J], 1);            //     m :               E0 k2 G2 H2
+
+    std::cerr << "Testing SRRIP exclusive cache L2 block invalidation" << std::endl;
+    // Invalidate F in L2.
+    // Since L2 is exclusive and F actually stored in L1, it should actually be
+    // invalidated in L1.
+    l2_test.invalidate_and_check(addr_vec[ADDR_F], 1,
+                                 INVALIDATION_COHERENCE); //:               E0 k2 G2 H2
+    l1_test.check(addr_vec[ADDR_F], 2);                   //: I2 J2 x3 L1
+    // Check F removed from the list of cache blocks previously serviced in L2:
+    // First, access F to insert it in L1
+    l1_test.access_and_check(addr_vec[ADDR_F], 0); //     m : i2 J2 F2 L1
+    l2_test.check(addr_vec[ADDR_F], 1);            //       :               E0 k2 G2 H2
+    // Second, make F victim to evict it from L1 to L2
+    l1_test.access_and_check(addr_vec[ADDR_I], 1); //     h : I0 j2 F2 L1
+    l2_test.check(addr_vec[ADDR_I], 1);            //       :               E0 k2 G2 H2
+    l1_test.access_and_check(addr_vec[ADDR_J], 2); //     h : I0 J0 f2 L1
+    l2_test.check(addr_vec[ADDR_J], 1);            //       :               E0 k2 G2 H2
+    // Finally, access E to insert F in L2.
+    // Since F was removed from list of previously serviced in L2, it is treated as
+    // cache miss, therefore F become a victim cache block in L2 and
+    // next-replacement-way changes from 1 (K) to 0 (F).
+    l1_test.access_and_check(addr_vec[ADDR_E], 2); //     mp: I1 J1 e2 L2
+    l2_test.check(addr_vec[ADDR_E], 0);            //     m :               f2 K2 G2 H2
+}
+
+void
 unit_test_tlb_plru_four_way()
 {
     caching_device_policy_test_t<tlb_t> tlb_plru_test(/*associativity=*/4,
@@ -464,6 +747,9 @@ unit_test_cache_replacement_policy()
     unit_test_cache_fifo_eight_way();
     unit_test_cache_lfu_four_way();
     unit_test_cache_lfu_eight_way();
+    unit_test_cache_srrip_four_way();
+    unit_test_cache_brrip_four_way();
+    unit_test_cache_srrip_exclusive();
     unit_test_tlb_plru_four_way();
     unit_test_tlb_lfu_four_way();
     // XXX i#4842: Add more test sequences.
