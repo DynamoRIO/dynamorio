@@ -4107,6 +4107,10 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      */
     sc->SC_XIP = (ptr_uint_t)fcache_return_routine(dcontext);
 #if defined(AARCHXX) || defined(RISCV64)
+    /* If !is_kernel_xfer then we have come here from main_signal_handler
+     * via check_for_modified_code and recreate_app_state_internal was
+     * called with just_pc so the stolen register still points at TLS.
+     */
     if (is_kernel_xfer) {
         /* We do not have to set dr_reg_stolen in dcontext's mcontext here
          * because dcontext's mcontext is stale and we used the mcontext

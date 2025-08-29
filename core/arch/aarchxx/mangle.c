@@ -4033,20 +4033,16 @@ mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
 /* SELF-MODIFYING-CODE SANDBOXING
  *
  * When we detect it, we take an exit that targets our own routine
- * fragment_self_write.  Dispatch checks for that target and if it finds it,
- * it calls that routine, so don't worry about building a bb for it.
- * Returns false if the bb has invalid instrs in the middle and it should
- * be rebuilt from scratch.
- */
-
-/* returns false if failed to add sandboxing b/c of a problematic ilist --
- * invalid instrs, elided ctis, etc.
+ * fragment_self_write. Dispatch checks for that target and if it
+ * finds it, it calls that routine, so don't worry about building a bb
+ * for it. Returns false if the bb has invalid instrs or CTIs and
+ * should be rebuilt from scratch.
  */
 bool
 insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                        app_pc start_pc, app_pc end_pc, /* end is open */
                        bool record_translation, bool for_cache)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#7585 */
     return true;
 }
