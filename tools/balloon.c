@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2006 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -138,7 +138,7 @@ main(int argc, char *argv[])
     if (pid) {
         acquire_privileges();
         phandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-        /* FIXME: we need PROCESS_VM_OPERATION access to the process */
+        /* XXX: we need PROCESS_VM_OPERATION access to the process */
         /* should grab permissions */
         assert(phandle);
         release_privileges();

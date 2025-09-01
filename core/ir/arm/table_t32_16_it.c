@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,7 +40,7 @@
  * T32.16 table for inside IT block
  */
 
-/* FIXME i#1551: add support for instrs that can only be "outside or last in IT block". */
+/* XXX i#1551: add support for instrs that can only be "outside or last in IT block". */
 
 // We skip auto-formatting for the entire file to keep our single-line table entries:
 /* clang-format off */
@@ -150,7 +150,7 @@ const instr_info_t T32_16_it_ext_bits_11_8[][16] = {
       {INVALID,  0xbb00, "(bad)",             xx,  xx, xx,  xx, xx,     no, x,       NA},
       {OP_ldm,   0xbc00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, z108[0][0x01]},
       {OP_ldm,   0xbd00, "ldm",             L9Pw, SPw,   MSPl, SPw, xx, no, x, DUP_ENTRY},/*P=1*//*"pop"*/
-      {OP_bkpt,  0xbe00, "bkpt",              xx,  xx,     i8,  xx, xx, no, x, END_LIST},/*FIXME: unconditional*/
+      {OP_bkpt,  0xbe00, "bkpt",              xx,  xx,     i8,  xx, xx, no, x, END_LIST},/*XXX: unconditional*/
       {EXT_6_4,  0xbf00, "(ext 6:4 0)",       xx,  xx,     xx,  xx, xx, no, x,        0},
     }, { /* 1 */
       {INVALID,  0xd000, "(bad)",             xx,  xx, xx,  xx, xx,     no, x,       NA},

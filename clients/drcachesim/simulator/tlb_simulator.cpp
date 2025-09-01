@@ -184,39 +184,40 @@ bool
 tlb_simulator_t::process_memref(const memref_t &memref)
 {
     if (knobs_.skip_refs > 0) {
-        knobs_.skip_refs--;
+        // Only count non-markers toward *_refs counts.
+        if (memref.marker.type != TRACE_TYPE_MARKER)
+            knobs_.skip_refs--;
         return true;
     }
 
     // The references after warmup and simulated ones are dropped.
     if (knobs_.warmup_refs == 0 && knobs_.sim_refs == 0)
-        return true;
+        return false; // Early exit.
 
     // Both warmup and simulated references are simulated.
 
     if (!simulator_t::process_memref(memref))
         return false;
 
-    if (memref.marker.type == TRACE_TYPE_MARKER) {
-        // We ignore markers before we ask core_for_thread, to avoid asking
-        // too early on a timestamp marker.
-        // TODO i#7230: This causes -warmup_refs and -sim_refs to count non-marker
-        // records while -skip_refs counts all records.  We should either say
-        // that in the docs or change the behavior here.
-        // Plus, this skips the TRACE_MARKER_TYPE_CPU_ID handling below.
-        return true;
-    }
-
     // We use a static scheduling of threads to cores, as it is
     // not practical to measure which core each thread actually
     // ran on for each memref.
-    int core_index;
-    if (memref.data.tid == last_thread_)
-        core_index = last_core_index_;
-    else {
-        core_index = core_for_thread(memref.data.tid);
-        last_thread_ = memref.data.tid;
-        last_core_index_ = core_index;
+    // core_index can end up as INVALID_CORE_INDEX during headers but we don't use it
+    // then; we assert below on all uses cases that it's not INVALID_CORE_INDEX.
+    int core_index = INVALID_CORE_INDEX;
+    // Do not try to schedule idle onto cores as we'll then think they had activity
+    // when we print them out.
+    if (memref.marker.type != TRACE_TYPE_MARKER ||
+        memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_IDLE) {
+        if (memref.data.tid == last_thread_) {
+            core_index = last_core_index_;
+        } else {
+            core_index = core_for_thread(memref.data.tid);
+            if (core_index != INVALID_CORE_INDEX) {
+                last_thread_ = memref.data.tid;
+                last_core_index_ = core_index;
+            }
+        }
     }
 
     // To support swapping to physical addresses without modifying the passed-in
@@ -229,12 +230,14 @@ tlb_simulator_t::process_memref(const memref_t &memref)
         simref = &phys_memref;
     }
 
-    if (type_is_instr(simref->instr.type))
+    if (type_is_instr(simref->instr.type)) {
+        assert(core_index != INVALID_CORE_INDEX);
         itlbs_[core_index]->request(*simref);
-    else if (simref->data.type == TRACE_TYPE_READ ||
-             simref->data.type == TRACE_TYPE_WRITE)
+    } else if (simref->data.type == TRACE_TYPE_READ ||
+               simref->data.type == TRACE_TYPE_WRITE) {
+        assert(core_index != INVALID_CORE_INDEX);
         dtlbs_[core_index]->request(*simref);
-    else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
+    } else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(simref->exit.tid);
         last_thread_ = 0;
     } else if (type_is_prefetch(simref->data.type) ||
@@ -255,19 +258,22 @@ tlb_simulator_t::process_memref(const memref_t &memref)
                   << (void *)simref->data.addr << " x" << simref->data.size << std::endl;
     }
 
-    // process counters for warmup and simulated references
-    if (knobs_.warmup_refs > 0) { // warm tlbs up
-        knobs_.warmup_refs--;
-        // reset tlb stats when warming up is completed
-        if (knobs_.warmup_refs == 0) {
-            for (unsigned int i = 0; i < knobs_.num_cores; i++) {
-                itlbs_[i]->get_stats()->reset();
-                dtlbs_[i]->get_stats()->reset();
-                lltlbs_[i]->get_stats()->reset();
+    // Only count non-markers toward *_refs counts.
+    if (memref.marker.type != TRACE_TYPE_MARKER) {
+        // Process counters for warmup and simulated references.
+        if (knobs_.warmup_refs > 0) { // warm tlbs up
+            knobs_.warmup_refs--;
+            // reset tlb stats when warming up is completed
+            if (knobs_.warmup_refs == 0) {
+                for (unsigned int i = 0; i < knobs_.num_cores; i++) {
+                    itlbs_[i]->get_stats()->reset();
+                    dtlbs_[i]->get_stats()->reset();
+                    lltlbs_[i]->get_stats()->reset();
+                }
             }
+        } else {
+            knobs_.sim_refs--;
         }
-    } else {
-        knobs_.sim_refs--;
     }
     return true;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -204,7 +204,7 @@ typedef struct export_entry_t {
     char *export_name;
 } export_entry_t;
 
-/* FIXME: a module can have multiple code sections and each should
+/* XXX: a module can have multiple code sections and each should
  * have a separate searchable entry, yet all relevant per-module
  * structures should be thrown away when a module is unloaded.
  * Caution with data sections (or other invalidated vmareas) that may
@@ -220,13 +220,13 @@ typedef struct module_info_t {
     uint exports_num;    /* number of unique exports */
 
     export_entry_t *exports_table; /* sorted array to allow range searches */
-    /* FIXME: this is necessary only for debug symbol lookup, if
+    /* XXX: this is necessary only for debug symbol lookup, if
      * implementing export restrictions (case 286), we only need
      * membership tests so we only have to populate the entry points
      * into a hashtable
      */
 
-    /* FIXME: case 3927
+    /* XXX: case 3927
      * It will be quite useful for some debugging sessions to
      * use real symbols from PDB's.  It maybe easier if they are
      * already preprocessed with windbg -c 'x module!*' or some other
@@ -242,7 +242,7 @@ typedef struct module_info_t {
 /* This structure is parallel to the one kept by the loader -
  * yet may be safer to use.  See comment in vm_area_vector_t.
  *
- * FIXME: We may want to abstract this and vm_area_vector_t into a common data structure
+ * XXX: We may want to abstract this and vm_area_vector_t into a common data structure
  * with polymorphic elements with a start,end
  */
 
@@ -256,7 +256,7 @@ typedef struct module_info_vector_t {
     int capacity;
     int length;
     /* thread-shared, so needs a lock */
-    /* FIXME: make this a read/write lock if readers contend too often */
+    /* XXX: make this a read/write lock if readers contend too often */
     mutex_t lock;
 } module_info_vector_t;
 
@@ -306,7 +306,7 @@ lookup_module_info(module_info_vector_t *v, app_pc addr)
 {
     /* BINARY SEARCH -- assumes the vector is kept sorted by add & remove! */
     module_info_t key = { addr, addr + 1 }; /* end is open */
-    /* FIXME : copied from find_predecessor(), would be nice to share with
+    /* XXX : copied from find_predecessor(), would be nice to share with
      * that routine and with binary range search (w/linear backsearch) in
      * vmareas.c */
     int min = 0;
@@ -349,12 +349,12 @@ module_info_create(module_info_vector_t *v, app_pc start, app_pc end, char *modu
     }
 
     d_r_mutex_lock(&v->lock);
-    /* FIXME: the question is what to do when an overlap occurs.
+    /* XXX: the question is what to do when an overlap occurs.
      * If we assume that we should have removed the references from an old DLL.
      * A possibly new DLL overlapping the same range should not show up,
      * this indeed would be an error worth investigating.
      */
-    /* FIXME: need a real overlap check */
+    /* XXX: need a real overlap check */
     if (lookup_module_info(v, start) != NULL) {
         ASSERT_NOT_REACHED();
         return NULL;
@@ -441,7 +441,7 @@ remove_module_info(app_pc start, size_t size)
     pmod = lookup_module_info(&process_module_vector, start);
     d_r_mutex_unlock(&process_module_vector.lock);
 
-    if (!pmod) { /* FIXME: need a real overlap check */
+    if (!pmod) { /* XXX: need a real overlap check */
         LOG(GLOBAL, LOG_SYMBOLS, 2,
             "WARNING:remove_module_info called on unknown module " PFX ", size " PIFX
             "\n",
@@ -560,12 +560,12 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only)
     module_info_t *pmod;       /* volatile pointer */
     module_info_t mod = { 0 }; /* copy of module info */
 
-    /* FIXME: cannot grab this lock under internal_exception_lock */
+    /* XXX: cannot grab this lock under internal_exception_lock */
     if (under_internal_exception()) {
         pmod = NULL;
     } else {
         d_r_mutex_lock(
-            &process_module_vector.lock); /* FIXME: can be a shared read lock */
+            &process_module_vector.lock); /* XXX: can be a shared read lock */
         {
             pmod = lookup_module_info(&process_module_vector, tag);
             if (pmod) {
@@ -684,7 +684,7 @@ add_module_info(app_pc base_addr, size_t image_size)
             LOG(GLOBAL, LOG_SYMBOLS, 2, "add_module_info: %s functions %d != %d names\n",
                 dll_name, exports->NumberOfFunctions, exports->NumberOfNames);
         }
-        /* FIXME: Once we do use noname entry points this if should change to
+        /* XXX: Once we do use noname entry points this if should change to
          * check NumberOfFunctions, but for now we only look at names
          */
         if (exports->NumberOfNames == 0) {
@@ -694,7 +694,7 @@ add_module_info(app_pc base_addr, size_t image_size)
             return 1;
         }
 
-        /* FIXME: old comment, should work now.
+        /* XXX: old comment, should work now.
          * Dynamically loading modules is still not working very
          * well, e.g. the itss.dll when loaded in notepad.exe on
          * F1 seems to point to a zero page for its exports
@@ -717,11 +717,11 @@ add_module_info(app_pc base_addr, size_t image_size)
         exports_table = module_info_create(&process_module_vector, (app_pc)base_addr,
                                            (app_pc)(base_addr + image_size), dll_name,
                                            exports->NumberOfNames);
-        /* FIXME: for a security policy to restrict transfers to exports only,
+        /* XXX: for a security policy to restrict transfers to exports only,
          * we actually need all functions and they simply need to be put in a hash
          * table
          */
-        /* FIXME: for RCT_IND_BRANCH we don't need to travel
+        /* XXX: for RCT_IND_BRANCH we don't need to travel
          * through the string names or forwarders - we should only
          * scan through all functions[] instead of
          * functions[ordinals[i]]
@@ -748,7 +748,7 @@ add_module_info(app_pc base_addr, size_t image_size)
                     "Forward found for %s -> " PFX " %s.  Skipping...\n", name,
                     functions[ord], forwardto);
 
-                /* FIXME: Report the name under which it should show up if it is
+                /* XXX: Report the name under which it should show up if it is
                  * an ordinal import if it is referenced as ordinal
                  * DLLNAME.#232, then we'll get more from the current name.  The
                  * problem though is that now the address range of the forwarded
@@ -758,7 +758,7 @@ add_module_info(app_pc base_addr, size_t image_size)
             }
         }
 
-        /* FIXME: take this post processing step out of this function */
+        /* XXX: take this post processing step out of this function */
         /* the exports_table now needs to be sorted by function address instead of name */
         qsort(exports_table, exports_num, /* non skipped entries only */
               sizeof(export_entry_t), export_entry_compare);
@@ -769,7 +769,7 @@ add_module_info(app_pc base_addr, size_t image_size)
             module_info_t *pmod;
             int unique_num = remove_export_duplicates(exports_table, exports_num);
 
-            /* FIXME: need a real overlap check */
+            /* XXX: need a real overlap check */
             pmod = lookup_module_info(&process_module_vector, (app_pc)base_addr);
             ASSERT(pmod);
             pmod->exports_num = unique_num;
@@ -827,7 +827,7 @@ print_ldr_data()
         }
     }
     LOG(GLOBAL, LOG_ALL, 1, "InMemoryOrder:\n");
-    /* FIXME: why doesn't this turn out to be in memory order? */
+    /* XXX: why doesn't this turn out to be in memory order? */
     mark = &ldr->InMemoryOrderModuleList;
     for (i = 0, e = mark->Flink; e != mark; i++, e = e->Flink) {
         LOG(GLOBAL, LOG_ALL, 5,
@@ -979,7 +979,7 @@ hide_from_rbtree(LDR_MODULE *mod)
     LOG(GLOBAL, LOG_ALL, 2, "Removed dll from rbtree\n");
 }
 
-/* FIXME : to cleanly detach we need to add ourselves back on to the module
+/* XXX : to cleanly detach we need to add ourselves back on to the module
  * list so we can free library NYI, right now is memory leak but not a big
  * deal since vmmheap is already leaking a lot more then that */
 
@@ -993,10 +993,10 @@ hide_from_rbtree(LDR_MODULE *mod)
  * for actual inclusion on the lists) except the initial list entry in the
  * PEB_LDR_DATA. NOTE, we assume here (and everywhere else) that the forward
  * links are circularly linked for our iteration loops, we ASSERT that the
- * backwards pointer is valid before updating below, FIXME should we
+ * backwards pointer is valid before updating below, XXX should we
  * be checking the forward pointers here and elsewhere for the loop? */
 
-/* FIXME : also where is the unloaded module list kept? Might be nice to
+/* XXX : also where is the unloaded module list kept? Might be nice to
  * remove our pre-inject dll from that. */
 
 static void
@@ -1012,14 +1012,14 @@ hide_from_module_lists(void)
     MEMORY_BASIC_INFORMATION mbi;
     size_t len;
 
-    /* FIXME: have os find DR bounds earlier so we don't duplicate work */
+    /* XXX: have os find DR bounds earlier so we don't duplicate work */
     len = query_virtual_memory((app_pc)hide_from_module_lists, &mbi, sizeof(mbi));
     ASSERT(len == sizeof(mbi));
     ASSERT(mbi.State != MEM_FREE);
     DRbase = (app_pc)mbi.AllocationBase;
     LOG(GLOBAL, LOG_TOP, 1, "DR dll base = " PFX "\n", DRbase);
 
-    /* FIXME: build iterator so all loopers aren't duplicating all this code */
+    /* XXX: build iterator so all loopers aren't duplicating all this code */
     mark = &ldr->InLoadOrderModuleList;
     ASSERT(mark->Flink != NULL && mark->Blink != NULL); /* sanity check */
     ASSERT(offsetof(LDR_MODULE, InLoadOrderModuleList) == 0);
@@ -1098,13 +1098,13 @@ hide_from_module_lists(void)
     LOG(GLOBAL, LOG_ALL, 2, "After removing, module lists are:\n");
     DOLOG(2, LOG_ALL, { print_ldr_data(); });
 
-    /* FIXME i#1429: also remove from hashtable used by GetModuleHandle */
+    /* XXX i#1429: also remove from hashtable used by GetModuleHandle */
 }
 
 /* N.B.: walking loader data structures at random times is dangerous!
  * Do not call this for non-debug reasons if you can help it!
  * See is_module_being_initialized for a safer approach to walking loader structs.
- * FIXME: other routines use the same iteration, should we abstract it out?
+ * XXX: other routines use the same iteration, should we abstract it out?
  * Other routines include check_for_unsupported_modules, loaded_modules_exports,
  * get_ldr_module_by_pc, and (in ntdll.c since used by pre-inject)
  * get_ldr_module_by_name (though the last two use the memory-order list)
@@ -1216,10 +1216,10 @@ print_modules_ldrlist_and_ourlist(file_t f, bool dump_xml, bool conservative)
     else
         print_file(f, "\n");
 
-    /* FIXME: currently updated only under aslr_action */
+    /* XXX: currently updated only under aslr_action */
     if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
         TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) &&
-        /* FIXME: xref case 10750: could print w/o lock inside a TRY  */
+        /* XXX: xref case 10750: could print w/o lock inside a TRY  */
         !conservative) {
         print_file(f, "<print_modules_safe/>\n");
         if (is_module_list_initialized()) {
@@ -1251,12 +1251,12 @@ print_modules_safe(file_t f, bool dump_xml)
                               "\tpe_name=%s  %ls\n\tpreferred_base=" PFX "\n",
 
                    ma->start, ma->end - 1, /* inclusive */
-                   L"name",                /* FIXME: dll name is often quite useful */
+                   L"name",                /* XXX: dll name is often quite useful */
                    ma->entry_point, 0 /* no LoadCount */, 0 /* no Flags */,
                    ma->os_data.timestamp, ma->os_data.checksum,
                    GET_MODULE_NAME(&ma->names) == NULL ? "(null)"
                                                        : GET_MODULE_NAME(&ma->names),
-                   L"path", /* FIXME: path is often quite useful */
+                   L"path", /* XXX: path is often quite useful */
                    ma->os_data.preferred_base);
     }
     module_iterator_stop(mi);
@@ -1269,7 +1269,7 @@ print_modules_safe(file_t f, bool dump_xml)
 
 /* N.B.: see comments on print_modules about why this is a
  * dangerous routine, especially on a critical path like diagnostics...
- * FIXME!  Returns true if found an unsupported module, false otherwise
+ * XXX!  Returns true if found an unsupported module, false otherwise
  */
 bool
 check_for_unsupported_modules()
@@ -1291,8 +1291,8 @@ check_for_unsupported_modules()
     }
 
     LOG(GLOBAL, LOG_ALL, 4, "check_for_unsupported_modules: %s\n", filter);
-    /* FIXME: check peb->LoaderLock? */
-    /* FIXME: share iteration w/ the other routines that do this? */
+    /* XXX: check peb->LoaderLock? */
+    /* XXX: share iteration w/ the other routines that do this? */
     mark = &ldr->InInitializationOrderModuleList;
     for (e = mark->Flink; e != mark; e = e->Flink) {
         mod = (LDR_MODULE *)((char *)e -
@@ -1322,7 +1322,7 @@ check_for_unsupported_modules()
 
 /* non-DEBUG routines for parsing PE files */
 
-/* FIXME: make this a static inline function get_nt_header
+/* XXX: make this a static inline function get_nt_header
  * that verifies and returns nt header */
 #define DOS_HEADER(base) ((IMAGE_DOS_HEADER *)(base))
 #define NT_HEADER(base) \
@@ -1465,7 +1465,7 @@ print_module_section_info(file_t file, app_pc addr)
     dos = (IMAGE_DOS_HEADER *)module_base;
     nt = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos) + dos->e_lfanew);
     sec = IMAGE_FIRST_SECTION(nt);
-    /* FIXME : can we share this loop with is_in_executable_file_section? */
+    /* XXX : can we share this loop with is_in_executable_file_section? */
     for (i = 0; i < nt->FileHeader.NumberOfSections; i++, sec++) {
         app_pc sec_start = module_base + sec->VirtualAddress;
         app_pc sec_end =
@@ -1504,7 +1504,7 @@ print_module_section_info(file_t file, app_pc addr)
  * If map_size, *sec_end_out will be the portion of the file that is mapped
  * (but sec_end_nopad_out will be unchanged).
  *
- * FIXME - with case 10526 fix letting the exemption polices trim to section boundaries
+ * XXX - with case 10526 fix letting the exemption polices trim to section boundaries
  * is there any reason we still need merging support?
  */
 static bool
@@ -1910,11 +1910,11 @@ in_same_module(app_pc target, app_pc source)
 char *
 get_dll_short_name(app_pc base_addr)
 {
-    /* FIXME: We'll have a name pointer in a DLL that may get unloaded
+    /* XXX: We'll have a name pointer in a DLL that may get unloaded
        by another thread, so it would be nice to synchronize this call
        with UnmapViewOfSection so that we can get a safe copy of the name.
 
-       FIXME: How can make sure we can't fail on strncpy(buf, name, max_chars);
+       XXX: How can make sure we can't fail on strncpy(buf, name, max_chars);
        we can't test is_readable_without_exception(dll_name, max_chars)
        because our max_chars may be too long and of course we can't use strlen(),
        a TRY block would work.
@@ -1984,7 +1984,7 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
         return;
     }
 #endif
-    /* FIXME: we do have a race here where the module can be unloaded
+    /* XXX: we do have a race here where the module can be unloaded
      * before we finish making a copy of its name
      */
     if (dynamo_exited)
@@ -2012,7 +2012,7 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
             process_image = get_own_peb()->ImageBaseAddress;
 
             /* check if pc region base matches the image base  */
-            /* FIXME: they should be aligned anyways, can remove this */
+            /* XXX: they should be aligned anyways, can remove this */
             ASSERT(ALIGNED(process_image, PAGE_SIZE) && ALIGNED(base, PAGE_SIZE));
             if (process_image == base) {
                 name = get_short_name(get_application_name());
@@ -2107,7 +2107,7 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
  * 2) If pc is in the main executable image we use our fully qualified name
  * 3) .rsrc original file name
  * 4) if at_map, file name; else unavailable
- *    FIXME: is PEB->SubSystemData = PathFileName.Buffer (see
+ *    XXX: is PEB->SubSystemData = PathFileName.Buffer (see
  *    notes in aslr_generate_relocated_section()) available w/o a debugger,
  *    and should we check whether it equals our stored name?
  *
@@ -2161,7 +2161,7 @@ get_module_preferred_base_delta(app_pc pc)
 {
     app_pc preferred_base_addr = get_module_preferred_base(pc);
     app_pc current_base_addr = get_allocation_base(pc);
-    /* FIXME : optimization add out argument to get_module_preferred_base to
+    /* XXX : optimization add out argument to get_module_preferred_base to
      * return the allocation base */
 
     if (preferred_base_addr == NULL || current_base_addr == NULL)
@@ -2202,7 +2202,7 @@ get_ldr_module_by_pc(app_pc pc)
            2) list entries and pointed data may be removed and even deallocated
               we can't just check for is_readable_without_exception
               since it won't help if we're in a race
-           FIXME: we should mark we started this routine,
+           XXX: we should mark we started this routine,
               and if we get an exception retry or give up gracefully
         */
         LOG(GLOBAL, LOG_ALL, 3, "WARNING: get_ldr_module_by_pc w/o holding LoaderLock\n");
@@ -2248,7 +2248,7 @@ void
 get_module_name(app_pc pc, char *buf, int max_chars)
 {
     LDR_MODULE *mod = get_ldr_module_by_pc(pc);
-    /* FIXME i#812: at earliest inject point this doesn't work: hardcode ntdll.dll? */
+    /* XXX i#812: at earliest inject point this doesn't work: hardcode ntdll.dll? */
     if (mod != NULL) {
         wchar_to_char(buf, max_chars, mod->FullDllName.Buffer, mod->FullDllName.Length);
         return;
@@ -2489,7 +2489,7 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end, bool cons
         LOG(THREAD, LOG_VMAREAS, 2,
             "is_module_patch_region: target " PFX "-" PFX " => section " PFX "-" PFX "\n",
             start, end, sec_start, sec_end);
-        /* FIXME - check what alignment the loader uses when section alignment is
+        /* XXX - check what alignment the loader uses when section alignment is
          * < than page size (check on all platforms) to tighten this up. According to
          * Derek the IAT requests are very percise, but the loader may do exact
          * (rebase restore) or page-aligned (rebind restore) on xpsp2 at least. */
@@ -2509,7 +2509,7 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end, bool cons
      */
     if ((thread_id_t)lock->OwningThread == d_r_get_thread_id()) {
         /* Walk the list
-         * FIXME: just look at the last entry, since it's appended to the memory-order
+         * XXX: just look at the last entry, since it's appended to the memory-order
          * list?
          */
         mod = get_ldr_module_by_pc(start);
@@ -2524,7 +2524,7 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end, bool cons
              * once the module's count and flags indicate it's initialized.
              * We go ahead and allow that, since it's only data and not much of a security
              * risk.
-             * FIXME: figure out what the loader is doing there -- I saw it on sqlservr
+             * XXX: figure out what the loader is doing there -- I saw it on sqlservr
              * on 2003 loading msdtcprx.dll and then a series of dependent dlls was loaded
              * and patched and re-patched, perhaps due to forwarding?
              */
@@ -2564,7 +2564,7 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end, bool cons
              * start using the lock, but it coincides with the image
              * entry point (or loader finishing initialization), so we
              * use that.
-             * FIXME: this isn't as narrow as we'd like --
+             * XXX: this isn't as narrow as we'd like --
              * we're letting anyone modify a .text section prior to
              * image entry on 2003!
              */
@@ -2678,7 +2678,7 @@ process_one_relocation(const app_pc module_base, app_pc reloc_entry_p,
         /* LOW:  *(ushort*) cur_addr += LOWORD(relocation_delta)
          * HIGH: *(ushort*) cur_addr += HIWORD(relocation_delta)
          */
-        /* FIXME: case 8515: it is better to implement these
+        /* XXX: case 8515: it is better to implement these
          * in case some stupid compiler is generating them for random reasons
          */
         ASSERT_CURIOSITY("Unsupported relocation encountered");
@@ -2841,7 +2841,7 @@ add_SEH_to_rct_table(dcontext_t *dcontext, app_pc module_base)
             if (scope->Count == 0 || scope->Count >= 0x1000)
                 is_scope = false;
             else {
-                /* Do one pass through to make sure it all looks right.  FIXME: we
+                /* Do one pass through to make sure it all looks right.  XXX: we
                  * need a stronger way to tell when there's a scope table and when
                  * not.  It would be nice to check the scope entry's range, but it
                  * seems to not need to be a subset of func_entry's range: many
@@ -3009,16 +3009,16 @@ rct_add_exports(dcontext_t *dcontext, app_pc module_base, size_t module_size)
                  * at another module
                  */
                 (func >= module_base && func < (module_base + module_size))) {
-                /* FIXME: use print_symbolic_address() */
+                /* XXX: use print_symbolic_address() */
                 LOG(GLOBAL, LOG_RCT, 3, "\tadding i=%d " PFX "\n", i, func);
                 /* interestingly there are ordinals in shell32.dll
                  * that are at module_base, so can't make this point
                  * to code sections only
                  */
-                /* FIXME: note that we may add not only functions but
+                /* XXX: note that we may add not only functions but
                  * export data as well!
-                 * FIXME: currently we leave on code origins to cover this up,
-                 * FIXME: while instead we should check for code sections here
+                 * XXX: currently we leave on code origins to cover this up,
+                 * XXX: while instead we should check for code sections here
                  * just like we need to do in rct_analyze_module() anyways
                  */
                 if (rct_add_valid_ind_branch_target(dcontext, func)) {
@@ -3028,7 +3028,7 @@ rct_add_exports(dcontext_t *dcontext, app_pc module_base, size_t module_size)
                     LOG(GLOBAL, LOG_RCT, 3,
                         "\t already added export entry i=%d " PFX "\n", i, func);
                     /* most likely address taken -
-                     * FIXME: verify that they are all really address taken,
+                     * XXX: verify that they are all really address taken,
                      * and not say forwards, although those can't possibly be added
                      */
                     STATS_INC(rct_ind_already_added_exports);
@@ -3078,7 +3078,7 @@ rct_add_exports(dcontext_t *dcontext, app_pc module_base, size_t module_size)
  *           0 if there was a valid entry referring to some section
  *          references_found, otherwise
  */
-/* FIXME: should switch to using module_reloc_iterator_start() */
+/* XXX: should switch to using module_reloc_iterator_start() */
 static int
 find_relocation_references(dcontext_t *dcontext, app_pc module_base, size_t module_size,
                            IMAGE_BASE_RELOCATION *base_reloc, size_t base_reloc_size,
@@ -3289,7 +3289,7 @@ add_rct_module(dcontext_t *dcontext, app_pc module_base, size_t module_size,
     IMAGE_SECTION_HEADER *sec;
     uint i;
 
-    /* FIXME: PRECISION/speed: limit searched range only to code and
+    /* XXX: PRECISION/speed: limit searched range only to code and
      * initialized data section, although unclear whether resources
      * may or may not have functions or function pointers
      */
@@ -3334,7 +3334,7 @@ add_rct_module(dcontext_t *dcontext, app_pc module_base, size_t module_size,
         LOG(GLOBAL, LOG_VMAREAS, 4, "\tSizeOfRawData  = " PFX "\n", sec->SizeOfRawData);
         LOG(GLOBAL, LOG_VMAREAS, 4, "\tCharacteristics= " PFX "\n", sec->Characteristics);
 
-        /* FIXME: case 5355, case 10526 - note we are not following the convoluted
+        /* XXX: case 5355, case 10526 - note we are not following the convoluted
          * section size matching from is_in_executable_file_section -
          * we don't have an OS region to be matching against. */
 
@@ -3370,7 +3370,7 @@ add_rct_module(dcontext_t *dcontext, app_pc module_base, size_t module_size,
                     "base_reloc=" PFX ", base_reloc_size=" PFX ")\n",
                     module_base, base_reloc, base_reloc_size);
 
-                /* FIXME: We walk through relocations for each code section
+                /* XXX: We walk through relocations for each code section
                  * and hence stats can be counted more than once.
                  */
                 if (base_reloc != NULL && base_reloc_size > 0) {
@@ -3458,7 +3458,7 @@ add_rct_module(dcontext_t *dcontext, app_pc module_base, size_t module_size,
                                  EXEMPT_TEST("win32.partial_map.exe"));
 
                 /* case 5776 see if it was rerouted outside of the module, e.g. in .NET */
-                /* FIXME: we still can't tell whether it was modified */
+                /* XXX: we still can't tell whether it was modified */
                 LOG(GLOBAL, LOG_RCT, 1,
                     "entry point outside of module: %s " PFX "-" PFX ", entry point=" PFX
                     ", in %s\n",
@@ -3497,7 +3497,7 @@ add_rct_module(dcontext_t *dcontext, app_pc module_base, size_t module_size,
         found, module_size, entry_point);
 
     rct_add_exports(dcontext, module_base, module_size);
-    /* FIXME: case 1948 curiosity: dump exported entries that are also address taken */
+    /* XXX: case 1948 curiosity: dump exported entries that are also address taken */
 
     /* PR 250395: add SEH handlers from .pdata section */
     IF_X64(add_SEH_to_rct_table(dcontext, module_base);)
@@ -3573,7 +3573,7 @@ rct_analyze_module_at_violation(dcontext_t *dcontext, app_pc target_pc)
         SYSLOG_INTERNAL_WARNING_ONCE("RCT executing from non-analyzed module "
                                      "section at " PFX,
                                      target_pc);
-        /* FIXME: heavy-weight check if done every time for execution
+        /* XXX: heavy-weight check if done every time for execution
          * off .data section until it makes it into a trace
          */
         return false;
@@ -3625,7 +3625,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size, bool add,
              * we'll re-analyze the whole module and waste some work, but we do
              * check for duplicates before adding.
              *
-             * FIXME case 8648: invisible IAT hooker (e.g., Kaspersky) could
+             * XXX case 8648: invisible IAT hooker (e.g., Kaspersky) could
              * cause problems, so perhaps we should also always do
              * rct_add_exports() here?
              */
@@ -3664,7 +3664,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size, bool add,
 
         if (DYNAMO_OPTION(rct_modified_entry)) {
             /* case 5776 - where mscoree.dll modifies the image entry point */
-            /* FIXME: case 5354: rct_analyze_at_load took care of most of this.
+            /* XXX: case 5354: rct_analyze_at_load took care of most of this.
              * Clean up.
              */
             app_pc entry_point = get_module_entry(module_base);
@@ -3720,7 +3720,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size, bool add,
             }
 
             DODEBUG({
-                /* FIXME: rct_analyze_module_at_violation counts on most DLLs
+                /* XXX: rct_analyze_module_at_violation counts on most DLLs
                  * having an entry point, so analysis is not deferred
                  * for too long - see case 5354
                  */
@@ -3760,7 +3760,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size, bool add,
 }
 
 #    ifdef DEBUG
-/* FIXME: this is an inefficient hack using the find_predecessor data
+/* XXX: this is an inefficient hack using the find_predecessor data
  * structures. The right solution for this problem is to add all
  * entries to a hashtable when walking the module exports table.
  */
@@ -3770,7 +3770,7 @@ rct_is_exported_function(app_pc tag)
 {
     module_info_t mod = { 0 }, *pmod;
     d_r_mutex_lock(
-        &process_module_vector.lock); /* FIXME: this can be a shared read lock */
+        &process_module_vector.lock); /* XXX: this can be a shared read lock */
     {
         pmod = lookup_module_info(&process_module_vector, tag);
         if (pmod) {
@@ -3892,7 +3892,7 @@ os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which))
  * We use a combined routine for the checksum, timestamp, image size, code_size,
  * and pe_name since calls to is_readable_pe_base are expensive.
  *
- * FIXME : like many routines in module.c this routine is unsafe since the
+ * XXX : like many routines in module.c this routine is unsafe since the
  * module in question could be unloaded while we are still looking around its
  * header or before caller finishes using pe_name.  Need try-except.
  */
@@ -3928,7 +3928,7 @@ get_module_info_pe(const app_pc module_base, uint *checksum, uint *timestamp,
      * CAUTION: If dll is unloaded the name is lost.  Also, ensure that checks
      *          performed by get_module_short_name() are replicated here.
      *
-     * FIXME: if there is no exports section should we use the resource section
+     * XXX: if there is no exports section should we use the resource section
      * to get the file name?  alex thinks not, I agree; tim thinks we should;
      * I also think it is time to introduce distinct 'ignore' and 'not
      * available' values.
@@ -3977,11 +3977,11 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     module_list_add_mapping(ma, base, base + view_size);
 
     /* currently add is done post-map, and remove is pre-unmap
-     * FIXME: we should remove at post-unmap, though unmap is unlikely to fail
+     * XXX: we should remove at post-unmap, though unmap is unlikely to fail
      */
     ASSERT(is_readable_pe_base(base));
 
-    /* FIXME: theoretically need to grab a lock to prevent
+    /* XXX: theoretically need to grab a lock to prevent
      * unmapping of a DLL that one thread is mapping and another
      * one is unmapping.  We don't know for sure that all
      * allocations that we see are really by the loader and
@@ -4000,7 +4000,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     ma->os_data.product_version = info.product_version;
     /* This converts unicode to ascii which might not always be good, but we do select
      * the english version of the strings if available in the .rsrc section and
-     * all current users compare with ascii strings anyways.  FIXME */
+     * all current users compare with ascii strings anyways.  XXX */
     if (info.company_name != NULL)
         ma->os_data.company_name = dr_wstrdup(info.company_name HEAPACCT(which));
     if (info.product_name != NULL)
@@ -4020,7 +4020,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
          * which have PE.ImageBase set to the current mapping address
          */
 
-        /* FIXME: case 1272 see also aslr_set_randomized_handle() for possibly
+        /* XXX: case 1272 see also aslr_set_randomized_handle() for possibly
          * producing more identifying data when we are watching NtCreateSection
          */
         checksum = dcontext->aslr_context.original_section_checksum;
@@ -4059,7 +4059,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     ma->os_data.timestamp = timestamp;
     ma->os_data.module_internal_size = pe_size;
 
-    /* FIXME: case 9032 about getting MemorySectionName */
+    /* XXX: case 9032 about getting MemorySectionName */
 }
 
 /* gets the preferred base of the module containing pc, cached from our module list,
@@ -4068,7 +4068,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
 app_pc
 get_module_preferred_base_safe(app_pc pc)
 {
-    /* FIXME: currently just a little safer */
+    /* XXX: currently just a little safer */
     module_area_t *ma;
     app_pc preferred_base = NULL;
 
@@ -4154,7 +4154,7 @@ os_get_module_info_all_names(const app_pc pc, DR_PARAM_OUT uint *checksum,
                              DR_PARAM_OUT module_names_t **names, size_t *code_size,
                              uint64 *file_version)
 {
-    /* FIXME: currently just a little safer than looking up in PE itself */
+    /* XXX: currently just a little safer than looking up in PE itself */
     module_area_t *ma;
     bool ok = false;
 
@@ -4187,7 +4187,7 @@ os_get_module_info_all_names(const app_pc pc, DR_PARAM_OUT uint *checksum,
             *file_version = ma->os_data.file_version.version;
     } else {
         /* hotpatch DLLs show up here */
-        /* FIXME case 5381: assert these are really only hotpatch dlls */
+        /* XXX case 5381: assert these are really only hotpatch dlls */
     }
 
     if (names == NULL)
@@ -4334,7 +4334,7 @@ os_module_free_IAT_code(app_pc addr)
  * returns false if some unhandled error condition (e.g. unknown
  * relocation type), should signal failure to relocate.
  *
- * FIXME: need to generalize this as a callback interface to fit
+ * XXX: need to generalize this as a callback interface to fit
  * find_relocation_references() which it is mostly copied from.
  * should start using module_reloc_iterator_start()
  * Currently used only for ASLR_SHARED_CONTENTS
@@ -4475,7 +4475,7 @@ module_apply_relocations(app_pc module_base, size_t module_size,
 /* iterator over a PE .reloc section */
 /*
  * Currently used only for ASLR_SHARED_CONTENTS validation.
- * FIXME: see module_apply_relocations() and
+ * XXX: see module_apply_relocations() and
  * find_relocation_references() which can take advantage of this.
  * Note that inner loop may be somewhat slower than a custom iterator but
  * considering on average there are about 100 relocations per 4K page
@@ -4488,7 +4488,7 @@ typedef struct reloc_iterator_t {
     uint rva_page;           /* current page RVA */
     app_pc module_base;
 
-    /* FIXME: note that we currently assume clients need sequential
+    /* XXX: note that we currently assume clients need sequential
      * iteration in sorted order of requests.  We also assume that the
      * .reloc entries themselves are in sorted order.  If any of these
      * is not true - e.g. we want to lookup any random page on-demand
@@ -4499,7 +4499,7 @@ typedef struct reloc_iterator_t {
      */
     DEBUG_DECLARE(app_pc last_addr;) /* helping verify requests are sorted */
 
-    /* FIXME: some of the above types should be improved to allow
+    /* XXX: some of the above types should be improved to allow
      * pointer arithmetic instead of explicit conversions, e.g. relocs
      * should be ushort*, yet the first implementation is copy&paste
      * from find_relocation_references() and for now is better left
@@ -4587,7 +4587,7 @@ module_reloc_iterator_start(reloc_iterator_t *ri /* OUT */, app_pc module_base,
     return true;
 }
 
-/* FIXME: if need arises should add an iterator destructor
+/* XXX: if need arises should add an iterator destructor
  * module_reloc_iterator_stop(reloc_iterator_t *ri)
  * currently all state is local
  */
@@ -4599,7 +4599,7 @@ module_reloc_iterator_start(reloc_iterator_t *ri /* OUT */, app_pc module_base,
  * currently IMAGE_REL_BASED_HIGHLOW is the only supported type on x86-32 &
  * IMAGE_REL_BASED_DIR64 is the only supported type on x86-64
  */
-/* FIXME: [perf] we could also pass the section
+/* XXX: [perf] we could also pass the section
  * boundary so that we move the iterator in the common
  * case, and not move only when reaching next section.
  */
@@ -4641,7 +4641,7 @@ module_reloc_iterator_next(reloc_iterator_t *ri,
 
     /* all relocation entries */
     while (ri->relocs < ri->relocs_end) {
-        /* FIXME: [minor perf] we could take this check out of the
+        /* XXX: [minor perf] we could take this check out of the
          * innermost loop, but will need another routine to check if
          * requests are after the end. */
 
@@ -4700,7 +4700,7 @@ module_make_writable(app_pc module_base, size_t module_size)
      *
      * Note we get charged page file usage as soon as we make a page
      * privately writable, even if we do not write to it to bring in
-     * a private copy.  FIXME: case 8683 Which means this call can in
+     * a private copy.  XXX: case 8683 Which means this call can in
      * fact fail in out of commit memory ~= pagefile situations.
      */
 
@@ -4721,8 +4721,8 @@ module_make_writable(app_pc module_base, size_t module_size)
 bool
 module_restore_permissions(app_pc module_base, size_t module_size)
 {
-    /* FIXME: necessary for a real loader */
-    /* FIXME: need to walk the sections and restore their requested
+    /* XXX: necessary for a real loader */
+    /* XXX: need to walk the sections and restore their requested
      * permissions
      */
 
@@ -4770,7 +4770,7 @@ module_file_relocatable(app_pc module_base)
         if (TEST(IMAGE_SCN_MEM_SHARED, sec->Characteristics)) {
             relocatable = false;
         } else {
-            /* FIXME: probably best is to list all section flags that we
+            /* XXX: probably best is to list all section flags that we
              * understand and assume that with all others we are looking
              * for trouble
              */
@@ -4794,7 +4794,7 @@ module_file_relocatable(app_pc module_base)
  * if !protect_incrementally, note the module mapping is left
  * writable on success, and it is up to callers to call
  * module_restore_permissions() to make unwritable.
- * FIXME: may change this interface to require users to guarantee writability.
+ * XXX: may change this interface to require users to guarantee writability.
  * especially if module_restore_permissions() can get away as stateless
  */
 bool
@@ -4867,7 +4867,7 @@ module_rebase(app_pc module_base, size_t module_size,
         /* for example xpsp2res.dll */
         /* no relocations needed - even better for us */
 
-        /* FIXME: we may want skip this DLL from sharing.  Since it
+        /* XXX: we may want skip this DLL from sharing.  Since it
          * has no relocations no memory is wasted when it is
          * 'privately' ASLRed, while we have to pay a heavy cost to
          * validate.  The only reason to use sharing would be for
@@ -4989,7 +4989,7 @@ module_dump_pe_file(HANDLE new_file, app_pc module_base, size_t module_size)
     return true;
 }
 
-/* FIXME: share the version in module_list.c */
+/* XXX: share the version in module_list.c */
 /* Verifies that according to section Characteristics its mapping is expected to be
  * readable (and if not VirtualProtects to makes it so).  NOTE this only operates on
  * the mapped portion of the section (via get_image_section_map_size()) which may be
@@ -5040,7 +5040,7 @@ ensure_section_readable(app_pc module_base, IMAGE_SECTION_HEADER *sec,
     return false;
 }
 
-/* FIXME: share the version in module_list.c */
+/* XXX: share the version in module_list.c */
 static bool
 restore_unreadable_section(app_pc module_base, IMAGE_SECTION_HEADER *sec,
                            IMAGE_NT_HEADERS *nt, uint restore_prot, app_pc view_start,
@@ -5079,7 +5079,7 @@ restore_unreadable_section(app_pc module_base, IMAGE_SECTION_HEADER *sec,
  */
 /* default release build behaviour of VC98 in the following uses
  * matches #pragma intrinsic(memcmp) */
-/* FIXME: should experiment whether reps cmpsb or reps cmpsd is
+/* XXX: should experiment whether reps cmpsb or reps cmpsd is
  * faster if we are comparing shorter intervals between relocations
  */
 #pragma function(memcmp) /* do not use memcmp intrinsic */
@@ -5174,7 +5174,7 @@ module_pe_section_compare(app_pc original_module_section, app_pc suspect_module_
                 return false;
             }
             verbatim_start = next_reloc_original + sizeof(uint);
-            /* FIXME: note that a very sneaky .reloc section may have
+            /* XXX: note that a very sneaky .reloc section may have
              * overlapping relocation entries.  Other than malicious
              * DLLs trying to thwart us, (we won't be able to match
              * that), there is no reason to expect anyone else would
@@ -5210,7 +5210,7 @@ aslr_compare_header(app_pc original_module_base, size_t original_header_len,
 
     bool ok;
 
-    /* FIXME: [perf] note that get_module_info_pe()'s and our similar
+    /* XXX: [perf] note that get_module_info_pe()'s and our similar
      * calls to is_readable_pe_base() are heavy weight. should use TRY
      * here */
 
@@ -5317,7 +5317,7 @@ module_contents_compare(app_pc original_module_base, app_pc suspect_module_base,
                         /* preferred base delta of suspect */,
                         size_t validation_section_prefix)
 {
-    /* FIXME: probably a good time to provide an iterator
+    /* XXX: probably a good time to provide an iterator
      * that optionally returns the PE header as well
      * and of course avoids any holes
      * just like module_calculate_digest() and module_dump_pe_file()
@@ -5444,12 +5444,12 @@ module_contents_compare(app_pc original_module_base, app_pc suspect_module_base,
 
         readable = ensure_section_readable(
             original_module_base, sec_original, nt_original, &original_section_prot,
-            /* FIXME case 9791: must pass view size! */
+            /* XXX case 9791: must pass view size! */
             original_module_base + region_offset, region_len);
         if (!readable) {
             bool also_unreadable = !ensure_section_readable(
                 suspect_module_base, sec_suspect, nt_suspect, &suspect_section_prot,
-                /* FIXME case 9791: must pass view size! */
+                /* XXX case 9791: must pass view size! */
                 suspect_module_base + region_offset, suspect_len);
             ASSERT(also_unreadable);
         }
@@ -5479,11 +5479,11 @@ module_contents_compare(app_pc original_module_base, app_pc suspect_module_base,
             bool ok;
             ok = restore_unreadable_section(
                 original_module_base, sec_original, nt_original, original_section_prot,
-                /* FIXME case 9791: must pass view size! */
+                /* XXX case 9791: must pass view size! */
                 original_module_base + region_offset, region_len);
             ok = restore_unreadable_section(
                 suspect_module_base, sec_suspect, nt_suspect, suspect_section_prot,
-                /* FIXME case 9791: must pass view size! */
+                /* XXX case 9791: must pass view size! */
                 suspect_module_base + region_offset, suspect_len);
             ASSERT(ok);
         }
@@ -5508,7 +5508,7 @@ module_contents_compare(app_pc original_module_base, app_pc suspect_module_base,
  * resource language id, and the fourth layer being the data entry leaf.
  */
 
-/* FIXME - like many other module.c routines these are racy w/ respect to an
+/* XXX - like many other module.c routines these are racy w/ respect to an
  * unmap. */
 
 /* Checks if [read_start, read_start+read_size) is within
@@ -5603,7 +5603,7 @@ get_resource_directory_entry_by_id(IMAGE_RESOURCE_DIRECTORY *dir, uint id,
     /* named entries are first and we're looking for a numbered entry */
     j = dir->NumberOfNamedEntries;
 
-    /* FIXME entries are in order so we could binary search this, but we
+    /* XXX entries are in order so we could binary search this, but we
      * only look for small entries (16 for VS_FILE_INFO & 1 for VS_VERSION_INFO) */
     for (i = 0; i < dir->NumberOfIdEntries; i++) {
         if (!CHECK_SAFE_READ(&entries[i + j], sizeof(entries[i + j]), valid_start,
@@ -6260,7 +6260,7 @@ get_module_resource_version_info(app_pc mod_base, version_info_t *info_out)
         cur_table = string_info.string_table;
         while (cur_table != NULL && remaining_table > 0) {
             cur_table = read_string_table(cur_table, &remaining_table, &string_table);
-            /* FIXME - there can be several tables (for different languages),
+            /* XXX - there can be several tables (for different languages),
              * right now we just scan all of them and for the fields we care
              * about use the last value we find. Prob. better to give pref.
              * to english though (note the key strings always appear to be in
@@ -6464,7 +6464,7 @@ dr_module_import_iterator_next(dr_module_import_iterator_t *dr_iter)
 
     iter->cur_module++;
     iter->hasnext = safe_read_cur_module(iter);
-    /* FIXME i#931: Iterate delay-load imports after normal imports. */
+    /* XXX i#931: Iterate delay-load imports after normal imports. */
 
     return &iter->module_import;
 }
@@ -6600,7 +6600,7 @@ dr_symbol_import_iterator_next(dr_symbol_import_iterator_t *dr_iter)
     iter->hasnext = pe_symbol_import_iterator_read_thunk(iter);
     if (!iter->hasnext)
         iter->hasnext = pe_symbol_import_iterator_next_module(iter);
-    /* FIXME i#931: Iterate delay-load imports after normal imports. */
+    /* XXX i#931: Iterate delay-load imports after normal imports. */
 
     return &iter->symbol_import;
 }

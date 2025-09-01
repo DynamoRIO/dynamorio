@@ -418,7 +418,7 @@ if (CALLPROF)
 endif (CALLPROF)
 
 set(KSTATS "" CACHE STRING "internal kstat profiling: ON or OFF overrides default")
-# FIXME i#170: once CMake 2.8 is released we can detect whether 2.8 is
+# XXX i#170: once CMake 2.8 is released we can detect whether 2.8 is
 # in use, and if so use a value-enum to get drop-down of possible values, like so:
 #   set_property(CACHE KSTATS PROPERTY STRINGS "" "ON" "OFF")
 if ("${KSTATS}" STREQUAL "")
@@ -733,7 +733,7 @@ if (UNIX)
   check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
   check_if_linker_is_llvm_lld(LINKER_IS_LLVM_LLD)
 
-  # FIXME i#2949: static 32-bit release-build linking with gcc 7.3.1 fails when
+  # XXX i#2949: static 32-bit release-build linking with gcc 7.3.1 fails when
   # static C++ clients like drmemtrace or drmemtrace_raw2trace are linked in.
   # For now we disable those builds.
   if (UNIX AND NOT X64 AND NOT DEBUG AND NOT CLANG AND
@@ -851,7 +851,7 @@ CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
 if (UNIX)
   set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
   # -std=c99 doesn't quite work
-  # FIXME case 191480: we used to pass -pedantic just to cpp;
+  # XXX case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
   # warnings and pass -pedantic to main gcc
   set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -std=gnu99")
@@ -1019,7 +1019,7 @@ if (UNIX)
   endif ()
   set(LINK_EXTRA_FLAGS "")
 else (UNIX)
-  # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
+  # XXX: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
   # build in parallel, always.
   # note that /MP is not officially supported on VS 2005 and others
@@ -1034,7 +1034,7 @@ else (UNIX)
     # This is recommended after /Fd but it seems to work here.
     set(BASE_CFLAGS "${BASE_CFLAGS} /FS")
   endif()
-  # FIXME case 191729: we should try to enable this.
+  # XXX case 191729: we should try to enable this.
   # Currently we get "unresolved external symbol ___security_cookie"
   set(BASE_CFLAGS "${BASE_CFLAGS} /GS-")
   # VS2010 has /MD as the default (and does declspec(dllimport) for
@@ -1142,7 +1142,7 @@ if (UNIX)
   else ()
     # Better to use -dT when passing linker options through gcc, but ld
     # prior to 2.18 only supports -T
-    # FIXME: should we duplicate this in DynamoRIOConfig.cmake?
+    # XXX: should we duplicate this in DynamoRIOConfig.cmake?
     execute_process(COMMAND
       ${CMAKE_LINKER} --help
       RESULT_VARIABLE ld_result
@@ -1283,7 +1283,7 @@ if (DEBUG)
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
-    # FIXME: just disable frame ptr elim opt: but /Oy- ran into some issues
+    # XXX: just disable frame ptr elim opt: but /Oy- ran into some issues
     set (OPT "")
   endif (CALLPROF)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT} $ENV{CFLAGS}")

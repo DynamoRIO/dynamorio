@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,7 @@ UNIT_TEST_MAIN
 
 /* This part is more of a regression test - but the rest of the unit
  * test can use its own executable image as a good test case.
- * FIXME: convert the first part into a regression test to run us on top of it
+ * XXX: convert the first part into a regression test to run us on top of it
  * or even better - run DR on top of the unit tests
  */
 
@@ -289,7 +289,7 @@ test_self_direct(dcontext_t *dcontext)
     uint newfound;
 
 #ifdef WINDOWS
-    /* this will get both code and data FIXME: data2data reference
+    /* this will get both code and data XXX: data2data reference
      * will be the majority
      */
     size = get_allocation_size((app_pc)test_self_direct, &base_pc);
@@ -309,7 +309,7 @@ test_self_direct(dcontext_t *dcontext)
     /* guesstimate */
     EXPECT_RELATION(found, >, 140);
 #ifdef WINDOWS
-    /* FIXME: note data2data have a huge part here */
+    /* XXX: note data2data have a huge part here */
     EXPECT_RELATION(found, <, 20000);
 #else
     EXPECT_RELATION(found, <, 1000);
@@ -338,14 +338,14 @@ test_self_direct(dcontext_t *dcontext)
     EXPECT(rct_analyze_module_at_violation(dcontext, (app_pc)test_self_direct), true);
 
     /* should be all found */
-    /* FIXME: with the data2data in fact a few noisy entries show up
+    /* XXX: with the data2data in fact a few noisy entries show up
      * since second lookup in data may differ from original
      */
     newfound = find_address_references(dcontext, base_pc, base_pc + size, base_pc,
                                        base_pc + size);
     EXPECT_RELATION(newfound, <, 4);
     EXPECT_RELATION(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1), >,
-                    found + newfound - 5); /* FIXME: data references uncomparable */
+                    found + newfound - 5); /* XXX: data references uncomparable */
 
     EXPECT_RELATION(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1), ==,
                     0); /* nothing missed */
@@ -458,7 +458,7 @@ unit_main(void)
     EXPECT(dynamo_options.rct_ind_call, 11);
     EXPECT(dynamo_options.rct_ind_jump, 11);
 
-    /* FIXME: report_current_process calls is_couldbelinking()
+    /* XXX: report_current_process calls is_couldbelinking()
      * maybe we should just set the TEB entry with a good context
      */
     EXPECT(dynamo_options.diagnostics, false);

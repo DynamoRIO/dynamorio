@@ -75,31 +75,32 @@ GLOBAL_LABEL(dynamorio_syscall:)
  * x1 = number of arguments
  * sp+8*n = argument n
  */
-        mov      x16, x1
-        ldr      x1, [sp]
-        sub      x16, x16, 1
-        cbz      x16, do_svc
-        ldr      x2, [sp, #8]
-        sub      x16, x16, 1
-        cbz      x16, do_svc
-        ldr      x3, [sp, #16]
-        sub      x16, x16, 1
-        cbz      x16, do_svc
-        ldr      x4, [sp, #24]
-        sub      x16, x16, 1
-        cbz      x16, do_svc
-        ldr      x5, [sp, #32]
-        sub      x16, x16, 1
-        cbz      x16, do_svc
-        ldr      x6, [sp, #40]
-        sub      x16, x16, 1
-        cbz      x16, do_svc
-        ldr      x7, [sp, #48]
-        sub      x16, x16, 1
-        cbz      x16, do_svc
-        ldr      x8, [sp, #56]
+        mov      x16, x0 /* syscall number goes in x16 */
+        mov      x17, x1
+        cbz      x17, do_svc
+        ldr      x0, [sp]
+        sub      x17, x17, 1
+        cbz      x17, do_svc
+        ldr      x1, [sp, #8]
+        sub      x17, x17, 1
+        cbz      x17, do_svc
+        ldr      x2, [sp, #16]
+        sub      x17, x17, 1
+        cbz      x17, do_svc
+        ldr      x3, [sp, #24]
+        sub      x17, x17, 1
+        cbz      x17, do_svc
+        ldr      x4, [sp, #32]
+        sub      x17, x17, 1
+        cbz      x17, do_svc
+        ldr      x5, [sp, #40]
+        sub      x17, x17, 1
+        cbz      x17, do_svc
+        ldr      x6, [sp, #48]
+        sub      x17, x17, 1
+        cbz      x17, do_svc
+        ldr      x7, [sp, #56]
 do_svc:
-        mov      x16, #0
         svc      #0x80
         b.cs     err_cf
         ret
@@ -121,12 +122,28 @@ GLOBAL_LABEL(dr_fpu_exception_init:)
 #ifdef MACOS
         DECLARE_FUNC(dynamorio_mach_dep_syscall)
 GLOBAL_LABEL(dynamorio_mach_dep_syscall:)
-        /* TODO i#5383: Use proper gateway. */
-        brk 0xc001 /* For now we break with a unique code. */
+        /* machine-dependent syscalls use x16=0x80000000 and x3=num, we'll assume
+         * up to 3 args
+         */
+        mov      x3, x0
+        mov      x16, #0x80000000
+        mov      x17, x1
+        cbz      x17, mach_dep_svc
+        ldr      x0, [sp]
+        sub      x17, x17, 1
+        cbz      x17, mach_dep_svc
+        ldr      x1, [sp, #8]
+        sub      x17, x17, 1
+        cbz      x17, mach_dep_svc
+        ldr      x2, [sp, #16]
+mach_dep_svc:
+        svc #0x80
+        ret
         END_FUNC(dynamorio_mach_dep_syscall)
 
         DECLARE_FUNC(dynamorio_mach_syscall)
 GLOBAL_LABEL(dynamorio_mach_syscall:)
+        sub x0, xzr, x0 /* On ARM64 the mach syscalls use negated numbers */
         b _dynamorio_syscall
         END_FUNC(dynamorio_mach_syscall)
 #endif

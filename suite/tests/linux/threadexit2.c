@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -102,7 +102,7 @@ main()
     /* wait for child to start rest of threads */
     for (i = 0; i < NUM_THREADS; i++) {
         while (!child_started[i]) {
-            /* waste some time: FIXME: should use futex */
+            /* waste some time: XXX: should use futex */
             nanosleep(&sleeptime, NULL);
         }
     }

@@ -39,6 +39,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+enum cache_access_outcome_t { UNKNOWN, HIT, MISS };
+
 /**
  * An interface for cache replacement policies.
  *
@@ -71,7 +73,7 @@ public:
     }
     /// Informs the replacement policy that an access has occurred.
     virtual void
-    access_update(int set_idx, int way) = 0;
+    access_update(int set_idx, int way, cache_access_outcome_t access_type) = 0;
     /// Informs the replacement policy that an eviction has occurred.
     virtual void
     eviction_update(int set_idx, int way) = 0;

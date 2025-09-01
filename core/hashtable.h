@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,7 +49,7 @@
 /* Is the table itself shared? */
 #define HASHTABLE_SHARED 0x00000001
 /* Are the entries in the table shared?
- * FIXME: right now this is never used independently from LOCKLESS_ACCESS,
+ * XXX: right now this is never used independently from LOCKLESS_ACCESS,
  * perhaps get rid of it
  */
 #define HASHTABLE_ENTRY_SHARED 0x00000002
@@ -71,7 +71,7 @@
 #define HASHTABLE_ALIGN_TABLE 0x00000080
 
 /* Specific tables can add their own flags starting with this value
- * FIXME: any better way? how know when hit limit with <<?
+ * XXX: any better way? how know when hit limit with <<?
  */
 #define HASHTABLE_CUSTOM_FLAGS_START 0x00010000
 
@@ -135,7 +135,7 @@ typedef struct _hashtable_statistics_t {
 
     /* Stay on trace check combined with hashtable lookups gives the
      * dynamic count of indirect branches
-     * FIXME: case 4817 where bb's could also cache one target
+     * XXX: case 4817 where bb's could also cache one target
      * or see the CGO03 paper for multiple cached locations with similar stats
      */
     uint ib_stay_on_trace_stat; /* hash table lookup avoided - cached single target
@@ -149,14 +149,14 @@ typedef struct _hashtable_statistics_t {
     uint ib_stay_on_trace_stat_ovfl; /* number of times last was bigger than current */
 
     uint ib_trace_last_ibl_exit; /* hash table lookup for last exit - not cached */
-    /* FIXME: add last and ovfl flag here as well */
+    /* XXX: add last and ovfl flag here as well */
 
     /* case 4817: add counter on extra check for converting IB into conditional
      * and add its success rate
      */
     uint ib_trace_last_ibl_speculate_success; /* stay-on-trace check success on last
                                                * exit */
-    /* FIXME: add last and ovfl flag here as well */
+    /* XXX: add last and ovfl flag here as well */
 } hashtable_statistics_t;
 
 /* A table used by IBL parallel to the lookuptable to collect statistics */

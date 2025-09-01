@@ -206,6 +206,7 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/policy_fifo.cpp
   simulator/policy_lfu.cpp
   simulator/policy_lru.cpp
+  simulator/policy_rrip.cpp
   )
 
 add_exported_library(drmemtrace_record_filter STATIC
@@ -581,7 +582,8 @@ macro(add_drmemtrace name type static_DR no_main)
     target_link_libraries(${name} atomic)
   endif ()
   add_dependencies(${name} api_headers)
-  install_target(${name} ${INSTALL_CLIENTS_LIB})
+  DR_export_target(${name})
+  install_exported_target(${name} ${INSTALL_CLIENTS_LIB})
 endmacro()
 
 add_drmemtrace(drmemtrace SHARED OFF OFF)
@@ -871,7 +873,7 @@ if (BUILD_TESTS)
            ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
   set_tests_properties(tool.drcachesim.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
-  # FIXME i#3544 Make raw2trace_unit_tests compilable in RISCV64.
+  # XXX i#3544 Make raw2trace_unit_tests compilable in RISCV64.
   if (NOT RISCV64)
     add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
@@ -1008,7 +1010,7 @@ if (BUILD_TESTS)
     TIMEOUT ${test_seconds})
 
   # XXX i#1997: dynamorio_static is not supported on Mac yet
-  # FIXME i#2949: gcc 7.3 fails to link certain configs
+  # XXX i#2949: gcc 7.3 fails to link certain configs
   # TODO i#3544: Port tests to RISC-V 64
   if (NOT APPLE AND NOT DISABLE_FOR_BUG_2949 AND NOT RISCV64)
     # Tests for the cache miss analyzer.
@@ -1191,7 +1193,7 @@ if (BUILD_TESTS)
         use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io drutil_static)
       endif ()
 
-      # FIXME i#2099: the weak symbol is not supported on Windows.
+      # XXX i#2099: the weak symbol is not supported on Windows.
       add_executable(tool.drcacheoff.burst_client tests/burst_static.cpp)
       append_property_list(TARGET tool.drcacheoff.burst_client
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
@@ -1274,6 +1276,15 @@ if (BUILD_TESTS)
       endif ()
       add_win32_flags(tool.drcacheoff.burst_futex ON)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_futex)
+
+      # -time_syscall_scale is Linux-only.
+      add_executable(tool.drcacheoff.burst_sleep
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_sleep.cpp")
+      configure_DynamoRIO_static(tool.drcacheoff.burst_sleep)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_sleep drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_sleep drmemtrace_raw2trace
+        drmemtrace_analyzer test_helpers)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_sleep)
     endif ()
 
   endif ()

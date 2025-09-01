@@ -1,5 +1,5 @@
 about to write to every page in .data
-// FIXME: nicer way to specify bitmasks? :)
+// XXX: nicer way to specify bitmasks? :)
 #if defined(protect_mask___0) || defined(protect_mask___2) || defined(protect_mask___4) || defined(protect_mask___6) || defined(protect_mask___8)
 successfully wrote to .data
 #endif

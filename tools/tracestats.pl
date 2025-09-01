@@ -50,7 +50,7 @@
 ### Several scalars below could overflow a 32-bit int, I assume
 ### perl always uses floats internally and won't overflow
 
-# FIXME: some of these are mutually exclusive, indicate which
+# XXX: some of these are mutually exclusive, indicate which
 $usage = "Usage: $0 [-brief] [-stats] [-prefix_stats] [-links] [-groups]
 \t[-sideline] [-exe exename] [-bbpcs] [-pcs pcfile] <tracefile>
 
@@ -207,7 +207,7 @@ $/) { chop; };
             } else {
                 next unless ($l =~ /^0x/);
                 $l =~ /([x0-9a-f]+)\s+([0-9]+)/;
-                # FIXME: no tag info available so will double-count for traces
+                # XXX: no tag info available so will double-count for traces
                 # that re-use same fcache slots
                 $pc_samples{$1} = $2;
                 $pc_sample_taken{$1} = 0;
@@ -436,7 +436,7 @@ $/) { chop; };
                     if ($pc_sample_taken{$addrnum} > 1) {
                         $overcount_instrs++;
                         $overcount_samples += $samples;
-                        # FIXME: rather than attributing samples to EVERY instr
+                        # XXX: rather than attributing samples to EVERY instr
                         # that rounds into this bucket (and thus have summary stats
                         # massively over-count), we instead assign samples to the
                         # first instr in the bucket only, potentially missing
@@ -795,7 +795,7 @@ if ($have_stubs) {
     # estimate times
     $total_estimate = 0;
     if ($unseen_count > 0) {
-        # FIXME: can we do better than this average number of instrs
+        # XXX: can we do better than this average number of instrs
         # in a trace, *3/4 since half exit at halfway point?
         # ave # instrs across spec & win32 is 29
         $unseen_size = 29 * 0.75;

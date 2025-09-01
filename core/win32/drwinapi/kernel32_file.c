@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -327,7 +327,7 @@ redirect_SetCurrentDirectoryW(__in LPCWSTR lpPathName)
     PEB *peb = get_own_peb();
     UNICODE_STRING *us = &peb->ProcessParameters->CurrentDirectoryPath;
     int len;
-    /* FIXME: once we have redirect_GetFullPathNameW() we should use it here.
+    /* XXX: once we have redirect_GetFullPathNameW() we should use it here.
      * For now we don't support relative paths.
      * Update: we now have i#298 so we do have some relative path support
      * in DR.
@@ -474,7 +474,7 @@ create_file_common(__in LPCWSTR nt_file_name, __in DWORD dwDesiredAccess,
     }
 
     if (hTemplateFile != NULL) {
-        /* FIXME: copy extended attributes */
+        /* XXX: copy extended attributes */
         ASSERT_NOT_IMPLEMENTED(false);
     }
 
@@ -1798,7 +1798,7 @@ redirect_FlushFileBuffers(__in HANDLE hFile)
     return TRUE;
 }
 
-/* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
+/* XXX i#1063: add the rest of the routines in kernel32_redir.h under
  * Files
  */
 

@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -29,12 +29,12 @@
 ;// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 ;// DAMAGE.
 
-;// Copyright (c) 2011 Google, Inc.
+;// Copyright (c) 2011-2025 Google, Inc.
 ;// Copyright (c) 2003-2007 Determina Corp.
 
 ;// events.mc messages for Event logging
 
-;// FIXME: I don't seem to get the !d! format specifiers on Win2k - will need to rework this
+;// XXX: I don't seem to get the !d! format specifiers on Win2k - will need to rework this
 
 ;// CHECK: is there a buffer overflow possibility in these facilities?
 ;// CHECK: should we always have the * specifier for the width component of a %!s!
@@ -54,20 +54,20 @@ SeverityNames=(
     Error=0x3
     )
 
-;// FIXME: unclear on can we override these..
+;// XXX: unclear on can we override these..
 FacilityNames=(
     DRCore     =0x0FF   ; core messages
     Security   =0x7FF   ; security violations
 )
 
 ;// default
-;//FIXME: can't override - I still want to change the name of the .BIN files
+;//XXX: can't override - I still want to change the name of the .BIN files
 ;//LanguageNames=(English=1:EVMSG001)
 
 ;//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;// Categories
 ;// unused: we may be happy with message types for now
-;// FIXME: if the FacilityName thing works, otherwise we'll use these
+;// XXX: if the FacilityName thing works, otherwise we'll use these
 MessageId=0x1
 Severity=Success
 SymbolicName=MSG_CATEGORY_SECURITY
@@ -458,9 +458,9 @@ Language=English
 Application %1!s! (%2!s!). Error reading registry : registry parameter %3!s! exceeds maximum length.
 .
 
-;// FIXME - do we want a more cryptic error messages (such as the out of memory one) that
+;// XXX - do we want a more cryptic error messages (such as the out of memory one) that
 ;// requires going back to Determina for resolution, or do we want the message to be
-;// potentially actionable by the customer? FIXME - warning or error?
+;// potentially actionable by the customer? XXX - warning or error?
 MessageId =
 Severity = Warning
 Facility = DRCore

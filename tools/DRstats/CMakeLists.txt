@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -33,7 +33,7 @@ if (UNIX)
   message(FATAL_ERROR "DRstats is Windows-only")
 endif (UNIX)
 
-# FIXME i#77: make DRstats a subproject to support with different compiler from libutil
+# XXX i#77: make DRstats a subproject to support with different compiler from libutil
 # For now, DRstats.exe just won't run on NT.
 #
 # PR 232385: for release packages we want DRstats.exe to run on NT,
@@ -80,7 +80,7 @@ include_directories(
 # can't combine strings w/ cpp defs so we configure the name and version:
 configure_file(DynamoRIO.rc ${CMAKE_CURRENT_BINARY_DIR}/DynamoRIO.rc)
 if (NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-  # FIXME: This file gets deleted by 'ninja -t clean', but it's only copied at
+  # XXX: This file gets deleted by 'ninja -t clean', but it's only copied at
   # config time, so running ninja doesn't re-generate it.  Marking it as
   # non-generated means 'ninja -t clean' doesn't delete it.
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/DynamoRIO.rc
@@ -115,7 +115,7 @@ if (NOT uuid_lib)
   endif ()
 endif (NOT uuid_lib)
 target_link_libraries(DRstats policy_static ${uuid_lib})
-# FIXME: not sure why I need these flags
+# XXX: not sure why I need these flags
 # For VC71 need nodefault of libcmt instead?!?
 set_target_properties(DRstats PROPERTIES LINK_FLAGS
   "/NODEFAULTLIB:libc.lib /NODEFAULTLIB:msvcrt.lib /ENTRY:wWinMainCRTStartup")

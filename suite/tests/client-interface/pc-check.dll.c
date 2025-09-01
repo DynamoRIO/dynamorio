@@ -49,9 +49,9 @@ is_in_known_module(app_pc pc, bool *found_section, IMAGE_SECTION_HEADER *section
     return found;
 }
 
-/* FIXME - is global because of compiler switching issues, can't find security_cookie
+/* XXX - is global because of compiler switching issues, can't find security_cookie
  * with new compiler which is triggered by having this as a local to bb_event.
- * FIXME - test target notepad.exe is single threaded so access is ok for now. */
+ * XXX - test target notepad.exe is single threaded so access is ok for now. */
 IMAGE_SECTION_HEADER section;
 
 app_pc exit_proc_addr;

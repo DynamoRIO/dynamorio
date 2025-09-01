@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -653,7 +653,7 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    /* FIXME: we should test the nudge events as well, but that
+    /* XXX: we should test the nudge events as well, but that
      * would require some extra stuff our testing infrastructure
      * doesn't currently support.
      */

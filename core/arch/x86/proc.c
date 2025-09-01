@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -212,7 +212,7 @@ get_processor_specific_info(void)
     /* First check for existence of the cpuid instruction
      * by attempting to modify bit 21 of eflags
      */
-    /* FIXME: Perhaps we should abort when the cpuid instruction
+    /* XXX: Perhaps we should abort when the cpuid instruction
      * doesn't exist since the cache_line_size may be incorrect.
      * (see case 463 for discussion)
      */
@@ -368,7 +368,7 @@ proc_init_arch(void)
 #endif
 
 #ifdef DEBUG
-    /* FIXME: This is a small subset of processor features.  If we
+    /* XXX: This is a small subset of processor features.  If we
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
      */
@@ -443,7 +443,7 @@ proc_init_arch(void)
         if (proc_has_feature(FEATURE_AVX512F)) {
             if (TESTALL(XCR0_HI16_ZMM | XCR0_ZMM_HI256 | XCR0_OPMASK, bv_low)) {
 #if !defined(UNIX)
-                /* FIXME i#1312: AVX-512 is not fully supported and is untested on all
+                /* XXX i#1312: AVX-512 is not fully supported and is untested on all
                  * non-UNIX builds. A SYSLOG_INTERNAL_ERROR_ONCE is issued on Windows
                  * if AVX-512 code is encountered. Setting DynamoRIO to a state that
                  * partially supports AVX-512 is causing problems, xref i#3949. We
@@ -548,7 +548,7 @@ void
 proc_set_num_simd_saved(int num)
 {
 #if !defined(UNIX)
-    /* FIXME i#1312: support and test. */
+    /* XXX i#1312: support and test. */
 #else
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_4BYTE_WRITE(&num_simd_saved, num, false);
@@ -665,7 +665,7 @@ dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd
         /* auto-adjust opnd size so it will encode */
         if (opnd_get_size(buf) == OPSZ_512)
             opnd_set_size(&buf, OPSZ_108);
-        /* FIXME: why is this appending fwait, vs "fsave" which prepends? */
+        /* XXX: why is this appending fwait, vs "fsave" which prepends? */
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fnsave(dcontext, buf));
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fwait(dcontext));
     }

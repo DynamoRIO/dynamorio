@@ -61,7 +61,7 @@ main()
     FreeLibrary(lib);
 
     /* unclear what this code is supposed to do on other platforms
-     * FIXME: move to its own load-exe
+     * XXX: move to its own load-exe
      */
     /* real use seen of PCHealth\HelpCtr\Binaries\HelpCtr.exe */
 
@@ -71,7 +71,7 @@ main()
     assert(res);
     print("cmd.exe as data\n");
 
-    /* FIXME: for some reason the loader reuses the exe - if we ask for cmd.exe again here
+    /* XXX: for some reason the loader reuses the exe - if we ask for cmd.exe again here
      */
     cmd = LoadLibraryExW(L"calc.exe", NULL,
                          DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE);

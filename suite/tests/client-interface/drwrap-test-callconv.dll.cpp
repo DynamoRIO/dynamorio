@@ -186,7 +186,7 @@ dr_init(client_id_t id)
 
     drmgr_init();
     drwrap_init();
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
 #ifdef PLATFORM_HAS_THISCALL
     thiscall = DRWRAP_CALLCONV_THISCALL;

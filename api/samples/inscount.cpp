@@ -224,7 +224,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
 
     /* register events */
-    dr_register_exit_event(dynamorio::samples::event_exit);
+    drmgr_register_exit_event(dynamorio::samples::event_exit);
     drmgr_register_bb_instrumentation_event(dynamorio::samples::event_bb_analysis,
                                             dynamorio::samples::event_app_instruction,
                                             NULL);

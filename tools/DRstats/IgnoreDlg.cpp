@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -134,7 +134,7 @@ CIgnoreDlg::OnSetPermanent()
     // user logs out and back in)
     DWORD_PTR dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
-    // it like that FIXME
+    // it like that XXX
     SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM) "Environment",
                        SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
 

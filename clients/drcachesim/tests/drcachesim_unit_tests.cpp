@@ -67,6 +67,8 @@ namespace drmemtrace {
         assert(aa == bb);                                         \
     }
 
+#define MY_TID 1
+
 static cache_simulator_knobs_t
 make_test_knobs()
 {
@@ -89,7 +91,7 @@ make_memref(addr_t address, trace_type_t type = TRACE_TYPE_READ, int size = 4)
     ref.data.type = type;
     ref.data.size = size;
     ref.data.addr = address;
-    ref.data.tid = 1;
+    ref.data.tid = MY_TID;
     return ref;
 }
 
@@ -109,6 +111,7 @@ unit_test_warmup_fraction()
         ref.data.type = TRACE_TYPE_READ;
         ref.data.size = 8;
         ref.data.addr = i * 128;
+        ref.data.tid = MY_TID;
         if (!cache_sim.process_memref(ref)) {
             std::cerr << "drcachesim unit_test_warmup_fraction failed: "
                       << cache_sim.get_error_string() << "\n";
@@ -116,7 +119,7 @@ unit_test_warmup_fraction()
         }
     }
 
-    if (!cache_sim.check_warmed_up()) {
+    if (!cache_sim.is_warmed_up()) {
         std::cerr << "drcachesim unit_test_warmup_fraction failed\n";
         exit(1);
     }
@@ -126,18 +129,32 @@ void
 unit_test_warmup_refs()
 {
     cache_simulator_knobs_t knobs = make_test_knobs();
-    knobs.warmup_refs = 16;
+    constexpr int WARMUP_REFS = 16;
+    knobs.warmup_refs = WARMUP_REFS;
     cache_simulator_t cache_sim(knobs);
 
     // Feed it some memrefs, warmup refs = 16 where the capacity at
-    // each level is 32 lines each. The first 16 memrefs warm up the cache and
-    // the 17th allows us to check.
+    // each level is 32 lines each. The first 16 memrefs warm up the cache.
     std::string error;
-    for (int i = 0; i < 16 + 1; i++) {
+    constexpr int MARKER_COUNT = 4;
+    for (int i = 0; i < MARKER_COUNT + WARMUP_REFS; ++i) {
+        if (cache_sim.is_warmed_up()) {
+            std::cerr << "drcachesim unit_test_warmup_refs warmed up too early\n";
+            exit(1);
+        }
         memref_t ref;
-        ref.data.type = TRACE_TYPE_READ;
-        ref.data.size = 8;
-        ref.data.addr = i * 128;
+        if (i < MARKER_COUNT) {
+            // Make the first couple markers, to ensure warmup_refs skips markers
+            // (xref i#7230).
+            ref.marker.type = TRACE_TYPE_MARKER;
+            ref.marker.marker_type = TRACE_MARKER_TYPE_CACHE_LINE_SIZE;
+            ref.marker.marker_value = 64;
+        } else {
+            ref.data.type = TRACE_TYPE_READ;
+            ref.data.size = 8;
+            ref.data.addr = i * 128;
+        }
+        ref.data.tid = MY_TID;
         if (!cache_sim.process_memref(ref)) {
             std::cerr << "drcachesim unit_test_warmup_fraction failed: "
                       << cache_sim.get_error_string() << "\n";
@@ -145,7 +162,7 @@ unit_test_warmup_refs()
         }
     }
 
-    if (!cache_sim.check_warmed_up()) {
+    if (!cache_sim.is_warmed_up()) {
         std::cerr << "drcachesim unit_test_warmup_refs failed\n";
         exit(1);
     }
@@ -155,24 +172,90 @@ void
 unit_test_sim_refs()
 {
     cache_simulator_knobs_t knobs = make_test_knobs();
-    knobs.sim_refs = 8;
+    constexpr int REF_LIMIT = 8;
+    knobs.sim_refs = REF_LIMIT;
     cache_simulator_t cache_sim(knobs);
 
     std::string error;
-    for (int i = 0; i < 16; i++) {
+    constexpr int MARKER_COUNT = 3;
+    // Go beyond and ensure we stop before then.
+    int i;
+    for (i = 0; i < MARKER_COUNT + REF_LIMIT + 100; ++i) {
         memref_t ref;
-        ref.data.type = TRACE_TYPE_READ;
-        ref.data.size = 8;
-        ref.data.addr = i * 128;
+        if (i < MARKER_COUNT) {
+            // Make the first couple markers, to ensure sim_refs skips markers
+            // (xref i#7230).
+            ref.marker.type = TRACE_TYPE_MARKER;
+            ref.marker.marker_type = TRACE_MARKER_TYPE_CACHE_LINE_SIZE;
+            ref.marker.marker_value = 64;
+        } else {
+            ref.data.type = TRACE_TYPE_READ;
+            ref.data.size = 8;
+            ref.data.addr = i * 128;
+        }
+        ref.data.tid = MY_TID;
         if (!cache_sim.process_memref(ref)) {
-            std::cerr << "drcachesim unit_test_sim_refs failed: "
+            // Check we don't exit before our markers + sim_refs.
+            if (!cache_sim.get_error_string().empty()) {
+                std::cerr << "drcachesim unit_test_sim_refs failed: "
+                          << cache_sim.get_error_string() << "\n";
+                exit(1);
+            }
+            break;
+        }
+    }
+    // The exit is on the subsequent memref, so allow ==.
+    if (i > MARKER_COUNT + REF_LIMIT) {
+        std::cerr << "drcachesim unit_test_sim_refs failed: went too far\n";
+        exit(1);
+    }
+    if (cache_sim.remaining_sim_refs() != 0) {
+        std::cerr << "drcachesim unit_test_sim_refs failed: has remaining refs\n";
+        exit(1);
+    }
+}
+
+void
+unit_test_skip_refs()
+{
+    cache_simulator_knobs_t knobs = make_test_knobs();
+    constexpr int SKIP_REFS = 16;
+    constexpr int WARMUP_REFS = 16;
+    knobs.skip_refs = SKIP_REFS;
+    knobs.warmup_refs = WARMUP_REFS;
+    cache_simulator_t cache_sim(knobs);
+
+    // Feed it some memrefs, warmup refs = 16 where the capacity at
+    // each level is 32 lines each. The first 16 memrefs warm up the cache.
+    std::string error;
+    constexpr int MARKER_COUNT = 4;
+    for (int i = 0; i < MARKER_COUNT + SKIP_REFS + WARMUP_REFS; ++i) {
+        if (cache_sim.is_warmed_up()) {
+            std::cerr << "drcachesim unit_test_warmup_refs warmed up too early\n";
+            exit(1);
+        }
+        memref_t ref;
+        if (i < MARKER_COUNT) {
+            // Make the first couple markers, to ensure skip_refs skips markers
+            // (xref i#7230).
+            ref.marker.type = TRACE_TYPE_MARKER;
+            ref.marker.marker_type = TRACE_MARKER_TYPE_CACHE_LINE_SIZE;
+            ref.marker.marker_value = 64;
+        } else {
+            ref.data.type = TRACE_TYPE_READ;
+            ref.data.size = 8;
+            ref.data.addr = i * 128;
+        }
+        ref.data.tid = MY_TID;
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_warmup_fraction failed: "
                       << cache_sim.get_error_string() << "\n";
             exit(1);
         }
     }
 
-    if (cache_sim.remaining_sim_refs() != 0) {
-        std::cerr << "drcachesim unit_test_sim_refs failed\n";
+    if (!cache_sim.is_warmed_up()) {
+        std::cerr << "drcachesim unit_test_warmup_refs failed\n";
         exit(1);
     }
 }
@@ -187,6 +270,7 @@ unit_test_metrics_API()
     ref.data.type = TRACE_TYPE_WRITE;
     ref.data.addr = 0;
     ref.data.size = 8;
+    ref.data.tid = MY_TID;
 
     // Currently invalidates are not counted properly in the configuration of
     // cache_simulator_t with cache_simulator_knobs_t.
@@ -258,6 +342,7 @@ unit_test_compulsory_misses()
     memref_t ref;
     ref.data.type = TRACE_TYPE_INSTR;
     ref.data.size = 8;
+    ref.data.tid = MY_TID;
 
     for (int i = 0; i < 5; i++) {
         ref.data.addr = i * 64;
@@ -419,6 +504,7 @@ LLC {
     memref_t ref;
     ref.data.type = TRACE_TYPE_READ;
     ref.data.size = 1;
+    ref.data.tid = MY_TID;
 
     // We perform a bunch of accesses to the same cache line to ensure they hit.
     const int num_accesses = 16;
@@ -895,6 +981,7 @@ generate_2D_accesses(cache_t &cache, addr_t start_address, int step_size_a,
         memref_t ref;
         ref.data.type = TRACE_TYPE_READ;
         ref.data.size = 4;
+        ref.data.tid = MY_TID;
         for (int step_a = 0; step_a < step_count_a; ++step_a) {
             for (int step_b = 0; step_b < step_count_b; ++step_b) {
                 addr_t addr = start_address + step_a * step_size_a + step_b * step_size_b;
@@ -1286,6 +1373,7 @@ test_main(int argc, const char *argv[])
     unit_test_warmup_fraction();
     unit_test_warmup_refs();
     unit_test_sim_refs();
+    unit_test_skip_refs();
     unit_test_child_hits();
     unit_test_cache_replacement_policy();
     unit_test_core_sharded();

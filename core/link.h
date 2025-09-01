@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -252,7 +252,7 @@ typedef struct _post_linkstub_t {
      */
     ushort fragment_offset;
     /* We force the compiler to maintain our 4-byte-alignment for heap allocations.
-     * FIXME: should we support un-aligned in non-special heaps?
+     * XXX: should we support un-aligned in non-special heaps?
      * or could use special heap if we really wanted to save this 2 bytes.
      * also see case 6518 for a way to use this for Traces.
      */

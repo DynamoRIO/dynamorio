@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,6 +47,8 @@
 #include "os_private.h" /* ASM_XAX */
 #if defined(ARM) && defined(LINUX)
 #    include "include/syscall.h" /* SYS_set_tls */
+#elif defined(AARCH64) && defined(MACOS)
+#    include "include/syscall_mach.h" /* MACHDEP_thread_set_tsd */
 #endif
 
 /* We support 3 different methods of creating a segment (see os_tls_init()) */
@@ -132,7 +134,7 @@ read_thread_register(reg_id_t reg)
 #ifdef DR_HOST_NOT_TARGET
     ptr_uint_t sel = 0;
     ASSERT_NOT_REACHED();
-#elif defined(MACOS64) && !defined(AARCH64)
+#elif defined(MACOS64) && defined(X86)
     ptr_uint_t sel;
     if (reg == SEG_GS) {
         asm volatile("mov %%gs:%1, %0" : "=r"(sel) : "m"(*(void **)0));
@@ -189,7 +191,7 @@ read_thread_register(reg_id_t reg)
     if (reg == DR_REG_TP) {
         asm volatile("mv %0, tp" : "=r"(sel));
     } else if (reg == DR_REG_INVALID) {
-        /* FIXME i#3544: SEG_TLS is not used. See os_exports.h */
+        /* XXX i#3544: SEG_TLS is not used. See os_exports.h */
         return 0;
     } else {
         ASSERT_NOT_REACHED();
@@ -202,6 +204,7 @@ read_thread_register(reg_id_t reg)
 }
 
 #if defined(AARCHXX) || defined(RISCV64)
+
 static inline bool
 write_thread_register(void *val)
 {
@@ -209,7 +212,11 @@ write_thread_register(void *val)
     ASSERT_NOT_REACHED();
     return false;
 #    elif defined(AARCH64)
+#        ifdef MACOS
+    dynamorio_mach_dep_syscall(MACHDEP_thread_set_tsd, 1, val);
+#        else
     asm volatile("msr " IF_MACOS_ELSE("tpidrro_el0", "tpidr_el0") ", %0" : : "r"(val));
+#        endif
     return true;
 #    elif defined(RISCV64)
     asm volatile("mv tp, %0" : : "r"(val));
@@ -284,7 +291,7 @@ typedef struct _os_local_state_t {
     void *app_lib_tls_base; /* for mangling segmented memory ref */
     void *app_alt_tls_base; /* for mangling segmented memory ref */
 
-/* FIXME i#3990: For MACOS, we use a union to save tls space. Unfortunately, this
+/* XXX i#3990: For MACOS, we use a union to save tls space. Unfortunately, this
  * results in not initialising client tls slots which are allocated using
  * dr_raw_tls_calloc. Figuring where to perform memset to clear os_seg_info is not
  * apparently clear due to interleaved thread and instrum inits.
@@ -322,7 +329,7 @@ byte **
 get_dr_tls_base_addr(void);
 #endif
 
-#ifdef MACOS64
+#if defined(MACOS64) && defined(X86)
 void
 tls_process_init(void);
 

@@ -89,7 +89,7 @@ hotp_inject(dcontext_t *dcontext, instrlist_t *ilist);
  * the image and the other one to just check it (bool just_check).  just_check
  * is used only in hotp_only mode to find out if a dll being loaded needs
  * patching.
- * FIXME: have another wrapper for just_check case; keeps it clean.
+ * XXX: have another wrapper for just_check case; keeps it clean.
  */
 void
 hotp_process_image(const app_pc base, const bool loaded, const bool own_hot_patch_lock,

@@ -271,9 +271,15 @@ for (my $i = 0; $i <= $#lines; ++$i) {
         my %ignore_failures_64 = ();
         my %ignore_failures_sve = ();
         if ($is_cygwin || $is_non_cygwin_windows) {
-            # FIXME i#2145: ignoring certain Windows CI test failures until
+            # XXX i#2145: ignoring certain Windows CI test failures until
             # we get all tests passing.
             %ignore_failures_32 = (
+                # i#7529: New failures on GA Server22.
+                'code_api,thread_private,disable_traces|client.events' => 1, # i#7529
+                'code_api,thread_private|client.events' => 1, # i#7529
+                'code_api|client.dr_options' => 1, # i#7529
+                'code_api|client.drbbdup-thread-private-test' => 1, # i#7529
+                'code_api|client.fcache_shift' => 1, # i#7529
                 # i#5195: These are failing on GA Server19.
                 'code_api|client.drsyms-test' => 1, # i#5195
                 # i#4131: These are failing on GA Server16 and need investigation.
@@ -315,6 +321,25 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 );
 
             %ignore_failures_64 = (
+                # i#7529: New failures on GA Server22.
+                'code_api|client.annotation-detection' => 1, # i#7529
+                'code_api|client.annotation-detection-opt' => 1, # i#7529
+                'code_api|client.annotation-detection.bb-truncate-1' => 1, # i#7529
+                'code_api|client.annotation-detection.bb-truncate-2' => 1, # i#7529
+                'code_api|client.annotation-detection.full-decode' => 1, # i#7529
+                'code_api|client.annotation-detection.full-decode.tiny-bb' => 1, # i#7529
+                'code_api|client.drwrap-test' => 1, # i#7529
+                'code_api|client.execfault' => 1, # i#7529
+                'code_api|client.float_vmbase' => 1, # i#7529
+                'code_api|client.winxfer' => 1, # i#7529
+                'code_api|float_vmbase' => 1, # i#7529
+                'code_api|low4GB' => 1, # i#7529
+                'code_api|security-common.selfmod' => 1, # i#7529
+                'code_api|tool.drcacheoff.basic_counts' => 1, # i#7529
+                'code_api|tool.drcacheoff.gencode' => 1, # i#7529
+                'code_api|tool.drcacheoff.gencode_filtered' => 1, # i#7529
+                'code_api|tool.drcpusim.simple' => 1, # i#7529
+                'code_api|win32.winapc' => 1, # i#7529
                 # i#5195: These are failing on GA Server19.
                 'code_api|client.drsyms-test' => 1, # i#5195
                 'code_api|client.drsyms-testgcc' => 1, # i#5195
@@ -388,7 +413,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             }
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
-            # FIXME i#2416: fix flaky AArch32 tests
+            # XXX i#2416: fix flaky AArch32 tests
             %ignore_failures_32 = ('code_api|tool.histogram.offline' => 1,
                                    'code_api|linux.eintr-noinline' => 1, # i#2894
                                    'code_api|pthreads.ptsig' => 1,
@@ -401,7 +426,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcacheoff.simple' => 1,
                                    'code_api|tool.histogram.gzip' => 1,
                                    );
-            # FIXME i#2417: fix flaky/regressed AArch64 tests
+            # XXX i#2417: fix flaky/regressed AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
                                    'code_api|linux.thread-reset' => 1, # i#6741
                                    'code_api|pthreads.pthreads_exit' => 1,
@@ -413,7 +438,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcacheoff.rseq' => 1, # i#5734
                                    'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
                                    );
-            # FIXME i#5365: fix flaky AArch64 tests running on SVE hardware.
+            # XXX i#5365: fix flaky AArch64 tests running on SVE hardware.
             # Note that apart from tool.drcachesim.scattergather-aarch64, these
             # have NOT been built with SVE compiler options and are seen to
             # fail intermittently on SVE hardware.
@@ -472,7 +497,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
                 'code_api|linux.thread-reset' => 1, # i#4604
                 'code_api|linux.clone-reset' => 1, # i#4604
-                'code_api|client.detach_test' => 1, # i#6764
+                'code_api|client.detach_test' => 1, # i#7576
+                'code_api|sample.callstack' => 1, # i#7394
                 # These are from the long suite.
                 'common.decode-stress' => 1, # i#1807 Ignored for all options.
                 'code_api,opt_speed|common.fib' => 1, # i#1807: Undiagnosed timeout.
@@ -486,6 +512,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             %ignore_failures_64 = (
                 'code_api|api.rseq' => 1, # i#6185 i#1807
                 'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
+                'code_api|client.attach-memory-dump-syscall-test' => 1, # i#7552
                 'code_api|client.attach_test' => 1, # i#6452
                 'code_api|client.detach_test' => 1, # i#6536
                 # These are from the long suite.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -76,12 +76,12 @@ dr_init(client_id_t id)
         0,
     };
     drmgr_init();
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
     if (drsys_init(id, &ops) != DRMF_SUCCESS)
         DR_ASSERT(false);
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 #ifdef WINDOWS
     dr_enable_console_printing(); /* ensure output shows up in cmd */
 #endif

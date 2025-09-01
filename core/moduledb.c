@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -76,7 +76,7 @@ moduledb_add_to_exempt_list(char *list, const char *name)
 static char *
 moduledb_remove_from_exempt_list(char *list, const char *name)
 {
-    /* FIXME - does nothing, worry is if enough unique names are added to the
+    /* XXX - does nothing, worry is if enough unique names are added to the
      * list it could use a substantial amt of memory and take a while to walk
      * (though note we won't get duplicate entries in module churn situations)
      * or we could an get an accidental name collision with a later module. */
@@ -143,10 +143,10 @@ void
 moduledb_report_exemption(const char *fmt, app_pc addr1, app_pc addr2, const char *name)
 {
     ASSERT(exemption_lists != NULL);
-    /* FIXME - need a release version of this */
-    /* FIXME - should these respect some MODULEDB_REPORT flag? */
+    /* XXX - need a release version of this */
+    /* XXX - should these respect some MODULEDB_REPORT flag? */
     DODEBUG({
-        /* FIXME - would be nice to only report unique module names per type. */
+        /* XXX - would be nice to only report unique module names per type. */
         DO_THRESHOLD_SAFE(DYNAMO_OPTION(moduledb_exemptions_report_max),
                           FREQ_PROTECTED_SECTION,
                           {
@@ -187,7 +187,7 @@ moduledb_process_image(const char *name, app_pc base, bool add)
         LOG(GLOBAL, LOG_MODULEDB, 1,
             "Found module \"%s\" from allowlisted company \"%s\"\n",
             name == NULL ? "no-name" : name, company_name);
-        /* FIXME - not all of our modules have the Company name
+        /* XXX - not all of our modules have the Company name
          * field set (drpreinject & liveshields don't), need to avoid
          * relaxing for those. Should add version info and also check
          * nodgemgr and our other tools etc.  xref case 8723 */
@@ -195,11 +195,11 @@ moduledb_process_image(const char *name, app_pc base, bool add)
     if (relax) {
         if (name == NULL || *name == '\0') {
             if (add) {
-                /* FIXME - not able to relax for these nameless dlls, there shouldn't be
+                /* XXX - not able to relax for these nameless dlls, there shouldn't be
                  * too many of these once we also fall back to the version original
                  * filename for modules with no exports and we'll eventually exempt by
                  * area in the modules list instead of by name anyways. */
-                /* FIXME - would be nice to use get_module_name to get the filename of
+                /* XXX - would be nice to use get_module_name to get the filename of
                  * the module at least, but this a bad time w/respect to the loader to
                  * be walking the lists. */
                 SYSLOG_INTERNAL_WARNING("Unable to relax for nameless unknown module "
@@ -211,12 +211,12 @@ moduledb_process_image(const char *name, app_pc base, bool add)
             /* process the relaxations */
             moduledb_process_relaxation_flags(DYNAMO_OPTION(unknown_module_policy), name,
                                               add);
-            /* FIXME - prob. too noisy, on my machine there are
+            /* XXX - prob. too noisy, on my machine there are
              * usually 5 of these per process, two for logitech mouse hook
              * dlls, 1 for drpreinject and 2 for Norton av. */
             if (add &&
                 TEST(MODULEDB_REPORT_ON_LOAD, DYNAMO_OPTION(unknown_module_policy))) {
-                /* FIXME - will prob. need a release version of this */
+                /* XXX - will prob. need a release version of this */
                 DODEBUG({
                     DO_THRESHOLD_SAFE(DYNAMO_OPTION(unknown_module_load_report_max),
                                       FREQ_PROTECTED_SECTION,
@@ -398,7 +398,7 @@ process_control_match(const char *md5_hash,
      * that anyone will exceed it even for anonymous hashes.  If they do then
      * process control will be disabled, i.e., no enforcement will be done.
      * Case 9252.  BTW, the +1 is for the delimiting ';'.
-     * FIXME: when we read md5 from a file this should go.
+     * XXX: when we read md5 from a file this should go.
      */
     uint list_size = DYNAMO_OPTION(pc_num_hashes) * (MD5_STRING_LENGTH + 1);
 
@@ -424,7 +424,7 @@ process_control_match(const char *md5_hash,
             ret_val = PROCESS_CONTROL_NOT_MATCHED;
         }
 
-        /* FIXME: Anonymous hashes should be in a global registry key and app
+        /* XXX: Anonymous hashes should be in a global registry key and app
          * specific hashes in app specific keys.  Though there is the facility
          * to do otherwise, we should restrict them because combinations
          * like app specific anonymous hashes don't make sense.  But how to?
@@ -625,7 +625,7 @@ process_control(void)
     bool is_black, is_white, is_white_intg;
 
     if (strlen(md5_hash) != MD5_STRING_LENGTH) {
-        /* FIXME: what to do if we couldn't get md5 for the current process?
+        /* XXX: what to do if we couldn't get md5 for the current process?
          * today the default is to ignore and keep going, but is that ok?
          * should ev be notified?
          */

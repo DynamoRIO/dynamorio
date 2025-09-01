@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1625,7 +1625,7 @@
  */
 #define INSTR_CREATE_inc(dc, d) instr_create_1dst_1src((dc), OP_inc, (d), (d))
 #define INSTR_CREATE_dec(dc, d) instr_create_1dst_1src((dc), OP_dec, (d), (d))
-/* FIXME: check that d is a 32-bit reg? */
+/* XXX: check that d is a 32-bit reg? */
 #define INSTR_CREATE_bswap(dc, d) instr_create_1dst_1src((dc), OP_bswap, (d), (d))
 #define INSTR_CREATE_not(dc, d) instr_create_1dst_1src((dc), OP_not, (d), (d))
 #define INSTR_CREATE_neg(dc, d) instr_create_1dst_1src((dc), OP_neg, (d), (d))
@@ -1798,7 +1798,7 @@
 #define INSTR_CREATE_fld1(dc)                                          \
     instr_create_1dst_1src((dc), OP_fld1, opnd_create_reg(DR_REG_ST0), \
                            opnd_create_immed_float(1.0f))
-/* FIXME: do we really want these constants here? Should they be floats or doubles? */
+/* XXX: do we really want these constants here? Should they be floats or doubles? */
 #define INSTR_CREATE_fldl2t(dc)                                          \
     instr_create_1dst_1src((dc), OP_fldl2t, opnd_create_reg(DR_REG_ST0), \
                            opnd_create_immed_float((float)M_LN10 / (float)M_LN2))

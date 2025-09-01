@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -85,7 +85,7 @@ wnd_callback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                                       !is_wow64(GetCurrentProcess()));
 #    endif
             if (!cross_cb_seh_supported) {
-                /* FIXME i#266: even natively this exception is not making it across
+                /* XXX i#266: even natively this exception is not making it across
                  * the callback boundary!  Is that a fundamental limitation of the
                  * overly-structured SEH64?  32-bit SEH has no problem.  Neither does
                  * WOW64, except on win7+.

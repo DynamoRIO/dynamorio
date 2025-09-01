@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,7 @@
 void
 optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 

@@ -1,0 +1,1146 @@
+/* **********************************************************
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/* DynamoRio eXtension Time and Timer Scaling. */
+
+#include "dr_api.h"
+#include "drx.h"
+#include "drmgr.h"
+#include "../ext_utils.h"
+
+#include <errno.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#ifdef UNIX
+#    ifdef LINUX
+#        include "../../core/unix/include/syscall.h"
+#        include <linux/futex.h>
+/* This is a recent Linux Priority Inheritance futex operation with clock control not
+ * present in the headers on some of our test machines so we define it here if missing.
+ */
+#        ifndef FUTEX_LOCK_PI2
+#            define FUTEX_LOCK_PI2 13
+#        endif
+#    else
+#        error Non-Linux not yet supported
+#        include <sys/syscall.h>
+#    endif
+#    include <sys/epoll.h>
+#    include <sys/time.h>
+#else
+#    error Non-UNIX not supported
+#endif
+
+#ifdef DEBUG
+static uint verbose = 1;
+#    define NOTIFY(level, ...)                   \
+        do {                                     \
+            if (verbose >= (level)) {            \
+                dr_fprintf(STDERR, __VA_ARGS__); \
+            }                                    \
+        } while (0)
+#else
+#    define NOTIFY(...) /* nothing */
+#endif
+
+#ifndef X64
+/* This is not in public headers as it's hidden inside glibc.
+ * The 32-bit-build struct timespec has 32-bit fields; this provides 64-bit
+ * so the seconds can go beyond the year 2038.
+ * (The 64-bit-build struct timespec has 64-bit fields.)
+ * XXX: If this were C++ we could templatize and share code to avoid all this
+ * duplication of identical code.  We could do header inclusion with macros
+ * in C but that seems overkill for this amount of code.
+ */
+typedef struct _timespec64_t {
+    int64 tv_sec;
+    int64 tv_nsec;
+} timespec64_t;
+
+/* The 32-bit structure has a 32-bit int for seconds, and there is a flag to
+ * specify an absolute time, which means it can't reach past 2038: so Linux
+ * added a new data struct and new syscalls so 32-bit can use 64-bit values for
+ * the seconds. That data structure is not easily found in public headers so we
+ * define it ourselves to use with the 64-variant syscalls in 32-bit.
+ */
+typedef struct _itimerspec64_t {
+    timespec64_t it_interval;
+    timespec64_t it_value;
+} itimerspec64_t;
+#endif
+
+typedef struct _per_thread_t {
+    struct itimerspec itimer_spec;
+#ifndef X64
+    itimerspec64_t itimer_spec64;
+#endif
+    struct itimerval itimer_val;
+    struct timespec time_spec;
+#ifndef X64
+    timespec64_t time_spec64;
+#endif
+    void *app_read_timer_param;
+    void *app_set_timer_param;
+    bool was_zero;
+    int app_op;
+} per_thread_t;
+
+/* Globals only written at init time. */
+static int tls_idx;
+static drx_time_scale_t scale_options;
+
+/* Globals accessed via DR atomics. */
+static int init_count;
+static drx_time_scale_stat_t stats[DRX_SCALE_STAT_TYPES];
+
+static const int MAX_TV_NSEC = 1000000000ULL;
+static const int MAX_TV_USEC = 1000000ULL;
+
+/* Rather than not scaling a sleep or timeout of 0 where a 0 value is not a nop
+ * and does incur a switch we change it to a small non-0 value (10us, chosen so
+ * drmemtrace's 50x scale hits its scheduler's blocking_switch_threshold) which
+ * will then be scaled.
+ */
+static const int ZERO_PRE_INFLATE_NSEC = 10000ULL;
+
+static inline void
+increment_attempt(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_attempted, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_attempted, 1);
+#endif
+}
+
+static inline void
+increment_failure(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_failed, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_failed, 1);
+#endif
+}
+
+static inline void
+increment_convert_zero(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_zero_to_nonzero, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_zero_to_nonzero, 1);
+#endif
+}
+
+static inline void
+increment_attempt_and_failure(drx_time_scale_type_t type)
+{
+    increment_attempt(type);
+    increment_failure(type);
+}
+
+static inline void
+increment_nop(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_nop, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_nop, 1);
+#endif
+}
+
+static inline void
+increment_attempt_and_nop(drx_time_scale_type_t type)
+{
+    increment_attempt(type);
+    increment_nop(type);
+}
+
+static inline bool
+is_timespec_zero(struct timespec *spec)
+{
+    return spec->tv_sec == 0 && spec->tv_nsec == 0;
+}
+
+#ifndef X64
+static inline bool
+is_timespec64_zero(timespec64_t *spec)
+{
+    return spec->tv_sec == 0 && spec->tv_nsec == 0;
+}
+#endif
+
+static inline bool
+is_timeval_zero(struct timeval *val)
+{
+    return val->tv_sec == 0 && val->tv_usec == 0;
+}
+
+static inline int64_t
+timespec_to_nanos(struct timespec *spec)
+{
+    return (int64_t)spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
+}
+
+static inline void
+nanos_to_timespec(int64_t nanos, struct timespec *spec)
+{
+    spec->tv_sec = nanos / MAX_TV_NSEC;
+    spec->tv_nsec = nanos % MAX_TV_NSEC;
+}
+
+static void
+inflate_timespec(void *drcontext, struct timespec *spec, int scale,
+                 drx_time_scale_type_t type)
+{
+    NOTIFY(2, "T" TIDFMT "  Original time %" SSZFC ".%.12" SSZFC "\n",
+           dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
+    increment_attempt(type);
+    if (is_timespec_zero(spec) || scale == 1) {
+        increment_nop(type);
+        return;
+    }
+    spec->tv_nsec *= scale;
+    spec->tv_sec *= scale;
+    spec->tv_sec += spec->tv_nsec / MAX_TV_NSEC;
+    spec->tv_nsec = spec->tv_nsec % MAX_TV_NSEC;
+    NOTIFY(2, "T" TIDFMT " Inflated time by %dx: now %" SSZFC ".%.12" SSZFC "\n",
+           dr_get_thread_id(drcontext), scale, spec->tv_sec, spec->tv_nsec);
+}
+
+static bool
+inflate_absolute_timespec(void *drcontext, struct timespec *spec, int scale,
+                          drx_time_scale_type_t type, bool realtime)
+{
+    /* First, convert to relative. */
+    struct timespec cur_time;
+    int res =
+        dr_invoke_syscall_as_app(drcontext, SYS_clock_gettime, 2,
+                                 realtime ? CLOCK_REALTIME : CLOCK_MONOTONIC, &cur_time);
+    if (res != 0) {
+        NOTIFY(0, "Failed to call clock_gettime\n");
+        increment_attempt_and_failure(type);
+        return false;
+    }
+    int64_t cur_nanos = timespec_to_nanos(&cur_time);
+    int64_t target_nanos = timespec_to_nanos(spec);
+    int64_t diff_nanos = target_nanos < cur_nanos ? 0 : target_nanos - cur_nanos;
+    if (diff_nanos == 0) {
+        diff_nanos = ZERO_PRE_INFLATE_NSEC;
+        increment_convert_zero(type);
+    }
+    struct timespec rel;
+    rel.tv_sec = diff_nanos / MAX_TV_NSEC;
+    rel.tv_nsec = diff_nanos % MAX_TV_NSEC;
+    /* Now inflate the relative. */
+    inflate_timespec(drcontext, &rel, scale, type);
+    /* Now convert back to absolute. */
+    int64_t scaled_diff_nanos = timespec_to_nanos(&rel);
+    int64_t scaled_target_nanos = cur_nanos + scaled_diff_nanos;
+    nanos_to_timespec(scaled_target_nanos, spec);
+    return true;
+}
+
+#ifndef X64
+static void
+inflate_timespec64(void *drcontext, timespec64_t *spec, int scale,
+                   drx_time_scale_type_t type)
+{
+    NOTIFY(2,
+           "T" TIDFMT "  Original time %" INT64_FORMAT_CODE ".%.12" INT64_FORMAT_CODE
+           "\n",
+           dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
+    increment_attempt(type);
+    if (is_timespec64_zero(spec) || scale == 1) {
+        increment_nop(type);
+        return;
+    }
+    spec->tv_nsec *= scale;
+    spec->tv_sec *= scale;
+    spec->tv_sec += spec->tv_nsec / MAX_TV_NSEC;
+    spec->tv_nsec = spec->tv_nsec % MAX_TV_NSEC;
+    NOTIFY(2,
+           "T" TIDFMT " Inflated time by %dx: now %" INT64_FORMAT_CODE
+           ".%.12" INT64_FORMAT_CODE "\n",
+           dr_get_thread_id(drcontext), scale, spec->tv_sec, spec->tv_nsec);
+}
+#endif
+
+static void
+deflate_timespec(void *drcontext, struct timespec *spec, int scale)
+{
+    if (is_timespec_zero(spec) || scale == 1)
+        return;
+    spec->tv_nsec /= scale;
+    spec->tv_nsec += (spec->tv_sec % MAX_TV_NSEC) * MAX_TV_NSEC / scale;
+    spec->tv_sec /= scale;
+    NOTIFY(2, "T" TIDFMT "  Deflated time by %dx: now %" SSZFC ".%.12" SSZFC "\n",
+           dr_get_thread_id(drcontext), scale, spec->tv_sec, spec->tv_nsec);
+}
+
+#ifndef X64
+static void
+deflate_timespec64(void *drcontext, timespec64_t *spec, int scale)
+{
+    if (is_timespec64_zero(spec) || scale == 1)
+        return;
+    spec->tv_nsec /= scale;
+    spec->tv_nsec += (spec->tv_sec % MAX_TV_NSEC) * MAX_TV_NSEC / scale;
+    spec->tv_sec /= scale;
+    NOTIFY(2,
+           "T" TIDFMT "  Deflated time by %dx: now %" INT64_FORMAT_CODE
+           ".%.12" INT64_FORMAT_CODE "\n",
+           dr_get_thread_id(drcontext), scale, spec->tv_sec, spec->tv_nsec);
+}
+#endif
+
+static void
+inflate_timeval(void *drcontext, struct timeval *val, int scale,
+                drx_time_scale_type_t type)
+{
+    NOTIFY(2, "T" TIDFMT "  Original time %" SSZFC ".%.9" SSZFC "\n",
+           dr_get_thread_id(drcontext), val->tv_sec, val->tv_usec);
+    increment_attempt(type);
+    if (is_timeval_zero(val) || scale == 1) {
+        increment_nop(type);
+        return;
+    }
+    val->tv_usec *= scale;
+    val->tv_sec *= scale;
+    val->tv_sec += val->tv_usec / MAX_TV_USEC;
+    val->tv_usec = val->tv_usec % MAX_TV_USEC;
+    NOTIFY(2, "T" TIDFMT "  Inflated time by %dx: now %" SSZFC ".%.9" SSZFC "\n",
+           dr_get_thread_id(drcontext), scale, val->tv_sec, val->tv_usec);
+}
+
+static void
+deflate_timeval(void *drcontext, struct timeval *val, int scale)
+{
+    if (is_timeval_zero(val))
+        return;
+    val->tv_usec /= scale;
+    val->tv_usec += (val->tv_sec % MAX_TV_USEC) * MAX_TV_USEC / scale;
+    val->tv_sec /= scale;
+    NOTIFY(2, "T" TIDFMT "  Deflated time by %dx: now %" SSZFC ".%.9" SSZFC "\n",
+           dr_get_thread_id(drcontext), scale, val->tv_sec, val->tv_usec);
+}
+
+static void
+event_thread_init(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(per_thread_t));
+    DR_ASSERT(data != NULL);
+    memset(data, 0, sizeof(*data));
+    drmgr_set_tls_field(drcontext, tls_idx, data);
+}
+
+static void
+event_thread_exit(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    dr_thread_free(drcontext, data, sizeof(per_thread_t));
+}
+
+static bool
+event_filter_syscall(void *drcontext, int sysnum)
+{
+    switch (sysnum) {
+    case SYS_timer_settime:
+    case SYS_timer_gettime:
+#ifndef X64
+    case SYS_timer_gettime64:
+    case SYS_timer_settime64:
+    case SYS_clock_nanosleep_time64:
+#endif
+    case SYS_setitimer:
+    case SYS_getitimer:
+    case SYS_nanosleep:
+    case SYS_clock_nanosleep:
+    case SYS_futex:
+#ifdef SYS_epoll_wait // Not on aarch64.
+    case SYS_epoll_wait:
+#endif
+    case SYS_epoll_pwait:
+    case SYS_epoll_pwait2: return true;
+    }
+    return false;
+}
+
+static inline bool
+futex_operation_takes_timeout(int op)
+{
+    return op == FUTEX_WAIT || op == FUTEX_WAIT_BITSET || op == FUTEX_LOCK_PI ||
+        op == FUTEX_LOCK_PI2 || op == FUTEX_WAIT_REQUEUE_PI;
+}
+
+static bool
+event_pre_syscall(void *drcontext, int sysnum)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    switch (sysnum) {
+    case SYS_timer_settime: {
+        int flags = (int)dr_syscall_get_param(drcontext, 1);
+        struct itimerspec *new_spec =
+            (struct itimerspec *)dr_syscall_get_param(drcontext, 2);
+        struct itimerspec *old_spec =
+            (struct itimerspec *)dr_syscall_get_param(drcontext, 3);
+        NOTIFY(2, "T" TIDFMT " timer_settime flags=%d, old=%p, new=%p\n",
+               dr_get_thread_id(drcontext), flags, new_spec, old_spec);
+        data->app_set_timer_param = new_spec;
+        data->app_read_timer_param = old_spec;
+        if (TEST(TIMER_ABSTIME, flags)) {
+            /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
+            NOTIFY(0, "Absolute time is not supported\n");
+            data->app_read_timer_param = NULL; /* Don't scale in post. */
+            increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
+            return true;
+        }
+        size_t wrote;
+        if (dr_safe_read(new_spec, sizeof(data->itimer_spec), &data->itimer_spec,
+                         &wrote) &&
+            wrote == sizeof(data->itimer_spec)) {
+            inflate_timespec(drcontext, &data->itimer_spec.it_interval,
+                             scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
+            inflate_timespec(drcontext, &data->itimer_spec.it_value,
+                             scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
+            dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
+        break;
+    }
+#ifndef X64
+    case SYS_timer_settime64: {
+        int flags = (int)dr_syscall_get_param(drcontext, 1);
+        itimerspec64_t *new_spec = (itimerspec64_t *)dr_syscall_get_param(drcontext, 2);
+        itimerspec64_t *old_spec = (itimerspec64_t *)dr_syscall_get_param(drcontext, 3);
+        NOTIFY(2, "T" TIDFMT " timer_settime64 flags=%d, old=%p, new=%p\n",
+               dr_get_thread_id(drcontext), flags, new_spec, old_spec);
+        data->app_set_timer_param = new_spec;
+        data->app_read_timer_param = old_spec;
+        if (TEST(TIMER_ABSTIME, flags)) {
+            /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
+            NOTIFY(0, "Absolute time is not supported\n");
+            data->app_read_timer_param = NULL; /* Don't scale in post. */
+            increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
+            return true;
+        }
+        size_t wrote;
+        if (dr_safe_read(new_spec, sizeof(data->itimer_spec64), &data->itimer_spec64,
+                         &wrote) &&
+            wrote == sizeof(data->itimer_spec64)) {
+            inflate_timespec64(drcontext, &data->itimer_spec64.it_interval,
+                               scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
+            inflate_timespec64(drcontext, &data->itimer_spec64.it_value,
+                               scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
+            dr_syscall_set_param(drcontext, 2, (reg_t)&data->itimer_spec64);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
+        break;
+    }
+#endif
+    case SYS_timer_gettime:
+        NOTIFY(2, "T" TIDFMT " timer_gettime\n", dr_get_thread_id(drcontext));
+        data->app_read_timer_param = (void *)dr_syscall_get_param(drcontext, 1);
+        break;
+#ifndef X64
+    case SYS_timer_gettime64:
+        NOTIFY(2, "T" TIDFMT " timer_gettime64\n", dr_get_thread_id(drcontext));
+        data->app_read_timer_param = (void *)dr_syscall_get_param(drcontext, 1);
+        break;
+#endif
+    case SYS_setitimer: {
+        NOTIFY(2, "T" TIDFMT " setitimer\n", dr_get_thread_id(drcontext));
+        struct itimerval *new_val =
+            (struct itimerval *)dr_syscall_get_param(drcontext, 1);
+        struct itimerval *old_val =
+            (struct itimerval *)dr_syscall_get_param(drcontext, 2);
+        data->app_set_timer_param = new_val;
+        data->app_read_timer_param = old_val;
+        size_t wrote;
+        if (dr_safe_read(new_val, sizeof(data->itimer_val), &data->itimer_val, &wrote) &&
+            wrote == sizeof(data->itimer_val)) {
+            inflate_timeval(drcontext, &data->itimer_val.it_interval,
+                            scale_options.timer_scale, DRX_SCALE_ITIMER);
+            inflate_timeval(drcontext, &data->itimer_val.it_value,
+                            scale_options.timer_scale, DRX_SCALE_ITIMER);
+            dr_syscall_set_param(drcontext, 1, (reg_t)&data->itimer_val);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_ITIMER);
+        break;
+    }
+    case SYS_getitimer:
+        NOTIFY(2, "T" TIDFMT " getitimer\n", dr_get_thread_id(drcontext));
+        data->app_read_timer_param = (void *)dr_syscall_get_param(drcontext, 1);
+        break;
+    case SYS_nanosleep: {
+        struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 0);
+        struct timespec *remain = (struct timespec *)dr_syscall_get_param(drcontext, 1);
+        NOTIFY(2, "T" TIDFMT " nanosleep time=%p, remaim=%p\n",
+               dr_get_thread_id(drcontext), spec, remain);
+        data->app_set_timer_param = spec;
+        data->app_read_timer_param = remain;
+        data->was_zero = false;
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
+            wrote == sizeof(data->time_spec)) {
+            if (is_timespec_zero(&data->time_spec)) {
+                data->was_zero = true;
+                data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                increment_convert_zero(DRX_SCALE_SLEEP);
+            }
+            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                             DRX_SCALE_SLEEP);
+            dr_syscall_set_param(drcontext, 0, (reg_t)&data->time_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
+        break;
+    }
+    case SYS_clock_nanosleep: {
+        int flags = (int)dr_syscall_get_param(drcontext, 1);
+        struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 2);
+        struct timespec *remain = (struct timespec *)dr_syscall_get_param(drcontext, 3);
+        NOTIFY(2, "T" TIDFMT " clock_nanosleep flags=%d, time=%p, remaim=%p\n",
+               dr_get_thread_id(drcontext), flags, spec, remain);
+        data->app_set_timer_param = spec;
+        data->app_read_timer_param = remain;
+        data->was_zero = false;
+        if (TEST(TIMER_ABSTIME, flags)) {
+            /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
+            NOTIFY(0, "Absolute time is not supported\n");
+            data->app_read_timer_param = NULL; /* Don't scale in post. */
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
+            return true;
+        }
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
+            wrote == sizeof(data->time_spec)) {
+            if (is_timespec_zero(&data->time_spec)) {
+                data->was_zero = true;
+                data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                increment_convert_zero(DRX_SCALE_SLEEP);
+            }
+            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                             DRX_SCALE_SLEEP);
+            dr_syscall_set_param(drcontext, 2, (reg_t)&data->time_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
+        break;
+    }
+#ifndef X64
+    case SYS_clock_nanosleep_time64: {
+        int flags = (int)dr_syscall_get_param(drcontext, 1);
+        timespec64_t *spec = (timespec64_t *)dr_syscall_get_param(drcontext, 2);
+        timespec64_t *remain = (timespec64_t *)dr_syscall_get_param(drcontext, 3);
+        NOTIFY(2, "T" TIDFMT " clock_nanosleep_time64 flags=%d, time=%p, remaim=%p\n",
+               dr_get_thread_id(drcontext), flags, spec, remain);
+        data->app_set_timer_param = spec;
+        data->app_read_timer_param = remain;
+        data->was_zero = false;
+        if (TEST(TIMER_ABSTIME, flags)) {
+            /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
+            NOTIFY(0, "Absolute time is not supported\n");
+            data->app_read_timer_param = NULL; /* Don't scale in post. */
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
+            return true;
+        }
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec64), &data->time_spec64, &wrote) &&
+            wrote == sizeof(data->time_spec64)) {
+            if (is_timespec64_zero(&data->time_spec64)) {
+                data->was_zero = true;
+                data->time_spec64.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                increment_convert_zero(DRX_SCALE_SLEEP);
+            }
+            inflate_timespec64(drcontext, &data->time_spec64, scale_options.timeout_scale,
+                               DRX_SCALE_SLEEP);
+            dr_syscall_set_param(drcontext, 2, (reg_t)&data->time_spec64);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_SLEEP);
+        break;
+    }
+#endif
+    case SYS_futex: {
+        int flags = (int)dr_syscall_get_param(drcontext, 1);
+        int op = flags & FUTEX_CMD_MASK;
+        struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = spec;
+        data->app_op = op;
+        NOTIFY(2, "T" TIDFMT " futex op=%d, time=%p\n", dr_get_thread_id(drcontext), op,
+               spec);
+        if (spec == NULL || !futex_operation_takes_timeout(op)) {
+            /* The timeout parameter is ignored by the kernel. */
+            break;
+        }
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
+            wrote == sizeof(data->time_spec)) {
+            if (op == FUTEX_WAIT) {
+                /* The timeout is relative. */
+                if (is_timespec_zero(&data->time_spec)) {
+                    data->was_zero = true;
+                    data->time_spec.tv_nsec = ZERO_PRE_INFLATE_NSEC;
+                    increment_convert_zero(DRX_SCALE_FUTEX);
+                }
+                inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                                 DRX_SCALE_FUTEX);
+            } else {
+                /* The timeout is absolute via the realtime or monotonic clock. */
+                inflate_absolute_timespec(drcontext, &data->time_spec,
+                                          scale_options.timeout_scale, DRX_SCALE_FUTEX,
+                                          TESTANY(FUTEX_CLOCK_REALTIME, flags));
+            }
+            dr_syscall_set_param(drcontext, 3, (reg_t)&data->time_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_FUTEX);
+        break;
+    }
+#ifdef SYS_epoll_wait // Not on aarch64.
+    case SYS_epoll_wait:
+#endif
+    case SYS_epoll_pwait: {
+        int timeout_ms = (int)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = (void *)(ptr_int_t)timeout_ms;
+        NOTIFY(2, "T" TIDFMT " epoll_{,p}wait timeout=%d\n", dr_get_thread_id(drcontext),
+               timeout_ms);
+        if (timeout_ms == -1 || /* Infinite. */
+            timeout_ms == 0) {  /* Returns immediately. */
+            break;
+        }
+        timeout_ms *= scale_options.timeout_scale;
+        dr_syscall_set_param(drcontext, 3, (reg_t)timeout_ms);
+        increment_attempt(DRX_SCALE_EPOLL);
+        if (scale_options.timeout_scale == 1)
+            increment_nop(DRX_SCALE_EPOLL);
+        break;
+    }
+    case SYS_epoll_pwait2: {
+#ifdef X64
+        struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = spec;
+        NOTIFY(2, "T" TIDFMT " epoll_pwait2 time=%p %" SSZFC ".%.12" SSZFC "\n",
+               dr_get_thread_id(drcontext), spec, spec->tv_sec, spec->tv_nsec);
+        if (spec == NULL) /* Infinite. */
+            break;
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec), &data->time_spec, &wrote) &&
+            wrote == sizeof(data->time_spec)) {
+            if (is_timespec_zero(&data->time_spec)) {
+                /* Zero returns immediately. */
+                break;
+            }
+            inflate_timespec(drcontext, &data->time_spec, scale_options.timeout_scale,
+                             DRX_SCALE_EPOLL);
+            dr_syscall_set_param(drcontext, 3, (reg_t)&data->time_spec);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_EPOLL);
+#else
+        timespec64_t *spec = (timespec64_t *)dr_syscall_get_param(drcontext, 3);
+        data->app_set_timer_param = spec;
+        NOTIFY(2,
+               "T" TIDFMT " epoll_pwait2 time=%p %" INT64_FORMAT_CODE
+               ".%.12" INT64_FORMAT_CODE "\n",
+               dr_get_thread_id(drcontext), spec, spec->tv_sec, spec->tv_nsec);
+        if (spec == NULL) /* Infinite. */
+            break;
+        size_t wrote;
+        if (dr_safe_read(spec, sizeof(data->time_spec64), &data->time_spec64, &wrote) &&
+            wrote == sizeof(data->time_spec64)) {
+            if (is_timespec64_zero(&data->time_spec64)) {
+                /* Zero returns immediately. */
+                break;
+            }
+            inflate_timespec64(drcontext, &data->time_spec64, scale_options.timeout_scale,
+                               DRX_SCALE_EPOLL);
+            dr_syscall_set_param(drcontext, 3, (reg_t)&data->time_spec64);
+        } else
+            increment_attempt_and_failure(DRX_SCALE_EPOLL);
+#endif
+        break;
+    }
+    }
+    return true;
+}
+
+static void
+event_post_syscall(void *drcontext, int sysnum)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    dr_syscall_result_info_t info = {
+        sizeof(info),
+    };
+    info.use_errno = true;
+    if (!dr_syscall_get_result_ex(drcontext, &info))
+        NOTIFY(1, "Can't tell whether syscall %d failed\n", sysnum);
+    /* We need to pretend the actual value is the original un-inflated value. */
+    switch (sysnum) {
+    case SYS_timer_settime:
+        dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
+        /* Deliberate fallthrough. */
+    case SYS_timer_gettime: {
+        size_t wrote;
+        if (!info.succeeded) {
+            NOTIFY(1, "Syscall %d failed with %p: not scaling\n", sysnum, info.value);
+        } else if (data->app_read_timer_param != NULL &&
+                   dr_safe_read(data->app_read_timer_param, sizeof(data->itimer_spec),
+                                &data->itimer_spec, &wrote) &&
+                   wrote == sizeof(data->itimer_spec)) {
+            deflate_timespec(drcontext, &data->itimer_spec.it_interval,
+                             scale_options.timer_scale);
+            deflate_timespec(drcontext, &data->itimer_spec.it_value,
+                             scale_options.timer_scale);
+            if (!dr_safe_write(data->app_read_timer_param, sizeof(data->itimer_spec),
+                               &data->itimer_spec, &wrote) ||
+                wrote != sizeof(data->itimer_spec)) {
+                NOTIFY(0, "Failed to modify timer cur value\n");
+            }
+        }
+        break;
+    }
+#ifndef X64
+    case SYS_timer_settime64:
+        dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
+        /* Deliberate fallthrough. */
+    case SYS_timer_gettime64: {
+        size_t wrote;
+        if (!info.succeeded) {
+            NOTIFY(1, "Syscall %d failed with %p: not scaling\n", sysnum, info.value);
+        } else if (data->app_read_timer_param != NULL &&
+                   dr_safe_read(data->app_read_timer_param, sizeof(data->itimer_spec64),
+                                &data->itimer_spec64, &wrote) &&
+                   wrote == sizeof(data->itimer_spec64)) {
+            deflate_timespec64(drcontext, &data->itimer_spec64.it_interval,
+                               scale_options.timer_scale);
+            deflate_timespec64(drcontext, &data->itimer_spec64.it_value,
+                               scale_options.timer_scale);
+            if (!dr_safe_write(data->app_read_timer_param, sizeof(data->itimer_spec64),
+                               &data->itimer_spec64, &wrote) ||
+                wrote != sizeof(data->itimer_spec64)) {
+                NOTIFY(0, "Failed to modify timer cur value\n");
+            }
+        }
+        break;
+    }
+#endif
+    case SYS_setitimer:
+        dr_syscall_set_param(drcontext, 1, (reg_t)data->app_set_timer_param);
+        /* Deliberate fallthrough. */
+    case SYS_getitimer: {
+        size_t wrote;
+        if (!info.succeeded) {
+            NOTIFY(1, "Syscall %d failed with %p: not scaling\n", sysnum, info.value);
+        } else if (data->app_read_timer_param != NULL &&
+                   dr_safe_read(data->app_read_timer_param, sizeof(data->itimer_val),
+                                &data->itimer_val, &wrote) &&
+                   wrote == sizeof(data->itimer_val)) {
+            deflate_timeval(drcontext, &data->itimer_val.it_interval,
+                            scale_options.timer_scale);
+            deflate_timeval(drcontext, &data->itimer_val.it_value,
+                            scale_options.timer_scale);
+            if (!dr_safe_write(data->app_read_timer_param, sizeof(data->itimer_val),
+                               &data->itimer_val, &wrote) ||
+                wrote != sizeof(data->itimer_val)) {
+                NOTIFY(0, "Failed to modify timer cur value\n");
+            }
+        }
+        break;
+    }
+    case SYS_nanosleep:
+#ifdef X86
+        /* For AArch64 and RISC-V parameter 0 becomes the return value, so we do not
+         * want to restore the pre-syscall value.
+         */
+        dr_syscall_set_param(drcontext, 0, (reg_t)data->app_set_timer_param);
+#endif
+        /* Deliberate fallthrough. */
+    case SYS_clock_nanosleep: {
+        if (sysnum == SYS_clock_nanosleep)
+            dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
+        size_t wrote;
+        if (info.succeeded) {
+            /* Nothing to do: the remainder is only written on EINTR. */
+        } else if (info.errno_value != EINTR) {
+            NOTIFY(1, "Syscall %d failed with %p: not scaling\n", sysnum, info.value);
+        } else if (data->app_read_timer_param != NULL &&
+                   dr_safe_read(data->app_read_timer_param, sizeof(data->time_spec),
+                                &data->time_spec, &wrote) &&
+                   wrote == sizeof(data->time_spec)) {
+            if (data->was_zero) {
+                data->time_spec.tv_sec = 0;
+                data->time_spec.tv_nsec = 0;
+            } else {
+                deflate_timespec(drcontext, &data->time_spec,
+                                 scale_options.timeout_scale);
+            }
+            if (!dr_safe_write(data->app_read_timer_param, sizeof(data->time_spec),
+                               &data->time_spec, &wrote) ||
+                wrote != sizeof(data->time_spec)) {
+                NOTIFY(0, "Failed to modify sleep remaining value\n");
+            }
+        }
+        break;
+    }
+#ifndef X64
+    case SYS_clock_nanosleep_time64: {
+        dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
+        size_t wrote;
+        if (info.succeeded) {
+            /* Nothing to do: the remainder is only written on EINTR. */
+        } else if (info.errno_value != EINTR) {
+            NOTIFY(1, "Syscall %d failed with %p: not scaling\n", sysnum, info.value);
+        } else if (data->app_read_timer_param != NULL &&
+                   dr_safe_read(data->app_read_timer_param, sizeof(data->time_spec64),
+                                &data->time_spec64, &wrote) &&
+                   wrote == sizeof(data->time_spec64)) {
+            if (data->was_zero) {
+                data->time_spec64.tv_sec = 0;
+                data->time_spec64.tv_nsec = 0;
+            } else {
+                deflate_timespec64(drcontext, &data->time_spec64,
+                                   scale_options.timeout_scale);
+            }
+            if (!dr_safe_write(data->app_read_timer_param, sizeof(data->time_spec64),
+                               &data->time_spec64, &wrote) ||
+                wrote != sizeof(data->time_spec64)) {
+                NOTIFY(0, "Failed to modify sleep remaining value\n");
+            }
+        }
+        break;
+    }
+#endif
+    case SYS_futex: {
+        int op = data->app_op;
+        if (!futex_operation_takes_timeout(op)) {
+            /* The timeout parameter is ignored by the kernel. */
+            break;
+        }
+        dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);
+        break;
+    }
+#ifdef SYS_epoll_wait // Not on aarch64.
+    case SYS_epoll_wait:
+#endif
+    case SYS_epoll_pwait:
+    case SYS_epoll_pwait2:
+        dr_syscall_set_param(drcontext, 3, (reg_t)data->app_set_timer_param);
+        break;
+    }
+}
+
+static void
+scale_itimers(void *drcontext, bool inflate)
+{
+    /* We use dr_invoke_syscall_as_app() because DR needs to intercept these to
+     * interact with its multiplexing of app and client itimers (and maybe POSIX
+     * timers in the future).  We do not want to trigger our own syscall
+     * events for these, and DR indeed does not raise client events here.
+     */
+    NOTIFY(2, "Scaling itimers\n");
+    const int TIMER_TYPES[] = { ITIMER_REAL, ITIMER_VIRTUAL, ITIMER_PROF };
+    int res;
+    for (int i = 0; i < sizeof(TIMER_TYPES) / sizeof(TIMER_TYPES[0]); ++i) {
+        NOTIFY(2, "Scaling itimer %d\n", i);
+        struct itimerval val;
+        // We use dr_invoke_syscall_as_app() because DR needs to intercept these to
+        // interact with its multiplexing of app and client itimers.
+        res = dr_invoke_syscall_as_app(drcontext, SYS_getitimer, 2, TIMER_TYPES[i], &val);
+        if (res != 0) {
+            NOTIFY(0, "Failed to call getitimer for id %d: %d\n", i, res);
+            if (inflate)
+                increment_attempt_and_failure(DRX_SCALE_ITIMER);
+            continue;
+        }
+        NOTIFY(3, "As-queried: value=%lu.%lu interval=%lu.%lu\n", val.it_value.tv_sec,
+               val.it_value.tv_usec, val.it_interval.tv_sec, val.it_interval.tv_usec);
+        if (is_timeval_zero(&val.it_value) && is_timeval_zero(&val.it_interval)) {
+            /* Disabled; nothing to do. */
+            increment_attempt_and_nop(DRX_SCALE_ITIMER);
+            continue;
+        }
+        /* If the timer just fired, we can have a zero it_value.  If we send that
+         * to setitimer we will disable the timer, so we reset it ourselves.
+         */
+        if (is_timeval_zero(&val.it_value)) {
+            val.it_value.tv_sec = val.it_interval.tv_sec;
+            val.it_value.tv_usec = val.it_interval.tv_usec;
+        }
+        if (inflate) {
+            inflate_timeval(drcontext, &val.it_interval, scale_options.timer_scale,
+                            DRX_SCALE_ITIMER);
+            inflate_timeval(drcontext, &val.it_value, scale_options.timer_scale,
+                            DRX_SCALE_ITIMER);
+        } else {
+            deflate_timeval(drcontext, &val.it_interval, scale_options.timer_scale);
+            deflate_timeval(drcontext, &val.it_value, scale_options.timer_scale);
+        }
+        res = dr_invoke_syscall_as_app(drcontext, SYS_setitimer, 3, TIMER_TYPES[i], &val,
+                                       NULL);
+        if (res != 0) {
+            NOTIFY(0, "Failed to call setitimer for id %d: %d\n", i, res);
+            if (inflate)
+                increment_failure(DRX_SCALE_ITIMER);
+        }
+    }
+}
+
+/* Caller must set filebuf_pos and filebuf_read to 0 for first call.
+ * XXX: Move into core DR API?
+ */
+static bool
+dr_get_line(file_t fd, char *filebuf, size_t filebuf_max, size_t *filebuf_read,
+            size_t *filebuf_pos, char *linebuf, size_t linebuf_max)
+{
+    size_t linebuf_pos = 0;
+    do {
+        if (*filebuf_pos >= *filebuf_read) {
+            *filebuf_read = dr_read_file(fd, filebuf, filebuf_max);
+            if (*filebuf_read == 0)
+                return false;
+            *filebuf_pos = 0;
+        }
+        if (filebuf[*filebuf_pos] != '\n' && linebuf_pos + 1 < linebuf_max) {
+            linebuf[linebuf_pos] = filebuf[*filebuf_pos];
+            ++linebuf_pos;
+        }
+        ++(*filebuf_pos);
+    } while (filebuf[*filebuf_pos] != '\n');
+    linebuf[linebuf_pos] = '\0';
+    return true;
+}
+
+static void
+scale_posix_timers(void *drcontext, bool inflate)
+{
+    NOTIFY(2, "Scaling POSIX timers\n");
+    file_t fd = dr_open_file("/proc/self/timers", DR_FILE_READ);
+    if (fd == INVALID_FILE) {
+        NOTIFY(0, "Failed to enumerate POSIX timers\n");
+        return;
+    }
+#define FILE_BUF_SIZE 256
+    char filebuf[FILE_BUF_SIZE];
+#define LINE_BUF_SIZE 64
+    char linebuf[FILE_BUF_SIZE];
+    size_t filebuf_read = 0, filebuf_pos = 0;
+    int res;
+    while (dr_get_line(fd, filebuf, BUFFER_SIZE_BYTES(filebuf), &filebuf_read,
+                       &filebuf_pos, linebuf, BUFFER_SIZE_BYTES(linebuf))) {
+        NOTIFY(2, "Read line: |%s|\n", linebuf);
+        int id = -1;
+        int found = dr_sscanf(linebuf, "ID: %d", &id);
+        if (found == 1 && id >= 0) {
+#ifdef X64
+            struct itimerspec spec;
+            /* We use dr_invoke_syscall_as_app() because DR needs to intercept these to
+             * interact with its multiplexing of app and client itimers (and maybe POSIX
+             * timers in the future).  We do not want to trigger our own syscall
+             * events for these, and DR indeed does not raise client events here.
+             */
+            res = dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime, 2, id, &spec);
+            if (res != 0) {
+                NOTIFY(0, "Failed to call timer_gettime for id %d: %d\n", id, res);
+                if (inflate)
+                    increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
+                continue;
+            }
+            if (is_timespec_zero(&spec.it_value) && is_timespec_zero(&spec.it_interval)) {
+                /* Disabled; nothing to do. */
+                increment_attempt_and_nop(DRX_SCALE_POSIX_TIMER);
+                continue;
+            }
+            /* If the timer just fired, we can have a zero it_value.  If we send that
+             * to timer_settime we will disable the timer, so we reset it ourselves.
+             */
+            if (is_timespec_zero(&spec.it_value)) {
+                spec.it_value.tv_sec = spec.it_interval.tv_sec;
+                spec.it_value.tv_nsec = spec.it_interval.tv_nsec;
+            }
+            if (inflate) {
+                inflate_timespec(drcontext, &spec.it_interval, scale_options.timer_scale,
+                                 DRX_SCALE_POSIX_TIMER);
+                inflate_timespec(drcontext, &spec.it_value, scale_options.timer_scale,
+                                 DRX_SCALE_POSIX_TIMER);
+            } else {
+                deflate_timespec(drcontext, &spec.it_interval, scale_options.timer_scale);
+                deflate_timespec(drcontext, &spec.it_value, scale_options.timer_scale);
+            }
+            res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime, 4, id, 0, &spec,
+                                           NULL);
+            if (res != 0) {
+                NOTIFY(0, "Failed to call timer_settime for id %d: %d\n", id, res);
+                if (inflate)
+                    increment_failure(DRX_SCALE_POSIX_TIMER);
+            }
+#else
+            itimerspec64_t spec;
+            /* See above comment about dr_invoke_syscall_as_app(). */
+            res = dr_invoke_syscall_as_app(drcontext, SYS_timer_gettime64, 2, id, &spec);
+            if (res != 0) {
+                NOTIFY(0, "Failed to call timer_gettime64 for id %d: %d\n", id, res);
+                if (inflate)
+                    increment_attempt_and_failure(DRX_SCALE_POSIX_TIMER);
+                continue;
+            }
+            if (is_timespec64_zero(&spec.it_value) &&
+                is_timespec64_zero(&spec.it_interval)) {
+                /* Disabled; nothing to do. */
+                increment_attempt_and_nop(DRX_SCALE_POSIX_TIMER);
+                continue;
+            }
+            /* If the timer just fired, we can have a zero it_value.  If we send that
+             * to timer_settime we will disable the timer, so we reset it ourselves.
+             */
+            if (is_timespec64_zero(&spec.it_value)) {
+                spec.it_value.tv_sec = spec.it_interval.tv_sec;
+                spec.it_value.tv_nsec = spec.it_interval.tv_nsec;
+            }
+            if (inflate) {
+                inflate_timespec64(drcontext, &spec.it_interval,
+                                   scale_options.timer_scale, DRX_SCALE_POSIX_TIMER);
+                inflate_timespec64(drcontext, &spec.it_value, scale_options.timer_scale,
+                                   DRX_SCALE_POSIX_TIMER);
+            } else {
+                deflate_timespec64(drcontext, &spec.it_interval,
+                                   scale_options.timer_scale);
+                deflate_timespec64(drcontext, &spec.it_value, scale_options.timer_scale);
+            }
+            res = dr_invoke_syscall_as_app(drcontext, SYS_timer_settime64, 4, id, 0,
+                                           &spec, NULL);
+            if (res != 0) {
+                NOTIFY(0, "Failed to call timer_settime64 for id %d: %d\n", id, res);
+                if (inflate)
+                    increment_failure(DRX_SCALE_POSIX_TIMER);
+            }
+#endif
+        }
+    }
+    dr_close_file(fd);
+}
+
+DR_EXPORT
+bool
+drx_register_time_scaling(drx_time_scale_t *options)
+{
+    /* As documented, can only be called once (before unregister is called). */
+    int count = dr_atomic_add32_return_sum(&init_count, 1);
+    if (count != 1) {
+        dr_atomic_add32_return_sum(&init_count, -1);
+        return false;
+    }
+
+    if (options->struct_size != sizeof(drx_time_scale_t))
+        return false;
+    if (options->timer_scale == 0 || options->timeout_scale == 0)
+        return false; /* Invalid scale. */
+    if (options->timer_scale == 1 && options->timeout_scale == 1) {
+        /* No real scaling, but we continue to allow testing the full infrasturcture
+         * without actual scaling.
+         */
+    }
+
+    scale_options = *options;
+
+    if (!drmgr_init())
+        return false;
+
+    drmgr_priority_t init_priority = { sizeof(init_priority),
+                                       DRMGR_PRIORITY_NAME_DRX_SCALE_INIT, NULL, NULL,
+                                       DRMGR_PRIORITY_THREAD_INIT_DRX_SCALE };
+    drmgr_priority_t exit_priority = { sizeof(exit_priority),
+                                       DRMGR_PRIORITY_NAME_DRX_SCALE_EXIT, NULL, NULL,
+                                       DRMGR_PRIORITY_THREAD_EXIT_DRX_SCALE };
+    drmgr_priority_t presys_priority = { sizeof(init_priority),
+                                         DRMGR_PRIORITY_NAME_DRX_SCALE_PRE_SYS, NULL,
+                                         NULL, DRMGR_PRIORITY_PRE_SYS_DRX_SCALE };
+    drmgr_priority_t postsys_priority = { sizeof(init_priority),
+                                          DRMGR_PRIORITY_NAME_DRX_SCALE_POST_SYS, NULL,
+                                          NULL, DRMGR_PRIORITY_POST_SYS_DRX_SCALE };
+
+    drmgr_register_filter_syscall_event(event_filter_syscall);
+
+    if (!drmgr_register_thread_init_event_ex(event_thread_init, &init_priority) ||
+        !drmgr_register_thread_exit_event_ex(event_thread_exit, &exit_priority) ||
+        !drmgr_register_pre_syscall_event_ex(event_pre_syscall, &presys_priority) ||
+        !drmgr_register_post_syscall_event_ex(event_post_syscall, &postsys_priority))
+        return false;
+
+    tls_idx = drmgr_register_tls_field();
+    if (tls_idx == -1)
+        return false;
+
+    memset(stats, 0, sizeof(stats));
+
+    void *drcontext = dr_get_current_drcontext();
+    /* XXX i#7504: For dynamic attach, at process init time other threads are not
+     * yet taken over and so our timer sweep here can be inaccurate with the
+     * gap between now and taking over other threads.
+     * If we move this to the post-attach event, though, we need to record
+     * what we inflated so we don't double-inflate a syscall-inflated timer
+     * seen in the gap before we get to the post-attach event.
+     * It would be nicer if DR suspended all the other threads prior to
+     * process init here, when attaching.
+     */
+    scale_itimers(drcontext, /*inflate=*/true);
+    scale_posix_timers(drcontext, /*inflate=*/true);
+
+    return true;
+}
+
+DR_EXPORT
+bool
+drx_unregister_time_scaling()
+{
+    int count = dr_atomic_add32_return_sum(&init_count, -1);
+    if (count != 0)
+        return false;
+
+    void *drcontext = dr_get_current_drcontext();
+    scale_itimers(drcontext, /*inflate=*/false);
+    scale_posix_timers(drcontext, /*inflate=*/false);
+
+    bool res = drmgr_unregister_tls_field(tls_idx) &&
+        drmgr_unregister_filter_syscall_event(event_filter_syscall) &&
+        drmgr_unregister_pre_syscall_event(event_pre_syscall) &&
+        drmgr_unregister_post_syscall_event(event_post_syscall) &&
+        drmgr_unregister_thread_init_event(event_thread_init) &&
+        drmgr_unregister_thread_exit_event(event_thread_exit);
+    drmgr_exit();
+    return res;
+}
+
+bool
+drx_get_time_scaling_stats(drx_time_scale_stat_t **stats_array)
+{
+    *stats_array = stats;
+    return true;
+}

@@ -32,7 +32,7 @@
 
 /* tests for indirect call and indirect jump RCT policies */
 
-/* FIXME: this should really be in security-common yet
+/* XXX: this should really be in security-common yet
  *    rct_ind_{call,jump} is not yet supported on Linux, and all *
  *    assembly needs to be recoded for gcc anyways */
 #include "tools.h"
@@ -163,7 +163,7 @@ test_PLT_with_indjumps(int table_index)
         add eax, table_index
 
         push offset after_plt_call // in fact desired location
-                /* FIXME: note however that we're not going to like this with a .C
+                /* XXX: note however that we're not going to like this with a .C
                  * violation! unless we start allowing all addresses added with 'push
                  * offset'
                  */

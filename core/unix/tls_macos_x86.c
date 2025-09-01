@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /*
  * tls_macos.c - tls support from the kernel
  *
- * FIXME i#58: NYI (see comments below as well):
+ * TODO i#58: NYI (see comments below as well):
  * + not at all implemented, though 32-bit seems straightforward
  * + don't have a good story for 64-bit
  * + longer-term i#1291: use raw syscalls instead of libSystem wrappers

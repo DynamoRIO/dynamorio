@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -90,7 +90,7 @@ DWORD
 reboot_system();
 
 /* grokked from the core.
- * FIXME: shareme!
+ * XXX: shareme!
  * if NULL is passed for directory, then it is ignored and no directory
  *  check is done, and filename_base is assumed to be absolute.
  * TODO: make this a proactive check: make sure the file can be
@@ -242,7 +242,7 @@ typedef struct _CANARY_INFO {
     WCHAR buf_report[MAX_PATH];             /* space for report filename */
     WCHAR buf_url[CANARY_URL_SIZE];         /* space for url */
     WCHAR buf_message[CANARY_MESSAGE_SIZE]; /* space for use message */
-    /* Used by DRcontrol to inject faults, FIXME get rid of these and the flags and
+    /* Used by DRcontrol to inject faults, XXX get rid of these and the flags and
      * go to a more data driven model. Other users should set fault_run to 0. */
     DWORD fault_run;
     WCHAR *canary_fault_args;

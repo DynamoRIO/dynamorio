@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -94,7 +94,7 @@
 byte *
 insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 {
-    /* FIXME i#1551: NYI on ARM.
+    /* TODO i#1551: NYI on ARM.
      * We may want to refactor the calling code to remove this and only
      * use patch_branch().
      */
@@ -105,7 +105,7 @@ insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 byte *
 insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -185,7 +185,7 @@ insert_mov_linkstub(byte *pc, fragment_t *f, linkstub_t *l, reg_id_t dst)
 uint
 nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emitting)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return 0;
 }
@@ -195,11 +195,11 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
 {
     /* ARM always uses shared gencode so we ignore FRAG_DB_SHARED(flags) */
     if (TEST(FRAG_COARSE_GRAIN, flags)) {
-        /* FIXME i#1575: coarse-grain NYI on ARM */
+        /* TODO i#1575: coarse-grain NYI on ARM */
         ASSERT_NOT_IMPLEMENTED(false);
         return 0;
     } else {
-        /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
+        /* XXX i#1551: add Thumb support: ARM vs Thumb gencode */
         return TLS_FCACHE_RETURN_SLOT;
     }
 }
@@ -216,7 +216,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                              cache_pc stub_pc, ushort l_flags)
 {
     byte *pc = (byte *)stub_pc;
-    /* FIXME i#1575: coarse-grain NYI on ARM */
+    /* TODO i#1575: coarse-grain NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
     /* XXX: should we use our IR and encoder instead?  Then we could
      * share code with emit_do_syscall(), though at a perf cost.
@@ -423,7 +423,7 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
             dr_set_isa_mode(dcontext, old_mode, NULL);
         }
     }
-    /* FIXME i#1569: add AArch64 support */
+    /* XXX i#1569: add AArch64 support */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -436,7 +436,7 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 cache_pc
 exit_cti_disp_pc(cache_pc branch_pc)
 {
-    /* FIXME i#1551: NYI on ARM.
+    /* TODO i#1551: NYI on ARM.
      * We may want to refactor the calling code to remove this and only
      * use patch_branch().
      */
@@ -487,7 +487,7 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 cache_pc
 cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
@@ -531,13 +531,13 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 cache_pc
 entrance_stub_jmp(cache_pc stub)
 {
-    /* FIXME i#1575: NYI on ARM */
+    /* TODO i#1575: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
 }
 
 /* Returns whether stub is an entrance stub as opposed to a fragment
- * or a coarse indirect stub.  FIXME: if we separate coarse indirect
+ * or a coarse indirect stub.  XXX: if we separate coarse indirect
  * stubs from bodies we'll need to put them somewhere else, or fix up
  * decode_fragment() to be able to distinguish them in some other way
  * like first instruction tls slot.
@@ -545,7 +545,7 @@ entrance_stub_jmp(cache_pc stub)
 bool
 coarse_is_entrance_stub(cache_pc stub)
 {
-    /* FIXME i#1575: coarse-grain NYI on ARM */
+    /* TODO i#1575: coarse-grain NYI on ARM */
     return false;
 }
 
@@ -638,7 +638,7 @@ void
 append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
-    /* FIXME i#1573: NYI on ARM with SELFPROT_DCONTEXT */
+    /* TODO i#1573: NYI on ARM with SELFPROT_DCONTEXT */
     ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     ASSERT(dr_reg_stolen != SCRATCH_REG0);
     /* store stolen reg value into TLS slot */
@@ -730,7 +730,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
     /* app's r0 was spilled to DIRECT_STUB_SPILL_SLOT by exit stub */
     APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, DIRECT_STUB_SPILL_SLOT));
     if (linkstub != NULL) {
-        /* FIXME i#1575: NYI for coarse-grain stub */
+        /* TODO i#1575: NYI for coarse-grain stub */
         ASSERT_NOT_IMPLEMENTED(false);
     } else {
         APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, R0_OFFSET));
@@ -789,7 +789,7 @@ void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uint flags,
                    bool tls, bool absolute)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -797,7 +797,7 @@ void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                       uint flags, bool tls, bool absolute)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
@@ -806,7 +806,7 @@ byte *
 emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
                      bool target_trace_table)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return pc;
 }
@@ -865,9 +865,9 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     IF_DEBUG(bool table_in_tls = SHARED_IB_TARGETS() &&
                  (target_trace_table || SHARED_BB_ONLY_IB_TARGETS()) &&
                  DYNAMO_OPTION(ibl_table_in_tls);)
-    /* FIXME i#1551: non-table_in_tls NYI on ARM */
+    /* TODO i#1551: non-table_in_tls NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(table_in_tls);
-    /* FIXME i#1551: -no_indirect_stubs NYI on ARM */
+    /* TODO i#1551: -no_indirect_stubs NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(indirect_stubs));
 
     instrlist_init(&ilist);
@@ -1069,7 +1069,7 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
 bool
 is_jmp_rel32(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
@@ -1077,7 +1077,7 @@ is_jmp_rel32(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
 bool
 is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
 {
-    /* FIXME i#1551: NYI on ARM */
+    /* TODO i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }

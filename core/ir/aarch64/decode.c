@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -83,7 +83,7 @@ decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_
 byte *
 decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
@@ -159,35 +159,35 @@ decode_raw_cond_branch_zero_target(dcontext_t *dcontext, byte *pc)
 const instr_info_t *
 instr_info_extra_opnds(const instr_info_t *info)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
 byte
 instr_info_opnd_type(const instr_info_t *info, bool src, int num)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return 0;
 }
 
 const instr_info_t *
 get_next_instr_info(const instr_info_t *info)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 
 byte
 decode_first_opcode_byte(int opcode)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return 0;
 }
 
 const instr_info_t *
 opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
 {
-    /* We do not use instr_info_t encoding info on AArch64. FIXME i#1569 */
+    /* We do not use instr_info_t encoding info on AArch64. XXX i#1569 */
     ASSERT_NOT_REACHED();
     return NULL;
 }
@@ -202,28 +202,28 @@ decode_opcode_name(int opcode)
 opnd_size_t
 resolve_variable_size(decode_info_t *di, opnd_size_t sz, bool is_reg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return 0;
 }
 
 bool
 optype_is_indir_reg(int optype)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
 bool
 optype_is_reg(int optype)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
 bool
 optype_is_gpr(int optype)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -232,14 +232,14 @@ optype_is_gpr(int optype)
 void
 check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
 }
 #    endif /* STANDALONE_DECODER */
 
 void
 decode_debug_checks_arch(void)
 {
-    /* FIXME i#1569: NYI */
+    /* TODO i#1569: NYI */
 }
 #endif /* DEBUG */
 

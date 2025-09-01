@@ -406,6 +406,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_FILETYPE,
 
+    // Enum value == 10.
     /**
      * The marker value contains the traced processor's cache line size in
      * bytes.
@@ -491,6 +492,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_IDX,
 
+    // Enum value == 20.
     /**
      * This top-level marker identifies the instruction count in each chunk
      * of the output file.  This is the granularity of a fast seek.
@@ -573,6 +575,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 
+    // Enum value == 30.
     // Although it is only for Mac that syscall success requires more than the
     // main return value register, we include the failure marker for all platforms
     // as mmap is complex and it is simpler to not have Mac-only code paths.
@@ -709,6 +712,7 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT,
 
+    // Enum value == 40.
     /**
      * This marker is emitted prior to the invocation of a signal handler,
      * after the #TRACE_MARKER_TYPE_KERNEL_EVENT record for the handler.
@@ -1073,10 +1077,14 @@ typedef enum {
      * branch instruction (e.g., iret/sysret/sysexit on x86, or eret on AArch64) which
      * must be preceded by a #TRACE_MARKER_TYPE_BRANCH_TARGET marker with any value;
      * the marker's value will be appropriately set to point to the fallthrough pc of
-     * the prior syscall instruction. Note: if a #TRACE_MARKER_TYPE_KERNEL_EVENT
-     * immediately follows the syscall trace, it indicates interruption of the syscall
-     * by a signal; in this case, the next pc is the #TRACE_MARKER_TYPE_KERNEL_EVENT
-     * value.
+     * the prior syscall instruction when the trace template is injected. Note: the
+     * marker value will not be the actual next pc in the trace in some cases (i#7496):
+     * - if a #TRACE_MARKER_TYPE_KERNEL_EVENT immediately follows the syscall trace,
+     *   it indicates interruption of the syscall by a signal; in this case, the next
+     *   pc after the signal is the #TRACE_MARKER_TYPE_KERNEL_EVENT marker value,
+     *   which for auto-restart syscalls would be the same as the syscall instr pc.
+     * - for the sigreturn syscall, the next pc in the trace is what was specified
+     *   in the prior #TRACE_MARKER_TYPE_KERNEL_EVENT marker.
      * See the sample file written by the burst_syscall_inject.cpp test for more
      * details on the expected format for the system call template file.
      *

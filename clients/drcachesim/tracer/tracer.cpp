@@ -416,14 +416,19 @@ event_app_instruction_case(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 static void
 instrumentation_exit()
 {
-    dr_unregister_filter_syscall_event(event_filter_syscall);
+    drmgr_unregister_filter_syscall_event(event_filter_syscall);
     if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
         !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_unregister_bb_app2app_event(event_bb_app2app))
         DR_ASSERT(false);
-#ifdef DELAYED_CHECK_INLINED
-    drx_exit();
+#ifdef LINUX
+    // XXX i#7504: Time and timer scaling currently only supports Linux.
+    if (op_scale_timers.get_value() > 1 || op_scale_timeouts.get_value() > 1) {
+        bool ok = drx_unregister_time_scaling();
+        DR_ASSERT(ok);
+    }
 #endif
+    drx_exit();
     drbbdup_status_t res = drbbdup_exit();
     DR_ASSERT(res == DRBBDUP_SUCCESS);
 }
@@ -467,7 +472,7 @@ instrumentation_init()
         !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_register_bb_app2app_event(event_bb_app2app, &pri_pre_bbdup))
         DR_ASSERT(false);
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
 
     if (align_attach_detach_endpoints())
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
@@ -476,8 +481,21 @@ instrumentation_init()
     else if (op_L0_filter_until_instrs.get_value())
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
 
-#ifdef DELAYED_CHECK_INLINED
-    drx_init();
+    bool ok = drx_init();
+    DR_ASSERT(ok);
+#ifdef LINUX
+    // XXX i#7504: Time and timer scaling currently only supports Linux.
+    if (op_scale_timers.get_value() > 1 || op_scale_timeouts.get_value() > 1) {
+        drx_time_scale_t scale = {
+            sizeof(scale),
+        };
+        scale.timer_scale = op_scale_timers.get_value();
+        scale.timeout_scale = op_scale_timeouts.get_value();
+        NOTIFY(1, "Registering timer scaling %dx timeout scaling %dx\n",
+               scale.timer_scale, scale.timeout_scale);
+        ok = drx_register_time_scaling(&scale);
+        DR_ASSERT(ok);
+    }
 #endif
 }
 
@@ -514,6 +532,64 @@ event_pre_detach()
         // possible post-detach timestamp by freezing.
         instru->set_frozen_timestamp(instru_t::get_timestamp());
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
+    }
+}
+
+static void
+event_nudge(void *drcontext, uint64 arg)
+{
+    if ((arg >> TRACER_NUDGE_TYPE_SHIFT) == TRACER_NUDGE_MEM_DUMP) {
+#ifdef WINDOWS
+        /* TODO i#7508: raw2trace fails with "Non-module instructions found with no
+         * encoding information.". This occurs on Windows when capturing memory dumps at
+         * the start of a new tracing window.
+         */
+        NOTIFY(
+            0,
+            "ERROR: capturing memory dump when a trace window opens is not supported.\n");
+        return;
+#else
+        char path[MAXIMUM_PATH];
+        dr_memory_dump_spec_t spec;
+        spec.size = sizeof(dr_memory_dump_spec_t);
+        spec.flags = DR_MEMORY_DUMP_ELF;
+        spec.elf_path = (char *)&path;
+        spec.elf_path_size = MAXIMUM_PATH;
+        spec.elf_output_directory = nullptr;
+
+        char windir[MAXIMUM_PATH];
+        if (has_tracing_windows()) {
+            if (op_split_windows.get_value()) {
+                dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir),
+                            "%s%s" WINDOW_SUBDIR_FORMAT, logsubdir, DIRSEP,
+                            arg & TRACER_NUDGE_VALUE_MASK);
+                NULL_TERMINATE_BUFFER(windir);
+                spec.elf_output_directory = windir;
+            }
+        }
+
+        if (!dr_create_memory_dump(&spec)) {
+            NOTIFY(0, "ERROR: failed to create memory dump.\n");
+            return;
+        }
+        file_t memory_dump_file = dr_open_file(path, DR_FILE_READ);
+        if (memory_dump_file < 0) {
+            NOTIFY(0, "ERROR: failed to read memory dump file: %s.\n", path);
+            return;
+        }
+        uint64 file_size;
+        if (!dr_file_size(memory_dump_file, &file_size)) {
+            NOTIFY(0, "ERROR: failed to read the size of the memory dump file: %s.\n",
+                   path);
+            dr_close_file(memory_dump_file);
+            return;
+        }
+        if (file_size == 0) {
+            NOTIFY(0, "ERROR: memory dump file %s is empty.\n", path);
+        }
+        dr_close_file(memory_dump_file);
+        return;
+#endif
     }
 }
 
@@ -766,7 +842,7 @@ insert_mode_comparison(void *drcontext, instrlist_t *ilist, instr_t *where,
             XINST_CREATE_sub(drcontext, opnd_create_reg(reg_mine),
                              opnd_create_reg(reg_global)));
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     DR_ASSERT_MSG(false, "Not implemented on RISC-V");
 #else
     // Our version of a flags-free reg-reg subtraction: 1's complement one reg
@@ -900,7 +976,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
         // every instr.  We skip if we're still on the same cache line.
         if (ud->last_app_pc != NULL) {
             ptr_uint_t prior_line = ((ptr_uint_t)ud->last_app_pc >> line_bits) & mask;
-            // FIXME i#2439: we simplify and ignore a 2nd cache line touched by an
+            // XXX i#2439: we simplify and ignore a 2nd cache line touched by an
             // instr that straddles cache lines.  However, that is not uncommon on
             // x86 and we should check the L0 cache for both lines, do regular instru
             // if either misses, and have some flag telling the regular instru to
@@ -1269,7 +1345,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #ifdef X86
     drreg_set_vector_entry(&rvec, DR_REG_XCX, true);
 #elif defined(RISCV64)
-    /* FIXME i#3544: Check if scratch reg can be used here. */
+    /* XXX i#3544: Check if scratch reg can be used here. */
     drreg_set_vector_entry(&rvec, DR_REG_T2, true);
 #else
     for (reg_ptr = DR_REG_R0; reg_ptr <= DR_REG_R7; reg_ptr++)
@@ -2003,7 +2079,7 @@ event_exit(void)
             DR_ASSERT(false);
         }
     }
-    dr_unregister_exit_event(event_exit);
+    drmgr_unregister_exit_event(event_exit);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
@@ -2361,7 +2437,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         op_disable_optimizations.set_value(true);
 
     init_record_syscall();
-    event_inscount_init();
+    event_inscount_init(id);
     init_io();
 
     DR_ASSERT(std::atomic_is_lock_free(&tracing_mode));
@@ -2416,7 +2492,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #else
         if (!ipc_pipe.open_for_write()) {
             if (GetLastError() == ERROR_PIPE_BUSY) {
-                // FIXME i#1727: add multi-process support to Windows named_pipe_t.
+                // XXX i#1727: add multi-process support to Windows named_pipe_t.
                 FATAL("Fatal error: multi-process applications not yet supported "
                       "for drcachesim on Windows\n");
             } else {
@@ -2454,12 +2530,13 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     }
 
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 #ifdef UNIX
     dr_register_fork_init_event(fork_init);
 #endif
     attached_midway = dr_register_post_attach_event(event_post_attach);
     dr_register_pre_detach_event(event_pre_detach);
+    dr_register_nudge_event(event_nudge, id);
 
     /* We need our thread exit event to run *before* drmodtrack's as we may
      * need to translate physical addresses for the thread's final buffer.

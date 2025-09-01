@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -42,7 +42,7 @@ START_FILE
 #ifdef UNIX
 
 /* Private memcpy.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
+ * XXX i#1551: we should optimize this as it can be on the critical path.
  */
         DECLARE_FUNC(memcpy)
 GLOBAL_LABEL(memcpy:)
@@ -60,7 +60,7 @@ GLOBAL_LABEL(memcpy:)
         END_FUNC(memcpy)
 
 /* Private memset.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
+ * XXX i#1551: we should optimize this as it can be on the critical path.
  */
         DECLARE_FUNC(memset)
 GLOBAL_LABEL(memset:)

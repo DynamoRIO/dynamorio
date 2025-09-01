@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -102,7 +102,8 @@ public:
 
     // Exposed to make it easy to test
     bool
-    check_warmed_up();
+    is_warmed_up();
+
     uint64_t
     remaining_sim_refs() const;
 
@@ -110,6 +111,9 @@ public:
     get_knobs() const;
 
 protected:
+    bool
+    check_warmed_up();
+
     prefetcher_t *
     get_prefetcher(std::string prefetcher_name);
 

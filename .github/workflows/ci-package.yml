@@ -275,7 +275,7 @@ jobs:
   ###########################################################################
   # Windows .zip with 32-bit and 64-bit x86 builds:
   windows:
-    runs-on: windows-2019
+    runs-on: windows-2022
 
     steps:
     - uses: actions/checkout@v4
@@ -322,7 +322,7 @@ jobs:
         set PATH=c:\projects\install\ninja;%PATH%
         dir "c:\Program Files (x86)\WiX Toolset"*
         set PATH=C:\Program Files (x86)\WiX Toolset v3.14\bin;%PATH%
-        call "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        call "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"

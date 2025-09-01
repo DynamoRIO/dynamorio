@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,7 @@ byte *
 remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc target)
 {
 #ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 #else
     uint mangled_sz = CTI_SHORT_REWRITE_LENGTH;
@@ -71,7 +71,7 @@ instr_t *
 convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
 #ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 #else
     int opcode = instr_get_opcode(instr);
@@ -257,5 +257,5 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
                        DR_PARAM_OUT instr_t **first, DR_PARAM_OUT instr_t **last)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1551, i#1569 */
 }

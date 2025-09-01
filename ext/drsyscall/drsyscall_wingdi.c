@@ -521,7 +521,7 @@ handle_clsmenuname_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
          */
         return true; /* handled */
     }
-    /* FIXME i#487: CLSMENUNAME format is not fully known and doesn't seem
+    /* XXX i#487: CLSMENUNAME format is not fully known and doesn't seem
      * to match this, on win7 at least
      */
 #if 0 /* disabled: see comment above */
@@ -2073,7 +2073,7 @@ handle_UserGetRawInputBuffer(void *drcontext, cls_syscall_t *pt, sysarg_iter_inf
             return;
     } else {
         if (ii->arg->pre) {
-            /* FIXME i#485: we don't know the number of array entries so we
+            /* XXX i#485: we don't know the number of array entries so we
              * can't check addressability pre-syscall: comes from a prior
              * buf==NULL call
              */
@@ -2315,7 +2315,7 @@ handle_UserMessageCall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
     /* Edit control messages:
      *
      * For now we only have handling for writes by the kernel for EM_GET*.
-     * FIXME i#1752: add checking of reads, and go through the rest of the EM_*
+     * XXX i#1752: add checking of reads, and go through the rest of the EM_*
      * types and find other writes.
      * XXX i#1752: add tests for these.
      */
@@ -2634,7 +2634,7 @@ wingdi_shadow_process_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_in
     } else if (drsys_sysnums_equal(&ii->arg->sysnum, &sysnum_UserCreateWindowStation) ||
                drsys_sysnums_equal(&ii->arg->sysnum, &sysnum_UserLoadKeyboardLayoutEx)) {
         /* Vista SP1 added one arg (both were 7, now 8)
-         * FIXME i#487: figure out what it is and whether we need to process it
+         * XXX i#487: figure out what it is and whether we need to process it
          * for each of the two syscalls.
          * Also check whether it's defined after first deciding whether
          * we're on SP1: use core's method of checking for export?

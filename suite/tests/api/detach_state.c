@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -815,7 +815,7 @@ START_FILE
         ldp      x27, x28, [sp], #16 @N@\
         ldp      x29, x30, [sp], #16
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
 #    define PUSH_GPRS
 #    define PUSHALL
 #    define PUSH_CALLEE_SAVED
@@ -1011,7 +1011,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_GPR_IMMED(x29, MAKE_HEX_C(X29_BASE())) @N@\
         SET_GPR_IMMED(x30, MAKE_HEX_C(X30_BASE()))
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
 #    define SET_UNIQUE_REGISTER_VALS
 #endif
 
@@ -1026,7 +1026,7 @@ GLOBAL_LABEL(FUNCNAME:)
         add      x0, x0, :lo12:sideline_ready_for_detach @N@ \
         strb     w2, [x0]
 #elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
 #   define SET_SIDELINE_READY
 #endif
 

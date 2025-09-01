@@ -54,6 +54,13 @@ static int offset = 0;
 static file_t record_file;
 static char buffer[WRITE_BUFFER_SIZE];
 
+static inline uint64_t
+get_microsecond_timestamp()
+{
+    static uint64_t fake_timestamp = 10000;
+    return ++fake_timestamp;
+}
+
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
 {
@@ -62,8 +69,10 @@ event_filter_syscall(void *drcontext, int sysnum)
     }
     switch (sysnum) {
     case SYS_close:
+    case SYS_lseek:
     case SYS_openat:
     case SYS_read:
+    case SYS_unlinkat:
     case SYS_write: return true;
     default: return false;
     }
@@ -147,7 +156,8 @@ event_pre_syscall(void *drcontext, int sysnum)
         return false;
     }
 
-    if (drsyscall_write_syscall_number_record(write_file, sysnum) == 0) {
+    if (drsyscall_write_syscall_number_timestamp_record(
+            write_file, sysnum_full, get_microsecond_timestamp()) == 0) {
         dr_fprintf(STDERR, "failed to write syscall number record, sysnum = %d", sysnum);
         return false;
     }
@@ -192,7 +202,8 @@ event_post_syscall(void *drcontext, int sysnum)
         dr_fprintf(STDERR, "drsys_iterate_memargs failed, sysnum = %d", sysnum);
         return;
     }
-    if (drsyscall_write_syscall_end_record(write_file, sysnum) == 0) {
+    if (drsyscall_write_syscall_end_timestamp_record(write_file, sysnum_full,
+                                                     get_microsecond_timestamp()) == 0) {
         dr_fprintf(STDERR, "failed to write syscall end record, sysnum = %d", sysnum);
         return;
     }
@@ -208,6 +219,7 @@ event_nudge(void *drcontext, uint64 arg)
         spec.flags = DR_MEMORY_DUMP_ELF;
         spec.elf_path = (char *)&memory_dump_file_path;
         spec.elf_path_size = BUFFER_SIZE_ELEMENTS(memory_dump_file_path);
+        spec.elf_output_directory = NULL;
 
         if (!dr_create_memory_dump(&spec)) {
             dr_fprintf(STDERR, "Error: failed to create memory dump.\n");
@@ -299,10 +311,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     client_id = id;
     thread_id = dr_get_thread_id(dr_get_current_drcontext());
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     drmgr_register_thread_init_event(event_thread_init);
     dr_register_nudge_event(event_nudge, id);
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
     if (drsys_filter_all_syscalls() != DRMF_SUCCESS) {

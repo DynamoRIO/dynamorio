@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -96,7 +96,7 @@ main()
 
     for (i = 0; i < NUM_THREADS; i++) {
         while (!child_started[i]) {
-            /* waste some time: FIXME: should use futex */
+            /* waste some time: XXX: should use futex */
             nanosleep(&sleeptime, NULL);
         }
     }
@@ -184,7 +184,7 @@ delete_thread(int tid_idx, void *stack)
     pid_t result;
     /* do not print out pids to make diff easy */
     fprintf(stderr, "Waiting for child to exit\n");
-    /* We rely on CLONE_CHILD_CLEARTID.  FIXME: use futex here.
+    /* We rely on CLONE_CHILD_CLEARTID.  XXX: use futex here.
      * for now being really simple.
      */
     while (child[tid_idx] != 0)

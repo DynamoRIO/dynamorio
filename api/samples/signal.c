@@ -64,7 +64,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef UNIX
     drmgr_register_signal_event(event_signal);
 #endif
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
 #    ifdef WINDOWS

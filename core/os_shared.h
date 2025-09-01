@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -564,7 +564,7 @@ enum {
     /* .data == variables written only at init or exit time or rarely in between */
     SELFPROT_DATA_RARE = 0x001,
     /* .fspdata == frequently written enough that we separate from .data.
-     * FIXME case 8073: currently these are unprotected on every cxt switch
+     * XXX case 8073: currently these are unprotected on every cxt switch
      */
     SELFPROT_DATA_FREQ = 0x002,
     /* .cspdata == so frequently written that to protect them requires unprotecting
@@ -582,24 +582,24 @@ enum {
     SELFPROT_DCONTEXT = 0x010, /* means we split out unprotected_context_t --
                                 * no actual protection unless SELFPROT_GLOBAL */
     SELFPROT_LOCAL = 0x020,
-    SELFPROT_CACHE = 0x040, /* FIXME: thread-safe NYI when doing all units */
+    SELFPROT_CACHE = 0x040, /* TODO: thread-safe NYI when doing all units */
     SELFPROT_STACK = 0x080, /* essentially always on with clean-dstack d_r_dispatch()
                              * design, leaving as a bit in case we do more later */
     /* protect our generated thread-shared and thread-private code */
     SELFPROT_GENCODE = 0x100,
-    /* FIXME: TEB page on Win32
+    /* XXX: TEB page on Win32
      * Other global structs, like thread-local callbacks on Win32?
      * PEB page?
      */
     /* options that require action on every context switch
-     * FIXME: global heap used to be much rarer before shared
+     * XXX: global heap used to be much rarer before shared
      * fragments, only containing "important" data, which is why we
      * un-protected on every context switch.  We should re-think that
      * now that most things are shared.
      */
     SELFPROT_ON_CXT_SWITCH = (SELFPROT_DATA_CXTSW |
                               SELFPROT_GLOBAL
-                              /* FIXME case 8073: this is only temporary until
+                              /* XXX case 8073: this is only temporary until
                                * we finish implementing .fspdata unprots */
                               | SELFPROT_DATA_FREQ),
     SELFPROT_ANY_DATA_SECTION =
@@ -853,6 +853,10 @@ os_get_disk_free_space(/*IN*/ file_t file_handle,
                        /*OUT*/ uint64 *AvailableQuotaBytes /*OPTIONAL*/,
                        /*OUT*/ uint64 *TotalQuotaBytes /*OPTIONAL*/,
                        /*OUT*/ uint64 *TotalVolumeBytes /*OPTIONAL*/);
+file_t
+redirect_open(const char *fname, int flags, int mode);
+void
+redirect_close(file_t f);
 
 #ifdef PROFILE_RDTSC
 extern uint kilo_hertz;
@@ -1009,7 +1013,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size, bool add,
                         bool already_relocated);
 
 /* module boundary and code section analysis for RCT policies */
-/* FIXME: should be better abstracted by calling a routine that
+/* XXX: should be better abstracted by calling a routine that
  * enumerates code sections, while keeping the general driver in rct.c
  */
 bool
@@ -1084,14 +1088,14 @@ enum {
 };
 #elif defined(AARCHXX)
 enum {
-    /* FIXME i#1551, i#1569: this is for A32 for now to get things compiling */
+    /* XXX i#1551, i#1569: this is for A32 for now to get things compiling */
     JMP_REL32_OPCODE = 0xec000000,
     JMP_REL32_SIZE = 4,
     CALL_REL32_OPCODE = 0xed000000,
 };
 #elif defined(RISCV64)
 enum {
-    /* FIXME i#3544: Fix proper values. Those are for compilation only. */
+    /* XXX i#3544: Fix proper values. Those are for compilation only. */
     JMP_REL32_OPCODE = 0xec000000,
     JMP_REL32_SIZE = 4,
     CALL_REL32_OPCODE = 0xed000000,

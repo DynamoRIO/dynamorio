@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #if defined(X64) && defined(WINDOWS)
-/* FIXME i#29: doesn't work on x64 natively: we're messing up the SEH w/ our
+/* XXX i#29: doesn't work on x64 natively: we're messing up the SEH w/ our
  * retaddr trick in ring()
  */
 #endif

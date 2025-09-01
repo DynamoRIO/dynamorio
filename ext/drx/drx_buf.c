@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -743,7 +743,7 @@ deduce_buf_ptr(instr_t *instr)
     ushort opcode = (ushort)instr_get_opcode(instr);
 
 #if defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
+    /* XXX i#3544: Not implemented */
     DR_ASSERT_MSG(false, "Not implemented");
 #endif
     /* drx_buf will only emit these instructions to store a value */

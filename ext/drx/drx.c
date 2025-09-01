@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -520,7 +520,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
 #endif
 #ifdef ARM
-    /* FIXME i#1551: implement 64-bit counter support */
+    /* XXX i#1551: implement 64-bit counter support */
     ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented for ARM_32");
 #endif /* ARM */
 #if defined(AARCHXX) || defined(RISCV64)
@@ -1299,7 +1299,7 @@ soft_kills_init(void)
     if (!drmgr_register_pre_syscall_event(soft_kills_pre_syscall) ||
         !drmgr_register_post_syscall_event(soft_kills_post_syscall))
         return false;
-    dr_register_filter_syscall_event(soft_kills_filter_syscall);
+    drmgr_register_filter_syscall_event(soft_kills_filter_syscall);
 
     return true;
 }

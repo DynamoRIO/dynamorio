@@ -54,7 +54,7 @@ policy_fifo_t::policy_fifo_t(int num_sets, int associativity)
 }
 
 void
-policy_fifo_t::access_update(int set_idx, int way)
+policy_fifo_t::access_update(int set_idx, int way, cache_access_outcome_t access_type)
 {
     // Nothing to update, FIFO does not change on access.
 }

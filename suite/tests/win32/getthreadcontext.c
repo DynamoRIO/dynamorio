@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -101,7 +101,7 @@ main(void)
      * result is undefined, but we should handle it reasonably */
     tc.ContextFlags = CONTEXT_FULL;
     GetThreadContext(GetCurrentThread(), &tc);
-    /* FIXME - ok we got some result, what can we do to check it? we shouldn't screw up
+    /* XXX - ok we got some result, what can we do to check it? we shouldn't screw up
      * the reg state, so ignore that, pc should be the post syscall pc (based on
      * observations of native behavior) so either in ntdll.dll or vsyscall page */
     print("get context self eip > 0x74000000? %s\n",

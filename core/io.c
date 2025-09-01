@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
  * io.c - routines for i/o to avoid library dependencies
  */
 
-/* FIXME: failure modes should be more graceful than failing asserts in most places */
+/* XXX: failure modes should be more graceful than failing asserts in most places */
 
 #ifndef NOT_DYNAMORIO_CORE
 #    include "globals.h"
@@ -457,7 +457,7 @@ d_r_parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_si
          */
         if (d >= base)
             break;
-        /* FIXME: Check for overflow. */
+        /* XXX: Check for overflow. */
         /* XXX: int64 multiply is inefficient on 32-bit. */
         res = res * base + d;
     }
@@ -900,7 +900,7 @@ test_sscanf_all_specs(void)
     EXPECT(res, 1);
     EXPECT(strcmp(str, "line\v"), 0);
 
-    /* FIXME: When parse_int has range checking, we should add tests for parsing
+    /* XXX: When parse_int has range checking, we should add tests for parsing
      * integers that overflow their requested integer sizes.
      */
 }

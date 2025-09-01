@@ -218,7 +218,7 @@ dr_init(client_id_t id)
     if (!drmgr_init())
         CHECK(false, "init failed");
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(event_app_analysis,
                                                  event_app_instruction, NULL))
         CHECK(false, "init failed");

@@ -31,7 +31,7 @@
 # email_mem_summary.pl
 #
 # NOTE:  ASSUMES Net::smtp module exists
-# FIXME: Header string specifes hard coded path
+# XXX: Header string specifes hard coded path
 
 
 use strict;

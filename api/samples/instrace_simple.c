@@ -307,7 +307,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_bb_instrumentation_event(NULL /*analysis_func*/,

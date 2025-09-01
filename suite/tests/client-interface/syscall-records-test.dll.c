@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "dr_api.h"
 #include "client_tools.h"
@@ -47,6 +48,13 @@
 static int offset = 0;
 static file_t record_file;
 static char buffer[WRITE_BUFFER_SIZE];
+
+static inline uint64_t
+get_microsecond_timestamp()
+{
+    static uint64_t fake_timestamp = 10000;
+    return ++fake_timestamp;
+}
 
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
@@ -137,8 +145,8 @@ event_pre_syscall(void *drcontext, int sysnum)
         dr_fprintf(STDERR, "syscall %d is unknown", sysnum);
         return false;
     }
-
-    if (drsyscall_write_syscall_number_record(write_file, sysnum) == 0) {
+    if (drsyscall_write_syscall_number_timestamp_record(
+            write_file, sysnum_full, get_microsecond_timestamp()) == 0) {
         dr_fprintf(STDERR, "failed to write syscall number record, sysnum = %d", sysnum);
         return false;
     }
@@ -183,7 +191,8 @@ event_post_syscall(void *drcontext, int sysnum)
         dr_fprintf(STDERR, "drsys_iterate_memargs failed, sysnum = %d", sysnum);
         return;
     }
-    if (drsyscall_write_syscall_end_record(write_file, sysnum) == 0) {
+    if (drsyscall_write_syscall_end_timestamp_record(write_file, sysnum_full,
+                                                     get_microsecond_timestamp()) == 0) {
         dr_fprintf(STDERR, "failed to write syscall end record, sysnum = %d", sysnum);
         return;
     }
@@ -224,8 +233,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_fprintf(STDERR, "drsys failed to init");
         return;
     }
-    dr_register_exit_event(exit_event);
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_exit_event(exit_event);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
     if (drsys_filter_all_syscalls() != DRMF_SUCCESS) {

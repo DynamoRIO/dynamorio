@@ -357,7 +357,7 @@ Include the issue number using the syntax `i#<number>`.  For example (ignore lea
  \endverbatim
 
 -# Use `TODO` in comments to indicate missing features that are required and not just optimizations or optional improvements (use `XXX` for those).
-(Avoid `FIXME` in new comments as its connotations are too negative and too easily
+(Avoid `XXX` in new comments as its connotations are too negative and too easily
 mis-interpreted in code audits.)
 Include the issue number using the syntax `i#<number>`.  For example (ignore leading dots -- only there to work around GitHub markdown problems with leading spaces in literal blocks in list entries):
  \verbatim

@@ -454,7 +454,7 @@ main(int argc, char **argv)
             _snwprintf(out, BUFFER_SIZE_ELEMENTS(out), L"%S\\canary_report.crep",
                        scratch_folder);
             out_file = _wfopen(out, L"wb");
-            /* FIXME - check directory, out_file, and canary proc exist */
+            /* XXX - check directory, out_file, and canary proc exist */
             result = run_canary_test_ex(out_file, &info, scratch, canary);
         } else if (canary_default != 0) {
             result = run_canary_test(&info, L_EXPAND_LEVEL(STRINGIFY(BUILD_NUMBER)));

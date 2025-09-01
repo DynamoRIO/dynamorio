@@ -188,7 +188,7 @@ parse_policy(char *policy_definition,
 
         } // for(;;)
 
-        /* FIXME:
+        /* XXX:
          * strictly speaking, this isn't parsing, and so it's
          *  kind of messy to be doing this here. (eg: notice that
          *  validate_policy at this point will write all of the
@@ -222,11 +222,11 @@ parse_policy(char *policy_definition,
             if (res != ERROR_SUCCESS)
                 return res;
 
-            /* FIXME: we have the 'changed' info, so we may want to nudge
+            /* XXX: we have the 'changed' info, so we may want to nudge
              *  selectively based on that...but it gets kind of dangerous
              *  so just nudge_all for now. */
         } else {
-            /* FIXME: should we delete old modes files? */
+            /* XXX: should we delete old modes files? */
         }
 
         /* and prep the next line */
@@ -310,7 +310,7 @@ policy_import(char *policy_definition, BOOL synchronize_system, BOOL *inject_fla
         return res;
 
     if (synchronize_system) {
-        /* FIXME: This is a ugly hack to fix case 9436; reasonable because 4.2
+        /* XXX: This is a ugly hack to fix case 9436; reasonable because 4.2
          * release is close and this is the minimal change.  The better fix
          * would be to make the core flag thin_client via drmarker and use it in
          * system_info_cb.  Though that is better, it still isn't great because
@@ -330,30 +330,30 @@ policy_import(char *policy_definition, BOOL synchronize_system, BOOL *inject_fla
                 *warning = res;
         }
 
-        /* FIXME: very inefficient to issue a process control nudge each time
+        /* XXX: very inefficient to issue a process control nudge each time
          * there is an generic update; ev should split update messages into
          * regular, process control, hotpatch mode, hotpatch defs, etc and use
          * them only as needed - will prevent needless performance bottlenecks,
          * esp. with hotpatch nudges.  02-Nov-06: Bharath. */
-        /* FIXME: reset_threadproc() just seems to do a generic nudge with
+        /* XXX: reset_threadproc() just seems to do a generic nudge with
          * sleep - parameterize the sleep and check its uses to see if it can
          * be made generic.  02-Nov-06: Bharath. */
-        /* FIXME: Also, there are two layers of delaying/sleeping one at
+        /* XXX: Also, there are two layers of delaying/sleeping one at
          * reset_threadproc() level and one at the process_walk level for
          * nudges.  Why wasn't one enough?  02-Nov-06e: Bharath */
-        /* FIXME: return value from generic_nudge_all and
+        /* XXX: return value from generic_nudge_all and
          * hotp_notify_all_modes_update (and hotp_notify_all_defs_update else
          * where) haven't been checked.  Don't even know what that means for a
          * nudge all.  Is it supposed to indicate that the whole thing failed
          * or just one nudge?  If so what is the intended action.  02-Nov-06:
          * Bharath. */
-        /* FIXME: make both nodemanager and core use the generic nudge
+        /* XXX: make both nodemanager and core use the generic nudge
          * interface to do hotpatch and detach nudges and do away with the
          * nudge-specific code.  02-Nov-06: Bharath. */
         generic_nudge_all(NUDGE_GENERIC(process_control), NULL, DEFAULT_RESET_TIMEOUT_MS,
                           0);
 
-        /* FIXME: for now we do this at every policy update, but
+        /* XXX: for now we do this at every policy update, but
          *  maybe should be more efficient? */
         res = hotp_notify_all_modes_update(DETACH_RECOMMENDED_TIMEOUT);
 
@@ -438,7 +438,7 @@ append_policy_block(char *policy_buffer, SIZE_T maxchars, SIZE_T *accumlen,
     msg_append(policy_buffer, maxchars, L_NEWLINE, accumlen);
 }
 
-/* FIXME: does not export modes! */
+/* XXX: does not export modes! */
 DWORD
 policy_export(char *policy_buffer, SIZE_T maxchars, SIZE_T *needed)
 {
@@ -452,7 +452,7 @@ policy_export(char *policy_buffer, SIZE_T maxchars, SIZE_T *needed)
 
     /* NOTE: we don't specify global protect when exporting */
 
-    /* FIXME: hardcoded ID and version */
+    /* XXX: hardcoded ID and version */
     msg_append_nvp(policy_buffer, maxchars, &accumlen, L"POLICY_VERSION", L"30000");
 
     append_policy_block(policy_buffer, maxchars, &accumlen, config);

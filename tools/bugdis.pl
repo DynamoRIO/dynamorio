@@ -109,7 +109,7 @@ if ($debugger ne "") {
     die "Cannot find a debugger: @try_dbgs\n" if ($i > $#try_dbgs);
 }
 if ($debugger !~ /cdb/) {
-    # FIXME: does ntsd not support $>< ?
+    # XXX: does ntsd not support $>< ?
     # will have to pass it entire block of cmds on cmdline
     die "ntsd not yet supported: you need cdb\n";
     $use_logfile = 1;
@@ -127,7 +127,7 @@ while ($#ARGV >= 0) {
     # make it easy for users w/ non-globbing shell and non-globbing perl to
     # pass *, w/o double-globbing and messing up escaped chars for other users
     if (!$noglob && ($globall || $filearg =~ /\*/)) {
-        # FIXME: must convert from \ to / BEFORE the glob -- yet don't
+        # XXX: must convert from \ to / BEFORE the glob -- yet don't
         # want to ruin escaped chars!  It's a tradeoff: is \* a directory delimiter
         # followed by metachar *, or is it an escaped * trying to be literal?
         # In everyday usage we assume no escaped *'s!

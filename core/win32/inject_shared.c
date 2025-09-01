@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -120,7 +120,7 @@ report_dynamorio_problem(dcontext_t *unused_dcontext, uint unused_dumpcore_flag,
                          app_pc unused_exception_addr, app_pc unused_report_ebp,
                          const char *unused_fmt, ...)
 {
-    /* FIXME: not supporting here - cannot print the message but
+    /* XXX: not supporting here - cannot print the message but
      * rather its format string */
     display_error("ASSERT_CURIOSITY hit - attach a debugger\n");
 }
@@ -373,7 +373,7 @@ get_remote_process_ldr_status(HANDLE process_handle)
                                  &nbytes);
     if (!res) {
         /* xref case 9800 - the app handle may not always have sufficient rights
-         * FIXME - could dup the handle and retry */
+         * XXX - could dup the handle and retry */
         return -1;
     }
 
@@ -507,7 +507,7 @@ get_rununder_value(const char *runvalue)
 {
     /* For now we allow only decimal, but with more flags it will be
        easier to work on hex.
-       FIXME: share the logic in parse_uint() from after options.c -r 1.4
+       XXX: share the logic in parse_uint() from after options.c -r 1.4
        to allow both hex and decimal values
     */
     return atoi(runvalue);
@@ -659,7 +659,7 @@ typedef enum {
   buffer and registry access altogether, yet for generality sake
   we'll do this.
 
-  FIXME[inefficiency]: The systemwide_should_inject() thus ends up
+  XXX[inefficiency]: The systemwide_should_inject() thus ends up
      checking twice for RUNUNDERDR, but the OS is good at caching this.
 */
 static uint
@@ -670,7 +670,7 @@ commandline_qualifier_needed(const wchar_t *process_short_name, reg_platform_t w
     int res;
 
     wchar_t app_specific_base[MAXIMUM_PATH] = DYNAMORIO_REGISTRY_BASE L"\\";
-    /* FIXME: this extra buffer has exactly the same contents as that
+    /* XXX: this extra buffer has exactly the same contents as that
        passed by get_subkey_parameter(,,QUALIFIED_SHORT_NAME) and in
        fact have the same contents as we'll now prepare in a different buffer.
        Other callers of get_process_qualified_name() do not have an
@@ -710,7 +710,7 @@ get_process_qualified_name(HANDLE process_handle, wchar_t *w_exename,
     PEB *own_peb;
     wchar_t other_process_img_or_cmd[MAXIMUM_PATH];
 
-    /* FIXME: This buffer is only needed for reading other process
+    /* XXX: This buffer is only needed for reading other process
        data, we need to check stack depths for the follow children
        case.  Although not needed when reading current process this
        function should be called only at startup with known stack layout.
@@ -749,7 +749,7 @@ get_process_qualified_name(HANDLE process_handle, wchar_t *w_exename,
     commandline_dispatch = commandline_qualifier_needed(short_name, whichreg);
     if (TEST(RUNUNDER_COMMANDLINE_DISPATCH, commandline_dispatch)) {
         wchar_t cmdline_qualifier[MAXIMUM_PATH] = L"-";
-        /* FIXME: we could do all this processing in w_exename so that
+        /* XXX: we could do all this processing in w_exename so that
            no other buffer is needed at all, but for the sake of
            readability keeping this extra */
         const wchar_t *process_commandline;
@@ -1100,7 +1100,7 @@ is_nt_or_custom_safe_mode()
                                     L"SystemStartOptions", start_options,
                                     sizeof(start_options), REGISTRY_DEFAULT);
     if (IS_GET_PARAMETER_SUCCESS(retval)) {
-        /* FIXME: should do only when non empty start options given */
+        /* XXX: should do only when non empty start options given */
         /* let's see if we have an override */
         char safemarker_override_buf[MAX_PARAMNAME_LENGTH];
         char *safemarker = "SOS";
@@ -1179,7 +1179,7 @@ is_safe_mode()
         }
     }
 
-    /* FIXME: case 5307: based on some other our registry key value we should
+    /* XXX: case 5307: based on some other our registry key value we should
      * allow this even on Win2000 so that /DISABLESC can be passed on
      * the command line.
      */
@@ -1197,7 +1197,7 @@ is_safe_mode()
 bool
 systemwide_inject_enabled()
 {
-    /* FIXME: is it better to memoize the result for multiple uses in os.c? */
+    /* XXX: is it better to memoize the result for multiple uses in os.c? */
     /* There is always going to be a TOCTOU race condition anyways. */
     char appinit[MAXIMUM_PATH];
     int retval;
@@ -1413,7 +1413,7 @@ check_for_run_once(HANDLE process, int rununder_mask)
          */
         if (set_process_parameter(process, L_DYNAMORIO_VAR_RUNUNDER, mask_string) !=
             SET_PARAMETER_SUCCESS) {
-            /* FIXME: Till 2.5 ASSERT_NOT_REACHED/display_error should actually
+            /* XXX: Till 2.5 ASSERT_NOT_REACHED/display_error should actually
              * be ASSERT_CURIOSITY.  Defining ASSERT_CURIOSITY for core,
              * drinject.exe and drpreinject.dll is an ugly redefinition hack;
              * better not do it just for case 4249.
@@ -1514,7 +1514,7 @@ main()
     nametest("dllhost.exe ////// /P#%@#$%-k    netsvc    ", "");
 
     /* test that snprintf/snwprintf are respecting bounds */
-    /* FIXME : move to some place shared with linux and expand to more
+    /* XXX : move to some place shared with linux and expand to more
      * cases (and add vs* functions) */
     {
         char buf[20];

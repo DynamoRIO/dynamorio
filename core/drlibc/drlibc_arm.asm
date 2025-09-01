@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -45,7 +45,7 @@ DECL_EXTERN(unexpected_return)
 
 /* we share dynamorio_syscall w/ preload */
 /* To avoid libc wrappers we roll our own syscall here.
- * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
+ * Hardcoded to use svc/swi for 32-bit -- XXX: use something like do_syscall
  * signature: dynamorio_syscall(sys_num, num_args, arg1, arg2, ...)
  * For Linux, the argument max is 6.
  */
@@ -91,7 +91,7 @@ syscall_0_or_1arg:
         pop      {REG_R4-REG_R9}
         bx       lr
 
-/* FIXME i#1551: just a shell to get things compiling.  We need to fill
+/* XXX i#1551: just a shell to get things compiling.  We need to fill
  * in the real implementation.
  */
 #define FUNCNAME dr_fpu_exception_init

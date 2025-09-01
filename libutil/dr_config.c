@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -414,7 +414,7 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
         NULL_TERMINATE_BUFFER(dir);
         subdir = GLOBAL_CONFIG_SUBDIR;
 #    else
-        /* FIXME i#840: Support global config files by porting more of utils.c.
+        /* XXX i#840: Support global config files by porting more of utils.c.
          */
         return false;
 #    endif
@@ -620,7 +620,7 @@ static bool
 read_config_ex(FILE *f, const char *var, TCHAR *val, size_t val_len, bool elide)
 {
     bool found = false;
-    /* FIXME: share code w/ core/config.c */
+    /* XXX: share code w/ core/config.c */
 #    define BUFSIZE (MAX_CONFIG_VALUE + 128)
     char line[BUFSIZE];
     size_t var_len = strlen(var);
@@ -948,7 +948,7 @@ write_options(opt_info_t *opt_info, TCHAR *wbuf)
 
     /* extra options */
     for (i = 0; i < opt_info->num_extra_opts; i++) {
-        /* FIXME: Note that we're blindly allowing any options
+        /* XXX: Note that we're blindly allowing any options
          * provided so we can allow users to specify "undocumented"
          * options.  Maybe we should be checking that the options are
          * actually valid?
@@ -1033,7 +1033,7 @@ platform_is_64bit(dr_platform_t platform)
     return (platform == DR_PLATFORM_64BIT IF_X64(|| platform == DR_PLATFORM_DEFAULT));
 }
 
-/* FIXME i#840: Syswide NYI for Linux. */
+/* TODO i#840: Syswide NYI for Linux. */
 #ifdef WINDOWS
 static void
 get_syswide_path(TCHAR *wbuf, const char *dr_root_dir)
@@ -1216,7 +1216,7 @@ dr_register_process(const char *process_name, process_id_t pid, bool global,
 
 #ifdef WINDOWS
     /* If on win2k, copy drearlyhelper?.dll to system32
-     * FIXME: this requires admin privs!  oh well: only issue is early inject
+     * XXX: this requires admin privs!  oh well: only issue is early inject
      * on win2k...
      */
     if (get_platform(&platform) == ERROR_SUCCESS && platform == PLATFORM_WIN_2000) {
@@ -1269,7 +1269,7 @@ dr_unregister_process(const char *process_name, process_id_t pid, bool global,
         goto exit;
     }
 
-    /* FIXME PR 232738: we should remove the drdearlyhelp?.dlls and preinject
+    /* XXX PR 232738: we should remove the drdearlyhelp?.dlls and preinject
      * from system32, and remove the base reg keys, if dr_unregister_process()
      * removes the last registered process.
      */
@@ -1376,7 +1376,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
     free_opt_info(&opt_info);
 }
 
-/* FIXME i#840: NYI for Linux, need a FindFirstFile equivalent. */
+/* TODO i#840: NYI for Linux, need a FindFirstFile equivalent. */
 #ifdef WINDOWS
 
 struct _dr_registered_process_iterator_t {

@@ -198,7 +198,7 @@ post_process()
                               dr_context,
                               0
 #ifdef WINDOWS
-                              /* FIXME i#3983: Creating threads in standalone mode
+                              /* XXX i#3983: Creating threads in standalone mode
                                * causes problems.  We disable the pool for now.
                                */
                               ,

@@ -98,9 +98,9 @@ while (<IN>) {
         }
         $cnt=$2;
         $hexes[$num]=$addrs;
-        # FIXME: ensure no symbol path set that will have network delays --
+        # XXX: ensure no symbol path set that will have network delays --
         # perhaps even have address_query.pl clear the symbol path every time?
-        # FIXME: would be faster to batch up all addresses and then feed
+        # XXX: would be faster to batch up all addresses and then feed
         # through a single invocation of address_query.pl
         open(ADDR, "address_query.pl $DRdll $addrs |") ||
             die "Error running address_query.pl\n";

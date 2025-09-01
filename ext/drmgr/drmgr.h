@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -66,13 +66,21 @@ extern "C" {
 #    define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
 #    define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
 
-/* drmgr replaces these events in order to provide ordering control */
+/* drmgr replaces these events in order to provide ordering control and
+ * priorities and user_data parameters.
+ */
+#    define dr_register_exit_event DO_NOT_USE_exit_event_USE_drmgr_events_instead
+#    define dr_unregister_exit_event DO_NOT_USE_exit_event_USE_drmgr_events_instead
 #    define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
 #    define dr_unregister_thread_init_event \
         DO_NOT_USE_thread_event_USE_drmgr_events_instead
 #    define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
 #    define dr_unregister_thread_exit_event \
         DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_register_filter_syscall_event \
+        DO_NOT_USE_filter_syscall_USE_drmgr_events_instead
+#    define dr_unregister_filter_syscall_event \
+        DO_NOT_USE_filter_syscall_USE_drmgr_events_instead
 #    define dr_register_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
 #    define dr_unregister_pre_syscall_event \
         DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
@@ -245,7 +253,7 @@ DR_EXPORT
  * Initializes the drmgr extension.  Must be called prior to any of the
  * other routines.  Can be called multiple times (by separate components,
  * normally) but each call must be paired with a corresponding call to
- * drmgr_exit().
+ * drmgr_exit()
  *
  * \return whether successful.
  */
@@ -1104,6 +1112,45 @@ drmgr_decode_sysnum_from_wrapper(app_pc entry);
 
 DR_EXPORT
 /**
+ * Registers a callback function for the exit event, which behaves
+ * just like the event registered by dr_register_exit_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_exit_event(void (*func)(void));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the exit event, which behaves
+ * just like the event registered by dr_register_exit_event() but is
+ * ordered by \p priority. Allows for the passing of user data \p user_data
+ * which is available upon the execution of the callback.
+ * \return whether successful.
+ */
+bool
+drmgr_register_exit_event_user_data(void (*func)(void *user_data),
+                                    drmgr_priority_t *priority, void *user_data);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the exit event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_exit_event(void (*func)(void));
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the exit event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_exit_event_user_data(void (*func)(void *user_data));
+
+DR_EXPORT
+/**
  * Registers a callback function for the thread initialization event.
  * drmgr calls \p func whenever the application creates a new thread.
  * \return whether successful.
@@ -1211,10 +1258,52 @@ drmgr_unregister_thread_exit_event_user_data(void (*func)(void *drcontext,
 
 DR_EXPORT
 /**
+ * Registers a callback function for the syscall filter event, which
+ * behaves just like DR's pre-syscall event dr_register_filter_syscall_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_filter_syscall_event(bool (*func)(void *drcontext, int sysnum));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the syscall filter event, which
+ * behaves just like DR's pre-syscall event dr_register_filter_syscall_event(),
+ * ordered by \p priority. Allows for the passing of user data \p user_data
+ * which is available upon the execution of the callback.
+ * \return whether successful.
+ */
+bool
+drmgr_register_filter_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                           void *user_data),
+                                              drmgr_priority_t *priority,
+                                              void *user_data);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the syscall filter event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_filter_syscall_event(bool (*func)(void *drcontext, int sysnum));
+
+DR_EXPORT
+/**
+ * Unregister a callback function, which takes user data, for the syscall filter event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_filter_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                             void *user_data));
+
+DR_EXPORT
+/**
  * Registers a callback function for the pre-syscall event, which
  * behaves just like DR's pre-syscall event dr_register_pre_syscall_event().
  * In particular, a filter event is still needed to ensure that a pre- or post-syscall
- * event is actually called: use dr_register_filter_syscall_event().
+ * event is actually called: use drmgr_register_filter_syscall_event_user_data().
  * \return whether successful.
  */
 bool

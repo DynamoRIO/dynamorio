@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -121,7 +121,7 @@ static const redirect_import_t redirect_kernel32[] = {
     { "DeleteFileA", (app_pc)redirect_DeleteFileA },
     { "DeleteFileW", (app_pc)redirect_DeleteFileW },
     { "ReadFile", (app_pc)redirect_ReadFile },
-#if 0 /* FIXME i#1089: disabling until we have console support */
+#if 0 /* XXX i#1089: disabling until we have console support */
     {"WriteFile",                      (app_pc)redirect_WriteFile},
 #endif
     { "CreateFileMappingA", (app_pc)redirect_CreateFileMappingA },

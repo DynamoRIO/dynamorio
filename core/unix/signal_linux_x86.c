@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -229,7 +229,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
                      : "eax", "edx", "rcx", "memory");
 #else
 #    if DISABLED_ISSUE_3256
-        /* FIXME i#3256: DR's kernel_fpstate_t includes the fsave 112 bytes at the
+        /* XXX i#3256: DR's kernel_fpstate_t includes the fsave 112 bytes at the
          * top.  We need to skip them to reach the xsave area at the _fxsr_env field.
          * However, that requires aligning that instead of the kernel_fpstate_t start
          * itself in sigpending_t and the frame we make on the app stack.  An
@@ -241,7 +241,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         ASSERT(ALIGNED(xsave_start, AVX_ALIGNMENT));
         /* We only enable the x87 state component. The rest of the user state components
          * gets copied below from priv_mcontext_t.
-         * FIXME i#1312: it is unclear if and how the components are arranged in
+         * XXX i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel. In fact, if we enable more state components here
          * than this, we get a crash in linux.sigcontext. This needs clarification about
          * what the kernel does for 32-bit with the extended xsave area.
@@ -303,7 +303,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
                    ZMM_REG_SIZE);
         }
 #else
-        /* FIXME i#1312: it is unclear if and how the components are arranged in
+        /* XXX i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel.
          */
 #endif
@@ -363,7 +363,7 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         convert_fxsave_to_fpstate(sc->fpstate, &temp->fxsave);
 #endif
     } else {
-        /* FIXME NYI: need to convert to fxsave format for sc->fpstate */
+        /* TODO NYI: need to convert to fxsave format for sc->fpstate */
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
         /* this is "unlazy_fpu" */
         asm volatile("fnsave %0 ; fwait" : "=m"(temp->fsave));
@@ -567,7 +567,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
             }
         }
 #else
-        /* FIXME i#1312: it is unclear if and how the components are arranged in
+        /* XXX i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel.
          */
 #endif
@@ -645,7 +645,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
             }
         }
 #else
-        /* FIXME i#1312: it is unclear if and how the components are arranged in
+        /* XXX i#1312: it is unclear if and how the components are arranged in
          * 32-bit mode by the kernel.
          */
 #endif

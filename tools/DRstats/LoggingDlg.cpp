@@ -50,7 +50,7 @@
 static char THIS_FILE[] = __FILE__;
 #    endif
 
-// FIXME: duplicate information with utils.h...
+// XXX: duplicate information with utils.h...
 enum {
     LOG_NONE = 0,
     LOG_STATS,

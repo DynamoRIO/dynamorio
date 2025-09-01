@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -86,8 +86,8 @@ allmem_info_merge(void *dst_data, void *src_data);
 
 /* HACK to make all_memory_areas->lock recursive
  * protected for both read and write by all_memory_areas->lock
- * FIXME: provide general rwlock w/ write portion recursive
- * FIXME: eliminate duplicate code (see dynamo_areas_recursion)
+ * XXX: provide general rwlock w/ write portion recursive
+ * XXX: eliminate duplicate code (see dynamo_areas_recursion)
  */
 DECLARE_CXTSWPROT_VAR(uint all_memory_areas_recursion, 0);
 
@@ -117,7 +117,7 @@ memcache_initialized(void)
 }
 
 /* HACK to get recursive write lock for internal and external use
- * FIXME: code blatantly copied from dynamo_vm_areas_{un}lock(); eliminate duplication!
+ * XXX: code blatantly copied from dynamo_vm_areas_{un}lock(); eliminate duplication!
  */
 void
 memcache_lock(void)
@@ -400,7 +400,7 @@ memcache_query_memory(const byte *pc, DR_PARAM_OUT dr_mem_info_t *out_info)
             } else {
                 /* /proc/maps could break/combine regions listed so region bounds as
                  * listed by all_memory_areas and /proc/maps won't agree.
-                 * FIXME: Have seen instances where all_memory_areas lists the region as
+                 * XXX: Have seen instances where all_memory_areas lists the region as
                  * r--, where /proc/maps lists it as r-x.  Infact, all regions listed in
                  * /proc/maps are executable, even guard pages --x (see case 8821)
                  */

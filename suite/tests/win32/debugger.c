@@ -62,10 +62,10 @@ int count = 0;
 
 #define DEBUGGER_INTERFACE() __asm { int 2d }
 
-/* FIXME: test single stepping with TRAP bit set in EFLAGS - can one control this at CPL3?
+/* XXX: test single stepping with TRAP bit set in EFLAGS - can one control this at CPL3?
  */
 
-/* FIXME: case 11058 I don't understand this - INT3 is supposed to save the EIP _AFTER_
+/* XXX: case 11058 I don't understand this - INT3 is supposed to save the EIP _AFTER_
  * the instruction why am I getting the original instruction natively?
  */
 /* as a workaround we increment EIP again */

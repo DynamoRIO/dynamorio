@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
 
 /* in os.c *********************************************************/
 #define GLOBAL_NT_PREFIX L"\\??\\"
-/* FIXME: used for converting Dos to NT paths */
+/* XXX: used for converting Dos to NT paths */
 
 /* thread-local data that's os-private, for modularity and easy sharing across
  * callbacks
@@ -230,12 +230,12 @@ enum {
 };
 
 /* the offset from edx of the parameters to a system call, our current
- * (FIXME - also potentially unreliable, since really is a function of os
+ * (XXX - also potentially unreliable, since really is a function of os
  * version and processor type) check is by the system entry method,
  * if it's int then offset is 0, if it's sysenter or syscall then offset is 8
  * will also have it default to 0 since I think 2k uses int regardless of
  * proccesor type */
-/* FIXME - if we are really paranoid then we should ensure that the offset
+/* XXX - if we are really paranoid then we should ensure that the offset
  * holds the return values the os would expect (i.e. the ntdll wrapper return
  * address for XP/2003), also if used before we know the syscall method will
  * default to 0! */
@@ -458,7 +458,7 @@ extern uint context_xstate;
     (CONTEXT_INTEGER | CONTEXT_CONTROL | (CONTEXT_PRESERVE_XMM ? CONTEXT_XMM_FLAG : 0U))
 #define CONTEXT_DR_STATE \
     (CONTEXT_DR_STATE_NO_YMM | (CONTEXT_PRESERVE_YMM ? CONTEXT_YMM_FLAG : 0U))
-/* FIXME i#444: including CONTEXT_YMM_FLAG blindly results in STATUS_NOT_SUPPORTED in
+/* XXX i#444: including CONTEXT_YMM_FLAG blindly results in STATUS_NOT_SUPPORTED in
  * inject_into_thread()'s NtGetContextThread so for now we remove it:
  */
 #define CONTEXT_DR_STATE_ALLPROC                            \
@@ -917,7 +917,7 @@ safe_write(void *base, size_t size, const void *in_buf);
 char *
 prot_string(uint prot);
 
-/* FIXME: should we try to alert any dynamo running the other process?
+/* XXX: should we try to alert any dynamo running the other process?
  * Refer new instances to Case 68
  */
 #define IPC_ALERT(...) SYSLOG_INTERNAL_WARNING_ONCE("IPC ALERT " __VA_ARGS__)

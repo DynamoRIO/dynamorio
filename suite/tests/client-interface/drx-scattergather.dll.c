@@ -95,7 +95,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     for (instr_t *instr = instrlist_first(bb); instr != NULL;
          instr = instr_get_next(instr)) {
         if (instr_is_gather(instr) || instr_is_scatter(instr)) {
-            /* FIXME i#2985: some scatter/gather instructions will not get expanded in
+            /* XXX i#2985: some scatter/gather instructions will not get expanded in
              * 32-bit mode.
              */
             IF_X64(dr_fprintf(STDERR, "Unexpected scatter or gather instruction\n"));
@@ -328,7 +328,7 @@ dr_init(client_id_t id)
     CHECK(ok, "drx_init failed");
     res = drreg_init(&ops);
     CHECK(res == DRREG_SUCCESS, "drreg_init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
                                                     event_app_instruction, NULL, NULL);
     CHECK(ok, "drmgr register bb failed");

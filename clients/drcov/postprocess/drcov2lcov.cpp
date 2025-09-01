@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -802,7 +802,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
         modpath = info.path;
         if (info.size >= UINT_MAX)
             ASSERT(false, "module size is too large");
-        /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
+        /* XXX i#1445: we have seen the pdb convert paths to all-lowercase,
          * so these should be case-insensitive on Windows.
          */
         if (strstr(info.path, "<unknown>") != NULL ||
@@ -1147,7 +1147,7 @@ enum_line_cb(drsym_line_info_t *info, void *data)
     module_table_t *table = (module_table_t *)data;
     line_table_t *line_table;
     const char *test_info = NULL;
-    /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
+    /* XXX i#1445: we have seen the pdb convert paths to all-lowercase,
      * so these should be case-insensitive on Windows.
      */
     if (info->file == NULL ||

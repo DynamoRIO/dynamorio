@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,7 +56,7 @@ static void
 at_bb(app_pc bb_addr)
 {
 #ifdef X64
-    /* FIXME: abs ref is rip-rel so doesn't work w/o patching.
+    /* XXX: abs ref is rip-rel so doesn't work w/o patching.
      * need to impl patching here: finalize interface.
      */
 #else

@@ -437,7 +437,9 @@ bool
 cache_simulator_t::process_memref(const memref_t &memref)
 {
     if (knobs_.skip_refs > 0) {
-        knobs_.skip_refs--;
+        // Only count non-markers toward *_refs counts.
+        if (memref.marker.type != TRACE_TYPE_MARKER)
+            knobs_.skip_refs--;
         return true;
     }
 
@@ -445,47 +447,41 @@ cache_simulator_t::process_memref(const memref_t &memref)
     // we are done.
     if ((knobs_.warmup_refs == 0 && knobs_.warmup_fraction == 0.0) &&
         knobs_.sim_refs == 0)
-        return true;
+        return false; // Early exit.
 
     // The references after warmup and simulated ones are dropped.
     if (is_warmed_up_ && knobs_.sim_refs == 0)
-        return true;
+        return false; // Early exit.
 
     // Both warmup and simulated references are simulated.
 
     if (!simulator_t::process_memref(memref))
         return false;
 
-    if (memref.marker.type == TRACE_TYPE_MARKER) {
-        // We ignore markers before we ask core_for_thread, to avoid asking
-        // too early on a timestamp marker.
-        // TODO i#7230: This causes -warmup_refs and -sim_refs to count non-marker
-        // records while -skip_refs counts all records.  We should either say
-        // that in the docs or change the behavior here.
-        // Plus, this skips the TRACE_MARKER_TYPE_CPU_ID handling below.
-        if (knobs_.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
-                      << "marker type " << memref.marker.marker_type << " value "
-                      << memref.marker.marker_value << "\n";
-        }
-        return true;
-    }
-
-    int core_index;
-    if (shard_type_ == SHARD_BY_THREAD) {
-        if (memref.data.tid == last_thread_)
-            core_index = last_core_index_;
-        else {
+    // core_index can end up as INVALID_CORE_INDEX during headers but we don't use it
+    // then; we assert below on all uses cases that it's not INVALID_CORE_INDEX.
+    int core_index = INVALID_CORE_INDEX;
+    // Do not try to schedule idle onto cores as we'll then think they had activity
+    // when we print them out.
+    if (memref.marker.type != TRACE_TYPE_MARKER ||
+        memref.marker.marker_type != TRACE_MARKER_TYPE_CORE_IDLE) {
+        if (shard_type_ == SHARD_BY_THREAD) {
+            if (memref.data.tid == last_thread_ && last_core_index_ != INVALID_CORE_INDEX)
+                core_index = last_core_index_;
+            else {
+                core_index = core_for_thread(memref.data.tid);
+                if (core_index != INVALID_CORE_INDEX) {
+                    last_thread_ = memref.data.tid;
+                    last_core_index_ = core_index;
+                }
+            }
+        } else
             core_index = core_for_thread(memref.data.tid);
-            last_thread_ = memref.data.tid;
-            last_core_index_ = core_index;
+        if (core_index >= static_cast<int>(knobs_.num_cores)) {
+            error_string_ = "Too-small core count " + std::to_string(knobs_.num_cores) +
+                " for trace core #" + std::to_string(core_index);
+            return false;
         }
-    } else
-        core_index = core_for_thread(memref.data.tid);
-    if (core_index >= static_cast<int>(knobs_.num_cores)) {
-        error_string_ = "Too-small core count " + std::to_string(knobs_.num_cores) +
-            " for trace core #" + std::to_string(core_index);
-        return false;
     }
 
     // To support swapping to physical addresses without modifying the passed-in
@@ -505,6 +501,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
                       << " @" << (void *)simref->instr.addr << " instr x"
                       << simref->instr.size << "\n";
         }
+        assert(core_index != INVALID_CORE_INDEX);
         l1_icaches_[core_index]->request(*simref);
     } else if (simref->data.type == TRACE_TYPE_READ ||
                simref->data.type == TRACE_TYPE_WRITE ||
@@ -517,6 +514,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
                       << trace_type_names[simref->data.type] << " "
                       << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
+        assert(core_index != INVALID_CORE_INDEX);
         l1_dcaches_[core_index]->request(*simref);
     } else if (simref->flush.type == TRACE_TYPE_INSTR_FLUSH) {
         if (knobs_.verbose >= 3) {
@@ -524,6 +522,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
                       << " @" << (void *)simref->data.pc << " iflush "
                       << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
+        assert(core_index != INVALID_CORE_INDEX);
         l1_icaches_[core_index]->flush(*simref);
     } else if (simref->flush.type == TRACE_TYPE_DATA_FLUSH) {
         if (knobs_.verbose >= 3) {
@@ -531,13 +530,19 @@ cache_simulator_t::process_memref(const memref_t &memref)
                       << " @" << (void *)simref->data.pc << " dflush "
                       << (void *)simref->data.addr << " x" << simref->data.size << "\n";
         }
+        assert(core_index != INVALID_CORE_INDEX);
         l1_dcaches_[core_index]->flush(*simref);
     } else if (simref->exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(simref->exit.tid);
         last_thread_ = 0;
-    } else if (memref.marker.type == TRACE_TYPE_MARKER &&
-               memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
-        last_thread_ = 0;
+    } else if (memref.marker.type == TRACE_TYPE_MARKER) {
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID)
+            last_thread_ = 0;
+        if (knobs_.verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
+                      << "marker type " << memref.marker.marker_type << " value "
+                      << memref.marker.marker_value << "\n";
+        }
     } else if (simref->marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // Just ignore.
         if (knobs_.verbose >= 3) {
@@ -550,17 +555,20 @@ cache_simulator_t::process_memref(const memref_t &memref)
         return false;
     }
 
-    // reset cache stats when warming up is completed
-    if (!is_warmed_up_ && check_warmed_up()) {
-        for (auto &cache_it : all_caches_) {
-            cache_t *cache = cache_it.second;
-            cache->get_stats()->reset();
+    // Only count non-markers toward *_refs counts.
+    if (memref.marker.type != TRACE_TYPE_MARKER) {
+        // Reset cache stats when warming up is completed.
+        if (!is_warmed_up_ && check_warmed_up()) {
+            for (auto &cache_it : all_caches_) {
+                cache_t *cache = cache_it.second;
+                cache->get_stats()->reset();
+            }
+            if (knobs_.verbose >= 1) {
+                std::cerr << "Cache simulation warmed up\n";
+            }
+        } else {
+            knobs_.sim_refs--;
         }
-        if (knobs_.verbose >= 1) {
-            std::cerr << "Cache simulation warmed up\n";
-        }
-    } else {
-        knobs_.sim_refs--;
     }
 
     return true;
@@ -577,6 +585,12 @@ cache_simulator_t::get_prefetcher(std::string prefetcher_name)
         return custom_prefetcher_factory_->create_prefetcher((int)knobs_.line_size);
     }
     return nullptr;
+}
+
+bool
+cache_simulator_t::is_warmed_up()
+{
+    return is_warmed_up_;
 }
 
 // Return true if the number of warmup references have been executed or if

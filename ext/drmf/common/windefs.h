@@ -302,7 +302,7 @@ typedef struct _KUSER_SHARED_DATA {
     };
 
     /********************* below here is Vista-only ********************
-     * FIXME: should we avoid false pos by having Windows-version-specific
+     * XXX: should we avoid false pos by having Windows-version-specific
      * struct defs?  Not bothering for now.
      */
 

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -821,7 +821,7 @@ function (_DR_set_compile_flags target is_client extra_flags static_DR)
     if (is_client)
       # Avoid bringing in libc and/or kernel32 for stack checks
       set(extra_flags "${extra_flags} /GS-")
-      # FIXME: why isn't /debug showing up: is it
+      # XXX: why isn't /debug showing up: is it
     endif (is_client)
 
     # Shrink binaries and pdbs (/Gy should already be there)
@@ -1182,9 +1182,6 @@ endfunction (get_DynamoRIO_defines)
 set(DynamoRIO_EXT_drgui_NOLIB ON)
 set(DynamoRIO_EXT_droption_NOLIB ON)
 set(DynamoRIO_EXT_droption_INC ${DynamoRIO_cwd}/../ext/include)
-# Not really an extension, just for including drmemtrace.h
-# via use_DynamoRIO_extension(target, drmemtrace_static)
-set(DynamoRIO_EXT_drmemtrace_static_NOLIB ON)
 
 # DynamoRIO Extensions
 # Failure to call this in your client CMakeLists.txt when using an extension like

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2022 Google, Inc. All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -408,7 +408,7 @@ encode_debug_checks(void)
     CLIENT_ASSERT(sizeof(d_r_reg_id_to_virtual) == sizeof(dr_reg_fixer),
                   "register to virtual register map size error");
 
-    /* FIXME i#1569: NYI */
+    /* TODO i#1569: NYI */
 }
 #endif
 

@@ -361,6 +361,17 @@ droption_t<bool> op_align_endpoints(
     "all threads and is nop-ed as soon as detach starts, eliminating the unevenness. "
     "This also allows omitting threads that did nothing during the burst.");
 
+droption_t<bool> op_memdump_on_window(
+    // TODO i#7508: Add Windows support. raw2trace fails with "Non-module instructions
+    // found with no encoding information.". This occurs on Windows when capturing memory
+    // dumps at the start of a new tracing window.
+    DROPTION_SCOPE_CLIENT, "memdump_on_window", false,
+    "Capture a memory dump when a tracing window opens",
+    "Capture a memory dump upon the initiation of tracing triggered by "
+    "-trace_after_instrs, -trace_instr_intervals_file, or -retrace_every_instrs. "
+    "If -retrace_every_instrs is also enabled, a memory dump will be captured for "
+    "each individual tracing window. This is only supported on X64 Linux.");
+
 droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
     "Do not start tracing until N instructions",
@@ -618,22 +629,45 @@ droption_t<bytesize_t> op_skip_instrs(
     "iteration, each thread skips this many instructions (see -skip_to_timestamp for "
     "an alternative which does align all threads).  When built with zipfile "
     "support, this skipping is optimized and large instruction counts can be quickly "
-    "skipped; this is not the case for -skip_refs.  This will skip over top-level "
+    "skipped; this is not the case for -skip_records or -skip_refs. "
+    "This will skip over top-level "
     "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE, "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
     "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
     "records will not appear to analysis tools; however, their contents can be obtained "
-    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.");
+    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.  "
+    "Synthetic records, such as dynamically injected system call or context switch "
+    "sequences, are not counted at all.");
+
+droption_t<bytesize_t> op_skip_records(
+    DROPTION_SCOPE_FRONTEND, "skip_records", 0, "Number of records to skip",
+    "Specifies the number of records to skip in the beginning of the trace "
+    "analysis.  For serial iteration, this number is "
+    "computed just once across the interleaving sequence of all threads; for parallel "
+    "iteration, each worker skips this many records (see -skip_to_timestamp for "
+    "an alternative which aligns all threads).  This skipping is not as fast as "
+    "-skip_instrs.  This will skip over top-level "
+    "metadata records (such as #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE, "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE, and "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE) and so those "
+    "records will not appear to analysis tools; however, their contents can be obtained "
+    "from #dynamorio::drmemtrace::memtrace_stream_t API accessors.  "
+    "Synthetic records, such as dynamically injected system call or context switch "
+    "sequences, are not counted at all.");
 
 droption_t<bytesize_t> op_skip_refs(
-    DROPTION_SCOPE_FRONTEND, "skip_refs", 0, "Number of records to skip in certain tools",
-    "This option is honored by certain tools such as the cache and TLB simulators and "
-    "the view tool.  It causes them to ignore the specified count of records at the "
+    DROPTION_SCOPE_FRONTEND, "skip_refs", 0,
+    "Number of non-markers to skip in certain tools",
+    "This option is honored by certain tools such as the cache and TLB simulators.  "
+    "It causes them to ignore the specified count of non-marker (i.e., actual address "
+    "reference ('ref') records) at the "
     "start of the trace and only start processing after that count is reached.  Since "
     "the framework is still iterating over those records and it is the tool who is "
     "ignoring them, this skipping may be slow for large skip values; consider "
-    "-skip_instrs for a faster method of skipping inside the framework itself.");
+    "-skip_instrs for a faster method of skipping inside the framework itself.  "
+    "To skip markers also, use -skip_records.");
 
 droption_t<uint64_t> op_skip_to_timestamp(
     DROPTION_SCOPE_FRONTEND, "skip_to_timestamp", 0, "Timestamp to start at",
@@ -669,14 +703,11 @@ droption_t<bytesize_t> op_L0_filter_until_instrs(
     "full trace. Therefore TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of "
     "filtered records.");
 
-// XXX i#7230: Currently the simulators count only non-marker records here: we should
-// either change that to all records to match -skip_refs, or update these docs.
-// If we update to match -skip_refs, we should make it clear that marker records
-// are not actually warming up the cache but are still being counted.
 droption_t<bytesize_t> op_warmup_refs(
-    DROPTION_SCOPE_FRONTEND, "warmup_refs", 0, "Number of records to warm caches up",
+    DROPTION_SCOPE_FRONTEND, "warmup_refs", 0, "Number of non-markers to warm caches up",
     "This option is honored by certain tools such as the cache and TLB simulators. "
-    "It causes them to not start analysis/simulation until this many records are seen."
+    "It causes them to not start analysis/simulation until this many non-marker records "
+    "(i.e., actual memory reference ('ref') records) are seen.  "
     "If -skip_refs is specified, the warmup records start after "
     "the skipped ones end. This flag is incompatible with warmup_fraction.");
 
@@ -688,18 +719,28 @@ droption_t<double> op_warmup_fraction(
     "is computed after the skipped references and before simulated references. "
     "This flag is incompatible with warmup_refs.");
 
-// XXX i#7230: Currently the simulators count only non-marker records here: we should
-// either change that to all records to match -skip_refs, or update these docs.
 droption_t<bytesize_t> op_sim_refs(
     DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
-    "Number of records to analyze",
-    "This option is honored by certain tools such as the cache and TLB simulators and "
-    "the view tool.  It causes them to only analyze this many records and ignore all "
-    "subsequent records.  If -skip_refs is specified, the analyzed records start after "
-    "the skipped ones end; similarly, if -warmup_refs is specified, the warmup records "
-    "come prior to the -sim_refs records.  Since the framework is still iterating over "
-    "all the records and it is the tool who is ignoring those outside of this range, a "
-    "large trace may still take time even with a small value for this option.");
+    "Number of non-markers records to analyze",
+    "This option is honored by certain tools such as the cache and TLB simulators.  "
+    "It causes them to only analyze this many non-marker (i.e., actual memory reference "
+    "('ref') records) and then exit. "
+    "If -skip_refs is specified, the analyzed records start after the skipped ones end; "
+    "similarly, if -warmup_refs or -warmup_fraction is specified, the warmup records "
+    "come prior to the -sim_refs records.  Use -exit_after_records for a similar feature "
+    "that works on all tools (but does not work with -warmup_*, -sim_refs, or "
+    "-skip_refs).");
+
+droption_t<bytesize_t> op_exit_after_records(
+    DROPTION_SCOPE_FRONTEND, "exit_after_records", bytesize_t(1ULL << 63),
+    "Limits analyzers to this many records",
+    "Causes trace analyzers to only analyze this many records and then exit.  If "
+    "instructions are skipped (-skip_instrs), that happens "
+    "first before record counting starts here.  This is similar to -sim_refs, though "
+    "it is implemented in the framework and so applies to all tools.  This option is not "
+    "compatible with -sim_refs, -skip_refs, -warmup_refs, or -warmup_fraction. "
+    "For traces with multiple shards, each shard separately stops when it reaches this "
+    "count within the shard.");
 
 droption_t<std::string>
     op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr/riscv",
@@ -1209,11 +1250,23 @@ droption_t<uint64_t> op_trim_before_timestamp(
     "marker in the trace with timestamp greater than or equal to the specified value.");
 
 droption_t<uint64_t> op_trim_after_timestamp(
-    DROPTION_SCOPE_ALL, "trim_after_timestamp", (std::numeric_limits<uint64_t>::max)(), 0,
+    DROPTION_SCOPE_ALL, "trim_after_timestamp", 0, 0,
     (std::numeric_limits<uint64_t>::max)(),
     "Trim records after this timestamp (in us) in the trace.",
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker with "
     "timestamp larger than the specified value.");
+
+droption_t<uint64_t> op_trim_before_instr(
+    DROPTION_SCOPE_ALL, "trim_before_instr", 0, 0, (std::numeric_limits<uint64_t>::max)(),
+    "Trim records approximately until this instruction ordinal in the trace.",
+    "Removes all records (after headers) before the first TRACE_MARKER_TYPE_TIMESTAMP "
+    "marker in the trace that comes after the specified instruction ordinal.");
+
+droption_t<uint64_t> op_trim_after_instr(
+    DROPTION_SCOPE_ALL, "trim_after_instr", 0, 0, (std::numeric_limits<uint64_t>::max)(),
+    "Trim records approximately after this instruction ordinal in the trace.",
+    "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker in the trace "
+    "that comes after the specified instruction ordinal.");
 
 droption_t<bool> op_abort_on_invariant_error(
     DROPTION_SCOPE_ALL, "abort_on_invariant_error", true,
@@ -1236,6 +1289,21 @@ droption_t<bool> op_pt2ir_best_effort(
     "traces converted, syscall traces that were dropped from final trace because "
     "conversion failed, syscall traces found to be empty, and non-fatal decode errors "
     "seen in converted syscall traces).");
+
+droption_t<int> op_scale_timers(
+    DROPTION_SCOPE_ALL, "scale_timers", 1, 1, (std::numeric_limits<int>::max)(),
+    "If >1, inflate application timer periods by this value",
+    "If >1, application timer initial durations and periodic durations are "
+    "inflated by this scale.  This can help preserve relative timing between timer-based "
+    "application work and other application work in the presence of "
+    "significant slowdowns from tracing.  Currently only supported on Linux.");
+droption_t<int> op_scale_timeouts(
+    DROPTION_SCOPE_ALL, "scale_timeouts", 1, 1, (std::numeric_limits<int>::max)(),
+    "If >1, inflate syscall timeouts by this value",
+    "If >1, time arguments to certain system calls (currently Linux-only "
+    "sleeps) are multiplied by the specified value.  This can help preserve relative "
+    "timing among application threads in the presence of significant slowdowns from "
+    "tracing.");
 
 } // namespace drmemtrace
 } // namespace dynamorio

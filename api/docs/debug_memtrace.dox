@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -124,7 +124,7 @@ $ unzip -p drmemtrace.app.194439.1516.dir/trace/drmemtrace.app.194439.7393.trace
 
 ## Viewing instruction disassembly
 
-You can use the `view` analysis tool with `skip_refs` and `sim_refs` parameters to select a window, or for small traces you can re-post-process with `drraw2trace` with high verbosity (`-verbose 4` is good).
+You can use the `view` analysis tool with `-skip_records`, `-skip_instructions`, and `-exit_after_records` parameters to select a window, or for small traces you can re-post-process with `drraw2trace` with high verbosity (`-verbose 4` is good).
 
  ****************************************************************************
  */

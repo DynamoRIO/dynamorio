@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -140,7 +140,7 @@ main()
 
     badfunc = (char *)ALIGN_FORWARD(badfuncbuf, 512);
 
-    /* FIXME: make this fancier */
+    /* XXX: make this fancier */
     badfunc[0] = 0xc3; /* ret */
 
     print("THREAD0: Creating thread 1\n");

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -598,9 +598,9 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         num_args, NUM_REGPARM, IF_X64_ELSE(total_pre_push, 0), param_stack, total_stack);
 
     for (i = 0; i < num_args; i++) {
-        /* FIXME PR 302951: we need to handle state restoration if any
+        /* XXX PR 302951: we need to handle state restoration if any
          * of these args references app memory.  We should pull the state from
-         * the priv_mcontext_t on the stack if in a clean call.  FIXME: what if not?
+         * the priv_mcontext_t on the stack if in a clean call.  XXX: what if not?
          */
         opnd_t arg = args[i];
         CLIENT_ASSERT(opnd_get_size(arg) == OPSZ_PTR ||
@@ -646,7 +646,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                             if (opnd_uses_reg(arg, d_r_regparms[0])) {
                                 xsp_scratch = REG_XAX;
                                 ASSERT(!opnd_uses_reg(arg, REG_XAX)); /* can't use 3 */
-                                /* FIXME: rather than putting xsp into mcontext
+                                /* XXX: rather than putting xsp into mcontext
                                  * slot, better to just do local get from dcontext
                                  * like we do for 32-bit below? */
                                 POST(ilist, prev,
@@ -759,7 +759,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                             scratch = d_r_regparms[0];
                         else {
                             /* This happens on Mac.
-                             * FIXME i#1370: not safe if later arg uses xax:
+                             * XXX i#1370: not safe if later arg uses xax:
                              * local spill?  Review how d_r_regparms[0] is preserved.
                              */
                             scratch = REG_XAX;
@@ -1208,7 +1208,7 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * We also have to modify the xcx spill from tls to private dcontext when
  * adding a shared basic block to a trace.
  *
- * FIXME: if we do make non-trace-head basic blocks valid indirect branch
+ * XXX: if we do make non-trace-head basic blocks valid indirect branch
  * targets, we should have the private ibl have special code to test the
  * flags and copy xcx to the tls slot if necessary.
  */
@@ -1232,7 +1232,7 @@ static void
 mangle_far_direct_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr, uint flags)
 {
-    /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+    /* XXX i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
      * If the app wants to change segments in a WOW64 process, we will
      * do the right thing for standard cs selector values (xref i#49).
      * For other cs changes or in other modes, we do go through far_ibl
@@ -1303,11 +1303,11 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* assumption: target's raw bits are meaningful */
         target = instr_get_raw_bits(tgt);
         ASSERT(target != 0);
-        /* FIXME case 6962: for far instr, we ignore the segment and
+        /* XXX case 6962: for far instr, we ignore the segment and
          * assume it matches current cs */
     } else if (opnd_is_far_pc(instr_get_target(instr))) {
         target = opnd_get_pc(instr_get_target(instr));
-        /* FIXME case 6962: we ignore the segment and assume it matches current cs */
+        /* XXX case 6962: we ignore the segment and assume it matches current cs */
     } else
         ASSERT_NOT_REACHED();
 
@@ -1328,7 +1328,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * is also 0-based.  To properly issue new segments, we'd need a special
          * ibl that ends in a far cti, and all prior address manipulations would
          * need to be relative to the new segment, w/o messing up current segment.
-         * FIXME: can we do better without too much work?
+         * XXX: can we do better without too much work?
          * XXX: yes, for wow64: i#823: TODO mangle this like a far direct jmp
          */
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct call");
@@ -1453,7 +1453,7 @@ mangle_far_indirect_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
     reg_id_t reg_target = REG_NULL;
     ASSERT(instr_get_opcode(instr) == OP_jmp_far_ind ||
            instr_get_opcode(instr) == OP_call_far_ind);
-    /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+    /* XXX i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
      * If the app wants to change segments in a WOW64 process, we will
      * do the right thing for standard cs selector values (xref i#49).
      * For other cs changes or in other modes, we do go through far_ibl
@@ -1539,7 +1539,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * inserts a direct exit stub.
      */
     /* If this call is marked for conversion, do minimal processing.
-     * FIXME Just a note that converted calls are not subjected to any of
+     * XXX Just a note that converted calls are not subjected to any of
      * the specialized builds' processing further down.
      */
     if (TEST(INSTR_IND_CALL_DIRECT, instr->flags)) {
@@ -1733,7 +1733,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 
     if (instr_get_opcode(instr) == OP_ret_far) {
-        /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
+        /* XXX i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
          * If the app wants to change segments in a WOW64 process, we will
          * do the right thing for standard cs selector values (xref i#49).
          * For other cs changes or in other modes, we do go through far_ibl
@@ -1899,7 +1899,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * because no branch can simultaneously use 3 registers, right?
      * Maximum is 2, in something like "jmp *(edi,ebx,4)"?
      * If it is possible, need to make sure stealing's use of ecx
-     * doesn't conflict w/ our use = FIXME
+     * doesn't conflict w/ our use = XXX
      */
     return next_instr;
 }
@@ -2048,7 +2048,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
      * in do_syscall
      */
 
-    /* FIXME: for ignorable syscalls,
+    /* XXX: for ignorable syscalls,
      * do we need support for exiting mid-fragment prior to a syscall
      * like we do on Linux, to bound time in cache?
      */
@@ -2065,7 +2065,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
 #    ifdef X64
                 ASSERT(instr_raw_bits_valid(instr));
                 /* PR 244741: no 64-bit store-immed-to-mem
-                 * FIXME: would be nice to move this to the stub and
+                 * XXX: would be nice to move this to the stub and
                  * use the dead rbx register!
                  */
                 PRE(ilist, instr,
@@ -2137,7 +2137,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
             ASSERT_NOT_IMPLEMENTED(!DYNAMO_OPTION(sygate_sysenter));
             /* PR 253943: we don't support sysenter in x64 */
             IF_X64(ASSERT_NOT_IMPLEMENTED(false)); /* can't have 8-byte imm-to-mem */
-            /* FIXME PR 303413: we won't properly translate a fault in our
+            /* XXX PR 303413: we won't properly translate a fault in our
              * app stack reference here.  It's marked as our own mangling
              * so we'll at least return failure from our translate routine.
              */
@@ -2487,7 +2487,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 /* values returned by cpuid for Mobile Pentium MMX processor (family 5, model 8)
  * minus mmx (==0x00800000 in CPUID_1_EDX)
- * FIXME: change model number to a Pentium w/o MMX!
+ * XXX: change model number to a Pentium w/o MMX!
  */
 #    define CPUID_0_EAX 0x00000001
 #    define CPUID_0_EBX 0x756e6547
@@ -2521,7 +2521,7 @@ mangle_cpuid(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         goto cpuid_give_up;
     d_r_loginst(dcontext, 2, prev, "prior to cpuid");
 
-    /* FIXME: maybe should insert code to dispatch on eax, rather than
+    /* XXX: maybe should insert code to dispatch on eax, rather than
      * this hack, which is based on photoshop, which either does
      * "xor eax,eax" or "xor eax,eax; inc eax"
      */
@@ -2694,7 +2694,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             int si = -1, di = -1;
             opnd_t relop, newop;
             bool spill = true;
-            /* FIXME PR 253446: for mbr, should share the xcx spill */
+            /* XXX PR 253446: for mbr, should share the xcx spill */
             reg_id_t scratch_reg = REG_XAX;
             si = instr_get_rel_addr_src_idx(instr);
             di = instr_get_rel_addr_dst_idx(instr);
@@ -3023,7 +3023,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_dst(instr, di, newop);
     /* we need the whole spill...restore region to all be marked mangle */
     instr_set_our_mangling(instr, true);
-    /* FIXME: i#107 we should check the bound and raise signal if out of bound. */
+    /* XXX: i#107 we should check the bound and raise signal if out of bound. */
     DOLOG(3, LOG_INTERP,
           { d_r_loginst(dcontext, 3, instr, "re-wrote app tls reference"); });
 
@@ -3174,7 +3174,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     instr_t *next_app = next;
     DOLOG(3, LOG_INTERP, { d_r_loginst(dcontext, 3, instr, "writes memory"); });
 
-    ASSERT(!instr_is_call_indirect(instr)); /* FIXME: can you have REP on on CALL's */
+    ASSERT(!instr_is_call_indirect(instr)); /* XXX: can you have REP on on CALL's */
 
     /* skip meta instrs to find next app instr (xref PR 472190) */
     while (next_app != NULL && instr_is_meta(next_app))
@@ -3363,7 +3363,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     PRE(ilist, get_addr_at,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     /* XXX: Basically reimplementing drutil_insert_get_mem_addr(). */
-    /* FIXME i#986: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
+    /* XXX i#986: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
      * segments for its x86 sandbox, although they are 0 based with a limit.
      * qq.exe has them in sandboxed code.
      */
@@ -3495,7 +3495,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
      * copy we saved, stored in cache right after fragment itself.  leave its
      * start address blank here, will be touched up after emitting this ilist.
      *
-     * FIXME case 8165/PR 212600: optimize this: move reg restores to
+     * XXX case 8165/PR 212600: optimize this: move reg restores to
      * custom fcache_return, use cmpsd instead of cmpsb, etc.
      *
      * if eflags live entering this bb:
@@ -3834,14 +3834,14 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                 continue;
             }
 
-            /* FIXME case 8165: optimize for multiple push/pop */
+            /* XXX case 8165: optimize for multiple push/pop */
             for (i = 0; i < instr_num_dsts(instr); i++) {
                 op = instr_get_dst(instr, i);
                 if (opnd_is_memory_reference(op)) {
                     /* ignore CALL* since last anyways */
                     if (instr_is_call_indirect(instr)) {
                         ASSERT(next != NULL && !instr_raw_bits_valid(next));
-                        /* FIXME case 8165: why do we ever care about the last
+                        /* XXX case 8165: why do we ever care about the last
                          * instruction modifying anything?
                          */
                         /* conversion of IAT calls (but not elision)

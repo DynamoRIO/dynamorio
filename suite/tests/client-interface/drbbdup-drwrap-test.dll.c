@@ -163,7 +163,7 @@ dr_init(client_id_t id)
     drbbdup_status_t status = drbbdup_init(&opts);
     CHECK(status == DRBBDUP_SUCCESS, "drbbdup init failed");
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     /* Make sure requesting inversion fails *after* drwrap_init().
      * This also stresses drwrap re-attach via init;exit;init.

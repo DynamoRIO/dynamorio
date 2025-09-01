@@ -134,7 +134,7 @@ get_opcode_name(int opc)
 bool
 instr_is_mov(instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -413,7 +413,7 @@ instr_is_icache_op(instr_t *instr)
 bool
 instr_is_undefined(instr_t *instr)
 {
-    /* FIXME i#1569: Without a complete decoder we cannot recognise all
+    /* XXX i#1569: Without a complete decoder we cannot recognise all
      * unallocated encodings, but for testing purposes we can recognise
      * some of them: blocks at the top and bottom of the encoding space.
      */
@@ -446,14 +446,14 @@ instr_invert_cbr(instr_t *instr)
 bool
 instr_cbr_taken(instr_t *instr, priv_mcontext_t *mc, bool pre)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
 bool
 instr_predicate_reads_srcs(dr_pred_type_t pred)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -512,7 +512,7 @@ reg_is_ymm(reg_id_t reg)
     /* i#1312: check why this assertion is here and not
      * in the other x86 related reg_is_ functions.
      */
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -549,7 +549,7 @@ instr_is_opmask(instr_t *instr)
 bool
 reg_is_fp(reg_id_t reg)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return false;
 }
 
@@ -575,7 +575,7 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 instr_t *
 instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1569 */
     return NULL;
 }
 

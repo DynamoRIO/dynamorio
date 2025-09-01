@@ -110,12 +110,15 @@ drsyscall_write_memarg_record(DR_PARAM_IN drsyscall_record_write_t write_func,
 DR_EXPORT
 /**
  * Write a #syscall_record_t of type #DRSYS_SYSCALL_NUMBER based on \p
- * arg.
+ * sysnum.
  *
  * @param[in] write_func  A user provided function to write syscall record.
- * @param[in] arg         System call parameter or memory region.
+ * @param[in] sysnum      The system call number.
  *
  * @return the actual number of bytes written.
+ *
+ * \deprecated drsyscall_write_syscall_number_timestamp_record() should be used
+ * instead.
  */
 int
 drsyscall_write_syscall_number_record(DR_PARAM_IN drsyscall_record_write_t write_func,
@@ -123,15 +126,50 @@ drsyscall_write_syscall_number_record(DR_PARAM_IN drsyscall_record_write_t write
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_RECORD_END based on \p arg.
+ * Write a #syscall_record_t of type #DRSYS_RECORD_END based on \p sysnum.
  *
  * @param[in] write_func  A user provided function to write syscall record.
- * @param[in] arg         System call parameter or memory region.
+ * @param[in] sysnum      The system call number.
  *
  * @return the actual number of bytes written.
+ *
+ * \deprecated drsyscall_write_syscall_end_timestamp_record() should be used
+ * instead.
  */
 int
 drsyscall_write_syscall_end_record(DR_PARAM_IN drsyscall_record_write_t write_func,
                                    DR_PARAM_IN int sysnum);
+
+DR_EXPORT
+/**
+ * Write a #syscall_record_t of type #DRSYS_SYSCALL_NUMBER_TIMESTAMP based on \p
+ * sysnum and \p timestamp.
+ *
+ * @param[in] write_func  A user provided function to write syscall record.
+ * @param[in] sysnum      The system call number.
+ * @param[in] timestamp   The timestamp of the beginning of the syscall.
+ *
+ * @return the actual number of bytes written.
+ */
+int
+drsyscall_write_syscall_number_timestamp_record(
+    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
+    DR_PARAM_IN uint64_t timestamp);
+
+DR_EXPORT
+/**
+ * Write a #syscall_record_t of type #DRSYS_RECORD_END_TIMESTAMP based on \p
+ * sysnum and \p timestamp.
+ *
+ * @param[in] write_func  A user provided function to write syscall record.
+ * @param[in] sysnum      The system call number.
+ * @param[in] timestamp   The timestamp of the end of the syscall.
+ *
+ * @return the actual number of bytes written.
+ */
+int
+drsyscall_write_syscall_end_timestamp_record(
+    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
+    DR_PARAM_IN uint64_t timestamp);
 
 #endif /* _DRSYSCALL_RECORD_LIB_H_ */

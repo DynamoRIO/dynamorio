@@ -63,9 +63,9 @@ set(TEST_SECONDS "90" CACHE STRING "Test time limit in seconds")
 set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
 
-# FIXME: i#120: .runall support
-# FIXME: i#65: add command to run natively
-# FIXME: i#111: get .runall tests to run in parallel
+# XXX: i#120: .runall support
+# XXX: i#65: add command to run natively
+# XXX: i#111: get .runall tests to run in parallel
 #   and use latest cmake for "ctest -j" (and "ctest -W 60")
 
 ###########################################################################
@@ -97,7 +97,7 @@ endif (UNIX)
 # N.B.: if short-suite tests are added to other than the debug-internal-{32,64}
 # builds, update runsuite.cmake to build the tests for those builds!
 
-# FIXME i#1807: below, we convert all long suite test subsets to ^common
+# XXX i#1807: below, we convert all long suite test subsets to ^common
 
 set(main_run_list
   # our main configuration
@@ -151,7 +151,7 @@ set(main_run_list
   # i#1807: This Windows suite fails currently.
   # "WIN::ONLY::^runall::-desktop -coarse_freeze_at_exit"
   # run again so each must use the merged pcaches
-  # FIXME: order is alpha: need unique name sorted next
+  # XXX: order is alpha: need unique name sorted next
   # i#1807: This Windows suite fails currently.
   # "WIN::ONLY::^runall::-desktop -coarse_freeze_at_exit"
 
@@ -291,7 +291,7 @@ if (ANDROID AND NOT ADB)
   endif ()
 endif ()
 
-# FIXME i#98: improve code so can set Wall/W4
+# XXX i#98: improve code so can set Wall/W4
 if (UNIX)
   string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   # some tests rely on specific "nop;nop" patterns that optimization ruins
@@ -845,7 +845,7 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   endif ()
   set(prop_cflags "${prop_cflags} ${extra_flags}")
   set(prop_cflags "${prop_cflags} -DUSE_DYNAMO")
-  # FIXME: apparently moving cflags to a target property makes it show up
+  # XXX: apparently moving cflags to a target property makes it show up
   # in the cpp run for asm targets, where it doesn't if in global var.
   # This causes compilation failure.  Removing -g3 manually as a workaround.
   string(REGEX REPLACE "-g3" "" prop_cflags "${prop_cflags}")
@@ -1242,7 +1242,7 @@ function(template2expect outexpect template runops key)
   set(msg_throw "Program continuing after throwing an exception.")
   set(msg_mem "Out of memory.  Program aborted.")
   set(msg_unhand "Unhandled exception caught.\n")
-  # FIXME: add in \r? and test on Windows
+  # XXX: add in \r? and test on Windows
   string(REGEX REPLACE "(^|\n) *SEC_VIO_CONT\n"        "\\1${msg_vio}${msg_cont}>\n"
     cpp_out "${cpp_out}")
   string(REGEX REPLACE "(^|\n) *SEC_VIO_STOP\n"        "\\1${msg_vio}${msg_term}>\n"
@@ -1831,7 +1831,7 @@ endfunction(torunonly_native)
 
 function(torun_runall name test ops)
   strings2lists(${test} ops)
-  # FIXME NYI i#120
+  # TODO NYI i#120
 endfunction(torun_runall)
 
 function(disable_optimizations_for_file source_file)
@@ -2007,7 +2007,7 @@ macro (set_up_test_lists)
       string(REGEX REPLACE "^ONLY::(.*)::" "\\1" regex "${regex}")
 
       if (NOT is_short)
-        # FIXME i#1807: fix the failing long suite tests so we can enable them once again
+        # XXX i#1807: fix the failing long suite tests so we can enable them once again
         # in our nightly regression runs.  For now we disable the extra tests (but
         # we leave the extra builds selected in runsuite.cmake) by throttling
         # all long tests to only run ^common.
@@ -2297,16 +2297,16 @@ tobuild(common.${control_flags} common/${control_flags}.c)
 # Binary used for sample.callstack, which uses libcallstack to track malloc() calls.
 tobuild(common.alloc common/alloc.c)
 
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (X86) # XXX i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
   torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
 endif (X86)
 tobuild(common.getretaddr common/getretaddr.c)
 
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (X86) # XXX i#1551, i#1569: port asm to ARM and AArch64
   # XXX i#1287: implement for MacOS
   # We do not support -no_early_inject on Android (i#1873).
-  # FIXME i#1799: clang does not support "asm goto".
+  # XXX i#1799: clang does not support "asm goto".
   if (NOT APPLE AND NOT ANDROID AND ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
@@ -2329,7 +2329,7 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       append_link_flags(common.nativeexec "-no-pie")
     endif()
     if (UNIX)
-      # FIXME i#978: Windows support NYI
+      # TODO i#978: Windows support NYI
       torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
         "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover"
         "")
@@ -2364,8 +2364,14 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   endif ()
 endif (X86)
 
-if (NOT ANDROID) # FIXME i#1874: failing on Android
+if (NOT ANDROID) # XXX i#1874: failing on Android
   tobuild(common.segfault common/segfault.c)
+endif ()
+
+if (AARCH64)
+  tobuild(common.fake_ctr_dic common/fake_ctr_dic.c)
+  torunonly(common.fake_ctr_dic common.fake_ctr_dic common/fake_ctr_dic.c
+    "-fake_ctr_dic" "")
 endif ()
 
 # PR 217255: these 4 removed to shorten the regression suite since not
@@ -2392,7 +2398,7 @@ endif ()
 if (DR_HOST_AARCH64)
   if (NOT APPLE) # TODO i#5383: Port to Mac M1.
     tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
-      "-early_inject" "") # FIXME i#1569: -enable_traces here
+      "-early_inject" "") # XXX i#1569: -enable_traces here
     set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
     append_link_flags(common.allasm_aarch64_isa
       "-nostartfiles -nodefaultlibs -static")
@@ -2472,7 +2478,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
   tobuild_ci(client.int64_overrides client-interface/int64_overrides.c "" "" "")
 endif ()
-if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
+if (X86) # XXX i#1551, i#1569: port to ARM and AArch64
   set(client.abort_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcode.cmake")
   set(client.abort_code "8")
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
@@ -2483,14 +2489,14 @@ if (UNIX) # XXX i#2595: NYI on Windows
     # To avoid flakiness on different systems we nail down the stack size:
     "-stack_size 64K" "")
 endif ()
-# FIXME i#1360: implement Mach-O export iterator
-# FIXME i#2008: fix bugs on Android
+# XXX i#1360: implement Mach-O export iterator
+# XXX i#2008: fix bugs on Android
 if (NOT MACOS AND NOT ANDROID)
   tobuild_appdll(client.modules client-interface/modules.c)
   DynamoRIO_get_full_path(modules_libname client.modules.appdll "${location_suffix}")
   tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
 endif ()
-if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
+if (X86) # XXX i#1551, i#1569: port to ARM and AArch64
   tobuild_ci(client.alloc client-interface/alloc.c ""
     # For the subtest "targeting upper 2GB of low 4GB" we move -vm_base out of the
     # way.  We also raise the checklevel so we get memory filling for client allocs.
@@ -2527,7 +2533,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
 endif (NOT RISCV64)
-if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
+if (NOT WIN32) # XXX i#1717: add Windows client C++ EH support
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
     if (UNIX)
@@ -2550,7 +2556,7 @@ else (UNIX)
   set(annotation_test_args_shorter
     "client.annotation-concurrency.appdll.dll" "A" "4" "64" "3")
 endif (UNIX)
-# FIXME i#1799: clang does not support "asm goto"
+# XXX i#1799: clang does not support "asm goto"
 if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
   set(DynamoRIO_USE_LIBC OFF)
   tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
@@ -2692,7 +2698,7 @@ if (LINUX AND X86)
   use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drsyms)
   use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drmgr)
 endif()
-if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+if (NOT ARM) # XXX i#1551: fix bugs on ARM
   tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
   tobuild_ci(client.execfault client-interface/execfault.c "" "" "")
   tobuild_appdll(client.events client-interface/events.c)
@@ -2755,9 +2761,9 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
 endif ()
 
 if (UNIX)
-  if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+  if (NOT ARM) # XXX i#1551: fix bugs on ARM
     if (AARCH64)
-      # FIXME i#1569: Reenable when trace construction is implemented.
+      # XXX i#1569: Reenable when trace construction is implemented.
       set(trace_arg "-disable_traces")
     else ()
       # Just happens to not make as many traces.
@@ -2779,14 +2785,14 @@ if (UNIX)
       link_with_pthread(client.mangle_suspend)
     endif ()
   endif (NOT ARM)
-  if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
+  if (X86 OR AARCH64) # XXX i#1551: port asm to AArch32
     tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
   endif (X86 OR AARCH64)
   if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild_ci(client.signal client-interface/signal.c "" "" "")
     link_with_pthread(client.signal)
   endif ()
-  if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+  if (X86 OR AARCH64) # XXX i#1551: port asm to ARM
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
   endif (X86 OR AARCH64)
   tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
@@ -2803,7 +2809,7 @@ else (UNIX)
     "" "" "${events_appdll_path}")
   tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
   tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
-  # FIXME i#120: enable these .runall tests once have .runall support
+  # XXX i#120: enable these .runall tests once have .runall support
   #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
   #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")
   #tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall
@@ -2814,7 +2820,7 @@ else (UNIX)
   tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
   #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
   if (NOT X64)
-    # FIXME i#16, does not work in Win-X64 because of inline assembly code.
+    # XXX i#16, does not work in Win-X64 because of inline assembly code.
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
   endif (NOT X64)
 
@@ -2834,24 +2840,24 @@ if (NOT APPLE OR NOT AARCH64 AND NOT MUSL)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 endif ()
-if (X86 OR AARCH64 OR RISCV64) # FIXME i#1551: port asm to ARM
-  if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
+if (X86 OR AARCH64 OR RISCV64) # XXX i#1551: port asm to ARM
+  if (DEBUG) # XXX i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
 endif (X86 OR AARCH64 OR RISCV64)
-if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+if (X86 OR AARCH64) # XXX i#1551: port asm to ARM
   tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
   tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_appdll(client.thread client-interface/thread.c)
 endif (X86 OR AARCH64)
-# FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
+# XXX: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
 #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
 if (PROGRAM_SHEPHERDING)
   tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
 endif (PROGRAM_SHEPHERDING)
-if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+if (NOT ARM) # XXX i#1551: fix bugs on ARM
   tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
   if (WIN32)
     set(client.truncate.thread-churn-1_expectbase "truncate.thread-churn")
@@ -2872,7 +2878,7 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 ${boolean_option}" "")
 endif (NOT ARM)
 tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
-if (NOT ARM AND NOT RISCV64) # FIXME i#2094: implement cleancall optimizations on ARM
+if (NOT ARM AND NOT RISCV64) # XXX i#2094: implement cleancall optimizations on ARM
   # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c ""
     "-opt_cleancall 1" "")
@@ -2899,7 +2905,7 @@ if (NOT ANDROID) # XXX i#1874: get working on Android
   set_target_properties(client.null_instrument PROPERTIES SKIP_BUILD_RPATH OFF)
 endif ()
 
-if (NOT ARM) # FIXME i#1551: fix bugs on ARM
+if (NOT ARM) # XXX i#1551: fix bugs on ARM
   # Test passing a really long (600 chars) client option string.
   tobuild_ci(client.large_options client-interface/large_options.c
     "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -2969,6 +2975,25 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   link_with_pthread(client.drx_buf-test)
   target_include_directories(client.drx_buf-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+
+  if (LINUX AND NOT ANDROID) # XXX i#7504: Scaling is only supported on Linux for now.
+    tobuild_api(client.drx_time_scale-test client-interface/drx_time_scale-test.c
+      "" "" OFF ON OFF)
+    use_DynamoRIO_extension(client.drx_time_scale-test drx_static)
+    target_link_libraries(client.drx_time_scale-test rt)
+
+    set(client.drx_sleep_scale-test_no_reg_compat) # Avoid REG_ name conflicts.
+    tobuild_api(client.drx_sleep_scale-test client-interface/drx_sleep_scale-test.cpp
+      "" "" OFF ON OFF)
+    use_DynamoRIO_extension(client.drx_sleep_scale-test drx_static)
+    link_with_pthread(client.drx_sleep_scale-test)
+
+    set(client.drx_timeout_scale-test_no_reg_compat) # Avoid REG_ name conflicts.
+    tobuild_api(client.drx_timeout_scale-test client-interface/drx_timeout_scale-test.cpp
+      "" "" OFF ON OFF)
+    use_DynamoRIO_extension(client.drx_timeout_scale-test drx_static)
+    link_with_pthread(client.drx_timeout_scale-test)
+  endif ()
 endif (NOT RISCV64)
 
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
@@ -3327,7 +3352,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drmodtrack-test.dll drx)
   use_DynamoRIO_extension(client.drmodtrack-test.dll drmgr)
 endif (NOT RISCV64)
-if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
+if (X86) # XXX i#1551, i#1569: port to ARM and AArch64
   # We need to load w/ the same base so the test passes
   set(DynamoRIO_SET_PREFERRED_BASE ON)
   if (X64)
@@ -3451,7 +3476,7 @@ if (NOT WIN32 AND NOT RISCV64) # XXX i#2611: fix for Windows
   if (X64)
     set(detach_spawn_name api.detach_spawn)
   else ()
-    # FIXME i#2694: failing sometimes on 32-bit Linux.
+    # XXX i#2694: failing sometimes on 32-bit Linux.
     set(detach_spawn_name api.detach_spawn_FLAKY)
   endif ()
   set(detach_spawn_stress_name api.detach_spawn_stress_FLAKY)
@@ -3556,7 +3581,7 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
     tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON OFF)
     target_link_libraries(api.static_crash ${libmath})
     # XXX i#2346: add delayed sideline thread exit on Windows
-    # FIXME i#297: static_sideline is flaky and sometimes hangs on exit.
+    # XXX i#297: static_sideline is flaky and sometimes hangs on exit.
     tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON OFF)
     target_link_libraries(api.static_sideline_FLAKY ${libmath})
     link_with_pthread(api.static_sideline_FLAKY)
@@ -3592,7 +3617,7 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
   endif ()
 endif ()
 
-if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM
+if (NOT X64 AND NOT ARM) # XXX i#1551: port to ARM
   # i#696: Use -thread_private and small fcache units to trigger shifts.  x64
   # does not support fcache unit resizing and won't allow 4k unit sizes, so
   # skip it.
@@ -3611,20 +3636,20 @@ if (X86)
   endif ()
 endif ()
 
-if (X86 OR AARCH64) # FIXME i#1551: fix bugs on ARM
+if (X86 OR AARCH64) # XXX i#1551: fix bugs on ARM
   tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
   use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
 endif (X86 OR AARCH64)
 
 tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
 
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (X86) # XXX i#1551, i#1569: port asm to ARM and AArch64
   tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
   # Debug libc seems to mess up the test.
   use_MT_not_MTd(client-interface/retaddr.c)
 endif (X86)
 
-if (X86 AND WIN32) # FIXME port test application to other systems
+if (X86 AND WIN32) # XXX port test application to other systems
   tobuild_ci(client.translate_sandbox client-interface/translate_sandbox.c "" "" "")
 endif ()
 
@@ -3677,10 +3702,10 @@ if (BUILD_SAMPLES)
   # We run common.eflags mainly for memtrace and other big clients which
   # are quite slow on common.fib or common.broadfun: just a sanity check
   # after all.
-  if (NOT ANDROID) # FIXME i#2130: On Android, copy samples to device and test.
+  if (NOT ANDROID) # XXX i#2130: On Android, copy samples to device and test.
     get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
     foreach (sample ${sample_list})
-      # FIXME i#4392: Remove sanity checks and replace with functioning tests like
+      # XXX i#4392: Remove sanity checks and replace with functioning tests like
       # that done for the opcode_count and memtrace_simple samples.
       # This function call to torunonly_ci() is overwritten by the special cases below.
       torunonly_ci(sample.${sample} common.${control_flags}
@@ -3692,8 +3717,8 @@ if (BUILD_SAMPLES)
         if (UNIX)
           torunonly_ci(sample.${sample}.prof-pcs.cleancall common.${control_flags}
             ${sample} common/${control_flags}.c "" "-prof_pcs -opt_cleancall 0" "")
-          if (NOT X64 AND NOT ARM) # FIXME i#2160: "-thread_private -prof_pcs" support on AArch64
-                                   # FIXME i#1551: "-thread_private -prof_pcs" support on ARM
+          if (NOT X64 AND NOT ARM) # XXX i#2160: "-thread_private -prof_pcs" support on AArch64
+                                   # XXX i#1551: "-thread_private -prof_pcs" support on ARM
             torunonly_ci(sample.${sample}.prof-pcs.thread-private.cleancall
               common.${control_flags} ${sample} common/${control_flags}.c ""
               "-thread_private -prof_pcs -opt_cleancall 0" "")
@@ -3726,7 +3751,7 @@ if (BUILD_SAMPLES)
       elseif (sample STREQUAL "opcode_count")
         # We do not do a simple sanity test for opcode_count, but a normal test
         # that checks the sample's output.
-        # FIXME i#4372: The test is currently only supported on X86 32-bit.
+        # XXX i#4372: The test is currently only supported on X86 32-bit.
         # The test program is implemented in pure asm (for UNIX).
         if (X86 AND (NOT X64) AND UNIX)
           add_exe(sample.opcode_count-test samples/opcode_count-test.asm)
@@ -3992,7 +4017,7 @@ if (BUILD_CLIENTS)
     # XXX i#1703: add more dedicated tests (in suite/tests/clients/) for which
     # we know the results, and check the output.
     # We have one so far:
-    if (UNIX) # FIXME i#1727: on Windows the child fails to open the pipe.
+    if (UNIX) # XXX i#1727: on Windows the child fails to open the pipe.
       add_exe(tool.multiproc
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c)
       get_target_path_for_execution(tool.multiproc_path tool.multiproc "${location_suffix}")
@@ -4183,7 +4208,7 @@ if (BUILD_CLIENTS)
           set(infile "${core_sharded_dir}/drmemtrace.core.000000.trace.zip")
           add_test(tool.drcacheoff.stdin
             ${BASH_EXE} -c
-            "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -sim_refs 10 -infile -")
+            "${CAT_EXE} ${infile} | ${GUNZIP_EXE} | ${drrun_path} -t drmemtrace -tool view -exit_after_records 10 -infile -")
           file(READ "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-stdin.expect"
             stdin_expect)
           set_tests_properties(tool.drcacheoff.stdin PROPERTIES
@@ -4370,7 +4395,7 @@ if (BUILD_CLIENTS)
     endif()
 
     if (UNIX) # Enable on Windows once i#1727 is fixed.
-      # FIXME i#2384: we need to combine the subdir from the child with the
+      # XXX i#2384: we need to combine the subdir from the child with the
       # parent in some way and update the templatex file to include both.
       # Right now we're only ensuring this doesn't crash and that one of
       # the processes produced traces.
@@ -4469,6 +4494,22 @@ if (BUILD_CLIENTS)
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
     set(tool.drcacheoff.windows-split_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+    # Test memory dump when a trace window opens.
+    # TODO i#7508: Add Windows support. raw2trace fails with "Non-module instructions
+    # found with no encoding information." when a memory dump is captured in the beginning
+    # of a tracing window.
+    if (X64 AND LINUX)
+      torunonly_drcacheoff(windows-memdump ${ci_shared_app}
+        "-trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K -memdump_on_window"
+        "@-tool@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.windows-memdump_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+    set(tool.drcacheoff.windows-memdump_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+    set(tool.drcacheoff.windows-memdump_postcmd4
+      "${READELF_EXECUTABLE}@-a@${PROJECT_BINARY_DIR}/suite/tests/${dir_prefix}.*.dir/raw/window.000?/*.elf")
+    endif ()
 
     # Test L0_filter_until_instrs
     torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
@@ -4536,14 +4577,14 @@ if (BUILD_CLIENTS)
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip does not find real headers and we expect synthetic.
-        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-exit_after_records;10"
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
       torunonly_api(tool.drcacheoff.skip2 "${drcachesim_path}" "offline-skip2" ""
         # Test invariants with global headers after skipping instrs.
         # Here the skip finds real headers and we expect no synthetic.
-        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        "-tool;view;-view_syntax;dr;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-exit_after_records;10"
         OFF OFF)
       set(tool.drcacheoff.skip2_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip2_rawtemp ON) # no preprocessor
@@ -4557,6 +4598,31 @@ if (BUILD_CLIENTS)
         OFF OFF)
       set(tool.drcacheoff.cpu_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.cpu_rawtemp ON) # no preprocessor
+
+      # Test that one tool exiting early does not impact a second tool.
+      torunonly_api(tool.drcacheoff.one_early "${drcachesim_path}" "offline-one-early" ""
+        "-verbose;1;-tool;TLB:opcode_mix;-core_serial;-sim_refs;10;-infile;${zip_path}"
+        OFF OFF)
+      set(tool.drcacheoff.one_early_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.one_early_rawtemp ON) # no preprocessor
+
+      # Test that -exit_after_records exits all tools, and that it starts
+      # counting *after* -skip_instrs.
+      torunonly_api(tool.drcacheoff.all_early "${drcachesim_path}" "offline-all-early" ""
+        "-verbose;1;-tool;view:opcode_mix;-skip_instrs;10;-exit_after_records;5;-infile;${zip_path}"
+        OFF OFF)
+      set(tool.drcacheoff.all_early_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.all_early_rawtemp ON) # no preprocessor
+
+      # Test -skip_records.
+      torunonly_api(tool.drcacheoff.skip_records "${drcachesim_path}" "offline-skip-records" ""
+        "-tool;view:opcode_mix;-skip_records;10;-exit_after_records;5;-infile;${zip_path}"
+        OFF OFF)
+      set(tool.drcacheoff.skip_records_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.skip_records_rawtemp ON) # no preprocessor
     endif ()
 
     # We run common.decode-bad to test markers for faults
@@ -4585,11 +4651,15 @@ if (BUILD_CLIENTS)
         "@-tool@opcode_mix@-skip_instrs@1" "")
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
-        "@-tool@view@-sim_refs@16384" "")
+        "@-tool@view@-exit_after_records@16384" "")
       unset(tool.drcacheoff.view_rawtemp) # Use preprocessor
       if (AARCH64 AND proc_supports_sve)
         set(tool.drcacheoff.view_runsve 1)
       endif ()
+
+      torunonly_drcacheoff(view-skip-instrs ${ci_shared_app} ""
+        "@-tool@view@-exit_after_records@16384@-skip_instrs@1" "")
+      unset(tool.drcacheoff.view-skip-instrs_rawtemp)
 
       set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
       torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
@@ -4715,7 +4785,7 @@ if (BUILD_CLIENTS)
 
     # XXX i#1551: startstop API is NYI on ARM
     # XXX i#1997: dynamorio_static is not supported on Mac yet
-    # FIXME i#2949: gcc 7.3 fails to link certain configs
+    # XXX i#2949: gcc 7.3 fails to link certain configs
     # TODO i#3544: Port tests to RISC-V 64
     if (NOT ARM AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949 AND NOT RISCV64)
       set(tool.drcacheoff.burst_static_nodr ON)
@@ -4771,10 +4841,34 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_futex_nodr ON)
         set(tool.drcacheoff.burst_futex_nopost ON)
         torunonly_drcacheoff(burst_futex tool.drcacheoff.burst_futex "" "" "")
+
+        # -scale_timers is Linux-only.
+        # We specify this executable here as it uses tools.h code.
+        set(tool.drcacheoff.scale_time_no_reg_compat) # Avoid REG_ name conflicts.
+        add_api_exe(tool.drcacheoff.scale_time
+          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/scale_time.cpp
+          OFF ON)
+        use_DynamoRIO_static_client(tool.drcacheoff.scale_time drmemtrace_nomain)
+        use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.scale_time)
+        target_link_libraries(tool.drcacheoff.scale_time drmemtrace_raw2trace
+          drmemtrace_analyzer test_helpers rt)
+        target_include_directories(tool.drcacheoff.scale_time PUBLIC
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer"
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/scheduler")
+        set(tool.drcacheoff.scale_time_nodr ON)
+        set(tool.drcacheoff.scale_time_nopost ON)
+        torunonly_drcacheoff(scale_time tool.drcacheoff.scale_time "" "" "")
+
+        set(tool.drcacheoff.burst_sleep_nodr ON)
+        set(tool.drcacheoff.burst_sleep_nopost ON)
+        torunonly_drcacheoff(burst_sleep tool.drcacheoff.burst_sleep "" "" "")
       endif ()
 
       if (UNIX)
-        # FIXME i#2040: this hits static client issues on Windows
+        # XXX i#2040: this hits static client issues on Windows
         set(tool.drcacheoff.burst_threads_nodr ON)
         torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads
           # We test cpu_scheduling for offline traces here.
@@ -4832,7 +4926,7 @@ if (BUILD_CLIENTS)
           torunonly_raw2trace(simple ${ci_shared_app} "-max_trace_size 8K" "")
         endif()
 
-        # FIXME i#2099: the weak symbol is not supported not work on Windows
+        # XXX i#2099: the weak symbol is not supported not work on Windows
         set(tool.drcacheoff.burst_client_nodr ON)
         torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
 
@@ -4930,7 +5024,7 @@ if (BUILD_CLIENTS)
       # the window.  2M makes a 50M trace and still hits 4 or 5 of the
       # 13 markers on my machine but is still a little slow so we cut in half
       # for 2+ markers.
-      # FIXME i#2752: somehow this is hanging on Appveyor so for now we shrink it
+      # XXX i#2752: somehow this is hanging on Appveyor so for now we shrink it
       # from 1M to 50K to make progress.  Once we figure out the hang we should
       # put it back to 1M.
       set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
@@ -5101,6 +5195,25 @@ if (BUILD_CLIENTS)
         "${drcachesim_path}@-tool@record_filter@-trim_before_timestamp@13352268558646120@-trim_after_timestamp@13352268558646661@-indir@${srcdir}@-outdir@${outdir}")
       set(tool.drcacheoff.trim_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.trim_rawtemp ON) # no preprocessor
+
+      # Test the trim filter using instruction ordinals.
+      set(zip_path
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
+      set(outdir ${PROJECT_BINARY_DIR}/trim_instr_filter)
+      file(MAKE_DIRECTORY ${outdir})
+      # The filter launcher doesn't have an -infile parameter.
+      set(srcdir ${PROJECT_BINARY_DIR}/trim_instr_filter_src)
+      file(MAKE_DIRECTORY ${srcdir})
+      file(COPY ${zip_path} DESTINATION ${srcdir})
+      torunonly_api(tool.drcacheoff.trim-instr "${drcachesim_path}" "offline-trim-instr" ""
+        "-tool;view;-view_syntax;dr;-indir;${outdir};${test_mode_flag}"
+        OFF OFF)
+      set(tool.drcacheoff.trim-instr_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      # The filter overwrites any existing file in the dir from a prior run.
+      set(tool.drcacheoff.trim-instr_precmd
+        "${drcachesim_path}@-tool@record_filter@-trim_before_instr@31@-trim_after_instr@65@-indir@${srcdir}@-outdir@${outdir}")
+      set(tool.drcacheoff.trim-instr_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.trim-instr_rawtemp ON) # no preprocessor
 
       # Test the record_filter in as-traced mode.
       set(trace_dir
@@ -5687,8 +5800,8 @@ if (UNIX)
   if (LINUX AND NOT ANDROID) # Only tests RT sigaction which is not supported on Android.
     tobuild(linux.sigaction_nosignals linux/sigaction_nosignals.c)
   endif ()
-  # FIXME i#1551, i#1569: port asm to ARM and AArch64
-  # FIXME i#58: port test to MacOS
+  # XXX i#1551, i#1569: port asm to ARM and AArch64
+  # XXX i#58: port test to MacOS
   # TODO i#3544: Port tests to RISC-V 64
   if (NOT ARM AND NOT AARCH64 AND NOT APPLE AND NOT RISCV64)
     tobuild(linux.sigcontext linux/sigcontext.c)
@@ -5785,7 +5898,7 @@ if (UNIX)
     tobuild_ops(linux.readlink linux/readlink.c "-early_inject" "exec")
   endif ()
 
-  if (NOT ANDROID AND NOT RISCV64) # FIXME i#1874: failing on Android
+  if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: failing on Android
     # Test collision with DR's preferred base
     # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.fib-conflict common/fib.c)
@@ -5808,7 +5921,7 @@ if (UNIX)
       "-static -Wl,--no-export-dynamic")
   endif ()
   # Test position independent executables.
-  # FIXME i#1001: fib-pie fails with -early_inject.
+  # XXX i#1001: fib-pie fails with -early_inject.
   if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.fib-pie common/fib.c)
     append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
@@ -5817,7 +5930,7 @@ if (UNIX)
 
   # vfork is deprecated on macOS.
   if (NOT APPLE AND NOT RISCV64)
-    # FIXME i#125: bugs in these, were disabled in the past
+    # XXX i#125: bugs in these, were disabled in the past
     # TODO i#3544: Port tests to RISC-V 64
     tobuild_ops(linux.vfork linux/vfork.c "" "${execve-sub-path}")
     #tobuild(linux.vfork-fib linux/vfork-fib.c)
@@ -5845,7 +5958,7 @@ if (UNIX)
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig pthreads/ptsig.c)
-  if (NOT ANDROID) # FIXME i#1874: failing on Android
+  if (NOT ANDROID) # XXX i#1874: failing on Android
     # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
     tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
   endif ()
@@ -5853,13 +5966,13 @@ if (UNIX)
   # Clang will likely never support gcc nested functions:
   # http://llvm.org/PR9206
   if (NOT CMAKE_COMPILER_IS_CLANG)
-    if (NOT X64 AND NOT ARM) # FIXME i#1551: port asm to ARM
-      # FIXME i#16: these tests need to be fixed to compile for x64
+    if (NOT X64 AND NOT ARM) # XXX i#1551: port asm to ARM
+      # XXX i#16: these tests need to be fixed to compile for x64
       tobuild(security-linux.stacktest security-linux/stacktest.c)
       tochcon(security-linux.stacktest execmem_exec_t)
       mark_execstack(security-linux.stacktest)
     endif (NOT X64 AND NOT ARM)
-    if (NOT ARM) # FIXME i#1551: signal TLS on ARM
+    if (NOT ARM) # XXX i#1551: signal TLS on ARM
       tobuild(security-linux.trampoline security-linux/trampoline.c)
     endif (NOT ARM)
   endif (NOT CMAKE_COMPILER_IS_CLANG)
@@ -5869,7 +5982,7 @@ if (UNIX)
   # or rely on runall tests that run calc covering this on Windows?
   add_exe(linux.infloop linux/infloop.c)
   torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
-  if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
+  if (NOT X64 AND NOT ARM) # XXX i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.freeze_FLAKY linux.infloop linux/freeze.runall
       "-coarse_units -coarse_enable_freeze" "-v")
@@ -5878,7 +5991,7 @@ if (UNIX)
   # persistent cache nudge tests with shared cache
   file(MAKE_DIRECTORY "${PCACHE_DIR}")
   file(MAKE_DIRECTORY "${PCACHE_SHARED_DIR}")
-  if (NOT X64 AND NOT ARM) # FIXME i#1551: add coarse-grain ARM support
+  if (NOT X64 AND NOT ARM) # XXX i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
     torunonly(linux.persist_FLAKY linux.infloop linux/persist.runall
       "-coarse_units -coarse_split_calls -coarse_enable_freeze -coarse_freeze_min_size 0 -no_persist_per_user -no_validate_owner_dir" "-v")
@@ -5948,7 +6061,7 @@ else (UNIX)
 
   tobuild_dll(win32.nativeterminate win32/nativeterminate.c
     "-native_exec_list nativeterminate.dll.dll")
-  # FIXME i#192: oomtest ends up killing parent shell: investigate, fix, re-enable!
+  # XXX i#192: oomtest ends up killing parent shell: investigate, fix, re-enable!
   #tobuild(win32.oomtest win32/oomtest.c)
   if (TEST_SUITE) # failing on win7 (i#422) so run only in suite
     # Keep exe name same, is checked in DR.
@@ -5968,7 +6081,7 @@ else (UNIX)
   tobuild_dll(win32.reload win32/reload.c "-disable_traces")
 
   tobuild_dll(win32.reload-newaddr win32/reload-newaddr.c "")
-  # FIXME i#267: fix curiosities and re-enable
+  # XXX i#267: fix curiosities and re-enable
   #tobuild_dll(win32.reload-race win32/reload-race.c "")
 
   tobuild_dll(win32.section-max win32/section-max.c "")
@@ -5980,7 +6093,7 @@ else (UNIX)
   endif (TEST_SUITE)
   # PR 215238 covers re-enabling threadinjection
   #tobuild(win32.threadinjection win32/threadinjection.c)
-  # FIXME i#125: debugger test was disabled in past: not sure why
+  # XXX i#125: debugger test was disabled in past: not sure why
   #tobuild(win32.debugger win32/debugger.c)
   tobuild(win32.virtualfree win32/virtualfree.c)
   tobuild(win32.virtualreserve win32/virtualreserve.c)
@@ -6007,7 +6120,7 @@ else (UNIX)
   endif ()
 
   if (NOT X64)
-    # FIXME i#16: these tests need to be fixed to compile for x64
+    # XXX i#16: these tests need to be fixed to compile for x64
 
     # fpe compiles, but pops up an unhandled exception box
     tobuild(win32.fpe win32/fpe.c)
@@ -6050,7 +6163,7 @@ else (UNIX)
   tobuild(security-win32.sd_tester security-win32/sd_tester.c)
   tobuild(security-win32.sec-adata security-win32/sec-adata.c)
 
-  # FIXME: getting warnings from pragmas in src code:
+  # XXX: getting warnings from pragmas in src code:
   #   secalign-fixed.dll.c.obj : warning LNK4229: invalid directive '/fixed' encountered; ignored
   #  secalign-fixed.dll.c.obj : warning LNK4229: invalid directive '/driver' encountered; ignored
   #  section-max.dll.c.obj : warning LNK4229: invalid directive '/driver' encountered; ignored
@@ -6069,7 +6182,7 @@ else (UNIX)
   #tobuild(security-win32.selfmod-threads security-win32/selfmod-threads.c)
   tobuild(security-win32.TestNTFlush security-win32/TestNTFlush.c)
 
-  # FIXME: enable once have .runall support
+  # XXX: enable once have .runall support
   #tobuild_runall(runall.calc-detach runall/calc-detach.runall "")
   #tobuild_runall(runall.calc-freeze runall/calc-freeze.runall
   #  # xref PR 226578 which tracks incompatibility between probe_api & pcaches
@@ -6224,12 +6337,12 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   mark_execstack(security-common.codemod)
 endif (NOT RISCV64)
 
-if (X86 OR AARCH64) # FIXME i#1551: port asm to ARM
+if (X86 OR AARCH64) # XXX i#1551: port asm to ARM
   tobuild(security-common.retexisting security-common/retexisting.c)
 endif (X86 OR AARCH64)
 
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-  # FIXME i#1308, i#2216: fails non-deterministically on Travis
+if (X86) # XXX i#1551, i#1569: port asm to ARM and AArch64
+  # XXX i#1308, i#2216: fails non-deterministically on Travis
   set(decode_bad_stack_name security-common.decode-bad-stack_FLAKY)
   tobuild(${decode_bad_stack_name} security-common/decode-bad-stack.c)
   tochcon(${decode_bad_stack_name} execmem_exec_t)
@@ -6242,8 +6355,8 @@ endif ()
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 endif (NOT RISCV64)
-if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-  # FIXME i#1423: somehow when built with VS2013 x64 you can't catch a fault on
+if (NOT ARM) # XXX i#1551: fix bugs on ARM
+  # XXX i#1423: somehow when built with VS2013 x64 you can't catch a fault on
   # jumping to an invalid address!  For now we disable for VS2013 x64.
   # It also seems to fail on win8 x64 with VS2012.
   if (UNIX OR NOT X64 OR CMAKE_C_COMPILER_VERSION VERSION_LESS 17.0)
@@ -6251,8 +6364,8 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   endif ()
 endif (NOT ARM)
 
-# FIXME i#1551: port asm to ARM
-# FIXME i#5383: selfmod tests fail to build on macOS + ARM64
+# XXX i#1551: port asm to ARM
+# XXX i#5383: selfmod tests fail to build on macOS + ARM64
 if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
   tobuild(security-common.selfmod2 security-common/selfmod2.c)
   tochcon(security-common.selfmod2 textrel_shlib_t)
@@ -6261,18 +6374,18 @@ if (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
   tochcon(security-common.selfmod textrel_shlib_t)
 endif (X86 OR AARCH64 AND NOT (APPLE AND AARCH64))
 
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (X86) # XXX i#1551, i#1569: port asm to ARM and AArch64
   if (NOT APPLE) # XXX i#58: port test to MacOS
     tobuild(security-common.selfmod-big security-common/selfmod-big.c)
     tochcon(security-common.selfmod-big textrel_shlib_t)
   endif ()
   if (NOT X64 AND NOT APPLE) # XXX i#58: port test to MacOS
-    # FIXME i#125
+    # XXX i#125
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
 endif (X86)
 
-if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
+if (X64 AND NOT AARCH64 AND NOT RISCV64) # XXX i#1569: get working on AArch64
   # Reachability tests
 
   # Floating DR lib.  We'd have to build a 2nd dynamorio.dll on Windows so
@@ -6314,7 +6427,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
 endif (NOT RISCV64)
 
 # XXX i#1874: get working on Android
-# FIXME i#1569: get working on AArch64
+# XXX i#1569: get working on AArch64
 if (NOT ANDROID)
   set (TestMemProtChg "security-common.TestMemProtChg")
   if (UNIX)  # i#387: Still has issues with proc maps on some kernels.
@@ -6356,6 +6469,18 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     -client ${strace_test_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(client.strace-test.dll drmgr)
   use_DynamoRIO_extension(client.strace-test.dll drsyscall)
+  # Test building with drsyscall_drstatic, this is a build-only test.
+  # TODO i#7613: Add a unit test that builds and executes with drsyscall_drstatic library.
+  add_exe(client.drsyscall-drstatic-build-only-test client-interface/drsyscall-test.dll.c
+    "" "" "")
+  configure_DynamoRIO_static_client(client.drsyscall-drstatic-build-only-test)
+  if (UNIX)
+    # Static libs must be PIC to be linked into clients.
+    append_property_string(TARGET client.drsyscall-drstatic-build-only-test
+      COMPILE_FLAGS "-fPIC")
+  endif ()
+  use_DynamoRIO_extension(client.drsyscall-drstatic-build-only-test drmgr_drstatic)
+  use_DynamoRIO_extension(client.drsyscall-drstatic-build-only-test drsyscall_drstatic)
 
   tobuild_ci(sample.strace client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(strace_sample_test_libpath sample.strace.dll
@@ -6402,7 +6527,6 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     drsyscall)
   use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
     drsyscall_record_lib)
-
 endif ()
 
 ###########################################################################
@@ -6415,7 +6539,7 @@ if (APPLE)
   # Enable just the quarter of the tests that pass, to get our test suite started
   # on the bot without perturbing all the code above and without disabling tests
   # from the build (all tests build, they just don't all run successfully).
-  # FIXME i#1815: fix the failing tests so we can enable the full suite.
+  # XXX i#1815: fix the failing tests so we can enable the full suite.
   # XXX: can we get this to automatically happen for a local "ctest" w/o
   # the user having to pass "-L OSX"?
   set_tests_properties(
@@ -6474,7 +6598,7 @@ if (APPLE)
       code_api|api.dis-a64
       PROPERTIES LABELS OSX)
   endif ()
-  if (DEBUG AND X86) # FIXME i#1806: fails in release
+  if (DEBUG AND X86) # XXX i#1806: fails in release
     set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)
   endif ()
   if (NOT X64)
@@ -6754,71 +6878,37 @@ endmacro()
 if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
   set_labels_on_known_tests(AMD_X32_DENYLIST
     code_api|api.detach
-    code_api|api.detach_spawn_quick_exit
-    code_api|api.ibl-stress
     code_api|api.startstop
-    code_api|api.static_detach
-    code_api|api.static_prepop
     code_api|api.static_signal
-    code_api|api.thread_churn
-    code_api|client.alloc
-    code_api|client.attach_blocking
-    code_api|client.attach_test
-    code_api|client.detach_test
-    code_api|client.drwrap-test-detach
     code_api|client.flush
-    code_api|client.strace
-    code_api|common.decode-stress
     code_api|linux.eintr
     code_api|linux.eintr-noinline
     code_api|tool.basic_counts
     code_api|tool.drcacheoff.altbindir
-    code_api|tool.drcacheoff.burst_client
-    code_api|tool.drcacheoff.purestatic
     code_api|tool.drcacheoff.basic_counts
     code_api|tool.drcacheoff.burst_futex
-    code_api|tool.drcacheoff.burst_malloc
-    code_api|tool.drcacheoff.burst_maps
-    code_api|tool.drcacheoff.burst_reattach
-    code_api|tool.drcacheoff.burst_replace
     code_api|tool.drcacheoff.burst_replaceall
-    code_api|tool.drcacheoff.burst_static
     code_api|tool.drcacheoff.burst_syscall_inject
     code_api|tool.drcacheoff.burst_threadfilter
-    code_api|tool.drcacheoff.burst_threads
     code_api|tool.drcacheoff.burst_threads_counts
-    code_api|tool.drcacheoff.burst_threadL0filter
     code_api|tool.drcacheoff.func_view_noret
     code_api|tool.drcacheoff.gencode
     code_api|tool.drcacheoff.gencode_filtered
-    code_api|tool.drcacheoff.getretaddr_record_replace_retaddr
-    code_api|tool.drcacheoff.invariant_checker
     code_api|tool.drcacheoff.invariant_checker_pthreads
     code_api|tool.drcacheoff.legacy
     code_api|tool.drcacheoff.max-global
     code_api|tool.drcacheoff.sysnums
-    code_api|tool.drcacheoff.warmup-pthreads-2
     code_api|tool.drcacheoff.warmup-pthreads-max-refs
     code_api|tool.drcacheoff.warmup-pthreads-max-trace-size
-    code_api|tool.drcacheoff.warmup-pthreads-windows-split
-    code_api|tool.drcacheoff.windows-split
-    code_api|tool.drcacheoff.windows-timestamps
-    code_api|tool.drcacheoff.delay-ts
     code_api|tool.drcachesim.coherence
     code_api|tool.drcachesim.delay-global
-    code_api|tool.drcachesim.filter-d
-    code_api|tool.drcachesim.filter-no-d
-    code_api|tool.drcachesim.invariants
     code_api|tool.drcachesim.miss_analyzer
     code_api|tool.drcachesim.phys-threads_SUDO
     code_api|tool.drcachesim.scattergather-x86
     code_api|tool.drcachesim.threads
     code_api|tool.drcachesim.threads-with-config-file
-    code_api|tool.drcachesim.windows-simple
     code_api|tool.drcachesim.TLB-threads
     code_api|tool.drcov.eintr
     code_api|tool.histogram.offline
-    code_api|tool.record_filter
-    code_api|tool.record_filter_bycore_multi
-    code_api|tool.record_filter_bycore_uni)
+    code_api|tool.record_filter_bycore_multi)
 endif ()

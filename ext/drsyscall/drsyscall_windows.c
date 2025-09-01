@@ -820,10 +820,10 @@ drsyscall_os_init(void *drcontext)
     module_data_t *data;
     bool nums_from_file = false;
     const int *sysnums = NULL; /* array of primary syscall numbers */
-    /* FIXME i#945: we expect the #s and args of 64-bit windows syscall match
+    /* XXX i#945: we expect the #s and args of 64-bit windows syscall match
      * wow64, but we have not verified there's no number shifting or arg shifting
      * in the wow64 marshaling layer.
-     * FIXME i#772: on win8, wow64 does add some upper bits, which we
+     * XXX i#772: on win8, wow64 does add some upper bits, which we
      * want to honor so that our stateless number-to-name and
      * name-to-number match real numbers.
      */
@@ -1299,7 +1299,7 @@ handle_port_message_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info
     if (TEST(SYSARG_WRITE, arg_info->flags) && ii->arg->pre &&
         !TEST(SYSARG_READ, arg_info->flags)) {
         /* Struct is passed in uninit w/ max-len buffer after it.
-         * FIXME i#415: There is some ambiguity over the max, hence we choose
+         * XXX i#415: There is some ambiguity over the max, hence we choose
          * the lower estimation to avoid false positives.
          * (We'll still use sizeof(PORT_MESSAGE) + PORT_MAXIMUM_MESSAGE_LENGTH
          *  in the ASSERTs below)
@@ -2681,7 +2681,7 @@ ZwDeviceIoControlFile(
  * NtDeviceIoControlFile only looks at the access and method bits
  * though.
  *
- * FIXME this is not foolproof: could be FILE_DEVICE_BEEP with other bits.
+ * XXX this is not foolproof: could be FILE_DEVICE_BEEP with other bits.
  */
 #define IS_AFD_IOCTL(code) ((code >> 12) == FILE_DEVICE_NETWORK)
 /* Since the AFD "device" overlaps with the function, we have to mask out those
@@ -2737,7 +2737,7 @@ handle_AFD_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
     uint full_code = (uint)pt->sysarg[5];
     byte *inbuf = (byte *)pt->sysarg[IOCTL_INBUF_ARGNUM];
     uint insz = (uint)pt->sysarg[7];
-    /* FIXME: put max of insz on all the sizes below */
+    /* XXX: put max of insz on all the sizes below */
 
     /* Extract operation. */
     uint opcode = AFD_FUNCTION_FROM_CTL_CODE(full_code);
@@ -3012,7 +3012,7 @@ handle_AFD_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
         check_sockaddr(pt, ii, r_addr_ptr, sd.SizeOfRemoteAddress, true /*in*/,
                        "SOCKET_CONTEXT.RemoteAddress");
 
-        /* FIXME i#424: helper data could be a struct w/ padding. I have seen pieces of
+        /* XXX i#424: helper data could be a struct w/ padding. I have seen pieces of
          * it be uninit on XP. Just ignore the definedness check if helper data
          * is not trivial
          */
@@ -3153,7 +3153,7 @@ handle_AFD_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
         break;
     }
     default: {
-        /* FIXME i#377: add more ioctl codes.
+        /* XXX i#377: add more ioctl codes.
          * I've seen 0x120bf == operation # 47 called by
          * WS2_32.dll!setsockopt.  no uninits.  not sure what it is.
          */
@@ -3347,12 +3347,12 @@ handle_DeviceIoControlFile_helper(void *drcontext, cls_syscall_t *pt,
     } else if (device == FILE_DEVICE_NETWORK) {
         handle_NET_ioctl(drcontext, pt, ii);
     } else if (device == FILE_DEVICE_CONSOLE) {
-        /* FIXME i#1156: there's some data structure with padding in
+        /* XXX i#1156: there's some data structure with padding in
          * at least one of the common transactions here.
          * For now, disabling the inputbuffer check.
          */
     } else {
-        /* FIXME i#377: add more ioctl codes. */
+        /* XXX i#377: add more ioctl codes. */
         WARN("WARNING: unknown ioctl " PIFX " => op %d\n", code,
              FUNCTION_FROM_CTL_CODE(code));
         /* XXX: should perhaps dump a callstack too at higher verbosity */
@@ -3481,7 +3481,7 @@ syscall_diagnostics(void *drcontext, cls_syscall_t *pt)
 void
 os_handle_post_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
 {
-    /* FIXME code org: there's some processing of syscalls in alloc_drmem.c's
+    /* XXX code org: there's some processing of syscalls in alloc_drmem.c's
      * client_post_syscall() where common/alloc.c identifies the sysnum: but
      * for things that don't have anything to do w/ mem alloc I think it's
      * cleaner to have it all in here rather than having to edit both files.

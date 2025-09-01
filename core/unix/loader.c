@@ -68,7 +68,7 @@ extern size_t
 wcslen(const wchar_t *str); /* in string.c */
 
 /* Written during initialization only */
-/* FIXME: i#460, the path lookup itself is a complicated process,
+/* XXX: i#460, the path lookup itself is a complicated process,
  * so we just list possible common but in-complete paths for now.
  */
 #define SYSTEM_LIBRARY_PATH_VAR "LD_LIBRARY_PATH"
@@ -174,10 +174,10 @@ privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc);
 static void
 privload_delete_os_privmod_data(privmod_t *privmod);
 
-#ifdef LINUX
 void
 privload_mod_tls_init(privmod_t *mod);
 
+#ifdef LINUX
 void
 privload_mod_tls_primary_thread_init(privmod_t *mod);
 #endif
@@ -195,7 +195,7 @@ dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
     /* Do nothing.  If gdb is attached with libdynamorio.so-gdb.py loaded, it
      * will stop here and lift the argument values.
      */
-    /* FIXME: This only passes the text section offset.  gdb can accept
+    /* XXX: This only passes the text section offset.  gdb can accept
      * additional "-s<section> <address>" arguments to locate data sections.
      * This would be useful for setting watchpoints on client global variables.
      */
@@ -308,7 +308,7 @@ os_loader_init_epilogue(void)
      * We have to do it in a single syslog so they can be copy pasted.
      * For non-internal builds, or for private libs loaded after this point,
      * the user must look at the global gdb_priv_cmds buffer in gdb.
-     * FIXME i#531: Support attaching from the gdb script.
+     * XXX i#531: Support attaching from the gdb script.
      */
     ASSERT(!printed_gdb_commands);
     printed_gdb_commands = true;
@@ -450,7 +450,7 @@ privload_unmap_file(privmod_t *privmod)
 bool
 privload_unload_imports(privmod_t *privmod)
 {
-    /* FIXME: i#474 unload dependent libraries if necessary */
+    /* XXX: i#474 unload dependent libraries if necessary */
     return true;
 }
 
@@ -1034,7 +1034,7 @@ privload_locate(const char *name, privmod_t *dep,
         return true;
     }
 
-    /* FIXME: We have a simple implementation of library search.
+    /* XXX: We have a simple implementation of library search.
      * libc implementation can be found at elf/dl-load.c:_dl_map_object.
      */
     /* the loader search order: */
@@ -1187,7 +1187,7 @@ privload_call_lib_func(dcontext_t *dcontext, privmod_t *privmod, fp_t func)
 {
     char dummy_str[] = "dummy";
     char *dummy_argv[2];
-    /* FIXME: i#475
+    /* XXX: i#475
      * The regular loader always passes argc, argv and env to libaries,
      * (see libc code elf/dl-init.c), which might be ignored by those
      * routines.
@@ -1406,8 +1406,8 @@ privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
 static void
 privload_relocate_mod(privmod_t *mod)
 {
-#ifdef LINUX
     os_privmod_data_t *opd = (os_privmod_data_t *)mod->os_privmod_data;
+#ifdef LINUX
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
@@ -1428,7 +1428,8 @@ privload_relocate_mod(privmod_t *mod)
     if (opd->tls_block_size != 0)
         privload_mod_tls_primary_thread_init(mod);
 #else
-    /* XXX i#1285: implement MacOS private loader */
+    if (opd->tls_block_size != 0)
+        privload_mod_tls_init(mod);
 #endif
 }
 
@@ -1656,8 +1657,8 @@ static const redirect_import_t redirect_imports[] = {
      * + C++ operators in case they don't just call libc malloc?
      */
     /* We redirect these for fd isolation. */
-    { "open", (app_pc)os_open_protected },
-    { "close", (app_pc)os_close_protected },
+    { "open", (app_pc)redirect_open },
+    { "close", (app_pc)redirect_close },
     /* These libc routines can call pthread functions and cause hangs (i#4928) so
      * we use our syscall wrappers instead.
      */
@@ -2406,7 +2407,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
             :
             : "r"(sp), "r"(entry));
 #        elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
+        /* TODO i#1551: NYI on ARM */
         ASSERT_NOT_REACHED();
 #        endif
     }

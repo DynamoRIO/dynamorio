@@ -670,6 +670,11 @@ void
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
     input_info_t &input)
 {
+    // We may not have the input's pid if read_inputs_in_init was set to false,
+    // which happens today only in IPC readers which doesn't use this path.
+    assert(input.pid != INVALID_PID);
+    assert(input.tid != INVALID_THREAD_ID);
+
     // We need explicit tid,pid records so reader_t will see the new context.
     // We insert at the front, so we have reverse order.
     trace_entry_t pid;
@@ -978,8 +983,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                            i, index, range.start_instruction, range.stop_instruction);
                     if (range.start_instruction == 0 ||
                         (range.stop_instruction < range.start_instruction &&
-                         range.stop_instruction != 0))
+                         range.stop_instruction != 0)) {
+                        error_string_ = "invalid start/stop range in regions of interest";
                         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                    }
                     if (i == 0)
                         continue;
                     if (range.start_instruction <=
@@ -1685,6 +1692,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::process_next_initial_record(
     uintptr_t marker_value;
     if (record_type_is_invalid(record)) // Sentinel on first call.
         return true;                    // Keep reading.
+    if (input.pid == INVALID_PID)
+        record_type_has_pid(record, input.pid);
+    // Though the tid must have been already set by other logic (the readahead in
+    // open_reader, or the construction arg to input_workload_t), we still
+    // check and set it for consistent treatment with pid.
+    if (input.tid == INVALID_THREAD_ID)
+        record_type_has_tid(record, input.tid);
     if (record_type_is_non_marker_header(record))
         return true; // Keep reading.
     if (!record_type_is_marker(record, marker_type, marker_value)) {
@@ -1880,6 +1894,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::maybe_inject_pending_syscall_sequ
         record_type_is_timestamp(record, timestamp_unused) ||
         // For syscalls that did not have a post-event because the trace ended.
         record_type_is_thread_exit(record) ||
+        // For sigreturn, we want to inject before the kernel_xfer marker which
+        // is after the syscall func_arg markers (if any) but before the
+        // post-syscall timestamp marker.
+        (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) ||
         // For syscalls interrupted by a signal and did not have a post-syscall
         // event.
         (is_marker && marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
@@ -1925,7 +1943,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     uintptr_t marker_value = 0;
     for (int i = static_cast<int>(sequence.size()) - 1; i >= 0; --i) {
         RecordType record = sequence[i];
+        // TODO i#7495: Add invariant checks that ensure these are equal to the
+        // context-switched-to thread when the switch sequence is injected into a
+        // trace.
         record_type_set_tid(record, input->tid);
+        record_type_set_pid(record, input->pid);
         if (record_type_is_instr(record)) {
             set_branch_target_marker = false;
             if (!saw_any_instr) {
@@ -1969,7 +1991,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     std::unique_ptr<ReaderType> reader = get_reader(path, verbosity_);
     if (!reader || !reader->init()) {
-        error_string_ += "Failed to open " + path;
+        // Include a suggestion to check the open file limit.
+        // We could call getrlimit to see if it's a likely culprit; we could
+        // try to call setrlimit ourselves but that doesn't feel right.
+        error_string_ += "Failed to open " + path + " (was RLIMIT_NOFILE exceeded?)";
         return sched_type_t::STATUS_ERROR_FILE_OPEN_FAILED;
     }
     int index = static_cast<input_ordinal_t>(inputs_.size());
@@ -2266,6 +2291,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     output_ordinal_t output, RecordType &record, input_info_t &input)
 {
     assert(input.lock->owned_by_cur_thread());
+    // XXX i#7230: By using the provided ordinal, this should ignore synthetic records,
+    // which we have documented in the option docs.  We should make a unit test
+    // confirming and ensuring this matches -skip_records and invariant report ordinals.
     uint64_t cur_instr = get_instr_ordinal(input);
     uint64_t cur_reader_instr = input.reader->get_instruction_ordinal();
     assert(input.cur_region >= 0 &&
@@ -2776,60 +2804,70 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     output_ordinal_t output, input_ordinal_t prev_input, input_ordinal_t new_input)
 {
-    bool do_inject_switch_seq = false;
-    if (prev_input == new_input)
+    if (prev_input == new_input) {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_NOP];
-    else if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL &&
-             new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+        return stream_status_t::STATUS_OK;
+    } else if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL &&
+               new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT];
-        do_inject_switch_seq = true;
     } else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL) {
         // XXX: For now, we do not inject a kernel context switch sequence on
         // input-to-idle transitions (note that we do so on idle-to-input though).
         // However, we may want to inject some other suitable sequence, but we're not
         // sure yet.
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
+        return stream_status_t::STATUS_OK;
     } else {
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
         // Reset the flag so we'll try to steal if we go idle again.
         outputs_[output].tried_to_steal_on_idle = false;
-        do_inject_switch_seq = true;
     }
 
-    // We want to insert the context switch sequence on input-to-input and
+    // We want to insert the context switch records (which includes the new input's
+    // tid and pid, and possibly the context switch sequence) on input-to-input and
     // idle-to-input cases. This is a better control point to do that than
     // set_cur_input. Here we get the stolen input events too, and we don't have
     // to filter out the init-time set_cur_input cases.
-    if (!do_inject_switch_seq)
-        return stream_status_t::STATUS_OK;
-    if (inputs_[new_input].pid != INVALID_PID) {
-        insert_switch_tid_pid(inputs_[new_input]);
+
+    bool injected_switch_trace = false;
+    if (!switch_sequence_.empty()) {
+        switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
+        if ( // XXX: idle-to-input transitions are assumed to be process switches
+             // for now. But we may want to improve this heuristic.
+            prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
+            inputs_[prev_input].workload != inputs_[new_input].workload)
+            switch_type = sched_type_t::SWITCH_PROCESS;
+        else
+            switch_type = sched_type_t::SWITCH_THREAD;
+        if (switch_sequence_.find(switch_type) != switch_sequence_.end()) {
+            stream_status_t res = inject_kernel_sequence(switch_sequence_[switch_type],
+                                                         &inputs_[new_input]);
+            if (res == stream_status_t::STATUS_OK) {
+                injected_switch_trace = true;
+                ++outputs_[output].stats
+                      [memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
+                VPRINT(this, 3,
+                       "Inserted %zu switch records for type %d from %d.%d to %d.%d\n",
+                       switch_sequence_[switch_type].size(), switch_type,
+                       prev_input != sched_type_t::INVALID_INPUT_ORDINAL
+                           ? inputs_[prev_input].workload
+                           : -1,
+                       prev_input, inputs_[new_input].workload, new_input);
+            } else if (res != stream_status_t::STATUS_EOF) {
+                return res;
+            }
+        }
     }
-    if (switch_sequence_.empty())
-        return stream_status_t::STATUS_OK;
-    switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
-    if ( // XXX: idle-to-input transitions are assumed to be process switches
-         // for now. But we may want to improve this heuristic.
-        prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
-        inputs_[prev_input].workload != inputs_[new_input].workload)
-        switch_type = sched_type_t::SWITCH_PROCESS;
-    else
-        switch_type = sched_type_t::SWITCH_THREAD;
-    if (switch_sequence_.find(switch_type) == switch_sequence_.end())
-        return stream_status_t::STATUS_OK;
-    stream_status_t res =
-        inject_kernel_sequence(switch_sequence_[switch_type], &inputs_[new_input]);
-    if (res == stream_status_t::STATUS_OK) {
-        ++outputs_[output]
-              .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SWITCH_SEQUENCE_INJECTIONS];
-        VPRINT(this, 3, "Inserted %zu switch records for type %d from %d.%d to %d.%d\n",
-               switch_sequence_[switch_type].size(), switch_type,
-               prev_input != sched_type_t::INVALID_INPUT_ORDINAL
-                   ? inputs_[prev_input].workload
-                   : -1,
-               prev_input, inputs_[new_input].workload, new_input);
-    } else if (res != stream_status_t::STATUS_EOF) {
-        return res;
+
+    // We do not need synthetic tid-pid records if the original ones from the
+    // input are coming up next (which happens when the input is scheduled
+    // for the first time), unless we're also injecting a context switch trace,
+    // in which case we need the synthetic tid-pid records prior to the injected
+    // sequence (note that the tid-pid and switch records are injected LIFO in
+    // the queue).
+    if (injected_switch_trace ||
+        inputs_[new_input].last_record_tid != INVALID_THREAD_ID) {
+        insert_switch_tid_pid(inputs_[new_input]);
     }
     return stream_status_t::STATUS_OK;
 }

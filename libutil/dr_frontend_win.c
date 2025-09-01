@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -279,7 +279,7 @@ drfront_get_app_full_path(const char *app, DR_PARAM_OUT char *buf,
     if (wbuf[0] == _T('\0') ||
         /* DrM-i#1617: we might have a same-name directory on the path */
         (drfront_dir_exists(buf, &is_dir) == DRFRONT_SUCCESS && is_dir)) {
-        /* may need to append .exe, FIXME : other executable types */
+        /* may need to append .exe, XXX : other executable types */
         TCHAR tmp_buf[MAX_PATH];
         _sntprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf), _T("%s%s"), wapp, _T(".exe"));
         NULL_TERMINATE_BUFFER(wbuf);

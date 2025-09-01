@@ -17,7 +17,7 @@
 #    define SYSCALL_CLOSE 57
 #endif
 .*
-syscall: SYSCALL_OPENAT
+syscall: SYSCALL_OPENAT, timestamp: [0-9]+
 pre-syscall ordinal 0, value 0x[0-9a-f]+
 pre-syscall ordinal 1, value 0x[0-9a-f]+
 pre-syscall ordinal 2, value 0x[0-9a-f]+
@@ -29,8 +29,8 @@ post-syscall ordinal 1, value 0x[0-9a-f]+
 post-syscall ordinal 2, value 0x[0-9a-f]+
 post-syscall ordinal 3, value 0x[0-9a-f]+
 return value 0x[0-9a-f]+
-syscall end: SYSCALL_OPENAT
-syscall: SYSCALL_WRITE
+syscall end: SYSCALL_OPENAT, timestamp: [0-9]+
+syscall: SYSCALL_WRITE, timestamp: [0-9]+
 pre-syscall ordinal 0, value 0x[0-9a-f]+
 pre-syscall ordinal 1, value 0x[0-9a-f]+
 pre-syscall ordinal 2, value 0xd
@@ -40,8 +40,8 @@ post-syscall ordinal 0, value 0x[0-9a-f]+
 post-syscall ordinal 1, value 0x[0-9a-f]+
 post-syscall ordinal 2, value 0xd
 return value 0xd
-syscall end: SYSCALL_WRITE
-syscall: SYSCALL_READ
+syscall end: SYSCALL_WRITE, timestamp: [0-9]+
+syscall: SYSCALL_READ, timestamp: [0-9]+
 pre-syscall ordinal 0, value 0x[0-9a-f]+
 pre-syscall ordinal 1, value 0x[0-9a-f]+
 pre-syscall ordinal 2, value 0xd
@@ -51,9 +51,9 @@ post-syscall ordinal 2, value 0xd
 return value 0xd
 memory content address 0x[0-9a-f]+, size 0xd
     48656c6c 6f20576f 726c6421 00
-syscall end: SYSCALL_READ
-syscall: SYSCALL_CLOSE
+syscall end: SYSCALL_READ, timestamp: [0-9]+
+syscall: SYSCALL_CLOSE, timestamp: [0-9]+
 pre-syscall ordinal 0, value 0x[0-9a-f]+
 post-syscall ordinal 0, value 0x[0-9a-f]+
 return value 0x0
-syscall end: SYSCALL_CLOSE
+syscall end: SYSCALL_CLOSE, timestamp: [0-9]+

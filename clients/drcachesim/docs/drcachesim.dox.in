@@ -1197,6 +1197,20 @@ If you would like to cite this work, you can use the following BibTeX entry:
 }
 \endverbatim
 
+\section sec_google_common_issues Common Issues
+
+Here we collect common issues that some users might experience when using the Google
+Workload Traces.
+
+- Depending on the Linux distribution used, there might be a "nofile" threshold for the
+  number of files a single process can open that is set too low (e.g., 1024). This
+  threshold can be increased using "ulimit -n 8192". A threshold of 8192 is enough for
+  Google Workload Traces. Consider adding this command to your ".bashrc". A low "nofile"
+  threshold is problematic when a DynamoRIO analyzer or scheduler operates on a whole
+  Google trace, which can have over 2000 trace files (one per software thread). This can
+  result in "Failed to initialize scheduler: Failed to open PATH/TO/MEMTRACE.ZIP". If
+  this happens, please increase the "nofile" threshold.
+
 \section sec_public_v1_deprecated Deprecated Google Workload Traces (Version 1)
 
 The previous version of Google workload traces contains a subset of the
@@ -1434,7 +1448,13 @@ tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
 and dr_app_stop_and_cleanup() to delimit the desired trace region.  As an
 example, see <a
 href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/tests/burst_static.cpp">our
-burst_static test application</a>.
+burst_static test application</a>.  Since the default mode for drmemtrace is
+online analysis, sending data over a pipe, to write it to a file you need to
+specify the \p -offline option.  This is why the burst_static and other tests
+that statically link the \p drmemtrace tracer and want to produce trace files
+all set the \p DYNAMORIO_OPTIONS environment variable to a value that includes
+<tt>-client_lib ';;-offline'</tt> (no path needs to be included before the first
+semicolon for a statically linked client).
 
 ****************************************************************************
 \page sec_drcachesim_sim Simulator Details
