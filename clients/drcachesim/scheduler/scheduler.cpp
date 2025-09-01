@@ -258,7 +258,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::get_instruction_ordinal() co
 
 {
     if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS, scheduler_->options_.flags))
-        return scheduler_->get_input_stream(ordinal_)->get_instruction_ordinal();
+        return scheduler_->get_input_instr_ordinal(ordinal_);
     return cur_instr_count_;
 }
 
