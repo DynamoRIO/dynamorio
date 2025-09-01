@@ -939,7 +939,11 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 #endif
 
 #ifdef AARCH64
-        if (dcontext->last_exit == get_selfmod_linkstub()) {
+        if (!INTERNAL_OPTION(hw_cache_consistency) &&
+            dcontext->last_exit == get_selfmod_linkstub()) {
+            /* Software cache consistency: we are handling an ISB
+             * following some IC IVAU instructions.
+             */
             app_pc begin = (app_pc)dcontext->local_state->spill_space.r2;
             app_pc end = (app_pc)dcontext->local_state->spill_space.r3;
             dcontext->next_tag = (app_pc)dcontext->local_state->spill_space.r4;
