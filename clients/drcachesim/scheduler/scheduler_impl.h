@@ -33,56 +33,56 @@
 /* Private implementation of drmemtrace scheduler. */
 
 #ifndef _DRMEMTRACE_SCHEDULER_IMPL_H_
-#    define _DRMEMTRACE_SCHEDULER_IMPL_H_ 1
+#define _DRMEMTRACE_SCHEDULER_IMPL_H_ 1
 
-#    define NOMINMAX // Avoid windows.h messing up std::max.
-#    include <assert.h>
-#    include <stddef.h>
-#    include <stdint.h>
+#define NOMINMAX // Avoid windows.h messing up std::max.
+#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
 
-#    include <atomic>
-#    include <deque>
-#    include <limits>
-#    include <map>
-#    include <memory>
-#    include <mutex>
-#    include <queue>
-#    include <set>
-#    include <stack>
-#    include <string>
-#    include <unordered_map>
-#    include <utility>
-#    include <vector>
+#include <atomic>
+#include <deque>
+#include <limits>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <set>
+#include <stack>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
-#    include "archive_istream.h"
-#    include "archive_ostream.h"
-#    include "flexible_queue.h"
-#    include "memref.h"
-#    include "memtrace_stream.h"
-#    include "mutex_dbg_owned.h"
-#    include "reader.h"
-#    include "record_file_reader.h"
-#    include "speculator.h"
-#    include "trace_entry.h"
-#    include "utils.h"
+#include "archive_istream.h"
+#include "archive_ostream.h"
+#include "flexible_queue.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "mutex_dbg_owned.h"
+#include "reader.h"
+#include "record_file_reader.h"
+#include "speculator.h"
+#include "trace_entry.h"
+#include "utils.h"
 
-#    undef VPRINT
+#undef VPRINT
 // We make logging available in release build to help in diagnosing issues
 // and understanding scheduler behavior.
 // We assume the extra branches do not add undue overhead.
-#    define VPRINT(obj, level, ...)                            \
-        do {                                                   \
-            if ((obj)->verbosity_ >= (level)) {                \
-                fprintf(stderr, "%s ", (obj)->output_prefix_); \
-                fprintf(stderr, __VA_ARGS__);                  \
-            }                                                  \
-        } while (0)
-#    define VDO(obj, level, statement)          \
-        do {                                    \
-            if ((obj)->verbosity_ >= (level)) { \
-                statement                       \
-            }                                   \
-        } while (0)
+#define VPRINT(obj, level, ...)                            \
+    do {                                                   \
+        if ((obj)->verbosity_ >= (level)) {                \
+            fprintf(stderr, "%s ", (obj)->output_prefix_); \
+            fprintf(stderr, __VA_ARGS__);                  \
+        }                                                  \
+    } while (0)
+#define VDO(obj, level, statement)          \
+    do {                                    \
+        if ((obj)->verbosity_ >= (level)) { \
+            statement                       \
+        }                                   \
+    } while (0)
 
 namespace dynamorio {
 namespace drmemtrace {

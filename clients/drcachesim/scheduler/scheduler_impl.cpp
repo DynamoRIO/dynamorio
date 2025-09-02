@@ -3012,9 +3012,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                        output,
                        (branch_target_marker_pending ? "branch_target marker"
                                                      : "indirect branch instr"));
-                trace_marker_type_t marker_type;
-                uintptr_t marker_value;
-                bool is_marker;
                 do {
                     outputs_[output].final_queue.pop();
                     assert(!outputs_[output].final_queue.empty());
