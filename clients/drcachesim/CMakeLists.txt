@@ -206,6 +206,7 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/policy_fifo.cpp
   simulator/policy_lfu.cpp
   simulator/policy_lru.cpp
+  simulator/policy_rrip.cpp
   )
 
 add_exported_library(drmemtrace_record_filter STATIC

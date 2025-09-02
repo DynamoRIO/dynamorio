@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -80,7 +80,7 @@ dr_init(client_id_t id)
     ok = drpttracer_init();
     CHECK(ok, "drpttracer_init failed");
 
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     ok = drmgr_register_thread_init_event(event_thread_init) &&
         drmgr_register_thread_exit_event(event_thread_exit) &&
@@ -88,7 +88,7 @@ dr_init(client_id_t id)
         drmgr_register_post_syscall_event(event_post_syscall);
     CHECK(ok, "drmgr_register_*_event failed");
 
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
 
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx > -1, "unable to reserve TLS field");
@@ -98,7 +98,7 @@ static void
 event_exit(void)
 {
     drpttracer_exit();
-    dr_unregister_filter_syscall_event(event_filter_syscall);
+    drmgr_unregister_filter_syscall_event(event_filter_syscall);
 
     bool ok = drmgr_unregister_thread_init_event(event_thread_init) &&
         drmgr_unregister_thread_exit_event(event_thread_exit) &&

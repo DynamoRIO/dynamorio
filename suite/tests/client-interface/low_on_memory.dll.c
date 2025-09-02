@@ -143,7 +143,7 @@ exit_event(void)
         dr_fprintf(STDERR, "unregister failed!\n");
 
     drmgr_unregister_module_load_event(module_load_event);
-    dr_unregister_exit_event(exit_event);
+    drmgr_unregister_exit_event(exit_event);
 
     dr_flush_file(STDOUT);
 
@@ -168,7 +168,7 @@ dr_init(client_id_t id)
     insert_new_node();
 
     drmgr_register_module_load_event(module_load_event);
-    dr_register_exit_event(exit_event);
+    drmgr_register_exit_event(exit_event);
 
     drmgr_priority_t priority = { sizeof(priority), "low-on-memory", NULL, NULL, 0 };
     drmgr_priority_t priority_user = { sizeof(priority), "low-on-memory-user", NULL, NULL,

@@ -239,7 +239,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     hashtable_init_ex(&hit_count_table, HASH_BITS, HASH_INTPTR, false /*!strdup*/,
                       false /*synchronization is external*/, destroy_hit_count, NULL,

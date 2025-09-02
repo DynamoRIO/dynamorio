@@ -74,7 +74,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_init();
     stats_mutex = dr_mutex_create();
     drmgr_register_bb_instrumentation_event(event_bb_analysis, NULL, NULL);
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
 #    ifdef WINDOWS

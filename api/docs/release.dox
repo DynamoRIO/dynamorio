@@ -132,10 +132,24 @@ changes:
  - Added new fields elf_path and elf_path_size to dr_memory_dump_spec_t. When
    dr_create_memory_dump() returns true and elf_path is not NULL, elf_path will be
    written with the path to the memory dump file.
+ - Added new argument access_type of enum cache_access_type_t to the method
+   access_update() of the classes dynamorio::drmemtrace::cache_replacement_policy_t and
+   dynamorio::drmemtrace::caching_device_t. Possible values are:
+   - cache_access_type_t::HIT,
+   - cache_access_type_t::MISS.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
 
+ - Added drmgr_register_exit_event(), drmgr_unregister_exit_event(),
+   drmgr_register_exit_event_user_data(), and drmgr_unregister_exit_event_user_data(),
+   which are required to be used instead of dr_register_exit_event() when using drmgr
+   and provide priorities and user data to the exit event.
+ - Added drmgr_register_filter_syscall_event(), drmgr_unregister_filter_syscall_event(),
+   drmgr_register_filter_syscall_event_user_data(), and
+   drmgr_unregister_filter_syscall_event_user_data(), which are required to be used
+   instead of dr_register_filter_syscall_event() when using drmgr and provide
+   priorities and user data to the filter event.
  - Added a separate cache replacement policy object to `caching_device_t`. `init` now
    takes an `std::unique_ptr<cache_replacement_policy_t>` that defines the replacement
    policy. It can be created manually or by using `create_cache_replacement_policy`.
@@ -211,6 +225,8 @@ Further non-compatibility-affecting changes include:
    records. These records capture arguments, memory regions, and return codes. A new
    viewer, drsyscall_record_viewer, was also added to display the contents of these
    records.
+ - Added the class dynamorio::drmemtrace::policy_rrip_t which implements RRIP cache
+   replacement policy model for the drcachesim tool.
 
 **************************************************
 <hr>

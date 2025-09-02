@@ -43,6 +43,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -218,7 +219,7 @@ public:
 
 protected:
     virtual void
-    access_update(int block_idx, int way);
+    access_update(int block_idx, int way, cache_access_outcome_t access_type);
     virtual int
     replace_which_way(int block_idx);
     virtual int
@@ -329,6 +330,11 @@ protected:
     bool use_tag2block_table_ = false;
 
     mutable std::unique_ptr<cache_replacement_policy_t> replacement_policy_;
+
+    // For exclusive cache: Tags which previously were serviced in this cache,
+    // but moved to a child cache.
+    // This container expected to be empty for inclusive cache.
+    std::unordered_set<addr_t> prev_serviced_exclusive_tags_;
 
     // Name for this cache.
     const std::string name_;

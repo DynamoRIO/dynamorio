@@ -76,7 +76,7 @@ dr_init(client_id_t id)
     drmgr_init();
     res = drreg_init(&ops);
     CHECK(res == DRREG_SUCCESS, "drreg init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
                                                     event_bb_insert, NULL, &priority);

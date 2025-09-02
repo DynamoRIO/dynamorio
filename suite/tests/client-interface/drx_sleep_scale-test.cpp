@@ -50,6 +50,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drx.h"
 #include "tools.h"
 
@@ -266,6 +267,7 @@ event_exit(void)
     ok = drx_unregister_time_scaling();
     assert(ok);
     drx_exit();
+    drmgr_exit();
     dr_fprintf(STDERR, "client done\n");
 }
 
@@ -317,8 +319,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         timeout_scale = atoi(argv[1]);
     dr_fprintf(STDERR, "in dr_client_main scale=%u\n", timeout_scale);
 
-    dr_register_exit_event(dynamorio::drmemtrace::event_exit);
-    bool ok = drx_init();
+    bool ok = drmgr_init();
+    assert(ok);
+    ok = drmgr_register_exit_event(dynamorio::drmemtrace::event_exit);
+    assert(ok);
+    ok = drx_init();
     assert(ok);
 
     drx_time_scale_t scale = {

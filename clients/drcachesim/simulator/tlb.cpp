@@ -88,7 +88,7 @@ tlb_t::request(const memref_t &memref_in)
         assert(tag != TAG_INVALID && tag == tlb_entry->tag_ &&
                pid == ((tlb_entry_t *)tlb_entry)->pid_);
         record_access_stats(memref_in, true /*hit*/, tlb_entry);
-        access_update(last_block_idx_, last_way_);
+        access_update(last_block_idx_, last_way_, HIT);
         return;
     }
 
@@ -96,6 +96,7 @@ tlb_t::request(const memref_t &memref_in)
     for (; tag <= final_tag; ++tag) {
         int way;
         int block_idx = compute_block_idx(tag);
+        bool is_hit = true;
 
         if (tag + 1 <= final_tag)
             memref.data.size = ((tag + 1) << block_size_bits_) - memref.data.addr;
@@ -109,6 +110,7 @@ tlb_t::request(const memref_t &memref_in)
         }
 
         if (way == associativity_) {
+            is_hit = false;
             way = replace_which_way(block_idx);
             caching_device_block_t *tlb_entry = &get_caching_device_block(block_idx, way);
 
@@ -123,7 +125,7 @@ tlb_t::request(const memref_t &memref_in)
             ((tlb_entry_t *)tlb_entry)->pid_ = pid;
         }
 
-        access_update(block_idx, way);
+        access_update(block_idx, way, is_hit ? HIT : MISS);
 
         if (tag + 1 <= final_tag) {
             addr_t next_addr = (tag + 1) << block_size_bits_;

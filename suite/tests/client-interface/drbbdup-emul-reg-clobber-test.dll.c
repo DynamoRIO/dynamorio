@@ -156,7 +156,7 @@ dr_init(client_id_t id)
 
     drbbdup_status_t res = drbbdup_init(&opts);
     CHECK(res == DRBBDUP_SUCCESS, "drbbdup init failed");
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     bool app2app_res = drmgr_register_bb_app2app_event(app2app_event, NULL);
     CHECK(app2app_res, "app2app failed");

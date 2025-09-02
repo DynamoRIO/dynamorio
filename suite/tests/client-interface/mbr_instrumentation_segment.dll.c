@@ -84,7 +84,7 @@ dr_client_main(client_id_t __attribute__((unused)) id, int __attribute__((unused
 {
     drsym_init(0);
     drmgr_init();
-    dr_register_exit_event(&exit_event);
+    drmgr_register_exit_event(&exit_event);
     drmgr_register_module_load_event(&load_event);
     drmgr_register_bb_instrumentation_event(NULL, &bb_event, NULL);
 }

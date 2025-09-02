@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -268,10 +268,10 @@ dr_init(client_id_t id)
         drmgr_register_cls_field(event_thread_context_init, event_thread_context_exit);
     ASSERT(cls_idx != -1);
     dr_register_nudge_event(event_nudge, id);
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 
     ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, NULL, NULL);
     ASSERT(ok);

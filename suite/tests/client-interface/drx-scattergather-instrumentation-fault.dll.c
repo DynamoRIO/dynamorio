@@ -200,7 +200,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_app_analysis,
                                                     event_app_instruction, NULL, NULL) ||
         !drmgr_register_signal_event(signal_event))

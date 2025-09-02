@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -31,6 +31,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drvector.h"
 #include "drcovlib.h"
 #include "drcovlib_private.h"

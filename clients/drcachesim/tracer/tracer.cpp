@@ -416,7 +416,7 @@ event_app_instruction_case(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 static void
 instrumentation_exit()
 {
-    dr_unregister_filter_syscall_event(event_filter_syscall);
+    drmgr_unregister_filter_syscall_event(event_filter_syscall);
     if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
         !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_unregister_bb_app2app_event(event_bb_app2app))
@@ -472,7 +472,7 @@ instrumentation_init()
         !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_register_bb_app2app_event(event_bb_app2app, &pri_pre_bbdup))
         DR_ASSERT(false);
-    dr_register_filter_syscall_event(event_filter_syscall);
+    drmgr_register_filter_syscall_event(event_filter_syscall);
 
     if (align_attach_detach_endpoints())
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
@@ -2079,7 +2079,7 @@ event_exit(void)
             DR_ASSERT(false);
         }
     }
-    dr_unregister_exit_event(event_exit);
+    drmgr_unregister_exit_event(event_exit);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
@@ -2530,7 +2530,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     }
 
     /* register events */
-    dr_register_exit_event(event_exit);
+    drmgr_register_exit_event(event_exit);
 #ifdef UNIX
     dr_register_fork_init_event(fork_init);
 #endif

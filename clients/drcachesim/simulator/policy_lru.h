@@ -51,7 +51,7 @@ class policy_lru_t : public cache_replacement_policy_t {
 public:
     policy_lru_t(int num_sets, int associativity);
     void
-    access_update(int set_idx, int way) override;
+    access_update(int set_idx, int way, cache_access_outcome_t access_type) override;
     void
     eviction_update(int set_idx, int way) override;
     void
