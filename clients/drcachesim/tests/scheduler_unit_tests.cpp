@@ -426,6 +426,7 @@ get_mock_switch_sequence(addr_t thread_switch_pc_start = 0xcafe101,
                          addr_t process_switch_pc_start = 0xf00d101)
 {
     constexpr memref_tid_t TID_IN_SWITCHES = 1;
+    constexpr addr_t DONT_CARE = 0xd041ca4e;
     return {
         /* clang-format off */
         test_util::make_header(TRACE_ENTRY_VERSION),
@@ -436,7 +437,7 @@ get_mock_switch_sequence(addr_t thread_switch_pc_start = 0xcafe101,
         test_util::make_marker(
             TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
         test_util::make_instr(process_switch_pc_start),
-        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
         test_util::make_instr(process_switch_pc_start + 1,
             TRACE_TYPE_INSTR_INDIRECT_JUMP),
         test_util::make_marker(
@@ -452,7 +453,7 @@ get_mock_switch_sequence(addr_t thread_switch_pc_start = 0xcafe101,
         test_util::make_marker(
             TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_THREAD),
         test_util::make_instr(thread_switch_pc_start),
-        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
         test_util::make_instr(thread_switch_pc_start + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
         test_util::make_marker(
             TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_THREAD),
@@ -466,6 +467,7 @@ static std::vector<trace_entry_t>
 get_mock_syscall_sequence(int syscall_base, addr_t syscall_pc_start = 0xfeed101)
 {
     constexpr memref_tid_t TID_IN_SYSCALLS = 1;
+    constexpr addr_t DONT_CARE = 0xd041ca4e;
     return {
         /* clang-format off */
             test_util::make_header(TRACE_ENTRY_VERSION),
@@ -475,7 +477,7 @@ get_mock_syscall_sequence(int syscall_base, addr_t syscall_pc_start = 0xfeed101)
             test_util::make_timestamp(1),
             test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, syscall_base),
             test_util::make_instr(syscall_pc_start),
-            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
             test_util::make_instr(syscall_pc_start + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
             test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, syscall_base),
             // XXX: Currently all syscall traces are concatenated. We may change
@@ -484,7 +486,7 @@ get_mock_syscall_sequence(int syscall_base, addr_t syscall_pc_start = 0xfeed101)
                 TRACE_MARKER_TYPE_SYSCALL_TRACE_START, syscall_base + 1),
             test_util::make_instr(syscall_pc_start + 10),
             test_util::make_instr(syscall_pc_start + 11),
-            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 0),
+            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
             test_util::make_instr(syscall_pc_start + 12, TRACE_TYPE_INSTR_INDIRECT_JUMP),
             test_util::make_marker(
                 TRACE_MARKER_TYPE_SYSCALL_TRACE_END, syscall_base + 1),
@@ -509,6 +511,7 @@ test_parallel_with_syscall_injection()
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE),
         test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID, 20),
         test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 1),
+        // Expected syscall injection point.
         test_util::make_marker(TRACE_MARKER_TYPE_FUNC_ID, 20),
         test_util::make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 20),
         test_util::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 101),
@@ -2239,8 +2242,9 @@ static void
 test_synthetic_time_quanta_with_kernel()
 {
     // This is a test of kernel syscall and switch injection done together
-    // with cases where the syscall is immediately followed by a switch
-    // sequence, and also some idles.
+    // with a case where the syscall is immediately followed by a switch
+    // sequence, and also some idles added as part of the injected syscall
+    // trace.
     std::cerr << "\n----------------\nTesting time quanta with kernel\n";
 #ifdef HAS_ZIP
     static constexpr memref_tid_t TID_BASE = 42;
@@ -2332,7 +2336,8 @@ test_synthetic_time_quanta_with_kernel()
                              memref_tid_t expect_tid = INVALID_THREAD_ID,
                              trace_type_t expect_type = TRACE_TYPE_READ,
                              addr_t expect_pc_or_marker_val = 0,
-                             addr_t expect_marker_type = 0,
+                             trace_marker_type_t expect_marker_type =
+                                 TRACE_MARKER_TYPE_RESERVED_END,
                              addr_t expect_indirect_branch_target = 0) {
             memref_t memref;
             scheduler_t::stream_status_t status = stream->next_record(memref, time);
@@ -2370,14 +2375,15 @@ test_synthetic_time_quanta_with_kernel()
                     }
                 }
                 if (memref.marker.type == TRACE_TYPE_MARKER) {
-                    if (expect_marker_type != 0) {
+                    if (expect_marker_type != TRACE_MARKER_TYPE_RESERVED_END) {
                         if (memref.marker.marker_type != expect_marker_type) {
                             std::cerr << "Expected marker_type " << expect_marker_type
                                       << " != " << memref.marker.marker_type
                                       << " at time " << time << "\n";
                             assert(false);
                         }
-                        if (memref.marker.marker_value != expect_pc_or_marker_val) {
+                        if (expect_pc_or_marker_val != 0 &&
+                            memref.marker.marker_value != expect_pc_or_marker_val) {
                             std::cerr
                                 << "Expected marker_value " << expect_pc_or_marker_val
                                 << " != " << memref.marker.marker_value << " at time "
@@ -2400,6 +2406,7 @@ test_synthetic_time_quanta_with_kernel()
         static constexpr uint64_t instr_1_tid_c_pc = 100 * 2 + 10;
         static constexpr uint64_t instr_2_tid_a_pc = 100 * 0 + 30;
         static constexpr uint64_t instr_3_tid_a_pc = 100 * 0 + 50;
+        static constexpr trace_marker_type_t NO_MARKER = TRACE_MARKER_TYPE_RESERVED_END;
         uint64_t time = 1;
         std::string sched_cpu0;
         auto *cpu0 = scheduler.get_stream(0);
@@ -2428,16 +2435,17 @@ test_synthetic_time_quanta_with_kernel()
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
-                   TRACE_TYPE_INSTR);
+                   TRACE_TYPE_INSTR, thread_switch_pc_start);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
                    // Ensure indirect_branch_target is correctly set to the 1st instr
                    // in TID_C.
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, 0, 0, instr_1_tid_c_pc);
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, thread_switch_pc_start + 1, NO_MARKER,
+                   instr_1_tid_c_pc);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
                    TRACE_TYPE_MARKER,
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
-
+        // Now TID_C starts.
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
                    TRACE_TYPE_MARKER, instr_1_tid_c_pc);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
@@ -2461,11 +2469,12 @@ test_synthetic_time_quanta_with_kernel()
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR);
+                   TRACE_TYPE_INSTR, thread_switch_pc_start);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    // Ensure indirect_branch_target is correctly set to the 2nd instr
                    // in TID_A.
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, 0, 0, instr_2_tid_a_pc);
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, thread_switch_pc_start + 1, NO_MARKER,
+                   instr_2_tid_a_pc);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER,
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
@@ -2474,11 +2483,11 @@ test_synthetic_time_quanta_with_kernel()
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_INSTR, instr_2_tid_a_pc);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER);
+                   TRACE_TYPE_MARKER, 0, TRACE_MARKER_TYPE_TIMESTAMP);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER);
+                   TRACE_TYPE_MARKER, SYSCALL_BASE, TRACE_MARKER_TYPE_SYSCALL);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER);
+                   TRACE_TYPE_MARKER, 0, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL);
 
         // Injected syscall sequence after the syscall instr in TID_A.
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
@@ -2510,7 +2519,8 @@ test_synthetic_time_quanta_with_kernel()
         // determined, so we see the indirect branch. The target is the switch
         // sequence's first instr.
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, 0, 0, process_switch_pc_start);
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, syscall_pc_start + 1, NO_MARKER,
+                   process_switch_pc_start);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER, SYSCALL_BASE, TRACE_MARKER_TYPE_SYSCALL_TRACE_END);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
@@ -2527,7 +2537,7 @@ test_synthetic_time_quanta_with_kernel()
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    // Ensure indirect_branch_target is correctly set to the 3rd instr
                    // in TID_A.
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, process_switch_pc_start + 1, 0,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, process_switch_pc_start + 1, NO_MARKER,
                    instr_3_tid_a_pc);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER,
@@ -3388,6 +3398,11 @@ check_ref(std::vector<memref_t> &refs, int &idx, memref_tid_t expected_tid,
                   << expected_tid << " and expected type " << expected_type << "\n";
         return false;
     }
+
+    if (type_is_instr(expected_type) && pc != 0 && refs[idx].instr.addr != pc) {
+        std::cerr << "Record " << idx << " has instr pc " << std::hex
+                  << refs[idx].instr.addr << " but expected " << pc << std::dec << "\n";
+    }
     if (type_is_instr_branch(expected_type) &&
         !type_is_instr_direct_branch(expected_type) &&
         expected_marker_or_branch_target_value != 0 &&
@@ -3412,10 +3427,6 @@ check_ref(std::vector<memref_t> &refs, int &idx, memref_tid_t expected_tid,
                       << expected_marker_or_branch_target_value << "\n";
             return false;
         }
-    }
-    if (type_is_instr(expected_type) && pc != 0 && refs[idx].instr.addr != pc) {
-        std::cerr << "Record " << idx << " has instr pc " << std::hex
-                  << refs[idx].instr.addr << " but expected " << pc << std::dec << "\n";
     }
     ++idx;
     return true;
@@ -7044,6 +7055,7 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
     std::vector<uint64> prev_out_ord(num_outputs, 0);
     while (num_eof < num_outputs) {
         for (int i = 0; i < num_outputs; i++) {
+            // Should happen atmost once at the end of the output stream.
             assert(!saw_null_input[i] || outputs[i]->get_input_interface() == nullptr);
             if (eof[i])
                 continue;
@@ -7118,6 +7130,8 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                 // Test that dynamically injected syscall code doesn't count toward
                 // input ordinals, but does toward output ordinals.
 
+                // See test_parallel_with_syscall_injection which verifies the exact
+                // read-ahead counts.
                 assert( // We readahead by one record to decide when to inject the
                         // syscall trace, so the input interface record ordinal will
                         // be advanced by one at trace start.
@@ -7125,9 +7139,10 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     // We also readahead at the trace-end indirect branch target
                     // instr to determine its next pc.
                     has_indirect_branch_target(memref) ||
-                    // If we've reached the end of the trace, we don't have the
-                    // indirect branch target, but we would've read-ahead
-                    // anyway to discover that we're at the end.
+                    // If the indirect branch is the last thing in the trace, we'd
+                    // reach the trace end without seeing an indirect branch instr,
+                    // but we would've read-ahead anyway to discover that we're at
+                    // the end.
                     is_trace_end ||
                     // The read-ahead for the last syscall sequence will finish
                     // the input.
@@ -7231,7 +7246,8 @@ test_kernel_switch_sequences()
             inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                inputs.push_back(test_util::make_instr(tid * 100 + 42 + instr_idx * 4));
+                inputs.push_back(test_util::make_instr(
+                    static_cast<addr_t>(tid * 100 + 42 + instr_idx * 4)));
             }
             inputs.push_back(test_util::make_exit(tid));
 
@@ -7786,7 +7802,6 @@ test_kernel_syscall_sequences()
             // Post syscall timestamp.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-            // Second thread.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR,
                       TRACE_MARKER_TYPE_RESERVED_END, 0, THREAD_3_INSTR_2_PC);
         assert(res);

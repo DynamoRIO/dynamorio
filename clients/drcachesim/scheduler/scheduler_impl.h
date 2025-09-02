@@ -428,8 +428,9 @@ protected:
     // been determined to be a next record.
     // A "finalized" record may be modified in only a limited number of cases:
     // - if it is a record inside a kernel syscall or switch sequence that should
-    //   hold the actual next indirect branch target, then the target pc may be
-    //   added to it, or it may be skipped if the target pc cannot be determined.
+    //   hold the actual next indirect branch target after the sequence, then the
+    //   target pc may be added to it, or it may be skipped if the target pc cannot
+    //   be determined.
     struct finalized_record_t {
         finalized_record_t(RecordType record, input_info_t *input, bool is_inj_kernel)
             : record(record)
@@ -453,9 +454,9 @@ protected:
         std::queue<finalized_record_t> records_;
         // Count of instrs in the queue.
         int instrs_count_ = 0;
-        // Count of instrs in the queue that are not injected kernel records.
+        // Count of records in the queue that are not injected kernel records.
         int reader_record_count_ = 0;
-        // Count of records in the queue that are not injected kernel instrs.
+        // Count of instrs in the queue that are not injected kernel instrs.
         int reader_instr_count_ = 0;
         // Whether the queue is in the middle of returning kernel records.
         bool in_kernel_ = false;
@@ -564,7 +565,7 @@ protected:
             , ready_queue(rand_seed)
             , speculator(speculator_flags, verbosity)
             , last_record(last_record_init)
-            , final_queue(scheduler_impl)
+            , kibt_readahead_q(scheduler_impl)
         {
             active = std::unique_ptr<std::atomic<bool>>(new std::atomic<bool>());
             active->store(true, std::memory_order_relaxed);
@@ -647,10 +648,10 @@ protected:
         // The first timestamp (pre-update_next_record()) seen on the first input.
         uintptr_t base_timestamp = 0;
 
-        // Records that have been finalized and will be passed on to the caller.
-        // Some content of these records may still be updated, but the record themselves
-        // will be passed on.
-        kernel_ibt_readahead_queue_t final_queue;
+        // Records that have been finalized and read-ahead to determine the branch
+        // target of an indirect branch instr at the end of an injected kernel
+        // sequence.
+        kernel_ibt_readahead_queue_t kibt_readahead_q;
 
         static constexpr addr_t BRANCH_TARGET_NEEDS_FIXING = 0x0;
     };
