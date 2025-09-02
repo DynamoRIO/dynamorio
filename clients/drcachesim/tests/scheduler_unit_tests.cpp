@@ -422,8 +422,8 @@ test_parallel()
 }
 
 static std::vector<trace_entry_t>
-get_mock_switch_sequence(uint64_t thread_switch_pc_start = 0xcafe101,
-                         uint64_t process_switch_pc_start = 0xf00d101)
+get_mock_switch_sequence(addr_t thread_switch_pc_start = 0xcafe101,
+                         addr_t process_switch_pc_start = 0xf00d101)
 {
     constexpr memref_tid_t TID_IN_SWITCHES = 1;
     return {
@@ -7205,10 +7205,6 @@ test_kernel_switch_sequences()
 {
     std::cerr << "\n----------------\nTesting kernel switch sequences\n";
     std::vector<trace_entry_t> switch_sequence = get_mock_switch_sequence();
-    auto switch_reader = std::unique_ptr<test_util::mock_reader_t>(
-        new test_util::mock_reader_t(switch_sequence));
-    auto switch_reader_end =
-        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t());
     static constexpr int NUM_WORKLOADS = 3;
     static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
     static constexpr int NUM_OUTPUTS = 2;
@@ -8797,7 +8793,7 @@ class mock_noise_generator_t : public noise_generator_t {
 public:
     mock_noise_generator_t(noise_generator_info_t &info, const addr_t addr_to_generate)
         : noise_generator_t(info)
-        , addr_to_generate_(addr_to_generate) { };
+        , addr_to_generate_(addr_to_generate) {};
 
 protected:
     trace_entry_t
@@ -8832,7 +8828,7 @@ class mock_noise_generator_factory_t
     : public noise_generator_factory_t<memref_t, reader_t> {
 public:
     mock_noise_generator_factory_t(const addr_t addr_to_generate)
-        : addr_to_generate_(addr_to_generate) { };
+        : addr_to_generate_(addr_to_generate) {};
 
 protected:
     std::unique_ptr<reader_t>
