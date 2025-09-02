@@ -59,7 +59,7 @@ namespace drmemtrace {
 
 /**
  * Enumerates the different types of cache line invalidation events that
- *  may be seen by a cache.
+ * may be seen by a cache.
  */
 enum invalidation_type_t {
     /**
