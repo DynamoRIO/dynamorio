@@ -603,9 +603,9 @@ test_parallel_with_syscall_injection()
                 // read-ahead records.
                 saw_syscall_trace = true;
             } else if (saw_syscall_trace) {
-                // The record count considered read ahead of their time will reduce
-                // by one each iteration, starting from the record after the
-                // syscall_trace_end marker.
+                // The record count considered to be read from the input stream
+                // ahead of their time will reduce by one each iteration, starting
+                // from the record after the syscall_trace_end marker.
                 if (--expected_record_readahead == 0) {
                     // The instr will be the last read-ahead record.
                     expected_instr_readahead = 0;
@@ -2277,14 +2277,14 @@ test_synthetic_time_quanta_with_kernel()
         refs[i].push_back(test_util::make_exit(TID_BASE + i));
     }
 
-    uint64_t syscall_pc_start = 0xfeed101;
+    constexpr uint64_t SYSCALL_PC_START = 0xfeed101;
     std::vector<trace_entry_t> syscall_sequence =
-        get_mock_syscall_sequence(SYSCALL_BASE, syscall_pc_start);
+        get_mock_syscall_sequence(SYSCALL_BASE, SYSCALL_PC_START);
 
-    uint64_t thread_switch_pc_start = 0xcafe101;
-    uint64_t process_switch_pc_start = 0xf00d101;
+    constexpr uint64_t THREAD_SWITCH_PC_START = 0xcafe101;
+    constexpr uint64_t PROCESS_SWITCH_PC_START = 0xf00d101;
     std::vector<trace_entry_t> switch_sequence =
-        get_mock_switch_sequence(thread_switch_pc_start, process_switch_pc_start);
+        get_mock_switch_sequence(THREAD_SWITCH_PC_START, PROCESS_SWITCH_PC_START);
 
     std::string record_fname = "tmp_test_replay_time.zip";
     {
@@ -2435,11 +2435,11 @@ test_synthetic_time_quanta_with_kernel()
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
-                   TRACE_TYPE_INSTR, thread_switch_pc_start);
+                   TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
                    // Ensure indirect_branch_target is correctly set to the 1st instr
                    // in TID_C.
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, thread_switch_pc_start + 1, NO_MARKER,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
                    instr_1_tid_c_pc);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
                    TRACE_TYPE_MARKER,
@@ -2469,11 +2469,11 @@ test_synthetic_time_quanta_with_kernel()
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR, thread_switch_pc_start);
+                   TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    // Ensure indirect_branch_target is correctly set to the 2nd instr
                    // in TID_A.
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, thread_switch_pc_start + 1, NO_MARKER,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
                    instr_2_tid_a_pc);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER,
@@ -2494,7 +2494,7 @@ test_synthetic_time_quanta_with_kernel()
                    TRACE_TYPE_MARKER, SYSCALL_BASE,
                    TRACE_MARKER_TYPE_SYSCALL_TRACE_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR, syscall_pc_start);
+                   TRACE_TYPE_INSTR, SYSCALL_PC_START);
         // We just hit a blocking syscall in A and there is nothing else to run.
         // The indirect_branch_target of the last instr of the syscall sequence
         // is not yet determinable, so we just see idles.
@@ -2519,8 +2519,8 @@ test_synthetic_time_quanta_with_kernel()
         // determined, so we see the indirect branch. The target is the switch
         // sequence's first instr.
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, syscall_pc_start + 1, NO_MARKER,
-                   process_switch_pc_start);
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, SYSCALL_PC_START + 1, NO_MARKER,
+                   PROCESS_SWITCH_PC_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER, SYSCALL_BASE, TRACE_MARKER_TYPE_SYSCALL_TRACE_END);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
@@ -2533,11 +2533,11 @@ test_synthetic_time_quanta_with_kernel()
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR, process_switch_pc_start);
+                   TRACE_TYPE_INSTR, PROCESS_SWITCH_PC_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    // Ensure indirect_branch_target is correctly set to the 3rd instr
                    // in TID_A.
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, process_switch_pc_start + 1, NO_MARKER,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, PROCESS_SWITCH_PC_START + 1, NO_MARKER,
                    instr_3_tid_a_pc);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER,

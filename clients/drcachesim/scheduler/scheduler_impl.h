@@ -446,14 +446,14 @@ protected:
     // Describes a queue of finalized_record_t that have been read-ahead to determine
     // the branch target of a syscall- or switch-final indirect branch target instr
     // when it becomes the next record to be returned.
-    struct kernel_ibt_readahead_queue_t {
+    class kernel_ibt_readahead_queue_t {
     private:
         // For convenient access to some APIs like record_is_instr, record_is_marker.
         scheduler_impl_tmpl_t<RecordType, ReaderType> *scheduler_;
 
         std::queue<finalized_record_t> records_;
         // Count of instrs in the queue.
-        int instrs_count_ = 0;
+        int instr_count_ = 0;
         // Count of records in the queue that are not injected kernel records.
         int reader_record_count_ = 0;
         // Count of instrs in the queue that are not injected kernel instrs.
@@ -477,7 +477,7 @@ protected:
             if (scheduler_->record_type_is_instr(record.record)) {
                 if (!record.is_inj_kernel)
                     ++reader_instr_count_;
-                ++instrs_count_;
+                ++instr_count_;
             }
             if (!record.is_inj_kernel) {
                 ++reader_record_count_;
@@ -496,7 +496,7 @@ protected:
             if (scheduler_->record_type_is_instr(front.record)) {
                 if (!front.is_inj_kernel)
                     --reader_instr_count_;
-                --instrs_count_;
+                --instr_count_;
             }
             if (!front.is_inj_kernel) {
                 --reader_record_count_;
@@ -522,9 +522,9 @@ protected:
             return last_record_;
         }
         int
-        instrs_count()
+        instr_count()
         {
-            return instrs_count_;
+            return instr_count_;
         }
         int
         reader_record_count()
@@ -565,7 +565,7 @@ protected:
             , ready_queue(rand_seed)
             , speculator(speculator_flags, verbosity)
             , last_record(last_record_init)
-            , kibt_readahead_q(scheduler_impl)
+            , kibt_readahead_queue(scheduler_impl)
         {
             active = std::unique_ptr<std::atomic<bool>>(new std::atomic<bool>());
             active->store(true, std::memory_order_relaxed);
@@ -651,7 +651,7 @@ protected:
         // Records that have been finalized and read-ahead to determine the branch
         // target of an indirect branch instr at the end of an injected kernel
         // sequence.
-        kernel_ibt_readahead_queue_t kibt_readahead_q;
+        kernel_ibt_readahead_queue_t kibt_readahead_queue;
 
         static constexpr addr_t BRANCH_TARGET_NEEDS_FIXING = 0x0;
     };
@@ -832,13 +832,18 @@ protected:
     get_reader(const std::string &path, int verbosity);
 
     // Advances the 'output_ordinal'-th output stream.
+    // Uses read_single_next_record to get the next record, but also does other required
+    // adjustments that require reading ahead multiple records, like for setting
+    // the branch target for the indirect branch instructions at the end of injected
+    // kernel records.
     stream_status_t
     next_record(output_ordinal_t output, RecordType &record, input_info_t *&input,
                 uint64_t cur_time = 0);
 
+    // Reads a single next record for the output's stream.
     stream_status_t
-    next_record_internal(output_ordinal_t output, RecordType &record,
-                         input_info_t *&input, uint64_t cur_time);
+    read_single_next_record(output_ordinal_t output, RecordType &record,
+                            input_info_t *&input, uint64_t cur_time);
 
     // Undoes the last read.  May only be called once between next_record() calls.
     // Is not supported during speculation nor prior to speculation with queueing,
@@ -995,7 +1000,7 @@ protected:
     // value. No-op for trace_entry_t.
     void
     record_type_set_indirect_branch_instr(RecordType &record,
-                                          addr_t set_indirect_branch_target = 0);
+                                          addr_t set_indirect_branch_target);
 
     // If the given record is a marker, returns true and its fields.
     bool
