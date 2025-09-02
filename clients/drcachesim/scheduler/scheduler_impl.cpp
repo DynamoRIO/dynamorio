@@ -2926,6 +2926,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
         if (res != sched_type_t::STATUS_OK)
             return res;
         finalized_record_t fin_record(next_record, next_input,
+                                      // XXX: this may not work as intended with
+                                      // statically injected kernel records.
                                       outputs_[output].in_context_switch_code ||
                                           outputs_[output].in_syscall_code);
         outputs_[output].kibt_readahead_q.push(fin_record);
