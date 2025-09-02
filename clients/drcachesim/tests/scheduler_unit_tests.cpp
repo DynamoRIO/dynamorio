@@ -463,7 +463,7 @@ get_mock_switch_sequence(addr_t thread_switch_pc_start = 0xcafe101,
 }
 
 static std::vector<trace_entry_t>
-get_mock_syscall_sequence(int syscall_base, uint64_t syscall_pc_start = 0xfeed101)
+get_mock_syscall_sequence(int syscall_base, addr_t syscall_pc_start = 0xfeed101)
 {
     constexpr memref_tid_t TID_IN_SYSCALLS = 1;
     return {
