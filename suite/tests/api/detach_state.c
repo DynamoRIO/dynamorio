@@ -1279,7 +1279,6 @@ GLOBAL_LABEL(FUNCNAME:)
  *    Zn.T[0] = start
  *    Zn.T[x] = Zn.T[x - 1] + increment
  */
- */
 #    define SET_UNIQUE_REGISTER_VALS \
         addvl    sp, sp, #-1 @N@\
         SET_P_PATTERN(p0, MAKE_HEX_ASM(FFR_0_BASE())) @N@\
