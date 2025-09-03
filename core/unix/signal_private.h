@@ -422,7 +422,7 @@ typedef struct _sighand_info_t {
 } sighand_info_t;
 
 typedef struct _thread_sig_info_t {
-    /* A pointer to handler info shared in a CLONG_SIGHAND group. */
+    /* A pointer to handler info shared in a CLONE_SIGHAND group. */
     sighand_info_t *sighand;
 
     /* We save the old sigaction across a sigaction syscall so we can return it
