@@ -378,14 +378,16 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
      * We just use a subset of the array for vector lengths < 2048-bits.
      */
     ptr_uint_t vec_expected[32] = {
-        0xf7f6f5f4f3f2f1f0, 0xfffefdfcfbfaf9f8, 0x0706050403020100, 0x0f0e0d0c0b0a0908,
-        0x1716151413121110, 0x1f1e1d1c1b1a1918, 0x2726252423222120, 0x2f2e2d2c2b2a2928,
-        0x3736353433323130, 0x3f3e3d3c3b3a3938, 0x4746454443424140, 0x4f4e4d4c4b4a4948,
-        0x5756555453525150, 0x5f5e5d5c5b5a5958, 0x6766656463626160, 0x6f6e6d6c6b6a6968,
-        0x7776757473727170, 0x7f7e7d7c7b7a7978, 0x8786858483828180, 0x8f8e8d8c8b8a8988,
-        0x9796959493929190, 0x9f9e9d9c9b9a9998, 0xa7a6a5a4a3a2a1a0, 0xafaeadacabaaa9a8,
-        0xb7b6b5b4b3b2b1b0, 0xbfbebdbcbbbab9b8, 0xc7c6c5c4c3c2c1c0, 0xcfcecdcccbcac9c8,
-        0xd7d6d5d4d3d2d1d0, 0xdfdedddcdbdad9d8, 0xe7e6e5e4e3e2e1e0, 0xefeeedecebeae9e8,
+#        define XL(n) MAKE_HEX_C(UINT64_C(n))
+#        define E(n)                                            \
+            SIMD_UNIQUE_VAL_DOUBLEWORD_ELEMENT(XL(Z0_0_BASE()), \
+                                               XL(Z_ELEMENT_INCREMENT_BASE()), n)
+        E(0),   E(8),   E(16),  E(24),  E(32),  E(40),  E(48),  E(56),
+        E(64),  E(72),  E(80),  E(88),  E(96),  E(104), E(112), E(120),
+        E(128), E(136), E(144), E(152), E(160), E(168), E(176), E(184),
+        E(192), E(200), E(208), E(216), E(224), E(232), E(240), E(248),
+#        undef E
+#        undef XL
     };
     /* There are 31 AArch64 general purpose registers but x0 is saved twice in order to
      * keep the stack 16-byte aligned.
@@ -401,7 +403,7 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
 
         /* Increment each byte to generate the expected value for the next register. */
         for (size_t j = 0; j < vector_length_in_bytes; j++) {
-            ((byte *)vec_expected)[j]++;
+            ((byte *)vec_expected)[j] += MAKE_HEX_C(Z_REGISTER_DIFFERENCE_BASE());
         }
     }
 #        if defined(__ARM_FEATURE_SVE)
@@ -409,9 +411,13 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
      * register 8 bytes at a time so we check the predicate registers 1 byte at a time.
      */
     byte ffr_expected[32] = {
-        0xf5, 0x06, 0x17, 0x28, 0x39, 0x4a, 0x5b, 0x6c, 0x7d, 0x8e, 0x9f,
-        0xa0, 0xb1, 0xc2, 0xd3, 0xe4, 0xf5, 0x06, 0x17, 0x28, 0x39, 0x4a,
-        0x5b, 0x6c, 0x7d, 0x8e, 0x9f, 0xa0, 0xb1, 0xc2, 0xd3, 0xe4,
+#            define E(n)                                               \
+                SIMD_UNIQUE_VAL_BYTE_ELEMENT(MAKE_HEX_C(FFR_0_BASE()), \
+                                             MAKE_HEX_C(P_ELEMENT_INCREMENT_BASE()), n)
+        E(0),  E(1),  E(2),  E(3),  E(4),  E(5),  E(6),  E(7),  E(8),  E(9),  E(10),
+        E(11), E(12), E(13), E(14), E(15), E(16), E(17), E(18), E(19), E(20), E(21),
+        E(22), E(23), E(24), E(25), E(26), E(27), E(28), E(29), E(30), E(31),
+#            undef E
     };
     const byte *ffr =
         (byte *)(xsp + gprs_on_stack + (num_vector_registers * simd_sz_in_ptrs));
@@ -420,9 +426,13 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
     }
 
     byte pred_expected[32] = {
-        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa,
-        0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
-        0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+#            define E(n)                                              \
+                SIMD_UNIQUE_VAL_BYTE_ELEMENT(MAKE_HEX_C(P0_0_BASE()), \
+                                             MAKE_HEX_C(P_ELEMENT_INCREMENT_BASE()), n)
+        E(0),  E(1),  E(2),  E(3),  E(4),  E(5),  E(6),  E(7),  E(8),  E(9),  E(10),
+        E(11), E(12), E(13), E(14), E(15), E(16), E(17), E(18), E(19), E(20), E(21),
+        E(22), E(23), E(24), E(25), E(26), E(27), E(28), E(29), E(30), E(31),
+#            undef E
     };
     const byte *predicate_reg_start = ffr + 32;
     for (i = 0; i < 16; i++) {
@@ -435,7 +445,7 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
 
         /* Increment each byte to generate the expected value for the next register. */
         for (size_t j = 0; j < vector_length_in_bytes; j++) {
-            pred_expected[j] += 0x11;
+            pred_expected[j] += MAKE_HEX_C(P_REGISTER_DIFFERENCE_BASE());
         }
     }
 #        endif
@@ -1245,81 +1255,96 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_GPR_IMMED(x30, MAKE_HEX_C(X30_BASE()))
 
 #if defined (__ARM_FEATURE_SVE)
+
+# define SET_Z_PATTERN(reg, start) \
+        movz     w0, start @N@\
+        movz     w1, MAKE_HEX_ASM(Z_ELEMENT_INCREMENT_BASE()) @N@\
+        index    reg.b, w0, w1 @N@\
 /* It is not possible to move arbitrary patterns into P registers directly so we go via
  * memory.
  */
 # define SET_P_PATTERN(reg, start) \
         movz     w0, start @N@\
-        movz     w1, MAKE_HEX_ASM(11) @N@\
+        movz     w1, MAKE_HEX_ASM(P_ELEMENT_INCREMENT_BASE()) @N@\
         index    z0.b, w0, w1 @N@\
         str      z0, [sp] @N@\
         ldr      reg, [sp]
 
-    /* We can't set LR in a callee so we inline: */
+/* We can't set LR in a callee so we inline.
+ * SVE vector and predicate register lengths are immplementation defined. To keep the
+ * implementation of SET_UNIQUE_REGISTER_VALS simple, it is designed to be vector length
+ * agnostic and uses the index instruction to generate the unique values.
+ * index takes a start value and an increment and generates an arithmetic progression in
+ * the destination register:
+ *    Zn.T[0] = start
+ *    Zn.T[x] = Zn.T[x - 1] + increment
+ */
+ */
 #    define SET_UNIQUE_REGISTER_VALS \
         addvl    sp, sp, #-1 @N@\
-        SET_P_PATTERN(p0, MAKE_HEX_ASM(f5)) @N@\
+        SET_P_PATTERN(p0, MAKE_HEX_ASM(FFR_0_BASE())) @N@\
         wrffr    p0.b @N@\
-        SET_P_PATTERN(p0, MAKE_HEX_ASM(00)) @N@\
-        SET_P_PATTERN(p1, MAKE_HEX_ASM(11)) @N@\
-        SET_P_PATTERN(p2, MAKE_HEX_ASM(22)) @N@\
-        SET_P_PATTERN(p3, MAKE_HEX_ASM(33)) @N@\
-        SET_P_PATTERN(p4, MAKE_HEX_ASM(44)) @N@\
-        SET_P_PATTERN(p5, MAKE_HEX_ASM(55)) @N@\
-        SET_P_PATTERN(p6, MAKE_HEX_ASM(66)) @N@\
-        SET_P_PATTERN(p7, MAKE_HEX_ASM(77)) @N@\
-        SET_P_PATTERN(p8, MAKE_HEX_ASM(88)) @N@\
-        SET_P_PATTERN(p9, MAKE_HEX_ASM(99)) @N@\
-        SET_P_PATTERN(p10, MAKE_HEX_ASM(aa)) @N@\
-        SET_P_PATTERN(p11, MAKE_HEX_ASM(bb)) @N@\
-        SET_P_PATTERN(p12, MAKE_HEX_ASM(cc)) @N@\
-        SET_P_PATTERN(p13, MAKE_HEX_ASM(dd)) @N@\
-        SET_P_PATTERN(p14, MAKE_HEX_ASM(ee)) @N@\
-        SET_P_PATTERN(p15, MAKE_HEX_ASM(ff)) @N@\
+        SET_P_PATTERN(p0, MAKE_HEX_ASM(P0_0_BASE())) @N@\
+        SET_P_PATTERN(p1, MAKE_HEX_ASM(P1_0_BASE())) @N@\
+        SET_P_PATTERN(p2, MAKE_HEX_ASM(P2_0_BASE())) @N@\
+        SET_P_PATTERN(p3, MAKE_HEX_ASM(P3_0_BASE())) @N@\
+        SET_P_PATTERN(p4, MAKE_HEX_ASM(P4_0_BASE())) @N@\
+        SET_P_PATTERN(p5, MAKE_HEX_ASM(P5_0_BASE())) @N@\
+        SET_P_PATTERN(p6, MAKE_HEX_ASM(P6_0_BASE())) @N@\
+        SET_P_PATTERN(p7, MAKE_HEX_ASM(P7_0_BASE())) @N@\
+        SET_P_PATTERN(p8, MAKE_HEX_ASM(P8_0_BASE())) @N@\
+        SET_P_PATTERN(p9, MAKE_HEX_ASM(P9_0_BASE())) @N@\
+        SET_P_PATTERN(p10, MAKE_HEX_ASM(P10_0_BASE())) @N@\
+        SET_P_PATTERN(p11, MAKE_HEX_ASM(P11_0_BASE())) @N@\
+        SET_P_PATTERN(p12, MAKE_HEX_ASM(P12_0_BASE())) @N@\
+        SET_P_PATTERN(p13, MAKE_HEX_ASM(P13_0_BASE())) @N@\
+        SET_P_PATTERN(p14, MAKE_HEX_ASM(P14_0_BASE())) @N@\
+        SET_P_PATTERN(p15, MAKE_HEX_ASM(P15_0_BASE())) @N@\
         addvl    sp, sp, #1 @N@\
-        index    z0.b, #-16, #1 @N@\
-        index    z1.b, #-15, #1 @N@\
-        index    z2.b, #-14, #1 @N@\
-        index    z3.b, #-13, #1 @N@\
-        index    z4.b, #-12, #1 @N@\
-        index    z5.b, #-11, #1 @N@\
-        index    z6.b, #-10, #1 @N@\
-        index    z7.b, #-9, #1 @N@\
-        index    z8.b, #-8, #1 @N@\
-        index    z9.b, #-7, #1 @N@\
-        index    z10.b, #-6, #1 @N@\
-        index    z11.b, #-5, #1 @N@\
-        index    z12.b, #-4, #1 @N@\
-        index    z13.b, #-3, #1 @N@\
-        index    z14.b, #-2, #1 @N@\
-        index    z15.b, #-1, #1 @N@\
-        index    z16.b, #0, #1 @N@\
-        index    z17.b, #1, #1 @N@\
-        index    z18.b, #2, #1 @N@\
-        index    z19.b, #3, #1 @N@\
-        index    z20.b, #4, #1 @N@\
-        index    z21.b, #5, #1 @N@\
-        index    z22.b, #6, #1 @N@\
-        index    z23.b, #7, #1 @N@\
-        index    z24.b, #8, #1 @N@\
-        index    z25.b, #9, #1 @N@\
-        index    z26.b, #10, #1 @N@\
-        index    z27.b, #11, #1 @N@\
-        index    z28.b, #12, #1 @N@\
-        index    z29.b, #13, #1 @N@\
-        index    z30.b, #14, #1 @N@\
-        index    z31.b, #15, #1 @N@\
+        SET_Z_PATTERN(z0, MAKE_HEX_ASM(Z0_0_BASE())) @N@\
+        SET_Z_PATTERN(z1, MAKE_HEX_ASM(Z1_0_BASE())) @N@\
+        SET_Z_PATTERN(z2, MAKE_HEX_ASM(Z2_0_BASE())) @N@\
+        SET_Z_PATTERN(z3, MAKE_HEX_ASM(Z3_0_BASE())) @N@\
+        SET_Z_PATTERN(z4, MAKE_HEX_ASM(Z4_0_BASE())) @N@\
+        SET_Z_PATTERN(z5, MAKE_HEX_ASM(Z5_0_BASE())) @N@\
+        SET_Z_PATTERN(z6, MAKE_HEX_ASM(Z6_0_BASE())) @N@\
+        SET_Z_PATTERN(z7, MAKE_HEX_ASM(Z7_0_BASE())) @N@\
+        SET_Z_PATTERN(z8, MAKE_HEX_ASM(Z8_0_BASE())) @N@\
+        SET_Z_PATTERN(z9, MAKE_HEX_ASM(Z9_0_BASE())) @N@\
+        SET_Z_PATTERN(z10, MAKE_HEX_ASM(Z10_0_BASE())) @N@\
+        SET_Z_PATTERN(z11, MAKE_HEX_ASM(Z11_0_BASE())) @N@\
+        SET_Z_PATTERN(z12, MAKE_HEX_ASM(Z12_0_BASE())) @N@\
+        SET_Z_PATTERN(z13, MAKE_HEX_ASM(Z13_0_BASE())) @N@\
+        SET_Z_PATTERN(z14, MAKE_HEX_ASM(Z14_0_BASE())) @N@\
+        SET_Z_PATTERN(z15, MAKE_HEX_ASM(Z15_0_BASE())) @N@\
+        SET_Z_PATTERN(z16, MAKE_HEX_ASM(Z16_0_BASE())) @N@\
+        SET_Z_PATTERN(z17, MAKE_HEX_ASM(Z17_0_BASE())) @N@\
+        SET_Z_PATTERN(z18, MAKE_HEX_ASM(Z18_0_BASE())) @N@\
+        SET_Z_PATTERN(z19, MAKE_HEX_ASM(Z19_0_BASE())) @N@\
+        SET_Z_PATTERN(z20, MAKE_HEX_ASM(Z20_0_BASE())) @N@\
+        SET_Z_PATTERN(z21, MAKE_HEX_ASM(Z21_0_BASE())) @N@\
+        SET_Z_PATTERN(z22, MAKE_HEX_ASM(Z22_0_BASE())) @N@\
+        SET_Z_PATTERN(z23, MAKE_HEX_ASM(Z23_0_BASE())) @N@\
+        SET_Z_PATTERN(z24, MAKE_HEX_ASM(Z24_0_BASE())) @N@\
+        SET_Z_PATTERN(z25, MAKE_HEX_ASM(Z25_0_BASE())) @N@\
+        SET_Z_PATTERN(z26, MAKE_HEX_ASM(Z26_0_BASE())) @N@\
+        SET_Z_PATTERN(z27, MAKE_HEX_ASM(Z27_0_BASE())) @N@\
+        SET_Z_PATTERN(z28, MAKE_HEX_ASM(Z28_0_BASE())) @N@\
+        SET_Z_PATTERN(z29, MAKE_HEX_ASM(Z29_0_BASE())) @N@\
+        SET_Z_PATTERN(z30, MAKE_HEX_ASM(Z30_0_BASE())) @N@\
+        SET_Z_PATTERN(z31, MAKE_HEX_ASM(Z31_0_BASE())) @N@\
         SET_GPR_UNIQUE_REGISTER_VALS
 # else
+#define V0_ELEMENT(n) SIMD_UNIQUE_VAL_DOUBLEWORD_ELEMENT(MAKE_HEX_C(Z0_0_BASE()), MAKE_HEX_C(Z_ELEMENT_INCREMENT_BASE()), n)
     /* We can't set LR in a callee so we inline: */
 #    define SET_UNIQUE_REGISTER_VALS \
         /* Create a pattern that mimics the SVE index instruction we use to */ @N@\
         /* generate Z register patterns. */ @N@\
-        SET_GPR_IMMED(x0, MAKE_HEX_C(V0_0_BASE())) @N@\
-        SET_GPR_IMMED(x1, MAKE_HEX_C(V0_1_BASE())) @N@\
+        SET_GPR_IMMED(x0, V0_ELEMENT(0)) @N@\
+        SET_GPR_IMMED(x1, V0_ELEMENT(8)) @N@\
         mov      v0.d[0], x0 @N@\
         mov      v0.d[1], x1 @N@\
-        movi     v31.16b, #1 @N@\
+        movi     v31.16b, MAKE_HEX_ASM(Z_REGISTER_DIFFERENCE_BASE()) @N@\
         add      v1.16b, v0.16b, v31.16b @N@\
         add      v2.16b, v1.16b, v31.16b @N@\
         add      v3.16b, v2.16b, v31.16b @N@\
@@ -1352,6 +1377,7 @@ GLOBAL_LABEL(FUNCNAME:)
         add      v30.16b, v29.16b, v31.16b @N@\
         add      v31.16b, v30.16b, v31.16b @N@\
         SET_GPR_UNIQUE_REGISTER_VALS
+#undef E
 #endif /*defined (__ARM_FEATURE_SVE) */
 
 

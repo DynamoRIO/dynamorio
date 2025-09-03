@@ -147,8 +147,85 @@
 #    define X28_BASE() fdef0123456789ab
 #    define X29_BASE() fef0123456789abc
 #    define X30_BASE() ff0123456789abcd
-#    define V0_0_BASE() f7f6f5f4f3f2f1f0
-#    define V0_1_BASE() fffefdfcfbfaf9f8
+
+/* SVE SIMD register length is implementation defined and can be any power of two between
+ * 16 and 256 bytes. Instead of a full 256 bytes of data for each Z register we use the
+ * SVE index instruction to generate a pattern.
+ * index takes a start value and an increment and generates an arithmetic progression in
+ * the destination register:
+ *    Zn.T[0] = start
+ *    Zn.T[x] = Zn.T[x - 1] + increment
+ *
+ * If SVE is not available we generate the same pattern in the 16-byte Vn Neon registers.
+ */
+#    define FFR_0_BASE() f5
+#    define P_ELEMENT_INCREMENT_BASE() 1f
+#    define P_REGISTER_DIFFERENCE_BASE() 11
+#    define P0_0_BASE() 00
+#    define P1_0_BASE() 11
+#    define P2_0_BASE() 22
+#    define P3_0_BASE() 33
+#    define P4_0_BASE() 44
+#    define P5_0_BASE() 55
+#    define P6_0_BASE() 66
+#    define P7_0_BASE() 77
+#    define P8_0_BASE() 88
+#    define P9_0_BASE() 99
+#    define P10_0_BASE() aa
+#    define P11_0_BASE() bb
+#    define P12_0_BASE() cc
+#    define P13_0_BASE() dd
+#    define P14_0_BASE() ee
+#    define P15_0_BASE() ff
+#    define Z_ELEMENT_INCREMENT_BASE() f
+#    define Z_REGISTER_DIFFERENCE_BASE() 1
+#    define Z0_0_BASE() 00
+#    define Z1_0_BASE() 01
+#    define Z2_0_BASE() 02
+#    define Z3_0_BASE() 03
+#    define Z4_0_BASE() 04
+#    define Z5_0_BASE() 05
+#    define Z6_0_BASE() 06
+#    define Z7_0_BASE() 07
+#    define Z8_0_BASE() 08
+#    define Z9_0_BASE() 09
+#    define Z10_0_BASE() 0a
+#    define Z11_0_BASE() 0b
+#    define Z12_0_BASE() 0c
+#    define Z13_0_BASE() 0d
+#    define Z14_0_BASE() 0e
+#    define Z15_0_BASE() 0f
+#    define Z16_0_BASE() 10
+#    define Z17_0_BASE() 11
+#    define Z18_0_BASE() 12
+#    define Z19_0_BASE() 13
+#    define Z20_0_BASE() 14
+#    define Z21_0_BASE() 15
+#    define Z22_0_BASE() 16
+#    define Z23_0_BASE() 17
+#    define Z24_0_BASE() 18
+#    define Z25_0_BASE() 19
+#    define Z26_0_BASE() 1a
+#    define Z27_0_BASE() 1b
+#    define Z28_0_BASE() 1c
+#    define Z29_0_BASE() 1d
+#    define Z30_0_BASE() 1e
+#    define Z31_0_BASE() 1f
+
+/* Macro to calculate SIMD register element values at compile time. */
+#    define SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, n) \
+        ((start + (increment * n)) & 0xff)
+
+/* Combine 8 byte elements into a single doubleword element starting at byte offset n.*/
+#    define SIMD_UNIQUE_VAL_DOUBLEWORD_ELEMENT(start, increment, n)        \
+        ((SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, (n + 7)) << 56) | \
+         (SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, (n + 6)) << 48) | \
+         (SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, (n + 5)) << 40) | \
+         (SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, (n + 4)) << 32) | \
+         (SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, (n + 3)) << 24) | \
+         (SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, (n + 2)) << 16) | \
+         (SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, (n + 1)) << 8) |  \
+         SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, n))
 #endif
 
 #endif /* _DETACH_STATE_SHARED_H_ */
