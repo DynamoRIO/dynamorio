@@ -6752,8 +6752,6 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
     if (!TEST(SA_NOMASK, (info->sighand->action[sig]->flags)))
         kernel_sigaddset(&blocked, sig);
 
-    RSTATS_INC(num_signals);
-    RSTATS_INC(num_native_signals);
     if (reuse_cur_frame) {
         /* We've determined that we can reuse the current signal frame to
          * deliver sig to the native signal handler. We want to simply jump
