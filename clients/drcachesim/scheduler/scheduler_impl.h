@@ -424,6 +424,130 @@ protected:
     ///
     ///////////////////////////////////////////////////////////////////////////
 
+    // Describes a RecordType instance, with some additional metadata, that has
+    // been determined to be a next record.
+    // A "finalized" record may be modified in only a limited number of cases:
+    // - if it is a record inside a kernel syscall or switch sequence that should
+    //   hold the actual next indirect branch target after the sequence, then the
+    //   target pc may be added to it, or it may be skipped if the target pc cannot
+    //   be determined.
+    struct finalized_record_t {
+        finalized_record_t(RecordType record, input_info_t *input, bool is_inj_kernel)
+            : record(record)
+            , input(input)
+            , is_inj_kernel(is_inj_kernel)
+        {
+        }
+        RecordType record;
+        input_info_t *input = nullptr;
+        bool is_inj_kernel = false;
+    };
+
+    // Describes a queue of finalized_record_t that have been read-ahead to determine
+    // the branch target of a syscall- or switch-final indirect branch target instr
+    // when it becomes the next record to be returned.
+    class kernel_ibt_readahead_queue_t {
+    private:
+        // For convenient access to some APIs like record_is_instr, record_is_marker.
+        scheduler_impl_tmpl_t<RecordType, ReaderType> *scheduler_;
+
+        std::queue<finalized_record_t> records_;
+        // Count of instrs in the queue.
+        int instr_count_ = 0;
+        // Count of records in the queue that are not injected kernel records.
+        int reader_record_count_ = 0;
+        // Count of instrs in the queue that are not injected kernel instrs.
+        int reader_instr_count_ = 0;
+        // Whether the queue is in the middle of returning kernel records.
+        bool in_kernel_ = false;
+        // The last returned record.
+        RecordType last_record_;
+
+    public:
+        kernel_ibt_readahead_queue_t(
+            scheduler_impl_tmpl_t<RecordType, ReaderType> *scheduler)
+            : scheduler_(scheduler)
+            , last_record_(scheduler_->create_invalid_record())
+        {
+        }
+        void
+        push(finalized_record_t &record)
+        {
+            records_.push(record);
+            if (scheduler_->record_type_is_instr(record.record)) {
+                if (!record.is_inj_kernel)
+                    ++reader_instr_count_;
+                ++instr_count_;
+            }
+            if (!record.is_inj_kernel) {
+                ++reader_record_count_;
+            }
+        }
+        finalized_record_t &
+        front()
+        {
+            return records_.front();
+        }
+        void
+        pop()
+        {
+            finalized_record_t &front = records_.front();
+            records_.pop();
+            if (scheduler_->record_type_is_instr(front.record)) {
+                if (!front.is_inj_kernel)
+                    --reader_instr_count_;
+                --instr_count_;
+            }
+            if (!front.is_inj_kernel) {
+                --reader_record_count_;
+            }
+            last_record_ = front.record;
+            trace_marker_type_t marker_type;
+            uintptr_t marker_value_unused;
+            bool is_marker = scheduler_->record_type_is_marker(front.record, marker_type,
+                                                               marker_value_unused);
+            if (is_marker) {
+                switch (marker_type) {
+                case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: in_kernel_ = false; break;
+                case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_ = true; break;
+                default: break;
+                }
+            }
+        }
+        RecordType &
+        last_record()
+        {
+            return last_record_;
+        }
+        int
+        instr_count()
+        {
+            return instr_count_;
+        }
+        int
+        reader_record_count()
+        {
+            return reader_record_count_;
+        }
+        int
+        reader_instr_count()
+        {
+            return reader_instr_count_;
+        }
+        bool
+        in_kernel()
+        {
+            return in_kernel_;
+        }
+        bool
+        empty()
+        {
+            return records_.empty();
+        }
+    };
+
     // We have one output_info_t per output stream, and at most one worker
     // thread owns one output, so most fields are accessed only by one thread.
     // One exception is .ready_queue which can be accessed by other threads;
@@ -441,6 +565,7 @@ protected:
             , ready_queue(rand_seed)
             , speculator(speculator_flags, verbosity)
             , last_record(last_record_init)
+            , kibt_readahead_queue(scheduler_impl)
         {
             active = std::unique_ptr<std::atomic<bool>>(new std::atomic<bool>());
             active->store(true, std::memory_order_relaxed);
@@ -522,6 +647,13 @@ protected:
         uint64_t idle_count = 0;
         // The first timestamp (pre-update_next_record()) seen on the first input.
         uintptr_t base_timestamp = 0;
+
+        // Records that have been finalized and read-ahead to determine the branch
+        // target of an indirect branch instr at the end of an injected kernel
+        // sequence.
+        kernel_ibt_readahead_queue_t kibt_readahead_queue;
+
+        static constexpr addr_t BRANCH_TARGET_NEEDS_FIXING = 0x0;
     };
 
     // Used for reading as-traced schedules.
@@ -700,9 +832,18 @@ protected:
     get_reader(const std::string &path, int verbosity);
 
     // Advances the 'output_ordinal'-th output stream.
+    // Uses read_single_next_record to get the next record, but also does other required
+    // adjustments that require reading ahead multiple records, like for setting
+    // the branch target for the indirect branch instructions at the end of injected
+    // kernel records.
     stream_status_t
     next_record(output_ordinal_t output, RecordType &record, input_info_t *&input,
                 uint64_t cur_time = 0);
+
+    // Reads a single next record for the output's stream.
+    stream_status_t
+    read_single_next_record(output_ordinal_t output, RecordType &record,
+                            input_info_t *&input, uint64_t cur_time);
 
     // Undoes the last read.  May only be called once between next_record() calls.
     // Is not supported during speculation nor prior to speculation with queueing,
@@ -849,12 +990,17 @@ protected:
     // Returns whether the given record is an indirect branch. Returns in
     // has_indirect_branch_target whether the instr record type supports the indirect
     // branch target field or not, which will be true only when RecordType is memref_t.
-    // When RecordType is memref_t, it also sets the indirect branch target field to the
-    // given value if it's non-zero.
+    // When RecordType is memref_t, is returns the currently set indirect branch target.
     bool
     record_type_is_indirect_branch_instr(RecordType &record,
                                          bool &has_indirect_branch_target,
-                                         addr_t set_indirect_branch_target = 0);
+                                         addr_t &indirect_branch_target);
+
+    // Sets the indirect_branch_target field of memref_t of instr type to the given
+    // value. No-op for trace_entry_t.
+    void
+    record_type_set_indirect_branch_instr(RecordType &record,
+                                          addr_t set_indirect_branch_target);
 
     // If the given record is a marker, returns true and its fields.
     bool
@@ -969,6 +1115,11 @@ protected:
     // 'output_ordinal'-th output stream.
     uint64_t
     get_input_record_ordinal(output_ordinal_t output);
+
+    // Returns the instr ordinal for the current input stream interface for the
+    // 'output_ordinal'-th output stream.
+    uint64_t
+    get_input_instr_ordinal(output_ordinal_t output);
 
     // Returns the input instruction ordinal taking into account queued records.
     // XXX: We need to clearly delineate where the input lock is needed: here
