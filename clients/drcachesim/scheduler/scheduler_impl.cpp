@@ -2159,8 +2159,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::is_record_synthetic(
 {
     trace_marker_type_t marker_type;
     uintptr_t marker_value = 0;
-    if (outputs_[output].kibt_readahead_queue.in_kernel() ||
-        (record_type_is_marker(outputs_[output].kibt_readahead_queue.last_record(),
+    if (outputs_[output].next_record_queue.in_kernel() ||
+        (record_type_is_marker(outputs_[output].next_record_queue.last_record(),
                                marker_type, marker_value) &&
          (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
           marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END)))
@@ -2204,9 +2204,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_instr_ordinal(
     output_ordinal_t output)
 {
     // Adjust for any instrs that may have been read-ahead in the
-    // kibt_readahead_queue.
+    // next_record_queue.
     return get_instr_ordinal(inputs_[outputs_[output].cur_input]) -
-        outputs_[output].kibt_readahead_queue.reader_instr_count();
+        outputs_[output].next_record_queue.reader_instr_count();
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2227,15 +2227,15 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_record_ordinal(
         ord -= inputs_[index].queue.size() + (inputs_[index].cur_from_queue ? 1 : 0);
     }
     if (inputs_[index].in_syscall_injection) {
-        // When we get to the indirect branch target and kibt_readahead_queue becomes
+        // When we get to the indirect branch target and next_record_queue becomes
         // non-empty, we also read-ahead past the syscall's end so that
         // in_syscall_injection is not true anymore.
-        assert(outputs_[output].kibt_readahead_queue.empty());
+        assert(outputs_[output].next_record_queue.empty());
         // We readahead by one record when injecting syscalls.
         --ord;
     }
-    // Adjust for any records that may have been read-ahead in the kibt_readahead_queue.
-    return ord - outputs_[output].kibt_readahead_queue.reader_record_count();
+    // Adjust for any records that may have been read-ahead in the next_record_queue.
+    return ord - outputs_[output].next_record_queue.reader_record_count();
 }
 
 template <typename RecordType, typename ReaderType>
@@ -2911,10 +2911,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     RecordType next_record;
     input_info_t *next_input;
 
-    // The kibt_readahead_queue may not be empty if we had read-ahead some entries to
+    // The next_record_queue may not be empty if we had read-ahead some entries to
     // figure out the next pc for a prior branch_target marker trace_entry_t or
     // indirect branch instruction memref_t.
-    if (outputs_[output].kibt_readahead_queue.empty()) {
+    if (outputs_[output].next_record_queue.empty()) {
         stream_status_t res =
             read_single_next_record(output, next_record, next_input, cur_time);
         if (res != sched_type_t::STATUS_OK)
@@ -2924,18 +2924,18 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                                       // statically injected kernel records.
                                       outputs_[output].in_context_switch_code ||
                                           outputs_[output].in_syscall_code);
-        outputs_[output].kibt_readahead_queue.push(fin_record);
+        outputs_[output].next_record_queue.push(fin_record);
     }
 
     // This is the record that must be the next one to be returned, except when
     // it holds the indirect branch target, in which case the actual next pc
     // will be added to it, or if no next pc exists in the trace, the record will
     // be removed.
-    finalized_record_t &to_return = outputs_[output].kibt_readahead_queue.front();
+    finalized_record_t &to_return = outputs_[output].next_record_queue.front();
 
     // Our efforts below are to ensure to_return.front() is fully ready. We
     // may need to read-ahead and buffer some future trace entries to achieve this.
-    if (outputs_[output].kibt_readahead_queue.in_kernel()) {
+    if (outputs_[output].next_record_queue.in_kernel()) {
         bool has_indirect_branch_target;
         addr_t indirect_branch_target;
         bool is_indirect_branch_instr = record_type_is_indirect_branch_instr(
@@ -2965,6 +2965,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                    (branch_target_marker_pending ? "branch_target marker"
                                                  : "indirect branch instr"));
             while (next_pc == 0) {
+                // XXX: The simulator provides the notion of time in the cur_time
+                // parameter to next_record() but during read-ahead that time is frozen.
+                // This affects all time-based decisions like whether an input should be
+                // unblocked.
                 stream_status_t res =
                     read_single_next_record(output, next_record, next_input, cur_time);
                 if (res == sched_type_t::STATUS_EOF) {
@@ -2982,14 +2986,17 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                         next_record, next_input,
                         outputs_[output].in_context_switch_code ||
                             outputs_[output].in_syscall_code);
-                    outputs_[output].kibt_readahead_queue.push(read_ahead_record);
+                    outputs_[output].next_record_queue.push(read_ahead_record);
 
                     addr_t maybe_next_pc = 0;
                     // We want the target instr of the indirect branch instr we're trying
-                    // to fix. This could be the next user-space instruction after the
+                    // to fix, which could be the next user-space instruction after the
                     // kernel sequence ends, or for syscall-to-switch it may be the first
-                    // instruction of the switch sequence.
-                    if (outputs_[output].kibt_readahead_queue.instr_count() == 2 &&
+                    // instruction of the switch sequence. Note that for the trace_entry_t
+                    // streams, the very next instr would be the instr corresponding to
+                    // the branch_target marker we're trying to fix, so we need to go past
+                    // that.
+                    if (outputs_[output].next_record_queue.instr_count() == 2 &&
                         record_type_is_instr(next_record, &maybe_next_pc)) {
                         next_pc = maybe_next_pc;
                     } else if (record_type_is_marker(next_record, marker_type,
@@ -2999,6 +3006,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                         // indicate that the kernel-trace-final indirect branch is to
                         // the interrupted pc.
                         next_pc = marker_value;
+                    } else if (record_type_is_marker(next_record, marker_type,
+                                                     marker_value) &&
+                               marker_type == TRACE_MARKER_TYPE_WINDOW_ID) {
+                        // TODO: add test
+                        // If the ROI window is ending, we won't get the target of the
+                        // indirect branch.
+                        break;
                     } else if (record_type_is_thread_exit(next_record) &&
                                // For thread-sharded parallel analysis, we don't
                                // want a thread-final syscall/switch branch to point
@@ -3016,24 +3030,31 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 // we do not want to end the trace at a branch with an unknown target pc,
                 // we remove the indirect branch (same as how we do for user-space-only
                 // traces). Kernel sequences do not contain consecutive returns.
-                int discard_count = 0;
-                do {
-                    ++discard_count;
-                    outputs_[output].kibt_readahead_queue.pop();
-                    assert(!outputs_[output].kibt_readahead_queue.empty());
-                    to_return = outputs_[output].kibt_readahead_queue.front();
-                    is_marker = record_type_is_marker(to_return.record, marker_type,
-                                                      marker_value);
-                } while (!(is_marker &&
-                           (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
-                            marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END)));
+                outputs_[output].next_record_queue.pop();
+                assert(!outputs_[output].next_record_queue.empty());
+                to_return = outputs_[output].next_record_queue.front();
+                if (branch_target_marker_pending) {
+                    // For trace_entry_t streams, the next record would be the indirect
+                    // branch instr corresponding to the branch_target marker we're trying
+                    // to fix. We need to discard that too.
+                    assert(record_type_is_indirect_branch_instr(
+                        to_return.record, has_indirect_branch_target,
+                        indirect_branch_target));
+                    outputs_[output].next_record_queue.pop();
+                    assert(!outputs_[output].next_record_queue.empty());
+                    to_return = outputs_[output].next_record_queue.front();
+                }
+
+                assert(
+                    record_type_is_marker(to_return.record, marker_type, marker_value) &&
+                    (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
+                     marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END));
                 VPRINT(this, 2,
                        "next_record[%d]: Did not find a target pc for %s, removing "
-                       "indirect branch records from trace end; discard %d records\n",
+                       "indirect branch records from trace end\n",
                        output,
                        (branch_target_marker_pending ? "branch_target marker"
-                                                     : "indirect branch instr"),
-                       discard_count);
+                                                     : "indirect branch instr"));
             } else if (branch_target_marker_pending) {
                 VPRINT(this, 2,
                        "next_record[%d]: Found target pc=0x%zx for branch_target\n",
@@ -3047,7 +3068,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             }
         }
     }
-    outputs_[output].kibt_readahead_queue.pop();
+    outputs_[output].next_record_queue.pop();
     record = to_return.record;
     // RFC: Should we instead always pass the new input? The old input may have
     // already been picked up by another output, which may cause issues?
@@ -3444,7 +3465,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal
                                                                   input_info_t *&input)
 {
     auto &outinfo = outputs_[output];
-    if (!outinfo.kibt_readahead_queue.empty()) {
+    if (!outinfo.next_record_queue.empty()) {
         // Unreading not supported in the middle of a kernel sequence.
         return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }
@@ -3476,7 +3497,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::start_speculation(
     auto &outinfo = outputs_[output];
     if (outinfo.speculation_stack.empty()) {
         if (queue_current_record) {
-            if (!outinfo.kibt_readahead_queue.empty()) {
+            if (!outinfo.next_record_queue.empty()) {
                 // Unreading not supported in the middle of a kernel sequence.
                 return sched_type_t::STATUS_NOT_IMPLEMENTED;
             }

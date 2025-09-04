@@ -446,7 +446,7 @@ protected:
     // Describes a queue of finalized_record_t that have been read-ahead to determine
     // the branch target of a syscall- or switch-final indirect branch target instr
     // when it becomes the next record to be returned.
-    class kernel_ibt_readahead_queue_t {
+    class next_record_queue_t {
     private:
         // For convenient access to some APIs like record_is_instr, record_is_marker.
         scheduler_impl_tmpl_t<RecordType, ReaderType> *scheduler_;
@@ -464,8 +464,7 @@ protected:
         RecordType last_record_;
 
     public:
-        kernel_ibt_readahead_queue_t(
-            scheduler_impl_tmpl_t<RecordType, ReaderType> *scheduler)
+        next_record_queue_t(scheduler_impl_tmpl_t<RecordType, ReaderType> *scheduler)
             : scheduler_(scheduler)
             , last_record_(scheduler_->create_invalid_record())
         {
@@ -565,7 +564,7 @@ protected:
             , ready_queue(rand_seed)
             , speculator(speculator_flags, verbosity)
             , last_record(last_record_init)
-            , kibt_readahead_queue(scheduler_impl)
+            , next_record_queue(scheduler_impl)
         {
             active = std::unique_ptr<std::atomic<bool>>(new std::atomic<bool>());
             active->store(true, std::memory_order_relaxed);
@@ -651,7 +650,7 @@ protected:
         // Records that have been finalized and read-ahead to determine the branch
         // target of an indirect branch instr at the end of an injected kernel
         // sequence.
-        kernel_ibt_readahead_queue_t kibt_readahead_queue;
+        next_record_queue_t next_record_queue;
 
         static constexpr addr_t BRANCH_TARGET_NEEDS_FIXING = 0x0;
     };

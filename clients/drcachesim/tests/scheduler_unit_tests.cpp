@@ -2251,6 +2251,10 @@ test_synthetic_time_quanta_with_kernel()
     static constexpr memref_tid_t TID_A = TID_BASE;
     static constexpr memref_tid_t TID_B = TID_A + 1;
     static constexpr memref_tid_t TID_C = TID_A + 2;
+    static constexpr memref_tid_t INPUT_ORD_MULTIPLIER = 100;
+    static constexpr memref_tid_t INSTR_1_OFFSET = 10;
+    static constexpr memref_tid_t INSTR_2_OFFSET = 30;
+    static constexpr memref_tid_t INSTR_3_OFFSET = 50;
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int NUM_INPUTS = 3;
     static constexpr uint64_t BLOCK_THRESHOLD = 100;
@@ -2263,8 +2267,10 @@ test_synthetic_time_quanta_with_kernel()
         refs[i].push_back(test_util::make_pid(1));
         refs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
         refs[i].push_back(test_util::make_timestamp(10));
-        refs[i].push_back(test_util::make_instr(100 * i + 10));
-        refs[i].push_back(test_util::make_instr(100 * i + 30));
+        refs[i].push_back(
+            test_util::make_instr(INPUT_ORD_MULTIPLIER * i + INSTR_1_OFFSET));
+        refs[i].push_back(
+            test_util::make_instr(INPUT_ORD_MULTIPLIER * i + INSTR_2_OFFSET));
         if (i == 0) {
             refs[i].push_back(test_util::make_timestamp(PRE_BLOCK_TIME));
             refs[i].push_back(
@@ -2273,7 +2279,8 @@ test_synthetic_time_quanta_with_kernel()
                 test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
             refs[i].push_back(test_util::make_timestamp(POST_BLOCK_TIME));
         }
-        refs[i].push_back(test_util::make_instr(100 * i + 50));
+        refs[i].push_back(
+            test_util::make_instr(INPUT_ORD_MULTIPLIER * i + INSTR_3_OFFSET));
         refs[i].push_back(test_util::make_exit(TID_BASE + i));
     }
 
@@ -2403,9 +2410,12 @@ test_synthetic_time_quanta_with_kernel()
                 sched += "?";
             }
         };
-        static constexpr uint64_t instr_1_tid_c_pc = 100 * 2 + 10;
-        static constexpr uint64_t instr_2_tid_a_pc = 100 * 0 + 30;
-        static constexpr uint64_t instr_3_tid_a_pc = 100 * 0 + 50;
+        static constexpr uint64_t INSTR_1_TID_C_PC =
+            INPUT_ORD_MULTIPLIER * 2 + INSTR_1_OFFSET;
+        static constexpr uint64_t INSTR_2_TID_A_PC =
+            INPUT_ORD_MULTIPLIER * 0 + INSTR_2_OFFSET;
+        static constexpr uint64_t INSTR_3_TID_A_PC =
+            INPUT_ORD_MULTIPLIER * 0 + INSTR_3_OFFSET;
         static constexpr trace_marker_type_t NO_MARKER = TRACE_MARKER_TYPE_RESERVED_END;
         uint64_t time = 1;
         std::string sched_cpu0;
@@ -2440,14 +2450,14 @@ test_synthetic_time_quanta_with_kernel()
                    // Ensure indirect_branch_target is correctly set to the 1st instr
                    // in TID_C.
                    TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
-                   instr_1_tid_c_pc);
+                   INSTR_1_TID_C_PC);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
                    TRACE_TYPE_MARKER,
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
         // Now TID_C starts.
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
-                   TRACE_TYPE_MARKER, instr_1_tid_c_pc);
+                   TRACE_TYPE_MARKER, INSTR_1_TID_C_PC);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
                    TRACE_TYPE_MARKER);
         check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_OK, TID_C,
@@ -2474,14 +2484,14 @@ test_synthetic_time_quanta_with_kernel()
                    // Ensure indirect_branch_target is correctly set to the 2nd instr
                    // in TID_A.
                    TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
-                   instr_2_tid_a_pc);
+                   INSTR_2_TID_A_PC);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER,
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
 
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR, instr_2_tid_a_pc);
+                   TRACE_TYPE_INSTR, INSTR_2_TID_A_PC);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER, 0, TRACE_MARKER_TYPE_TIMESTAMP);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
@@ -2524,7 +2534,7 @@ test_synthetic_time_quanta_with_kernel()
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER, SYSCALL_BASE, TRACE_MARKER_TYPE_SYSCALL_TRACE_END);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER);
+                   TRACE_TYPE_MARKER, 0, TRACE_MARKER_TYPE_TIMESTAMP);
 
         // Switch sequence immediately after the syscall sequence.
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
@@ -2538,14 +2548,14 @@ test_synthetic_time_quanta_with_kernel()
                    // Ensure indirect_branch_target is correctly set to the 3rd instr
                    // in TID_A.
                    TRACE_TYPE_INSTR_INDIRECT_JUMP, PROCESS_SWITCH_PC_START + 1, NO_MARKER,
-                   instr_3_tid_a_pc);
+                   INSTR_3_TID_A_PC);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER,
                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
 
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR, instr_3_tid_a_pc);
+                   TRACE_TYPE_INSTR, INSTR_3_TID_A_PC);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_THREAD_EXIT);
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_EOF);
@@ -7055,7 +7065,7 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
     std::vector<uint64> prev_out_ord(num_outputs, 0);
     while (num_eof < num_outputs) {
         for (int i = 0; i < num_outputs; i++) {
-            // Should happen atmost once at the end of the output stream.
+            // Should happen at most once at the end of the output stream.
             assert(!saw_null_input[i] || outputs[i]->get_input_interface() == nullptr);
             if (eof[i])
                 continue;
@@ -7078,6 +7088,7 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
             }
             assert(status == scheduler_t::STATUS_OK);
             // Ensure stream API and the trace records are consistent.
+            // TODO: why does it return nullptr with STATUS_OK?
             assert(outputs[i]->get_input_interface() == nullptr ||
                    outputs[i]->get_input_interface()->get_tid() == IDLE_THREAD_ID ||
                    outputs[i]->get_input_interface()->get_tid() ==
