@@ -571,6 +571,9 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   if (EXISTS "${PROJECT_SOURCE_DIR}/.git")
     find_program(GIT git DOC "git client")
     if (GIT)
+      # Avoid local git configs that change the log format, as we're about to
+      # parse it as text.
+      set(ENV{GIT_CONFIG_GLOBAL} /dev/null)
       # We want the committer date (not author date) (xref i#1565).  We request UNIX
       # timestamp format and then divide down to days to get a small enough number
       # for the Windows resource limits.
