@@ -2161,9 +2161,8 @@ bool
 scheduler_impl_tmpl_t<RecordType, ReaderType>::is_record_synthetic(
     output_ordinal_t output)
 {
-    if ((!syscall_sequence_.empty() || !switch_sequence_.empty()) &&
-        (outputs_[output].next_record_queue.in_kernel() ||
-         outputs_[output].next_record_queue.last_record_kernel_trace_end()))
+    if (outputs_[output].next_record_queue.in_kernel() ||
+        outputs_[output].next_record_queue.last_record_kernel_trace_end())
         return true;
     int index = outputs_[output].cur_input;
     if (index < 0)
@@ -2919,14 +2918,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             read_single_next_record(output, next_record, next_input, cur_time);
         if (res != sched_type_t::STATUS_OK)
             return res;
-        finalized_record_t fin_record(
-            next_record, next_input,
-            // XXX i#7157: Do we want to support traces with both statically-
-            // and dynamically-injected traces?
-            // TODO i#7496: This should still fix the syscall-end indirect
-            // branch target for statically-injected traces. Add a test.
-            (!switch_sequence_.empty() && outputs_[output].in_context_switch_code) ||
-                (!syscall_sequence_.empty() && outputs_[output].in_syscall_code));
+        finalized_record_t fin_record(next_record, next_input,
+                                      outputs_[output].in_context_switch_code ||
+                                          outputs_[output].in_syscall_code);
         outputs_[output].next_record_queue.push(fin_record);
     }
 
@@ -2936,9 +2930,16 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     // be removed.
     finalized_record_t &to_return = outputs_[output].next_record_queue.front();
 
+    // XXX i#7157: Do we want to support traces with both statically- and
+    // dynamically-injected kernel sequences?
+    // TODO i#7496: We should try to fix the syscall-end indirect branch target
+    // for traces statically injected in raw2trace, but not for core-sharded-on-disk
+    // injected traces.
+    bool readahead_for_ibt_enabled =
+        !switch_sequence_.empty() || !syscall_sequence_.empty();
     // Our efforts below are to ensure to_return.front() is fully ready. We
     // may need to read-ahead and buffer some future trace entries to achieve this.
-    if (outputs_[output].next_record_queue.in_kernel()) {
+    if (readahead_for_ibt_enabled && outputs_[output].next_record_queue.in_kernel()) {
         bool has_indirect_branch_target = false;
         addr_t indirect_branch_target = 0;
         bool is_indirect_branch_instr = record_type_is_indirect_branch_instr(
@@ -2987,10 +2988,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 } else {
                     finalized_record_t read_ahead_record(
                         next_record, next_input,
-                        (!switch_sequence_.empty() &&
-                         outputs_[output].in_context_switch_code) ||
-                            (!syscall_sequence_.empty() &&
-                             outputs_[output].in_syscall_code));
+                        outputs_[output].in_context_switch_code ||
+                            outputs_[output].in_syscall_code);
                     outputs_[output].next_record_queue.push(read_ahead_record);
 
                     addr_t maybe_next_pc = 0;
