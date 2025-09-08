@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 #include "dr_api.h"
+#include "drsyscall.h"
 
 /**************************************************
  * TOP-LEVEL ROUTINES
