@@ -2939,8 +2939,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
     // Our efforts below are to ensure to_return.front() is fully ready. We
     // may need to read-ahead and buffer some future trace entries to achieve this.
     if (outputs_[output].next_record_queue.in_kernel()) {
-        bool has_indirect_branch_target;
-        addr_t indirect_branch_target;
+        bool has_indirect_branch_target = false;
+        addr_t indirect_branch_target = 0;
         bool is_indirect_branch_instr = record_type_is_indirect_branch_instr(
             to_return.record, has_indirect_branch_target, indirect_branch_target);
 
