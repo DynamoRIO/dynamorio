@@ -461,17 +461,27 @@ protected:
         // Whether the queue is in the middle of returning kernel records.
         bool in_kernel_ = false;
         // The last returned record.
-        RecordType last_record_;
+        finalized_record_t last_record_;
+        // Whether the last returned record was the end of a kernel trace.
+        bool last_record_kernel_trace_end_ = false;
+        // Whether the queue is currently returning records in read-ahead mode.
+        bool in_readahead_ = false;
 
     public:
         next_record_queue_t(scheduler_impl_tmpl_t<RecordType, ReaderType> *scheduler)
             : scheduler_(scheduler)
-            , last_record_(scheduler_->create_invalid_record())
+            , last_record_(scheduler_->create_invalid_record(), nullptr, false)
         {
+        }
+        bool
+        in_readahead()
+        {
+            return in_readahead_;
         }
         void
         push(finalized_record_t &record)
         {
+            in_readahead_ = !records_.empty();
             records_.push(record);
             if (scheduler_->record_type_is_instr(record.record)) {
                 if (!record.is_inj_kernel)
@@ -500,22 +510,31 @@ protected:
             if (!front.is_inj_kernel) {
                 --reader_record_count_;
             }
-            last_record_ = front.record;
+            last_record_ = front;
             trace_marker_type_t marker_type;
             uintptr_t marker_value_unused;
+            last_record_kernel_trace_end_ = false;
             bool is_marker = scheduler_->record_type_is_marker(front.record, marker_type,
                                                                marker_value_unused);
             if (is_marker) {
                 switch (marker_type) {
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: in_kernel_ = false; break;
+                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
+                    last_record_kernel_trace_end_ = true;
+                    in_kernel_ = false;
+                    break;
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_ = true; break;
                 default: break;
                 }
             }
         }
-        RecordType &
+        bool
+        last_record_kernel_trace_end()
+        {
+            return last_record_kernel_trace_end_;
+        }
+        finalized_record_t &
         last_record()
         {
             return last_record_;

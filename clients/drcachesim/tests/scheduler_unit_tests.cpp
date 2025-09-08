@@ -2177,6 +2177,7 @@ test_synthetic_time_quanta()
         check_next(cpu1, ++time, scheduler_t::STATUS_IDLE);
         check_next(cpu0, ++time, scheduler_t::STATUS_IDLE);
         check_next(cpu1, ++time, scheduler_t::STATUS_IDLE);
+
         check_next(cpu1, ++time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
         check_next(cpu1, time, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_THREAD_EXIT);
         check_next(cpu1, ++time, scheduler_t::STATUS_EOF);
@@ -2500,7 +2501,7 @@ test_synthetic_time_quanta_with_kernel()
                    TRACE_TYPE_MARKER, 0, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL);
 
         // Injected syscall sequence after the syscall instr in TID_A.
-        check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
+        check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER, SYSCALL_BASE,
                    TRACE_MARKER_TYPE_SYSCALL_TRACE_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
@@ -2528,6 +2529,7 @@ test_synthetic_time_quanta_with_kernel()
         // Now the indirect_branch_target of the last syscall sequence instr is
         // determined, so we see the indirect branch. The target is the switch
         // sequence's first instr.
+        assert(time == 18);
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_INSTR_INDIRECT_JUMP, SYSCALL_PC_START + 1, NO_MARKER,
                    PROCESS_SWITCH_PC_START);
@@ -7167,8 +7169,9 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
             } else {
                 assert(!outputs[i]->is_record_synthetic());
             }
-            // RFC: This fails currently for the read-ahead entries.
-            // outputs[i]->get_tid() == memref.instr.tid
+            assert(outputs[i]->get_tid() == tid_from_memref_tid(memref.instr.tid) &&
+                   outputs[i]->get_input_workload_ordinal() ==
+                       workload_from_memref_tid(memref.instr.tid));
             if (type_is_instr(memref.instr.type))
                 sched_as_string[i] += 'i';
             else if (memref.marker.type == TRACE_TYPE_MARKER) {
@@ -7212,8 +7215,7 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     assert(prev_tid[i] != tid_from_memref_tid(memref.instr.tid));
                 } else {
                     assert(for_syscall_seq || prev_tid[i] == INVALID_THREAD_ID ||
-                           tid_from_memref_tid(prev_tid[i]) ==
-                               tid_from_memref_tid(memref.instr.tid));
+                           prev_tid[i] == memref.instr.tid);
                 }
             }
             prev_tid[i] = memref.instr.tid;

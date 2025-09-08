@@ -2104,8 +2104,9 @@ template <typename RecordType, typename ReaderType>
 int64_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::get_tid(output_ordinal_t output)
 {
-    // RFC: This may be incorrect for read-ahead records, which actually correspond to
-    // the old input on a context switch. See other RFC comments for more context.
+    if (outputs_[output].next_record_queue.in_readahead()) {
+        return outputs_[output].next_record_queue.last_record().input->tid;
+    }
     int index = outputs_[output].cur_input;
     if (index < 0)
         return -1;
@@ -2147,6 +2148,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_workload_ordinal(
 {
     if (output < 0 || output >= static_cast<output_ordinal_t>(outputs_.size()))
         return -1;
+    if (outputs_[output].next_record_queue.in_readahead()) {
+        return outputs_[output].next_record_queue.last_record().input->workload;
+    }
     if (outputs_[output].cur_input < 0)
         return -1;
     return inputs_[outputs_[output].cur_input].workload;
@@ -2157,13 +2161,9 @@ bool
 scheduler_impl_tmpl_t<RecordType, ReaderType>::is_record_synthetic(
     output_ordinal_t output)
 {
-    trace_marker_type_t marker_type;
-    uintptr_t marker_value = 0;
-    if (outputs_[output].next_record_queue.in_kernel() ||
-        (record_type_is_marker(outputs_[output].next_record_queue.last_record(),
-                               marker_type, marker_value) &&
-         (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
-          marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END)))
+    if ((!syscall_sequence_.empty() || !switch_sequence_.empty()) &&
+        (outputs_[output].next_record_queue.in_kernel() ||
+         outputs_[output].next_record_queue.last_record_kernel_trace_end()))
         return true;
     int index = outputs_[output].cur_input;
     if (index < 0)
@@ -2919,11 +2919,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             read_single_next_record(output, next_record, next_input, cur_time);
         if (res != sched_type_t::STATUS_OK)
             return res;
-        finalized_record_t fin_record(next_record, next_input,
-                                      // XXX: this may not work as intended with
-                                      // statically injected kernel records.
-                                      outputs_[output].in_context_switch_code ||
-                                          outputs_[output].in_syscall_code);
+        finalized_record_t fin_record(
+            next_record, next_input,
+            // XXX i#7157: Do we want to support traces with both statically-
+            // and dynamically-injected traces?
+            // TODO i#7496: This should still fix the syscall-end indirect
+            // branch target for statically-injected traces. Add a test.
+            (!switch_sequence_.empty() && outputs_[output].in_context_switch_code) ||
+                (!syscall_sequence_.empty() && outputs_[output].in_syscall_code));
         outputs_[output].next_record_queue.push(fin_record);
     }
 
@@ -2984,8 +2987,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 } else {
                     finalized_record_t read_ahead_record(
                         next_record, next_input,
-                        outputs_[output].in_context_switch_code ||
-                            outputs_[output].in_syscall_code);
+                        (!switch_sequence_.empty() &&
+                         outputs_[output].in_context_switch_code) ||
+                            (!syscall_sequence_.empty() &&
+                             outputs_[output].in_syscall_code));
                     outputs_[output].next_record_queue.push(read_ahead_record);
 
                     addr_t maybe_next_pc = 0;
@@ -3044,7 +3049,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                     assert(!outputs_[output].next_record_queue.empty());
                     to_return = outputs_[output].next_record_queue.front();
                 }
-
                 assert(
                     record_type_is_marker(to_return.record, marker_type, marker_value) &&
                     (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
