@@ -4874,11 +4874,21 @@ if (BUILD_CLIENTS)
           # We test cpu_scheduling for offline traces here.
           "" "@-cpu_scheduling" "")
 
+        # Test -synchronous_attach eliminating align_endpoints and
+        # seeing all 49 threads.
+        set(tool.drcacheoff.synch_attach_nodr ON)
+        torunonly_drcacheoff(synch_attach tool.drcacheoff.burst_threads
+          "" "@-tool@basic_counts"
+          # This test uses the same app as the one above, so set a new dir name.
+          "-dr@-synchronous_attach@-subdir_prefix@drmemtrace.tool.drcacheoff.synch_attach")
+        set(tool.drcacheoff.synch_attach_expectbase "offline-synch_attach")
+
+        # Test -no_synchronous_attach and align_endpoints.
         set(tool.drcacheoff.burst_threads_counts_nodr ON)
         torunonly_drcacheoff(burst_threads_counts tool.drcacheoff.burst_threads
           "" "@-tool@basic_counts"
           # This test uses the same app as the one above, so set a new dir name.
-          "-subdir_prefix drmemtrace.tool.drcacheoff.burst_threads_counts")
+          "-dr@-no_synchronous_attach@-subdir_prefix@drmemtrace.tool.drcacheoff.burst_threads_counts")
 
         set(tool.drcacheoff.burst_malloc_nodr ON)
         torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc

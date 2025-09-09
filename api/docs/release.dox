@@ -169,6 +169,10 @@ compatibility changes:
    -sim_refs and -warmup_refs options.  (The new -skip_records counts markers.)
  - Dropped support for -skip_refs and -sim_refs in the view tool (use the new
    -skip_records and -exit_after_records instead).
+ - Changed takeover of other threads at start time from a staggered takeover
+   where each thread starts running as soon as it can to instead a synchronous
+   takeoever where all threads must be taken over before any can start
+   executing.  Setting -no_synchronous_attach switches to the old behavior.
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
