@@ -56,6 +56,168 @@ namespace drmemtrace {
             abort();             \
     } while (0)
 
+void
+entry_queue_t::clear_readahead()
+{
+    while (entries_.size() > non_readahead_front_count_) {
+        // Entries in the front of the queue were not readahead, and
+        // must still be returned.
+        pop_back();
+    }
+}
+
+bool
+entry_queue_t::empty()
+{
+    return entries_.empty();
+}
+
+bool
+entry_queue_t::has_record_and_next_pc()
+{
+    if (entries_.empty())
+        return false;
+    bool front_has_pc = entry_has_pc(entries_.front());
+    int non_first_entries_with_pc = pcs_.size() - (front_has_pc ? 1 : 0);
+    return non_first_entries_with_pc >= 1;
+}
+
+void
+entry_queue_t::push_back_readahead(const trace_entry_t &entry)
+{
+    uint64_t pc;
+    if (entry_has_pc(entry, &pc)) {
+        pcs_.push_back(pc);
+    }
+    entries_.push_back(entry);
+}
+
+void
+entry_queue_t::push_front_non_readahead(const trace_entry_t &entry)
+{
+    uint64_t pc;
+    if (entry_has_pc(entry, &pc)) {
+        pcs_.push_front(pc);
+    }
+    entries_.push_front(entry);
+    ++non_readahead_front_count_;
+}
+
+void
+entry_queue_t::pop_front(trace_entry_t &entry, uint64_t &next_pc)
+{
+    if (non_readahead_front_count_ > 0)
+        --non_readahead_front_count_;
+    entry = entries_.front();
+    entries_.pop_front();
+    if (entry_has_pc(entry)) {
+        pcs_.pop_front();
+    }
+    next_pc = 0;
+    if (!pcs_.empty()) {
+        next_pc = pcs_.front();
+    }
+}
+
+bool
+entry_queue_t::entry_has_pc(const trace_entry_t &entry, uint64_t *pc)
+{
+    if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+        if (pc != nullptr)
+            *pc = entry.addr;
+        return true;
+    }
+    if (static_cast<trace_type_t>(entry.type) == TRACE_TYPE_MARKER &&
+        static_cast<trace_marker_type_t>(entry.size) == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        if (pc != nullptr)
+            *pc = entry.addr;
+        return true;
+    }
+    return false;
+}
+
+void
+entry_queue_t::pop_back()
+{
+    trace_entry_t entry = entries_.back();
+    entries_.pop_back();
+    if (entry_has_pc(entry)) {
+        pcs_.pop_back();
+    }
+}
+
+trace_entry_readahead_helper_t::trace_entry_readahead_helper_t(
+    bool *online, trace_entry_t *reader_cur_entry, bool *reader_at_eof,
+    uint64_t *reader_next_trace_pc, entry_queue_t *reader_entry_queue, int verbosity)
+    : online_(online)
+    , reader_cur_entry_(reader_cur_entry)
+    , reader_at_eof_(reader_at_eof)
+    , reader_next_trace_pc_(reader_next_trace_pc)
+    , reader_entry_queue_(reader_entry_queue)
+    , verbosity_(verbosity)
+{
+    assert(online_ != nullptr);
+    assert(reader_cur_entry_ != nullptr);
+    assert(reader_at_eof_ != nullptr);
+    assert(reader_next_trace_pc_ != nullptr);
+    assert(reader_entry_queue_ != nullptr);
+}
+
+trace_entry_t *
+trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
+{
+    if (*online_) {
+        // We don't support any readahead in the online mode. We simply invoke the
+        // reader's logic. No other management required.
+        return read_next_entry();
+    }
+    // Continue reading ahead until we have a record and the next continuous
+    // pc in the trace, or if the input stops returning new records.
+    while (!reader_entry_queue_->has_record_and_next_pc() && !at_null_) {
+        trace_entry_t *entry = read_next_entry();
+        // As noted on the constructor, read_next_entry() modifies reader_t
+        // state pointed to by reader_at_eof_ and reader_cur_entry_;
+        if (entry == nullptr) {
+            // Ensure we don't repeatedly call read_next_entry after we know
+            // it has finished.
+            assert(!at_null_);
+            at_null_ = true;
+            at_eof_ = *reader_at_eof_;
+            // Pretend we're not at eof since we may have records
+            // buffered in reader_entry_queue_.
+            *reader_at_eof_ = false;
+        } else {
+            VPRINT(this, 4, "queued: type=%s (%d), size=%d, addr=0x%zx\n",
+                   trace_type_names[entry->type], entry->type, entry->size, entry->addr);
+            // We deliberately make a copy of *entry here.
+            reader_entry_queue_->push_back_readahead(*entry);
+        }
+    }
+    trace_entry_t *ret_entry = nullptr;
+    if (!reader_entry_queue_->empty()) {
+        // If we're at the end of the trace and there's no next continuous pc
+        // in the trace, reader_entry_queue_ may simply set
+        // *reader_next_trace_pc_ to zero.
+        reader_entry_queue_->pop_front(*reader_cur_entry_, *reader_next_trace_pc_);
+        ret_entry = reader_cur_entry_;
+    } else {
+        assert(at_null_);
+        // Now that the queued entries have been drained, let the reader
+        // know we're done.
+        ret_entry = nullptr;
+        // at_eof may or may not be true, which is used to signal errors.
+        *reader_at_eof_ = at_eof_;
+    }
+    if (ret_entry != nullptr) {
+        VPRINT(this, 4, "returning: type=%s (%d), size=%d, addr=0x%zx\n",
+               trace_type_names[ret_entry->type], ret_entry->type, ret_entry->size,
+               ret_entry->addr);
+    } else {
+        VPRINT(this, 4, "finished: at_eof_: %d\n", at_eof_);
+    }
+    return ret_entry;
+}
+
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 const memref_t &
