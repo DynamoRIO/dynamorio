@@ -1116,6 +1116,9 @@ drx_register_time_scaling(drx_time_scale_t *options)
     if (!dr_register_post_attach_event(event_post_attach)) {
         /* Failure means we are not mid-process, so this is a safe place for
          * timer snapshots.
+         * XXX i#7598: Change the post-attach event to always fire, since now that
+         * it's recommended for all snapshots clients shouldn't have to explicitly
+         * call during init like this.
          */
         event_post_attach();
     }
