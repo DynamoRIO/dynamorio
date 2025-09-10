@@ -160,7 +160,7 @@ public:
     record_reader_t &
     operator++()
     {
-        bool res = read_next_entry_internal();
+        bool res = readahead_helper_.read_next_entry_and_trace_pc();
         assert(res || eof_);
         UNUSED(res);
         if (!eof_) {
@@ -324,12 +324,6 @@ protected:
         }
         record_reader_t *reader_ = nullptr;
     };
-
-    trace_entry_t *
-    read_next_entry_internal()
-    {
-        return readahead_helper_.read_next_entry_and_trace_pc();
-    }
 
     record_reader_readahead_helper_t readahead_helper_;
     entry_queue_t entry_queue_;

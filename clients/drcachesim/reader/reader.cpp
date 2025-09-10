@@ -200,6 +200,8 @@ trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
         // in the trace, reader_entry_queue_ may simply set
         // *reader_next_trace_pc_ to zero.
         reader_entry_queue_->pop_front(*reader_cur_entry_, *reader_next_trace_pc_);
+        // For convenience of the reader user, we also return a pointer to
+        // the next entry or nullptr (in the case below).
         ret_entry = reader_cur_entry_;
     } else {
         assert(at_null_);
@@ -235,19 +237,13 @@ reader_t::read_queued_entry()
     return nullptr;
 }
 
-trace_entry_t *
-reader_t::read_next_entry_internal()
-{
-    return readahead_helper_.read_next_entry_and_trace_pc();
-}
-
 reader_t &
 reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
         if (bundle_idx_ == 0 /*not in instr bundle*/)
-            input_entry_ = read_next_entry_internal();
+            input_entry_ = readahead_helper_.read_next_entry_and_trace_pc();
         if (input_entry_ == NULL) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");
@@ -594,7 +590,7 @@ reader_t::pre_skip_instructions()
     // XXX: We assume the page size is the final header; it is complex to wait for
     // the timestamp as we don't want to read it yet.
     while (page_size_ == 0) {
-        input_entry_ = read_next_entry_internal();
+        input_entry_ = readahead_helper_.read_next_entry_and_trace_pc();
         if (input_entry_ == nullptr) {
             at_eof_ = true;
             return false;
@@ -659,7 +655,7 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         // too-far instr if we didn't find a timestamp.
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             entry_copy_ = *input_entry_;
-        trace_entry_t *next = read_next_entry_internal();
+        trace_entry_t *next = readahead_helper_.read_next_entry_and_trace_pc();
         if (next == nullptr) {
             VPRINT(this, 1,
                    next == nullptr ? "Failed to read next entry\n" : "Hit EOF\n");

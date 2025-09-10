@@ -74,32 +74,52 @@ namespace drmemtrace {
 #endif
 
 /**
- * Queue of trace_entry_t that have been read from the input in advance to
- * allow us to figure out the next continuous pc in the trace.
+ * Queue of trace_entry_t that have been read from the input but are yet
+ * to be processed by the reader.
+ *
+ * These entries may have been:
+ * - read in advance to allow us to figure out the next continuous pc in the
+ *   trace (aka the readahead entries).
+ * - synthesized by the reader on a skip event (like the timestamp and cpu
+ *   markers).
+ * - seen by the reader but not yet processed (like the instr entry used
+ *   to decide when a skip is done).
  */
 class entry_queue_t {
 public:
-    // Removes all readahead entries from the queue.
+    /**
+     * Removes all readahead entries from the queue.
+     */
     void
     clear_readahead();
-    // Returns whether the queue is empty.
+    /**
+     * Returns whether the queue is empty.
+     */
     bool
     empty();
-    // Returns whether the queue is non-empty and has some later record
-    // that tells us the next continuous pc in the trace.
+    /**
+     * Returns whether the queue is non-empty and has some later record
+     * that tells us the next continuous pc in the trace.
+     */
     bool
     has_record_and_next_pc();
-    // Adds the given trace_entry_t that was read from the input ahead of its
-    // time to the back of the queue.
+    /**
+     * Adds the given trace_entry_t that was read from the input ahead of its
+     * time to the back of the queue.
+     */
     void
     push_back_readahead(const trace_entry_t &entry);
-    // Adds the given trace_entry_t that is not a read-ahead entry to the front
-    // of the queue.
+    /**
+     * Adds the given trace_entry_t that is not a read-ahead-for-next-pc entry
+     * to the front of the queue.
+     */
     void
     push_front_non_readahead(const trace_entry_t &entry);
-    // Returns the next entry from the queue in the entry arg, and the next
-    // continuous pc in the trace in the next_pc arg if it exists or zero
-    // otherwise.
+    /**
+     * Returns the next entry from the queue in the entry arg, and the next
+     * continuous pc in the trace in the next_pc arg if it exists or zero
+     * otherwise.
+     */
     void
     pop_front(trace_entry_t &entry, uint64_t &next_pc);
 
@@ -120,51 +140,55 @@ private:
  */
 class trace_entry_readahead_helper_t {
 public:
-    // trace_entry_readahead_helper_t needs to manage some state of the reader_t (or
-    // record_reader_t) that's using it for readahead. The file_reader_t (or
-    // record_file_reader_t) communicates some state to the base reader_t class using
-    // data members in the reader_t; we need to manage that state to take into account
-    // our read-ahead queue.
-    //
-    // Specifically:
-    // - reader_at_eof points to the bool in reader_t that denotes when the input has
-    //   reached its end. Even though the input may have reached the end, the read-ahead
-    //   queue may not have.
-    // - reader_cur_entry points to the last read trace_entry_t. The last trace_entry_t
-    //   actually read from the input is likely not the one we want the reader_t to use
-    //   next (because we perform readahead).
-    //
-    // Here we accept pointers to such reader_t state; we know what the file_reader_t
-    // returned, and can combine it with the read-ahead queue's state so the reader_t
-    // sees the correct thing.
-    //
-    // Other parameters:
-    // - reader_next_trace_pc points to the reader_t data member where we'll write the
-    //   next trace pc.
-    // - reader_entry_queue points to the entry_queue_t that will be used to store the
-    //   readahead entries. This needs to be shared with the reader_t because it needs
-    //   the same queue to store some other queued up non-readahead entries too.
-    // - online denotes whether we're in the online mode, as opposed to offline.
-    //   trace_entry_t readahead is disabled in the online mode.
-    //
-    // We could potentially just store the reader_t* here, instead of multiple state
-    // object pointers, but the current way makes the contract more explicit.
+    /**
+     * trace_entry_readahead_helper_t needs to manage some state of the reader_t (or
+     * record_reader_t) that's using it for readahead. The file_reader_t (or
+     * record_file_reader_t) communicates some state to the base reader_t class using
+     * data members in the reader_t; we need to manage that state to take into account
+     * our read-ahead queue.
+     *
+     * Specifically:
+     * - reader_at_eof points to the bool in reader_t that denotes when the input has
+     *   reached its end. Even though the input may have reached the end, the read-ahead
+     *   queue may not have.
+     * - reader_cur_entry points to the last read trace_entry_t. The last trace_entry_t
+     *   actually read from the input is likely not the one we want the reader_t to use
+     *   next (because we perform readahead).
+     *
+     * Here we accept pointers to such reader_t state; we know what the file_reader_t
+     * returned, and can combine it with the read-ahead queue's state so the reader_t
+     * sees the correct thing.
+     *
+     * Other parameters:
+     * - reader_next_trace_pc points to the reader_t data member where we'll write the
+     *   next trace pc.
+     * - reader_entry_queue points to the entry_queue_t that will be used to store the
+     *   readahead entries. This needs to be shared with the reader_t because it needs
+     *   the same queue to store some other queued up non-readahead entries too.
+     * - online denotes whether we're in the online mode, as opposed to offline.
+     *   trace_entry_t readahead is disabled in the online mode.
+     *
+     * We could potentially just store the reader_t* here, instead of multiple state
+     * object pointers, but the current way makes the contract more explicit.
+     */
     trace_entry_readahead_helper_t(bool *online, trace_entry_t *reader_cur_entry,
                                    bool *reader_at_eof, uint64_t *reader_next_trace_pc,
                                    entry_queue_t *reader_entry_queue, int verbosity);
 
     trace_entry_readahead_helper_t() = default;
 
-    // Returns the next entry for the input stream, and ensures that we also know the
-    // next continuous pc in the trace (if it exists). May read however many extra
-    // records that need that need to be read from the input stream; if there are
-    // already enough records buffered, it may not read any at all.
-    //
-    // This puts the next entry for the reader in *reader_cur_entry_, the _effective_
-    // state of the input (which takes into account the presence of read-ahead entries)
-    // in *reader_at_eof_, and the next trace pc in *reader_next_trace_pc_.
-    //
-    // For convenience of the reader_t, it returns either reader_cur_entry_ or nullptr.
+    /**
+     * Returns the next entry for the input stream, and ensures that we also know the
+     * next continuous pc in the trace (if it exists). May read however many extra
+     * records that need to be read from the input stream for this; if the next trace
+     * pc is already known, it may not read any more records at all.
+     *
+     * This puts the next entry for the reader in *reader_cur_entry_, the _effective_
+     * state of the input (which takes into account the presence of read-ahead entries)
+     * in *reader_at_eof_, and the next trace pc in *reader_next_trace_pc_.
+     *
+     * For convenience of the reader_t, it returns either reader_cur_entry_ or nullptr.
+     */
     trace_entry_t *
     read_next_entry_and_trace_pc();
 
@@ -177,6 +201,7 @@ private:
     // Cannot take this by value because it is set by file_reader_t after the base
     // reader_t (and hence this reader_readahead_helper_t) has been constructed.
     bool *online_ = nullptr;
+
     // State of the reader_t that is using this object.
     trace_entry_t *reader_cur_entry_ = nullptr;
     bool *reader_at_eof_ = nullptr;
@@ -435,9 +460,6 @@ private:
         }
         reader_t *reader_ = nullptr;
     };
-
-    trace_entry_t *
-    read_next_entry_internal();
 
     reader_readahead_helper_t readahead_helper_;
     memref_t cur_ref_;
