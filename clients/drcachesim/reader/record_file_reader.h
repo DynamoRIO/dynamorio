@@ -290,7 +290,7 @@ protected:
     open_input_file() = 0;
 
     trace_entry_t cur_entry_ = {};
-    int verbosity_;
+    int verbosity_ = 0;
     const char *output_prefix_;
     // Following typical stream iterator convention, the default constructor
     // produces an EOF object.
