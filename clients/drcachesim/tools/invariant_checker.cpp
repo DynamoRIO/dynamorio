@@ -354,7 +354,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
     }
 
-    if (!is_a_unit_test(shard) && knob_offline_) {
+    if (!is_a_unit_test(shard) && knob_offline_ &&
+        TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                shard->file_type_)) {
         if (type_is_instr(memref.instr.type)) {
             report_if_false(shard,
                             at_skip || shard->last_next_trace_pc_ == memref.instr.addr,
