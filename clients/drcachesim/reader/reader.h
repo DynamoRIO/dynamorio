@@ -295,7 +295,6 @@ private:
     virtual trace_entry_t *
     read_next_entry() = 0;
 
-
     // Cannot take this by value because it is set by file_reader_t after the base
     // reader_t (and hence this reader_readahead_helper_t) has been constructed.
     bool *online_ = nullptr;
@@ -305,13 +304,16 @@ private:
     uint64_t *reader_next_trace_pc_ = nullptr;
     entry_queue_t *reader_entry_queue_ = nullptr;
 
-    int verbosity_ = 0;
-
     // The internal state for the underlying input.
     bool at_null_ = false;
     bool at_eof_ = false;
 
+protected:
+    // Made protected insted of private to avoid complains about being unused
+    // in release build.
+    int verbosity_ = 0;
     const char *output_prefix_ = "[readahead_helper]";
+
 };
 
 /**
@@ -528,7 +530,6 @@ protected:
         unsigned char bits[MAX_ENCODING_LENGTH];
     };
 
-
     std::unordered_map<addr_t, encoding_info_t> encodings_;
     // Whether this reader's input stream interleaves software threads and thus
     // some thread-based checks may not apply.
@@ -539,9 +540,9 @@ private:
     class reader_readahead_helper_t : public trace_entry_readahead_helper_t {
     public:
         reader_readahead_helper_t(reader_t *reader)
-            : trace_entry_readahead_helper_t(
-                  &reader->online_, &reader->entry_copy_, &reader->at_eof_,
-                  &reader->next_trace_pc_, &reader->entry_queue_, reader->verbosity_)
+            : trace_entry_readahead_helper_t(&reader->online_, &reader->entry_copy_,
+                                             &reader->at_eof_, &reader->next_trace_pc_,
+                                             &reader->entry_queue_, reader->verbosity_)
             , reader_(reader)
         {
             assert(reader_ != nullptr);

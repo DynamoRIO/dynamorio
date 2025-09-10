@@ -35,33 +35,33 @@
  */
 
 #ifndef _RECORD_FILE_READER_H_
-#    define _RECORD_FILE_READER_H_ 1
+#define _RECORD_FILE_READER_H_ 1
 
-#    include <assert.h>
-#    include <iterator>
-#    include <memory>
+#include <assert.h>
+#include <iterator>
+#include <memory>
 
-#    include "memtrace_stream.h"
-#    include "reader.h"
-#    include "trace_entry.h"
+#include "memtrace_stream.h"
+#include "reader.h"
+#include "trace_entry.h"
 
-#    define OUT /* just a marker */
+#define OUT /* just a marker */
 
-#    ifdef DEBUG
-#        define VPRINT(reader, level, ...)                            \
-            do {                                                      \
-                if ((reader)->verbosity_ >= (level)) {                \
-                    fprintf(stderr, "%s ", (reader)->output_prefix_); \
-                    fprintf(stderr, __VA_ARGS__);                     \
-                }                                                     \
-            } while (0)
+#ifdef DEBUG
+#    define VPRINT(reader, level, ...)                            \
+        do {                                                      \
+            if ((reader)->verbosity_ >= (level)) {                \
+                fprintf(stderr, "%s ", (reader)->output_prefix_); \
+                fprintf(stderr, __VA_ARGS__);                     \
+            }                                                     \
+        } while (0)
 // clang-format off
-#    define UNUSED(x) /* nothing */
+#define UNUSED(x) /* nothing */
 // clang-format on
-#    else
-#        define VPRINT(reader, level, ...) /* nothing */
-#        define UNUSED(x) ((void)(x))
-#    endif
+#else
+#    define VPRINT(reader, level, ...) /* nothing */
+#    define UNUSED(x) ((void)(x))
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
