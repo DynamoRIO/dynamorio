@@ -312,6 +312,11 @@ public:
         return -1;
     }
 
+    /**
+     * Returns the value of the next continuous PC in the trace after the
+     * current trace record. Such PC may be from the next instruction or the
+     * next #TRACE_MARKER_TYPE_KERNEL_EVENT, whichever comes first.
+     */
     virtual uint64_t
     get_next_trace_pc() const
     {
