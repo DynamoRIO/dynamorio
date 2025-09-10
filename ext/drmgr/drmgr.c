@@ -52,7 +52,9 @@
 #undef dr_insert_read_tls_field
 #undef dr_insert_write_tls_field
 #undef dr_register_exit_event
-#undef drmgr_unregister_exit_event
+#undef dr_unregister_exit_event
+#undef dr_register_post_attach_event
+#undef dr_unregister_post_attach_event
 #undef dr_register_thread_init_event
 #undef dr_unregister_thread_init_event
 #undef dr_register_thread_exit_event
@@ -138,6 +140,10 @@ typedef struct _generic_event_entry_t {
             void (*cb_no_user_data)();
             void (*cb_user_data)(void *);
         } exit_cb;
+        union {
+            void (*cb_no_user_data)();
+            void (*cb_user_data)(void *);
+        } post_attach_cb;
         union {
             void (*cb_no_user_data)(void *);
             void (*cb_user_data)(void *, void *);
@@ -341,6 +347,9 @@ static void *note_lock;
 static cb_list_t cb_list_exit;
 static void *exit_event_lock;
 
+static cb_list_t cb_list_post_attach;
+static void *post_attach_event_lock;
+
 /* Thread event cbs and rwlock */
 static cb_list_t cb_list_thread_init;
 static cb_list_t cb_list_thread_exit;
@@ -401,6 +410,9 @@ drmgr_init_opcode_hashtable(hashtable_t *opcode_instrum_table);
 
 static void
 drmgr_exit_event(void);
+
+static void
+drmgr_post_attach_event(void);
 
 static void
 drmgr_thread_init_event(void *drcontext);
@@ -488,6 +500,7 @@ drmgr_init(void)
 
     bb_cb_lock = dr_rwlock_create();
     exit_event_lock = dr_rwlock_create();
+    post_attach_event_lock = dr_rwlock_create();
     thread_event_lock = dr_rwlock_create();
     tls_lock = dr_mutex_create();
     cls_event_lock = dr_rwlock_create();
@@ -509,6 +522,7 @@ drmgr_init(void)
     fault_event_lock = dr_rwlock_create();
 
     dr_register_exit_event(drmgr_exit_event);
+    dr_register_post_attach_event(drmgr_post_attach_event);
 
     dr_register_thread_init_event(drmgr_thread_init_event);
     dr_register_thread_exit_event(drmgr_thread_exit_event);
@@ -551,6 +565,8 @@ our_exit_event(void)
     hashtable_delete(&global_opcode_instrum_table);
     drmgr_bb_exit();
     drmgr_event_exit();
+
+    dr_unregister_post_attach_event(drmgr_post_attach_event);
 
     dr_unregister_thread_init_event(drmgr_thread_init_event);
     dr_unregister_thread_exit_event(drmgr_thread_exit_event);
@@ -597,6 +613,7 @@ our_exit_event(void)
     dr_mutex_destroy(tls_lock);
     dr_rwlock_destroy(thread_event_lock);
     dr_rwlock_destroy(exit_event_lock);
+    dr_rwlock_destroy(post_attach_event_lock);
     dr_rwlock_destroy(bb_cb_lock);
 
     dr_mutex_destroy(note_lock);
@@ -1937,6 +1954,7 @@ static void
 drmgr_event_init(void)
 {
     cblist_init(&cb_list_exit, sizeof(generic_event_entry_t));
+    cblist_init(&cb_list_post_attach, sizeof(generic_event_entry_t));
     cblist_init(&cb_list_thread_init, sizeof(generic_event_entry_t));
     cblist_init(&cb_list_thread_exit, sizeof(generic_event_entry_t));
     cblist_init(&cblist_cls_init, sizeof(generic_event_entry_t));
@@ -1967,6 +1985,7 @@ drmgr_event_exit(void)
      * called by one thread.
      */
     cblist_delete(&cb_list_exit);
+    cblist_delete(&cb_list_post_attach);
     cblist_delete(&cb_list_thread_init);
     cblist_delete(&cb_list_thread_exit);
     cblist_delete(&cblist_cls_init);
@@ -2012,6 +2031,7 @@ drmgr_unregister_exit_event(void (*func)(void))
                                       (void (*)(void))func);
 }
 
+DR_EXPORT
 bool
 drmgr_unregister_exit_event_user_data(void (*func)(void *user_data))
 {
@@ -2049,6 +2069,65 @@ drmgr_exit_event(void)
      * we want to wait for them, to handle legacy clients using DR's exit event.
      */
     drmgr_exit();
+}
+
+DR_EXPORT
+bool
+drmgr_register_post_attach_event(void (*func)(void))
+{
+    return drmgr_generic_event_add(&cb_list_post_attach, post_attach_event_lock, func,
+                                   NULL, false, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_post_attach_event_user_data(void (*func)(void *user_data),
+                                           drmgr_priority_t *priority, void *user_data)
+{
+    return drmgr_generic_event_add(&cb_list_post_attach, post_attach_event_lock,
+                                   (void (*)(void))func, priority, true, user_data);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_post_attach_event(void (*func)(void))
+{
+    return drmgr_generic_event_remove(&cb_list_post_attach, post_attach_event_lock,
+                                      (void (*)(void))func);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_post_attach_event_user_data(void (*func)(void *user_data))
+{
+    return drmgr_generic_event_remove(&cb_list_post_attach, post_attach_event_lock,
+                                      (void (*)(void))func);
+}
+
+static void
+drmgr_post_attach_event(void)
+{
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
+    void *drcontext = GLOBAL_DCONTEXT;
+    dr_rwlock_read_lock(post_attach_event_lock);
+    cblist_create_local(drcontext, &cb_list_post_attach, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(post_attach_event_lock);
+
+    for (i = 0; i < iter.num_def; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
+        if (is_using_user_data == false)
+            (*iter.cbs.generic[i].cb.post_attach_cb.cb_no_user_data)();
+        else {
+            (*iter.cbs.generic[i].cb.post_attach_cb.cb_user_data)(user_data);
+        }
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
 
 DR_EXPORT

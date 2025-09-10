@@ -2079,7 +2079,7 @@ event_exit(void)
         }
     }
     drmgr_unregister_exit_event(event_exit);
-    dr_unregister_post_attach_event(event_post_attach);
+    drmgr_unregister_post_attach_event(event_post_attach);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
@@ -2535,7 +2535,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_fork_init_event(fork_init);
 #endif
 
-    if (!dr_register_post_attach_event(event_post_attach))
+    if (!drmgr_register_post_attach_event(event_post_attach))
         FATAL("Failed to register post-attach event.\n");
     attached_midway = dr_attached_midrun();
 

@@ -2,6 +2,8 @@ in event_thread_init_null_user_data
 in event_thread_init_user_data
 in event_thread_init_ex
 in event_thread_init
+in event_post_attach_user_data
+in event_post_attach
 in insert A
 in insert B
 in insert C

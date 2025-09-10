@@ -150,6 +150,11 @@ compatibility changes:
    drmgr_unregister_filter_syscall_event_user_data(), which are required to be used
    instead of dr_register_filter_syscall_event() when using drmgr and provide
    priorities and user data to the filter event.
+ - Added drmgr_register_post_attach_event(), drmgr_unregister_post_attach_event(),
+   drmgr_register_post_attach_event_user_data(), and
+   drmgr_unregister_post_attach_event_user_data(), which are required to be used
+   instead of dr_register_post_attach_event() when using drmgr and provide
+   priorities and user data to the post-attach event.
  - Added a separate cache replacement policy object to `caching_device_t`. `init` now
    takes an `std::unique_ptr<cache_replacement_policy_t>` that defines the replacement
    policy. It can be created manually or by using `create_cache_replacement_policy`.
