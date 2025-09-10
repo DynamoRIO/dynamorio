@@ -358,6 +358,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                  shard->file_type_) &&
         // The next trace pc returned by the reader is only for the input stream.
+        // TODO i#7496: The scheduler should appropriately set this to the next one in
+        // the dynamically injected sequence.
         !(dynamic_syscall_trace_injection_ &&
           shard->between_kernel_syscall_trace_markers_)) {
         if (type_is_instr(memref.instr.type)) {
