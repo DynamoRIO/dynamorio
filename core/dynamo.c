@@ -2942,7 +2942,6 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     /* Reset the barriers in case this is a re-dr_app_start(). */
     reset_event(dr_attach_finished);
     reset_event(dr_all_threads_attached);
-    dr_started_and_attached = false;
 
     os_process_under_dynamorio_initiate(dcontext);
     /* We can start this thread now that we've set up process-wide actions such
@@ -2952,6 +2951,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     signal_event(dr_app_started);
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_started = true;
+    dr_started_and_attached = false;
     /* Similarly, with our signal handler back in place, we remove the TLS limit. */
     detacher_tid = INVALID_THREAD_ID;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -2975,7 +2975,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     if (DYNAMO_OPTION(synchronous_attach)) {
         /* Release the taken-over app threads. */
         signal_event(dr_all_threads_attached);
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         dr_started_and_attached = true;
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     }
 
     if (found_threads) {
