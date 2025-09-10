@@ -176,7 +176,6 @@ check_ord2pc(uint64_t sim_initial, uint64_t skip,
     std::unique_ptr<reader_t> iter_end =
         std::unique_ptr<reader_t>(new zipfile_file_reader_t());
     uint64_t expected_next_instr_ord = 1;
-    bool done_skip = false;
     while (*iter != *iter_end) {
         const memref_t &memref = **iter;
         if (type_is_instr(memref.instr.type)) {
@@ -193,8 +192,7 @@ check_ord2pc(uint64_t sim_initial, uint64_t skip,
                       "incorrect instr pc at instr ord");
             }
             ++expected_next_instr_ord;
-            if (!done_skip && expected_next_instr_ord == sim_initial + 1) {
-                done_skip = true;
+            if (expected_next_instr_ord == sim_initial + 1) {
                 iter->skip_instructions(skip);
                 expected_next_instr_ord += skip;
             }
