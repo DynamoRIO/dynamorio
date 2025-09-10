@@ -163,6 +163,7 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(init_mutex_);
     per_shard->tid_ = shard_stream->get_tid();
+    per_shard->last_next_trace_pc_ = shard_stream->get_next_trace_pc();
     shard_map_[shard_index] = std::move(per_shard);
     return res;
 }
@@ -283,6 +284,23 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         ++shard->instr_count_since_last_timestamp_;
     }
 
+    if (!is_a_unit_test(shard) && knob_offline_) {
+        if (type_is_instr(memref.instr.type)) {
+            report_if_false(shard, shard->last_next_trace_pc_ == memref.instr.addr,
+                            "Unexpected next trace pc from instr");
+            shard->last_next_trace_pc_ = shard->stream->get_next_trace_pc();
+        } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+                   memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            report_if_false(shard,
+                            shard->last_next_trace_pc_ == memref.marker.marker_value,
+                            "Unexpected next trace pc from kernel_event marker");
+            shard->last_next_trace_pc_ = shard->stream->get_next_trace_pc();
+        } else {
+            report_if_false(
+                shard, shard->last_next_trace_pc_ == shard->stream->get_next_trace_pc(),
+                "Unexpected change to stream next trace pc");
+        }
+    }
     // These markers are allowed between the syscall marker and a possible
     // syscall trace.
     bool prev_was_syscall_marker_saved = shard->prev_was_syscall_marker_;
