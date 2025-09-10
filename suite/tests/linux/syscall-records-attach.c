@@ -43,8 +43,22 @@ static void
 signal_handler(int sig)
 {
     if (sig == SIGTERM) {
-        /* runall.cmake for attach test requires "done" as last line once done. */
-        print("done\n");
+        /*
+         * There are two race conditions in this runall.cmake attach test.
+         * 1. A race between the post-command to read the syscall record file
+         *    and the DR client in attach-memory-dump-syscall-test.dll.c writing
+         *    to the file. The post-command is triggered by writing "done" to
+         *    STDOUT or STDERR. This race is resolved by having the DR client
+         *    write the done only after it has finished writing to the syscall
+         *    record file within its exit event handler.
+         * 2. A separate race exists between the application making syscalls and
+         *    a SIGTERM that is sent after the attach event. This could
+         *    potentially cause the test to fail if no syscalls are recorded
+         *    before the signal is sent. The solution is to explicitly perform a
+         *    write syscall in the code, guaranteeing that at least one syscall
+         *    is recorded for the test.
+         */
+        print("SIGTERM received\n");
     }
     exit(1);
 }
