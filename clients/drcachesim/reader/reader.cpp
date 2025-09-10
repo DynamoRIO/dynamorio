@@ -95,7 +95,7 @@ entry_queue_t::push_back_readahead(const trace_entry_t &entry)
 
 void
 entry_queue_t::push_front_non_readahead(const trace_entry_t &entry,
-       uint64_t &next_trace_pc)
+                                        uint64_t &next_trace_pc)
 {
     uint64_t pc;
     if (entry_has_pc(entry, &pc)) {
