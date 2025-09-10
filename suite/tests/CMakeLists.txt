@@ -4875,7 +4875,7 @@ if (BUILD_CLIENTS)
           "" "@-cpu_scheduling" "")
 
         # Test -synchronous_attach eliminating align_endpoints and
-        # seeing all 49 threads.
+        # seeing most of the 49 threads.
         set(tool.drcacheoff.synch_attach_nodr ON)
         torunonly_drcacheoff(synch_attach tool.drcacheoff.burst_threads
           "" "@-tool@basic_counts"

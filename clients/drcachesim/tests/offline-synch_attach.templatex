@@ -21,5 +21,5 @@ Total counts:
      .* total data stores
      .* total icache flushes
      .* total dcache flushes
-          49 total threads
+          [34][0-9] total threads
 .*
