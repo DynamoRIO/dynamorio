@@ -34,7 +34,6 @@
 
 #include "test_helpers.h"
 #include <algorithm>
-#include <iostream>
 #include <regex>
 #include <string>
 #include <vector>
@@ -448,6 +447,9 @@ public:
     }
     mock_file_reader_t(const std::vector<trace_entry_t> &entries)
     {
+        // This constructor bypasses the file_reader_t constructor that resets
+        // online_, so we have to do it here also.
+        online_ = false;
         input_file_ = entries;
         pos_ = 0;
     }

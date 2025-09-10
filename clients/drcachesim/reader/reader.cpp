@@ -78,7 +78,8 @@ entry_queue_t::has_record_and_next_pc()
     if (entries_.empty())
         return false;
     bool front_has_pc = entry_has_pc(entries_.front());
-    int non_first_entries_with_pc = pcs_.size() - (front_has_pc ? 1 : 0);
+    int non_first_entries_with_pc =
+        static_cast<int>(pcs_.size()) - (front_has_pc ? 1 : 0);
     return non_first_entries_with_pc >= 1;
 }
 
