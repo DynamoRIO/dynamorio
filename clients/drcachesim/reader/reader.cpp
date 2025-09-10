@@ -214,7 +214,8 @@ trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
         *reader_at_eof_ = at_eof_;
     }
     if (ret_entry != nullptr) {
-        VPRINT(this, 4, "returning: type=%s (%d), size=%d, addr=0x%zx, next_pc=0x%zx\n",
+        VPRINT(this, 4,
+               "returning: type=%s (%d), size=%d, addr=0x%zx, next_pc=0x%" PRIx64 "\n",
                trace_type_names[ret_entry->type], ret_entry->type, ret_entry->size,
                ret_entry->addr, *reader_next_trace_pc_);
     } else {
