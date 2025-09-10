@@ -94,11 +94,13 @@ entry_queue_t::push_back_readahead(const trace_entry_t &entry)
 }
 
 void
-entry_queue_t::push_front_non_readahead(const trace_entry_t &entry)
+entry_queue_t::push_front_non_readahead(const trace_entry_t &entry,
+       uint64_t &next_trace_pc)
 {
     uint64_t pc;
     if (entry_has_pc(entry, &pc)) {
         pcs_.push_front(pc);
+        next_trace_pc = pc;
     }
     entries_.push_front(entry);
     ++non_readahead_front_count_;
@@ -212,9 +214,9 @@ trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
         *reader_at_eof_ = at_eof_;
     }
     if (ret_entry != nullptr) {
-        VPRINT(this, 4, "returning: type=%s (%d), size=%d, addr=0x%zx\n",
+        VPRINT(this, 4, "returning: type=%s (%d), size=%d, addr=0x%zx, next_pc=0x%zx\n",
                trace_type_names[ret_entry->type], ret_entry->type, ret_entry->size,
-               ret_entry->addr);
+               ret_entry->addr, *reader_next_trace_pc_);
     } else {
         VPRINT(this, 4, "finished: at_eof_: %d\n", at_eof_);
     }
@@ -601,7 +603,7 @@ reader_t::pre_skip_instructions()
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
-            entry_queue_.push_front_non_readahead(*input_entry_);
+            entry_queue_.push_front_non_readahead(*input_entry_, next_trace_pc_);
             break;
         }
         process_input_entry();
@@ -720,9 +722,9 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         entry_copy_ = timestamp;
         input_entry_ = &entry_copy_;
         process_input_entry();
-        entry_queue_.push_front_non_readahead(next_instr);
+        entry_queue_.push_front_non_readahead(next_instr, next_trace_pc_);
         if (cpu.type == TRACE_TYPE_MARKER)
-            entry_queue_.push_front_non_readahead(cpu);
+            entry_queue_.push_front_non_readahead(cpu, next_trace_pc_);
     } else {
         // We missed the markers somehow.
         // next_instr is our target instr, so make that the next record.

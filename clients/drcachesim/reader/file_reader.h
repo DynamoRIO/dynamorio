@@ -160,11 +160,11 @@ protected:
         // The reader expects us to own the header and pass the tid as
         // the first entry.
         while (!marker_stack.empty()) {
-            entry_queue_.push_front_non_readahead(marker_stack.top());
+            entry_queue_.push_front_non_readahead(marker_stack.top(), next_trace_pc_);
             marker_stack.pop();
         }
-        entry_queue_.push_front_non_readahead(pid);
-        entry_queue_.push_front_non_readahead(tid);
+        entry_queue_.push_front_non_readahead(pid, next_trace_pc_);
+        entry_queue_.push_front_non_readahead(tid, next_trace_pc_);
         return true;
     }
 

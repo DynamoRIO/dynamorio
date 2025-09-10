@@ -111,10 +111,11 @@ public:
     push_back_readahead(const trace_entry_t &entry);
     /**
      * Adds the given trace_entry_t that is not a read-ahead-for-next-pc entry
-     * to the front of the queue.
+     * to the front of the queue. If this operation changes the next pc in the
+     * trace, next_trace_pc will be updated.
      */
     void
-    push_front_non_readahead(const trace_entry_t &entry);
+    push_front_non_readahead(const trace_entry_t &entry, uint64_t &next_trace_pc);
     /**
      * Returns the next entry from the queue in the entry arg, and the next
      * continuous pc in the trace in the next_pc arg if it exists or zero
