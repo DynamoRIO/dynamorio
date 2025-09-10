@@ -237,6 +237,7 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
                    (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
         // Clear cached data from the prior chunk.
         zipfile->cur_buf = zipfile->max_buf;
+        entry_queue_.clear_readahead();
     }
     // Now do a linear walk the rest of the way, remembering timestamps (we have
     // duplicated timestamps at the start of the chunk to cover any skipped in

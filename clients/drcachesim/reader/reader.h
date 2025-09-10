@@ -41,6 +41,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <stack>
+#include <deque>
 #include <iterator>
 #include <queue>
 #include <unordered_map>
@@ -72,6 +74,247 @@ namespace drmemtrace {
 #endif
 
 /**
+ * Queue of trace_entry_t that have been read from the input in advance to
+ * allow us to figure out the next continuous pc in the trace.
+ */
+class entry_queue_t {
+public:
+    void
+    clear_readahead()
+    {
+        while (entries_.size() > non_readahead_front_count_) {
+            // Entries in the front of the queue were not readahead, and
+            // must still be returned.
+            pop_back();
+        }
+    }
+    bool
+    empty()
+    {
+        return entries_.empty();
+    }
+    bool
+    has_record_and_next_pc()
+    {
+        if (entries_.empty())
+            return false;
+        bool front_has_pc = entry_has_pc(entries_.front());
+        int non_first_entries_with_pc = pcs_.size() - (front_has_pc ? 1 : 0);
+        return non_first_entries_with_pc >= 1;
+    }
+    void
+    push_back_readahead(const trace_entry_t &entry)
+    {
+        uint64_t pc;
+        if (entry_has_pc(entry, &pc)) {
+            pcs_.push_back(pc);
+        }
+        entries_.push_back(entry);
+    }
+    void
+    push_front_non_readahead(const trace_entry_t &entry)
+    {
+        uint64_t pc;
+        if (entry_has_pc(entry, &pc)) {
+            pcs_.push_front(pc);
+        }
+        entries_.push_front(entry);
+        ++non_readahead_front_count_;
+    }
+    void
+    pop(trace_entry_t &entry, uint64_t &next_pc)
+    {
+        if (non_readahead_front_count_ > 0)
+            --non_readahead_front_count_;
+        entry = entries_.front();
+        entries_.pop_front();
+        if (entry_has_pc(entry)) {
+            pcs_.pop_front();
+        }
+        next_pc = 0;
+        if (!pcs_.empty()) {
+            next_pc = pcs_.front();
+        }
+    }
+
+private:
+    bool
+    entry_has_pc(const trace_entry_t &entry, uint64_t *pc = nullptr)
+    {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+            if (pc != nullptr)
+                *pc = entry.addr;
+            return true;
+        }
+        if (static_cast<trace_type_t>(entry.type) == TRACE_TYPE_MARKER &&
+            static_cast<trace_marker_type_t>(entry.size) ==
+                TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            if (pc != nullptr)
+                *pc = entry.addr;
+            return true;
+        }
+        return false;
+    }
+    void
+    pop_back()
+    {
+        trace_entry_t entry = entries_.back();
+        entries_.pop_back();
+        if (entry_has_pc(entry)) {
+            pcs_.pop_back();
+        }
+    }
+    std::deque<trace_entry_t> entries_;
+    std::deque<uint64_t> pcs_;
+    size_t non_readahead_front_count_ = 0;
+};
+
+/**
+ * Helper to share logic for reading ahead trace_entry_t records from the input in a
+ * way that we always know the next continuous pc in the trace after the current record.
+ */
+class trace_entry_readahead_helper_t {
+public:
+    // trace_entry_readahead_helper_t needs to manage some state of the reader_t (or
+    // record_reader_t) that's using it for readahead. The file_reader_t (or
+    // record_file_reader_t) communicates some state to the base reader_t class using
+    // data members in the reader_t; we need to manage that state to take into account
+    // our read-ahead queue.
+    //
+    // Specifically:
+    // - reader_at_eof points to the bool in reader_t that denotes when the input has
+    //   reached its end. Even though the input may have reached the end, the read-ahead
+    //   queue may not have.
+    // - reader_cur_entry points to the last read trace_entry_t. The last trace_entry_t
+    //   actually read from the input is likely not the one we want the reader_t to use
+    //   next (because we perform readahead).
+    //
+    // Here we accept pointers to such reader_t state; we know what the file_reader_t
+    // returned, and can combine it with the read-ahead queue's state so the reader_t
+    // sees the correct thing.
+    //
+    // Other parameters:
+    // - reader_next_trace_pc points to the reader_t data member where we'll write the
+    //   next trace pc.
+    // - reader_entry_queue points to the entry_queue_t that will be used to store the
+    //   readahead entries. This needs to be shared with the reader_t because it needs
+    //   the same queue to store some other queued up non-readahead entries too.
+    // - online denotes whether we're in the online mode, as opposed to offline.
+    //   trace_entry_t readahead is disabled in the online mode.
+    //
+    // We could potentially just store the reader_t* here, instead of multiple state
+    // object pointers, but the current way makes the contract more explicit.
+    trace_entry_readahead_helper_t(bool *online, trace_entry_t *reader_cur_entry,
+                                   bool *reader_at_eof, uint64_t *reader_next_trace_pc,
+                                   entry_queue_t *reader_entry_queue, int verbosity)
+        : online_(online)
+        , reader_cur_entry_(reader_cur_entry)
+        , reader_at_eof_(reader_at_eof)
+        , reader_next_trace_pc_(reader_next_trace_pc)
+        , reader_entry_queue_(reader_entry_queue)
+        , verbosity_(verbosity)
+    {
+        assert(online_ != nullptr);
+        assert(reader_cur_entry_ != nullptr);
+        assert(reader_at_eof_ != nullptr);
+        assert(reader_next_trace_pc_ != nullptr);
+        assert(reader_entry_queue_ != nullptr);
+    }
+
+    trace_entry_readahead_helper_t() = default;
+
+    // Returns the next entry for the input stream, and ensures that we also know the
+    // next continuous pc in the trace (if it exists). May read however many extra
+    // records that need that need to be read from the input stream; if there are
+    // already enough records buffered, it may not read any at all.
+    //
+    // This puts the next entry for the reader in *reader_cur_entry_, the _effective_
+    // state of the input (which takes into account the presence of read-ahead entries)
+    // in *reader_at_eof_, and the next trace pc in *reader_next_trace_pc_.
+    //
+    // For convenience of the reader_t, it returns either reader_cur_entry_ or nullptr.
+    trace_entry_t *
+    read_next_entry_and_trace_pc()
+    {
+        if (*online_) {
+            // We don't support any readahead in the online mode. We simply invoke the
+            // reader's logic. No other management required.
+            return read_next_entry();
+        }
+        // Continue reading ahead until we have a record and the next continuous
+        // pc in the trace, or if the input stops returning new records.
+        while (!reader_entry_queue_->has_record_and_next_pc() && !at_null_) {
+            trace_entry_t *entry = read_next_entry();
+            // As noted on the constructor, read_next_entry() modifies reader_t
+            // state pointed to by reader_at_eof_ and reader_cur_entry_;
+            if (entry == nullptr) {
+                // Ensure we don't repeatedly call read_next_entry after we know
+                // it has finished.
+                assert(!at_null_);
+                at_null_ = true;
+                at_eof_ = *reader_at_eof_;
+                // Pretend we're not at eof since we may have records
+                // buffered in reader_entry_queue_.
+                *reader_at_eof_ = false;
+            } else {
+                VPRINT(this, 4, "queued: type=%s (%d), size=%d, addr=0x%zx\n",
+                       trace_type_names[entry->type], entry->type, entry->size,
+                       entry->addr);
+                // We deliberately make a copy of *entry here.
+                reader_entry_queue_->push_back_readahead(*entry);
+            }
+        }
+        trace_entry_t *ret_entry = nullptr;
+        if (!reader_entry_queue_->empty()) {
+            // If we're at the end of the trace and there's no next continuous pc
+            // in the trace, reader_entry_queue_ may simply set
+            // *reader_next_trace_pc_ to zero.
+            reader_entry_queue_->pop(*reader_cur_entry_, *reader_next_trace_pc_);
+            ret_entry = reader_cur_entry_;
+        } else {
+            assert(at_null_);
+            // Now that the queued entries have been drained, let the reader
+            // know we're done.
+            ret_entry = nullptr;
+            // at_eof may or may not be true, which is used to signal errors.
+            *reader_at_eof_ = at_eof_;
+        }
+        if (ret_entry != nullptr) {
+            VPRINT(this, 4, "returning: type=%s (%d), size=%d, addr=0x%zx\n",
+                   trace_type_names[ret_entry->type], ret_entry->type, ret_entry->size,
+                   ret_entry->addr);
+        } else {
+            VPRINT(this, 4, "finished: at_eof_: %d\n", at_eof_);
+        }
+        return ret_entry;
+    }
+
+private:
+    // This implementation is supposed to be provided by the reader_t or record_reader_t
+    // that is using the trace_entry_readahead_helper_t.
+    virtual trace_entry_t *
+    read_next_entry() = 0;
+
+
+    // Cannot take this by value because it is set by file_reader_t after the base
+    // reader_t (and hence this reader_readahead_helper_t) has been constructed.
+    bool *online_ = nullptr;
+    // State of the reader_t that is using this object.
+    trace_entry_t *reader_cur_entry_ = nullptr;
+    bool *reader_at_eof_ = nullptr;
+    uint64_t *reader_next_trace_pc_ = nullptr;
+    entry_queue_t *reader_entry_queue_ = nullptr;
+
+    int verbosity_ = 0;
+
+    // The internal state for the underlying input.
+    bool at_null_ = false;
+    bool at_eof_ = false;
+
+    const char *output_prefix_ = "[readahead_helper]";
+};
+
+/**
  * Iterator over #dynamorio::drmemtrace::memref_t trace entries. This class converts a
  * trace (offline or online) into a stream of #dynamorio::drmemtrace::memref_t entries. It
  * also provides more information about the trace using the
@@ -85,12 +328,15 @@ public:
     using pointer = value_type *;
     using reference = value_type &;
     reader_t()
+        // Need this initialized for the mock_reader_t.
+        : readahead_helper_(this)
     {
         cur_ref_ = {};
     }
     reader_t(int verbosity, const char *prefix)
         : verbosity_(verbosity)
         , output_prefix_(prefix)
+        , readahead_helper_(this)
     {
         cur_ref_ = {};
     }
@@ -198,6 +444,11 @@ public:
     {
         return in_kernel_trace_;
     }
+    uint64_t
+    get_next_trace_pc() const override
+    {
+        return next_trace_pc_;
+    }
     bool
     is_record_synthetic() const override
     {
@@ -265,16 +516,18 @@ protected:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
+    uint64_t next_trace_pc_ = 0;
     // We need to read ahead when skipping to include post-instr records.
     // We store into this queue records already read from the input but not
     // yet returned to the iterator.
-    std::queue<trace_entry_t> queue_;
+    entry_queue_t entry_queue_;
     trace_entry_t entry_copy_; // For use in returning a queue entry.
 
     struct encoding_info_t {
         size_t size = 0;
         unsigned char bits[MAX_ENCODING_LENGTH];
     };
+
 
     std::unordered_map<addr_t, encoding_info_t> encodings_;
     // Whether this reader's input stream interleaves software threads and thus
@@ -283,6 +536,31 @@ protected:
     bool found_filetype_ = false;
 
 private:
+    class reader_readahead_helper_t : public trace_entry_readahead_helper_t {
+    public:
+        reader_readahead_helper_t(reader_t *reader)
+            : trace_entry_readahead_helper_t(
+                  &reader->online_, &reader->entry_copy_, &reader->at_eof_,
+                  &reader->next_trace_pc_, &reader->entry_queue_, reader->verbosity_)
+            , reader_(reader)
+        {
+            assert(reader_ != nullptr);
+        }
+        reader_readahead_helper_t() = default;
+
+    private:
+        trace_entry_t *
+        read_next_entry() override
+        {
+            return reader_->read_next_entry();
+        }
+        reader_t *reader_ = nullptr;
+    };
+
+    trace_entry_t *
+    read_next_entry_internal();
+
+    reader_readahead_helper_t readahead_helper_;
     memref_t cur_ref_;
     memref_tid_t cur_tid_ = 0;
     memref_pid_t cur_pid_ = 0;

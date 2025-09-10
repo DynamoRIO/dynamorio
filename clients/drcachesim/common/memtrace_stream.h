@@ -311,6 +311,12 @@ public:
     {
         return -1;
     }
+
+    virtual uint64_t
+    get_next_trace_pc() const
+    {
+        return 0;
+    }
 };
 
 /**

@@ -35,33 +35,33 @@
  */
 
 #ifndef _RECORD_FILE_READER_H_
-#define _RECORD_FILE_READER_H_ 1
+#    define _RECORD_FILE_READER_H_ 1
 
-#include <assert.h>
-#include <iterator>
-#include <memory>
+#    include <assert.h>
+#    include <iterator>
+#    include <memory>
 
-#include "memtrace_stream.h"
-#include "reader.h"
-#include "trace_entry.h"
+#    include "memtrace_stream.h"
+#    include "reader.h"
+#    include "trace_entry.h"
 
-#define OUT /* just a marker */
+#    define OUT /* just a marker */
 
-#ifdef DEBUG
-#    define VPRINT(reader, level, ...)                            \
-        do {                                                      \
-            if ((reader)->verbosity_ >= (level)) {                \
-                fprintf(stderr, "%s ", (reader)->output_prefix_); \
-                fprintf(stderr, __VA_ARGS__);                     \
-            }                                                     \
-        } while (0)
+#    ifdef DEBUG
+#        define VPRINT(reader, level, ...)                            \
+            do {                                                      \
+                if ((reader)->verbosity_ >= (level)) {                \
+                    fprintf(stderr, "%s ", (reader)->output_prefix_); \
+                    fprintf(stderr, __VA_ARGS__);                     \
+                }                                                     \
+            } while (0)
 // clang-format off
 #    define UNUSED(x) /* nothing */
 // clang-format on
-#else
-#    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED(x) ((void)(x))
-#endif
+#    else
+#        define VPRINT(reader, level, ...) /* nothing */
+#        define UNUSED(x) ((void)(x))
+#    endif
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -122,9 +122,12 @@ public:
         : verbosity_(verbosity)
         , output_prefix_(prefix)
         , eof_(false)
+        , readahead_helper_(this)
     {
     }
     record_reader_t()
+        // Need this initialized for the mock_record_reader_t.
+        : readahead_helper_(this)
     {
     }
     virtual ~record_reader_t()
@@ -157,7 +160,7 @@ public:
     record_reader_t &
     operator++()
     {
-        bool res = read_next_entry();
+        bool res = read_next_entry_internal();
         assert(res || eof_);
         UNUSED(res);
         if (!eof_) {
@@ -251,6 +254,11 @@ public:
     {
         return in_kernel_trace_;
     }
+    uint64_t
+    get_next_trace_pc() const override
+    {
+        return next_trace_pc_;
+    }
 
     virtual bool
     operator==(const record_reader_t &rhs) const
@@ -287,8 +295,45 @@ protected:
     // Following typical stream iterator convention, the default constructor
     // produces an EOF object.
     bool eof_ = true;
+    uint64_t next_trace_pc_ = 0;
+    // We do not support record_reader_t in online mode currently.
+    bool online_ = false;
 
 protected:
+    class record_reader_readahead_helper_t : public trace_entry_readahead_helper_t {
+    public:
+        record_reader_readahead_helper_t(record_reader_t *reader)
+            : trace_entry_readahead_helper_t(&reader->online_, &reader->cur_entry_,
+                                             &reader->eof_, &reader->next_trace_pc_,
+                                             &reader->entry_queue_, reader->verbosity_)
+            , reader_(reader)
+        {
+            assert(reader_ != nullptr);
+        }
+        record_reader_readahead_helper_t() = default;
+
+    private:
+        trace_entry_t *
+        read_next_entry() override
+        {
+            bool res = reader_->read_next_entry();
+            if (!res)
+                return nullptr;
+            // read_next_entry reads the next entry into cur_entry_.
+            return &reader_->cur_entry_;
+        }
+        record_reader_t *reader_ = nullptr;
+    };
+
+    trace_entry_t *
+    read_next_entry_internal()
+    {
+        return readahead_helper_.read_next_entry_and_trace_pc();
+    }
+
+    record_reader_readahead_helper_t readahead_helper_;
+    entry_queue_t entry_queue_;
+
     uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;

@@ -68,11 +68,14 @@ reader_t::operator*()
 trace_entry_t *
 reader_t::read_queued_entry()
 {
-    if (queue_.empty())
-        return nullptr;
-    entry_copy_ = queue_.front();
-    queue_.pop();
-    return &entry_copy_;
+    // TODO i#7496: Remove this API as it is no longer needed.
+    return nullptr;
+}
+
+trace_entry_t *
+reader_t::read_next_entry_internal()
+{
+    return readahead_helper_.read_next_entry_and_trace_pc();
 }
 
 reader_t &
@@ -81,7 +84,7 @@ reader_t::operator++()
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
         if (bundle_idx_ == 0 /*not in instr bundle*/)
-            input_entry_ = read_next_entry();
+            input_entry_ = read_next_entry_internal();
         if (input_entry_ == NULL) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");
@@ -428,7 +431,7 @@ reader_t::pre_skip_instructions()
     // XXX: We assume the page size is the final header; it is complex to wait for
     // the timestamp as we don't want to read it yet.
     while (page_size_ == 0) {
-        input_entry_ = read_next_entry();
+        input_entry_ = read_next_entry_internal();
         if (input_entry_ == nullptr) {
             at_eof_ = true;
             return false;
@@ -439,7 +442,7 @@ reader_t::pre_skip_instructions()
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
-            queue_.push(*input_entry_);
+            entry_queue_.push_front_non_readahead(*input_entry_);
             break;
         }
         process_input_entry();
@@ -493,7 +496,7 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         // too-far instr if we didn't find a timestamp.
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             entry_copy_ = *input_entry_;
-        trace_entry_t *next = read_next_entry();
+        trace_entry_t *next = read_next_entry_internal();
         if (next == nullptr) {
             VPRINT(this, 1,
                    next == nullptr ? "Failed to read next entry\n" : "Hit EOF\n");
@@ -558,9 +561,9 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         entry_copy_ = timestamp;
         input_entry_ = &entry_copy_;
         process_input_entry();
+        entry_queue_.push_front_non_readahead(next_instr);
         if (cpu.type == TRACE_TYPE_MARKER)
-            queue_.push(cpu);
-        queue_.push(next_instr);
+            entry_queue_.push_front_non_readahead(cpu);
     } else {
         // We missed the markers somehow.
         // next_instr is our target instr, so make that the next record.
