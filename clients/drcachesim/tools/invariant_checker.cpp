@@ -1427,6 +1427,7 @@ invariant_checker_t::process_memref(const memref_t &memref)
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
         per_shard->tid_ = serial_stream_->get_tid();
+        per_shard->last_next_trace_pc_ = serial_stream_->get_next_trace_pc();
         shard_map_[shard_index] = std::move(per_shard_unique);
     } else
         per_shard = lookup->second.get();
