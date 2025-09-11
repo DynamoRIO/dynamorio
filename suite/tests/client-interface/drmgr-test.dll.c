@@ -63,8 +63,6 @@ static volatile bool in_post_syscall_A;
 static volatile bool in_post_syscall_A_user_data;
 static volatile bool in_post_syscall_B;
 static volatile bool in_post_syscall_B_user_data;
-static volatile bool in_post_attach;
-static volatile bool in_post_attach_user_data;
 static volatile bool in_event_thread_init;
 static volatile bool in_event_thread_init_ex;
 static volatile bool in_event_thread_init_user_data;
@@ -495,29 +493,15 @@ event_exit(void)
 static void
 event_post_attach(void)
 {
-    if (!in_post_attach) {
-        dr_mutex_lock(syslock);
-        if (!in_post_attach) {
-            dr_fprintf(STDERR, "in event_post_attach\n");
-            in_post_attach = true;
-        }
-        dr_mutex_unlock(syslock);
-    }
+    dr_fprintf(STDERR, "in event_post_attach\n");
 }
 
 static void
 event_post_attach_user_data(void *user_data)
 {
-    if (!in_post_attach_user_data) {
-        dr_mutex_lock(syslock);
-        if (!in_post_attach_user_data) {
-            dr_fprintf(STDERR, "in event_post_attach_user_data\n");
-            in_post_attach_user_data = true;
-            CHECK(user_data == (void *)post_attach_user_data_test,
-                  "incorrect user data post attach");
-        }
-        dr_mutex_unlock(syslock);
-    }
+    dr_fprintf(STDERR, "in event_post_attach_user_data\n");
+    CHECK(user_data == (void *)post_attach_user_data_test,
+          "incorrect user data post attach");
 }
 
 static void
