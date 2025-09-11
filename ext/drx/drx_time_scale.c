@@ -1047,6 +1047,19 @@ scale_posix_timers(void *drcontext, bool inflate)
     dr_close_file(fd);
 }
 
+static void
+event_post_attach(void)
+{
+    /* For dynamic attach, we wait for post-attach to avoid a gap between this
+     * timer snapshot and dynamic monitoring.  We rely on -synchronous_attach
+     * being enabled to ensure nothing is executing under instrumentation before
+     * this walk (else we could double-inflate) nor during this event.
+     */
+    void *drcontext = dr_get_current_drcontext();
+    scale_itimers(drcontext, /*inflate=*/true);
+    scale_posix_timers(drcontext, /*inflate=*/true);
+}
+
 DR_EXPORT
 bool
 drx_register_time_scaling(drx_time_scale_t *options)
@@ -1100,18 +1113,15 @@ drx_register_time_scaling(drx_time_scale_t *options)
 
     memset(stats, 0, sizeof(stats));
 
-    void *drcontext = dr_get_current_drcontext();
-    /* XXX i#7504: For dynamic attach, at process init time other threads are not
-     * yet taken over and so our timer sweep here can be inaccurate with the
-     * gap between now and taking over other threads.
-     * If we move this to the post-attach event, though, we need to record
-     * what we inflated so we don't double-inflate a syscall-inflated timer
-     * seen in the gap before we get to the post-attach event.
-     * It would be nicer if DR suspended all the other threads prior to
-     * process init here, when attaching.
-     */
-    scale_itimers(drcontext, /*inflate=*/true);
-    scale_posix_timers(drcontext, /*inflate=*/true);
+    if (!dr_register_post_attach_event(event_post_attach)) {
+        /* Failure means we are not mid-process, so this is a safe place for
+         * timer snapshots.
+         * XXX i#7598: Change the post-attach event to always fire, since now that
+         * it's recommended for all snapshots clients shouldn't have to explicitly
+         * call during init like this.
+         */
+        event_post_attach();
+    }
 
     return true;
 }
@@ -1135,6 +1145,8 @@ drx_unregister_time_scaling()
         drmgr_unregister_thread_init_event(event_thread_init) &&
         drmgr_unregister_thread_exit_event(event_thread_exit);
     drmgr_exit();
+    dr_unregister_post_attach_event(event_post_attach);
+
     return res;
 }
 

@@ -1030,8 +1030,13 @@ dr_unregister_exit_event(void (*func)(void))
 bool
 dr_register_post_attach_event(void (*func)(void))
 {
-    if (!dynamo_control_via_attach)
+    if (!dynamo_control_via_attach) {
+        /* XXX i#7598: Change the post-attach event to always fire, since now that
+         * it's recommended for all snapshots, clients will want it called no matter
+         * the attach method.
+         */
         return false;
+    }
     add_callback(&post_attach_callbacks, (void (*)(void))func, true);
     return true;
 }
