@@ -265,6 +265,8 @@ event_exit(void)
         dr_fprintf(STDERR, "drsys failed to exit");
     }
     drmgr_exit();
+    /* runall.cmake for attach test requires "done" as last line once done. */
+    dr_fprintf(STDERR, "done\n");
 }
 
 static void
