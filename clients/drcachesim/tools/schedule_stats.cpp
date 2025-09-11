@@ -467,6 +467,11 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             } else if (shard->pre_syscall_timestamp > 0) {
                 // We use get_input_interface() to get the original timestamp
                 // instead of the scheduler-normalized one.
+                // TODO i#7496: When dynamically injecting syscall traces, we
+                // read-ahead on the input until we see the next instruction,
+                // so this may get the timestamp after the post-syscall one if
+                // there was another before the next instr. Also, the input
+                // itself may have changed.
                 shard->post_syscall_timestamp =
                     shard->stream->get_input_interface()->get_last_timestamp();
             }
