@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -77,10 +77,9 @@ DR_API
 /**
  * Registers a function which is called after all other threads have been taken over
  * during a process attach event, whether externally triggered or internally triggered
- * (via dr_app_start() or related functions).  If this process instance was not
- * initiated by an attach or takeover methodology where multiple application threads may
- * exist at the time of takeover (such as a process newly created on Linux), this
- * registration function returns false.
+ * (via dr_app_start() or related functions).  If the current process was launched
+ * by DR, this event is still called right before starting to execute the initial
+ * thread.
  *
  * The attach methodology operates in a staggered fashion, with each thread being taken
  * over and executed under DR control in turn.  If the application has many threads,
@@ -88,6 +87,8 @@ DR_API
  * instrumented code before the threads taken over last start executing instrumented
  * code.  The purpose of this event is to provide a single control point where all
  * threads are known to be under DR control and running instrumented code.
+ *
+ * \return whether registration is successful.
  */
 bool
 dr_register_post_attach_event(void (*func)(void));

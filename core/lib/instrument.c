@@ -912,10 +912,6 @@ instrument_exit_event(void)
 void
 instrument_post_attach_event(void)
 {
-    if (!dynamo_control_via_attach) {
-        ASSERT(post_attach_callbacks.num == 0);
-        return;
-    }
     call_all(post_attach_callbacks, int (*)(), NULL);
 }
 
@@ -1028,10 +1024,14 @@ dr_unregister_exit_event(void (*func)(void))
 }
 
 bool
+dr_attached_midrun(void)
+{
+    return dynamo_control_via_attach;
+}
+
+bool
 dr_register_post_attach_event(void (*func)(void))
 {
-    if (!dynamo_control_via_attach)
-        return false;
     add_callback(&post_attach_callbacks, (void (*)(void))func, true);
     return true;
 }

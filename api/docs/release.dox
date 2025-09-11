@@ -169,6 +169,10 @@ compatibility changes:
    -sim_refs and -warmup_refs options.  (The new -skip_records counts markers.)
  - Dropped support for -skip_refs and -sim_refs in the view tool (use the new
    -skip_records and -exit_after_records instead).
+ - The post-attach event is now called in every injection/attach mode, and
+   dr_register_post_attach_event() always returns true.
+   A new API query dr_attached_midrun() is added to distinguish attach from
+   launch injection to replace the return value of dr_register_post_attach_event().
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
