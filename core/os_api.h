@@ -67,6 +67,18 @@ typedef enum {
 
 DR_API
 /**
+ * Returns whether DR was injected into a pre-existing process, whether
+ * externally triggered or internally triggered (via dr_app_start() or
+ * related functions).  If the current process was launched by DR *and*
+ * DR presented its very first instruction to clients, returns false.
+ * On Windows, the default injection returns true here as it does not
+ * take over prior to the very first instruction.
+ */
+bool
+dr_attached_midrun(void);
+
+DR_API
+/**
  * Returns whether the given thread indicated by \p drcontext
  * is currently using the application version of its system state.
  * \sa dr_switch_to_dr_state(), dr_switch_to_app_state().

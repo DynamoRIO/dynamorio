@@ -508,7 +508,6 @@ instrumentation_init()
 static void
 event_post_attach()
 {
-    DR_ASSERT(attached_midway);
     if (!align_attach_detach_endpoints())
         return;
     uint64 timestamp = instru_t::get_timestamp();
@@ -2086,6 +2085,7 @@ event_exit(void)
         }
     }
     drmgr_unregister_exit_event(event_exit);
+    dr_unregister_post_attach_event(event_post_attach);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
@@ -2540,7 +2540,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef UNIX
     dr_register_fork_init_event(fork_init);
 #endif
-    attached_midway = dr_register_post_attach_event(event_post_attach);
+
+    if (!dr_register_post_attach_event(event_post_attach))
+        FATAL("Failed to register post-attach event.\n");
+    attached_midway = dr_attached_midrun();
+
     dr_register_pre_detach_event(event_pre_detach);
     dr_register_nudge_event(event_nudge, id);
 

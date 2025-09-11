@@ -77,10 +77,9 @@ DR_API
 /**
  * Registers a function which is called after all other threads have been taken over
  * during a process attach event, whether externally triggered or internally triggered
- * (via dr_app_start() or related functions).  If this process instance was not
- * initiated by an attach or takeover methodology where multiple application threads may
- * exist at the time of takeover (such as a process newly created on Linux), this
- * registration function returns false.
+ * (via dr_app_start() or related functions).  If the current process was launched
+ * by DR, this event is still called right before starting to execute the initial
+ * thread.
  *
  * The attach methodology suspends each thread taken over until all threads are taken
  * over.  This event is then invoked, and only once the event is finished are any of
@@ -94,6 +93,8 @@ DR_API
  * (If -synchronous_attach is disabled, then the attach methodology operates in a
  * staggered fashion, with each thread being taken over and executed under DR control
  * in turn, with no reliable place for a snapshot.)
+ *
+ * \return whether registration is successful.
  */
 bool
 dr_register_post_attach_event(void (*func)(void));

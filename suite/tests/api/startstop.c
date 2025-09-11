@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -217,6 +217,8 @@ main(void)
     dr_register_bb_event(event_bb);
     if (!dr_register_post_attach_event(event_post_attach))
         print("Failed to register post-attach event");
+    if (!dr_attached_midrun())
+        print("ERROR: DR did attach midrun\n");
     dr_register_pre_detach_event(event_pre_detach);
 
     /* Wait for all the threads to be scheduled */
