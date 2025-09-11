@@ -140,6 +140,7 @@ protected:
         // We want to pass the tid+pid to the reader *before* any markers,
         // even though markers can precede the tid+pid in the file, in particular
         // for legacy traces.
+        // This is a stack because they would be inserted into the entry_queue_'s front.
         std::stack<trace_entry_t> marker_stack;
         while ((entry = read_next_entry()) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {

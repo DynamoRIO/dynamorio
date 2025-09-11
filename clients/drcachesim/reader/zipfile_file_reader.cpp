@@ -239,7 +239,7 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
         zipfile->cur_buf = zipfile->max_buf;
 
         // The actual instrs already read from the zipfile may run one ahead of
-        // cur_instr_count_ due to readahead in reader_t. Notabley: if we just returned
+        // cur_instr_count_ due to readahead in reader_t. Notably: if we just returned
         // the last instr of a chunk, we would have already opened the next chunk and
         // read its first instr. However, this does not change how we do chunk
         // skipping in this loop.

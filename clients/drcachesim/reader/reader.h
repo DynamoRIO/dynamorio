@@ -74,8 +74,8 @@ namespace drmemtrace {
 #endif
 
 /**
- * Queue of trace_entry_t that have been read from the input but are yet
- * to be processed by the reader.
+ * Queue of #dynamorio::drmemtrace::trace_entry_t that have been read from the
+ * input but are yet to be processed by the reader.
  *
  * These entries may have been:
  * - read in advance to allow us to figure out the next continuous pc in the
@@ -84,6 +84,12 @@ namespace drmemtrace {
  *   markers).
  * - seen by the reader but not yet processed (like the instr entry used
  *   to decide when a skip is done).
+ *
+ * The non-readahead entries are always added to the front of the queue (using
+ * #dynamorio::drmemtrace::entry_queue_t::push_front_non_readahead()), as they
+ * hold precedence over the readahead ones (which are added using
+ * #dynamorio::drmemtrace::entry_queue_t::push_back_readahead()), and must be
+ * returned first.
  */
 class entry_queue_t {
 public:
@@ -104,15 +110,18 @@ public:
     bool
     has_record_and_next_pc();
     /**
-     * Adds the given trace_entry_t that was read from the input ahead of its
-     * time to the back of the queue.
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
+     * the input ahead of its time to the back of the queue.
      */
     void
     push_back_readahead(const trace_entry_t &entry);
     /**
-     * Adds the given trace_entry_t that is not a read-ahead-for-next-pc entry
-     * to the front of the queue. If this operation changes the next pc in the
-     * trace, next_trace_pc will be updated.
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t that is not a
+     * read-ahead-for-next-pc entry to the front of the queue. Such entries must be
+     * returned before the ones that have been read-ahead and queued to determine the
+     * next trace pc.
+     *
+     * If this operation changes the next pc in the trace, next_trace_pc will be updated.
      */
     void
     push_front_non_readahead(const trace_entry_t &entry, uint64_t &next_trace_pc);
@@ -130,47 +139,60 @@ private:
     void
     pop_back();
 
+    // Trace entries queued up to be returned.
     std::deque<trace_entry_t> entries_;
+    // PCs for the trace entries in entries_ that have a PC (see entry_has_pc()). This
+    // allows efficient lookup of the next trace pc.
+    // The elements here will be in the same order as the corresponding one in entries_,
+    // but there may not be an element here for each one in entries_.
     std::deque<uint64_t> pcs_;
     size_t non_readahead_front_count_ = 0;
 };
 
 /**
- * Helper to share logic for reading ahead trace_entry_t records from the input in a
- * way that we always know the next continuous pc in the trace after the current record.
+ * Helper to share logic for reading ahead #dynamorio::drmemtrace::trace_entry_t records
+ * from the input in a way that we always know the next continuous pc in the trace after
+ * the current record.
  */
 class trace_entry_readahead_helper_t {
 public:
     /**
-     * trace_entry_readahead_helper_t needs to manage some state of the reader_t (or
-     * record_reader_t) that's using it for readahead. The file_reader_t (or
-     * record_file_reader_t) communicates some state to the base reader_t class using
-     * data members in the reader_t; we need to manage that state to take into account
+     * #dynamorio::drmemtrace::trace_entry_readahead_helper_t needs to manage some state
+     * of the #dynamorio::drmemtrace::reader_t (or
+     * #dynamorio::drmemtrace::record_reader_t) that's using it for readahead. The
+     * #dynamorio::drmemtrace::file_reader_t (or
+     * #dynamorio::drmemtrace::record_file_reader_t) communicates some state to the base
+     * #dynamorio::drmemtrace::reader_t class using data members in the
+     * #dynamorio::drmemtrace::reader_t; we need to manage that state to take into account
      * our read-ahead queue.
      *
      * Specifically:
-     * - reader_at_eof points to the bool in reader_t that denotes when the input has
-     *   reached its end. Even though the input may have reached the end, the read-ahead
-     *   queue may not have.
-     * - reader_cur_entry points to the last read trace_entry_t. The last trace_entry_t
-     *   actually read from the input is likely not the one we want the reader_t to use
-     *   next (because we perform readahead).
+     * - reader_at_eof points to the bool in #dynamorio::drmemtrace::reader_t that
+     *   denotes when the input has reached its end. Even though the input may have
+     *   reached the end, the read-ahead queue may not have.
+     * - reader_cur_entry points to the last read #dynamorio::drmemtrace::trace_entry_t.
+     *   The last #dynamorio::drmemtrace::trace_entry_t actually read from the input is
+     *   likely not the one we want the #dynamorio::drmemtrace::reader_t to use next
+     *   (because we perform readahead).
      *
-     * Here we accept pointers to such reader_t state; we know what the file_reader_t
-     * returned, and can combine it with the read-ahead queue's state so the reader_t
-     * sees the correct thing.
+     * Here we accept pointers to such #dynamorio::drmemtrace::reader_t state; we know
+     * what the #dynamorio::drmemtrace::file_reader_t returned, and can combine it with
+     * the read-ahead queue's state so the #dynamorio::drmemtrace::reader_t sees the
+     * correct thing.
      *
      * Other parameters:
      * - reader_next_trace_pc points to the reader_t data member where we'll write the
      *   next trace pc.
-     * - reader_entry_queue points to the entry_queue_t that will be used to store the
-     *   readahead entries. This needs to be shared with the reader_t because it needs
-     *   the same queue to store some other queued up non-readahead entries too.
+     * - reader_entry_queue points to the #dynamorio::drmemtrace::entry_queue_t that
+     *   will be used to store the readahead entries. This needs to be shared with
+     *   the #dynamorio::drmemtrace::reader_t because it needs the same queue to store
+     *   some other queued up non-readahead entries too.
      * - online denotes whether we're in the online mode, as opposed to offline.
-     *   trace_entry_t readahead is disabled in the online mode.
+     *   #dynamorio::drmemtrace::trace_entry_t readahead is disabled in the online mode.
      *
-     * We could potentially just store the reader_t* here, instead of multiple state
-     * object pointers, but the current way makes the contract more explicit.
+     * We could potentially just store the #dynamorio::drmemtrace::reader_t* here,
+     * instead of multiple state object pointers, but the current way makes the contract
+     * more explicit.
      */
     trace_entry_readahead_helper_t(bool *online, trace_entry_t *reader_cur_entry,
                                    bool *reader_at_eof, uint64_t *reader_next_trace_pc,
@@ -188,7 +210,8 @@ public:
      * state of the input (which takes into account the presence of read-ahead entries)
      * in *reader_at_eof_, and the next trace pc in *reader_next_trace_pc_.
      *
-     * For convenience of the reader_t, it returns either reader_cur_entry_ or nullptr.
+     * For convenience of the #dynamorio::drmemtrace::reader_t, it returns either
+     * reader_cur_entry_ or nullptr.
      */
     trace_entry_t *
     read_next_entry_and_trace_pc();
