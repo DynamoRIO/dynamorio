@@ -1101,7 +1101,8 @@ drx_register_time_scaling(drx_time_scale_t *options)
 
     drmgr_register_filter_syscall_event(event_filter_syscall);
 
-    if (!drmgr_register_thread_init_event_ex(event_thread_init, &init_priority) ||
+    if (!dr_register_post_attach_event(event_post_attach) ||
+        !drmgr_register_thread_init_event_ex(event_thread_init, &init_priority) ||
         !drmgr_register_thread_exit_event_ex(event_thread_exit, &exit_priority) ||
         !drmgr_register_pre_syscall_event_ex(event_pre_syscall, &presys_priority) ||
         !drmgr_register_post_syscall_event_ex(event_post_syscall, &postsys_priority))
@@ -1112,16 +1113,6 @@ drx_register_time_scaling(drx_time_scale_t *options)
         return false;
 
     memset(stats, 0, sizeof(stats));
-
-    if (!dr_register_post_attach_event(event_post_attach)) {
-        /* Failure means we are not mid-process, so this is a safe place for
-         * timer snapshots.
-         * XXX i#7598: Change the post-attach event to always fire, since now that
-         * it's recommended for all snapshots clients shouldn't have to explicitly
-         * call during init like this.
-         */
-        event_post_attach();
-    }
 
     return true;
 }
