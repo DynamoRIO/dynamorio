@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -56,6 +56,13 @@
 
 /****************************************************************************
  * DR Application Interface
+ */
+
+/* XXX i#7598: Once we make -synchronous_attach on by default, we need the
+ * following changes:
+ * + Document that dr_app_setup() suspends all threads until dr_app_start() is called;
+ *   possibly deprecate use of separate _setup from _start.
+ * + Deprecate separate stop from cleanup.
  */
 
 /**

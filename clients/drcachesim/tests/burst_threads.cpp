@@ -195,13 +195,22 @@ test_main(int argc, const char *argv[])
     // merged result several GB's: too much for a test.  We thus cap each thread.
     // We set -disable_traces to help stress state recreation
     // in drbbdup with prefixes on every block.
-    std::string ops = std::string(
-        "-stderr_mask 0xc -disable_traces -client_lib ';;-offline -align_endpoints "
-        "-max_trace_size 256K ");
-    /* Support passing in extra tracer options. */
-    for (int i = 1; i < argc; ++i)
-        ops += std::string(argv[i]) + " ";
-    ops += "'";
+    std::string dr_ops("-stderr_mask 0xc -disable_traces ");
+    std::string tracer_ops("-offline -align_endpoints -max_trace_size 256K ");
+    /* Support passing in extra DR and tracer options. */
+    bool next_dr = false;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg(argv[i]);
+        if (next_dr) {
+            dr_ops += arg + " ";
+            next_dr = false;
+        } else if (arg == "-dr") {
+            next_dr = true;
+        } else {
+            tracer_ops += arg + " ";
+        }
+    }
+    std::string ops = dr_ops + " -client_lib ';;" + tracer_ops + "'";
     if (!my_setenv("DYNAMORIO_OPTIONS", ops.c_str()))
         std::cerr << "failed to set env var!\n";
 

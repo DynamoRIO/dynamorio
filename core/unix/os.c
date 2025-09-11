@@ -11230,6 +11230,14 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     }
 #endif
 
+    if (DYNAMO_OPTION(synchronous_attach) && !dr_started_and_attached) {
+        dcontext->whereami = DR_WHERE_SIGNAL_HANDLER;
+        LOG(THREAD, LOG_TOP, 2, "%s: waiting for all threads to be taken over\n",
+            __FUNCTION__);
+        wait_for_event(dr_all_threads_attached, 0);
+        dcontext->whereami = DR_WHERE_APP;
+    }
+
     /* Start interpreting from the signal context. */
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on d_r_initstack*/, false /*shouldn't return*/);

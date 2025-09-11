@@ -1920,7 +1920,10 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm)
         }
         if (skip)
             continue;
-        if (sig_is_alarm_signal(i) && ignore_alarm) {
+        /* We ignore all delayable and not just sig_is_alarm_signal() to avoid
+         * as many signal-during-init issues as possible.
+         */
+        if (can_always_delay[i] && ignore_alarm) {
             LOG(THREAD, LOG_ASYNCH, 2, "\tignoring %d initially\n", i);
             intercept_signal_ignore_initially(dcontext, info, i);
         } else {
@@ -1937,7 +1940,7 @@ signal_reinstate_alarm_handlers(dcontext_t *dcontext)
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (!info->sighand->we_intercept[i] || !sig_is_alarm_signal(i))
+        if (!info->sighand->we_intercept[i] || !can_always_delay[i])
             continue;
         LOG(THREAD, LOG_ASYNCH, 2, "\trestoring DR handler for %d\n", i);
         intercept_signal_no_longer_ignore(dcontext, info, i);
