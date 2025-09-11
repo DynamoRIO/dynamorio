@@ -2831,6 +2831,14 @@ thread_attach_setup(priv_mcontext_t *mc)
     thread_attach_remove_from_table(data);
     data = NULL;
 
+    if (DYNAMO_OPTION(synchronous_attach) && !dr_started_and_attached) {
+        dcontext->whereami = DR_WHERE_SIGNAL_HANDLER;
+        LOG(THREAD, LOG_TOP, 2, "%s: waiting for all threads to be taken over\n",
+            __FUNCTION__);
+        wait_for_event(dr_all_threads_attached, 0);
+        dcontext->whereami = DR_WHERE_APP;
+    }
+
     transfer_to_dispatch(dcontext, get_mcontext(dcontext), false /*!full_DR_state*/);
     ASSERT_NOT_REACHED();
 }
@@ -7548,7 +7556,7 @@ os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uin
                                       0 /* not page-file-backed */,            /* 4 */
                                       &li_offs,                                /* 5 */
                                       (PSIZE_T)size,                           /* 6 */
-                                      ViewUnmap /* XXX: expose? */,          /* 7 */
+                                      ViewUnmap /* XXX: expose? */,            /* 7 */
                                       0 /* no special top-down or anything */, /* 8 */
                                       osprot);                                 /* 9 */
 #    ifdef X64

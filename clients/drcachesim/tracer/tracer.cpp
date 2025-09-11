@@ -474,6 +474,12 @@ instrumentation_init()
         DR_ASSERT(false);
     drmgr_register_filter_syscall_event(event_filter_syscall);
 
+    /* XXX i#7598: With -synchronous_attach, no thread executes in nop mode
+     * before event_post_attach, so we could start out in trace mode.
+     * Safer to leave as-is in case -synchronous_attach is turned off; but if
+     * the option is removed (permanently on) we can then clean up here and
+     * remove the attach part of -align_endpoints.
+     */
     if (align_attach_detach_endpoints())
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
     else if (get_initial_no_trace_for_instrs_value() != 0)

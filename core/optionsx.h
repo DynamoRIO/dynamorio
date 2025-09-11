@@ -3248,6 +3248,9 @@ OPTION_DEFAULT(liststring_t, ignore_assert_list, EMPTY_STRING,
  * 'Bug #4809 @arch/arch.c:145;Ignore message @arch/arch.c:146'
  */
 
+/* XXX i#7598: Remove this option once it is proven to work on large apps. */
+OPTION_DEFAULT(bool, synchronous_attach, true,
+               "pause all threads until every thread is taken over at attach time")
 /* Needed primarily for clients but technically all configurations
  * can have racy crashes at exit time (xref PR 470957).
  */
