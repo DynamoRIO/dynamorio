@@ -71,6 +71,10 @@ extern "C" {
  */
 #    define dr_register_exit_event DO_NOT_USE_exit_event_USE_drmgr_events_instead
 #    define dr_unregister_exit_event DO_NOT_USE_exit_event_USE_drmgr_events_instead
+#    define dr_register_post_attach_event \
+        DO_NOT_USE_post_attach_event_USE_drmgr_events_instead
+#    define dr_unregister_post_attach_event \
+        DO_NOT_USE_post_attach_event_USE_drmgr_events_instead
 #    define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
 #    define dr_unregister_thread_init_event \
         DO_NOT_USE_thread_event_USE_drmgr_events_instead
@@ -1148,6 +1152,45 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_exit_event_user_data(void (*func)(void *user_data));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the post_attach event, which behaves
+ * just like the event registered by dr_register_post_attach_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_post_attach_event(void (*func)(void));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the post_attach event, which behaves
+ * just like the event registered by dr_register_post_attach_event() but is
+ * ordered by \p priority. Allows for the passing of user data \p user_data
+ * which is available upon the execution of the callback.
+ * \return whether successful.
+ */
+bool
+drmgr_register_post_attach_event_user_data(void (*func)(void *user_data),
+                                           drmgr_priority_t *priority, void *user_data);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the post_attach event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_post_attach_event(void (*func)(void));
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the post_attach event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_post_attach_event_user_data(void (*func)(void *user_data));
 
 DR_EXPORT
 /**
