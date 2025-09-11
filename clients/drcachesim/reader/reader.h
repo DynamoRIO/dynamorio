@@ -79,25 +79,20 @@ namespace drmemtrace {
  *
  * These entries may have been:
  * - read in advance to allow us to figure out the next continuous pc in the
- *   trace (aka the readahead entries).
+ *   trace.
  * - synthesized by the reader on a skip event (like the timestamp and cpu
  *   markers).
  * - seen by the reader but not yet processed (like the instr entry used
  *   to decide when a skip is done).
- *
- * The non-readahead entries are always added to the front of the queue (using
- * #dynamorio::drmemtrace::entry_queue_t::push_front_non_readahead()), as they
- * hold precedence over the readahead ones (which are added using
- * #dynamorio::drmemtrace::entry_queue_t::push_back_readahead()), and must be
- * returned first.
+ * - trace header entries that were rearranged or modified but not yet used.
  */
 class entry_queue_t {
 public:
     /**
-     * Removes all readahead entries from the queue.
+     * Removes all entries from the queue.
      */
     void
-    clear_readahead();
+    clear();
     /**
      * Returns whether the queue is empty.
      */
@@ -114,17 +109,17 @@ public:
      * the input ahead of its time to the back of the queue.
      */
     void
-    push_back_readahead(const trace_entry_t &entry);
+    push_back(const trace_entry_t &entry);
     /**
-     * Adds the given #dynamorio::drmemtrace::trace_entry_t that is not a
-     * read-ahead-for-next-pc entry to the front of the queue. Such entries must be
-     * returned before the ones that have been read-ahead and queued to determine the
-     * next trace pc.
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t to the front of the
+     * queue. This entry may have been synthesized by the reader (e.g., the timestamp
+     * and cpu entries are synthesized after a skip), or the reader may have decided
+     * it does not want to process it yet (e.g., the first instruction after a skip).
      *
      * If this operation changes the next pc in the trace, next_trace_pc will be updated.
      */
     void
-    push_front_non_readahead(const trace_entry_t &entry, uint64_t &next_trace_pc);
+    push_front(const trace_entry_t &entry, uint64_t &next_trace_pc);
     /**
      * Returns the next entry from the queue in the entry arg, and the next
      * continuous pc in the trace in the next_pc arg if it exists or zero
@@ -136,8 +131,6 @@ public:
 private:
     bool
     entry_has_pc(const trace_entry_t &entry, uint64_t *pc = nullptr);
-    void
-    pop_back();
 
     // Trace entries queued up to be returned.
     std::deque<trace_entry_t> entries_;
@@ -146,7 +139,6 @@ private:
     // The elements here will be in the same order as the corresponding one in entries_,
     // but there may not be an element here for each one in entries_.
     std::deque<uint64_t> pcs_;
-    size_t non_readahead_front_count_ = 0;
 };
 
 /**
@@ -185,8 +177,8 @@ public:
      *   next trace pc.
      * - reader_entry_queue points to the #dynamorio::drmemtrace::entry_queue_t that
      *   will be used to store the readahead entries. This needs to be shared with
-     *   the #dynamorio::drmemtrace::reader_t because it needs the same queue to store
-     *   some other queued up non-readahead entries too.
+     *   the #dynamorio::drmemtrace::reader_t because it creates some synthesized
+     *   entries in some cases.
      * - online denotes whether we're in the online mode, as opposed to offline.
      *   #dynamorio::drmemtrace::trace_entry_t readahead is disabled in the online mode.
      *

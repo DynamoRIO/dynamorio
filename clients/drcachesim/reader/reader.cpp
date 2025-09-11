@@ -57,13 +57,10 @@ namespace drmemtrace {
     } while (0)
 
 void
-entry_queue_t::clear_readahead()
+entry_queue_t::clear()
 {
-    while (entries_.size() > non_readahead_front_count_) {
-        // Entries in the front of the queue were not readahead, and
-        // must still be returned.
-        pop_back();
-    }
+    entries_ = std::deque<trace_entry_t>();
+    pcs_ = std::deque<uint64_t>();
 }
 
 bool
@@ -84,7 +81,7 @@ entry_queue_t::has_record_and_next_pc()
 }
 
 void
-entry_queue_t::push_back_readahead(const trace_entry_t &entry)
+entry_queue_t::push_back(const trace_entry_t &entry)
 {
     uint64_t pc;
     if (entry_has_pc(entry, &pc)) {
@@ -94,8 +91,7 @@ entry_queue_t::push_back_readahead(const trace_entry_t &entry)
 }
 
 void
-entry_queue_t::push_front_non_readahead(const trace_entry_t &entry,
-                                        uint64_t &next_trace_pc)
+entry_queue_t::push_front(const trace_entry_t &entry, uint64_t &next_trace_pc)
 {
     uint64_t pc;
     if (entry_has_pc(entry, &pc)) {
@@ -103,14 +99,11 @@ entry_queue_t::push_front_non_readahead(const trace_entry_t &entry,
         next_trace_pc = pc;
     }
     entries_.push_front(entry);
-    ++non_readahead_front_count_;
 }
 
 void
 entry_queue_t::pop_front(trace_entry_t &entry, uint64_t &next_pc)
 {
-    if (non_readahead_front_count_ > 0)
-        --non_readahead_front_count_;
     entry = entries_.front();
     entries_.pop_front();
     if (entry_has_pc(entry)) {
@@ -137,16 +130,6 @@ entry_queue_t::entry_has_pc(const trace_entry_t &entry, uint64_t *pc)
         return true;
     }
     return false;
-}
-
-void
-entry_queue_t::pop_back()
-{
-    trace_entry_t entry = entries_.back();
-    entries_.pop_back();
-    if (entry_has_pc(entry)) {
-        pcs_.pop_back();
-    }
 }
 
 trace_entry_readahead_helper_t::trace_entry_readahead_helper_t(
@@ -193,7 +176,7 @@ trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
             VPRINT(this, 4, "queued: type=%s (%d), size=%d, addr=0x%zx\n",
                    trace_type_names[entry->type], entry->type, entry->size, entry->addr);
             // We deliberately make a copy of *entry here.
-            reader_entry_queue_->push_back_readahead(*entry);
+            reader_entry_queue_->push_back(*entry);
         }
     }
     trace_entry_t *ret_entry = nullptr;
@@ -604,7 +587,7 @@ reader_t::pre_skip_instructions()
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
-            entry_queue_.push_front_non_readahead(*input_entry_, next_trace_pc_);
+            entry_queue_.push_front(*input_entry_, next_trace_pc_);
             break;
         }
         process_input_entry();
@@ -723,9 +706,9 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         entry_copy_ = timestamp;
         input_entry_ = &entry_copy_;
         process_input_entry();
-        entry_queue_.push_front_non_readahead(next_instr, next_trace_pc_);
+        entry_queue_.push_front(next_instr, next_trace_pc_);
         if (cpu.type == TRACE_TYPE_MARKER)
-            entry_queue_.push_front_non_readahead(cpu, next_trace_pc_);
+            entry_queue_.push_front(cpu, next_trace_pc_);
     } else {
         // We missed the markers somehow.
         // next_instr is our target instr, so make that the next record.
