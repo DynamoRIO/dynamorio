@@ -1970,10 +1970,13 @@ send_all_other_threads_native(void)
 static void
 detach_set_mcontext_helper(thread_record_t *thread)
 {
-    priv_mcontext_t mc;
+    /* Translate directly into the dcontext's mcontext so the detach state
+     * is available via dr_get_mcontext().
+     */
+    priv_mcontext_t *mc = get_mcontext(thread->dcontext);
     LOG(GLOBAL, LOG_ALL, 2, "Detach: translating " TIDFMT "\n", thread);
     DEBUG_DECLARE(bool ok =)
-    thread_get_mcontext(thread, &mc);
+    thread_get_mcontext(thread, mc);
     ASSERT(ok);
     /* For a thread at a syscall, we use SA_RESTART for our suspend signal,
      * so the kernel will adjust the restart point back to the syscall for us
@@ -1987,10 +1990,10 @@ detach_set_mcontext_helper(thread_record_t *thread)
          */
         "Detach: pre-xl8 pc=%p (%02x %02x %02x %02x %02x), xsp=%p "
         "for thread " TIDFMT "\n",
-        mc.pc, *mc.pc, *(mc.pc + 1), *(mc.pc + 2), *(mc.pc + 3), *(mc.pc + 4), mc.xsp,
-        thread->id);
+        mc->pc, *mc->pc, *(mc->pc + 1), *(mc->pc + 2), *(mc->pc + 3), *(mc->pc + 4),
+        mc->xsp, thread->id);
     DEBUG_DECLARE(ok =)
-    translate_mcontext(thread, &mc, true /*restore mem*/, NULL /*f*/);
+    translate_mcontext(thread, mc, true /*restore mem*/, NULL /*f*/);
     ASSERT(ok);
     if (!thread->under_dynamo_control) {
         LOG(GLOBAL, LOG_ALL, 1, "Detach : thread " TIDFMT " already running natively\n",
@@ -2001,17 +2004,17 @@ detach_set_mcontext_helper(thread_record_t *thread)
             put_back_native_retaddrs(thread->dcontext);
         }
     }
-    detach_finalize_translation(thread, &mc);
-    LOG(GLOBAL, LOG_ALL, 1, "Detach: pc=" PFX " for thread " TIDFMT "\n", mc.pc,
+    detach_finalize_translation(thread, mc);
+    LOG(GLOBAL, LOG_ALL, 1, "Detach: pc=" PFX " for thread " TIDFMT "\n", mc->pc,
         thread->id);
-    ASSERT(!is_dynamo_address(mc.pc) && !in_fcache(mc.pc));
+    ASSERT(!is_dynamo_address(mc->pc) && !in_fcache(mc->pc));
     /* XXX case 7457: if the thread is suspended after it received a fault
      * but before the kernel copied the faulting context to the user mode
      * structures for the handler, it could result in a codemod exception
      * that wouldn't happen natively!
      */
     DEBUG_DECLARE(ok =)
-    thread_set_mcontext(thread, &mc);
+    thread_set_mcontext(thread, mc);
     ASSERT(ok);
     /* i#249: restore app's PEB/TEB fields */
     IF_WINDOWS(restore_peb_pointer_for_thread(thread->dcontext));

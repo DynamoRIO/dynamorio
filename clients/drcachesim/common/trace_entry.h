@@ -735,6 +735,14 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION,
 
+    /**
+     * This marker is used in raw offline traces to indicate the endpoint of the
+     * final block in a thread at detach, or the interruption point of a block by a
+     * relocation performed by DR.  This marker is not visible in a final trace: it
+     * is consumed during post-processing.  The marker value is the PC in the block.
+     */
+    TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

@@ -1329,6 +1329,15 @@ if (BUILD_TESTS)
            COMMAND drmemtrace_shared_raw2trace_tests)
   set_tests_properties(drmemtrace_shared_raw2trace_tests PROPERTIES
     TIMEOUT ${test_seconds})
+
+  if (X86 AND X64 AND LINUX)
+    add_executable(tool.drcacheoff.longblock tests/burst_longblock.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.longblock)
+    use_DynamoRIO_static_client(tool.drcacheoff.longblock drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.longblock test_helpers)
+    add_win32_flags(tool.drcacheoff.longblock ON)
+    link_with_pthread(tool.drcacheoff.longblock)
+  endif ()
 endif ()
 
 ##################################################

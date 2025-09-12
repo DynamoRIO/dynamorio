@@ -475,6 +475,10 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
                             trace_marker_type_t marker_type, uintptr_t marker_val,
                             byte *&buf, DR_PARAM_OUT bool *flush_decode_cache)
 {
+    if (marker_type == TRACE_MARKER_TYPE_MIDBLOCK_END_PC) {
+        // Consumed by raw2trace and not made visible in final trace.
+        return true;
+    }
     if (marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         uint64 stamp = static_cast<uint64>(marker_val);
         VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
@@ -1539,14 +1543,17 @@ raw2trace_t::interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_
                 continue;
             }
 
-            if (next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            if (next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                next_entry->extended.valueB == TRACE_MARKER_TYPE_MIDBLOCK_END_PC) {
+                bool is_kernel =
+                    next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT;
                 uintptr_t marker_val = 0;
                 if (!get_marker_value(tdata, &next_entry, &marker_val)) {
                     return false;
                 }
                 // Check the stored PC against cur_offs or cur_pc based on version.
                 int version = get_version(tdata);
-                if (version < OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
+                if (is_kernel && version < OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
                     // We have only the offs, so we can't handle differing modules for
                     // the source and target for legacy traces.
                     if (marker_val == cur_offs)
@@ -1757,13 +1764,16 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // i#7050: remove instructions which were interrupted by a kernel event,
         // or caused a fault.
         // The trace is recording instruction retirement, premmpted instructions
-        // and the corresponding memrefs, and instructions casuing a fault are
+        // and the corresponding memrefs, and instructions causing a fault are
         // removed.
         const bool interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
         if (interrupted) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
             // indicate an instruction is removed from the trace because it was
             // interrupted by an asynchronous signal or caused a fault.
+            // We emit the marker for a midblock exit (detach or DR transfer)
+            // as well: it helps on the DR transfer, and doesn't hurt on the exit
+            // as normally the exit PC is the post-syscall PC and we never match it.
             trace_entry_t trace_entry;
             trace_entry.addr = 0;
             trace_entry_t *trace_entry_ptr = &trace_entry;
