@@ -47,22 +47,6 @@
 
 #define OUT /* just a marker */
 
-#ifdef DEBUG
-#    define VPRINT(reader, level, ...)                            \
-        do {                                                      \
-            if ((reader)->verbosity_ >= (level)) {                \
-                fprintf(stderr, "%s ", (reader)->output_prefix_); \
-                fprintf(stderr, __VA_ARGS__);                     \
-            }                                                     \
-        } while (0)
-// clang-format off
-#define UNUSED(x) /* nothing */
-// clang-format on
-#else
-#    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED(x) ((void)(x))
-#endif
-
 namespace dynamorio {
 namespace drmemtrace {
 

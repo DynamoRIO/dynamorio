@@ -265,8 +265,7 @@ public:
     {
         per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
         uint64_t pc;
-        bool has_pc = entry_has_pc(record, pc);
-        if (has_pc) {
+        if (entry_has_pc(record, pc)) {
             assert(pc == shard->expected_next_trace_pc);
             shard->expected_next_trace_pc = shard->stream->get_next_trace_pc();
         } else {
@@ -277,8 +276,7 @@ public:
 
 private:
     struct per_shard_t {
-        // Just a random non-zero init value so zero results do not sneak by us.
-        uint64_t expected_next_trace_pc = 0x8badf00d;
+        uint64_t expected_next_trace_pc = -1;
         memtrace_stream_t *stream;
     };
 };
@@ -302,16 +300,7 @@ template <>
 bool
 next_trace_pc_test_tool_t<trace_entry_t>::entry_has_pc(trace_entry_t entry, uint64_t &pc)
 {
-    if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
-        pc = entry.addr;
-        return true;
-    }
-    if (static_cast<trace_type_t>(entry.type) == TRACE_TYPE_MARKER &&
-        entry.size == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        pc = entry.addr;
-        return true;
-    }
-    return false;
+    return entry_queue_t::entry_has_pc(entry, &pc);
 }
 
 template class next_trace_pc_test_tool_t<memref_t>;

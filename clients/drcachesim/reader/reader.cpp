@@ -59,8 +59,8 @@ namespace drmemtrace {
 void
 entry_queue_t::clear()
 {
-    entries_ = std::deque<trace_entry_t>();
-    pcs_ = std::deque<uint64_t>();
+    entries_.clear();
+    pcs_.clear();
 }
 
 bool
@@ -70,10 +70,12 @@ entry_queue_t::empty()
 }
 
 bool
-entry_queue_t::has_record_and_next_pc()
+entry_queue_t::has_record_and_next_pc_for_front()
 {
     if (entries_.empty())
         return false;
+    // If the record at the front is already a record with a PC, we want
+    // there to be yet another record in the queue that holds the next PC.
     bool front_has_pc = entry_has_pc(entries_.front());
     int non_first_entries_with_pc =
         static_cast<int>(pcs_.size()) - (front_has_pc ? 1 : 0);
@@ -147,6 +149,8 @@ trace_entry_readahead_helper_t::trace_entry_readahead_helper_t(
     assert(reader_at_eof_ != nullptr);
     assert(reader_next_trace_pc_ != nullptr);
     assert(reader_entry_queue_ != nullptr);
+    UNUSED(verbosity_);
+    UNUSED(output_prefix_);
 }
 
 trace_entry_t *
@@ -155,11 +159,15 @@ trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
     if (*online_) {
         // We don't support any readahead in the online mode. We simply invoke the
         // reader's logic. No other management required.
+        // XXX: Add read-ahead support for online mode. Needs more thought to
+        // determine feasibility and cost of read-ahead, and whether we want to
+        // always read-ahead or only when memtrace_stream_t::get_next_trace_pc()
+        // asks for it.
         return read_next_entry();
     }
     // Continue reading ahead until we have a record and the next continuous
     // pc in the trace, or if the input stops returning new records.
-    while (!reader_entry_queue_->has_record_and_next_pc() && !at_null_) {
+    while (!reader_entry_queue_->has_record_and_next_pc_for_front() && !at_null_) {
         trace_entry_t *entry = read_next_entry();
         // As noted on the constructor, read_next_entry() modifies reader_t
         // state pointed to by reader_at_eof_ and reader_cur_entry_;
@@ -182,7 +190,7 @@ trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
     trace_entry_t *ret_entry = nullptr;
     if (!reader_entry_queue_->empty()) {
         // If we're at the end of the trace and there's no next continuous pc
-        // in the trace, reader_entry_queue_ may simply set
+        // in the trace, reader_entry_queue_ will simply set
         // *reader_next_trace_pc_ to zero.
         reader_entry_queue_->pop_front(*reader_cur_entry_, *reader_next_trace_pc_);
         // For convenience of the reader user, we also return a pointer to

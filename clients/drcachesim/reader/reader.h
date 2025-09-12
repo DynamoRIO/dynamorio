@@ -69,8 +69,12 @@ namespace drmemtrace {
                 fprintf(stderr, __VA_ARGS__);                     \
             }                                                     \
         } while (0)
+// clang-format off
+#    define UNUSED(x) /* nothing */
+// clang-format on
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
+#    define UNUSED(x) ((void)(x))
 #endif
 
 /**
@@ -99,11 +103,11 @@ public:
     bool
     empty();
     /**
-     * Returns whether the queue is non-empty and has some later record
-     * that tells us the next continuous pc in the trace.
+     * Returns whether the queue is non-empty and has some record that tells us
+     * the next continuous pc in the trace for the record in the front.
      */
     bool
-    has_record_and_next_pc();
+    has_record_and_next_pc_for_front();
     /**
      * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
      * the input ahead of its time to the back of the queue.
@@ -128,10 +132,14 @@ public:
     void
     pop_front(trace_entry_t &entry, uint64_t &next_pc);
 
-private:
-    bool
+    /**
+     * Returns whether the given #dynamorio::drmemtrace::trace_entry_t has a PC, and if
+     * so, sets it at the given *pc.
+     */
+    static bool
     entry_has_pc(const trace_entry_t &entry, uint64_t *pc = nullptr);
 
+private:
     // Trace entries queued up to be returned.
     std::deque<trace_entry_t> entries_;
     // PCs for the trace entries in entries_ that have a PC (see entry_has_pc()). This
@@ -228,9 +236,6 @@ private:
     bool at_null_ = false;
     bool at_eof_ = false;
 
-protected:
-    // Made protected insted of private to avoid complains about being unused
-    // in release build.
     int verbosity_ = 0;
     const char *output_prefix_ = "[readahead_helper]";
 };
