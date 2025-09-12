@@ -276,7 +276,8 @@ public:
 
 private:
     struct per_shard_t {
-        uint64_t expected_next_trace_pc = -1;
+        // Just a non-zero init value so zero results do not sneak by us.
+        uint64_t expected_next_trace_pc = static_cast<uint64_t>(-1);
         memtrace_stream_t *stream;
     };
 };

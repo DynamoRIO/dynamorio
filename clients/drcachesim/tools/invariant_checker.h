@@ -256,7 +256,9 @@ protected:
         uint64_t error_count_ = 0;
         int64_t last_chunk_ordinal_ = -1;
         bool adjusted_ordinal_for_incomplete_ = false;
-        uint64_t last_next_trace_pc_ = -1;
+        // Initializing to a non-zero constant so that invalid zero values
+        // are detected properly.
+        uint64_t last_next_trace_pc_ = static_cast<uint64_t>(-1);
     };
 
     // We provide this for subclasses to run these invariants with custom
