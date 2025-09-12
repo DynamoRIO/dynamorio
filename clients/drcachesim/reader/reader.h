@@ -109,17 +109,6 @@ public:
     bool
     has_record_and_next_pc_for_front();
     /**
-     * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
-     * the input ahead of its time to the back of the queue.
-     *
-     * Note that for trace entries that need to be added back to the queue (maybe
-     * because they cannot be returned just yet by the reader), the push_front
-     * API below should be used, as there may be many readahead entries already
-     * in this queue.
-     */
-    void
-    push_back(const trace_entry_t &entry);
-    /**
      * Adds the given #dynamorio::drmemtrace::trace_entry_t to the front of the
      * queue. This entry may have been synthesized by the reader (e.g., the timestamp
      * and cpu entries are synthesized after a skip), or the reader may have decided
@@ -145,6 +134,21 @@ public:
     entry_has_pc(const trace_entry_t &entry, uint64_t *pc = nullptr);
 
 private:
+    friend class trace_entry_readahead_helper_t;
+    /**
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
+     * the input ahead of its time to the back of the queue.
+     *
+     * Note that for trace entries that need to be added back to the queue (maybe
+     * because they cannot be returned just yet by the reader), the push_front
+     * API should be used, as there may be many readahead entries already
+     * in this queue. To avoid accidental misuse, this is marked as private, intended
+     * to be accessed only by the friend class
+     * #dynamorio::drmemtrace::trace_entry_readahead_helper_t.
+     */
+    void
+    push_back(const trace_entry_t &entry);
+
     // Trace entries queued up to be returned.
     std::deque<trace_entry_t> entries_;
     // PCs for the trace entries in entries_ that have a PC (see entry_has_pc()). This
@@ -161,47 +165,7 @@ private:
  */
 class trace_entry_readahead_helper_t {
 public:
-    /**
-     * #dynamorio::drmemtrace::trace_entry_readahead_helper_t needs to manage some state
-     * of the #dynamorio::drmemtrace::reader_t (or
-     * #dynamorio::drmemtrace::record_reader_t) that's using it for readahead. The
-     * #dynamorio::drmemtrace::file_reader_t (or
-     * #dynamorio::drmemtrace::record_file_reader_t) communicates some state to the base
-     * #dynamorio::drmemtrace::reader_t class using data members in the
-     * #dynamorio::drmemtrace::reader_t; we need to manage that state to take into account
-     * our read-ahead queue.
-     *
-     * Specifically:
-     * - reader_at_eof points to the bool in #dynamorio::drmemtrace::reader_t that
-     *   denotes when the input has reached its end. Even though the input may have
-     *   reached the end, the read-ahead queue may not have.
-     * - reader_cur_entry points to the last read #dynamorio::drmemtrace::trace_entry_t.
-     *   The last #dynamorio::drmemtrace::trace_entry_t actually read from the input is
-     *   likely not the one we want the #dynamorio::drmemtrace::reader_t to use next
-     *   (because we perform readahead).
-     *
-     * Here we accept pointers to such #dynamorio::drmemtrace::reader_t state; we know
-     * what the #dynamorio::drmemtrace::file_reader_t returned, and can combine it with
-     * the read-ahead queue's state so the #dynamorio::drmemtrace::reader_t sees the
-     * correct thing.
-     *
-     * Other parameters:
-     * - reader_next_trace_pc points to the reader_t data member where we'll write the
-     *   next trace pc.
-     * - reader_entry_queue points to the #dynamorio::drmemtrace::entry_queue_t that
-     *   will be used to store the readahead entries. This needs to be shared with
-     *   the #dynamorio::drmemtrace::reader_t because it creates some synthesized
-     *   entries in some cases.
-     * - online denotes whether we're in the online mode, as opposed to offline.
-     *   #dynamorio::drmemtrace::trace_entry_t readahead is disabled in the online mode.
-     *
-     * We could potentially just store the #dynamorio::drmemtrace::reader_t* here,
-     * instead of multiple state object pointers, but the current way makes the contract
-     * more explicit.
-     */
-    trace_entry_readahead_helper_t(bool *online, trace_entry_t *reader_cur_entry,
-                                   bool *reader_at_eof, uint64_t *reader_next_trace_pc,
-                                   entry_queue_t *reader_entry_queue, int verbosity);
+    trace_entry_readahead_helper_t(bool *online, int verbosity);
 
     trace_entry_readahead_helper_t() = default;
 
@@ -211,35 +175,34 @@ public:
      * records that need to be read from the input stream for this; if the next trace
      * pc is already known, it may not read any more records at all.
      *
-     * This puts the next entry for the reader in *reader_cur_entry_, the _effective_
-     * state of the input (which takes into account the presence of read-ahead entries)
-     * in *reader_at_eof_, and the next trace pc in *reader_next_trace_pc_.
+     * This also updates the effective EOF state for the reader by calling set_at_eof().
      *
-     * For convenience of the #dynamorio::drmemtrace::reader_t, it returns either
-     * reader_cur_entry_ or nullptr.
+     * Returns nullptr if there was an error, or if the input is at EOF and the queue
+     * is empty.
      */
     trace_entry_t *
-    read_next_entry_and_trace_pc();
+    read_next_entry_and_trace_pc(entry_queue_t &entry_queue, uint64_t &next_trace_pc);
 
 private:
     // This implementation is supposed to be provided by the reader_t or record_reader_t
     // that is using the trace_entry_readahead_helper_t.
     virtual trace_entry_t *
     read_next_entry() = 0;
+    virtual bool
+    get_at_eof() = 0;
+    virtual void
+    set_at_eof(bool at_eof) = 0;
 
     // Cannot take this by value because it is set by file_reader_t after the base
     // reader_t (and hence this reader_readahead_helper_t) has been constructed.
     bool *online_ = nullptr;
 
-    // State of the reader_t that is using this object.
-    trace_entry_t *reader_cur_entry_ = nullptr;
-    bool *reader_at_eof_ = nullptr;
-    uint64_t *reader_next_trace_pc_ = nullptr;
-    entry_queue_t *reader_entry_queue_ = nullptr;
-
     // The internal state for the underlying input.
     bool at_null_ = false;
     bool at_eof_ = false;
+    // Since we return a pointer to the next trace_entry_t, we want to keep it
+    // alive by storing it here.
+    trace_entry_t last_entry_;
 
     int verbosity_ = 0;
     const char *output_prefix_ = "[readahead_helper]";
@@ -454,24 +417,11 @@ protected:
     entry_queue_t entry_queue_;
     trace_entry_t entry_copy_; // For use in returning a queue entry.
 
-    struct encoding_info_t {
-        size_t size = 0;
-        unsigned char bits[MAX_ENCODING_LENGTH];
-    };
 
-    std::unordered_map<addr_t, encoding_info_t> encodings_;
-    // Whether this reader's input stream interleaves software threads and thus
-    // some thread-based checks may not apply.
-    bool core_sharded_ = false;
-    bool found_filetype_ = false;
-
-private:
     class reader_readahead_helper_t : public trace_entry_readahead_helper_t {
     public:
         reader_readahead_helper_t(reader_t *reader)
-            : trace_entry_readahead_helper_t(&reader->online_, &reader->entry_copy_,
-                                             &reader->at_eof_, &reader->next_trace_pc_,
-                                             &reader->entry_queue_, reader->verbosity_)
+            : trace_entry_readahead_helper_t(&reader->online_, reader->verbosity_)
             , reader_(reader)
         {
             assert(reader_ != nullptr);
@@ -484,10 +434,33 @@ private:
         {
             return reader_->read_next_entry();
         }
+        virtual bool
+        get_at_eof() override
+        {
+            return reader_->at_eof_;
+        }
+        virtual void
+        set_at_eof(bool at_eof) override
+        {
+            reader_->at_eof_ = at_eof;
+        }
         reader_t *reader_ = nullptr;
     };
 
     reader_readahead_helper_t readahead_helper_;
+
+    struct encoding_info_t {
+        size_t size = 0;
+        unsigned char bits[MAX_ENCODING_LENGTH];
+    };
+
+    std::unordered_map<addr_t, encoding_info_t> encodings_;
+    // Whether this reader's input stream interleaves software threads and thus
+    // some thread-based checks may not apply.
+    bool core_sharded_ = false;
+    bool found_filetype_ = false;
+
+private:
     memref_t cur_ref_;
     memref_tid_t cur_tid_ = 0;
     memref_pid_t cur_pid_ = 0;

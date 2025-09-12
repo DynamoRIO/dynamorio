@@ -144,10 +144,11 @@ public:
     record_reader_t &
     operator++()
     {
-        bool res = readahead_helper_.read_next_entry_and_trace_pc();
-        assert(res || eof_);
-        UNUSED(res);
+        trace_entry_t *entry =
+            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
+        assert(entry != nullptr || eof_);
         if (!eof_) {
+            cur_entry_ = *entry;
             ++cur_ref_count_;
             // We increment the instr count at the encoding as that avoids multiple
             // problems with separating encodings from instrs when skipping (including
@@ -287,9 +288,7 @@ protected:
     class record_reader_readahead_helper_t : public trace_entry_readahead_helper_t {
     public:
         record_reader_readahead_helper_t(record_reader_t *reader)
-            : trace_entry_readahead_helper_t(&reader->online_, &reader->cur_entry_,
-                                             &reader->eof_, &reader->next_trace_pc_,
-                                             &reader->entry_queue_, reader->verbosity_)
+            : trace_entry_readahead_helper_t(&reader->online_, reader->verbosity_)
             , reader_(reader)
         {
             assert(reader_ != nullptr);
@@ -305,6 +304,16 @@ protected:
                 return nullptr;
             // read_next_entry reads the next entry into cur_entry_.
             return &reader_->cur_entry_;
+        }
+        virtual bool
+        get_at_eof() override
+        {
+            return reader_->eof_;
+        }
+        virtual void
+        set_at_eof(bool eof) override
+        {
+            reader_->eof_ = eof;
         }
         record_reader_t *reader_ = nullptr;
     };

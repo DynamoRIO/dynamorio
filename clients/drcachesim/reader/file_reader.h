@@ -122,7 +122,8 @@ protected:
         // the very first time for the thread.
         trace_entry_t *entry;
         trace_entry_t header = {}, pid = {}, tid = {};
-        entry = read_next_entry();
+        entry =
+            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
         if (entry == nullptr || entry->type != TRACE_TYPE_HEADER) {
             ERRMSG("Invalid header\n");
             return false;
@@ -142,7 +143,8 @@ protected:
         // for legacy traces.
         // This is a stack because they would be inserted into the entry_queue_'s front.
         std::stack<trace_entry_t> marker_stack;
-        while ((entry = read_next_entry()) != nullptr) {
+        while ((entry = readahead_helper_.read_next_entry_and_trace_pc(
+                    entry_queue_, next_trace_pc_)) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
                 // We assume the pid entry is after the tid.
                 pid = *entry;

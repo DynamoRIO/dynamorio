@@ -134,27 +134,19 @@ entry_queue_t::entry_has_pc(const trace_entry_t &entry, uint64_t *pc)
     return false;
 }
 
-trace_entry_readahead_helper_t::trace_entry_readahead_helper_t(
-    bool *online, trace_entry_t *reader_cur_entry, bool *reader_at_eof,
-    uint64_t *reader_next_trace_pc, entry_queue_t *reader_entry_queue, int verbosity)
+trace_entry_readahead_helper_t::trace_entry_readahead_helper_t(bool *online,
+                                                               int verbosity)
     : online_(online)
-    , reader_cur_entry_(reader_cur_entry)
-    , reader_at_eof_(reader_at_eof)
-    , reader_next_trace_pc_(reader_next_trace_pc)
-    , reader_entry_queue_(reader_entry_queue)
     , verbosity_(verbosity)
 {
     assert(online_ != nullptr);
-    assert(reader_cur_entry_ != nullptr);
-    assert(reader_at_eof_ != nullptr);
-    assert(reader_next_trace_pc_ != nullptr);
-    assert(reader_entry_queue_ != nullptr);
     UNUSED(verbosity_);
     UNUSED(output_prefix_);
 }
 
 trace_entry_t *
-trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
+trace_entry_readahead_helper_t::read_next_entry_and_trace_pc(entry_queue_t &entry_queue,
+                                                             uint64_t &next_trace_pc)
 {
     if (*online_) {
         // We don't support any readahead in the online mode. We simply invoke the
@@ -167,48 +159,46 @@ trace_entry_readahead_helper_t::read_next_entry_and_trace_pc()
     }
     // Continue reading ahead until we have a record and the next continuous
     // pc in the trace, or if the input stops returning new records.
-    while (!reader_entry_queue_->has_record_and_next_pc_for_front() && !at_null_) {
+    while (!entry_queue.has_record_and_next_pc_for_front() && !at_null_) {
         trace_entry_t *entry = read_next_entry();
-        // As noted on the constructor, read_next_entry() modifies reader_t
-        // state pointed to by reader_at_eof_ and reader_cur_entry_;
+        // As noted on the constructor, read_next_entry() modifies reader_t's
+        // eof state.
         if (entry == nullptr) {
             // Ensure we don't repeatedly call read_next_entry after we know
             // it has finished.
             assert(!at_null_);
             at_null_ = true;
-            at_eof_ = *reader_at_eof_;
+            at_eof_ = get_at_eof();
             // Pretend we're not at eof since we may have records
-            // buffered in reader_entry_queue_.
-            *reader_at_eof_ = false;
+            // buffered in entry_queue.
+            set_at_eof(false);
         } else {
             VPRINT(this, 4, "queued: type=%s (%d), size=%d, addr=0x%zx\n",
                    trace_type_names[entry->type], entry->type, entry->size, entry->addr);
             // We deliberately make a copy of *entry here.
-            reader_entry_queue_->push_back(*entry);
+            entry_queue.push_back(*entry);
         }
     }
     trace_entry_t *ret_entry = nullptr;
-    if (!reader_entry_queue_->empty()) {
+    if (!entry_queue.empty()) {
         // If we're at the end of the trace and there's no next continuous pc
-        // in the trace, reader_entry_queue_ will simply set
-        // *reader_next_trace_pc_ to zero.
-        reader_entry_queue_->pop_front(*reader_cur_entry_, *reader_next_trace_pc_);
-        // For convenience of the reader user, we also return a pointer to
-        // the next entry or nullptr (in the case below).
-        ret_entry = reader_cur_entry_;
+        // in the trace, entry_queue will simply set next pc to zero.
+        entry_queue.pop_front(last_entry_, next_trace_pc);
+        ret_entry = &last_entry_;
     } else {
         assert(at_null_);
         // Now that the queued entries have been drained, let the reader
         // know we're done.
         ret_entry = nullptr;
+        next_trace_pc = 0;
         // at_eof may or may not be true, which is used to signal errors.
-        *reader_at_eof_ = at_eof_;
+        set_at_eof(at_eof_);
     }
     if (ret_entry != nullptr) {
         VPRINT(this, 4,
                "returning: type=%s (%d), size=%d, addr=0x%zx, next_pc=0x%" PRIx64 "\n",
                trace_type_names[ret_entry->type], ret_entry->type, ret_entry->size,
-               ret_entry->addr, *reader_next_trace_pc_);
+               ret_entry->addr, next_trace_pc);
     } else {
         VPRINT(this, 4, "finished: at_eof_: %d\n", at_eof_);
     }
@@ -236,8 +226,10 @@ reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
-        if (bundle_idx_ == 0 /*not in instr bundle*/)
-            input_entry_ = readahead_helper_.read_next_entry_and_trace_pc();
+        if (bundle_idx_ == 0 /*not in instr bundle*/) {
+            input_entry_ = readahead_helper_.read_next_entry_and_trace_pc(entry_queue_,
+                                                                          next_trace_pc_);
+        }
         if (input_entry_ == NULL) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");
@@ -584,7 +576,8 @@ reader_t::pre_skip_instructions()
     // XXX: We assume the page size is the final header; it is complex to wait for
     // the timestamp as we don't want to read it yet.
     while (page_size_ == 0) {
-        input_entry_ = readahead_helper_.read_next_entry_and_trace_pc();
+        input_entry_ =
+            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
         if (input_entry_ == nullptr) {
             at_eof_ = true;
             return false;
@@ -649,7 +642,8 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         // too-far instr if we didn't find a timestamp.
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             entry_copy_ = *input_entry_;
-        trace_entry_t *next = readahead_helper_.read_next_entry_and_trace_pc();
+        trace_entry_t *next =
+            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
         if (next == nullptr) {
             VPRINT(this, 1,
                    next == nullptr ? "Failed to read next entry\n" : "Hit EOF\n");
