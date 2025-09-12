@@ -941,6 +941,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
             // not high and the simplified code is worthwhile.
             for (int local_index : which_workload_inputs) {
                 int index = local_index + reader_info.first_input_ordinal;
+                assert(index < static_cast<int>(inputs_.size()));
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;
                 // Check for valid bindings.
@@ -955,7 +956,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 // code with a full set as a default value) that it is worth
                 // detecting and ignoring in order to avoid hitting binding-handling
                 // code and save time in initial placement and runqueue code.
-                if (modifiers.output_binding.size() < static_cast<size_t>(output_count)) {
+                if (!modifiers.output_binding.empty() &&
+                    modifiers.output_binding.size() < static_cast<size_t>(output_count)) {
                     input.binding = modifiers.output_binding;
                 }
                 input.priority = modifiers.priority;
@@ -2008,7 +2010,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
     // That means the size of unfiltered_tids will not be the total input
     // size, which is why we have a separate input_count.
     reader_info.unfiltered_tids.insert(tid);
-    ++reader_info.input_count;
     if (!reader_info.only_threads.empty() &&
         reader_info.only_threads.find(tid) == reader_info.only_threads.end()) {
         inputs_.pop_back();
@@ -2019,6 +2020,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
         inputs_.pop_back();
         return sched_type_t::STATUS_SUCCESS;
     }
+    ++reader_info.input_count;
     VPRINT(this, 1, "Opened reader for tid %" PRId64 " %s\n", tid, path.c_str());
     input.tid = tid;
     input.reader = std::move(reader);
