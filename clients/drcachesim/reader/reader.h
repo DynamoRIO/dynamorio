@@ -417,7 +417,6 @@ protected:
     entry_queue_t entry_queue_;
     trace_entry_t entry_copy_; // For use in returning a queue entry.
 
-
     class reader_readahead_helper_t : public trace_entry_readahead_helper_t {
     public:
         reader_readahead_helper_t(reader_t *reader)
