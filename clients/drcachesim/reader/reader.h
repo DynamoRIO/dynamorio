@@ -111,6 +111,11 @@ public:
     /**
      * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
      * the input ahead of its time to the back of the queue.
+     *
+     * Note that for trace entries that need to be added back to the queue (maybe
+     * because they cannot be returned just yet by the reader), the push_front
+     * API below should be used, as there may be many readahead entries already
+     * in this queue.
      */
     void
     push_back(const trace_entry_t &entry);
