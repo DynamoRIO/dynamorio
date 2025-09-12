@@ -41,6 +41,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <stack>
+#include <deque>
 #include <iterator>
 #include <queue>
 #include <unordered_map>
@@ -67,9 +69,144 @@ namespace drmemtrace {
                 fprintf(stderr, __VA_ARGS__);                     \
             }                                                     \
         } while (0)
+// clang-format off
+#    define UNUSED(x) /* nothing */
+// clang-format on
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
+#    define UNUSED(x) ((void)(x))
 #endif
+
+/**
+ * Queue of #dynamorio::drmemtrace::trace_entry_t that have been read from the
+ * input but are yet to be processed by the reader.
+ *
+ * These entries may have been:
+ * - read in advance to allow us to figure out the next continuous pc in the
+ *   trace.
+ * - synthesized by the reader on a skip event (like the timestamp and cpu
+ *   markers).
+ * - seen by the reader but not yet processed (like the instr entry used
+ *   to decide when a skip is done).
+ * - trace header entries that were rearranged or modified but not yet used.
+ */
+class entry_queue_t {
+public:
+    /**
+     * Removes all entries from the queue.
+     */
+    void
+    clear();
+    /**
+     * Returns whether the queue is empty.
+     */
+    bool
+    empty();
+    /**
+     * Returns whether the queue is non-empty and has some record that tells us
+     * the next continuous pc in the trace for the record in the front.
+     */
+    bool
+    has_record_and_next_pc_for_front();
+    /**
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t to the front of the
+     * queue. This entry may have been synthesized by the reader (e.g., the timestamp
+     * and cpu entries are synthesized after a skip), or the reader may have decided
+     * it does not want to process it yet (e.g., the first instruction after a skip).
+     *
+     * If this operation changes the next pc in the trace, next_trace_pc will be updated.
+     */
+    void
+    push_front(const trace_entry_t &entry, uint64_t &next_trace_pc);
+    /**
+     * Returns the next entry from the queue in the entry arg, and the next
+     * continuous pc in the trace in the next_pc arg if it exists or zero
+     * otherwise.
+     */
+    void
+    pop_front(trace_entry_t &entry, uint64_t &next_pc);
+
+    /**
+     * Returns whether the given #dynamorio::drmemtrace::trace_entry_t has a PC, and if
+     * so, sets it at the given *pc.
+     */
+    static bool
+    entry_has_pc(const trace_entry_t &entry, uint64_t *pc = nullptr);
+
+private:
+    friend class trace_entry_readahead_helper_t;
+    /**
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
+     * the input ahead of its time to the back of the queue.
+     *
+     * Note that for trace entries that need to be added back to the queue (maybe
+     * because they cannot be returned just yet by the reader), the push_front
+     * API should be used, as there may be many readahead entries already
+     * in this queue. To avoid accidental misuse, this is marked as private, intended
+     * to be accessed only by the friend class
+     * #dynamorio::drmemtrace::trace_entry_readahead_helper_t.
+     */
+    void
+    push_back(const trace_entry_t &entry);
+
+    // Trace entries queued up to be returned.
+    std::deque<trace_entry_t> entries_;
+    // PCs for the trace entries in entries_ that have a PC (see entry_has_pc()). This
+    // allows efficient lookup of the next trace pc.
+    // The elements here will be in the same order as the corresponding one in entries_,
+    // but there may not be an element here for each one in entries_.
+    std::deque<uint64_t> pcs_;
+};
+
+/**
+ * Helper to share logic for reading ahead #dynamorio::drmemtrace::trace_entry_t records
+ * from the input in a way that we always know the next continuous pc in the trace after
+ * the current record.
+ */
+class trace_entry_readahead_helper_t {
+public:
+    trace_entry_readahead_helper_t(bool *online, int verbosity);
+
+    trace_entry_readahead_helper_t() = default;
+
+    /**
+     * Returns the next entry for the input stream, and ensures that we also know the
+     * next continuous pc in the trace (if it exists). May read however many extra
+     * records that need to be read from the input stream for this; if the next trace
+     * pc is already known, it may not read any more records at all.
+     *
+     * This also updates the effective EOF state for the reader by calling set_at_eof().
+     *
+     * Returns nullptr if there was an error, or if the input is at EOF and the queue
+     * is empty.
+     */
+    trace_entry_t *
+    read_next_entry_and_trace_pc(entry_queue_t &entry_queue, uint64_t &next_trace_pc);
+
+private:
+    // This implementation is supposed to be provided by the reader_t or record_reader_t
+    // that is using the trace_entry_readahead_helper_t.
+    virtual trace_entry_t *
+    read_next_entry() = 0;
+    virtual bool
+    get_at_eof() = 0;
+    virtual void
+    set_at_eof(bool at_eof) = 0;
+
+    // Cannot take this by value because it is set by file_reader_t after the base
+    // reader_t (and hence this reader_readahead_helper_t) has been constructed.
+    bool *online_ = nullptr;
+
+    // The internal state for the underlying input.
+    bool at_null_ = false;
+    bool at_eof_ = false;
+    // Since we return a pointer to the next trace_entry_t, we want to keep it
+    // alive by storing it here.
+    trace_entry_t last_entry_;
+
+    int verbosity_ = 0;
+    const char *output_prefix_ = "[readahead_helper]";
+};
 
 /**
  * Iterator over #dynamorio::drmemtrace::memref_t trace entries. This class converts a
@@ -85,12 +222,15 @@ public:
     using pointer = value_type *;
     using reference = value_type &;
     reader_t()
+        // Need this initialized for the mock_reader_t.
+        : readahead_helper_(this)
     {
         cur_ref_ = {};
     }
     reader_t(int verbosity, const char *prefix)
         : verbosity_(verbosity)
         , output_prefix_(prefix)
+        , readahead_helper_(this)
     {
         cur_ref_ = {};
     }
@@ -198,6 +338,11 @@ public:
     {
         return in_kernel_trace_;
     }
+    uint64_t
+    get_next_trace_pc() const override
+    {
+        return next_trace_pc_;
+    }
     bool
     is_record_synthetic() const override
     {
@@ -265,11 +410,43 @@ protected:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
+    uint64_t next_trace_pc_ = 0;
     // We need to read ahead when skipping to include post-instr records.
     // We store into this queue records already read from the input but not
     // yet returned to the iterator.
-    std::queue<trace_entry_t> queue_;
+    entry_queue_t entry_queue_;
     trace_entry_t entry_copy_; // For use in returning a queue entry.
+
+    class reader_readahead_helper_t : public trace_entry_readahead_helper_t {
+    public:
+        reader_readahead_helper_t(reader_t *reader)
+            : trace_entry_readahead_helper_t(&reader->online_, reader->verbosity_)
+            , reader_(reader)
+        {
+            assert(reader_ != nullptr);
+        }
+        reader_readahead_helper_t() = default;
+
+    private:
+        trace_entry_t *
+        read_next_entry() override
+        {
+            return reader_->read_next_entry();
+        }
+        virtual bool
+        get_at_eof() override
+        {
+            return reader_->at_eof_;
+        }
+        virtual void
+        set_at_eof(bool at_eof) override
+        {
+            reader_->at_eof_ = at_eof;
+        }
+        reader_t *reader_ = nullptr;
+    };
+
+    reader_readahead_helper_t readahead_helper_;
 
     struct encoding_info_t {
         size_t size = 0;

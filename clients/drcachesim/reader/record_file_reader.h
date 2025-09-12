@@ -47,22 +47,6 @@
 
 #define OUT /* just a marker */
 
-#ifdef DEBUG
-#    define VPRINT(reader, level, ...)                            \
-        do {                                                      \
-            if ((reader)->verbosity_ >= (level)) {                \
-                fprintf(stderr, "%s ", (reader)->output_prefix_); \
-                fprintf(stderr, __VA_ARGS__);                     \
-            }                                                     \
-        } while (0)
-// clang-format off
-#    define UNUSED(x) /* nothing */
-// clang-format on
-#else
-#    define VPRINT(reader, level, ...) /* nothing */
-#    define UNUSED(x) ((void)(x))
-#endif
-
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -122,9 +106,12 @@ public:
         : verbosity_(verbosity)
         , output_prefix_(prefix)
         , eof_(false)
+        , readahead_helper_(this)
     {
     }
     record_reader_t()
+        // Need this initialized for the mock_record_reader_t.
+        : readahead_helper_(this)
     {
     }
     virtual ~record_reader_t()
@@ -157,10 +144,11 @@ public:
     record_reader_t &
     operator++()
     {
-        bool res = read_next_entry();
-        assert(res || eof_);
-        UNUSED(res);
+        trace_entry_t *entry =
+            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
+        assert(entry != nullptr || eof_);
         if (!eof_) {
+            cur_entry_ = *entry;
             ++cur_ref_count_;
             // We increment the instr count at the encoding as that avoids multiple
             // problems with separating encodings from instrs when skipping (including
@@ -251,6 +239,11 @@ public:
     {
         return in_kernel_trace_;
     }
+    uint64_t
+    get_next_trace_pc() const override
+    {
+        return next_trace_pc_;
+    }
 
     virtual bool
     operator==(const record_reader_t &rhs) const
@@ -282,13 +275,52 @@ protected:
     open_input_file() = 0;
 
     trace_entry_t cur_entry_ = {};
-    int verbosity_;
+    int verbosity_ = 0;
     const char *output_prefix_;
     // Following typical stream iterator convention, the default constructor
     // produces an EOF object.
     bool eof_ = true;
+    uint64_t next_trace_pc_ = 0;
+    // We do not support record_reader_t in online mode currently.
+    bool online_ = false;
 
 protected:
+    class record_reader_readahead_helper_t : public trace_entry_readahead_helper_t {
+    public:
+        record_reader_readahead_helper_t(record_reader_t *reader)
+            : trace_entry_readahead_helper_t(&reader->online_, reader->verbosity_)
+            , reader_(reader)
+        {
+            assert(reader_ != nullptr);
+        }
+        record_reader_readahead_helper_t() = default;
+
+    private:
+        trace_entry_t *
+        read_next_entry() override
+        {
+            bool res = reader_->read_next_entry();
+            if (!res)
+                return nullptr;
+            // read_next_entry reads the next entry into cur_entry_.
+            return &reader_->cur_entry_;
+        }
+        virtual bool
+        get_at_eof() override
+        {
+            return reader_->eof_;
+        }
+        virtual void
+        set_at_eof(bool eof) override
+        {
+            reader_->eof_ = eof;
+        }
+        record_reader_t *reader_ = nullptr;
+    };
+
+    record_reader_readahead_helper_t readahead_helper_;
+    entry_queue_t entry_queue_;
+
     uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;

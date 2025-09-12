@@ -122,7 +122,8 @@ protected:
         // the very first time for the thread.
         trace_entry_t *entry;
         trace_entry_t header = {}, pid = {}, tid = {};
-        entry = read_next_entry();
+        entry =
+            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
         if (entry == nullptr || entry->type != TRACE_TYPE_HEADER) {
             ERRMSG("Invalid header\n");
             return false;
@@ -140,8 +141,10 @@ protected:
         // We want to pass the tid+pid to the reader *before* any markers,
         // even though markers can precede the tid+pid in the file, in particular
         // for legacy traces.
-        std::queue<trace_entry_t> marker_queue;
-        while ((entry = read_next_entry()) != nullptr) {
+        // This is a stack because they would be inserted into the entry_queue_'s front.
+        std::stack<trace_entry_t> marker_stack;
+        while ((entry = readahead_helper_.read_next_entry_and_trace_pc(
+                    entry_queue_, next_trace_pc_)) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
                 // We assume the pid entry is after the tid.
                 pid = *entry;
@@ -149,7 +152,7 @@ protected:
             } else if (entry->type == TRACE_TYPE_THREAD)
                 tid = *entry;
             else if (entry->type == TRACE_TYPE_MARKER)
-                marker_queue.push(*entry);
+                marker_stack.push(*entry);
             else {
                 ERRMSG("Unexpected trace sequence\n");
                 return false;
@@ -159,12 +162,12 @@ protected:
                tid.addr);
         // The reader expects us to own the header and pass the tid as
         // the first entry.
-        queue_.push(tid);
-        queue_.push(pid);
-        while (!marker_queue.empty()) {
-            queue_.push(marker_queue.front());
-            marker_queue.pop();
+        while (!marker_stack.empty()) {
+            entry_queue_.push_front(marker_stack.top(), next_trace_pc_);
+            marker_stack.pop();
         }
+        entry_queue_.push_front(pid, next_trace_pc_);
+        entry_queue_.push_front(tid, next_trace_pc_);
         return true;
     }
 
