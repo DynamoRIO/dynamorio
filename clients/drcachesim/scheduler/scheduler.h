@@ -263,6 +263,10 @@ public:
          * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
          * If multiple entries list the same shard ordinal, only the last one is
          * honored.
+         *
+         * If #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.only_shards
+         * is also set, the indices here apply to the input list *after* only those
+         * matching only_shards are removed.
          */
         std::vector<int> shards;
         /**

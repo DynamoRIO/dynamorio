@@ -4101,7 +4101,8 @@ if (BUILD_CLIENTS)
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
 
         torunonly_simtool(counts_only_thread ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 872906"
+          # We add -skip_instrs to test i#7626.
+          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 872906 -skip_instrs 10"
           "")
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
 

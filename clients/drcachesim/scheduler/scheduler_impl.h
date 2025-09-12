@@ -578,6 +578,8 @@ protected:
         std::set<memref_tid_t> unfiltered_tids;
         // The count of original pre-filtered inputs (might not match
         // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
+        uint64_t unfiltered_input_count = 0;
+        // The count of filtered inputs.
         uint64_t input_count = 0;
         // The index into inputs_ at which this workload's inputs begin.
         input_ordinal_t first_input_ordinal = 0;
