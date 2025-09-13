@@ -33,13 +33,13 @@
 /* A mock reader that iterates over a vector of trace_entry_t, for tests. */
 
 #ifndef _MOCK_READER_H_
-#    define _MOCK_READER_H_ 1
+#define _MOCK_READER_H_ 1
 
-#    include <vector>
+#include <vector>
 
-#    include "reader.h"
-#    include "record_file_reader.h"
-#    include "trace_entry.h"
+#include "reader.h"
+#include "record_file_reader.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
