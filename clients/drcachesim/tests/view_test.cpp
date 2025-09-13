@@ -456,16 +456,11 @@ public:
     {
         if (at_eof_)
             return nullptr;
-        trace_entry_t *entry = read_queued_entry();
-        if (entry != nullptr)
-            return entry;
         if (pos_ >= input_file_.size()) {
             at_eof_ = true;
             return nullptr;
         }
-        entry = &input_file_[pos_];
-        ++pos_;
-        return entry;
+        return &input_file_[pos_++];
     }
 
 private:

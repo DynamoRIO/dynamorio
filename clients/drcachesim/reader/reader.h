@@ -72,24 +72,112 @@ namespace drmemtrace {
 #endif
 
 /**
+ * Base class for #dynamorio::drmemtrace:reader_t and
+ * #dynamorio::drmemtrace::record_reader_t. This contains some interfaces and
+ * implementations that are shared between the two types of readers.
+ *
+ * This base class is intended for logic close to reading the entries and the
+ * reader interface common to the two types of readers, and not so much for
+ * reader-specific logic for what to do with the entries.
+ *
+ * TODO i#5727: Can we potentially move other logic or interface definitions here?
+ */
+class reader_base_t : public memtrace_stream_t {
+public:
+    reader_base_t() = default;
+    reader_base_t(int online, int verbosity);
+    virtual ~reader_base_t()
+    {
+    }
+
+    /**
+     * Initializes various state for the reader. E.g., subclasses should remember to
+     * set at_eof_ as required here.
+     *
+     * May block.
+     */
+    virtual bool
+    init() = 0;
+
+    bool
+    operator==(const reader_base_t &rhs) const;
+    bool
+    operator!=(const reader_base_t &rhs) const;
+
+protected:
+    /**
+     * Returns the next entry for this reader.
+     *
+     * If it returns nullptr, it will set the EOF bit to distinguish end-of-file from an
+     * error in the at_eof_ data member.
+     *
+     * An invocation of this API may or may not cause an actual read from the underlying
+     * source using #dynamorio::drmemtrace::reader_base_t::read_next_entry().
+     */
+    trace_entry_t *
+    get_next_entry();
+
+    /**
+     * Returns whether the reader is operating in the online mode, which involves reading
+     * trace entries from an IPC pipe, as opposed to reading them from a more persistent
+     * media like a file on a disk.
+     */
+    bool
+    is_online();
+
+    /**
+     * Denotes whether the reader is at EOF.
+     *
+     * This should be set to false by subclasses in init() and set back to true when
+     * actual EOF is hit.
+     *
+     * Following typical stream iterator convention, the default constructor
+     * produces an EOF object.
+     */
+    bool at_eof_ = true;
+
+    int verbosity_ = 0;
+    const char *output_prefix_ = "[reader_base_t]";
+
+    // We store into this queue records already read from the input but not
+    // yet returned to the iterator. E.g., when reader_t needs to read ahead when
+    // skipping to include post-instr records.
+    std::queue<trace_entry_t> queue_;
+    trace_entry_t entry_copy_; // For use in returning a queue entry.
+
+private:
+    /**
+     * This reads the next single entry from the underlying single stream of entries.
+     *
+     * If it returns nullptr, it will set the EOF bit to distinguish end-of-file from an
+     * error.
+     *
+     * This is used only by #dynamorio::drmemtrace::reader_base_t::get_next_entry(),
+     * as and when needed to access the underlying source of entries. Subclasses that
+     * need the next entry should use
+     * #dynamorio::drmemtrace::reader_base_t::get_next_entry() instead.
+     */
+    virtual trace_entry_t *
+    read_next_entry() = 0;
+
+    bool online_ = true;
+};
+
+/**
  * Iterator over #dynamorio::drmemtrace::memref_t trace entries. This class converts a
  * trace (offline or online) into a stream of #dynamorio::drmemtrace::memref_t entries. It
  * also provides more information about the trace using the
  * #dynamorio::drmemtrace::memtrace_stream_t API.
  */
-class reader_t : public memtrace_stream_t {
+class reader_t : public reader_base_t {
 public:
-    using iterator_category = std::input_iterator_tag;
-    using value_type = memref_t;
-    using difference_type = std::ptrdiff_t;
-    using pointer = value_type *;
-    using reference = value_type &;
     reader_t()
+        : reader_base_t()
     {
         cur_ref_ = {};
     }
-    reader_t(int verbosity, const char *prefix)
-        : verbosity_(verbosity)
+    reader_t(bool online, int verbosity, const char *prefix)
+        : reader_base_t(online, verbosity)
         , output_prefix_(prefix)
     {
         cur_ref_ = {};
@@ -98,28 +186,8 @@ public:
     {
     }
 
-    // This may block.
-    virtual bool
-    init() = 0;
-
     virtual const memref_t &
     operator*();
-
-    // To avoid double-dispatch (requires listing all derived types in the base here)
-    // and RTTI in trying to get the right operators called for subclasses, we
-    // instead directly check at_eof here.  If we end up needing to run code
-    // and a bool field is not enough we can change this to invoke a virtual
-    // method is_at_eof().
-    virtual bool
-    operator==(const reader_t &rhs) const
-    {
-        return BOOLS_MATCH(at_eof_, rhs.at_eof_);
-    }
-    virtual bool
-    operator!=(const reader_t &rhs) const
-    {
-        return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
-    }
 
     virtual reader_t &
     operator++();
@@ -212,17 +280,6 @@ public:
     }
 
 protected:
-    // This reads the next entry from the single stream of entries (or from the
-    // local queue if non-empty).  If it returns false it will set at_eof_ to distinguish
-    // end-of-file from an error.  It should call read_queued_entry() first before
-    // reading a new entry from the input stream.
-    virtual trace_entry_t *
-    read_next_entry() = 0;
-    // Returns and removes the entry (nullptr if none) from the local queue.
-    // This should be called by read_next_entry() prior to reading a new record
-    // from the input stream.
-    virtual trace_entry_t *
-    read_queued_entry();
     // This updates internal state for the just-read input_entry_.
     // Returns whether a new memref record is now available.
     virtual bool
@@ -242,14 +299,6 @@ protected:
     virtual reader_t &
     skip_instructions_with_timestamp(uint64_t stop_instruction_count);
 
-    // Following typical stream iterator convention, the default constructor
-    // produces an EOF object.
-    // This should be set to false by subclasses in init() and set
-    // back to true when actual EOF is hit.
-    bool at_eof_ = true;
-
-    int verbosity_ = 0;
-    bool online_ = true;
     const char *output_prefix_ = "[reader]";
     uint64_t cur_ref_count_ = 0;
     int64_t suppress_ref_count_ = -1;
@@ -265,11 +314,6 @@ protected:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
-    // We need to read ahead when skipping to include post-instr records.
-    // We store into this queue records already read from the input but not
-    // yet returned to the iterator.
-    std::queue<trace_entry_t> queue_;
-    trace_entry_t entry_copy_; // For use in returning a queue entry.
 
     struct encoding_info_t {
         size_t size = 0;

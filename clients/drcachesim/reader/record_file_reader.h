@@ -56,7 +56,7 @@
             }                                                     \
         } while (0)
 // clang-format off
-#    define UNUSED(x) /* nothing */
+#define UNUSED(x) /* nothing */
 // clang-format on
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
@@ -111,28 +111,24 @@ namespace drmemtrace {
  * record_reader_t is expected to provide the exact stream of
  * #dynamorio::drmemtrace::trace_entry_t as stored on disk.
  */
-class record_reader_t : public memtrace_stream_t {
+class record_reader_t : public reader_base_t {
 public:
-    using iterator_category = std::input_iterator_tag;
-    using value_type = trace_entry_t;
-    using difference_type = std::ptrdiff_t;
-    using pointer = value_type *;
-    using reference = value_type &;
-    record_reader_t(int verbosity, const char *prefix)
-        : verbosity_(verbosity)
+    record_reader_t(int online, int verbosity, const char *prefix)
+        : reader_base_t(online, verbosity)
         , output_prefix_(prefix)
-        , eof_(false)
     {
     }
     record_reader_t()
+        : reader_base_t()
     {
     }
     virtual ~record_reader_t()
     {
     }
     virtual bool
-    init()
+    init() override
     {
+        at_eof_ = false;
         if (!open_input_file())
             return false;
         ++*this;
@@ -157,10 +153,10 @@ public:
     record_reader_t &
     operator++()
     {
-        bool res = read_next_entry();
-        assert(res || eof_);
+        bool res = get_next_entry();
+        assert(res || at_eof_);
         UNUSED(res);
-        if (!eof_) {
+        if (!at_eof_) {
             ++cur_ref_count_;
             // We increment the instr count at the encoding as that avoids multiple
             // problems with separating encodings from instrs when skipping (including
@@ -252,17 +248,6 @@ public:
         return in_kernel_trace_;
     }
 
-    virtual bool
-    operator==(const record_reader_t &rhs) const
-    {
-        return BOOLS_MATCH(eof_, rhs.eof_);
-    }
-    virtual bool
-    operator!=(const record_reader_t &rhs) const
-    {
-        return !BOOLS_MATCH(eof_, rhs.eof_);
-    }
-
     virtual record_reader_t &
     skip_instructions(uint64_t instruction_count)
     {
@@ -275,8 +260,6 @@ public:
 
 protected:
     virtual bool
-    read_next_entry() = 0;
-    virtual bool
     open_single_file(const std::string &input_path) = 0;
     virtual bool
     open_input_file() = 0;
@@ -284,9 +267,6 @@ protected:
     trace_entry_t cur_entry_ = {};
     int verbosity_;
     const char *output_prefix_;
-    // Following typical stream iterator convention, the default constructor
-    // produces an EOF object.
-    bool eof_ = true;
 
 protected:
     uint64_t cur_ref_count_ = 0;
@@ -315,7 +295,7 @@ template <typename T> class record_file_reader_t : public record_reader_t {
 public:
     record_file_reader_t(const std::string &path, int verbosity = 0,
                          const char *prefix = "[record_file_reader_t]")
-        : record_reader_t(verbosity, prefix)
+        : record_reader_t(/*online=*/false, verbosity, prefix)
         , input_path_(path)
     {
     }
@@ -349,7 +329,7 @@ private:
 
     bool
     open_single_file(const std::string &path) override;
-    bool
+    virtual trace_entry_t *
     read_next_entry() override;
 };
 

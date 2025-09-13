@@ -33,13 +33,13 @@
 /* A mock reader that iterates over a vector of trace_entry_t, for tests. */
 
 #ifndef _MOCK_READER_H_
-#define _MOCK_READER_H_ 1
+#    define _MOCK_READER_H_ 1
 
-#include <vector>
+#    include <vector>
 
-#include "reader.h"
-#include "record_file_reader.h"
-#include "trace_entry.h"
+#    include "reader.h"
+#    include "record_file_reader.h"
+#    include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -64,9 +64,6 @@ public:
     trace_entry_t *
     read_next_entry() override
     {
-        trace_entry_t *entry = read_queued_entry();
-        if (entry != nullptr)
-            return entry;
         ++index_;
         if (index_ >= static_cast<int>(trace_.size())) {
             at_eof_ = true;
@@ -97,20 +94,20 @@ public:
     bool
     init() override
     {
-        eof_ = false;
+        at_eof_ = false;
         ++*this;
         return true;
     }
-    bool
+    trace_entry_t *
     read_next_entry() override
     {
         ++index_;
         if (index_ >= static_cast<int>(trace_.size())) {
-            eof_ = true;
-            return false;
+            at_eof_ = true;
+            return nullptr;
         }
         cur_entry_ = trace_[index_];
-        return true;
+        return &cur_entry_;
     }
     std::string
     get_stream_name() const override
