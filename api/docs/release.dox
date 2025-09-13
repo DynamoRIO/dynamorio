@@ -137,6 +137,14 @@ changes:
    dynamorio::drmemtrace::caching_device_t. Possible values are:
    - cache_access_type_t::HIT,
    - cache_access_type_t::MISS.
+ - Removed dynamorio::drmemtrace::reader_t::read_queued_entry(), which now does not
+   require subclasses of #dynamorio::drmemtrace::reader_t to check for queued
+   entries in their implementation of
+   #dynamorio::drmemtrace::reader_t::read_next_entry().
+ - Renamed eof_ to at_eof_ for #dynamorio::drmemtrace:record_reader_t, which must be
+   set by subclasses of #dynamorio::drmemtrace:record_reader_t to indicate EOF.
+ - Changed signature of dynamorio::drmemtrace:record_reader_t::read_next_entry() to
+   return a pointer to the read #dynamorio::drmemtrace:trace_entry_t instead of a bool.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
