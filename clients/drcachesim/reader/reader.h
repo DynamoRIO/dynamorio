@@ -112,7 +112,8 @@ protected:
      * error in the at_eof_ data member.
      *
      * An invocation of this API may or may not cause an actual read from the underlying
-     * source using #dynamorio::drmemtrace::reader_base_t::read_next_entry().
+     * source using the derived class implementation of
+     * dynamorio::drmemtrace::reader_base_t::read_next_entry().
      */
     trace_entry_t *
     get_next_entry();
