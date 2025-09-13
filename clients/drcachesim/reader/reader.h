@@ -85,7 +85,7 @@ namespace drmemtrace {
 class reader_base_t : public memtrace_stream_t {
 public:
     reader_base_t() = default;
-    reader_base_t(int online, int verbosity);
+    reader_base_t(int online, int verbosity, const char *output_prefix);
     virtual ~reader_base_t()
     {
     }
@@ -144,7 +144,7 @@ protected:
     // yet returned to the iterator. E.g., when reader_t needs to read ahead when
     // skipping to include post-instr records.
     std::queue<trace_entry_t> queue_;
-    trace_entry_t entry_copy_; // For use in returning a queue entry.
+    trace_entry_t entry_copy_;
 
 private:
     /**
@@ -178,8 +178,7 @@ public:
         cur_ref_ = {};
     }
     reader_t(bool online, int verbosity, const char *prefix)
-        : reader_base_t(online, verbosity)
-        , output_prefix_(prefix)
+        : reader_base_t(online, verbosity, prefix)
     {
         cur_ref_ = {};
     }
@@ -300,7 +299,6 @@ protected:
     virtual reader_t &
     skip_instructions_with_timestamp(uint64_t stop_instruction_count);
 
-    const char *output_prefix_ = "[reader]";
     uint64_t cur_ref_count_ = 0;
     int64_t suppress_ref_count_ = -1;
     uint64_t cur_instr_count_ = 0;

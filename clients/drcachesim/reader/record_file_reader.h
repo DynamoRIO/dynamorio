@@ -114,8 +114,7 @@ namespace drmemtrace {
 class record_reader_t : public reader_base_t {
 public:
     record_reader_t(int online, int verbosity, const char *prefix)
-        : reader_base_t(online, verbosity)
-        , output_prefix_(prefix)
+        : reader_base_t(online, verbosity, prefix)
     {
     }
     record_reader_t()
@@ -265,8 +264,6 @@ protected:
     open_input_file() = 0;
 
     trace_entry_t cur_entry_ = {};
-    int verbosity_;
-    const char *output_prefix_;
 
 protected:
     uint64_t cur_ref_count_ = 0;

@@ -56,8 +56,9 @@ namespace drmemtrace {
             abort();             \
     } while (0)
 
-reader_base_t::reader_base_t(int online, int verbosity)
+reader_base_t::reader_base_t(int online, int verbosity, const char *output_prefix)
     : verbosity_(verbosity)
+    , output_prefix_(output_prefix)
     , online_(online)
 {
 }
