@@ -113,7 +113,7 @@ protected:
      *
      * An invocation of this API may or may not cause an actual read from the underlying
      * source using the derived class implementation of
-     * dynamorio::drmemtrace::reader_base_t::read_next_entry().
+     * #dynamorio::drmemtrace::reader_base_t::read_next_entry().
      */
     trace_entry_t *
     get_next_entry();
