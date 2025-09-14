@@ -41,7 +41,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <stack>
 #include <deque>
 #include <iterator>
 #include <queue>
@@ -125,6 +124,17 @@ public:
      */
     void
     pop_front(trace_entry_t &entry, uint64_t &next_pc);
+    /**
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
+     * the input ahead of its time to the back of the queue.
+     *
+     * Note that for trace entries that need to be added back to the queue (maybe
+     * because they cannot be returned just yet by the reader), the push_front
+     * API should be used, as there may be many readahead entries already
+     * in this queue.
+     */
+    void
+    push_back(const trace_entry_t &entry);
 
     /**
      * Returns whether the given #dynamorio::drmemtrace::trace_entry_t has a PC, and if
@@ -134,20 +144,6 @@ public:
     entry_has_pc(const trace_entry_t &entry, uint64_t *pc = nullptr);
 
 private:
-    friend class reader_base_t;
-    /**
-     * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
-     * the input ahead of its time to the back of the queue.
-     *
-     * Note that for trace entries that need to be added back to the queue (maybe
-     * because they cannot be returned just yet by the reader), the push_front
-     * API should be used, as there may be many readahead entries already
-     * in this queue. To avoid accidental misuse, this is marked as private, intended
-     * to be accessed only by the friend class #dynamorio::drmemtrace::reader_base_t.
-     */
-    void
-    push_back(const trace_entry_t &entry);
-
     // Trace entries queued up to be returned.
     std::deque<trace_entry_t> entries_;
     // PCs for the trace entries in entries_ that have a PC (see entry_has_pc()). This
@@ -197,6 +193,8 @@ protected:
      * If it returns nullptr, it will set the EOF bit to distinguish end-of-file from an
      * error in the at_eof_ data member.
      *
+     * Also sets the next continuous pc in the trace at the next_trace_pc_ data member.
+     *
      * An invocation of this API may or may not cause an actual read from the underlying
      * source using the derived class implementation of
      * #dynamorio::drmemtrace::reader_base_t::read_next_entry().
@@ -223,7 +221,7 @@ protected:
     /**
      * Adds the given entries to the #dynamorio::drmemtrace::entry_queue_t to be returned
      * from the next call to #dynamorio::drmemtrace::reader_base_t::get_next_entry()
-     * in same order as the provided queue.
+     * in the same order as the provided queue.
      */
     void
     queue_to_return_next(std::queue<trace_entry_t> &queue);
@@ -242,7 +240,20 @@ protected:
     int verbosity_ = 0;
     const char *output_prefix_ = "[reader_base_t]";
 
+    /**
+     * Used to hold the memory corresponding to #dynamorio::drmemtrace::trace_entry_t*
+     * returned by #dynamorio::drmemtrace::reader_base_t::get_next_entry() and
+     * #dynamorio::drmemtrace::reader_base_t::read_next_entry() in some cases.
+     */
     trace_entry_t entry_copy_;
+
+    /**
+     * Holds the next continuous pc in the trace, which may either be the pc of the
+     * next instruction or the value of the next #TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+     *
+     * This is set to its proper value when the
+     * #dynamorio::drmemtrace::reader_base_t::get_next_entry() API returns.
+     */
     uint64_t next_trace_pc_ = 0;
 
 private:
@@ -263,11 +274,15 @@ private:
     /**
      * We store into this queue records already read from the input but not
      * yet returned to the iterator. E.g., #dynamorio::drmemtrace::reader_t
-     * needs to read ahead when skipping to include the post-instr records.
+     * needs to read ahead when skipping to include the post-instr records,
+     * and #dynamorio::drmemtrace::reader_base_t may read-ahead records from
+     * the input source to discover the next continuous pc in the trace.
      */
     entry_queue_t queue_;
 
     bool online_ = true;
+
+    // State of the underlying trace entry source.
     bool at_null_internal_ = false;
     bool at_eof_internal_ = false;
 };

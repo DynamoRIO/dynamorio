@@ -163,8 +163,6 @@ reader_base_t::get_next_entry()
     // pc in the trace, or if the input stops returning new records.
     while (!queue_.has_record_and_next_pc_for_front() && !at_null_internal_) {
         trace_entry_t *entry = read_next_entry();
-        // As noted on the constructor, read_next_entry() modifies reader_t's
-        // eof state.
         if (entry == nullptr) {
             // Ensure we don't repeatedly call read_next_entry after we know
             // it has finished.
@@ -189,7 +187,7 @@ reader_base_t::get_next_entry()
         ret_entry = &entry_copy_;
     } else {
         assert(at_null_internal_);
-        // Now that the queued entries have been drained, let the reader
+        // Now that the queued entries have been drained, let the user
         // know we're done.
         ret_entry = nullptr;
         next_trace_pc_ = 0;
@@ -258,9 +256,8 @@ reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
-        if (bundle_idx_ == 0 /*not in instr bundle*/) {
+        if (bundle_idx_ == 0 /*not in instr bundle*/)
             input_entry_ = get_next_entry();
-        }
         if (input_entry_ == NULL) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");

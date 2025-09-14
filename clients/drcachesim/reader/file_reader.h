@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -154,7 +154,6 @@ protected:
                 return false;
             }
         }
-
         VPRINT(this, 2, "Read header: ver=%zu, pid=%zu, tid=%zu\n", header.addr, pid.addr,
                tid.addr);
         queue_to_return_next(marker_queue);
