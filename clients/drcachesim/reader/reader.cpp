@@ -57,7 +57,6 @@ namespace drmemtrace {
             abort();             \
     } while (0)
 
-
 /***********************************
  * Implementation for entry_queue_t.
  */
@@ -139,7 +138,6 @@ entry_queue_t::entry_has_pc(const trace_entry_t &entry, uint64_t *pc)
     }
     return false;
 }
-
 
 /***********************************
  * Implementation for reader_base_t.
