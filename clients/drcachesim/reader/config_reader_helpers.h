@@ -38,6 +38,7 @@
 #endif
 #include <map>
 #include <string>
+#include <istream>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -54,8 +55,121 @@ struct config_node_t {
 };
 typedef config_node_t::map_t config_t;
 
+class istream_wrapper {
+public:
+    istream_wrapper(std::istream *is)
+        : is_(is)
+    {
+    }
+
+    bool
+    eof() const
+    {
+        return is_->eof();
+    }
+
+    operator bool() const
+    {
+        return bool(is_);
+    }
+
+    void
+    strip()
+    {
+        *is_ >> std::ws;
+    }
+
+    template <typename T>
+    istream_wrapper &
+    operator>>(T &&val)
+    {
+        *is_ >> val;
+        return *this;
+    }
+
+    bool
+    getline(std::string& res) {
+        *is_ >> res;
+        return bool(*is_);
+    }
+
+private:
+    std::istream *is_;
+};
+
+// Read configuration parameters from stream
+// Supported scalar parameters:
+//      name0 val0 name1 val1
+// And parameter maps:
+//      name0 val0 name2 { name3 val3 name4 val4 }
+// Nested maps supported:
+//      name0 val0 name5 { name6 val6 name7 { name8 val8 name9 val9 } }
+// Tokens separated with spaces
+// TODO: Add line numbers here
+// TODO: Treat braces as spaces:
+//      name{n0 v0 n1 v1}
+template <typename T>
 bool
-read_param_map(std::istream *fin, config_t *params);
+read_param_map(T *is, config_t *params)
+{
+    is->strip();
+    if (!(*is)) {
+        ERRMSG("Unable to read the configuration\n");
+        return false;
+    }
+
+    while (!is->eof()) {
+        std::string token;
+        if (!(*is >> token)) {
+            ERRMSG("Unable to extract token from the configuration\n");
+            return false;
+        }
+
+        if (token == "//") {
+            // A comment. Skip it till the end of the line
+            if (!is->getline(token)) {
+                ERRMSG("Comment expected but not found\n");
+                return false;
+            }
+        } else if (token == "{") {
+            ERRMSG("Braces without parameter name not allowed\n");
+            return false;
+        } else if (token == "}") {
+            // Parameter map ended. Just end processing
+            return true;
+        } else {
+            std::string name = token;
+            if (!(*is >> token)) {
+                ERRMSG("Error reading '%s' from the configuration file\n", name.c_str());
+                return false;
+            }
+            if (token == "{") {
+                // This is nested parameter map
+                config_node_t val { config_node_t::MAP };
+                if (!read_param_map(is, &(val.children))) {
+                    ERRMSG("Error reading structure '%s' from the configuration file\n",
+                           name.c_str());
+                    return false;
+                }
+                params->emplace(name, val);
+            } else {
+                // Parameter value
+                config_node_t val { config_node_t::SCALAR };
+                val.scalar = token;
+                params->emplace(name, val);
+            }
+        }
+
+        if (!is->eof()) {
+            is->strip();
+            if (!(*is)) {
+                ERRMSG("Unable to read from the configuration\n");
+                return false;
+            }
+        }
+    }
+    return true;
+}
 
 #ifndef WINDOWS
 // Returns real name for the type
