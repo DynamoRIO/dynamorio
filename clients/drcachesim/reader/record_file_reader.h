@@ -136,7 +136,7 @@ public:
     record_reader_t &
     operator++()
     {
-        trace_entry_t* next_entry = get_next_entry();
+        trace_entry_t *next_entry = get_next_entry();
         assert(next_entry != nullptr || at_eof_);
         if (!at_eof_) {
             cur_entry_ = *next_entry;
