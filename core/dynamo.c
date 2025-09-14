@@ -97,6 +97,7 @@ bool dynamo_initialized = false;
 static bool dynamo_options_initialized = false;
 bool dynamo_heap_initialized = false;
 bool dynamo_started = false;
+bool dr_started_and_attached = false;
 bool automatic_startup = false;
 bool control_all_threads = false;
 /* On Windows we can't really tell attach apart from our default late
@@ -152,6 +153,7 @@ byte *d_r_initstack;
 
 event_t dr_app_started;
 event_t dr_attach_finished;
+event_t dr_all_threads_attached;
 
 #ifdef WINDOWS
 /* PR203701: separate stack for error reporting when the dstack is exhausted */
@@ -706,6 +708,7 @@ dynamorio_app_init_part_two_finalize(void)
         jitopt_init();
 
         dr_attach_finished = create_broadcast_event();
+        dr_all_threads_attached = create_broadcast_event();
 
         /* New client threads rely on dr_app_started being initialized, so do
          * that before initializing clients.
@@ -1099,6 +1102,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
 
     destroy_event(dr_app_started);
     destroy_event(dr_attach_finished);
+    destroy_event(dr_all_threads_attached);
 
     /* Make thread and process exit calls before we clean up thread data. */
     loader_make_exit_calls(get_thread_private_dcontext());
@@ -2922,6 +2926,8 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 }
 
 /* Mark this thread as under DR, and take over other threads in the current process.
+ * XXX i#7598,i#1305: Move takeover to init and eliminate start being separate from
+ * setup, to reduce races and the gap between snapshot and start.
  */
 void
 dynamorio_take_over_threads(dcontext_t *dcontext)
@@ -2933,6 +2939,10 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     uint attempts = 0;
     uint max_takeover_attempts = DYNAMO_OPTION(takeover_attempts);
 
+    /* Reset the barriers in case this is a re-dr_app_start(). */
+    reset_event(dr_attach_finished);
+    reset_event(dr_all_threads_attached);
+
     os_process_under_dynamorio_initiate(dcontext);
     /* We can start this thread now that we've set up process-wide actions such
      * as handling signals.
@@ -2941,6 +2951,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     signal_event(dr_app_started);
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_started = true;
+    dr_started_and_attached = false;
     /* Similarly, with our signal handler back in place, we remove the TLS limit. */
     detacher_tid = INVALID_THREAD_ID;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -2961,6 +2972,13 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
 
     /* End the barrier to new threads. */
     signal_event(dr_attach_finished);
+    if (DYNAMO_OPTION(synchronous_attach)) {
+        /* Release the taken-over app threads. */
+        signal_event(dr_all_threads_attached);
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        dr_started_and_attached = true;
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    }
 
     if (found_threads) {
         REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,

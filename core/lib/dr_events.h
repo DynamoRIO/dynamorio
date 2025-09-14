@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -77,17 +77,24 @@ DR_API
 /**
  * Registers a function which is called after all other threads have been taken over
  * during a process attach event, whether externally triggered or internally triggered
- * (via dr_app_start() or related functions).  If this process instance was not
- * initiated by an attach or takeover methodology where multiple application threads may
- * exist at the time of takeover (such as a process newly created on Linux), this
- * registration function returns false.
+ * (via dr_app_start() or related functions).  If the current process was launched
+ * by DR, this event is still called right before starting to execute the initial
+ * thread.
  *
- * The attach methodology operates in a staggered fashion, with each thread being taken
- * over and executed under DR control in turn.  If the application has many threads,
- * threads taken over early in this process may execute substantial amounts of
- * instrumented code before the threads taken over last start executing instrumented
- * code.  The purpose of this event is to provide a single control point where all
- * threads are known to be under DR control and running instrumented code.
+ * The attach methodology suspends each thread taken over until all threads are taken
+ * over.  This event is then invoked, and only once the event is finished are any of
+ * the threads allowed to start executing.  Thus, this event is a good place to take
+ * a snapshot of the global state such as the address space.  The dr_client_main()
+ * is called (when attaching to an existing process) with other threads active,
+ * meaning that if a snapshot is taken at that point the gap between then and this
+ * thread suspension can lead to missing information not present in the snapshot and
+ * not observed after takeover.
+ *
+ * (If -synchronous_attach is disabled, then the attach methodology operates in a
+ * staggered fashion, with each thread being taken over and executed under DR control
+ * in turn, with no reliable place for a snapshot.)
+ *
+ * \return whether registration is successful.
  */
 bool
 dr_register_post_attach_event(void (*func)(void));

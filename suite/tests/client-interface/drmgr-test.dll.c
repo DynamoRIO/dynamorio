@@ -90,6 +90,10 @@ static bool checked_cls_write_from_cache;
 static void
 event_exit(void);
 static void
+event_post_attach(void);
+static void
+event_post_attach_user_data(void *user_data);
+static void
 event_thread_init(void *drcontext);
 static void
 event_thread_exit(void *drcontext);
@@ -199,6 +203,7 @@ event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data);
 
 /* The following test values are arbitrary */
 
+static const uintptr_t post_attach_user_data_test = 83294;
 static const uintptr_t thread_user_data_test = 9090;
 static const uintptr_t opcode_user_data_test = 3333;
 static const uintptr_t filter_syscall_user_data_test = 4242;
@@ -216,6 +221,8 @@ dr_init(client_id_t id)
     drmgr_priority_t priority = { sizeof(priority), "drmgr-test", NULL, NULL, 0 };
     drmgr_priority_t priority4 = { sizeof(priority), "drmgr-test4", NULL, NULL, 0 };
     drmgr_priority_t priority5 = { sizeof(priority), "drmgr-test5", NULL, NULL, -10 };
+    drmgr_priority_t post_attach_pri_user_data = { sizeof(priority), "drmgr-post-attach",
+                                                   NULL, NULL, -1 };
     drmgr_priority_t filter_sys_pri_user_data = { sizeof(priority), "drmgr-filter", NULL,
                                                   NULL, -1 };
     drmgr_priority_t sys_pri_A = { sizeof(priority), "drmgr-test-A", NULL, NULL, 10 };
@@ -262,6 +269,10 @@ dr_init(client_id_t id)
 
     drmgr_init();
     drmgr_register_exit_event(event_exit);
+    drmgr_register_post_attach_event(event_post_attach);
+    drmgr_register_post_attach_event_user_data(event_post_attach_user_data,
+                                               &post_attach_pri_user_data,
+                                               (void *)post_attach_user_data_test);
     drmgr_register_thread_init_event(event_thread_init);
     drmgr_register_thread_exit_event(event_thread_exit);
     drmgr_register_thread_init_event_ex(event_thread_init_ex, &thread_init_pri);
@@ -471,9 +482,26 @@ event_exit(void)
         !drmgr_unregister_post_syscall_event(event_post_sys_B) ||
         !drmgr_unregister_post_syscall_event_user_data(event_post_sys_B_user_data))
         CHECK(false, "drmgr unregister sys failed");
+    if (!drmgr_unregister_post_attach_event(event_post_attach) ||
+        !drmgr_unregister_post_attach_event_user_data(event_post_attach_user_data))
+        CHECK(false, "drmgr unregister filter failed");
 
     drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
+}
+
+static void
+event_post_attach(void)
+{
+    dr_fprintf(STDERR, "in event_post_attach\n");
+}
+
+static void
+event_post_attach_user_data(void *user_data)
+{
+    dr_fprintf(STDERR, "in event_post_attach_user_data\n");
+    CHECK(user_data == (void *)post_attach_user_data_test,
+          "incorrect user data post attach");
 }
 
 static void

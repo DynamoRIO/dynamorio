@@ -1047,6 +1047,19 @@ scale_posix_timers(void *drcontext, bool inflate)
     dr_close_file(fd);
 }
 
+static void
+event_post_attach(void)
+{
+    /* For dynamic attach, we wait for post-attach to avoid a gap between this
+     * timer snapshot and dynamic monitoring.  We rely on -synchronous_attach
+     * being enabled to ensure nothing is executing under instrumentation before
+     * this walk (else we could double-inflate) nor during this event.
+     */
+    void *drcontext = dr_get_current_drcontext();
+    scale_itimers(drcontext, /*inflate=*/true);
+    scale_posix_timers(drcontext, /*inflate=*/true);
+}
+
 DR_EXPORT
 bool
 drx_register_time_scaling(drx_time_scale_t *options)
@@ -1088,7 +1101,8 @@ drx_register_time_scaling(drx_time_scale_t *options)
 
     drmgr_register_filter_syscall_event(event_filter_syscall);
 
-    if (!drmgr_register_thread_init_event_ex(event_thread_init, &init_priority) ||
+    if (!drmgr_register_post_attach_event(event_post_attach) ||
+        !drmgr_register_thread_init_event_ex(event_thread_init, &init_priority) ||
         !drmgr_register_thread_exit_event_ex(event_thread_exit, &exit_priority) ||
         !drmgr_register_pre_syscall_event_ex(event_pre_syscall, &presys_priority) ||
         !drmgr_register_post_syscall_event_ex(event_post_syscall, &postsys_priority))
@@ -1099,19 +1113,6 @@ drx_register_time_scaling(drx_time_scale_t *options)
         return false;
 
     memset(stats, 0, sizeof(stats));
-
-    void *drcontext = dr_get_current_drcontext();
-    /* XXX i#7504: For dynamic attach, at process init time other threads are not
-     * yet taken over and so our timer sweep here can be inaccurate with the
-     * gap between now and taking over other threads.
-     * If we move this to the post-attach event, though, we need to record
-     * what we inflated so we don't double-inflate a syscall-inflated timer
-     * seen in the gap before we get to the post-attach event.
-     * It would be nicer if DR suspended all the other threads prior to
-     * process init here, when attaching.
-     */
-    scale_itimers(drcontext, /*inflate=*/true);
-    scale_posix_timers(drcontext, /*inflate=*/true);
 
     return true;
 }
@@ -1129,12 +1130,14 @@ drx_unregister_time_scaling()
     scale_posix_timers(drcontext, /*inflate=*/false);
 
     bool res = drmgr_unregister_tls_field(tls_idx) &&
+        drmgr_unregister_post_attach_event(event_post_attach) &&
         drmgr_unregister_filter_syscall_event(event_filter_syscall) &&
         drmgr_unregister_pre_syscall_event(event_pre_syscall) &&
         drmgr_unregister_post_syscall_event(event_post_syscall) &&
         drmgr_unregister_thread_init_event(event_thread_init) &&
         drmgr_unregister_thread_exit_event(event_thread_exit);
     drmgr_exit();
+
     return res;
 }
 
