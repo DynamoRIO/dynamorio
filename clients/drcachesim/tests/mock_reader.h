@@ -50,9 +50,9 @@ class mock_reader_t : public reader_t {
 public:
     mock_reader_t() = default;
     explicit mock_reader_t(const std::vector<trace_entry_t> &trace)
-        : trace_(trace)
+        : reader_t(/*online=*/false, /*verbosity=*/3, "mock_reader_t")
+        , trace_(trace)
     {
-        verbosity_ = 3;
     }
     bool
     init() override
