@@ -134,21 +134,23 @@ entry_queue_t::entry_has_pc(const trace_entry_t &entry, uint64_t *pc)
     return false;
 }
 
-trace_entry_readahead_helper_t::trace_entry_readahead_helper_t(bool *online,
-                                                               int verbosity)
-    : online_(online)
-    , verbosity_(verbosity)
+reader_base_t::reader_base_t(int online, int verbosity, const char *output_prefix)
+    : verbosity_(verbosity)
+    , output_prefix_(output_prefix)
+    , online_(online)
 {
-    assert(online_ != nullptr);
-    UNUSED(verbosity_);
-    UNUSED(output_prefix_);
+}
+
+bool
+reader_base_t::is_online()
+{
+    return online_;
 }
 
 trace_entry_t *
-trace_entry_readahead_helper_t::read_next_entry_and_trace_pc(entry_queue_t &entry_queue,
-                                                             uint64_t &next_trace_pc)
+reader_base_t::get_next_entry()
 {
-    if (*online_) {
+    if (is_online()) {
         // We don't support any readahead in the online mode. We simply invoke the
         // reader's logic. No other management required.
         // XXX: Add read-ahead support for online mode. Needs more thought to
@@ -159,50 +161,67 @@ trace_entry_readahead_helper_t::read_next_entry_and_trace_pc(entry_queue_t &entr
     }
     // Continue reading ahead until we have a record and the next continuous
     // pc in the trace, or if the input stops returning new records.
-    while (!entry_queue.has_record_and_next_pc_for_front() && !at_null_) {
+    while (!queue_.has_record_and_next_pc_for_front() && !at_null_internal_) {
         trace_entry_t *entry = read_next_entry();
         // As noted on the constructor, read_next_entry() modifies reader_t's
         // eof state.
         if (entry == nullptr) {
             // Ensure we don't repeatedly call read_next_entry after we know
             // it has finished.
-            assert(!at_null_);
-            at_null_ = true;
-            at_eof_ = get_at_eof();
+            assert(!at_null_internal_);
+            at_null_internal_ = true;
+            at_eof_internal_ = at_eof_;
             // Pretend we're not at eof since we may have records
             // buffered in entry_queue.
-            set_at_eof(false);
+            at_eof_ = false;
         } else {
             VPRINT(this, 4, "queued: type=%s (%d), size=%d, addr=0x%zx\n",
                    trace_type_names[entry->type], entry->type, entry->size, entry->addr);
             // We deliberately make a copy of *entry here.
-            entry_queue.push_back(*entry);
+            queue_.push_back(*entry);
         }
     }
     trace_entry_t *ret_entry = nullptr;
-    if (!entry_queue.empty()) {
+    if (!queue_.empty()) {
         // If we're at the end of the trace and there's no next continuous pc
         // in the trace, entry_queue will simply set next pc to zero.
-        entry_queue.pop_front(last_entry_, next_trace_pc);
-        ret_entry = &last_entry_;
+        queue_.pop_front(entry_copy_, next_trace_pc_);
+        ret_entry = &entry_copy_;
     } else {
-        assert(at_null_);
+        assert(at_null_internal_);
         // Now that the queued entries have been drained, let the reader
         // know we're done.
         ret_entry = nullptr;
-        next_trace_pc = 0;
+        next_trace_pc_ = 0;
         // at_eof may or may not be true, which is used to signal errors.
-        set_at_eof(at_eof_);
+        at_eof_ = at_eof_internal_;
     }
     if (ret_entry != nullptr) {
         VPRINT(this, 4,
                "returning: type=%s (%d), size=%d, addr=0x%zx, next_pc=0x%" PRIx64 "\n",
                trace_type_names[ret_entry->type], ret_entry->type, ret_entry->size,
-               ret_entry->addr, next_trace_pc);
+               ret_entry->addr, next_trace_pc_);
     } else {
         VPRINT(this, 4, "finished: at_eof_: %d\n", at_eof_);
     }
     return ret_entry;
+}
+
+// To avoid double-dispatch (requires listing all derived types in the base here)
+// and RTTI in trying to get the right operators called for subclasses, we
+// instead directly check at_eof here.  If we end up needing to run code
+// and a bool field is not enough we can change this to invoke a virtual
+// method is_at_eof().
+bool
+reader_base_t::operator==(const reader_base_t &rhs) const
+{
+    return BOOLS_MATCH(at_eof_, rhs.at_eof_);
+}
+
+bool
+reader_base_t::operator!=(const reader_base_t &rhs) const
+{
+    return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
 }
 
 // Work around clang-format bug: no newline after return type for single-char operator.
@@ -214,21 +233,13 @@ reader_t::operator*()
     return cur_ref_;
 }
 
-trace_entry_t *
-reader_t::read_queued_entry()
-{
-    // TODO i#7496: Remove this API as it is no longer needed.
-    return nullptr;
-}
-
 reader_t &
 reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
         if (bundle_idx_ == 0 /*not in instr bundle*/) {
-            input_entry_ = readahead_helper_.read_next_entry_and_trace_pc(entry_queue_,
-                                                                          next_trace_pc_);
+            input_entry_ = get_next_entry();
         }
         if (input_entry_ == NULL) {
             if (!at_eof_) {
@@ -576,8 +587,7 @@ reader_t::pre_skip_instructions()
     // XXX: We assume the page size is the final header; it is complex to wait for
     // the timestamp as we don't want to read it yet.
     while (page_size_ == 0) {
-        input_entry_ =
-            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
+        input_entry_ = get_next_entry();
         if (input_entry_ == nullptr) {
             at_eof_ = true;
             return false;
@@ -588,7 +598,7 @@ reader_t::pre_skip_instructions()
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
-            entry_queue_.push_front(*input_entry_, next_trace_pc_);
+            queue_.push_front(*input_entry_, next_trace_pc_);
             break;
         }
         process_input_entry();
@@ -642,8 +652,7 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         // too-far instr if we didn't find a timestamp.
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             entry_copy_ = *input_entry_;
-        trace_entry_t *next =
-            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
+        trace_entry_t *next = get_next_entry();
         if (next == nullptr) {
             VPRINT(this, 1,
                    next == nullptr ? "Failed to read next entry\n" : "Hit EOF\n");
@@ -708,9 +717,9 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         entry_copy_ = timestamp;
         input_entry_ = &entry_copy_;
         process_input_entry();
-        entry_queue_.push_front(next_instr, next_trace_pc_);
+        queue_.push_front(next_instr, next_trace_pc_);
         if (cpu.type == TRACE_TYPE_MARKER)
-            entry_queue_.push_front(cpu, next_trace_pc_);
+            queue_.push_front(cpu, next_trace_pc_);
     } else {
         // We missed the markers somehow.
         // next_instr is our target instr, so make that the next record.

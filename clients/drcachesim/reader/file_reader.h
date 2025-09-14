@@ -77,10 +77,9 @@ template <typename T> class file_reader_t : public reader_t {
 public:
     file_reader_t();
     file_reader_t(const std::string &path, int verbosity = 0)
-        : reader_t(verbosity, "[file_reader]")
+        : reader_t(/*online=*/false, verbosity, "[file_reader]")
         , input_path_(path)
     {
-        online_ = false;
     }
     virtual ~file_reader_t();
     bool
@@ -122,8 +121,7 @@ protected:
         // the very first time for the thread.
         trace_entry_t *entry;
         trace_entry_t header = {}, pid = {}, tid = {};
-        entry =
-            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
+        entry = get_next_entry();
         if (entry == nullptr || entry->type != TRACE_TYPE_HEADER) {
             ERRMSG("Invalid header\n");
             return false;
@@ -143,8 +141,7 @@ protected:
         // for legacy traces.
         // This is a stack because they would be inserted into the entry_queue_'s front.
         std::stack<trace_entry_t> marker_stack;
-        while ((entry = readahead_helper_.read_next_entry_and_trace_pc(
-                    entry_queue_, next_trace_pc_)) != nullptr) {
+        while ((entry = get_next_entry()) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
                 // We assume the pid entry is after the tid.
                 pid = *entry;
@@ -163,11 +160,11 @@ protected:
         // The reader expects us to own the header and pass the tid as
         // the first entry.
         while (!marker_stack.empty()) {
-            entry_queue_.push_front(marker_stack.top(), next_trace_pc_);
+            queue_.push_front(marker_stack.top(), next_trace_pc_);
             marker_stack.pop();
         }
-        entry_queue_.push_front(pid, next_trace_pc_);
-        entry_queue_.push_front(tid, next_trace_pc_);
+        queue_.push_front(pid, next_trace_pc_);
+        queue_.push_front(tid, next_trace_pc_);
         return true;
     }
 

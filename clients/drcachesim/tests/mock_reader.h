@@ -50,10 +50,9 @@ class mock_reader_t : public reader_t {
 public:
     mock_reader_t() = default;
     explicit mock_reader_t(const std::vector<trace_entry_t> &trace)
-        : trace_(trace)
+        : reader_t(/*online=*/false, /*verbosity=*/3, "[mock_reader_t]")
+        , trace_(trace)
     {
-        verbosity_ = 3;
-        online_ = false;
     }
     bool
     init() override
@@ -65,9 +64,6 @@ public:
     trace_entry_t *
     read_next_entry() override
     {
-        trace_entry_t *entry = read_queued_entry();
-        if (entry != nullptr)
-            return entry;
         ++index_;
         if (index_ >= static_cast<int>(trace_.size())) {
             at_eof_ = true;
@@ -91,27 +87,27 @@ class mock_record_reader_t : public record_reader_t {
 public:
     mock_record_reader_t() = default;
     explicit mock_record_reader_t(const std::vector<trace_entry_t> &trace)
-        : trace_(trace)
+        : record_reader_t(/*online=*/false, /*verbosity=*/3, "[mock_record_reader_t]")
+        , trace_(trace)
     {
-        verbosity_ = 3;
     }
     bool
     init() override
     {
-        eof_ = false;
+        at_eof_ = false;
         ++*this;
         return true;
     }
-    bool
+    trace_entry_t *
     read_next_entry() override
     {
         ++index_;
         if (index_ >= static_cast<int>(trace_.size())) {
-            eof_ = true;
-            return false;
+            at_eof_ = true;
+            return nullptr;
         }
         cur_entry_ = trace_[index_];
-        return true;
+        return &cur_entry_;
     }
     std::string
     get_stream_name() const override

@@ -166,9 +166,6 @@ template <>
 trace_entry_t *
 file_reader_t<zipfile_reader_t>::read_next_entry()
 {
-    trace_entry_t *from_queue = read_queued_entry();
-    if (from_queue != nullptr)
-        return from_queue;
     if (!read_if_at_end_of_buffer(input_file_, at_eof_, entry_copy_))
         return nullptr;
     entry_copy_ = *input_file_.cur_buf;
@@ -255,7 +252,7 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
         // For the case where stop_count is in some chunk _after_ the immediately
         // next chunk (which is what would bring control to the statement below),
         // we need to clear the immediately next chunk's readahead instr anyway.
-        entry_queue_.clear();
+        queue_.clear();
     }
     // Now do a linear walk the rest of the way, remembering timestamps (we have
     // duplicated timestamps at the start of the chunk to cover any skipped in
@@ -298,17 +295,17 @@ record_file_reader_t<zipfile_reader_t>::open_single_file(const std::string &path
 }
 
 template <>
-bool
+trace_entry_t *
 record_file_reader_t<zipfile_reader_t>::read_next_entry()
 {
-    if (!read_if_at_end_of_buffer(*input_file_, eof_, cur_entry_))
-        return false;
+    if (!read_if_at_end_of_buffer(*input_file_, at_eof_, cur_entry_))
+        return nullptr;
     cur_entry_ = *input_file_->cur_buf;
     ++input_file_->cur_buf;
     VPRINT(this, 5, "Read %s: type=%s (%d), size=%d, addr=%zu\n",
            input_file_->path.c_str(), trace_type_names[cur_entry_.type], cur_entry_.type,
            cur_entry_.size, cur_entry_.addr);
-    return true;
+    return &cur_entry_;
 }
 
 } // namespace drmemtrace

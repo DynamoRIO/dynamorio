@@ -95,31 +95,23 @@ namespace drmemtrace {
  * record_reader_t is expected to provide the exact stream of
  * #dynamorio::drmemtrace::trace_entry_t as stored on disk.
  */
-class record_reader_t : public memtrace_stream_t {
+class record_reader_t : public reader_base_t {
 public:
-    using iterator_category = std::input_iterator_tag;
-    using value_type = trace_entry_t;
-    using difference_type = std::ptrdiff_t;
-    using pointer = value_type *;
-    using reference = value_type &;
-    record_reader_t(int verbosity, const char *prefix)
-        : verbosity_(verbosity)
-        , output_prefix_(prefix)
-        , eof_(false)
-        , readahead_helper_(this)
+    record_reader_t(int online, int verbosity, const char *prefix)
+        : reader_base_t(online, verbosity, prefix)
     {
     }
     record_reader_t()
-        // Need this initialized for the mock_record_reader_t.
-        : readahead_helper_(this)
+        : reader_base_t()
     {
     }
     virtual ~record_reader_t()
     {
     }
     virtual bool
-    init()
+    init() override
     {
+        at_eof_ = false;
         if (!open_input_file())
             return false;
         ++*this;
@@ -144,11 +136,10 @@ public:
     record_reader_t &
     operator++()
     {
-        trace_entry_t *entry =
-            readahead_helper_.read_next_entry_and_trace_pc(entry_queue_, next_trace_pc_);
-        assert(entry != nullptr || eof_);
-        if (!eof_) {
-            cur_entry_ = *entry;
+        trace_entry_t* next_entry = get_next_entry();
+        assert(next_entry != nullptr || at_eof_);
+        if (!at_eof_) {
+            cur_entry_ = *next_entry;
             ++cur_ref_count_;
             // We increment the instr count at the encoding as that avoids multiple
             // problems with separating encodings from instrs when skipping (including
@@ -245,17 +236,6 @@ public:
         return next_trace_pc_;
     }
 
-    virtual bool
-    operator==(const record_reader_t &rhs) const
-    {
-        return BOOLS_MATCH(eof_, rhs.eof_);
-    }
-    virtual bool
-    operator!=(const record_reader_t &rhs) const
-    {
-        return !BOOLS_MATCH(eof_, rhs.eof_);
-    }
-
     virtual record_reader_t &
     skip_instructions(uint64_t instruction_count)
     {
@@ -268,59 +248,13 @@ public:
 
 protected:
     virtual bool
-    read_next_entry() = 0;
-    virtual bool
     open_single_file(const std::string &input_path) = 0;
     virtual bool
     open_input_file() = 0;
 
     trace_entry_t cur_entry_ = {};
-    int verbosity_ = 0;
-    const char *output_prefix_;
-    // Following typical stream iterator convention, the default constructor
-    // produces an EOF object.
-    bool eof_ = true;
-    uint64_t next_trace_pc_ = 0;
-    // We do not support record_reader_t in online mode currently.
-    bool online_ = false;
 
 protected:
-    class record_reader_readahead_helper_t : public trace_entry_readahead_helper_t {
-    public:
-        record_reader_readahead_helper_t(record_reader_t *reader)
-            : trace_entry_readahead_helper_t(&reader->online_, reader->verbosity_)
-            , reader_(reader)
-        {
-            assert(reader_ != nullptr);
-        }
-        record_reader_readahead_helper_t() = default;
-
-    private:
-        trace_entry_t *
-        read_next_entry() override
-        {
-            bool res = reader_->read_next_entry();
-            if (!res)
-                return nullptr;
-            // read_next_entry reads the next entry into cur_entry_.
-            return &reader_->cur_entry_;
-        }
-        virtual bool
-        get_at_eof() override
-        {
-            return reader_->eof_;
-        }
-        virtual void
-        set_at_eof(bool eof) override
-        {
-            reader_->eof_ = eof;
-        }
-        record_reader_t *reader_ = nullptr;
-    };
-
-    record_reader_readahead_helper_t readahead_helper_;
-    entry_queue_t entry_queue_;
-
     uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;
@@ -347,7 +281,7 @@ template <typename T> class record_file_reader_t : public record_reader_t {
 public:
     record_file_reader_t(const std::string &path, int verbosity = 0,
                          const char *prefix = "[record_file_reader_t]")
-        : record_reader_t(verbosity, prefix)
+        : record_reader_t(/*online=*/false, verbosity, prefix)
         , input_path_(path)
     {
     }
@@ -381,7 +315,7 @@ private:
 
     bool
     open_single_file(const std::string &path) override;
-    bool
+    virtual trace_entry_t *
     read_next_entry() override;
 };
 
