@@ -83,11 +83,11 @@ namespace drmemtrace {
  * These entries may have been:
  * - read in advance to allow us to figure out the next continuous pc in the
  *   trace.
+ * - read in advance to allow the reader to figure out when a skip operation
+ *   is complete (i.e., the post-skip instr entry)
+ * - read in advance header markers to figure out the stream tid and pid.
  * - synthesized by the reader on a skip event (like the timestamp and cpu
  *   markers).
- * - seen by the reader but not yet processed (like the instr entry used
- *   to decide when a skip is done).
- * - trace header entries that were rearranged or modified but not yet used.
  */
 class entry_queue_t {
 public:
