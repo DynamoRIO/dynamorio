@@ -103,10 +103,10 @@ public:
     empty();
     /**
      * Returns whether the queue is non-empty and has some record that tells us
-     * the next continuous pc in the trace for the record in the front.
+     * the next continuous pc in the trace after the record in the front.
      */
     bool
-    has_record_and_next_pc_for_front();
+    has_record_and_next_pc_after_front();
     /**
      * Adds the given #dynamorio::drmemtrace::trace_entry_t to the front of the
      * queue. This entry may have been synthesized by the reader (e.g., the timestamp

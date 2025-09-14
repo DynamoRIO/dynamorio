@@ -75,7 +75,7 @@ entry_queue_t::empty()
 }
 
 bool
-entry_queue_t::has_record_and_next_pc_for_front()
+entry_queue_t::has_record_and_next_pc_after_front()
 {
     if (entries_.empty())
         return false;
@@ -170,7 +170,7 @@ reader_base_t::get_next_entry()
     }
     // Continue reading ahead until we have a record and the next continuous
     // pc in the trace, or if the input stops returning new records.
-    while (!queue_.has_record_and_next_pc_for_front() && !at_null_internal_) {
+    while (!queue_.has_record_and_next_pc_after_front() && !at_null_internal_) {
         trace_entry_t *entry = read_next_entry();
         if (entry == nullptr) {
             // Ensure we don't repeatedly call read_next_entry after we know
