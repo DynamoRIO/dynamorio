@@ -152,10 +152,10 @@ public:
     record_reader_t &
     operator++()
     {
-        bool res = get_next_entry();
-        assert(res || at_eof_);
-        UNUSED(res);
+        trace_entry_t *next_entry = get_next_entry();
+        assert(next_entry != nullptr || at_eof_);
         if (!at_eof_) {
+            cur_entry_ = *next_entry;
             ++cur_ref_count_;
             // We increment the instr count at the encoding as that avoids multiple
             // problems with separating encodings from instrs when skipping (including

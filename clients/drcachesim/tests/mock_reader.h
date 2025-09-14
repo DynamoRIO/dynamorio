@@ -87,9 +87,9 @@ class mock_record_reader_t : public record_reader_t {
 public:
     mock_record_reader_t() = default;
     explicit mock_record_reader_t(const std::vector<trace_entry_t> &trace)
-        : trace_(trace)
+        : record_reader_t(/*online=*/false, /*verbosity=*/3, "mock_record_reader_t")
+        , trace_(trace)
     {
-        verbosity_ = 3;
     }
     bool
     init() override
