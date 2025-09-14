@@ -224,6 +224,26 @@ reader_base_t::operator!=(const reader_base_t &rhs) const
     return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
 }
 
+void
+reader_base_t::clear_entry_queue()
+{
+    queue_.clear();
+}
+
+void
+reader_base_t::queue_to_return_next(std::queue<trace_entry_t> &queue)
+{
+    std::stack<trace_entry_t> stack;
+    while (!queue.empty()) {
+        stack.push(queue.front());
+        queue.pop();
+    }
+    while (!stack.empty()) {
+        queue_.push_front(stack.top(), next_trace_pc_);
+        stack.pop();
+    }
+}
+
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 const memref_t &
@@ -598,7 +618,9 @@ reader_t::pre_skip_instructions()
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
-            queue_.push_front(*input_entry_, next_trace_pc_);
+            std::queue<trace_entry_t> entry;
+            entry.push(*input_entry_);
+            queue_to_return_next(entry);
             break;
         }
         process_input_entry();
@@ -717,9 +739,11 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         entry_copy_ = timestamp;
         input_entry_ = &entry_copy_;
         process_input_entry();
-        queue_.push_front(next_instr, next_trace_pc_);
+        std::queue<trace_entry_t> cpu_and_instr;
         if (cpu.type == TRACE_TYPE_MARKER)
-            queue_.push_front(cpu, next_trace_pc_);
+            cpu_and_instr.push(cpu);
+        cpu_and_instr.push(next_instr);
+        queue_to_return_next(cpu_and_instr);
     } else {
         // We missed the markers somehow.
         // next_instr is our target instr, so make that the next record.

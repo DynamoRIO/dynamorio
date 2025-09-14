@@ -143,8 +143,7 @@ private:
      * because they cannot be returned just yet by the reader), the push_front
      * API should be used, as there may be many readahead entries already
      * in this queue. To avoid accidental misuse, this is marked as private, intended
-     * to be accessed only by the friend class
-     * #dynamorio::drmemtrace::trace_entry_readahead_helper_t.
+     * to be accessed only by the friend class #dynamorio::drmemtrace::reader_base_t.
      */
     void
     push_back(const trace_entry_t &entry);
@@ -214,6 +213,22 @@ protected:
     is_online();
 
     /**
+     * Clears all #dynamorio::drmemtrace::trace_entry_t that are buffered in the
+     * #dynamorio::drmemtrace::entry_queue_t, either for read-ahead or deliberately using
+     * #dynamorio::drmemtrace::reader_base_t::queue_to_return_next().
+     */
+    void
+    clear_entry_queue();
+
+    /**
+     * Adds the given entries to the #dynamorio::drmemtrace::entry_queue_t to be returned
+     * from the next call to #dynamorio::drmemtrace::reader_base_t::get_next_entry()
+     * in same order as the provided queue.
+     */
+    void
+    queue_to_return_next(std::queue<trace_entry_t> &queue);
+
+    /**
      * Denotes whether the reader is at EOF.
      *
      * This should be set to false by subclasses in init() and set back to true when
@@ -227,12 +242,6 @@ protected:
     int verbosity_ = 0;
     const char *output_prefix_ = "[reader_base_t]";
 
-    /**
-     * We store into this queue records already read from the input but not
-     * yet returned to the iterator. E.g., #dynamorio::drmemtrace::reader_t
-     * needs to read ahead when skipping to include the post-instr records.
-     */
-    entry_queue_t queue_;
     trace_entry_t entry_copy_;
     uint64_t next_trace_pc_ = 0;
 
@@ -250,6 +259,13 @@ private:
      */
     virtual trace_entry_t *
     read_next_entry() = 0;
+
+    /**
+     * We store into this queue records already read from the input but not
+     * yet returned to the iterator. E.g., #dynamorio::drmemtrace::reader_t
+     * needs to read ahead when skipping to include the post-instr records.
+     */
+    entry_queue_t queue_;
 
     bool online_ = true;
     bool at_null_internal_ = false;

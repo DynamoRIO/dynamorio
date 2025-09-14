@@ -139,8 +139,7 @@ protected:
         // We want to pass the tid+pid to the reader *before* any markers,
         // even though markers can precede the tid+pid in the file, in particular
         // for legacy traces.
-        // This is a stack because they would be inserted into the entry_queue_'s front.
-        std::stack<trace_entry_t> marker_stack;
+        std::queue<trace_entry_t> marker_queue;
         while ((entry = get_next_entry()) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
                 // We assume the pid entry is after the tid.
@@ -149,22 +148,22 @@ protected:
             } else if (entry->type == TRACE_TYPE_THREAD)
                 tid = *entry;
             else if (entry->type == TRACE_TYPE_MARKER)
-                marker_stack.push(*entry);
+                marker_queue.push(*entry);
             else {
                 ERRMSG("Unexpected trace sequence\n");
                 return false;
             }
         }
+
         VPRINT(this, 2, "Read header: ver=%zu, pid=%zu, tid=%zu\n", header.addr, pid.addr,
                tid.addr);
+        queue_to_return_next(marker_queue);
         // The reader expects us to own the header and pass the tid as
         // the first entry.
-        while (!marker_stack.empty()) {
-            queue_.push_front(marker_stack.top(), next_trace_pc_);
-            marker_stack.pop();
-        }
-        queue_.push_front(pid, next_trace_pc_);
-        queue_.push_front(tid, next_trace_pc_);
+        std::queue<trace_entry_t> tid_pid;
+        tid_pid.push(tid);
+        tid_pid.push(pid);
+        queue_to_return_next(tid_pid);
         return true;
     }
 

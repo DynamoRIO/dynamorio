@@ -252,7 +252,7 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
         // For the case where stop_count is in some chunk _after_ the immediately
         // next chunk (which is what would bring control to the statement below),
         // we need to clear the immediately next chunk's readahead instr anyway.
-        queue_.clear();
+        clear_entry_queue();
     }
     // Now do a linear walk the rest of the way, remembering timestamps (we have
     // duplicated timestamps at the start of the chunk to cover any skipped in
