@@ -137,6 +137,22 @@ changes:
    dynamorio::drmemtrace::caching_device_t. Possible values are:
    - cache_access_type_t::HIT,
    - cache_access_type_t::MISS.
+ - Removed dynamorio::drmemtrace::reader_t::read_queued_entry(), which now does not
+   require subclasses of #dynamorio::drmemtrace::reader_t to check for queued
+   entries in their implementation of
+   #dynamorio::drmemtrace::reader_t::read_next_entry().
+ - Renamed eof_ to at_eof_ for #dynamorio::drmemtrace:record_reader_t, which must be
+   set by subclasses of #dynamorio::drmemtrace:record_reader_t to indicate EOF.
+ - Changed signature of dynamorio::drmemtrace:record_reader_t::read_next_entry() to
+   return a pointer to the read #dynamorio::drmemtrace:trace_entry_t instead of a bool.
+ - Added a parameter to the constructor of #dynamorio::drmemtrace:reader_t and
+   #dynamorio::drmemtrace:record_reader_t that indicates whether it is being used in
+   the online or offline mode.
+ - Added a new memtrace_stream_t::get_next_trace_pc() API for offline analysis and
+   scheduling of non-i-filtered thread-sharded traces that returns the next continuous
+   PC in the trace, which may be from the next instruction or the next
+   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker, whichever comes
+   first.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
@@ -185,22 +201,6 @@ compatibility changes:
    drmgr_unregister_post_attach_event_user_data(), which are required to be used
    instead of dr_register_post_attach_event() when using drmgr and provide
    priorities and user data to the post-attach event.
- - Removed dynamorio::drmemtrace::reader_t::read_queued_entry(), which now does not
-   require subclasses of #dynamorio::drmemtrace::reader_t to check for queued
-   entries in their implementation of
-   #dynamorio::drmemtrace::reader_t::read_next_entry().
- - Renamed eof_ to at_eof_ for #dynamorio::drmemtrace:record_reader_t, which must be
-   set by subclasses of #dynamorio::drmemtrace:record_reader_t to indicate EOF.
- - Changed signature of dynamorio::drmemtrace:record_reader_t::read_next_entry() to
-   return a pointer to the read #dynamorio::drmemtrace:trace_entry_t instead of a bool.
- - Added a parameter to the constructor of #dynamorio::drmemtrace:reader_t and
-   #dynamorio::drmemtrace:record_reader_t that indicates whether it is being used in
-   the online or offline mode.
- - Added a new memtrace_stream_t::get_next_trace_pc() API for offline analysis and
-   scheduling of non-i-filtered thread-sharded traces that returns the next continuous
-   PC in the trace, which may be from the next instruction or the next
-   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker, whichever comes
-   first.
 
 Further non-compatibility-affecting changes include:
  - Changed the types of `block_size`, `total_size`, `num_blocks`, to `int64_t`
