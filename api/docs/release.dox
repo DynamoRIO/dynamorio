@@ -145,6 +145,9 @@ changes:
    set by subclasses of #dynamorio::drmemtrace:record_reader_t to indicate EOF.
  - Changed signature of dynamorio::drmemtrace:record_reader_t::read_next_entry() to
    return a pointer to the read #dynamorio::drmemtrace:trace_entry_t instead of a bool.
+ - Added a parameter to the constructor of #dynamorio::drmemtrace:reader_t and
+   #dynamorio::drmemtrace:record_reader_t that indicates whether it is being used in
+   the online or offline mode.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:

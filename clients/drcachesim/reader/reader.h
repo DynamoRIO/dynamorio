@@ -76,8 +76,8 @@ namespace drmemtrace {
  * #dynamorio::drmemtrace::record_reader_t. This contains some interfaces and
  * implementations that are shared between the two types of readers.
  *
- * This base class is intended for logic close to reading the entries and the
- * reader interface common to the two types of readers, and not so much for
+ * This base class is intended for logic close to reading the entries, and the
+ * reader interface common to the two types of readers; not so much for
  * reader-specific logic for what to do with the entries.
  *
  * TODO i#5727: Can we potentially move other logic or interface definitions here?
@@ -140,9 +140,11 @@ protected:
     int verbosity_ = 0;
     const char *output_prefix_ = "[reader_base_t]";
 
-    // We store into this queue records already read from the input but not
-    // yet returned to the iterator. E.g., when reader_t needs to read ahead when
-    // skipping to include post-instr records.
+    /**
+     * We store into this queue records already read from the input but not
+     * yet returned to the iterator. E.g., #dynamorio::drmemtrace::reader_t
+     * needs to read ahead when skipping to include the post-instr records.
+     */
     std::queue<trace_entry_t> queue_;
     trace_entry_t entry_copy_;
 

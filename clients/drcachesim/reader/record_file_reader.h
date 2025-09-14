@@ -56,7 +56,7 @@
             }                                                     \
         } while (0)
 // clang-format off
-#define UNUSED(x) /* nothing */
+#    define UNUSED(x) /* nothing */
 // clang-format on
 #else
 #    define VPRINT(reader, level, ...) /* nothing */
