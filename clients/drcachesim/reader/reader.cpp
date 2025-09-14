@@ -37,6 +37,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <stack>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
@@ -55,6 +56,11 @@ namespace drmemtrace {
         if (!(cond))             \
             abort();             \
     } while (0)
+
+
+/***********************************
+ * Implementation for entry_queue_t.
+ */
 
 void
 entry_queue_t::clear()
@@ -133,6 +139,11 @@ entry_queue_t::entry_has_pc(const trace_entry_t &entry, uint64_t *pc)
     }
     return false;
 }
+
+
+/***********************************
+ * Implementation for reader_base_t.
+ */
 
 reader_base_t::reader_base_t(int online, int verbosity, const char *output_prefix)
     : verbosity_(verbosity)
@@ -241,6 +252,10 @@ reader_base_t::queue_to_return_next(std::queue<trace_entry_t> &queue)
         stack.pop();
     }
 }
+
+/***********************************
+ * Implementation for reader_t.
+ */
 
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
