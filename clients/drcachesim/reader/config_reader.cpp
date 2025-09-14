@@ -89,75 +89,185 @@ convert_string_to_size(const std::string &s, uint64_t &size)
     return true;
 }
 
-// Read configuration parameters from stream
-// Supported scalar parameters:
-//      name0 val0 name1 val1
-// And parameter maps:
-//      name0 val0 name2 { name3 val3 name4 val4 }
-// Nested maps supported:
-//      name0 val0 name5 { name6 val6 name7 { name8 val8 name9 val9 } }
-// Tokens separated with spaces
-// TODO: Add line numbers here
-// TODO: Treat braces as spaces:
-//      name{n0 v0 n1 v1}
 bool
-read_param_map(std::istream *fin, config_t *params)
-{
-    if (!(*fin >> std::ws)) {
-        ERRMSG("Unable to read the configuration\n");
-        return false;
-    }
+configure_cache(const config_t &params, cache_params_t *cache);
 
-    while (!fin->eof()) {
-        std::string token;
-        if (!(*fin >> token)) {
-            ERRMSG("Unable to extract token from the configuration\n");
-            return false;
+bool
+check_cache_config(int num_cores, std::map<std::string, cache_params_t> &caches_map)
+{
+    std::vector<int> core_inst_caches(num_cores, 0);
+    std::vector<int> core_data_caches(num_cores, 0);
+
+    for (auto &cache_map : caches_map) {
+        std::string cache_name = cache_map.first;
+        auto &cache = cache_map.second;
+
+        // Associate a cache to a core.
+        if (cache.core >= 0) {
+            if (cache.core >= num_cores) {
+                ERRMSG("Cache %s belongs to core %d which does not exist\n",
+                       cache_name.c_str(), cache.core);
+                return false;
+            }
+            if (cache.type == CACHE_TYPE_INSTRUCTION ||
+                cache.type == CACHE_TYPE_UNIFIED) {
+                core_inst_caches[cache.core]++;
+            }
+            if (cache.type == CACHE_TYPE_DATA || cache.type == CACHE_TYPE_UNIFIED) {
+                core_data_caches[cache.core]++;
+            }
         }
 
-        if (token == "//") {
-            // A comment. Skip it till the end of the line
-            if (!getline(*fin, token)) {
-                ERRMSG("Comment expected but not found\n");
-                return false;
-            }
-        } else if (token == "{") {
-            ERRMSG("Braces without parameter name not allowed\n");
-            return false;
-        } else if (token == "}") {
-            // Parameter map ended. Just end processing
-            return true;
-        } else {
-            std::string name = token;
-            if (!(*fin >> token)) {
-                ERRMSG("Error reading '%s' from the configuration file\n", name.c_str());
-                return false;
-            }
-            if (token == "{") {
-                // This is nested parameter map
-                config_node_t val { config_node_t::MAP };
-                if (!read_param_map(fin, &(val.children))) {
-                    ERRMSG("Error reading structure '%s' from the configuration file\n",
-                           name.c_str());
+        // Associate a cache with its parent and children caches.
+        if (cache.parent != CACHE_PARENT_MEMORY) {
+            auto parent_it = caches_map.find(cache.parent);
+            if (parent_it != caches_map.end()) {
+                auto &parent = parent_it->second;
+                // Check that the cache types are compatible.
+                if (parent.type != CACHE_TYPE_UNIFIED && cache.type != parent.type) {
+                    ERRMSG("Cache %s and its parent have incompatible types\n",
+                           cache_name.c_str());
                     return false;
                 }
-                params->emplace(name, val);
+
+                // Add the cache to its parents children.
+                parent.children.push_back(cache_name);
             } else {
-                // Parameter value
-                config_node_t val { config_node_t::SCALAR };
-                val.scalar = token;
-                params->emplace(name, val);
+                ERRMSG("Cache %s has a listed parent %s that does not exist\n",
+                       cache_name.c_str(), cache.parent.c_str());
+                return false;
+            }
+
+            // Check for cycles between the cache and its parent.
+            std::string parent = cache.parent;
+            while (parent != CACHE_PARENT_MEMORY) {
+                if (parent == cache_name) {
+                    ERRMSG("Cache %s & its parent %s have a cyclic reference\n",
+                           cache_name.c_str(), cache.parent.c_str());
+                    return false;
+                }
+                parent = caches_map.find(parent)->second.parent;
             }
         }
+    }
 
-        if (!fin->eof() && !(*fin >> std::ws)) {
-            ERRMSG("Unable to read from the configuration\n");
+    // Check that each core has exactly one instruction and one data cache or
+    // exactly one unified cache.
+    for (int i = 0; i < num_cores; i++) {
+        if (core_inst_caches[i] != 1) {
+            ERRMSG("Core %d has %d instruction caches. Must have exactly 1.\n", i,
+                   core_inst_caches[i]);
+            return false;
+        }
+        if (core_data_caches[i] != 1) {
+            ERRMSG("Core %d has %d data caches. Must have exactly 1.\n", i,
+                   core_data_caches[i]);
             return false;
         }
     }
+
     return true;
 }
 
+config_reader_t::config_reader_t()
+{
+    /* Empty. */
+}
+
+// TODO: Write line numbers at error
+bool
+config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &knobs,
+                           std::map<std::string, cache_params_t> &caches)
+{
+    config_t params;
+    if (!read_param_map(config_file, &params)) {
+        return false;
+    }
+
+    for (const auto &p : params) {
+        if (p.first == "num_cores") {
+            // Number of cache cores.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.num_cores)) {
+                return false;
+            }
+            if (knobs.num_cores == 0) {
+                ERRMSG("Number of cores must be >0\n");
+                return false;
+            }
+            // XXX i#3047: Add support for page_size, which is needed to
+            // configure TLBs.
+        } else if (p.first == "line_size") {
+            // Cache line size in bytes.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.line_size)) {
+                return false;
+            }
+            if (knobs.line_size == 0) {
+                ERRMSG("Line size must be >0\n");
+                return false;
+            }
+        } else if (p.first == "skip_refs") {
+            // Number of references to skip.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.skip_refs)) {
+                return false;
+            }
+        } else if (p.first == "warmup_refs") {
+            // Number of references to use for caches warmup.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.warmup_refs)) {
+                return false;
+            }
+        } else if (p.first == "warmup_fraction") {
+            // Fraction of cache lines that must be filled to end the warmup.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.warmup_fraction)) {
+                return false;
+            }
+            if (knobs.warmup_fraction < 0.0 || knobs.warmup_fraction > 1.0) {
+                ERRMSG("Warmup fraction should be in [0.0, 1.0]\n");
+                return false;
+            }
+        } else if (p.first == "sim_refs") {
+            // Number of references to simulate.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.sim_refs)) {
+                return false;
+            }
+        } else if (p.first == "cpu_scheduling") {
+            // Whether to simulate CPU scheduling or not.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.cpu_scheduling)) {
+                return false;
+            }
+        } else if (p.first == "verbose") {
+            // Verbose level.
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.verbose)) {
+                return false;
+            }
+        } else if (p.first == "coherence" || p.first == "coherent") {
+            // Whether to simulate coherence
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.model_coherence)) {
+                return false;
+            }
+        } else if (p.first == "use_physical") {
+            // Whether to use physical addresses
+            if (!parse_param_value_or_fail(p.first, p.second, &knobs.use_physical)) {
+                return false;
+            }
+        } else if (p.second.type == config_node_t::MAP) {
+            // A cache unit.
+            cache_params_t cache;
+            cache.name = p.first;
+            if (!configure_cache(p.second.children, &cache)) {
+                return false;
+            }
+            caches[cache.name] = std::move(cache);
+        } else {
+            ERRMSG("Unknown parameter %s\n", p.first.c_str());
+            return false;
+        }
+    }
+
+    // Check cache configuration.
+    return check_cache_config(knobs.num_cores, caches);
+}
+
+// TODO: Write line numbers at error
 bool
 configure_cache(const config_t &params, cache_params_t *cache)
 {
@@ -249,180 +359,6 @@ configure_cache(const config_t &params, cache_params_t *cache)
         }
     }
     return true;
-}
-
-bool
-check_cache_config(int num_cores, std::map<std::string, cache_params_t> &caches_map)
-{
-    std::vector<int> core_inst_caches(num_cores, 0);
-    std::vector<int> core_data_caches(num_cores, 0);
-
-    for (auto &cache_map : caches_map) {
-        std::string cache_name = cache_map.first;
-        auto &cache = cache_map.second;
-
-        // Associate a cache to a core.
-        if (cache.core >= 0) {
-            if (cache.core >= num_cores) {
-                ERRMSG("Cache %s belongs to core %d which does not exist\n",
-                       cache_name.c_str(), cache.core);
-                return false;
-            }
-            if (cache.type == CACHE_TYPE_INSTRUCTION ||
-                cache.type == CACHE_TYPE_UNIFIED) {
-                core_inst_caches[cache.core]++;
-            }
-            if (cache.type == CACHE_TYPE_DATA || cache.type == CACHE_TYPE_UNIFIED) {
-                core_data_caches[cache.core]++;
-            }
-        }
-
-        // Associate a cache with its parent and children caches.
-        if (cache.parent != CACHE_PARENT_MEMORY) {
-            auto parent_it = caches_map.find(cache.parent);
-            if (parent_it != caches_map.end()) {
-                auto &parent = parent_it->second;
-                // Check that the cache types are compatible.
-                if (parent.type != CACHE_TYPE_UNIFIED && cache.type != parent.type) {
-                    ERRMSG("Cache %s and its parent have incompatible types\n",
-                           cache_name.c_str());
-                    return false;
-                }
-
-                // Add the cache to its parents children.
-                parent.children.push_back(cache_name);
-            } else {
-                ERRMSG("Cache %s has a listed parent %s that does not exist\n",
-                       cache_name.c_str(), cache.parent.c_str());
-                return false;
-            }
-
-            // Check for cycles between the cache and its parent.
-            std::string parent = cache.parent;
-            while (parent != CACHE_PARENT_MEMORY) {
-                if (parent == cache_name) {
-                    ERRMSG("Cache %s & its parent %s have a cyclic reference\n",
-                           cache_name.c_str(), cache.parent.c_str());
-                    return false;
-                }
-                parent = caches_map.find(parent)->second.parent;
-            }
-        }
-    }
-
-    // Check that each core has exactly one instruction and one data cache or
-    // exactly one unified cache.
-    for (int i = 0; i < num_cores; i++) {
-        if (core_inst_caches[i] != 1) {
-            ERRMSG("Core %d has %d instruction caches. Must have exactly 1.\n", i,
-                   core_inst_caches[i]);
-            return false;
-        }
-        if (core_data_caches[i] != 1) {
-            ERRMSG("Core %d has %d data caches. Must have exactly 1.\n", i,
-                   core_data_caches[i]);
-            return false;
-        }
-    }
-
-    return true;
-}
-
-config_reader_t::config_reader_t()
-{
-    /* Empty. */
-}
-
-bool
-config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &knobs,
-                           std::map<std::string, cache_params_t> &caches)
-{
-    config_t params;
-    if (!read_param_map(config_file, &params)) {
-        return false;
-    }
-
-    for (const auto &p : params) {
-        if (p.first == "num_cores") {
-            // Number of cache cores.
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.num_cores)) {
-                return false;
-            }
-            if (knobs.num_cores == 0) {
-                ERRMSG("Number of cores must be >0\n");
-                return false;
-            }
-            // XXX i#3047: Add support for page_size, which is needed to
-            // configure TLBs.
-        } else if (p.first == "line_size") {
-            // Cache line size in bytes.
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.line_size)) {
-                return false;
-            }
-            if (knobs.line_size == 0) {
-                ERRMSG("Line size must be >0\n");
-                return false;
-            }
-        } else if (p.first == "skip_refs") {
-            // Number of references to skip.
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.skip_refs)) {
-                return false;
-            }
-        } else if (p.first == "warmup_refs") {
-            // Number of references to use for caches warmup.
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.warmup_refs)) {
-                return false;
-            }
-        } else if (p.first == "warmup_fraction") {
-            // Fraction of cache lines that must be filled to end the warmup.
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.warmup_fraction)) {
-                return false;
-            }
-            if (knobs.warmup_fraction < 0.0 || knobs.warmup_fraction > 1.0) {
-                ERRMSG("Warmup fraction should be in [0.0, 1.0]\n");
-                return false;
-            }
-        } else if (p.first == "sim_refs") {
-            // Number of references to simulate.
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.sim_refs)) {
-                return false;
-            }
-        } else if (p.first == "cpu_scheduling") {
-            // Whether to simulate CPU scheduling or not.
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.cpu_scheduling)) {
-                return false;
-            }
-        } else if (p.first == "verbose") {
-            // Verbose level.
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.verbose)) {
-                return false;
-            }
-        } else if (p.first == "coherence" || p.first == "coherent") {
-            // Whether to simulate coherence
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.model_coherence)) {
-                return false;
-            }
-        } else if (p.first == "use_physical") {
-            // Whether to use physical addresses
-            if (!parse_param_value_or_fail(p.first, p.second, &knobs.use_physical)) {
-                return false;
-            }
-        } else if (p.second.type == config_node_t::MAP) {
-            // A cache unit.
-            cache_params_t cache;
-            cache.name = p.first;
-            if (!configure_cache(p.second.children, &cache)) {
-                return false;
-            }
-            caches[cache.name] = std::move(cache);
-        } else {
-            ERRMSG("Unknown parameter %s\n", p.first.c_str());
-            return false;
-        }
-    }
-
-    // Check cache configuration.
-    return check_cache_config(knobs.num_cores, caches);
 }
 
 } // namespace drmemtrace
