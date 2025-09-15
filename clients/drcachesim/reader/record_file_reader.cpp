@@ -31,7 +31,9 @@
  */
 
 #include <fstream>
+
 #include "record_file_reader.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
