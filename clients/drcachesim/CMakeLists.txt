@@ -239,6 +239,7 @@ set(raw2trace_srcs
   tracer/instru_online.cpp
   tracer/instru_offline.cpp
   reader/reader.cpp
+  reader/reader_base.cpp
   common/trace_entry.cpp
   reader/record_file_reader.cpp
   ${zlib_reader}
@@ -287,6 +288,7 @@ set(drcachesim_srcs
   analyzer_multi.cpp
   ${client_and_sim_srcs}
   reader/reader.cpp
+  reader/reader_base.cpp
   reader/config_reader.cpp
   reader/v2p_reader.cpp
   reader/file_reader.cpp
@@ -353,6 +355,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   scheduler/noise_generator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
+  reader/reader_base.cpp
   reader/config_reader.cpp
   reader/v2p_reader.cpp
   reader/file_reader.cpp
@@ -381,6 +384,7 @@ install_client_nonDR_header(drmemtrace common/archive_istream.h)
 install_client_nonDR_header(drmemtrace common/archive_ostream.h)
 install_client_nonDR_header(drmemtrace common/mutex_dbg_owned.h)
 install_client_nonDR_header(drmemtrace reader/reader.h)
+install_client_nonDR_header(drmemtrace reader/reader_base.h)
 install_client_nonDR_header(drmemtrace reader/record_file_reader.h)
 install_client_nonDR_header(drmemtrace analysis_tool.h)
 install_client_nonDR_header(drmemtrace analyzer.h)

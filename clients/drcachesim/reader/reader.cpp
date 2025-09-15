@@ -56,55 +56,6 @@ namespace drmemtrace {
             abort();             \
     } while (0)
 
-/****************************************************************************
- * Implementation for reader_base_t.
- */
-
-reader_base_t::reader_base_t(int online, int verbosity, const char *output_prefix)
-    : verbosity_(verbosity)
-    , output_prefix_(output_prefix)
-    , online_(online)
-{
-}
-
-bool
-reader_base_t::is_online()
-{
-    return online_;
-}
-
-trace_entry_t *
-reader_base_t::get_next_entry()
-{
-    if (!queue_.empty()) {
-        entry_copy_ = queue_.front();
-        queue_.pop();
-        return &entry_copy_;
-    }
-    return read_next_entry();
-}
-
-// To avoid double-dispatch (requires listing all derived types in the base here)
-// and RTTI in trying to get the right operators called for subclasses, we
-// instead directly check at_eof here.  If we end up needing to run code
-// and a bool field is not enough we can change this to invoke a virtual
-// method is_at_eof().
-bool
-reader_base_t::operator==(const reader_base_t &rhs) const
-{
-    return BOOLS_MATCH(at_eof_, rhs.at_eof_);
-}
-
-bool
-reader_base_t::operator!=(const reader_base_t &rhs) const
-{
-    return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
-}
-
-/****************************************************************************
- * Implementation for reader_t.
- */
-
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 const memref_t &
