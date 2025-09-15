@@ -850,7 +850,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
         if (workload.path.empty()) {
             if (workload.readers.empty())
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            reader_info.input_count = workload.readers.size();
+            reader_info.unfiltered_input_count = workload.readers.size();
+            reader_info.input_count = 0;
             for (int i = 0; i < static_cast<int>(workload.readers.size()); ++i) {
                 auto &reader = workload.readers[i];
                 if (!reader.reader || !reader.end)
@@ -862,6 +863,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 if (!workload.only_shards.empty() &&
                     workload.only_shards.find(i) == workload.only_shards.end())
                     continue;
+                ++reader_info.input_count;
                 int index = static_cast<input_ordinal_t>(inputs_.size());
                 inputs_.emplace_back();
                 input_info_t &input = inputs_.back();
