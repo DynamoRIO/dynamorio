@@ -80,21 +80,34 @@ namespace drmemtrace {
  * reader interface common to the two types of readers; not so much for
  * reader-specific logic for what to do with the entries.
  *
- * TODO i#5727: Can we potentially move other logic or interface definitions here?
+ * This subclasses #dynamorio::drmemtrace::memtrace_stream_t because the readers
+ * derived from it are expected to implement that interface. We want to avoid
+ * subclasses having to inherit from multiple base classes
+ * (#dynamorio::drmemtrace::reader_base_t and
+ * #dynamorio::drmemtrace::memtrace_stream_t), so it is better for us to
+ * inherit from #dynamorio::drmemtrace::memtrace_stream_t here.
+ *
+ * XXX i#5727: Can we potentially move other logic or interface definitions here?
  */
 class reader_base_t : public memtrace_stream_t {
 public:
+    // Ensure derived classes operate as a proper C++ iterator in all circumstances.
+    using iterator_category = std::input_iterator_tag;
+    using value_type = memref_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     reader_base_t() = default;
     reader_base_t(int online, int verbosity, const char *output_prefix);
-    virtual ~reader_base_t()
-    {
-    }
+    virtual ~reader_base_t() = default;
 
     /**
      * Initializes various state for the reader. E.g., subclasses should remember to
-     * set at_eof_ as required here.
+     * set #at_eof_ to false here. Also reads the first entry by invoking
+     * operator++() so that operator*() is ready to provide one after init().
      *
-     * May block.
+     * May block for reading the first entry.
      */
     virtual bool
     init() = 0;
@@ -108,8 +121,8 @@ protected:
     /**
      * Returns the next entry for this reader.
      *
-     * If it returns nullptr, it will set the EOF bit to distinguish end-of-file from an
-     * error in the at_eof_ data member.
+     * If it returns nullptr, it will set the #at_eof_ field to distinguish end-of-file
+     * from an error.
      *
      * An invocation of this API may or may not cause an actual read from the underlying
      * source using the derived class implementation of
@@ -155,8 +168,8 @@ private:
      * If it returns nullptr, it will set the EOF bit to distinguish end-of-file from an
      * error.
      *
-     * This is used only by #dynamorio::drmemtrace::reader_base_t::get_next_entry(),
-     * as and when needed to access the underlying source of entries. Subclasses that
+     * This is used only by #dynamorio::drmemtrace::reader_base_t::get_next_entry()
+     * when needed to access the underlying source of entries. Subclasses that
      * need the next entry should use
      * #dynamorio::drmemtrace::reader_base_t::get_next_entry() instead.
      */

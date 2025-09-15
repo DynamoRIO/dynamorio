@@ -56,6 +56,10 @@ namespace drmemtrace {
             abort();             \
     } while (0)
 
+/***********************************
+ * Implementation for reader_base_t.
+ */
+
 reader_base_t::reader_base_t(int online, int verbosity, const char *output_prefix)
     : verbosity_(verbosity)
     , output_prefix_(output_prefix)
@@ -96,6 +100,10 @@ reader_base_t::operator!=(const reader_base_t &rhs) const
 {
     return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
 }
+
+/***********************************
+ * Implementation for reader_t.
+ */
 
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off

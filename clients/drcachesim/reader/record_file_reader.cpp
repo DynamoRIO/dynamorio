@@ -60,16 +60,16 @@ template <>
 trace_entry_t *
 record_file_reader_t<std::ifstream>::read_next_entry()
 {
-    if (!input_file_->read((char *)&cur_entry_, sizeof(cur_entry_))) {
+    if (!input_file_->read((char *)&entry_copy_, sizeof(entry_copy_))) {
         if (input_file_->eof()) {
             at_eof_ = true;
         }
         return nullptr;
     }
     VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
-           trace_type_names[cur_entry_.type], cur_entry_.type, cur_entry_.size,
-           cur_entry_.addr);
-    return &cur_entry_;
+           trace_type_names[entry_copy_.type], entry_copy_.type, entry_copy_.size,
+           entry_copy_.addr);
+    return &entry_copy_;
 }
 
 } // namespace drmemtrace

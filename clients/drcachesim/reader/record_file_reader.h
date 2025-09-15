@@ -137,7 +137,7 @@ public:
     const trace_entry_t &
     operator*()
     {
-        return cur_entry_;
+        return entry_copy_;
     }
 
     static bool
@@ -155,29 +155,29 @@ public:
         trace_entry_t *next_entry = get_next_entry();
         assert(next_entry != nullptr || at_eof_);
         if (!at_eof_) {
-            cur_entry_ = *next_entry;
+            entry_copy_ = *next_entry;
             ++cur_ref_count_;
             // We increment the instr count at the encoding as that avoids multiple
             // problems with separating encodings from instrs when skipping (including
             // for scheduler regions of interest) and when replaying schedules: anything
             // using instr ordinals as boundaries.
             if (!prev_record_was_pre_instr_ &&
-                (record_is_pre_instr(&cur_entry_) ||
-                 type_is_instr(static_cast<trace_type_t>(cur_entry_.type))))
+                (record_is_pre_instr(&entry_copy_) ||
+                 type_is_instr(static_cast<trace_type_t>(entry_copy_.type))))
                 ++cur_instr_count_;
-            else if (cur_entry_.type == TRACE_TYPE_MARKER) {
-                switch (cur_entry_.size) {
-                case TRACE_MARKER_TYPE_VERSION: version_ = cur_entry_.addr; break;
-                case TRACE_MARKER_TYPE_FILETYPE: filetype_ = cur_entry_.addr; break;
+            else if (entry_copy_.type == TRACE_TYPE_MARKER) {
+                switch (entry_copy_.size) {
+                case TRACE_MARKER_TYPE_VERSION: version_ = entry_copy_.addr; break;
+                case TRACE_MARKER_TYPE_FILETYPE: filetype_ = entry_copy_.addr; break;
                 case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
-                    cache_line_size_ = cur_entry_.addr;
+                    cache_line_size_ = entry_copy_.addr;
                     break;
-                case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = cur_entry_.addr; break;
+                case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = entry_copy_.addr; break;
                 case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
-                    chunk_instr_count_ = cur_entry_.addr;
+                    chunk_instr_count_ = entry_copy_.addr;
                     break;
                 case TRACE_MARKER_TYPE_TIMESTAMP:
-                    last_timestamp_ = cur_entry_.addr;
+                    last_timestamp_ = entry_copy_.addr;
                     if (first_timestamp_ == 0)
                         first_timestamp_ = last_timestamp_;
                     break;
@@ -191,7 +191,7 @@ public:
                     break;
                 }
             }
-            prev_record_was_pre_instr_ = record_is_pre_instr(&cur_entry_);
+            prev_record_was_pre_instr_ = record_is_pre_instr(&entry_copy_);
         }
         return *this;
     }
@@ -262,8 +262,6 @@ protected:
     open_single_file(const std::string &input_path) = 0;
     virtual bool
     open_input_file() = 0;
-
-    trace_entry_t cur_entry_ = {};
 
 protected:
     uint64_t cur_ref_count_ = 0;

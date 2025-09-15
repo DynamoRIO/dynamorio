@@ -106,8 +106,8 @@ public:
             at_eof_ = true;
             return nullptr;
         }
-        cur_entry_ = trace_[index_];
-        return &cur_entry_;
+        entry_copy_ = trace_[index_];
+        return &entry_copy_;
     }
     std::string
     get_stream_name() const override
