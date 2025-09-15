@@ -78,12 +78,9 @@ namespace drmemtrace {
  * reader interface common to the two types of readers; not so much for
  * reader-specific logic for what to do with the entries.
  *
- * This subclasses #dynamorio::drmemtrace::memtrace_stream_t because the readers
- * derived from it are expected to implement that interface. We want to avoid
- * subclasses having to inherit from multiple base classes
- * (#dynamorio::drmemtrace::reader_base_t and
- * #dynamorio::drmemtrace::memtrace_stream_t), so it is better for us to
- * inherit from #dynamorio::drmemtrace::memtrace_stream_t here.
+ * This subclasses #dynamorio::drmemtrace::memtrace_stream_t because all readers
+ * derived from it are expected to implement that interface, but it leaves the
+ * implementation of the stream APIs to each derived class.
  *
  * XXX i#5727: Can we potentially move other logic or interface definitions here?
  */
