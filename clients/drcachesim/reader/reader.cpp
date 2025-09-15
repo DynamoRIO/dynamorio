@@ -240,6 +240,8 @@ reader_base_t::clear_entry_queue()
 void
 reader_base_t::queue_to_return_next(std::queue<trace_entry_t> &queue)
 {
+    // Since there may already be some records in queue_ (from our readahead to find the
+    // next trace pc), we need to insert in the reverse order in its front.
     std::stack<trace_entry_t> stack;
     while (!queue.empty()) {
         stack.push(queue.front());

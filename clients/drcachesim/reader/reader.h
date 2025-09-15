@@ -224,6 +224,10 @@ protected:
      * Adds the given entries to the #dynamorio::drmemtrace::entry_queue_t to be returned
      * from the next call to #dynamorio::drmemtrace::reader_base_t::get_next_entry()
      * in the same order as the provided queue.
+     *
+     * If this routine is used another time, before all records from the prior invocation
+     * are passed on to the user, the records queued in the later call will be returned
+     * first.
      */
     void
     queue_to_return_next(std::queue<trace_entry_t> &queue);
