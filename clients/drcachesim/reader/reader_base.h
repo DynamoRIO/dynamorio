@@ -100,9 +100,9 @@ public:
     virtual bool
     init() = 0;
 
-    bool
+    virtual bool
     operator==(const reader_base_t &rhs) const;
-    bool
+    virtual bool
     operator!=(const reader_base_t &rhs) const;
 
 protected:
