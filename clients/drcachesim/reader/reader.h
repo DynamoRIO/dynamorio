@@ -91,13 +91,6 @@ namespace drmemtrace {
  */
 class reader_base_t : public memtrace_stream_t {
 public:
-    // Ensure derived classes operate as a proper C++ iterator in all circumstances.
-    using iterator_category = std::input_iterator_tag;
-    using value_type = memref_t;
-    using difference_type = std::ptrdiff_t;
-    using pointer = value_type *;
-    using reference = value_type &;
-
     reader_base_t() = default;
     reader_base_t(int online, int verbosity, const char *output_prefix);
     virtual ~reader_base_t() = default;
@@ -187,6 +180,13 @@ private:
  */
 class reader_t : public reader_base_t {
 public:
+    // Ensure derived classes operate as a proper C++ iterator in all circumstances.
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = memref_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     reader_t()
         : reader_base_t()
     {

@@ -113,6 +113,13 @@ namespace drmemtrace {
  */
 class record_reader_t : public reader_base_t {
 public:
+    // Ensure derived classes operate as a proper C++ iterator in all circumstances.
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = trace_entry_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     record_reader_t(int online, int verbosity, const char *prefix)
         : reader_base_t(online, verbosity, prefix)
     {
