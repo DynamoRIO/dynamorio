@@ -33,6 +33,7 @@
 #include "reader_base.h"
 
 #include <cassert>
+#include <cinttypes>
 #include <queue>
 #include <stack>
 
