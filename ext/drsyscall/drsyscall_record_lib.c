@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include "drsyscall.h"
+#include "drsyscall_os.h"
 #include "drsyscall_record.h"
 #include "drsyscall_record_lib.h"
 #include "utils.h"
