@@ -157,36 +157,39 @@ private:
  * reader interface common to the two types of readers; not so much for
  * reader-specific logic for what to do with the entries.
  *
- * TODO i#5727: Can we potentially move other logic or interface definitions here?
+ * This subclasses #dynamorio::drmemtrace::memtrace_stream_t because all readers
+ * derived from it are expected to implement that interface, but it leaves the
+ * implementation of the stream APIs to each derived class.
+ *
+ * XXX i#5727: Can we potentially move other logic or interface definitions here?
  */
 class reader_base_t : public memtrace_stream_t {
 public:
     reader_base_t() = default;
     reader_base_t(int online, int verbosity, const char *output_prefix);
-    virtual ~reader_base_t()
-    {
-    }
+    virtual ~reader_base_t() = default;
 
     /**
      * Initializes various state for the reader. E.g., subclasses should remember to
-     * set at_eof_ as required here.
+     * set #at_eof_ to false here. Also reads the first entry by invoking
+     * operator++() so that operator*() is ready to provide one after init().
      *
-     * May block.
+     * May block for reading the first entry.
      */
     virtual bool
     init() = 0;
 
-    bool
+    virtual bool
     operator==(const reader_base_t &rhs) const;
-    bool
+    virtual bool
     operator!=(const reader_base_t &rhs) const;
 
 protected:
     /**
      * Returns the next entry for this reader.
      *
-     * If it returns nullptr, it will set the EOF bit to distinguish end-of-file from an
-     * error in the at_eof_ data member.
+     * If it returns nullptr, it will set the #at_eof_ field to distinguish end-of-file
+     * from an error.
      *
      * Also sets the next continuous pc in the trace at the next_trace_pc_ data member.
      *
@@ -262,8 +265,8 @@ private:
      * If it returns nullptr, it will set the EOF bit to distinguish end-of-file from an
      * error.
      *
-     * This is used only by #dynamorio::drmemtrace::reader_base_t::get_next_entry(),
-     * as and when needed to access the underlying source of entries. Subclasses that
+     * This is used only by #dynamorio::drmemtrace::reader_base_t::get_next_entry()
+     * when needed to access the underlying source of entries. Subclasses that
      * need the next entry should use
      * #dynamorio::drmemtrace::reader_base_t::get_next_entry() instead.
      */
@@ -276,6 +279,9 @@ private:
      * needs to read ahead when skipping to include the post-instr records,
      * and #dynamorio::drmemtrace::reader_base_t may read-ahead records from
      * the input source to discover the next continuous pc in the trace.
+     *
+     * #dynamorio::drmemtrace::reader_base_t::get_next_entry() automatically
+     * returns entries from this queue when it's non-empty.
      */
     entry_queue_t queue_;
 

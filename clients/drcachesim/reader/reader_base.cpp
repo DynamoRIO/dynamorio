@@ -146,7 +146,7 @@ reader_base_t::get_next_entry()
 {
     if (is_online()) {
         // We don't support any readahead in the online mode. We simply invoke the
-        // reader's logic. No other management required.
+        // reader's logic.
         // XXX: Add read-ahead support for online mode. Needs more thought to
         // determine feasibility and cost of read-ahead, and whether we want to
         // always read-ahead or only when memtrace_stream_t::get_next_trace_pc()

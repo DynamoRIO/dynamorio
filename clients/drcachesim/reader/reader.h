@@ -41,7 +41,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <deque>
 #include <iterator>
 #include <queue>
 #include <unordered_map>
