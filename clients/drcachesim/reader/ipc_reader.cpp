@@ -50,7 +50,7 @@ ipc_reader_t::ipc_reader_t()
 }
 
 ipc_reader_t::ipc_reader_t(const char *ipc_name, int verbosity)
-    : reader_t(verbosity, "IPC")
+    : reader_t(/*online=*/true, verbosity, "IPC")
     , pipe_(ipc_name)
 {
     // We create the pipe here so the user can set up a pipe writer
@@ -95,9 +95,6 @@ ipc_reader_t::~ipc_reader_t()
 trace_entry_t *
 ipc_reader_t::read_next_entry()
 {
-    trace_entry_t *from_queue = read_queued_entry();
-    if (from_queue != nullptr)
-        return from_queue;
     ++cur_buf_;
     if (cur_buf_ >= end_buf_) {
         ssize_t sz = pipe_.read(buf_, sizeof(buf_)); // blocking read

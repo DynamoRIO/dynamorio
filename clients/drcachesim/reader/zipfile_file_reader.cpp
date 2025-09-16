@@ -166,9 +166,6 @@ template <>
 trace_entry_t *
 file_reader_t<zipfile_reader_t>::read_next_entry()
 {
-    trace_entry_t *from_queue = read_queued_entry();
-    if (from_queue != nullptr)
-        return from_queue;
     if (!read_if_at_end_of_buffer(input_file_, at_eof_, entry_copy_))
         return nullptr;
     entry_copy_ = *input_file_.cur_buf;
@@ -279,17 +276,17 @@ record_file_reader_t<zipfile_reader_t>::open_single_file(const std::string &path
 }
 
 template <>
-bool
+trace_entry_t *
 record_file_reader_t<zipfile_reader_t>::read_next_entry()
 {
-    if (!read_if_at_end_of_buffer(*input_file_, eof_, cur_entry_))
-        return false;
-    cur_entry_ = *input_file_->cur_buf;
+    if (!read_if_at_end_of_buffer(*input_file_, at_eof_, entry_copy_))
+        return nullptr;
+    entry_copy_ = *input_file_->cur_buf;
     ++input_file_->cur_buf;
     VPRINT(this, 5, "Read %s: type=%s (%d), size=%d, addr=%zu\n",
-           input_file_->path.c_str(), trace_type_names[cur_entry_.type], cur_entry_.type,
-           cur_entry_.size, cur_entry_.addr);
-    return true;
+           input_file_->path.c_str(), trace_type_names[entry_copy_.type],
+           entry_copy_.type, entry_copy_.size, entry_copy_.addr);
+    return &entry_copy_;
 }
 
 } // namespace drmemtrace

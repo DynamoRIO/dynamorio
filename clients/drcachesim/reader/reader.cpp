@@ -65,23 +65,13 @@ reader_t::operator*()
     return cur_ref_;
 }
 
-trace_entry_t *
-reader_t::read_queued_entry()
-{
-    if (queue_.empty())
-        return nullptr;
-    entry_copy_ = queue_.front();
-    queue_.pop();
-    return &entry_copy_;
-}
-
 reader_t &
 reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
         if (bundle_idx_ == 0 /*not in instr bundle*/)
-            input_entry_ = read_next_entry();
+            input_entry_ = get_next_entry();
         if (input_entry_ == NULL) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");
@@ -428,7 +418,7 @@ reader_t::pre_skip_instructions()
     // XXX: We assume the page size is the final header; it is complex to wait for
     // the timestamp as we don't want to read it yet.
     while (page_size_ == 0) {
-        input_entry_ = read_next_entry();
+        input_entry_ = get_next_entry();
         if (input_entry_ == nullptr) {
             at_eof_ = true;
             return false;
@@ -493,7 +483,7 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         // too-far instr if we didn't find a timestamp.
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             entry_copy_ = *input_entry_;
-        trace_entry_t *next = read_next_entry();
+        trace_entry_t *next = get_next_entry();
         if (next == nullptr) {
             VPRINT(this, 1,
                    next == nullptr ? "Failed to read next entry\n" : "Hit EOF\n");

@@ -77,10 +77,9 @@ template <typename T> class file_reader_t : public reader_t {
 public:
     file_reader_t();
     file_reader_t(const std::string &path, int verbosity = 0)
-        : reader_t(verbosity, "[file_reader]")
+        : reader_t(/*online=*/false, verbosity, "[file_reader]")
         , input_path_(path)
     {
-        online_ = false;
     }
     virtual ~file_reader_t();
     bool
@@ -103,9 +102,6 @@ public:
     }
 
 protected:
-    trace_entry_t *
-    read_next_entry() override;
-
     virtual bool
     open_single_file(const std::string &path);
 
@@ -122,7 +118,7 @@ protected:
         // the very first time for the thread.
         trace_entry_t *entry;
         trace_entry_t header = {}, pid = {}, tid = {};
-        entry = read_next_entry();
+        entry = get_next_entry();
         if (entry == nullptr || entry->type != TRACE_TYPE_HEADER) {
             ERRMSG("Invalid header\n");
             return false;
@@ -141,7 +137,7 @@ protected:
         // even though markers can precede the tid+pid in the file, in particular
         // for legacy traces.
         std::queue<trace_entry_t> marker_queue;
-        while ((entry = read_next_entry()) != nullptr) {
+        while ((entry = get_next_entry()) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
                 // We assume the pid entry is after the tid.
                 pid = *entry;
@@ -179,6 +175,9 @@ protected:
     T input_file_;
 
 private:
+    trace_entry_t *
+    read_next_entry() override;
+
     std::string input_path_;
 };
 
