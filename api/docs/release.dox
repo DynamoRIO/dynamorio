@@ -143,6 +143,9 @@ changes:
    #dynamorio::drmemtrace::reader_t::read_next_entry().
  - Renamed eof_ to at_eof_ for #dynamorio::drmemtrace:record_reader_t, which must be
    set by subclasses of #dynamorio::drmemtrace:record_reader_t to indicate EOF.
+ - Renamed cur_entry_ to entry_copy_ for subclasses of
+   #dynamorio::drmemtrace:record_reader_t, which can be used instead to store the
+   entry that is read from the trace file.
  - Changed signature of dynamorio::drmemtrace:record_reader_t::read_next_entry() to
    return a pointer to the read #dynamorio::drmemtrace:trace_entry_t instead of a bool.
  - Added a parameter to the constructor of #dynamorio::drmemtrace:reader_t and

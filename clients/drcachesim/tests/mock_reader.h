@@ -50,7 +50,7 @@ class mock_reader_t : public reader_t {
 public:
     mock_reader_t() = default;
     explicit mock_reader_t(const std::vector<trace_entry_t> &trace)
-        : reader_t(/*online=*/false, /*verbosity=*/3, "[mock_reader_t]")
+        : reader_t(/*online=*/false, /*verbosity=*/3, "mock_reader_t")
         , trace_(trace)
     {
     }
@@ -87,7 +87,7 @@ class mock_record_reader_t : public record_reader_t {
 public:
     mock_record_reader_t() = default;
     explicit mock_record_reader_t(const std::vector<trace_entry_t> &trace)
-        : record_reader_t(/*online=*/false, /*verbosity=*/3, "[mock_record_reader_t]")
+        : record_reader_t(/*online=*/false, /*verbosity=*/3, "mock_record_reader_t")
         , trace_(trace)
     {
     }
@@ -106,8 +106,8 @@ public:
             at_eof_ = true;
             return nullptr;
         }
-        cur_entry_ = trace_[index_];
-        return &cur_entry_;
+        entry_copy_ = trace_[index_];
+        return &entry_copy_;
     }
     std::string
     get_stream_name() const override

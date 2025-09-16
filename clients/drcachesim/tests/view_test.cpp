@@ -446,7 +446,7 @@ public:
         at_eof_ = true;
     }
     mock_file_reader_t(const std::vector<trace_entry_t> &entries)
-        : file_reader_t<std::vector<trace_entry_t>>("<mock-path>", /*verbosity=*/0)
+        : file_reader_t<std::vector<trace_entry_t>>("<mock-file>")
     {
         input_file_ = entries;
         pos_ = 0;
