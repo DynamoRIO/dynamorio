@@ -245,5 +245,11 @@ reader_base_t::queue_to_return_next(trace_entry_t &entry)
     queue_.push_front(entry, next_trace_pc_);
 }
 
+uint64_t
+reader_base_t::get_next_trace_pc() const
+{
+    return next_trace_pc_;
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio
