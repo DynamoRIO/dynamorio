@@ -121,7 +121,7 @@ protected:
         // the very first time for the thread.
         trace_entry_t *entry;
         trace_entry_t header = {}, pid = {}, tid = {};
-        entry = get_next_entry();
+        entry = read_next_entry();
         if (entry == nullptr || entry->type != TRACE_TYPE_HEADER) {
             ERRMSG("Invalid header\n");
             return false;
@@ -140,7 +140,7 @@ protected:
         // even though markers can precede the tid+pid in the file, in particular
         // for legacy traces.
         std::queue<trace_entry_t> marker_queue;
-        while ((entry = get_next_entry()) != nullptr) {
+        while ((entry = read_next_entry()) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
                 // We assume the pid entry is after the tid.
                 pid = *entry;
