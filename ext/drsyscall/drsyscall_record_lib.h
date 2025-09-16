@@ -30,13 +30,13 @@
  * DAMAGE.
  */
 #ifndef _DRSYSCALL_RECORD_LIB_H_
-#    define _DRSYSCALL_RECORD_LIB_H_ 1
-#    include <stdio.h>
-#    include <unistd.h>
+#define _DRSYSCALL_RECORD_LIB_H_ 1
+#include <stdio.h>
+#include <unistd.h>
 
-#    include "dr_api.h"
-#    include "drsyscall.h"
-#    include "drsyscall_record.h"
+#include "dr_api.h"
+#include "drsyscall.h"
+#include "drsyscall_record.h"
 
 /**
  * A user provided function to read syscall records. Returns the number of bytes read.
@@ -64,9 +64,9 @@ typedef size_t (*drsyscall_record_write_t)(DR_PARAM_IN char *buffer,
 typedef bool (*drsyscall_iter_record_cb_t)(DR_PARAM_IN syscall_record_t *record,
                                            DR_PARAM_IN char *buffer,
                                            DR_PARAM_IN size_t size);
-#    ifdef __cplusplus
+#ifdef __cplusplus
 extern "C" {
-#    endif
+#endif
 
 DR_EXPORT
 /**
@@ -211,8 +211,8 @@ drsyscall_write_post_syscall_records(DR_PARAM_IN drsyscall_record_write_t write_
                                      DR_PARAM_IN void *drcontext, DR_PARAM_IN int sysnum,
                                      DR_PARAM_IN uint64_t timestamp);
 
-#    ifdef __cplusplus
+#ifdef __cplusplus
 }
-#    endif
+#endif
 
 #endif /* _DRSYSCALL_RECORD_LIB_H_ */
