@@ -30,13 +30,13 @@
  * DAMAGE.
  */
 #ifndef _DRSYSCALL_RECORD_LIB_H_
-#define _DRSYSCALL_RECORD_LIB_H_ 1
-#include <stdio.h>
-#include <unistd.h>
+#    define _DRSYSCALL_RECORD_LIB_H_ 1
+#    include <stdio.h>
+#    include <unistd.h>
 
-#include "dr_api.h"
-#include "drsyscall.h"
-#include "drsyscall_record.h"
+#    include "dr_api.h"
+#    include "drsyscall.h"
+#    include "drsyscall_record.h"
 
 /**
  * A user provided function to read syscall records. Returns the number of bytes read.
@@ -64,6 +64,9 @@ typedef size_t (*drsyscall_record_write_t)(DR_PARAM_IN char *buffer,
 typedef bool (*drsyscall_iter_record_cb_t)(DR_PARAM_IN syscall_record_t *record,
                                            DR_PARAM_IN char *buffer,
                                            DR_PARAM_IN size_t size);
+#    ifdef __cplusplus
+extern "C" {
+#    endif
 
 DR_EXPORT
 /**
@@ -171,5 +174,45 @@ int
 drsyscall_write_syscall_end_timestamp_record(
     DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
     DR_PARAM_IN uint64_t timestamp);
+
+DR_EXPORT
+/**
+ * Write pre-syscall records of type #DRSYS_SYSCALL_NUMBER_TIMESTAMP,
+ * #DRSYS_PRECALL_PARAM, and #DRSYS_MEMORY_CONTENT of the current syscall.
+ * The caller must invoke drmgr_init() and drsys_init() before calling this function.
+ *
+ * @param[in] write_func  A user provided function to write syscall record.
+ * @param[in] drcontext   The opaque context.
+ * @param[in] sysnum      The system call number.
+ * @param[in] timestamp   The timestamp of the end of the syscall.
+ *
+ * @return true when records are written successfully, false otherwise.
+ */
+bool
+drsyscall_write_pre_syscall_records(DR_PARAM_IN drsyscall_record_write_t write_func,
+                                    DR_PARAM_IN void *drcontext, DR_PARAM_IN int sysnum,
+                                    DR_PARAM_IN uint64_t timestamp);
+
+DR_EXPORT
+/**
+ * Write pre-syscall records of type #DRSYS_POSTCALL_PARAM, #DRSYS_MEMORY_CONTENT,
+ * #DRSYS_RETURN_VALUE, and #DRSYS_RECORD_END_TIMESTAMP of the current syscall.
+ * The caller must invoke drmgr_init() and drsys_init() before calling this function.
+ *
+ * @param[in] write_func  A user provided function to write syscall record.
+ * @param[in] drcontext   The opaque context.
+ * @param[in] sysnum      The system call number.
+ * @param[in] timestamp   The timestamp of the end of the syscall.
+ *
+ * @return true when records are written successfully, false otherwise.
+ */
+bool
+drsyscall_write_post_syscall_records(DR_PARAM_IN drsyscall_record_write_t write_func,
+                                     DR_PARAM_IN void *drcontext, DR_PARAM_IN int sysnum,
+                                     DR_PARAM_IN uint64_t timestamp);
+
+#    ifdef __cplusplus
+}
+#    endif
 
 #endif /* _DRSYSCALL_RECORD_LIB_H_ */

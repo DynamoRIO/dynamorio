@@ -129,45 +129,9 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (!event_filter_syscall(drcontext, sysnum)) {
         return true;
     }
-    drsys_syscall_t *syscall;
-    if (drsys_cur_syscall(drcontext, &syscall) != DRMF_SUCCESS) {
-        dr_fprintf(STDERR, "drsys_cur_syscall failed, sysnum = %d", sysnum);
-        return false;
-    }
-    drsys_sysnum_t sysnum_full;
-    if (drsys_syscall_number(syscall, &sysnum_full) != DRMF_SUCCESS) {
-        dr_fprintf(STDERR, "drsys_syscall_number failed, sysnum = %d", sysnum);
-        return false;
-    }
-    if (sysnum != sysnum_full.number) {
-        dr_fprintf(STDERR, "primary (%d) should match DR's num %d", sysnum,
-                   sysnum_full.number);
-        return false;
-    }
-    drsys_param_type_t ret_type = DRSYS_TYPE_INVALID;
-    if (drsys_syscall_return_type(syscall, &ret_type) != DRMF_SUCCESS ||
-        ret_type == DRSYS_TYPE_INVALID || ret_type == DRSYS_TYPE_UNKNOWN) {
-        dr_fprintf(STDERR, "failed to get syscall return type, sysnum = %d", sysnum);
-        return false;
-    }
-    bool known = false;
-    if (drsys_syscall_is_known(syscall, &known) != DRMF_SUCCESS || !known) {
-        dr_fprintf(STDERR, "syscall %d is unknown", sysnum);
-        return false;
-    }
-
-    if (drsyscall_write_syscall_number_timestamp_record(
-            write_file, sysnum_full, get_microsecond_timestamp()) == 0) {
-        dr_fprintf(STDERR, "failed to write syscall number record, sysnum = %d", sysnum);
-        return false;
-    }
-
-    if (drsys_iterate_args(drcontext, drsys_iter_arg_cb, NULL) != DRMF_SUCCESS) {
-        dr_fprintf(STDERR, "drsys_iterate_args failed, sysnum = %d", sysnum);
-        return false;
-    }
-    if (drsys_iterate_memargs(drcontext, drsys_iter_memarg_cb, NULL) != DRMF_SUCCESS) {
-        dr_fprintf(STDERR, "drsys_iterate_memargs failed, sysnum = %d", sysnum);
+    if (!drsyscall_write_pre_syscall_records(write_file, drcontext, sysnum,
+                                             get_microsecond_timestamp())) {
+        dr_fprintf(STDERR, "failed to write pre-syscall records, sysnum = %d", sysnum);
         return false;
     }
     return true;
@@ -179,33 +143,9 @@ event_post_syscall(void *drcontext, int sysnum)
     if (!event_filter_syscall(drcontext, sysnum)) {
         return;
     }
-    drsys_syscall_t *syscall;
-    if (drsys_cur_syscall(drcontext, &syscall) != DRMF_SUCCESS) {
-        dr_fprintf(STDERR, "drsys_cur_syscall failed, sysnum = %d", sysnum);
-        return;
-    }
-    drsys_sysnum_t sysnum_full;
-    if (drsys_syscall_number(syscall, &sysnum_full) != DRMF_SUCCESS) {
-        dr_fprintf(STDERR, "drsys_syscall_number failed, sysnum = %d", sysnum);
-        return;
-    }
-    if (sysnum != sysnum_full.number) {
-        dr_fprintf(STDERR, "primary (%d) should match DR's num %d", sysnum,
-                   sysnum_full.number);
-        return;
-    }
-    if (drsys_iterate_args(drcontext, drsys_iter_arg_cb, NULL) != DRMF_SUCCESS) {
-        dr_fprintf(STDERR, "drsys_iterate_args failed, sysnum = %d", sysnum);
-        return;
-    }
-    if (drsys_iterate_memargs(drcontext, drsys_iter_memarg_cb, NULL) != DRMF_SUCCESS) {
-        dr_fprintf(STDERR, "drsys_iterate_memargs failed, sysnum = %d", sysnum);
-        return;
-    }
-    if (drsyscall_write_syscall_end_timestamp_record(write_file, sysnum_full,
-                                                     get_microsecond_timestamp()) == 0) {
-        dr_fprintf(STDERR, "failed to write syscall end record, sysnum = %d", sysnum);
-        return;
+    if (!drsyscall_write_post_syscall_records(write_file, drcontext, sysnum,
+                                              get_microsecond_timestamp())) {
+        dr_fprintf(STDERR, "failed to write post-syscall records, sysnum = %d", sysnum);
     }
 }
 

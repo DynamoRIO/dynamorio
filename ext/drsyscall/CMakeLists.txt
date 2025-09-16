@@ -170,7 +170,7 @@ use_DynamoRIO_extension(drsyscall_static drcontainers)
 use_DynamoRIO_extension(drsyscall_static drsyms_static)
 configure_drsyscall_target(drsyscall_static)
 
-add_library(drsyscall_drstatic STATIC ${srcs_static})
+add_library(drsyscall_drstatic STATIC ${srcs_static} ${external_srcs})
 configure_extension(drsyscall_drstatic ON ON)
 use_DynamoRIO_extension(drsyscall_drstatic drmgr_drstatic)
 use_DynamoRIO_extension(drsyscall_drstatic drcontainers_drstatic)
@@ -186,11 +186,21 @@ if (LINUX)
     ../drmf/framework/drmf_utils.c
   )
 
-  add_library(drsyscall_record_lib STATIC ${drsyscall_record_lib_srcs}
+  add_library(drsyscall_record_lib SHARED ${drsyscall_record_lib_srcs}
     ${drsyscall_record_lib_external_srcs})
-  configure_extension(drsyscall_record_lib ON ON)
-  configure_DynamoRIO_client(drsyscall_record_lib)
-  use_DynamoRIO_extension(drutil_static drmgr_static)
+  configure_extension(drsyscall_record_lib OFF OFF)
+  # configure_extension calls configure_DynamoRIO_client/configure_DynamoRIO_static_client
+  use_DynamoRIO_extension(drsyscall_record_lib drsyscall)
+
+  add_library(drsyscall_record_lib_static STATIC ${drsyscall_record_lib_srcs}
+    ${drsyscall_record_lib_external_srcs})
+  configure_extension(drsyscall_record_lib_static ON OFF)
+  use_DynamoRIO_extension(drsyscall_record_lib_static drsyscall_static)
+
+  add_library(drsyscall_record_lib_drstatic STATIC ${drsyscall_record_lib_srcs}
+    ${drsyscall_record_lib_external_srcs})
+  configure_extension(drsyscall_record_lib_drstatic ON ON)
+  use_DynamoRIO_extension(drsyscall_record_lib_drstatic drsyscall_drstatic)
 
   install_ext_header(drsyscall_record.h)
   install_ext_header(drsyscall_record_lib.h)
@@ -198,7 +208,7 @@ if (LINUX)
   add_executable(drsyscall_record_viewer drsyscall_record_viewer.c)
   configure_DynamoRIO_standalone(drsyscall_record_viewer)
   configure_DynamoRIO_static(drsyscall_record_viewer)
-  use_DynamoRIO_extension(drsyscall_record_viewer drsyscall_record_lib)
+  use_DynamoRIO_extension(drsyscall_record_viewer drsyscall_record_lib_static)
   set_target_properties(drsyscall_record_viewer PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
 endif ()
