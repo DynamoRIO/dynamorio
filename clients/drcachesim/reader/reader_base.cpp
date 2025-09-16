@@ -177,7 +177,7 @@ reader_base_t::get_next_entry()
     trace_entry_t *ret_entry = nullptr;
     if (!queue_.empty()) {
         // If we're at the end of the trace and there's no next continuous pc
-        // in the trace, entry_queue will simply set next pc to zero.
+        // in the trace, entry_queue_t will simply set next pc to zero.
         queue_.pop_front(entry_copy_, next_trace_pc_);
         ret_entry = &entry_copy_;
     } else {
@@ -237,6 +237,12 @@ reader_base_t::queue_to_return_next(std::queue<trace_entry_t> &queue)
         queue_.push_front(stack.top(), next_trace_pc_);
         stack.pop();
     }
+}
+
+void
+reader_base_t::queue_to_return_next(trace_entry_t &entry)
+{
+    queue_.push_front(entry, next_trace_pc_);
 }
 
 } // namespace drmemtrace

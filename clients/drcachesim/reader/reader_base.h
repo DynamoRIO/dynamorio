@@ -159,7 +159,7 @@ private:
  *
  * This subclasses #dynamorio::drmemtrace::memtrace_stream_t because all readers
  * derived from it are expected to implement that interface, but it leaves the
- * implementation of the stream APIs to each derived class.
+ * implementation of most of the stream APIs to each derived class.
  *
  * XXX i#5727: Can we potentially move other logic or interface definitions here?
  */
@@ -183,6 +183,9 @@ public:
     operator==(const reader_base_t &rhs) const;
     virtual bool
     operator!=(const reader_base_t &rhs) const;
+
+    uint64_t
+    get_next_trace_pc() const override;
 
 protected:
     /**
@@ -221,12 +224,22 @@ protected:
      * from the next call to #dynamorio::drmemtrace::reader_base_t::get_next_entry()
      * in the same order as the provided queue.
      *
-     * If this routine is used another time, before all records from the prior invocation
-     * are passed on to the user, the records queued in the later call will be returned
-     * first.
+     * If this routine (or its overload) is used another time, before all records from
+     * the prior invocation are passed on to the user, the records queued in the later
+     * call will be returned first.
      */
     void
     queue_to_return_next(std::queue<trace_entry_t> &queue);
+    /**
+     * Adds the given entry to the #dynamorio::drmemtrace::entry_queue_t to be returned
+     * from the next call to #dynamorio::drmemtrace::reader_base_t::get_next_entry().
+     *
+     * If this routine (or its overload) is used another time, before all records from
+     * the prior invocation are passed on to the user, the records queued in the later
+     * call will be returned first.
+     */
+    void
+    queue_to_return_next(trace_entry_t &entry);
 
     /**
      * Denotes whether the reader is at EOF.

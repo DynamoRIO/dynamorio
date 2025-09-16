@@ -429,9 +429,7 @@ reader_t::pre_skip_instructions()
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
-            std::queue<trace_entry_t> entry;
-            entry.push(*input_entry_);
-            queue_to_return_next(entry);
+            queue_to_return_next(*input_entry_);
             break;
         }
         process_input_entry();
