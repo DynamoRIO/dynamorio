@@ -235,6 +235,10 @@ public:
     {
         return in_kernel_trace_;
     }
+    uint64_t get_next_trace_pc() const override
+    {
+        return next_trace_pc_;
+    }
 
     virtual record_reader_t &
     skip_instructions(uint64_t instruction_count)
