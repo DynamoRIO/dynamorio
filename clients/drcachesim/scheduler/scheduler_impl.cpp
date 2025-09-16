@@ -803,7 +803,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::check_valid_input_limits(
 {
     if (!workload.only_shards.empty()) {
         for (input_ordinal_t ord : workload.only_shards) {
-            if (ord < 0 || ord >= static_cast<input_ordinal_t>(reader_info.input_count)) {
+            if (ord < 0 ||
+                ord >= static_cast<input_ordinal_t>(reader_info.unfiltered_input_count)) {
                 error_string_ = "only_shards entry " + std::to_string(ord) +
                     " out of bounds for a shard ordinal";
                 return false;
@@ -849,7 +850,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
         if (workload.path.empty()) {
             if (workload.readers.empty())
                 return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-            reader_info.input_count = workload.readers.size();
+            reader_info.unfiltered_input_count = workload.readers.size();
+            reader_info.input_count = 0;
             for (int i = 0; i < static_cast<int>(workload.readers.size()); ++i) {
                 auto &reader = workload.readers[i];
                 if (!reader.reader || !reader.end)
@@ -861,6 +863,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 if (!workload.only_shards.empty() &&
                     workload.only_shards.find(i) == workload.only_shards.end())
                     continue;
+                ++reader_info.input_count;
                 int index = static_cast<input_ordinal_t>(inputs_.size());
                 inputs_.emplace_back();
                 input_info_t &input = inputs_.back();
@@ -934,6 +937,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                                                     reader_info.first_input_ordinal);
                 }
             } else if (!modifiers.shards.empty()) {
+                // As documented, the .shards ordinals apply to the input list
+                // *after* only_* are applied.
                 which_workload_inputs = modifiers.shards;
             }
 
@@ -941,6 +946,13 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
             // not high and the simplified code is worthwhile.
             for (int local_index : which_workload_inputs) {
                 int index = local_index + reader_info.first_input_ordinal;
+                if (index >= static_cast<int>(inputs_.size())) {
+                    // This should only happen with .shards.
+                    error_string_ =
+                        "workload.thread_modifiers has an invalid .shards entry " +
+                        std::to_string(local_index);
+                    return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+                }
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;
                 // Check for valid bindings.
@@ -955,7 +967,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 // code with a full set as a default value) that it is worth
                 // detecting and ignoring in order to avoid hitting binding-handling
                 // code and save time in initial placement and runqueue code.
-                if (modifiers.output_binding.size() < static_cast<size_t>(output_count)) {
+                if (!modifiers.output_binding.empty() &&
+                    modifiers.output_binding.size() < static_cast<size_t>(output_count)) {
                     input.binding = modifiers.output_binding;
                 }
                 input.priority = modifiers.priority;
@@ -2004,11 +2017,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
         error_string_ = "Failed to read " + path;
         return sched_type_t::STATUS_ERROR_FILE_READ_FAILED;
     }
+    ++reader_info.unfiltered_input_count;
     // For core-sharded inputs that start idle the tid might be IDLE_THREAD_ID.
     // That means the size of unfiltered_tids will not be the total input
-    // size, which is why we have a separate input_count.
+    // size, which is why we have a separate input_count and unfiltered_input_count.
     reader_info.unfiltered_tids.insert(tid);
-    ++reader_info.input_count;
     if (!reader_info.only_threads.empty() &&
         reader_info.only_threads.find(tid) == reader_info.only_threads.end()) {
         inputs_.pop_back();
@@ -2019,6 +2032,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
         inputs_.pop_back();
         return sched_type_t::STATUS_SUCCESS;
     }
+    ++reader_info.input_count;
     VPRINT(this, 1, "Opened reader for tid %" PRId64 " %s\n", tid, path.c_str());
     input.tid = tid;
     input.reader = std::move(reader);
