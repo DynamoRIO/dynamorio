@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,48 +30,55 @@
  * DAMAGE.
  */
 
-#include <fstream>
+#include "reader_base.h"
 
-#include "record_file_reader.h"
+#include <queue>
+
 #include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-/* clang-format off */ /* (make vera++ newline-after-type check happy) */
-template <>
-/* clang-format on */
-record_file_reader_t<std::ifstream>::~record_file_reader_t()
+reader_base_t::reader_base_t(int online, int verbosity, const char *output_prefix)
+    : verbosity_(verbosity)
+    , output_prefix_(output_prefix)
+    , online_(online)
 {
 }
 
-template <>
 bool
-record_file_reader_t<std::ifstream>::open_single_file(const std::string &path)
+reader_base_t::is_online()
 {
-    auto fstream =
-        std::unique_ptr<std::ifstream>(new std::ifstream(path, std::ifstream::binary));
-    if (!*fstream)
-        return false;
-    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_file_ = std::move(fstream);
-    return true;
+    return online_;
 }
 
-template <>
 trace_entry_t *
-record_file_reader_t<std::ifstream>::read_next_entry()
+reader_base_t::get_next_entry()
 {
-    if (!input_file_->read((char *)&entry_copy_, sizeof(entry_copy_))) {
-        if (input_file_->eof()) {
-            at_eof_ = true;
-        }
-        return nullptr;
+    if (!queue_.empty()) {
+        entry_copy_ = queue_.front();
+        queue_.pop();
+        return &entry_copy_;
     }
-    VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
-           trace_type_names[entry_copy_.type], entry_copy_.type, entry_copy_.size,
-           entry_copy_.addr);
-    return &entry_copy_;
+    return read_next_entry();
+}
+
+// To avoid double-dispatch (requires listing all derived types in the base here)
+// and RTTI in trying to get the right operators called for subclasses, we
+// instead directly check at_eof here.  If we end up needing to run code
+// and a bool field is not enough we can change this to invoke a virtual
+// method is_at_eof().
+bool
+reader_base_t::operator==(const reader_base_t &rhs) const
+{
+    return BOOLS_MATCH(at_eof_, rhs.at_eof_);
+}
+
+bool
+reader_base_t::operator!=(const reader_base_t &rhs) const
+{
+    return !BOOLS_MATCH(at_eof_, rhs.at_eof_);
 }
 
 } // namespace drmemtrace

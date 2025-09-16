@@ -122,10 +122,7 @@ template <>
 trace_entry_t *
 file_reader_t<gzip_reader_t>::read_next_entry()
 {
-    trace_entry_t *entry = read_queued_entry();
-    if (entry != nullptr)
-        return entry;
-    entry = read_next_entry_common(&input_file_, &at_eof_);
+    trace_entry_t *entry = read_next_entry_common(&input_file_, &at_eof_);
     if (entry == nullptr)
         return entry;
     VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
@@ -161,17 +158,17 @@ record_file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
 }
 
 template <>
-bool
+trace_entry_t *
 record_file_reader_t<gzip_reader_t>::read_next_entry()
 {
-    trace_entry_t *entry = read_next_entry_common(input_file_.get(), &eof_);
+    trace_entry_t *entry = read_next_entry_common(input_file_.get(), &at_eof_);
     if (entry == nullptr)
-        return false;
-    cur_entry_ = *entry;
+        return nullptr;
+    entry_copy_ = *entry;
     VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
-           trace_type_names[cur_entry_.type], cur_entry_.type, cur_entry_.size,
-           cur_entry_.addr);
-    return true;
+           trace_type_names[entry_copy_.type], entry_copy_.type, entry_copy_.size,
+           entry_copy_.addr);
+    return &entry_copy_;
 }
 
 } // namespace drmemtrace
