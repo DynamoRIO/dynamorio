@@ -268,6 +268,9 @@ public:
          * is also set, the indices here apply to the input list *after* only those
          * matching only_shards are removed.
          */
+        // The only_shards wart is due to use cases that apply only_shards before
+        // sending a set of reader_t inputs; it is not ideal, but we do not have
+        // a simple solution for now.
         std::vector<int> shards;
         /**
          * Limits these threads to this set of output streams, which are specified by
