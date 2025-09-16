@@ -38,15 +38,6 @@
 #include "drsyscall_record_lib.h"
 #include "utils.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-void
-c_style_function();
-#ifdef __cplusplus
-}
-#endif
-
 #define MAX_BUFFER_SIZE 8192
 
 DR_EXPORT
