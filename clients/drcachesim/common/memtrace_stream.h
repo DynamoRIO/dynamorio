@@ -314,7 +314,7 @@ public:
 
     /**
      * Returns the value of the next continuous PC in the trace after the
-     * current trace record. Such PC may be from the next instruction or the
+     * current trace record. This PC is from the next instruction or the
      * next #TRACE_MARKER_TYPE_KERNEL_EVENT, whichever comes first.
      *
      * This is not supported during online analysis, and for i-filtered

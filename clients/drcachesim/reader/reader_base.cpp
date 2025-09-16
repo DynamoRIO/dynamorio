@@ -242,6 +242,8 @@ reader_base_t::queue_to_return_next(std::queue<trace_entry_t> &queue)
 void
 reader_base_t::queue_to_return_next(trace_entry_t &entry)
 {
+    // Since there may already be some records in queue_ (from our readahead to find the
+    // next trace pc), we need to insert in its front.
     queue_.push_front(entry, next_trace_pc_);
 }
 
