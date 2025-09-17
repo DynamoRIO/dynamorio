@@ -203,8 +203,8 @@ protected:
             }
             queued_record_t(const RecordType &record, uint64_t next_trace_pc)
                 : record(record)
-                , next_trace_pc_valid(true)
                 , next_trace_pc(next_trace_pc)
+                , next_trace_pc_valid(true)
             {
             }
 
