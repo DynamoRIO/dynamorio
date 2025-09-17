@@ -4155,6 +4155,11 @@ if (BUILD_CLIENTS)
           "")
         set(tool.syscall_insertion_invariants_rawtemp ON) # no preprocessor
 
+        torunonly_simtool(serial_invariants ${ci_shared_app}
+          "-indir ${thread_trace_dir} -jobs 0 -tool invariant_checker"
+          "")
+        set(tool.serial_invariants_rawtemp ON) # no preprocessor
+
         torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
           "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
           "")
