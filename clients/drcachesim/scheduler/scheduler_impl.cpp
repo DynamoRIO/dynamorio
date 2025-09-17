@@ -1850,7 +1850,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
 
     // Return the first injected record.
     assert(!input->queue.empty());
-    bool from_queue = get_queued_record(input, record);
+#ifndef NDEBUG
+    bool from_queue =
+#endif
+        get_queued_record(input, record);
     assert(from_queue);
     input->in_syscall_injection = true;
     return stream_status_t::STATUS_OK;
