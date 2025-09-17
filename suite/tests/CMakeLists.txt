@@ -5426,6 +5426,17 @@ if (BUILD_CLIENTS)
             "@-tool@invariant_checker" "")
   endif ()
 
+  # TODO i#7399: Add Android, MacOS, MUSL, RISCV64 support to DrSyscall.
+  # Windows tests fail due to Syscall mismatch for NtGetContextThread with wrapper
+  # 236 vs table 235.
+  IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
+    torunonly_drcacheoff(collect-syscall-records ${ci_shared_app} "-collect_syscall_records" "" "")
+    unset(tool.drcacheoff.collect-syscall-records_rawtemp) # use preprocessor
+    string(CONCAT tool.drcacheoff.collect-syscall-records_postcmd2
+      "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
+      "${dir_prefix}.*.dir/raw/syscall_record_file.*")
+  endif ()
+
   ###########################################################################
   # drcpusim tests
 

@@ -55,6 +55,8 @@
 #include "droption.h"
 #include "drreg.h"
 #include "drstatecmp.h"
+#include "drsyscall.h"
+#include "drsyscall_record_lib.h"
 #include "drutil.h"
 #include "drvector.h"
 #include "drwrap.h"
@@ -99,6 +101,64 @@ DR_DISALLOW_UNSAFE_STATIC
 
 namespace dynamorio {
 namespace drmemtrace {
+namespace {
+
+#define SYSCALL_RECORD_BUFFER_SIZE 8192
+
+file_t syscall_record_file;
+int syscall_record_file_offset = 0;
+char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
+
+size_t
+write_syscall_record(char *buf, size_t size)
+{
+    size_t byte_written = 0;
+    size_t remaining = size;
+
+    while (remaining + syscall_record_file_offset >= SYSCALL_RECORD_BUFFER_SIZE) {
+        memcpy(&syscall_record_buffer[syscall_record_file_offset], buf,
+               SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset);
+        const ssize_t wrote =
+            write(syscall_record_file, syscall_record_buffer, SYSCALL_RECORD_BUFFER_SIZE);
+        if (wrote != SYSCALL_RECORD_BUFFER_SIZE) {
+            dr_log(NULL, DR_LOG_ALL, 1, "wrote %d bytes instead of %d bytes\n", wrote,
+                   SYSCALL_RECORD_BUFFER_SIZE);
+            NOTIFY(1, "wrote %d bytes instead of %d bytes\n", wrote,
+                   SYSCALL_RECORD_BUFFER_SIZE);
+            return 0;
+        }
+        remaining -= SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset;
+        buf += SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset;
+        byte_written += SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset;
+        syscall_record_file_offset = 0;
+    }
+    if (remaining > 0) {
+        memcpy(&syscall_record_buffer[syscall_record_file_offset], buf, remaining);
+        syscall_record_file_offset += remaining;
+        byte_written += remaining;
+    }
+    return byte_written;
+}
+
+size_t
+flush_syscall_records()
+{
+    if (syscall_record_file_offset > 0) {
+        const ssize_t wrote =
+            write(syscall_record_file, syscall_record_buffer, syscall_record_file_offset);
+        if (wrote != syscall_record_file_offset) {
+            dr_log(NULL, DR_LOG_ALL, 1, "wrote %d bytes instead of %d bytes\n", wrote,
+                   SYSCALL_RECORD_BUFFER_SIZE);
+            NOTIFY(1, "wrote %d bytes instead of %d bytes\n", wrote,
+                   SYSCALL_RECORD_BUFFER_SIZE);
+            return 0;
+        }
+        syscall_record_file_offset = 0;
+    }
+    return syscall_record_file_offset;
+}
+
+} // namespace
 
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
@@ -1710,6 +1770,16 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
+
+#ifdef LINUX
+    if (op_collect_syscall_records.get_value()) {
+        if (!drsyscall_write_pre_syscall_records(write_syscall_record, drcontext, sysnum,
+                                                 instru_t::get_timestamp())) {
+            dr_log(NULL, DR_LOG_ALL, 1, "failed to write pre-syscall records\n");
+            return false;
+        }
+    }
+#endif
     return true;
 }
 
@@ -1783,7 +1853,17 @@ event_post_syscall(void *drcontext, int sysnum)
             // pre-syscall event for sysnum.
         }
     }
+#endif
 
+#ifdef LINUX
+    if (op_collect_syscall_records.get_value()) {
+        if (!drsyscall_write_post_syscall_records(write_syscall_record, drcontext, sysnum,
+                                                  instru_t::get_timestamp())) {
+            dr_log(NULL, DR_LOG_ALL, 1, "failed to write post-syscall records\n");
+            NOTIFY(0, "ERROR: failed to write post-syscall records for syscall %d\n",
+                   sysnum);
+        }
+    }
 #endif
 }
 
@@ -2051,6 +2131,11 @@ event_exit(void)
                " physical address markers in " UINT64_FORMAT_STRING " writeouts.\n",
                num_phys_markers, num_v2p_writeouts);
     }
+#ifdef LINUX
+    if (op_collect_syscall_records.get_value()) {
+        flush_syscall_records();
+    }
+#endif
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
@@ -2613,6 +2698,27 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (!drpttracer_init())
             FATAL("Failed to initialize drpttracer.\n");
+    }
+#endif
+
+#ifdef LINUX
+    if (op_collect_syscall_records.get_value()) {
+        drsys_options_t ops = {
+            sizeof(ops),
+            0,
+        };
+        if (drsys_init(id, &ops) != DRMF_SUCCESS) {
+            FATAL("Failed to initialize Dr. Syscall extension.");
+        }
+        char filename[MAXIMUM_PATH];
+        dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
+                    "%s%ssyscall_record_file." PIDFMT, logsubdir, DIRSEP,
+                    dr_get_process_id());
+        NULL_TERMINATE_BUFFER(filename);
+        syscall_record_file = dr_open_file(filename, DR_FILE_WRITE_OVERWRITE);
+        if (syscall_record_file == INVALID_FILE) {
+            FATAL("Failed to open syscall record file %s\n", filename);
+        }
     }
 #endif
 }

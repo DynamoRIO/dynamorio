@@ -64,6 +64,9 @@ typedef size_t (*drsyscall_record_write_t)(DR_PARAM_IN char *buffer,
 typedef bool (*drsyscall_iter_record_cb_t)(DR_PARAM_IN syscall_record_t *record,
                                            DR_PARAM_IN char *buffer,
                                            DR_PARAM_IN size_t size);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 DR_EXPORT
 /**
@@ -207,4 +210,9 @@ bool
 drsyscall_write_post_syscall_records(DR_PARAM_IN drsyscall_record_write_t write_func,
                                      DR_PARAM_IN void *drcontext, DR_PARAM_IN int sysnum,
                                      DR_PARAM_IN uint64_t timestamp);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _DRSYSCALL_RECORD_LIB_H_ */
