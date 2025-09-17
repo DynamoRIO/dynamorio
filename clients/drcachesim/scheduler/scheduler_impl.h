@@ -192,9 +192,7 @@ protected:
         memref_pid_t pid = INVALID_PID;
         // Used for combined streams.
         memref_tid_t last_record_tid = INVALID_THREAD_ID;
-        // If non-empty these records should be returned before incrementing the reader.
-        // This is used for read-ahead and inserting synthetic records.
-        // We use a deque so we can iterate over it.
+
         struct queued_record_t {
             queued_record_t()
             {
@@ -210,10 +208,19 @@ protected:
             }
 
             RecordType record;
+            // If this is zero, it means the next trace pc should be obtained
+            // from the input stream get_next_trace_pc() API instead.
             uint64_t next_trace_pc = 0;
         };
+
+        // If non-empty these records should be returned before incrementing the reader.
+        // This is used for read-ahead and inserting synthetic records.
+        // We use a deque so we can iterate over it.
+        // Records should be removed from the front of the queue using the
+        // get_queued_record() helper which sets the related state automatically.
         std::deque<queued_record_t> queue;
         bool cur_from_queue;
+        // Valid only if cur_from_queue is set.
         queued_record_t cur_queue_record;
 
         addr_t last_pc_fallthrough = 0;
@@ -374,6 +381,11 @@ protected:
         // that a new entry does not always mean a context switch.
         uint64_t timestamp = 0;
     } END_PACKED_STRUCTURE;
+
+    // Gets a queued record if one is available and sets related state in input_info_t.
+    // Returns whether a queued record was indeed available and returned.
+    bool
+    get_queued_record(input_info_t *input, RecordType &record);
 
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:

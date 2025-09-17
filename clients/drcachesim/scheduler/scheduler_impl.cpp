@@ -1850,10 +1850,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
 
     // Return the first injected record.
     assert(!input->queue.empty());
-    input->cur_queue_record = input->queue.front();
-    record = input->cur_queue_record.record;
-    input->queue.pop_front();
-    input->cur_from_queue = true;
+    bool from_queue = get_queued_record(input, record);
+    assert(from_queue);
     input->in_syscall_injection = true;
     return stream_status_t::STATUS_OK;
 }
@@ -2972,12 +2970,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             input->reader->init();
             input->needs_init = false;
         }
-        if (!input->queue.empty()) {
-            input->cur_queue_record = input->queue.front();
-            record = input->cur_queue_record.record;
-            input->queue.pop_front();
-            input->cur_from_queue = true;
-        } else {
+
+        if (!get_queued_record(input, record)) {
             // We again have a flag check because reader_t::init() does an initial ++
             // and so we want to skip that on the first record but perform a ++ prior
             // to all subsequent records.  We do not want to ++ after reading as that
@@ -3412,6 +3406,21 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::adjust_filetype(
         filetype |= OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
     }
     return static_cast<offline_file_type_t>(filetype);
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+scheduler_impl_tmpl_t<RecordType, ReaderType>::get_queued_record(input_info_t *input,
+                                                                 RecordType &record)
+{
+    input->cur_from_queue = false;
+    if (input->queue.empty())
+        return false;
+    input->cur_queue_record = input->queue.front();
+    record = input->cur_queue_record.record;
+    input->queue.pop_front();
+    input->cur_from_queue = true;
+    return true;
 }
 
 template class scheduler_impl_tmpl_t<memref_t, reader_t>;
