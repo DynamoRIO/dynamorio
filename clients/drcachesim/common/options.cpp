@@ -363,8 +363,7 @@ droption_t<bool> op_align_endpoints(
 
 droption_t<bool> op_collect_syscall_records(
     // TODO i#7399: Add Android, MacOS, MUSL, RISCV64 support to DrSyscall.
-    DROPTION_SCOPE_CLIENT, "collect_syscall_records", false,
-    "Collect syscall records",
+    DROPTION_SCOPE_CLIENT, "collect_syscall_records", false, "Collect syscall records",
     "Collect syscall records including the start time, pre-syscall parameters and memory "
     "regions, post-syscall parameters and memory regions, return value, and the end "
     "time. This is only supported on Linux.");
