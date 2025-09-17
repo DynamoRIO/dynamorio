@@ -224,9 +224,9 @@ drsyscall_write_syscall_end_timestamp_record(
     return write_func((char *)&record, sizeof(record));
 }
 
-/**
+/*
  * A callback function to be invoked for each system call parameter. It invokes
- * drsyscall_write_memarg_record to write a syscall record of type
+ * drsyscall_write_param_recordi() to write a syscall record of type
  * #DRSYS_PRECALL_PARAM when arg->pre is true, #DRSYS_POSTCALL_PARAM otherwise.
  * Always returns true to continue the iteration to the next parameter.
  */
@@ -238,9 +238,9 @@ drsyscall_iter_arg_cb(drsys_arg_t *arg, void *user_data)
     return true;
 }
 
-/**
+/*
  * A callback function to be invoked for each memory region. It invokes
- * drsyscall_write_memarg_record to write a syscall record of type
+ * drsyscall_write_memarg_record() to write a syscall record of type
  * #DRSYS_MEMORY_CONTENT.
  * Always returns true to continue the iteration to the next memory region.
  */
