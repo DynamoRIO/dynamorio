@@ -1694,10 +1694,10 @@ static const redirect_import_t redirect_imports[] = {
     { "strstr", (app_pc)strstr },
     { "strcasecmp", (app_pc)strcasecmp },
     /* Also redirect the _chk versions (i#1747, i#46) */
-    { "memcpy_chk", (app_pc)memcpy },
-    { "memset_chk", (app_pc)memset },
-    { "memmove_chk", (app_pc)memmove },
-    { "strncpy_chk", (app_pc)strncpy },
+    { "__memcpy_chk", (app_pc)memcpy },
+    { "__memset_chk", (app_pc)memset },
+    { "__memmove_chk", (app_pc)memmove },
+    { "__strncpy_chk", (app_pc)strncpy },
 };
 #define REDIRECT_IMPORTS_NUM (sizeof(redirect_imports) / sizeof(redirect_imports[0]))
 
