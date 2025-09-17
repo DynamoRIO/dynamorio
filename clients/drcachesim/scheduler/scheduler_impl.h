@@ -209,9 +209,9 @@ protected:
             }
 
             RecordType record;
-            // If this is zero, it means the next trace pc should be obtained
-            // from the input stream get_next_trace_pc() API instead.
             uint64_t next_trace_pc = 0;
+            // If this is false, it means the next trace pc should be obtained
+            // from the input stream get_next_trace_pc() API instead.
             bool next_trace_pc_valid = false;
         };
 
