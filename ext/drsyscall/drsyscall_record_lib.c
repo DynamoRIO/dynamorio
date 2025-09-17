@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include "drsyscall.h"
+#include "drsyscall_os.h"
 #include "drsyscall_record.h"
 #include "drsyscall_record_lib.h"
 #include "utils.h"
@@ -221,4 +222,130 @@ drsyscall_write_syscall_end_timestamp_record(
     record.syscall_number_timestamp.syscall_number = sysnum;
     record.syscall_number_timestamp.timestamp = timestamp;
     return write_func((char *)&record, sizeof(record));
+}
+
+/*
+ * A callback function to be invoked for each system call parameter. It invokes
+ * drsyscall_write_param_recordi() to write a syscall record of type
+ * #DRSYS_PRECALL_PARAM when arg->pre is true, #DRSYS_POSTCALL_PARAM otherwise.
+ * Always returns true to continue the iteration to the next parameter.
+ */
+static bool
+drsyscall_iter_arg_cb(drsys_arg_t *arg, void *user_data)
+{
+    const drsyscall_record_write_t write_func = (drsyscall_record_write_t)user_data;
+    drsyscall_write_param_record(write_func, arg);
+    return true;
+}
+
+/*
+ * A callback function to be invoked for each memory region. It invokes
+ * drsyscall_write_memarg_record() to write a syscall record of type
+ * #DRSYS_MEMORY_CONTENT.
+ * Always returns true to continue the iteration to the next memory region.
+ */
+static bool
+drsyscall_iter_memarg_cb(drsys_arg_t *arg, void *user_data)
+{
+    const drsyscall_record_write_t write_func = (drsyscall_record_write_t)user_data;
+    drsyscall_write_memarg_record(write_func, arg);
+    return true;
+}
+
+DR_EXPORT
+bool
+drsyscall_write_pre_syscall_records(DR_PARAM_IN drsyscall_record_write_t write_func,
+                                    DR_PARAM_IN void *drcontext, DR_PARAM_IN int sysnum,
+                                    DR_PARAM_IN uint64_t timestamp)
+{
+    drsys_syscall_t *syscall;
+    if (drsys_cur_syscall(drcontext, &syscall) != DRMF_SUCCESS) {
+        LOG(drcontext, SYSCALL_VERBOSE, "drsys_cur_syscall failed, sysnum = %d", sysnum);
+        return false;
+    }
+    drsys_sysnum_t sysnum_full;
+    if (drsys_syscall_number(syscall, &sysnum_full) != DRMF_SUCCESS) {
+        LOG(drcontext, SYSCALL_VERBOSE, "drsys_syscall_number failed, sysnum = %d",
+            sysnum);
+        return false;
+    }
+    if (sysnum != sysnum_full.number) {
+        LOG(drcontext, SYSCALL_VERBOSE, "primary (%d) should match DR's num %d", sysnum,
+            sysnum_full.number);
+        return false;
+    }
+    drsys_param_type_t ret_type = DRSYS_TYPE_INVALID;
+    if (drsys_syscall_return_type(syscall, &ret_type) != DRMF_SUCCESS ||
+        ret_type == DRSYS_TYPE_INVALID || ret_type == DRSYS_TYPE_UNKNOWN) {
+        LOG(drcontext, SYSCALL_VERBOSE, "failed to get syscall return type, sysnum = %d",
+            sysnum);
+        return false;
+    }
+    bool known = false;
+    if (drsys_syscall_is_known(syscall, &known) != DRMF_SUCCESS || !known) {
+        LOG(drcontext, SYSCALL_VERBOSE, "syscall %d is unknown", sysnum);
+        return false;
+    }
+
+    if (drsyscall_write_syscall_number_timestamp_record(write_func, sysnum_full,
+                                                        timestamp) == 0) {
+        LOG(drcontext, SYSCALL_VERBOSE,
+            "failed to write syscall number record, sysnum = %d", sysnum);
+        return false;
+    }
+
+    if (drsys_iterate_args(drcontext, drsyscall_iter_arg_cb, write_func) !=
+        DRMF_SUCCESS) {
+        LOG(drcontext, SYSCALL_VERBOSE, "drsys_iterate_args failed, sysnum = %d", sysnum);
+        return false;
+    }
+    if (drsys_iterate_memargs(drcontext, drsyscall_iter_memarg_cb, write_func) !=
+        DRMF_SUCCESS) {
+        LOG(drcontext, SYSCALL_VERBOSE, "drsys_iterate_memargs failed, sysnum = %d",
+            sysnum);
+        return false;
+    }
+    return true;
+}
+
+DR_EXPORT
+bool
+drsyscall_write_post_syscall_records(DR_PARAM_IN drsyscall_record_write_t write_func,
+                                     DR_PARAM_IN void *drcontext, DR_PARAM_IN int sysnum,
+                                     DR_PARAM_IN uint64_t timestamp)
+{
+    drsys_syscall_t *syscall;
+    if (drsys_cur_syscall(drcontext, &syscall) != DRMF_SUCCESS) {
+        LOG(drcontext, SYSCALL_VERBOSE, "drsys_cur_syscall failed, sysnum = %d", sysnum);
+        return false;
+    }
+    drsys_sysnum_t sysnum_full;
+    if (drsys_syscall_number(syscall, &sysnum_full) != DRMF_SUCCESS) {
+        LOG(drcontext, SYSCALL_VERBOSE, "drsys_syscall_number failed, sysnum = %d",
+            sysnum);
+        return false;
+    }
+    if (sysnum != sysnum_full.number) {
+        LOG(drcontext, SYSCALL_VERBOSE, "primary (%d) should match DR's num %d", sysnum,
+            sysnum_full.number);
+        return false;
+    }
+    if (drsys_iterate_args(drcontext, drsyscall_iter_arg_cb, write_func) !=
+        DRMF_SUCCESS) {
+        LOG(drcontext, SYSCALL_VERBOSE, "drsys_iterate_args failed, sysnum = %d", sysnum);
+        return false;
+    }
+    if (drsys_iterate_memargs(drcontext, drsyscall_iter_memarg_cb, write_func) !=
+        DRMF_SUCCESS) {
+        LOG(drcontext, SYSCALL_VERBOSE, "drsys_iterate_memargs failed, sysnum = %d",
+            sysnum);
+        return false;
+    }
+    if (drsyscall_write_syscall_end_timestamp_record(write_func, sysnum_full,
+                                                     timestamp) == 0) {
+        LOG(drcontext, SYSCALL_VERBOSE, "failed to write syscall end record, sysnum = %d",
+            sysnum);
+        return false;
+    }
+    return true;
 }
