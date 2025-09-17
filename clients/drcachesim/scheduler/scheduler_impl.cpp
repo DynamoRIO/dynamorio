@@ -2262,7 +2262,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_next_trace_pc(output_ordinal_
     if (index < 0)
         return 0;
     if (inputs_[index].cur_from_queue &&
-        inputs_[index].cur_queue_record.next_trace_pc != 0) {
+        inputs_[index].cur_queue_record.next_trace_pc_valid) {
         return inputs_[index].cur_queue_record.next_trace_pc;
     }
     return inputs_[index].reader.get()->get_next_trace_pc();

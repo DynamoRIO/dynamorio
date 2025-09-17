@@ -203,6 +203,7 @@ protected:
             }
             queued_record_t(const RecordType &record, uint64_t next_trace_pc)
                 : record(record)
+                , next_trace_pc_valid(true)
                 , next_trace_pc(next_trace_pc)
             {
             }
@@ -211,6 +212,7 @@ protected:
             // If this is zero, it means the next trace pc should be obtained
             // from the input stream get_next_trace_pc() API instead.
             uint64_t next_trace_pc = 0;
+            bool next_trace_pc_valid = false;
         };
 
         // If non-empty these records should be returned before incrementing the reader.
