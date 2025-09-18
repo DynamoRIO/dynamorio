@@ -356,12 +356,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     if (!is_a_unit_test(shard) && knob_offline_ &&
         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                 shard->file_type_) &&
-        // The next trace pc returned by the reader is only for the input stream.
-        // TODO i#7496: The scheduler should appropriately set this to the next one in
-        // the dynamically injected sequence.
-        !(dynamic_syscall_trace_injection_ &&
-          shard->between_kernel_syscall_trace_markers_)) {
+                 shard->file_type_)) {
         if (type_is_instr(memref.instr.type)) {
             report_if_false(shard,
                             at_skip || shard->last_next_trace_pc_ == memref.instr.addr,
@@ -373,11 +368,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                 shard->last_next_trace_pc_ == memref.marker.marker_value,
                             "Unexpected next trace pc from kernel_event marker");
         } else {
-            report_if_false(shard,
-                            at_skip ||
-                                shard->last_next_trace_pc_ ==
-                                    shard->stream->get_next_trace_pc(),
-                            "Unexpected change to stream next trace pc");
+            report_if_false(
+                shard,
+                at_skip ||
+                    // We do expect the returned next trace pc to change when the
+                    // decision to inject a syscall trace is made at the
+                    // TRACE_MARKER_TYPE_SYSCALL which is when the syscall number
+                    // becomes known.
+                    (memref.marker.type == TRACE_TYPE_MARKER &&
+                     memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) ||
+                    shard->last_next_trace_pc_ == shard->stream->get_next_trace_pc(),
+                "Unexpected change to stream next trace pc");
         }
         shard->last_next_trace_pc_ = shard->stream->get_next_trace_pc();
     }
