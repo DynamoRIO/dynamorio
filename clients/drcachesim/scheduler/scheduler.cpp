@@ -348,7 +348,7 @@ uint64_t
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::get_next_trace_pc() const
 
 {
-    return scheduler_->get_input_stream(ordinal_)->get_next_trace_pc();
+    return scheduler_->get_next_trace_pc(ordinal_);
 }
 
 template <typename RecordType, typename ReaderType>
