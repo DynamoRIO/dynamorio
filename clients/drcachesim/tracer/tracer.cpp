@@ -150,9 +150,9 @@ flush_syscall_records()
             write(syscall_record_file, syscall_record_buffer, syscall_record_file_offset);
         if (wrote != syscall_record_file_offset) {
             dr_log(NULL, DR_LOG_ALL, 1, "wrote %d bytes instead of %d bytes\n", wrote,
-                   SYSCALL_RECORD_BUFFER_SIZE);
+                   syscall_record_file_offset);
             NOTIFY(1, "wrote %d bytes instead of %d bytes\n", wrote,
-                   SYSCALL_RECORD_BUFFER_SIZE);
+                   syscall_record_file_offset);
             return 0;
         }
         syscall_record_file_offset = 0;
