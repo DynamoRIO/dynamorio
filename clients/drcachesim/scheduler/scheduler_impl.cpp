@@ -1987,7 +1987,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     } else {
         next_trace_pc = input->reader->get_next_trace_pc();
     }
-    const addr_t next_input_trace_pc = reinterpret_cast<addr_t>(next_trace_pc);
+    const addr_t next_input_trace_pc = static_cast<addr_t>(next_trace_pc);
     for (int i = static_cast<int>(sequence.records.size()) - 1; i >= 0; --i) {
         RecordType record = sequence.records[i];
         // TODO i#7495: Add invariant checks that ensure these are equal to the
