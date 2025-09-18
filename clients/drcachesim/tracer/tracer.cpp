@@ -105,7 +105,7 @@ namespace dynamorio {
 namespace drmemtrace {
 namespace {
 #ifdef BUILD_TRACER_WITH_DR_SYSCALL
-#define SYSCALL_RECORD_BUFFER_SIZE 8192
+#    define SYSCALL_RECORD_BUFFER_SIZE 8192
 
 file_t syscall_record_file;
 int syscall_record_file_offset = 0;
