@@ -8987,11 +8987,6 @@ test_main(int argc, const char *argv[])
     assert(argc == 2);
     // Avoid races with lazy drdecode init (b/279350357).
     dr_standalone_init();
-    test_parallel_with_syscall_injection();
-    test_synthetic_time_quanta_with_kernel();
-    test_kernel_switch_sequences();
-    test_kernel_syscall_sequences();
-    return 0;
 
     test_serial();
     test_parallel();
