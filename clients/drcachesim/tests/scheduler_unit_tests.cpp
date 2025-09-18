@@ -587,8 +587,7 @@ test_parallel_with_syscall_injection()
                 last_branch_target_marker = memref.instr.indirect_branch_target;
             }
             if (type_is_instr(memref.instr.type) && saw_syscall_end) {
-                assert(last_branch_target_marker ==
-                       reinterpret_cast<uint64_t>(memref.instr.addr));
+                assert(last_branch_target_marker == memref.instr.addr);
                 saw_syscall_end = false;
             }
             uint64_t pc;
