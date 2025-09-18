@@ -163,6 +163,7 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(init_mutex_);
     per_shard->tid_ = shard_stream->get_tid();
+    per_shard->last_next_trace_pc_ = shard_stream->get_next_trace_pc();
     shard_map_[shard_index] = std::move(per_shard);
     return res;
 }
@@ -340,16 +341,47 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             ++shard->dyn_injected_syscall_instr_count_;
         }
     }
+    int at_skip = false;
     // XXX: We also can't verify counts with a skip invoked from the middle, but
     // we have no simple way to detect that here.
     if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         shard->stream->get_instruction_ordinal() > 1) {
         shard->skipped_instrs_ = true;
+        at_skip = true;
         if (!shard->saw_filetype_) {
             shard->file_type_ =
                 static_cast<offline_file_type_t>(shard->stream->get_filetype());
         }
     }
+
+    if (!is_a_unit_test(shard) && knob_offline_ &&
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 shard->file_type_) &&
+        // The next trace pc returned by the reader is only for the input stream.
+        // TODO i#7496: The scheduler should appropriately set this to the next one in
+        // the dynamically injected sequence.
+        !(dynamic_syscall_trace_injection_ &&
+          shard->between_kernel_syscall_trace_markers_)) {
+        if (type_is_instr(memref.instr.type)) {
+            report_if_false(shard,
+                            at_skip || shard->last_next_trace_pc_ == memref.instr.addr,
+                            "Unexpected next trace pc from instr");
+        } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+                   memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            report_if_false(shard,
+                            at_skip ||
+                                shard->last_next_trace_pc_ == memref.marker.marker_value,
+                            "Unexpected next trace pc from kernel_event marker");
+        } else {
+            report_if_false(shard,
+                            at_skip ||
+                                shard->last_next_trace_pc_ ==
+                                    shard->stream->get_next_trace_pc(),
+                            "Unexpected change to stream next trace pc");
+        }
+        shard->last_next_trace_pc_ = shard->stream->get_next_trace_pc();
+    }
+
     if (!shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         (shard->stream != serial_stream_ || shard_map_.size() == 1)) {
         if (trace_incomplete_ && !shard->adjusted_ordinal_for_incomplete_ &&
@@ -1402,6 +1434,7 @@ invariant_checker_t::process_memref(const memref_t &memref)
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
         per_shard->tid_ = serial_stream_->get_tid();
+        per_shard->last_next_trace_pc_ = serial_stream_->get_next_trace_pc();
         shard_map_[shard_index] = std::move(per_shard_unique);
     } else
         per_shard = lookup->second.get();

@@ -311,6 +311,23 @@ public:
     {
         return -1;
     }
+
+    /**
+     * Returns the value of the next continuous PC in the trace after the
+     * current trace record. This PC is from the next instruction or the
+     * next #TRACE_MARKER_TYPE_KERNEL_EVENT, whichever comes first.
+     *
+     * This is not supported during online analysis, and for i-filtered
+     * traces. i-filtered traces have a zero-sized instr entry before memrefs,
+     * which is not presented to the tools. Reading ahead past them to provide
+     * the actual next trace pc complicates read-ahead logic especially for
+     * zipfile readers.
+     */
+    virtual uint64_t
+    get_next_trace_pc() const
+    {
+        return 0;
+    }
 };
 
 /**

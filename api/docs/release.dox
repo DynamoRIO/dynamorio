@@ -257,6 +257,11 @@ Further non-compatibility-affecting changes include:
    records.
  - Added the class dynamorio::drmemtrace::policy_rrip_t which implements RRIP cache
    replacement policy model for the drcachesim tool.
+ - Added a new memtrace_stream_t::get_next_trace_pc() API for offline analysis and
+   scheduling of non-i-filtered thread-sharded traces that returns the next continuous
+   PC in the trace, which is from the next instruction or the next
+   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker, whichever comes
+   first.
 
 **************************************************
 <hr>
