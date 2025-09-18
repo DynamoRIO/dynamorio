@@ -1338,6 +1338,13 @@ else (LINUX AND X86 AND X64)
   message(STATUS "PT related libraries only supported on Linux x86_64")
 endif (LINUX AND X86 AND X64)
 
+set(BUILD_TRACER_WITH_DR_SYSCALL OFF)
+# TODO i#7399: Add Android, MUSL, and RISCV64 support to DrSyscall.
+# TODO i#5383: Add macOS ARM64 support to DrSyscall.
+if (LINUX AND (X86 OR (AARCH64 AND NOT APPLE)) AND NOT MUSL)
+  set(BUILD_TRACER_WITH_DR_SYSCALL ON)
+endif ()
+
 ###########################################################################
 
 # Issue 20: cross-arch execve depends on these being distinct and not

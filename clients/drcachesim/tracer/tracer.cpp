@@ -55,8 +55,6 @@
 #include "droption.h"
 #include "drreg.h"
 #include "drstatecmp.h"
-#include "drsyscall.h"
-#include "drsyscall_record_lib.h"
 #include "drutil.h"
 #include "drvector.h"
 #include "drwrap.h"
@@ -86,6 +84,10 @@
 #    include "kcore_copy.h"
 #endif
 
+#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#    include "drsyscall_record_lib.h"
+#endif
+
 /* Make sure we export function name as the symbol name without mangling. */
 #ifdef __cplusplus
 extern "C" {
@@ -102,7 +104,7 @@ DR_DISALLOW_UNSAFE_STATIC
 namespace dynamorio {
 namespace drmemtrace {
 namespace {
-
+#ifdef BUILD_TRACER_WITH_DR_SYSCALL
 #define SYSCALL_RECORD_BUFFER_SIZE 8192
 
 file_t syscall_record_file;
@@ -157,7 +159,7 @@ flush_syscall_records()
     }
     return syscall_record_file_offset;
 }
-
+#endif
 } // namespace
 
 using ::dynamorio::droption::droption_parser_t;
@@ -1771,7 +1773,7 @@ event_pre_syscall(void *drcontext, int sysnum)
     }
 #endif
 
-#ifdef LINUX
+#ifdef BUILD_TRACER_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         if (!drsyscall_write_pre_syscall_records(write_syscall_record, drcontext, sysnum,
                                                  instru_t::get_timestamp())) {
@@ -1855,7 +1857,7 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 #endif
 
-#ifdef LINUX
+#ifdef BUILD_TRACER_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         if (!drsyscall_write_post_syscall_records(write_syscall_record, drcontext, sysnum,
                                                   instru_t::get_timestamp())) {
@@ -2131,7 +2133,7 @@ event_exit(void)
                " physical address markers in " UINT64_FORMAT_STRING " writeouts.\n",
                num_phys_markers, num_v2p_writeouts);
     }
-#ifdef LINUX
+#ifdef BUILD_TRACER_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         flush_syscall_records();
     }
@@ -2701,7 +2703,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     }
 #endif
 
-#ifdef LINUX
+#ifdef BUILD_TRACER_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         drsys_options_t ops = {
             sizeof(ops),
