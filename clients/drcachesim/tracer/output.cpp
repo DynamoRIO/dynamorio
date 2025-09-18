@@ -1426,18 +1426,20 @@ exit_thread_io(void *drcontext)
          (!has_tracing_windows() && align_attach_detach_endpoints()));
 
     if (has_prior_window_data || is_not_empty) {
-        // Provide the PC in case detach exited mid-block.
-        dr_mcontext_t mc;
-        mc.size = sizeof(mc);
-        mc.flags = DR_MC_CONTROL;
-        if (dr_get_mcontext(drcontext, &mc)) {
-            NOTIFY(2, "Thread " TIDFMT "%d end pc=%p\n", dr_get_thread_id(drcontext),
-                   mc.pc);
-            // XXX i#5790: This same marker can be used to solve block truncation for DR
-            // mid-block relocation once DR provides a relocation event.
-            BUF_PTR(data->seg_base) += instru->append_marker(
-                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
-                reinterpret_cast<uintptr_t>(mc.pc));
+        if (op_offline.get_value()) {
+            // Provide the PC in case detach exited mid-block.
+            dr_mcontext_t mc;
+            mc.size = sizeof(mc);
+            mc.flags = DR_MC_CONTROL;
+            if (dr_get_mcontext(drcontext, &mc)) {
+                NOTIFY(2, "Thread " TIDFMT "%d end pc=%p\n", dr_get_thread_id(drcontext),
+                       mc.pc);
+                // XXX i#5790: This same marker can be used to solve block truncation for
+                // DR mid-block relocation once DR provides a relocation event.
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
+                    reinterpret_cast<uintptr_t>(mc.pc));
+            }
         }
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
