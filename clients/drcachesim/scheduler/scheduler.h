@@ -1290,6 +1290,9 @@ public:
         bool
         is_record_kernel() const override;
 
+        uint64_t
+        get_next_trace_pc() const override;
+
         /**
          * Returns the value of the specified statistic for this output stream.
          * The values for all output streams must be summed to obtain global counts.

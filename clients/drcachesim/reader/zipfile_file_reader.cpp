@@ -234,6 +234,25 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
                    (chunk_instr_count_ - (cur_instr_count_ % chunk_instr_count_)));
         // Clear cached data from the prior chunk.
         zipfile->cur_buf = zipfile->max_buf;
+
+        // The actual instrs already read from the zipfile may run one ahead of
+        // cur_instr_count_ due to readahead in reader_t. Notably: if we just returned
+        // the last instr of a chunk, we would have already opened the next chunk and
+        // read its first instr. However, this does not change how we do chunk
+        // skipping in this loop.
+        //
+        // For the case where the stop_count is in the immediately next chunk,
+        // we would not open a new chunk right here, with or without readahead.
+        // - With readahead: the immediately next chunk is already opened, and
+        //   skip_instructions_with_timestamp will take care of skipping the
+        //   read-ahead instr.
+        // - Without readahead: the immediately next chunk will open in the next
+        //   call to read_next_entry.
+        //
+        // For the case where stop_count is in some chunk _after_ the immediately
+        // next chunk (which is what would bring control to the statement below),
+        // we need to clear the immediately next chunk's readahead instr anyway.
+        clear_entry_queue();
     }
     // Now do a linear walk the rest of the way, remembering timestamps (we have
     // duplicated timestamps at the start of the chunk to cover any skipped in

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -136,7 +136,7 @@ protected:
         // We want to pass the tid+pid to the reader *before* any markers,
         // even though markers can precede the tid+pid in the file, in particular
         // for legacy traces.
-        std::queue<trace_entry_t> marker_queue;
+        std::deque<trace_entry_t> readahead_deque;
         while ((entry = get_next_entry()) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
                 // We assume the pid entry is after the tid.
@@ -145,7 +145,7 @@ protected:
             } else if (entry->type == TRACE_TYPE_THREAD)
                 tid = *entry;
             else if (entry->type == TRACE_TYPE_MARKER)
-                marker_queue.push(*entry);
+                readahead_deque.push_back(*entry);
             else {
                 ERRMSG("Unexpected trace sequence\n");
                 return false;
@@ -155,12 +155,10 @@ protected:
                tid.addr);
         // The reader expects us to own the header and pass the tid as
         // the first entry.
-        queue_.push(tid);
-        queue_.push(pid);
-        while (!marker_queue.empty()) {
-            queue_.push(marker_queue.front());
-            marker_queue.pop();
-        }
+        readahead_deque.push_front(pid);
+        readahead_deque.push_front(tid);
+        std::queue<trace_entry_t> readahead_queue(readahead_deque);
+        queue_to_return_next(readahead_queue);
         return true;
     }
 

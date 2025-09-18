@@ -425,7 +425,7 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
         // a synthetic thread exit record.  We need to first throw out the
         // queued candidate record, if any.
         this->clear_input_queue(inputs_[index]);
-        inputs_[index].queue.push_back(this->create_thread_exit(inputs_[index].tid));
+        inputs_[index].queue.emplace_back(this->create_thread_exit(inputs_[index].tid));
         VPRINT(this, 2, "early end for input %d\n", index);
         // We're done with this entry but we need the queued record to be read,
         // so we do not move past the entry.

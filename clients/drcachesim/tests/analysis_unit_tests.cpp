@@ -51,35 +51,58 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+template <typename RecordType, typename ReaderType>
 // An analyzer that takes in any number of scheduler inputs, plus optional direct
 // scheduler options for SHARD_BY_CORE.
-class mock_analyzer_t : public analyzer_t {
+class mock_analyzer_tmpl_t : public analyzer_tmpl_t<RecordType, ReaderType> {
 public:
-    mock_analyzer_t(std::vector<scheduler_t::input_workload_t> &sched_inputs,
-                    analysis_tool_t **tools, int num_tools, bool parallel,
-                    int worker_count, scheduler_t::scheduler_options_t *sched_ops_in)
-        : analyzer_t()
+    using analyzer_tmpl_t<RecordType, ReaderType>::num_tools_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::tools_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::parallel_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::verbosity_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::worker_count_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::shard_type_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::sched_mapping_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::sched_by_time_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::scheduler_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::success_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::worker_data_;
+    using typename analyzer_tmpl_t<RecordType, ReaderType>::analyzer_worker_data_t;
+    mock_analyzer_tmpl_t(
+        std::vector<typename scheduler_tmpl_t<RecordType, ReaderType>::input_workload_t>
+            &sched_inputs,
+        analysis_tool_tmpl_t<RecordType> **tools, int num_tools, bool parallel,
+        int worker_count,
+        typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_options_t
+            *sched_ops_in)
+        : analyzer_tmpl_t<RecordType, ReaderType>()
     {
         num_tools_ = num_tools;
         tools_ = tools;
         parallel_ = parallel;
         verbosity_ = 1;
         worker_count_ = worker_count;
-        scheduler_t::scheduler_options_t sched_ops;
+        typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_options_t sched_ops;
         if (sched_ops_in != nullptr) {
             shard_type_ = SHARD_BY_CORE;
             sched_ops = std::move(*sched_ops_in);
             // XXX: We could refactor init_scheduler_common() to share a couple of
             // these lines.
-            if (sched_ops.quantum_unit == sched_type_t::QUANTUM_TIME)
+            if (sched_ops.quantum_unit ==
+                scheduler_tmpl_t<RecordType, ReaderType>::QUANTUM_TIME)
                 sched_by_time_ = true;
-        } else if (parallel)
-            sched_ops = scheduler_t::make_scheduler_parallel_options(verbosity_);
-        else
-            sched_ops = scheduler_t::make_scheduler_serial_options(verbosity_);
+        } else if (parallel) {
+            sched_ops =
+                scheduler_tmpl_t<RecordType, ReaderType>::make_scheduler_parallel_options(
+                    verbosity_);
+        } else {
+            sched_ops =
+                scheduler_tmpl_t<RecordType, ReaderType>::make_scheduler_serial_options(
+                    verbosity_);
+        }
         sched_mapping_ = sched_ops.mapping;
         if (scheduler_.init(sched_inputs, worker_count_, std::move(sched_ops)) !=
-            sched_type_t::STATUS_SUCCESS) {
+            scheduler_tmpl_t<RecordType, ReaderType>::STATUS_SUCCESS) {
             assert(false);
             success_ = false;
         }
@@ -88,6 +111,12 @@ public:
         }
     }
 };
+
+template class mock_analyzer_tmpl_t<memref_t, reader_t>;
+template class mock_analyzer_tmpl_t<trace_entry_t,
+                                    dynamorio::drmemtrace::record_reader_t>;
+
+typedef mock_analyzer_tmpl_t<memref_t, reader_t> mock_analyzer_t;
 
 bool
 test_queries()
@@ -187,6 +216,146 @@ test_queries()
     tools.push_back(test_tool.get());
     mock_analyzer_t analyzer(sched_inputs, &tools[0], (int)tools.size(),
                              /*parallel=*/true, NUM_OUTPUTS, &sched_ops);
+    assert(!!analyzer);
+    bool res = analyzer.run();
+    assert(res);
+    return true;
+}
+
+template <typename RecordType>
+class next_trace_pc_test_tool_t : public analysis_tool_tmpl_t<RecordType> {
+public:
+    bool
+    process_memref(const RecordType &record) override
+    {
+        assert(false); // Only expect parallel mode.
+        return false;
+    }
+    bool
+    print_results() override
+    {
+        return true;
+    }
+    bool
+    parallel_shard_supported() override
+    {
+        return true;
+    }
+    void *
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memtrace_stream_t *stream) override
+    {
+        auto per_shard = new per_shard_t;
+        per_shard->stream = stream;
+        per_shard->expected_next_trace_pc = stream->get_next_trace_pc();
+        return reinterpret_cast<void *>(per_shard);
+    }
+    bool
+    parallel_shard_exit(void *shard_data) override
+    {
+        per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+        assert(shard->expected_next_trace_pc == 0);
+        delete shard;
+        return true;
+    }
+    bool
+    entry_has_pc(RecordType record, uint64_t &pc);
+    bool
+    parallel_shard_memref(void *shard_data, const RecordType &record) override
+    {
+        per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+        uint64_t pc;
+        if (entry_has_pc(record, pc)) {
+            assert(pc == shard->expected_next_trace_pc);
+            shard->expected_next_trace_pc = shard->stream->get_next_trace_pc();
+        } else {
+            assert(shard->expected_next_trace_pc == shard->stream->get_next_trace_pc());
+        }
+        return true;
+    }
+
+private:
+    struct per_shard_t {
+        // Just a non-zero init value so zero results do not sneak by us.
+        uint64_t expected_next_trace_pc = static_cast<uint64_t>(-1);
+        memtrace_stream_t *stream;
+    };
+};
+
+template <>
+bool
+next_trace_pc_test_tool_t<memref_t>::entry_has_pc(memref_t memref, uint64_t &pc)
+{
+    if (type_is_instr(memref.instr.type)) {
+        pc = memref.instr.addr;
+        return true;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        pc = memref.marker.marker_value;
+        return true;
+    }
+    return false;
+}
+template <>
+bool
+next_trace_pc_test_tool_t<trace_entry_t>::entry_has_pc(trace_entry_t entry, uint64_t &pc)
+{
+    return entry_queue_t::entry_has_pc(entry, &pc);
+}
+
+template class next_trace_pc_test_tool_t<memref_t>;
+template class next_trace_pc_test_tool_t<trace_entry_t>;
+
+template <typename RecordType, typename ReaderType, typename MockReaderType>
+bool
+test_next_trace_pc_queries(std::string test_type)
+{
+    std::cerr << "\n----------------\nTesting next trace pc queries for " << test_type
+              << "\n";
+    std::vector<trace_entry_t> input_sequence = {
+        test_util::make_thread(/*tid=*/1),
+        test_util::make_pid(/*pid=*/1),
+        test_util::make_timestamp(1),
+        test_util::make_instr(/*pc=*/42),
+        test_util::make_memref(/*addr=*/420),
+        test_util::make_memref(/*addr=*/421),
+        test_util::make_instr(/*pc=*/43),
+        test_util::make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, 44),
+        test_util::make_timestamp(2),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_exit(/*tid=*/1),
+    };
+    static constexpr int NUM_INPUTS = 3;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int BASE_TID = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    std::vector<typename scheduler_tmpl_t<RecordType, ReaderType>::input_workload_t>
+        sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = BASE_TID + i;
+        inputs[i] = input_sequence;
+        for (auto &record : inputs[i]) {
+            if (record.type == TRACE_TYPE_THREAD || record.type == TRACE_TYPE_THREAD_EXIT)
+                record.addr = static_cast<addr_t>(tid);
+        }
+        std::vector<typename scheduler_tmpl_t<RecordType, ReaderType>::input_reader_t>
+            readers;
+        readers.emplace_back(
+            std::unique_ptr<MockReaderType>(new MockReaderType(inputs[i])),
+            std::unique_ptr<MockReaderType>(new MockReaderType()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_options_t sched_ops =
+        scheduler_tmpl_t<RecordType, ReaderType>::make_scheduler_parallel_options(
+            /*verbosity=*/3);
+    std::vector<analysis_tool_tmpl_t<RecordType> *> tools;
+    auto test_tool = std::unique_ptr<next_trace_pc_test_tool_t<RecordType>>(
+        new next_trace_pc_test_tool_t<RecordType>());
+    tools.push_back(test_tool.get());
+    mock_analyzer_tmpl_t<RecordType, ReaderType> analyzer(
+        sched_inputs, &tools[0], (int)tools.size(),
+        /*parallel=*/true, NUM_OUTPUTS, &sched_ops);
     assert(!!analyzer);
     bool res = analyzer.run();
     assert(res);
@@ -493,7 +662,11 @@ test_tool_errors()
 int
 test_main(int argc, const char *argv[])
 {
-    if (!test_queries() || !test_wait_records() || !test_tool_errors())
+    if (!test_queries() || !test_wait_records() || !test_tool_errors() ||
+        !test_next_trace_pc_queries<memref_t, reader_t, test_util::mock_reader_t>(
+            "memref_t") ||
+        !test_next_trace_pc_queries<trace_entry_t, record_reader_t,
+                                    test_util::mock_record_reader_t>("trace_entry_t"))
         return 1;
     std::cerr << "All done!\n";
     return 0;

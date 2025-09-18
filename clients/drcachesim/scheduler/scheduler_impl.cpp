@@ -669,8 +669,8 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
     tid.size = 0;
     tid.addr = static_cast<addr_t>(input.tid);
 
-    input.queue.push_front(pid);
-    input.queue.push_front(tid);
+    input.queue.emplace_front(pid);
+    input.queue.emplace_front(tid);
 }
 
 template <>
@@ -1783,7 +1783,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
             // the non-consuming queue loop vs the consuming and queue-pushback
             // reader loop.
             for (const auto &record : input.queue) {
-                if (!process_next_initial_record(input, record, found_filetype,
+                if (!process_next_initial_record(input, record.record, found_filetype,
                                                  found_timestamp))
                     break;
             }
@@ -1827,7 +1827,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_initial_input_content(
                 // we skip (see skip_instructions()).  Thus, we abort with an error.
                 if (record_type_is_instr(record))
                     break;
-                input.queue.push_back(record);
+                input.queue.emplace_back(record, input.reader->get_next_trace_pc());
                 ++(*input.reader);
             }
         }
@@ -1847,7 +1847,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
     if (!record_type_is_invalid(record)) {
         // May be invalid if we're at input eof, in which case we do not need to
         // save it.
-        input->queue.push_front(record);
+        input->queue.emplace_front(record);
     }
     int syscall_num = input->to_inject_syscall;
     input->to_inject_syscall = input_info_t::INJECT_NONE;
@@ -1863,9 +1863,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
 
     // Return the first injected record.
     assert(!input->queue.empty());
-    record = input->queue.front();
-    input->queue.pop_front();
-    input->cur_from_queue = true;
+#ifndef NDEBUG
+    bool from_queue =
+#endif
+        get_queued_record(input, record);
+    assert(from_queue);
     input->in_syscall_injection = true;
     return stream_status_t::STATUS_OK;
 }
@@ -1972,7 +1974,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
             record_type_set_marker_value(record, input->last_pc_fallthrough);
             set_branch_target_marker = false;
         }
-        input->queue.push_front(record);
+        // TODO i#7496: When we're in the middle of returning injected kernel records,
+        // the get_next_trace_pc() API should return the next pc in the injected sequence
+        // if there are still records left to be returned from the sequence.
+        input->queue.emplace_front(record);
     }
     return stream_status_t::STATUS_OK;
 }
@@ -2010,7 +2015,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::open_reader(
         RecordType record = **reader;
         if (record_type_has_tid(record, tid))
             break;
-        input.queue.push_back(record);
+        input.queue.emplace_back(record, reader->get_next_trace_pc());
         ++(*reader);
     }
     if (tid == INVALID_THREAD_ID) {
@@ -2262,6 +2267,22 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_input_last_timestamp(
 }
 
 template <typename RecordType, typename ReaderType>
+uint64_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::get_next_trace_pc(output_ordinal_t output)
+{
+    if (output < 0 || output >= static_cast<output_ordinal_t>(outputs_.size()))
+        return 0;
+    int index = outputs_[output].cur_input;
+    if (index < 0)
+        return 0;
+    if (inputs_[index].cur_from_queue &&
+        inputs_[index].cur_queue_record.next_trace_pc_valid) {
+        return inputs_[index].cur_queue_record.next_trace_pc;
+    }
+    return inputs_[index].reader.get()->get_next_trace_pc();
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     output_ordinal_t output, RecordType &record, input_info_t &input)
@@ -2299,7 +2320,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
                     if (status != sched_type_t::STATUS_OK)
                         return status;
                 }
-                input.queue.push_back(create_thread_exit(input.tid));
+                input.queue.emplace_back(create_thread_exit(input.tid));
                 stream_status_t status = mark_input_eof(input);
                 // For early EOF we still need our synthetic exit so do not return it yet.
                 if (status != sched_type_t::STATUS_OK &&
@@ -2318,7 +2339,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
         if (input.cur_region > 0) {
             VPRINT(this, 3, "skip_instructions input=%d: inserting separator marker\n",
                    input.index);
-            input.queue.push_back(record);
+            input.queue.emplace_back(record);
             record = create_region_separator_marker(input.tid, input.cur_region);
         }
         return sched_type_t::STATUS_OK;
@@ -2397,8 +2418,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::clear_input_queue(input_info_t &i
     int i = 0;
     while (!input.queue.empty()) {
         assert(i == 0 ||
-               (!record_type_is_instr(input.queue.front()) &&
-                !record_type_is_encoding(input.queue.front())));
+               (!record_type_is_instr(input.queue.front().record) &&
+                !record_type_is_encoding(input.queue.front().record)));
         ++i;
         input.queue.pop_front();
     }
@@ -2418,8 +2439,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::skip_instructions(input_info_t &i
     // For a skip of 0 we still need to clear non-instrs from the queue, but
     // should not have an instr in there.
     assert(skip_amount > 0 || input.queue.empty() ||
-           (!record_type_is_instr(input.queue.front()) &&
-            !record_type_is_encoding(input.queue.front())));
+           (!record_type_is_instr(input.queue.front().record) &&
+            !record_type_is_encoding(input.queue.front().record)));
     clear_input_queue(input);
     input.reader->skip_instructions(skip_amount);
     VPRINT(this, 3, "skip_instructions: input=%d amount=%" PRIu64 "\n", input.index,
@@ -2457,7 +2478,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::skip_instructions(input_info_t &i
     if (input.cur_region > 0) {
         VPRINT(this, 3, "skip_instructions input=%d: inserting separator marker\n",
                input.index);
-        input.queue.push_back(
+        input.queue.emplace_back(
             create_region_separator_marker(input.tid, input.cur_region));
     }
     return sched_type_t::STATUS_SKIPPED;
@@ -2966,11 +2987,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             input->reader->init();
             input->needs_init = false;
         }
-        if (!input->queue.empty()) {
-            record = input->queue.front();
-            input->queue.pop_front();
-            input->cur_from_queue = true;
-        } else {
+
+        if (!get_queued_record(input, record)) {
             // We again have a flag check because reader_t::init() does an initial ++
             // and so we want to skip that on the first record but perform a ++ prior
             // to all subsequent records.  We do not want to ++ after reading as that
@@ -3053,7 +3071,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
             // We have to put the candidate record in the queue before we release
             // the lock since another output may grab this input.
             VPRINT(this, 5, "next_record[%d]: queuing candidate record\n", output);
-            input->queue.push_back(record);
+            input->queue.emplace_back(record);
             lock.unlock();
             res = pick_next_input(output, blocked_time);
             if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_WAIT &&
@@ -3097,7 +3115,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 lock.lock();
                 if (res != sched_type_t::STATUS_SKIPPED) {
                     // Get our candidate record back.
-                    record = input->queue.back();
+                    record = input->queue.back().record;
                     input->queue.pop_back();
                 }
             }
@@ -3274,7 +3292,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal
     std::lock_guard<mutex_dbg_owned> lock(*input->lock);
     VPRINT(this, 4, "next_record[%d]: unreading last record, from %d\n", output,
            input->index);
-    input->queue.push_back(outinfo.last_record);
+    // XXX: Should we restore other memtrace_stream_t state too here?
+    input->queue.emplace_back(outinfo.last_record);
     // XXX: This should be record_type_is_instr_boundary() but we don't have the pre-prev
     // record.  For now we don't support unread_last_record() for record_reader_t,
     // enforced in a specialization of unread_last_record().
@@ -3295,7 +3314,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::start_speculation(
         if (queue_current_record) {
             if (record_type_is_invalid(outinfo.last_record))
                 return sched_type_t::STATUS_INVALID;
-            inputs_[outinfo.cur_input].queue.push_back(outinfo.last_record);
+            inputs_[outinfo.cur_input].queue.emplace_back(outinfo.last_record);
         }
         // The store address for the outer layer is not used since we have the
         // actual trace storing our resumption context, so we store a sentinel.
@@ -3404,6 +3423,21 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::adjust_filetype(
         filetype |= OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
     }
     return static_cast<offline_file_type_t>(filetype);
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+scheduler_impl_tmpl_t<RecordType, ReaderType>::get_queued_record(input_info_t *input,
+                                                                 RecordType &record)
+{
+    input->cur_from_queue = false;
+    if (input->queue.empty())
+        return false;
+    input->cur_queue_record = input->queue.front();
+    record = input->cur_queue_record.record;
+    input->queue.pop_front();
+    input->cur_from_queue = true;
+    return true;
 }
 
 template class scheduler_impl_tmpl_t<memref_t, reader_t>;

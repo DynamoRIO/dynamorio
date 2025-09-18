@@ -429,7 +429,7 @@ reader_t::pre_skip_instructions()
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
-            queue_.push(*input_entry_);
+            queue_to_return_next(*input_entry_);
             break;
         }
         process_input_entry();
@@ -548,9 +548,11 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         entry_copy_ = timestamp;
         input_entry_ = &entry_copy_;
         process_input_entry();
+        std::queue<trace_entry_t> cpu_and_instr;
         if (cpu.type == TRACE_TYPE_MARKER)
-            queue_.push(cpu);
-        queue_.push(next_instr);
+            cpu_and_instr.push(cpu);
+        cpu_and_instr.push(next_instr);
+        queue_to_return_next(cpu_and_instr);
     } else {
         // We missed the markers somehow.
         // next_instr is our target instr, so make that the next record.

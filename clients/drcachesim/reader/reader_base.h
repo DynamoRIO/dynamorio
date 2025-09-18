@@ -70,6 +70,85 @@ namespace drmemtrace {
 #endif
 
 /**
+ * Queue of #dynamorio::drmemtrace::trace_entry_t that have been read from the
+ * input but are yet to be processed by the reader.
+ *
+ * These entries may have been:
+ * - read in advance to allow us to figure out the next continuous pc in the
+ *   trace.
+ * - read in advance to allow the reader to figure out when a skip operation
+ *   is complete (i.e., the post-skip instr entry)
+ * - read in advance header markers to figure out the stream tid and pid.
+ * - synthesized by the reader on a skip event (like the timestamp and cpu
+ *   markers).
+ */
+class entry_queue_t {
+public:
+    /**
+     * Removes all entries from the queue.
+     */
+    void
+    clear();
+    /**
+     * Returns whether the queue is empty.
+     */
+    bool
+    empty();
+    /**
+     * Returns whether the queue is non-empty and has some record that tells us
+     * the next continuous pc in the trace after the record in the front.
+     */
+    bool
+    has_record_and_next_pc_after_front();
+    /**
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t to the front of the
+     * queue. This entry may have been synthesized by the reader (e.g., the timestamp
+     * and cpu entries are synthesized after a skip), or the reader may have decided
+     * it does not want to process it yet (e.g., the first instruction after a skip).
+     *
+     * If this operation changes the next pc in the trace, next_trace_pc will be updated.
+     */
+    void
+    push_front(const trace_entry_t &entry, uint64_t &next_trace_pc);
+    /**
+     * Returns the next entry from the queue in the entry arg, and the next
+     * continuous pc in the trace in the next_pc arg if it exists or zero
+     * otherwise.
+     */
+    void
+    pop_front(trace_entry_t &entry, uint64_t &next_pc);
+    /**
+     * Adds the given #dynamorio::drmemtrace::trace_entry_t that was read from
+     * the input ahead of its time to the back of the queue.
+     *
+     * Note that for trace entries that need to be added back to the queue by
+     * the #dynamorio::drmemtrace::reader_t,
+     * #dynamorio::drmemtrace::record_reader_t, or their derived classes (maybe
+     * because the entry cannot be returned just yet by the reader), the push_front
+     * API should be used, as there may be many readahead entries already
+     * in this queue.
+     */
+    void
+    push_back(const trace_entry_t &entry);
+
+    /**
+     * Returns whether the given #dynamorio::drmemtrace::trace_entry_t has a PC, and if
+     * so, sets it at the given *pc.
+     */
+    static bool
+    entry_has_pc(const trace_entry_t &entry, uint64_t *pc = nullptr);
+
+private:
+    // Trace entries queued up to be returned.
+    std::deque<trace_entry_t> entries_;
+    // PCs for the trace entries in entries_ that have a PC (see entry_has_pc()). This
+    // allows efficient lookup of the next trace pc.
+    // The elements here will be in the same order as the corresponding one in entries_,
+    // but there may not be an element here for each one in entries_.
+    std::deque<uint64_t> pcs_;
+};
+
+/**
  * Base class for #dynamorio::drmemtrace:reader_t and
  * #dynamorio::drmemtrace::record_reader_t. This contains some interfaces and
  * implementations that are shared between the two types of readers.
@@ -80,7 +159,7 @@ namespace drmemtrace {
  *
  * This subclasses #dynamorio::drmemtrace::memtrace_stream_t because all readers
  * derived from it are expected to implement that interface, but it leaves the
- * implementation of the stream APIs to each derived class.
+ * implementation of most of the stream APIs to each derived class.
  *
  * XXX i#5727: Can we potentially move other logic or interface definitions here?
  */
@@ -105,12 +184,17 @@ public:
     virtual bool
     operator!=(const reader_base_t &rhs) const;
 
+    uint64_t
+    get_next_trace_pc() const override;
+
 protected:
     /**
      * Returns the next entry for this reader.
      *
      * If it returns nullptr, it will set the #at_eof_ field to distinguish end-of-file
      * from an error.
+     *
+     * Also sets the next continuous pc in the trace at the next_trace_pc_ data member.
      *
      * An invocation of this API may or may not cause an actual read from the underlying
      * source using the derived class implementation of
@@ -128,6 +212,36 @@ protected:
     is_online();
 
     /**
+     * Clears all #dynamorio::drmemtrace::trace_entry_t that are buffered in the
+     * #dynamorio::drmemtrace::entry_queue_t, either for read-ahead or deliberately using
+     * #dynamorio::drmemtrace::reader_base_t::queue_to_return_next().
+     */
+    void
+    clear_entry_queue();
+
+    /**
+     * Adds the given entries to the #dynamorio::drmemtrace::entry_queue_t to be returned
+     * from the next call to #dynamorio::drmemtrace::reader_base_t::get_next_entry()
+     * in the same order as the provided queue.
+     *
+     * If this routine (or its overload) is used another time, before all records from
+     * the prior invocation are passed on to the user, the records queued in the later
+     * call will be returned first.
+     */
+    void
+    queue_to_return_next(std::queue<trace_entry_t> &queue);
+    /**
+     * Adds the given entry to the #dynamorio::drmemtrace::entry_queue_t to be returned
+     * from the next call to #dynamorio::drmemtrace::reader_base_t::get_next_entry().
+     *
+     * If this routine (or its overload) is used another time, before all records from
+     * the prior invocation are passed on to the user, the records queued in the later
+     * call will be returned first.
+     */
+    void
+    queue_to_return_next(trace_entry_t &entry);
+
+    /**
      * Denotes whether the reader is at EOF.
      *
      * This should be set to false by subclasses in init() and set back to true when
@@ -142,12 +256,20 @@ protected:
     const char *output_prefix_ = "[reader_base_t]";
 
     /**
-     * We store into this queue records already read from the input but not
-     * yet returned to the iterator. E.g., #dynamorio::drmemtrace::reader_t
-     * needs to read ahead when skipping to include the post-instr records.
+     * Used to hold the memory corresponding to #dynamorio::drmemtrace::trace_entry_t*
+     * returned by #dynamorio::drmemtrace::reader_base_t::get_next_entry() and
+     * #dynamorio::drmemtrace::reader_base_t::read_next_entry() in some cases.
      */
-    std::queue<trace_entry_t> queue_;
     trace_entry_t entry_copy_;
+
+    /**
+     * Holds the next continuous pc in the trace, which may either be the pc of the
+     * next instruction or the value of the next #TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+     *
+     * This is set to its proper value when the
+     * #dynamorio::drmemtrace::reader_base_t::get_next_entry() API returns.
+     */
+    uint64_t next_trace_pc_ = 0;
 
 private:
     /**
@@ -164,7 +286,23 @@ private:
     virtual trace_entry_t *
     read_next_entry() = 0;
 
+    /**
+     * We store into this queue records already read from the input but not
+     * yet returned to the iterator. E.g., #dynamorio::drmemtrace::reader_t
+     * needs to read ahead when skipping to include the post-instr records,
+     * and #dynamorio::drmemtrace::reader_base_t may read-ahead records from
+     * the input source to discover the next continuous pc in the trace.
+     *
+     * #dynamorio::drmemtrace::reader_base_t::get_next_entry() automatically
+     * returns entries from this queue when it's non-empty.
+     */
+    entry_queue_t queue_;
+
     bool online_ = true;
+
+    // State of the underlying trace entry source.
+    bool at_null_internal_ = false;
+    bool at_eof_internal_ = false;
 };
 
 } // namespace drmemtrace
