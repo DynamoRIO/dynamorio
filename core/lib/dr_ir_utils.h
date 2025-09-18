@@ -804,8 +804,10 @@ DR_API
  *
  * Even when #DR_MC_CONTROL is specified, does NOT copy the pc field,
  * except for system call events, when it will point at the
- * post-syscall address, and kernel transfer events, when it will point to the
- * target pc.
+ * post-syscall address; for kernel transfer events, when it will point to the
+ * target pc; and thread exit events, when it will point to the thread's final
+ * (or detach-time) pc (which is the next pc to execute: it was not itself
+ * executed under DR).
  *
  * Returns false if called from the init event or the initial thread's
  * init event; returns true otherwise (cannot distinguish whether the

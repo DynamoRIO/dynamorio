@@ -5019,6 +5019,10 @@ if (BUILD_CLIENTS)
 
       torunonly_drcacheoff(allasm-dyn-inject-invariants allasm_repstr
         "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+
+      set(tool.drcacheoff.longblock_nodr ON)
+      torunonly_drcacheoff(longblock tool.drcacheoff.longblock
+        "" "@-tool@invariant_checker" "")
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
@@ -6910,6 +6914,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcacheoff.func_view_noret
     code_api|tool.drcacheoff.gencode
     code_api|tool.drcacheoff.gencode_filtered
+    code_api|tool.drcacheoff.longblock
     code_api|tool.drcacheoff.invariant_checker_pthreads
     code_api|tool.drcacheoff.legacy
     code_api|tool.drcacheoff.max-global
