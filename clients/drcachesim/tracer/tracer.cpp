@@ -2137,6 +2137,9 @@ event_exit(void)
     if (op_collect_syscall_records.get_value()) {
         flush_syscall_records();
         dr_close_file(syscall_record_file);
+        if (drsys_exit() != DRMF_SUCCESS) {
+            DR_ASSERT(false);
+        }
     }
 #endif
     /* we use placement new for better isolation */
