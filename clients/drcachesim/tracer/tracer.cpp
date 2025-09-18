@@ -2136,6 +2136,7 @@ event_exit(void)
 #ifdef BUILD_TRACER_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         flush_syscall_records();
+        dr_close_file(syscall_record_file);
     }
 #endif
     /* we use placement new for better isolation */

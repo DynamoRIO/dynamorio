@@ -4,11 +4,11 @@
 #        define SYSCALL_EXIT_GROUP 231
 #    else
 #        define SYSCALL_WRITE 4
-#        define SYSCALL_ARG_SIZE 252
+#        define SYSCALL_EXIT_GROUP 252
 #    endif
 #elif defined(AARCH64)
 #    define SYSCALL_WRITE 64
-#    define SYSCALL_ARG_SIZE 94
+#    define SYSCALL_EXIT_GROUP 94
 #endif
 Hello, world!
 Cache simulation results:
