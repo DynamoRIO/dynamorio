@@ -739,7 +739,9 @@ typedef enum {
      * This marker is used in raw offline traces to indicate the endpoint of the
      * final block in a thread at detach, or the interruption point of a block by a
      * relocation performed by DR.  This marker is not visible in a final trace: it
-     * is consumed during post-processing.  The marker value is the PC in the block.
+     * is consumed during post-processing.  The marker value is the PC in the block
+     * where execution stopped (i.e., this PC itself was not executed; raw2trace will
+     * end the block before this PC and add an uncompleted marker).
      */
     TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
 
@@ -1190,6 +1192,11 @@ struct _offline_entry_t {
             // This describes the entire basic block.
             uint64_t modoffs : PC_MODOFFS_BITS;
             uint64_t modidx : PC_MODIDX_BITS;
+            // This is the count of instructions in the block.
+            // However, they may not all have exited if interrupted mid-block
+            // by a kernel event (e.g., a signal) or DR not finishing the block
+            // (e.g., on detach or some thread relocation like a synchronous flush);
+            // in those cases the trace has markers indicating where the block ended.
             uint64_t instr_count : PC_INSTR_COUNT_BITS;
             uint64_t type : PC_TYPE_BITS;
         } pc;

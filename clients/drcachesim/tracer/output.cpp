@@ -1428,6 +1428,8 @@ exit_thread_io(void *drcontext)
     if (has_prior_window_data || is_not_empty) {
         if (op_offline.get_value()) {
             // Provide the PC in case detach exited mid-block.
+            // This PC was not executed; raw2trace will end the block before this PC
+            // (and add an uncompleted marker).
             dr_mcontext_t mc;
             mc.size = sizeof(mc);
             mc.flags = DR_MC_CONTROL;
@@ -1435,7 +1437,8 @@ exit_thread_io(void *drcontext)
                 NOTIFY(2, "Thread " TIDFMT "%d end pc=%p\n", dr_get_thread_id(drcontext),
                        mc.pc);
                 // XXX i#5790: This same marker can be used to solve block truncation for
-                // DR mid-block relocation once DR provides a relocation event.
+                // DR mid-block relocation (happens on synchronous flushes and resets)
+                // once DR provides a relocation event.
                 BUF_PTR(data->seg_base) += instru->append_marker(
                     BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
                     reinterpret_cast<uintptr_t>(mc.pc));

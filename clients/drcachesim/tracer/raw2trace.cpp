@@ -1543,6 +1543,9 @@ raw2trace_t::interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_
                 continue;
             }
 
+            // Check for interruption of the basic block in the middle by either
+            // a kernel event (e.g., a signal) or DR not finishing the block
+            // (e.g., on detach or some thread relocation like a synchronous flush).
             if (next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                 next_entry->extended.valueB == TRACE_MARKER_TYPE_MIDBLOCK_END_PC) {
                 bool is_kernel =
@@ -1771,9 +1774,10 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
             // indicate an instruction is removed from the trace because it was
             // interrupted by an asynchronous signal or caused a fault.
-            // We emit the marker for a midblock exit (detach or DR transfer)
-            // as well: it helps on the DR transfer, and doesn't hurt on the exit
-            // as normally the exit PC is the post-syscall PC and we never match it.
+            // We emit the marker for a midblock exit (detach or DR transfer such as
+            // synchronous flush) as well: it helps on the DR transfer, and doesn't hurt
+            // on the exit as normally the exit PC is the post-syscall PC and we never
+            // match it.
             trace_entry_t trace_entry;
             trace_entry.addr = 0;
             trace_entry_t *trace_entry_ptr = &trace_entry;
