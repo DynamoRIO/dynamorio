@@ -322,6 +322,16 @@ public:
      * which is not presented to the tools. Reading ahead past them to provide
      * the actual next trace pc complicates read-ahead logic especially for
      * zipfile readers.
+     *
+     * As the record stream proceeds to the next record, the value returned
+     * by this routine generally changes only when the record corresponding
+     * to the prior returned "next trace pc" value is seen. It may also
+     * change when a dynamic decision is made by the drmemtrace scheduler
+     * to insert trace records for a system call or context switch sequence,
+     * at the #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START
+     * markers respectively. Also when dynamic injection for context switch
+     * sequences is not enabled, the returned value may change when the
+     * actual switch to a new input is made.
      */
     virtual uint64_t
     get_next_trace_pc() const

@@ -587,12 +587,21 @@ test_parallel_with_syscall_injection()
                 last_branch_target_marker = memref.instr.indirect_branch_target;
             }
             if (type_is_instr(memref.instr.type) && saw_syscall_end) {
+                // Ensure the syscall-trace-final branch target is set
+                // properly to the pc of the instr after the syscall.
                 assert(last_branch_target_marker == memref.instr.addr);
                 saw_syscall_end = false;
             }
+
+            // Ensure the get_next_trace_pc() output is accurate and changes
+            // only in ways that we expect.
             uint64_t pc;
             if (memref.marker.type == TRACE_TYPE_MARKER &&
                 memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+                // We expect the returned value to change when the decision
+                // to dynamically inject the syscall trace is made when the
+                // syscall num becomes known.
+                assert(last_next_trace_pc != stream->get_next_trace_pc());
                 last_next_trace_pc = stream->get_next_trace_pc();
             } else if (scheduler_impl_t::record_type_has_pc(memref, pc)) {
                 assert(pc == last_next_trace_pc);
@@ -600,10 +609,11 @@ test_parallel_with_syscall_injection()
             } else {
                 assert(last_next_trace_pc == stream->get_next_trace_pc());
             }
+
+            // All syscall records should have the same record and instr input
+            // ordinal as the last user-space one. Remember this analyzer mode
+            // uses USE_INPUT_ORDINALS.
             if (in_syscall) {
-                // All syscall records should have the same record and instr input
-                // ordinal as the last user-space one. Remember this analyzer mode
-                // uses USE_INPUT_ORDINALS.
                 assert(stream->get_record_ordinal() == last_input_record_ordinal);
                 assert(stream->get_instruction_ordinal() == last_input_instr_ordinal);
             } else {
@@ -2235,8 +2245,7 @@ test_synthetic_time_quanta_with_kernel()
 {
     // This is a test of kernel syscall and switch injection done together
     // with a case where the syscall is immediately followed by a switch
-    // sequence, and also some idles added as part of the injected syscall
-    // trace.
+    // sequence.
     std::cerr << "\n----------------\nTesting time quanta with kernel\n";
 #ifdef HAS_ZIP
     static constexpr memref_tid_t TID_BASE = 42;
@@ -2501,8 +2510,10 @@ test_synthetic_time_quanta_with_kernel()
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_INSTR_INDIRECT_JUMP, SYSCALL_PC_START + 1, NO_MARKER,
                    // Even though there's a context switch on cpu1 after this sequence,
-                   // we set the target pc to the next one in TID_A, and not the
-                   // first one of the context switch sequence.
+                   // we set the target pc to the next instr in TID_A, and not the
+                   // first instr of the context switch sequence. If we decide to
+                   // not run TID_A next, this may change later, but for now the
+                   // scheduler's plan is indeed to continue with TID_A.
                    INSTR_3_TID_A_PC);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER, SYSCALL_BASE, TRACE_MARKER_TYPE_SYSCALL_TRACE_END);
@@ -2526,7 +2537,7 @@ test_synthetic_time_quanta_with_kernel()
         check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_IDLE);
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_IDLE);
 
-        // Switch sequence immediately after the syscall sequence.
+        // Switch sequence immediately after the syscall sequence on cpu1.
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_MARKER,
                    // Counts as a process switch because of the idles.
@@ -7077,9 +7088,10 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                 // We expect the returned next trace pc to change when the decision to
                 // inject a syscall or switch trace is made.
                 // XXX: Could we avoid this and do some read-ahead so we can provide the
-                // actual next pc when returning the last instr? Perhaps doable for
-                // syscalls but not so easy for context switches as that would mean
-                // preponing the context switch decision.
+                // actual next pc when returning the prior user-space instr? Perhaps
+                // doable for syscalls but not so easy for context switches as that
+                // would mean preponing the context switch decision before it needs to
+                // be made.
                 (memref.marker.type == TRACE_TYPE_MARKER &&
                  (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START ||
                   memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL)) ||
@@ -7143,7 +7155,6 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                 assert(outputs[i]->is_record_kernel() || is_trace_end);
                 // Test that dynamically injected syscall code doesn't count toward
                 // input ordinals, but does toward output ordinals.
-
                 assert(outputs[i]->get_input_interface()->get_record_ordinal() ==
                            prev_in_ord[i] ||
                        // We readahead by one record to decide when to inject the
@@ -7151,9 +7162,8 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                        // be advanced by one at trace start.
                        is_trace_start);
                 assert(outputs[i]->get_record_ordinal() > prev_out_ord[i]);
-            } else {
+            } else
                 assert(!outputs[i]->is_record_synthetic());
-            }
             assert(outputs[i]->get_tid() == tid_from_memref_tid(memref.instr.tid) &&
                    outputs[i]->get_input_workload_ordinal() ==
                        workload_from_memref_tid(memref.instr.tid));
@@ -7223,9 +7233,16 @@ test_kernel_switch_sequences()
     static constexpr int INSTR_QUANTUM = 3;
     static constexpr uint64_t TIMESTAMP = 44226688;
     static constexpr memref_tid_t TID_BASE = 100;
-    static constexpr uint64_t THREAD_3_INSTR_1_PC = 10242;
-    static constexpr uint64_t THREAD_5_INSTR_1_PC = 10442;
-    static constexpr uint64_t THREAD_7_INSTR_1_PC = 10642;
+    static constexpr int TID_MULTIPLIER = 100;
+    static constexpr int INSTR_BASE = 42;
+    static constexpr uint64_t THREAD_3_INSTR_1_PC =
+        (TID_BASE + 2) * TID_MULTIPLIER + INSTR_BASE;
+    static constexpr uint64_t THREAD_5_INSTR_1_PC =
+        (TID_BASE + 4) * TID_MULTIPLIER + INSTR_BASE;
+    static constexpr uint64_t THREAD_7_INSTR_1_PC =
+        (TID_BASE + 6) * TID_MULTIPLIER + INSTR_BASE;
+    static constexpr trace_marker_type_t NO_MARKER = TRACE_MARKER_TYPE_RESERVED_END;
+    static constexpr uintptr_t NO_VAL = 0;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     std::vector<record_scheduler_t::input_workload_t> sched_record_inputs;
 
@@ -7242,8 +7259,8 @@ test_kernel_switch_sequences()
             inputs.push_back(test_util::make_version(TRACE_ENTRY_VERSION));
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
-                inputs.push_back(test_util::make_instr(
-                    static_cast<addr_t>(tid * 100 + 42 + instr_idx * 4)));
+                inputs.push_back(test_util::make_instr(static_cast<addr_t>(
+                    tid * TID_MULTIPLIER + INSTR_BASE + instr_idx * 4)));
             }
             inputs.push_back(test_util::make_exit(tid));
 
@@ -7323,8 +7340,8 @@ test_kernel_switch_sequences()
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             // The 3-instr quantum should not count the 2 switch instrs.
-            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR,
-                      TRACE_MARKER_TYPE_RESERVED_END, 0, THREAD_3_INSTR_1_PC) &&
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR, NO_MARKER, NO_VAL,
+                      THREAD_3_INSTR_1_PC) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
             // Process switch.
@@ -7345,8 +7362,8 @@ test_kernel_switch_sequences()
             check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
             // The 3-instr quantum should not count the 2 switch instrs.
-            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR,
-                      TRACE_MARKER_TYPE_RESERVED_END, 0, THREAD_5_INSTR_1_PC) &&
+            check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR, NO_MARKER,
+                      NO_VAL, THREAD_5_INSTR_1_PC) &&
             check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR);
         assert(res);
@@ -7584,9 +7601,13 @@ test_kernel_syscall_sequences()
         static constexpr int INSTR_QUANTUM = 3;
         static constexpr uint64_t TIMESTAMP = 44226688;
         static constexpr uint64_t SIGNAL_INT_PC = 0xdecafbad;
-        static constexpr uint64_t THREAD_1_INSTR_2_PC = 42 * TID_BASE + 1 * 4;
-        static constexpr uint64_t THREAD_1_INSTR_4_PC = 42 * TID_BASE + 3 * 4;
-        static constexpr uint64_t THREAD_3_INSTR_2_PC = 42 * (TID_BASE + 2) + 1 * 4;
+        static constexpr int TID_MULTIPLIER = 42;
+        static constexpr uint64_t THREAD_1_INSTR_2_PC = TID_MULTIPLIER * TID_BASE + 1 * 4;
+        static constexpr uint64_t THREAD_1_INSTR_4_PC = TID_MULTIPLIER * TID_BASE + 3 * 4;
+        static constexpr uint64_t THREAD_3_INSTR_2_PC =
+            TID_MULTIPLIER * (TID_BASE + 2) + 1 * 4;
+        static constexpr trace_marker_type_t NO_MARKER = TRACE_MARKER_TYPE_RESERVED_END;
+        static constexpr uintptr_t NO_VAL = 0;
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         std::vector<scheduler_t::input_reader_t> readers;
         for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
@@ -7602,7 +7623,8 @@ test_kernel_syscall_sequences()
             inputs.push_back(test_util::make_timestamp(TIMESTAMP));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
                 inputs.push_back(test_util::make_instr(
-                    static_cast<addr_t>(42 * tid + instr_idx * 4), TRACE_TYPE_INSTR,
+                    static_cast<addr_t>(TID_MULTIPLIER * tid + instr_idx * 4),
+                    TRACE_TYPE_INSTR,
                     /*size=*/4));
                 // Every other instr is a syscall.
                 if (instr_idx % 2 == 0) {
@@ -7630,13 +7652,14 @@ test_kernel_syscall_sequences()
                         if (input_idx == 0) {
                             // First syscall on first input was interrupted by a signal,
                             // so no post-syscall event.
-                            // Generally the signal interruption pc in kernel_event is
-                            // the fallthrough of the prior instr and the next instr is
-                            // at the signal handler which may be a further away pc. But
-                            // we keep setup simple and pretend the signal interruption
-                            // pc is SIGNAL_INT_PC. We only want to ensure this is
-                            // the PC that shows up as the branch_target at the
-                            // syscall-trace-final indirect branch.
+                            // Generally the signal interruption pc in the kernel_event
+                            // marker is the target of the prior instr and the next instr
+                            // is at the signal handler which may be a further away pc.
+                            // But we keep setup simple and pretend the signal
+                            // interruption pc is SIGNAL_INT_PC. We only want to ensure
+                            // that this PC shows up as the branch_target marker value
+                            // for the syscall-trace-final indirect branch for the
+                            // prior injected syscall trace.
                             inputs.push_back(test_util::make_marker(
                                 TRACE_MARKER_TYPE_KERNEL_EVENT, SIGNAL_INT_PC));
                             inputs.push_back(test_util::make_marker(
@@ -7732,10 +7755,10 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR_INDIRECT_JUMP,
-                      // As this syscall was interrupted by the signal, the return point
-                      // after the syscall is the interruption pc. The kernel_event marker
-                      // coming up next shows the transfer to the signal handler.
-                      TRACE_MARKER_TYPE_RESERVED_END, SIGNAL_INT_PC) &&
+                      // As this syscall was interrupted by the signal, the branch target
+                      // at the syscall trace end is the interruption pc. The kernel_event
+                      // marker coming up next shows the transfer to the signal handler.
+                      NO_MARKER, SIGNAL_INT_PC) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE) &&
 
@@ -7772,7 +7795,7 @@ test_kernel_syscall_sequences()
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSCALL_BASE) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR_INDIRECT_JUMP,
-                      TRACE_MARKER_TYPE_RESERVED_END,
+                      NO_MARKER,
                       // This points to the next instruction on this thread
                       // itself, even though the output switches to a new input
                       // after this.
@@ -7795,8 +7818,9 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
 
-            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR,
-                      TRACE_MARKER_TYPE_RESERVED_END, 0, THREAD_1_INSTR_2_PC) &&
+            // Back to thread 1.
+            check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR, NO_MARKER, NO_VAL,
+                      THREAD_1_INSTR_2_PC) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
@@ -7808,14 +7832,15 @@ test_kernel_syscall_sequences()
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_INSTR_INDIRECT_JUMP,
-                      TRACE_MARKER_TYPE_RESERVED_END, THREAD_1_INSTR_4_PC) &&
+                      // Points to the next instruction on this thread.
+                      NO_MARKER, THREAD_1_INSTR_4_PC) &&
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSCALL_BASE + 1) &&
             // Post syscall timestamp.
             check_ref(refs[0], idx, TID_BASE, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP) &&
-            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR,
-                      TRACE_MARKER_TYPE_RESERVED_END, 0, THREAD_3_INSTR_2_PC);
+            check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR, NO_MARKER, NO_VAL,
+                      THREAD_3_INSTR_2_PC);
         assert(res);
     }
     {
