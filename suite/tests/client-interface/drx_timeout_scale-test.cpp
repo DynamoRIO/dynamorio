@@ -66,6 +66,8 @@
 #include <iostream>
 #include <thread>
 
+static constexpr ptr_uint_t PRE_DETACH_USER_DATA = 0x12345678;
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -87,6 +89,7 @@ static pthread_cond_t condvar;
 static bool child_ready;
 static pthread_mutex_t lock;
 static std::atomic<bool> child_should_exit;
+static bool pre_detach_ran;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -268,6 +271,13 @@ do_some_work(drx_time_scale_type_t optype)
 }
 
 static void
+event_pre_detach(void *user_data)
+{
+    pre_detach_ran = true;
+    assert(reinterpret_cast<ptr_uint_t>(user_data) == PRE_DETACH_USER_DATA);
+}
+
+static void
 event_exit(void *user_data)
 {
     auto cur_optype =
@@ -298,8 +308,15 @@ event_exit(void *user_data)
     } else
         assert(false);
 
+    assert(pre_detach_ran);
+
     ok = drx_unregister_time_scaling();
     assert(ok);
+    ok = drmgr_unregister_exit_event_user_data(event_exit);
+    assert(ok);
+    ok = drmgr_unregister_pre_detach_event_user_data(event_pre_detach);
+    assert(ok);
+
     drx_exit();
     drmgr_exit();
     dr_fprintf(STDERR, "client done\n");
@@ -362,6 +379,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                              reinterpret_cast<void *>(optype));
     assert(ok);
     ok = drx_init();
+    assert(ok);
+
+    // We sanity-test the drmgr pre-detach user data here as this is one
+    // of the few tests that does a detach and uses drmgr.
+    ok = drmgr_register_pre_detach_event_user_data(
+        dynamorio::drmemtrace::event_pre_detach, nullptr,
+        reinterpret_cast<void *>(PRE_DETACH_USER_DATA));
     assert(ok);
 
     drx_time_scale_t scale = {

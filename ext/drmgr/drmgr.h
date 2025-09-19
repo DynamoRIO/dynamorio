@@ -1194,6 +1194,45 @@ drmgr_unregister_post_attach_event_user_data(void (*func)(void *user_data));
 
 DR_EXPORT
 /**
+ * Registers a callback function for the pre_detach event, which behaves
+ * just like the event registered by dr_register_pre_detach_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_pre_detach_event(void (*func)(void));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the pre_detach event, which behaves
+ * just like the event registered by dr_register_pre_detach_event() but is
+ * ordered by \p priority. Allows for the passing of user data \p user_data
+ * which is available upon the execution of the callback.
+ * \return whether successful.
+ */
+bool
+drmgr_register_pre_detach_event_user_data(void (*func)(void *user_data),
+                                          drmgr_priority_t *priority, void *user_data);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the pre_detach event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_pre_detach_event(void (*func)(void));
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the pre_detach event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_pre_detach_event_user_data(void (*func)(void *user_data));
+
+DR_EXPORT
+/**
  * Registers a callback function for the thread initialization event.
  * drmgr calls \p func whenever the application creates a new thread.
  * \return whether successful.
