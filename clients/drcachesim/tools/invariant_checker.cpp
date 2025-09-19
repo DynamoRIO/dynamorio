@@ -1217,18 +1217,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->retaddr_stack_.push(0);
             }
         }
-#ifdef LINUX
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER &&
-            shard->syscall_trace_num_after_last_userspace_instr_ == SYS_rt_sigreturn) {
-            // It is an undocumented property that the TRACE_MARKER_TYPE_KERNEL_XFER
-            // marker values are also set to the syscall-fallthrough pc. So it is
-            // expected that prev_syscall_end_branch_target_ == the kernel_xfer value.
-            // TODO i#7496: We skip the PC continuity check for the branch_target marker
-            // at the end of syscall traces injected for sigreturn, as they're not
-            // expected to match.
-            shard->prev_syscall_end_branch_target_ = 0;
-        }
-#endif
 #ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
@@ -1620,16 +1608,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     if (shard->prev_syscall_end_branch_target_ != 0) {
         const addr_t syscall_end_branch_target = shard->prev_syscall_end_branch_target_;
         shard->prev_syscall_end_branch_target_ = 0;
-        if (!(syscall_end_branch_target == cur_pc ||
-              // XXX i#7157, i#6495: For auto-restart syscalls interrupted by a signal,
-              // the kernel_event marker will hold the syscall pc itself. However, the
-              // kernel syscall injection logic sets the syscall-trace-end branch_target
-              // marker to the fallthrough pc of the syscall. We bail on trying to
-              // read-ahead and figure this out during injection, since the kernel_event
-              // marker already holds the correct next pc. Also, for such interrupted
-              // syscalls, maybe we shouldn't inject the full syscall trace anyway.
-              (at_kernel_event &&
-               syscall_end_branch_target == cur_pc + prev_instr_info.memref.instr.size)))
+        if (syscall_end_branch_target != cur_pc)
             return "Syscall trace-end branch marker incorrect";
     }
     if (prev_instr_trace_pc == 0 /*first*/) {
