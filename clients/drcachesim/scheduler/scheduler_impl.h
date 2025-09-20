@@ -156,6 +156,11 @@ public:
     scheduler_status_t
     write_recorded_schedule();
 
+    // If the given record has a pc, sets the provided pc parameter to it and
+    // returns true, otherwise returns false and leaves it unchanged.
+    static bool
+    record_type_has_pc(RecordType record, uint64_t &pc);
+
 protected:
     typedef speculator_tmpl_t<RecordType> spec_type_t;
 
@@ -293,6 +298,8 @@ protected:
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
         int to_inject_syscall = INJECT_NONE;
+        // Valid only if to_inject_syscall is not INJECT_NONE.
+        uint64_t to_inject_syscall_first_pc = 0;
         bool saw_first_func_id_marker_after_syscall = false;
 
         // Sentinel value for to_inject_syscall.
@@ -803,9 +810,15 @@ protected:
     SequenceKey
     invalid_kernel_sequence_key();
 
+    struct trace_sequence_t {
+        std::vector<RecordType> records;
+        uint64_t first_pc = 0;
+        bool first_pc_valid = false;
+    };
+
     template <typename SequenceKey>
     scheduler_status_t
-    read_kernel_sequences(std::unordered_map<SequenceKey, std::vector<RecordType>,
+    read_kernel_sequences(std::unordered_map<SequenceKey, trace_sequence_t,
                                              custom_hash_t<SequenceKey>> &sequence,
                           std::string trace_path, std::unique_ptr<ReaderType> reader,
                           std::unique_ptr<ReaderType> reader_end,
@@ -940,7 +953,7 @@ protected:
 
     // Performs the actual injection of the kernel sequence.
     stream_status_t
-    inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
+    inject_kernel_sequence(trace_sequence_t &sequence, input_info_t *input);
 
     // Performs the actual injection of a kernel syscall sequence, using
     // inject_kernel_sequence as helper.
@@ -1098,13 +1111,11 @@ protected:
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
 
-    std::unordered_map<switch_type_t, std::vector<RecordType>,
-                       custom_hash_t<switch_type_t>>
+    std::unordered_map<switch_type_t, trace_sequence_t, custom_hash_t<switch_type_t>>
         switch_sequence_;
     // We specify a custom hash function only to make it easier to generalize with
     // switch_sequence_ defined above.
-    std::unordered_map<int, std::vector<RecordType>, custom_hash_t<int>>
-        syscall_sequence_;
+    std::unordered_map<int, trace_sequence_t, custom_hash_t<int>> syscall_sequence_;
     // For single_lockstep_output.
     std::unique_ptr<stream_t> global_stream_;
     // For online where we currently have to map dynamically observed thread ids
