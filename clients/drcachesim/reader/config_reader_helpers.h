@@ -55,46 +55,28 @@ struct config_node_t {
 };
 typedef config_node_t::map_t config_t;
 
-class istream_wrapper {
+class config_tokenizer_t {
 public:
-    istream_wrapper(std::istream *is)
+    config_tokenizer_t(std::istream* is)
         : is_(is)
     {
     }
 
-    bool
-    eof() const
-    {
-        return is_->eof();
-    }
-
-    operator bool() const
-    {
-        return bool(is_);
-    }
-
-    void
-    strip()
-    {
-        *is_ >> std::ws;
-    }
-
-    template <typename T>
-    istream_wrapper &
-    operator>>(T &&val)
-    {
-        *is_ >> val;
-        return *this;
-    }
+    std::string
+    next();
 
     bool
-    getline(std::string& res) {
-        *is_ >> res;
-        return bool(*is_);
-    }
+    eof() const;
+
+    size_t
+    getline() const;
+
+    size_t
+    getcolumn() const;
 
 private:
-    std::istream *is_;
+    std::istream* is_;
+    std::string buffer_;
 };
 
 // Read configuration parameters from stream
@@ -108,17 +90,12 @@ private:
 // TODO: Add line numbers here
 // TODO: Treat braces as spaces:
 //      name{n0 v0 n1 v1}
-template <typename T>
 bool
-read_param_map(T *is, config_t *params)
+read_param_map(std::istream *is, config_t *params)
 {
-    is->strip();
-    if (!(*is)) {
-        ERRMSG("Unable to read the configuration\n");
-        return false;
-    }
+    config_tokenizer_t tokenizer(is);
 
-    while (!is->eof()) {
+    while (!tokenizer.eof()) {
         std::string token;
         if (!(*is >> token)) {
             ERRMSG("Unable to extract token from the configuration\n");
