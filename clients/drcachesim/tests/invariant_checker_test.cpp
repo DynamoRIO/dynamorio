@@ -3684,8 +3684,8 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
-    // Control resumes at the kernel_event marker with the sys instr pc, instead of the
-    // pc specified in the syscall-trace-end branch_target marker which is sys+len(sys).
+    // Control resumes at the kernel_event marker with the sys instr pc, which is also
+    // the pc specified in the syscall-trace-end branch_target marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3706,7 +3706,7 @@ check_kernel_syscall_trace(void)
             // Specifies post_sys, but really the next instr is the auto-restarted sys.
             // This is a documented case where the TRACE_MARKER_TYPE_KERNEL_EVENT value
             // takes precedence.
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), sys },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), sys },
@@ -3831,10 +3831,8 @@ check_kernel_syscall_trace(void)
             res = false;
     }
 #    ifdef LINUX
-    // Signal return immediately after sigreturn syscall trace.
-    // TODO i#7496: We set the syscall trace-end branch_target marker always to the
-    // fallthrough pc of the syscall. This isn't correct for injected sigreturn traces,
-    // but we live with this for now.
+    // Signal return immediately after sigreturn syscall trace. The syscall-trace-end
+    // branch target marker holds the pc of the signal resumption point.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3853,7 +3851,7 @@ check_kernel_syscall_trace(void)
             { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             // add_encodings_to_memrefs removes this from the memref list and adds it
             // to memref_t.instr.indirect_branch_target instead for the following instr.
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), move },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_rt_sigreturn),
               nullptr },
