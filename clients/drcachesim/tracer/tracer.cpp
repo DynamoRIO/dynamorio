@@ -2142,7 +2142,7 @@ event_exit(void)
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         flush_syscall_records();
-        dr_close_file(syscall_record_file);
+        file_ops_func.close_file(syscall_record_file);
         if (drsys_exit() != DRMF_SUCCESS) {
             DR_ASSERT(false);
         }
