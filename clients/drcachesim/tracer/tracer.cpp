@@ -126,8 +126,8 @@ write_syscall_record(char *buf, size_t size)
         // broken into multiple buffers and written one buffer at a time.
         memcpy(&syscall_record_buffer[syscall_record_file_offset], buf,
                SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset);
-        const ssize_t wrote =
-            write(syscall_record_file, syscall_record_buffer, SYSCALL_RECORD_BUFFER_SIZE);
+        const ssize_t wrote = file_ops_func.write_file(
+            syscall_record_file, syscall_record_buffer, SYSCALL_RECORD_BUFFER_SIZE);
         if (wrote != SYSCALL_RECORD_BUFFER_SIZE) {
             dr_log(NULL, DR_LOG_ALL, 1, "wrote %d bytes instead of %d bytes\n", wrote,
                    SYSCALL_RECORD_BUFFER_SIZE);
@@ -152,8 +152,8 @@ size_t
 flush_syscall_records()
 {
     if (syscall_record_file_offset > 0) {
-        const ssize_t wrote =
-            write(syscall_record_file, syscall_record_buffer, syscall_record_file_offset);
+        const ssize_t wrote = file_ops_func.write_file(
+            syscall_record_file, syscall_record_buffer, syscall_record_file_offset);
         if (wrote != syscall_record_file_offset) {
             dr_log(NULL, DR_LOG_ALL, 1, "wrote %d bytes instead of %d bytes\n", wrote,
                    syscall_record_file_offset);
@@ -2727,7 +2727,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                     "%s%ssyscall_record_file." PIDFMT, logsubdir, DIRSEP,
                     dr_get_process_id());
         NULL_TERMINATE_BUFFER(filename);
-        syscall_record_file = dr_open_file(filename, DR_FILE_WRITE_OVERWRITE);
+        syscall_record_file = file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
         if (syscall_record_file == INVALID_FILE) {
             FATAL("Failed to open syscall record file %s\n", filename);
         }

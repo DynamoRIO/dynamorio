@@ -4,8 +4,8 @@
 #    define SYSCALL_WRITE 1
 #    define SYSCALL_EXIT_GROUP 231
 #elif defined(AARCH64)
-#    define ADDRESS 0x410100
-#    define CONTENT_ADDRESS 0x0000000000410100
+#    define ADDRESS 0x4101c0
+#    define CONTENT_ADDRESS 0x00000000004101c0
 #    define SYSCALL_WRITE 64
 #    define SYSCALL_EXIT_GROUP 94
 #else
@@ -14,8 +14,8 @@
 Hello world!
 Syscall mix tool results:
   syscall count : syscall_num
-              1 :       SYSCALL_EXIT_GROUP
-              1 :         SYSCALL_WRITE
+              1 : ( )+ SYSCALL_EXIT_GROUP
+              1 : ( )+ SYSCALL_WRITE
 .*
 syscall: SYSCALL_WRITE, timestamp: [0-9]+
 pre-syscall ordinal 0, value 0x2
