@@ -7090,8 +7090,8 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                 // XXX: Could we avoid this and do some read-ahead so we can provide the
                 // actual next pc when returning the prior user-space instr? Perhaps
                 // doable for syscalls but not so easy for context switches as that
-                // would mean preponing the context switch decision before it needs to
-                // be made.
+                // would mean moving up the context switch decision to happen earlier
+                // than when it needs to be made.
                 (memref.marker.type == TRACE_TYPE_MARKER &&
                  (memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START ||
                   memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL)) ||

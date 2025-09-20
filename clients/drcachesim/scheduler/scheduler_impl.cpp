@@ -1674,8 +1674,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_kernel_sequences(
         }
         if (in_sequence) {
             sequence[sequence_key].records.push_back(record);
-            if (sequence[sequence_key].first_pc == 0 &&
+            if (!sequence[sequence_key].first_pc_valid &&
                 record_type_has_pc(record, sequence[sequence_key].first_pc)) {
+                sequence[sequence_key].first_pc_valid = true;
                 assert(sequence[sequence_key].first_pc != 0);
             }
         }
@@ -1977,9 +1978,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     // We walk the to-be-injected trace backwards, so next_trace_pc starts at the
     // next pc from the input reader that would be returned after the injected records.
     uint64_t next_trace_pc = 0;
-    // If there's a record with a pc in the front of the queue, that takes precedence.
     if (!input->queue.empty() &&
         record_type_has_pc(input->queue.front().record, next_trace_pc)) {
+        // If there's a record with a pc in the front of the queue, that takes
+        // precedence.
     } else if (!input->queue.empty() && input->queue.front().next_trace_pc_valid) {
         // Next, we check if the front record has a snapshotted value of
         // next_trace_pc.
@@ -3249,6 +3251,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
         // The actual injection of the syscall trace happens later at the intended
         // point between the syscall function tracing markers.
         input->to_inject_syscall = static_cast<int>(marker_value);
+        assert(syscall_sequence_[input->to_inject_syscall].first_pc_valid);
         input->to_inject_syscall_first_pc =
             syscall_sequence_[input->to_inject_syscall].first_pc;
         input->saw_first_func_id_marker_after_syscall = false;

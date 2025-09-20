@@ -329,7 +329,7 @@ public:
      * change when a dynamic decision is made by the drmemtrace scheduler
      * to insert trace records for a system call or context switch sequence,
      * at the #TRACE_MARKER_TYPE_SYSCALL and #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START
-     * markers respectively. Also when dynamic injection for context switch
+     * markers respectively. Also, when dynamic injection for context switch
      * sequences is not enabled, the returned value may change when the
      * actual switch to a new input is made.
      */

@@ -810,7 +810,11 @@ protected:
     SequenceKey
     invalid_kernel_sequence_key();
 
-    struct trace_sequence_t;
+    struct trace_sequence_t {
+        std::vector<RecordType> records;
+        uint64_t first_pc = 0;
+        bool first_pc_valid = false;
+    };
 
     template <typename SequenceKey>
     scheduler_status_t
@@ -1107,10 +1111,6 @@ protected:
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
 
-    struct trace_sequence_t {
-        std::vector<RecordType> records;
-        uint64_t first_pc = 0;
-    };
     std::unordered_map<switch_type_t, trace_sequence_t, custom_hash_t<switch_type_t>>
         switch_sequence_;
     // We specify a custom hash function only to make it easier to generalize with
