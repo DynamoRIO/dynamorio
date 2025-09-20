@@ -39,6 +39,15 @@
 #include "drsyscall_record.h"
 
 /**
+ * @file drsyscall_record_lib.h
+ * @brief Header for Dr. Syscall Record Library
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
  * A user provided function to read syscall records. Returns the number of bytes read.
  * Returns 0 if there are no more bytes.
  */
@@ -64,9 +73,6 @@ typedef size_t (*drsyscall_record_write_t)(DR_PARAM_IN char *buffer,
 typedef bool (*drsyscall_iter_record_cb_t)(DR_PARAM_IN syscall_record_t *record,
                                            DR_PARAM_IN char *buffer,
                                            DR_PARAM_IN size_t size);
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 DR_EXPORT
 /**
@@ -112,7 +118,7 @@ drsyscall_write_memarg_record(DR_PARAM_IN drsyscall_record_write_t write_func,
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_SYSCALL_NUMBER based on \p
+ * Write a #syscall_record_t of type #DRSYS_SYSCALL_NUMBER_DEPRECATED based on \p
  * sysnum.
  *
  * @param[in] write_func  A user provided function to write syscall record.
@@ -129,7 +135,7 @@ drsyscall_write_syscall_number_record(DR_PARAM_IN drsyscall_record_write_t write
 
 DR_EXPORT
 /**
- * Write a #syscall_record_t of type #DRSYS_RECORD_END based on \p sysnum.
+ * Write a #syscall_record_t of type #DRSYS_RECORD_END_DEPRECATED based on \p sysnum.
  *
  * @param[in] write_func  A user provided function to write syscall record.
  * @param[in] sysnum      The system call number.

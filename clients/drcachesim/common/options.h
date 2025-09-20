@@ -130,7 +130,7 @@ extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_max_t
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_max_global_trace_refs;
 extern dynamorio::droption::droption_t<bool> op_align_endpoints;
-#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
 extern dynamorio::droption::droption_t<bool> op_collect_syscall_records;
 #endif
 extern dynamorio::droption::droption_t<bool> op_memdump_on_window;

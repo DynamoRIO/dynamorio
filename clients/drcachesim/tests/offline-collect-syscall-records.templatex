@@ -1,52 +1,32 @@
-#ifdef X86
-#    ifdef X64
-#        define SYSCALL_WRITE 1
-#        define SYSCALL_EXIT_GROUP 231
-#    else
-#        define SYSCALL_WRITE 4
-#        define SYSCALL_EXIT_GROUP 252
-#    endif
+#if defined(X86) && defined(X64)
+#    define ADDRESS 0x402000
+#    define CONTENT_ADDRESS 0x0000000000402000
+#    define SYSCALL_WRITE 1
+#    define SYSCALL_EXIT_GROUP 231
 #elif defined(AARCH64)
+#    define ADDRESS 0x410100
+#    define CONTENT_ADDRESS 0x0000000000410100
 #    define SYSCALL_WRITE 64
 #    define SYSCALL_EXIT_GROUP 94
+#else
+#    error Unsupported architecture
 #endif
-Hello, world!
-Cache simulation results:
-Core #0 \(traced CPU\(s\): #0\)
-  L1I0 .* stats:
-    Hits:                         *[0-9,\.]*
-    Misses:                       *[0-9,\.]*
-    Compulsory misses:            *[0-9,\.]*
-    Invalidations:                *0
-.*    Miss rate:                        [0-3][,\.]..%
-  L1D0 .* stats:
-    Hits:                         *[0-9,\.]*
-    Misses:                       *[0-9,\.]*
-    Compulsory misses:            *[0-9,\.]*
-    Invalidations:                *0
-.*   Miss rate:                        [0-9][,\.]..%
-Core #1 \(traced CPU\(s\): \)
-Core #2 \(traced CPU\(s\): \)
-Core #3 \(traced CPU\(s\): \)
-LL .* stats:
-    Hits:                         *[0-9,\.]*
-    Misses:                       *[0-9,\.]*
-    Compulsory misses:            *[0-9,\.]*
-    Invalidations:                *0
-.*   Local miss rate:        *[0-9,.]*%
-    Child hits:                   *[0-9,\.]*
-    Total miss rate:                  [0-4][,\.]..%
+Hello world!
+Syscall mix tool results:
+  syscall count : syscall_num
+              1 :       SYSCALL_EXIT_GROUP
+              1 :         SYSCALL_WRITE
 .*
 syscall: SYSCALL_WRITE, timestamp: [0-9]+
-pre-syscall ordinal 0, value 0x[0-9a-f]+
-pre-syscall ordinal 1, value 0x[0-9a-f]+
-pre-syscall ordinal 2, value 0xe
-memory content address 0x[0-9a-f]+, size 0xe
-    48656c6c 6f2c2077 6f726c64 210a
-post-syscall ordinal 0, value 0x[0-9a-f]+
-post-syscall ordinal 1, value 0x[0-9a-f]+
-post-syscall ordinal 2, value 0xe
-return value 0xe
+pre-syscall ordinal 0, value 0x2
+pre-syscall ordinal 1, value ADDRESS
+pre-syscall ordinal 2, value 0xd
+memory content address CONTENT_ADDRESS, size 0xd
+    48656c6c 6f20776f 726c6421 0a
+post-syscall ordinal 0, value 0x2
+post-syscall ordinal 1, value ADDRESS
+post-syscall ordinal 2, value 0xd
+return value 0xd
 syscall end: SYSCALL_WRITE, timestamp: [0-9]+
 syscall: SYSCALL_EXIT_GROUP, timestamp: [0-9]+
 pre-syscall ordinal 0, value 0x0

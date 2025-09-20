@@ -361,14 +361,18 @@ droption_t<bool> op_align_endpoints(
     "all threads and is nop-ed as soon as detach starts, eliminating the unevenness. "
     "This also allows omitting threads that did nothing during the burst.");
 
-#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
 droption_t<bool> op_collect_syscall_records(
     // TODO i#5383: Add macOS ARM64 support to DrSyscall.
     // TODO i#7399: Add Android, MacOS, MUSL, RISCV64 support to DrSyscall.
     DROPTION_SCOPE_CLIENT, "collect_syscall_records", false, "Collect syscall records",
     "Collect syscall records including the start time, pre-syscall parameters and memory "
-    "regions, post-syscall parameters and memory regions, return value, and the end "
-    "time. This is only supported on Linux.");
+    "regions (both addresses and contents), post-syscall parameters and memory regions "
+    "(both address and contents), return value, and the end time. Syscall records for "
+    "all threads are stored in the same file. Records are stored as syscall_record_t. "
+    "The records are saved in a seperate file to the directory specified by -outdir "
+    "named syscall_record_file.<process-ID>. Records in the file can be viewed using the "
+    "drsyscall_record_viewer. This is only supported on Linux.");
 #endif
 
 droption_t<bool> op_memdump_on_window(

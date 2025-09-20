@@ -84,7 +84,7 @@
 #    include "kcore_copy.h"
 #endif
 
-#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
 #    include "drsyscall_record_lib.h"
 #endif
 
@@ -104,13 +104,16 @@ DR_DISALLOW_UNSAFE_STATIC
 namespace dynamorio {
 namespace drmemtrace {
 namespace {
-#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
 #    define SYSCALL_RECORD_BUFFER_SIZE 8192
 
 file_t syscall_record_file;
 int syscall_record_file_offset = 0;
 char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
 
+// write_syscall_record() is a per-syscall callback function. The syscall_record_buffer
+// is used to batch records and defer I/O to improve performance by reducing the the
+// frequency of file writes.
 size_t
 write_syscall_record(char *buf, size_t size)
 {
@@ -118,6 +121,9 @@ write_syscall_record(char *buf, size_t size)
     size_t remaining = size;
 
     while (remaining + syscall_record_file_offset >= SYSCALL_RECORD_BUFFER_SIZE) {
+        // Write partial record to fill up the buffer before writing to the file.
+        // If a memory content record's size exceeds the buffer capacity, the record is
+        // broken into multiple buffers and written one buffer at a time.
         memcpy(&syscall_record_buffer[syscall_record_file_offset], buf,
                SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset);
         const ssize_t wrote =
@@ -1773,7 +1779,7 @@ event_pre_syscall(void *drcontext, int sysnum)
     }
 #endif
 
-#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         if (!drsyscall_write_pre_syscall_records(write_syscall_record, drcontext, sysnum,
                                                  instru_t::get_timestamp())) {
@@ -1857,7 +1863,7 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 #endif
 
-#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         if (!drsyscall_write_post_syscall_records(write_syscall_record, drcontext, sysnum,
                                                   instru_t::get_timestamp())) {
@@ -2133,7 +2139,7 @@ event_exit(void)
                " physical address markers in " UINT64_FORMAT_STRING " writeouts.\n",
                num_phys_markers, num_v2p_writeouts);
     }
-#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         flush_syscall_records();
         dr_close_file(syscall_record_file);
@@ -2707,7 +2713,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     }
 #endif
 
-#ifdef BUILD_TRACER_WITH_DR_SYSCALL
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         drsys_options_t ops = {
             sizeof(ops),

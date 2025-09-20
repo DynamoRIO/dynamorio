@@ -5426,8 +5426,17 @@ if (BUILD_CLIENTS)
             "@-tool@invariant_checker" "")
   endif ()
 
-  IF (BUILD_TRACER_WITH_DR_SYSCALL)
-    torunonly_drcacheoff(collect-syscall-records ${ci_shared_app} "-collect_syscall_records" "" "")
+  if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL AND X64)
+    if (X86)
+      add_exe(hello_world_asm common/hello_world_x86_64.asm)
+    else ()
+      add_exe(hello_world_asm common/hello_world_aarch64.asm)
+    endif ()
+    set_target_properties(hello_world_asm PROPERTIES LINKER_LANGUAGE C)
+    append_link_flags(hello_world_asm "-nostartfiles -nodefaultlibs -static")
+
+    torunonly_drcacheoff(collect-syscall-records hello_world_asm "-collect_syscall_records"
+            "@-tool@syscall_mix" "")
     unset(tool.drcacheoff.collect-syscall-records_rawtemp) # use preprocessor
     string(CONCAT tool.drcacheoff.collect-syscall-records_postcmd2
       "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
