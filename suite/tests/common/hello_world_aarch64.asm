@@ -35,6 +35,7 @@
 
         .align   6
 _start:
+        mov      w0, #2            // stderr
         adr      x1, hello
         mov      w2, #13           // sizeof(hello)
         mov      w8, #64           // SYS_write
