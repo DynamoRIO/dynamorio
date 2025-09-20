@@ -2086,6 +2086,7 @@ event_exit(void)
     }
     drmgr_unregister_exit_event(event_exit);
     drmgr_unregister_post_attach_event(event_post_attach);
+    drmgr_unregister_pre_detach_event(event_pre_detach);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
@@ -2545,7 +2546,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Failed to register post-attach event.\n");
     attached_midway = dr_attached_midrun();
 
-    dr_register_pre_detach_event(event_pre_detach);
+    drmgr_register_pre_detach_event(event_pre_detach);
     dr_register_nudge_event(event_nudge, id);
 
     /* We need our thread exit event to run *before* drmodtrack's as we may
