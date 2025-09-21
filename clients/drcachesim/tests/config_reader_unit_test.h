@@ -41,6 +41,15 @@ namespace drmemtrace {
 void
 unit_test_config_reader(const std::string &testdir);
 
+void
+unit_test_get_type_name();
+
+void
+unit_test_parse_value();
+
+void
+unit_test_read_parameter_map();
+
 } // namespace drmemtrace
 } // namespace dynamorio
 
