@@ -226,7 +226,7 @@ protected:
         // Records should be removed from the front of the queue using the
         // get_queued_record() helper which sets the related state automatically.
         std::deque<queued_record_t> queue;
-        bool cur_from_queue;
+        bool cur_from_queue = false;
         // Valid only if cur_from_queue is set.
         queued_record_t cur_queue_record;
 
