@@ -32,10 +32,10 @@
  */
 
 #ifndef _OUTPUT_
-#    define _OUTPUT_ 1
+#define _OUTPUT_ 1
 
-#    include "dr_api.h"
-#    include "tracer.h"
+#include "dr_api.h"
+#include "tracer.h"
 
 namespace dynamorio {
 namespace drmemtrace {

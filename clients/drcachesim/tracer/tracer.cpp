@@ -2659,7 +2659,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             FATAL("Failed to initialize Dr. Syscall extension.");
         }
         if (!initialize_syscall_record_file()) {
-          FATAL("Failed to open syscall record file.\n");
+            FATAL("Failed to open syscall record file.\n");
         }
     }
 #endif
