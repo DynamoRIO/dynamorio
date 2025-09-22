@@ -1504,5 +1504,77 @@ exit_io()
     notify_beyond_global_max_once = 0;
 }
 
+#define SYSCALL_RECORD_BUFFER_SIZE 8192
+
+static file_t syscall_record_file = INVALID_FILE;
+static int syscall_record_buffer_offset = 0;
+static char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
+
+// TODO i#7635: Add multi-thread support.
+bool
+initialize_syscall_record_file()
+{
+    char filename[MAXIMUM_PATH];
+    dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
+                "%s%ssyscall_record_file." PIDFMT, logsubdir, DIRSEP,
+                dr_get_process_id());
+    NULL_TERMINATE_BUFFER(filename);
+    syscall_record_file = file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
+    return syscall_record_file != INVALID_FILE;
+}
+
+void
+close_syscall_record_file()
+{
+    if (syscall_record_file != INVALID_FILE) {
+        file_ops_func.close_file(syscall_record_file);
+    }
+}
+
+size_t
+write_syscall_record(char *buf, size_t size)
+{
+    if (size + syscall_record_buffer_offset >= SYSCALL_RECORD_BUFFER_SIZE) {
+        ssize_t bytes_written = 0;
+        if (syscall_record_buffer_offset > 0) {
+            const ssize_t wrote = file_ops_func.write_file(
+                syscall_record_file, syscall_record_buffer, syscall_record_buffer_offset);
+            if (wrote != syscall_record_buffer_offset) {
+                FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote,
+                      syscall_record_buffer_offset);
+            }
+            bytes_written = syscall_record_buffer_offset;
+        }
+        syscall_record_buffer_offset = 0;
+        if (size >= SYSCALL_RECORD_BUFFER_SIZE) {
+            const ssize_t wrote =
+                file_ops_func.write_file(syscall_record_file, buf, size);
+            if (wrote != static_cast<ssize_t>(size)) {
+                FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote, size);
+            }
+            return bytes_written + size;
+        }
+    }
+    memcpy(&syscall_record_buffer[syscall_record_buffer_offset], buf, size);
+    syscall_record_buffer_offset += size;
+    return size;
+}
+
+size_t
+flush_syscall_records()
+{
+    if (syscall_record_buffer_offset > 0) {
+        const ssize_t wrote = file_ops_func.write_file(
+            syscall_record_file, syscall_record_buffer, syscall_record_buffer_offset);
+        if (wrote != syscall_record_buffer_offset) {
+            FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote,
+                  syscall_record_buffer_offset);
+            return 0;
+        }
+        syscall_record_buffer_offset = 0;
+    }
+    return syscall_record_buffer_offset;
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio

@@ -103,70 +103,6 @@ DR_DISALLOW_UNSAFE_STATIC
 
 namespace dynamorio {
 namespace drmemtrace {
-namespace {
-#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
-#    define SYSCALL_RECORD_BUFFER_SIZE 8192
-
-file_t syscall_record_file;
-int syscall_record_file_offset = 0;
-char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
-
-// write_syscall_record() is a per-syscall callback function. The syscall_record_buffer
-// is used to batch records and defer I/O to improve performance by reducing the the
-// frequency of file writes.
-size_t
-write_syscall_record(char *buf, size_t size)
-{
-    size_t byte_written = 0;
-    size_t remaining = size;
-
-    while (remaining + syscall_record_file_offset >= SYSCALL_RECORD_BUFFER_SIZE) {
-        // Write partial record to fill up the buffer before writing to the file.
-        // If a memory content record's size exceeds the buffer capacity, the record is
-        // broken into multiple buffers and written one buffer at a time.
-        memcpy(&syscall_record_buffer[syscall_record_file_offset], buf,
-               SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset);
-        const ssize_t wrote = file_ops_func.write_file(
-            syscall_record_file, syscall_record_buffer, SYSCALL_RECORD_BUFFER_SIZE);
-        if (wrote != SYSCALL_RECORD_BUFFER_SIZE) {
-            dr_log(NULL, DR_LOG_ALL, 1, "wrote %d bytes instead of %d bytes\n", wrote,
-                   SYSCALL_RECORD_BUFFER_SIZE);
-            NOTIFY(1, "wrote %d bytes instead of %d bytes\n", wrote,
-                   SYSCALL_RECORD_BUFFER_SIZE);
-            return 0;
-        }
-        remaining -= SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset;
-        buf += SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset;
-        byte_written += SYSCALL_RECORD_BUFFER_SIZE - syscall_record_file_offset;
-        syscall_record_file_offset = 0;
-    }
-    if (remaining > 0) {
-        memcpy(&syscall_record_buffer[syscall_record_file_offset], buf, remaining);
-        syscall_record_file_offset += remaining;
-        byte_written += remaining;
-    }
-    return byte_written;
-}
-
-size_t
-flush_syscall_records()
-{
-    if (syscall_record_file_offset > 0) {
-        const ssize_t wrote = file_ops_func.write_file(
-            syscall_record_file, syscall_record_buffer, syscall_record_file_offset);
-        if (wrote != syscall_record_file_offset) {
-            dr_log(NULL, DR_LOG_ALL, 1, "wrote %d bytes instead of %d bytes\n", wrote,
-                   syscall_record_file_offset);
-            NOTIFY(1, "wrote %d bytes instead of %d bytes\n", wrote,
-                   syscall_record_file_offset);
-            return 0;
-        }
-        syscall_record_file_offset = 0;
-    }
-    return syscall_record_file_offset;
-}
-#endif
-} // namespace
 
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
@@ -2142,7 +2078,7 @@ event_exit(void)
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         flush_syscall_records();
-        file_ops_func.close_file(syscall_record_file);
+        close_syscall_record_file();
         if (drsys_exit() != DRMF_SUCCESS) {
             DR_ASSERT(false);
         }
@@ -2722,14 +2658,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         if (drsys_init(id, &ops) != DRMF_SUCCESS) {
             FATAL("Failed to initialize Dr. Syscall extension.");
         }
-        char filename[MAXIMUM_PATH];
-        dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
-                    "%s%ssyscall_record_file." PIDFMT, logsubdir, DIRSEP,
-                    dr_get_process_id());
-        NULL_TERMINATE_BUFFER(filename);
-        syscall_record_file = file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
-        if (syscall_record_file == INVALID_FILE) {
-            FATAL("Failed to open syscall record file %s\n", filename);
+        if (!initialize_syscall_record_file()) {
+          FATAL("Failed to open syscall record file.\n");
         }
     }
 #endif
