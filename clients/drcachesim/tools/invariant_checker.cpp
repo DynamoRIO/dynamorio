@@ -1286,8 +1286,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                shard->last_instr_in_cur_context_.memref.instr.type)) {
                     // If we skipped the pc continuity checks because there was no prior
                     // instruction in the same context, we still want to verify that
-                    // the branch target marker at the prior injected syscall trace was
-                    // set correctly to the new instruction.
+                    // the branch target marker at the last injected syscall trace was
+                    // set correctly to the next instruction's pc.
                     report_if_false(shard,
                                     shard->prev_syscall_end_branch_target_ ==
                                         memref.marker.marker_value,

@@ -3867,7 +3867,7 @@ check_kernel_syscall_trace(void)
     // Signal return immediately after sigreturn syscall trace. The syscall-trace-end
     // branch target marker holds the pc of the signal resumption point, which is a
     // kernel_event marker from another signal in this test. The kernel_event marker is
-    // the first thing in its signal context (since the prior signal context with
+    // the first thing in its signal context (since the first signal context was just
     // ended by the kernel_xfer), so regular pc continuity checks would be disabled, but
     // we want to ensure proper operation of syscall-trace-end-branch-target vs next-pc
     // equality checks.
@@ -3928,13 +3928,13 @@ check_kernel_syscall_trace(void)
             // add_encodings_to_memrefs removes this from the memref list and adds it
             // to memref_t.instr.indirect_branch_target instead for the following instr.
             // Incorrectly points to the load instruction, when the resumption point
-            // specified by the later kernel_event marker is the move instruction.
+            // specified by the later kernel_event marker is the nop instruction.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), load },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_rt_sigreturn),
               nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 42), nullptr },
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), move },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), nop },
             { gen_exit(TID_A), nullptr }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
