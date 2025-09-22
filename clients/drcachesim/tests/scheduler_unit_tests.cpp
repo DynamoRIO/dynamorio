@@ -7640,6 +7640,9 @@ test_kernel_syscall_sequences()
                     bool add_post_timestamp = true;
                     inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
                     inputs.push_back(test_util::make_marker(
+                        // We specify syscall_num = SYSCALL_BASE + {0, 1, or 2}.
+                        // SYSCALL_BASE+2 does not have a trace specified by our test
+                        // template file, so will use the default one.
                         TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 3));
                     // Every other syscall is a blocking syscall.
                     if (instr_idx % 4 == 0) {
