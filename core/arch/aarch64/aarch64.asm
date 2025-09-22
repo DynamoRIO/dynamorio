@@ -792,6 +792,11 @@ GLOBAL_LABEL(icache_op_isb_asm:)
         cbnz     w2, 1b
         /* Point X1 at icache_op_struct. */
         sub      x1, x1, #icache_op_struct_t_OFFSET_lock
+        /* Release lock and return if icache_op_struct.flag was reset
+         * before we acquired the lock.
+         */
+        ldr      w2, [x1, #icache_op_struct_t_OFFSET_flag]
+        cbz      w2, 2f
         /* Save (begin, end) to TLS_REG_SLOT2 and TLS_REG_SLOT3. */
         ldr      x2, [x1, #icache_op_struct_t_OFFSET_begin]
         str      x2, [x0, #spill_state_t_OFFSET_r2]
@@ -800,6 +805,7 @@ GLOBAL_LABEL(icache_op_isb_asm:)
         /* Reset icache_op_struct. */
         str      wzr, [x1, #icache_op_struct_t_OFFSET_flag]
         stp      xzr, xzr, [x1, #icache_op_struct_t_OFFSET_begin]
+2:
         /* Point X1 at icache_op_struct.lock. */
         add      x1, x1, #4
         /* Release lock. */
