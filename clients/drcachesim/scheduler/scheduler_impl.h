@@ -828,6 +828,9 @@ protected:
     scheduler_status_t
     read_switch_sequences();
 
+    trace_sequence_t *
+    get_syscall_sequence(int syscall_num);
+
     scheduler_status_t
     read_syscall_sequences();
 
@@ -1116,6 +1119,7 @@ protected:
     // We specify a custom hash function only to make it easier to generalize with
     // switch_sequence_ defined above.
     std::unordered_map<int, trace_sequence_t, custom_hash_t<int>> syscall_sequence_;
+    trace_sequence_t default_syscall_sequence_;
     // For single_lockstep_output.
     std::unique_ptr<stream_t> global_stream_;
     // For online where we currently have to map dynamically observed thread ids

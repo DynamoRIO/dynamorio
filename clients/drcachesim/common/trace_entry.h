@@ -1086,15 +1086,13 @@ typedef enum {
      * system call execution. Each system call trace should end with an indirect
      * branch instruction (e.g., iret/sysret/sysexit on x86, or eret on AArch64) which
      * must be preceded by a #TRACE_MARKER_TYPE_BRANCH_TARGET marker with any value;
-     * the marker's value will be appropriately set to point to the fallthrough pc of
-     * the prior syscall instruction when the trace template is injected. Note: the
-     * marker value will not be the actual next pc in the trace in some cases (i#7496):
-     * - if a #TRACE_MARKER_TYPE_KERNEL_EVENT immediately follows the syscall trace,
-     *   it indicates interruption of the syscall by a signal; in this case, the next
-     *   pc after the signal is the #TRACE_MARKER_TYPE_KERNEL_EVENT marker value,
-     *   which for auto-restart syscalls would be the same as the syscall instr pc.
-     * - for the sigreturn syscall, the next pc in the trace is what was specified
-     *   in the prior #TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+     * the marker's value will be appropriately set to point to the next instr in the
+     * thread's trace when the trace template is injected.
+     *
+     * The file may also include a "default" trace that can be used for system calls that
+     * do not have any trace specified in this file. The default trace sets the
+     * sysnum as #DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM in the various markers.
+     *
      * See the sample file written by the burst_syscall_inject.cpp test for more
      * details on the expected format for the system call template file.
      *
@@ -1520,6 +1518,16 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
  */
 
 #endif // defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
+
+/**
+ * Value used by the system call trace template files (having the type
+ * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES) in the
+ * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and
+ * #TRACE_MARKER_TYPE_SYSCALL_TRACE_END markers to denote a trace to
+ * be used when no other trace is available for some syscall in the
+ * template file.
+ */
+constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM = 0xffff;
 
 /**
  * The name of the file in -offline mode where module data is written.

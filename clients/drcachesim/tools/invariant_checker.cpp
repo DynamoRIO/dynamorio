@@ -1281,6 +1281,18 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     const std::string error_msg_suffix = " @ kernel_event marker";
                     report_if_false(shard, discontinuity.empty(),
                                     discontinuity + error_msg_suffix);
+                } else if (shard->prev_syscall_end_branch_target_ != 0
+                            && !type_is_instr(
+                                shard->last_instr_in_cur_context_.memref.instr.type)) {
+                    // If we skipped the pc continuity checks because there was no prior
+                    // instruction in the same context, we still want to verify that
+                    // the branch target marker at the prior injected syscall trace was
+                    // set correctly to the new instruction.
+                    report_if_false(shard, shard->prev_syscall_end_branch_target_ ==
+                        memref.marker.marker_value,
+                        "Syscall trace-end branch marker incorrect "
+                        "@ context-initial kernel_event marker");
+                    shard->prev_syscall_end_branch_target_ = 0;
                 }
                 shard->signal_stack_.push(
                     { memref.marker.marker_value, shard->last_instr_in_cur_context_ });
