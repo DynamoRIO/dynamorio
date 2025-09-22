@@ -360,7 +360,7 @@ memref_t
 scheduler_impl_tmpl_t<memref_t, reader_t>::create_region_separator_marker(
     memref_tid_t tid, uintptr_t value)
 {
-    memref_t record = { };
+    memref_t record = {};
     record.marker.type = TRACE_TYPE_MARKER;
     record.marker.marker_type = TRACE_MARKER_TYPE_WINDOW_ID;
     record.marker.marker_value = value;
@@ -373,7 +373,7 @@ template <>
 memref_t
 scheduler_impl_tmpl_t<memref_t, reader_t>::create_thread_exit(memref_tid_t tid)
 {
-    memref_t record = { };
+    memref_t record = {};
     record.exit.type = TRACE_TYPE_THREAD_EXIT;
     // XXX i#5843: We have .pid as 0 for now; worth trying to fill it in?
     record.exit.tid = tid;
@@ -384,7 +384,7 @@ template <>
 memref_t
 scheduler_impl_tmpl_t<memref_t, reader_t>::create_invalid_record()
 {
-    memref_t record = { };
+    memref_t record = {};
     record.instr.type = TRACE_TYPE_INVALID;
     return record;
 }

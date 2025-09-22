@@ -3945,8 +3945,7 @@ check_kernel_syscall_trace(void)
                            /*ref_ordinal=*/14, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/4 },
                          "Failed to detect PC discontinuity after syscall-trace at "
-                         "context-initial kernel_event marker"
-                         ))
+                         "context-initial kernel_event marker"))
             res = false;
     }
 #    endif
