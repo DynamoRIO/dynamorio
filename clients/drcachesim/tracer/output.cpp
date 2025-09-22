@@ -1507,7 +1507,7 @@ exit_io()
 #define SYSCALL_RECORD_BUFFER_SIZE 8192
 
 static file_t syscall_record_file = INVALID_FILE;
-static int syscall_record_buffer_offset = 0;
+static ssize_t syscall_record_buffer_offset = 0;
 static char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
 
 // TODO i#7635: Add multi-thread support.
