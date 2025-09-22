@@ -1994,7 +1994,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     assert(!sequence.records.empty());
     bool saw_any_instr = false;
     bool set_branch_target_marker = false;
-    trace_marker_type_t marker_type;
+    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_RESERVED_END;
     uintptr_t marker_value = 0;
 
     // We walk the to-be-injected trace backwards, so next_trace_pc starts at the
