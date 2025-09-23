@@ -326,7 +326,12 @@ inflate_timespec64(void *drcontext, timespec64_t *spec, int scale,
     /* Do not try to scale ridiculously huge values, which will overflow and
      * result in EINVAL syscall failure.
      */
-    const int64_t MAX_PRESCALED_TV_SEC = INT64_MAX / scale;
+    /* Our __divdi3 => int64_divmod can't handle "INT64_MAX / scale" (for scale=10):
+     * it generates #DE => SIGFPE running IDIV on 0x7:0xffffffff / 10
+     * (since 0xcccccccc is too large for 32-bit result reg).
+     * So we help it out with simpler computation.
+     */
+    const int64_t MAX_PRESCALED_TV_SEC = (0x7fffffffULL / scale) << 32;
     if (spec->tv_sec > MAX_PRESCALED_TV_SEC) {
         NOTIFY(0,
                "T" TIDFMT " Refusing to scale too-large time %" INT64_FORMAT_CODE
