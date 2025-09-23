@@ -121,7 +121,7 @@ typedef struct {
 #endif
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     /* For syscall records. */
-#   define SYSCALL_RECORD_BUFFER_SIZE 1024
+#    define SYSCALL_RECORD_BUFFER_SIZE 1024
     file_t syscall_record_file = INVALID_FILE;
     ssize_t syscall_record_buffer_offset = 0;
     char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
