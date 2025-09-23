@@ -79,7 +79,7 @@ event_filter_syscall(void *drcontext, int sysnum)
 }
 
 static size_t
-write_file(char *buf, size_t size)
+write_file(void *drcontext, char *buf, size_t size)
 {
     size_t byte_written = 0;
     size_t remaining = size;
@@ -107,20 +107,6 @@ flush_file()
         write(record_file, buffer, offset);
     }
     return offset;
-}
-
-static bool
-drsys_iter_memarg_cb(drsys_arg_t *arg, void *user_data)
-{
-    drsyscall_write_memarg_record(write_file, arg);
-    return true;
-}
-
-static bool
-drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
-{
-    drsyscall_write_param_record(write_file, arg);
-    return true;
 }
 
 static bool

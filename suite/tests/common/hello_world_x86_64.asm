@@ -1,6 +1,5 @@
-/* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
- * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
+ /* **********************************************************
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,59 +30,25 @@
  * DAMAGE.
  */
 
-#ifndef _OUTPUT_
-#define _OUTPUT_ 1
+/* This is a statically-linked app. */
+.text
+.globl _start
+.type _start, @function
 
-#include "dr_api.h"
-#include "tracer.h"
+        .align   8
+_start:
+        and      rsp, -16         // align stack pointer to cache line
+        mov      rdi, 2           // stderr
+        lea      rsi, hello
+        mov      rdx, 13          // sizeof(hello)
+        mov      eax, 1           // SYS_write
+        syscall
+// exit:
+        mov      rdi, 0           // exit code
+        mov      eax, 231         // SYS_exit_group
+        syscall
 
-namespace dynamorio {
-namespace drmemtrace {
-
-void
-open_new_window_dir(ptr_int_t window_num);
-
-int
-append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window);
-
-void
-process_and_output_buffer(void *drcontext, bool skip_size_cap);
-
-void
-init_thread_io(void *drcontext);
-
-void
-exit_thread_io(void *drcontext);
-
-void
-init_buffers(per_thread_t *data);
-
-void
-init_io();
-
-void
-exit_io();
-
-// Returns true for an empty new (non-initial) buffer for a tracing window
-// with no instructions traced yet in the window.
-inline bool
-is_new_window_buffer_empty(per_thread_t *data)
-{
-    // Since it's non-initial we do not add init_header_size.
-    return has_tracing_windows() &&
-        BUF_PTR(data->seg_base) == data->buf_base + buf_hdr_slots_size &&
-        data->cur_window_instr_count == 0;
-}
-
-#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
-// write_syscall_record() is a per-syscall callback function. The syscall_record_buffer
-// is used to batch records and defer I/O to improve performance by reducing the the
-// frequency of file writes.
-size_t
-write_syscall_record(void *drcontext, char *buf, size_t size);
-#endif
-
-} // namespace drmemtrace
-} // namespace dynamorio
-
-#endif /* _OUTPUT_ */
+        .data
+        .align   8
+hello:
+        .string   "Hello world!\n"

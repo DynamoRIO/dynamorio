@@ -1381,6 +1381,20 @@ init_thread_io(void *drcontext)
                                get_local_window(data));
         BUF_PTR(data->seg_base) = data->buf_base + data->init_header_size;
     }
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    if (op_collect_syscall_records.get_value()) {
+        char filename[MAXIMUM_PATH];
+        dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
+                    "%s%ssyscall_record_file." PIDFMT "." TIDFMT, logsubdir, DIRSEP,
+                    dr_get_process_id(), dr_get_thread_id(drcontext));
+        NULL_TERMINATE_BUFFER(filename);
+        data->syscall_record_file =
+            file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
+        if (data->syscall_record_file == INVALID_FILE) {
+            FATAL("Failed to open syscall record file %s\n", data->syscall_record_file);
+        }
+    }
+#endif
 }
 
 void
@@ -1467,6 +1481,22 @@ exit_thread_io(void *drcontext)
         dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
     }
 #endif
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    if (op_collect_syscall_records.get_value()) {
+        if (data->syscall_record_file != INVALID_FILE) {
+            if (data->syscall_record_buffer_offset > 0) {
+                const ssize_t wrote = file_ops_func.write_file(
+                    data->syscall_record_file, data->syscall_record_buffer,
+                    data->syscall_record_buffer_offset);
+                if (wrote != data->syscall_record_buffer_offset) {
+                    FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote,
+                          data->syscall_record_buffer_offset);
+                }
+            }
+            file_ops_func.close_file(data->syscall_record_file);
+        }
+    }
+#endif
 }
 
 void
@@ -1521,6 +1551,42 @@ exit_io()
 {
     notify_beyond_global_max_once = 0;
 }
+
+/***************************************************************************
+ * Syscall record callback function.
+ */
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+size_t
+write_syscall_record(void *drcontext, char *buf, size_t size)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (size + data->syscall_record_buffer_offset >= SYSCALL_RECORD_BUFFER_SIZE) {
+        ssize_t bytes_written = 0;
+        if (data->syscall_record_buffer_offset > 0) {
+            const ssize_t wrote = file_ops_func.write_file(
+                data->syscall_record_file, data->syscall_record_buffer,
+                data->syscall_record_buffer_offset);
+            if (wrote != data->syscall_record_buffer_offset) {
+                FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote,
+                      data->syscall_record_buffer_offset);
+            }
+            bytes_written = data->syscall_record_buffer_offset;
+        }
+        data->syscall_record_buffer_offset = 0;
+        if (size >= SYSCALL_RECORD_BUFFER_SIZE) {
+            const ssize_t wrote =
+                file_ops_func.write_file(data->syscall_record_file, buf, size);
+            if (wrote != static_cast<ssize_t>(size)) {
+                FATAL("Error: wrote %d bytes instead of %d bytes\n", wrote, size);
+            }
+            return bytes_written + size;
+        }
+    }
+    memcpy(&data->syscall_record_buffer[data->syscall_record_buffer_offset], buf, size);
+    data->syscall_record_buffer_offset += size;
+    return size;
+}
+#endif
 
 } // namespace drmemtrace
 } // namespace dynamorio

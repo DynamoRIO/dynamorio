@@ -143,6 +143,10 @@ if (liblz4)
   set(lz4_reader reader/lz4_file_reader.cpp)
 endif ()
 
+if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL)
+  add_definitions(-DBUILD_DRMEMTRACE_WITH_DR_SYSCALL)
+endif ()
+
 set(client_and_sim_srcs
   common/named_pipe_${os_name}.cpp
   common/options.cpp
@@ -574,6 +578,9 @@ macro(add_drmemtrace name type static_DR no_main)
   use_DynamoRIO_extension(${name} drbbdup${ext_sfx})
   if (BUILD_PT_TRACER)
     use_DynamoRIO_extension(${name} drpttracer${ext_sfx})
+  endif ()
+  if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL)
+    use_DynamoRIO_extension(${name} drsyscall_record_lib${ext_sfx})
   endif ()
   if (libsnappy)
     target_link_libraries(${name} snappy)

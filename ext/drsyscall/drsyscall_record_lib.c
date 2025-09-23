@@ -40,6 +40,11 @@
 
 #define MAX_BUFFER_SIZE 8192
 
+typedef struct _drsyscall_record_writer_t {
+    void *drcontext;
+    drsyscall_record_write_t write_func;
+} drsyscall_record_writer_t;
+
 DR_EXPORT
 bool
 drsyscall_iterate_records(drsyscall_record_read_t read_func,
@@ -128,7 +133,8 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
 
 DR_EXPORT
 int
-drsyscall_write_param_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+drsyscall_write_param_record(DR_PARAM_IN void *drcontext,
+                             DR_PARAM_IN drsyscall_record_write_t write_func,
                              DR_PARAM_IN drsys_arg_t *arg)
 {
     if (!arg->valid) {
@@ -144,18 +150,19 @@ drsyscall_write_param_record(DR_PARAM_IN drsyscall_record_write_t write_func,
         syscall_record_t record = {};
         record.type = DRSYS_RETURN_VALUE;
         record.return_value = arg->value64;
-        return write_func((char *)&record, sizeof(record));
+        return write_func(drcontext, (char *)&record, sizeof(record));
     }
     syscall_record_t record = {};
     record.type = arg->pre ? DRSYS_PRECALL_PARAM : DRSYS_POSTCALL_PARAM;
     record.param.ordinal = arg->ordinal;
     record.param.value = arg->value64;
-    return write_func((char *)&record, sizeof(record));
+    return write_func(drcontext, (char *)&record, sizeof(record));
 }
 
 DR_EXPORT
 int
-drsyscall_write_memarg_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+drsyscall_write_memarg_record(DR_PARAM_IN void *drcontext,
+                              DR_PARAM_IN drsyscall_record_write_t write_func,
                               DR_PARAM_IN drsys_arg_t *arg)
 {
     if (!arg->valid) {
@@ -168,60 +175,62 @@ drsyscall_write_memarg_record(DR_PARAM_IN drsyscall_record_write_t write_func,
         record.type = DRSYS_MEMORY_CONTENT;
         record.content.address = arg->start_addr;
         record.content.size = arg->size;
-        if (write_func((char *)&record, sizeof(record)) != sizeof(record)) {
+        if (write_func(drcontext, (char *)&record, sizeof(record)) != sizeof(record)) {
             return -1;
         }
-        return write_func((char *)arg->start_addr, arg->size);
+        return write_func(drcontext, (char *)arg->start_addr, arg->size);
     }
     return 0;
 }
 
 DR_EXPORT
 int
-drsyscall_write_syscall_number_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+drsyscall_write_syscall_number_record(DR_PARAM_IN void *drcontext,
+                                      DR_PARAM_IN drsyscall_record_write_t write_func,
                                       DR_PARAM_IN int sysnum)
 {
     syscall_record_t record = {};
     record.type = DRSYS_SYSCALL_NUMBER_DEPRECATED;
     record.syscall_number = sysnum;
-    return write_func((char *)&record, sizeof(record));
+    return write_func(drcontext, (char *)&record, sizeof(record));
 }
 
 DR_EXPORT
 int
-drsyscall_write_syscall_end_record(DR_PARAM_IN drsyscall_record_write_t write_func,
+drsyscall_write_syscall_end_record(DR_PARAM_IN void *drcontext,
+                                   DR_PARAM_IN drsyscall_record_write_t write_func,
                                    DR_PARAM_IN int sysnum)
 {
     syscall_record_t record = {};
     record.type = DRSYS_RECORD_END_DEPRECATED;
     record.syscall_number = sysnum;
-    return write_func((char *)&record, sizeof(record));
+    return write_func(drcontext, (char *)&record, sizeof(record));
 }
 
 DR_EXPORT
 int
 drsyscall_write_syscall_number_timestamp_record(
-    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
-    DR_PARAM_IN uint64_t timestamp)
+    DR_PARAM_IN void *drcontext, DR_PARAM_IN drsyscall_record_write_t write_func,
+    DR_PARAM_IN drsys_sysnum_t sysnum, DR_PARAM_IN uint64_t timestamp)
 {
     syscall_record_t record = {};
     record.type = DRSYS_SYSCALL_NUMBER_TIMESTAMP;
     record.syscall_number_timestamp.syscall_number = sysnum;
     record.syscall_number_timestamp.timestamp = timestamp;
-    return write_func((char *)&record, sizeof(record));
+    return write_func(drcontext, (char *)&record, sizeof(record));
 }
 
 DR_EXPORT
 int
 drsyscall_write_syscall_end_timestamp_record(
-    DR_PARAM_IN drsyscall_record_write_t write_func, DR_PARAM_IN drsys_sysnum_t sysnum,
-    DR_PARAM_IN uint64_t timestamp)
+    DR_PARAM_IN void *drcontext, DR_PARAM_IN drsyscall_record_write_t write_func,
+    DR_PARAM_IN drsys_sysnum_t sysnum, DR_PARAM_IN uint64_t timestamp)
 {
     syscall_record_t record = {};
     record.type = DRSYS_RECORD_END_TIMESTAMP;
     record.syscall_number_timestamp.syscall_number = sysnum;
     record.syscall_number_timestamp.timestamp = timestamp;
-    return write_func((char *)&record, sizeof(record));
+    return write_func(drcontext, (char *)&record, sizeof(record));
 }
 
 /*
@@ -233,8 +242,8 @@ drsyscall_write_syscall_end_timestamp_record(
 static bool
 drsyscall_iter_arg_cb(drsys_arg_t *arg, void *user_data)
 {
-    const drsyscall_record_write_t write_func = (drsyscall_record_write_t)user_data;
-    drsyscall_write_param_record(write_func, arg);
+    const drsyscall_record_writer_t *writer = (drsyscall_record_writer_t *)user_data;
+    drsyscall_write_param_record(writer->drcontext, writer->write_func, arg);
     return true;
 }
 
@@ -247,8 +256,8 @@ drsyscall_iter_arg_cb(drsys_arg_t *arg, void *user_data)
 static bool
 drsyscall_iter_memarg_cb(drsys_arg_t *arg, void *user_data)
 {
-    const drsyscall_record_write_t write_func = (drsyscall_record_write_t)user_data;
-    drsyscall_write_memarg_record(write_func, arg);
+    const drsyscall_record_writer_t *writer = (drsyscall_record_writer_t *)user_data;
+    drsyscall_write_memarg_record(writer->drcontext, writer->write_func, arg);
     return true;
 }
 
@@ -287,19 +296,19 @@ drsyscall_write_pre_syscall_records(DR_PARAM_IN drsyscall_record_write_t write_f
         return false;
     }
 
-    if (drsyscall_write_syscall_number_timestamp_record(write_func, sysnum_full,
-                                                        timestamp) == 0) {
+    if (drsyscall_write_syscall_number_timestamp_record(drcontext, write_func,
+                                                        sysnum_full, timestamp) == 0) {
         LOG(drcontext, SYSCALL_VERBOSE,
             "failed to write syscall number record, sysnum = %d", sysnum);
         return false;
     }
 
-    if (drsys_iterate_args(drcontext, drsyscall_iter_arg_cb, write_func) !=
-        DRMF_SUCCESS) {
+    drsyscall_record_writer_t writer = { drcontext, write_func };
+    if (drsys_iterate_args(drcontext, drsyscall_iter_arg_cb, &writer) != DRMF_SUCCESS) {
         LOG(drcontext, SYSCALL_VERBOSE, "drsys_iterate_args failed, sysnum = %d", sysnum);
         return false;
     }
-    if (drsys_iterate_memargs(drcontext, drsyscall_iter_memarg_cb, write_func) !=
+    if (drsys_iterate_memargs(drcontext, drsyscall_iter_memarg_cb, &writer) !=
         DRMF_SUCCESS) {
         LOG(drcontext, SYSCALL_VERBOSE, "drsys_iterate_memargs failed, sysnum = %d",
             sysnum);
@@ -330,18 +339,18 @@ drsyscall_write_post_syscall_records(DR_PARAM_IN drsyscall_record_write_t write_
             sysnum_full.number);
         return false;
     }
-    if (drsys_iterate_args(drcontext, drsyscall_iter_arg_cb, write_func) !=
-        DRMF_SUCCESS) {
+    drsyscall_record_writer_t writer = { drcontext, write_func };
+    if (drsys_iterate_args(drcontext, drsyscall_iter_arg_cb, &writer) != DRMF_SUCCESS) {
         LOG(drcontext, SYSCALL_VERBOSE, "drsys_iterate_args failed, sysnum = %d", sysnum);
         return false;
     }
-    if (drsys_iterate_memargs(drcontext, drsyscall_iter_memarg_cb, write_func) !=
+    if (drsys_iterate_memargs(drcontext, drsyscall_iter_memarg_cb, &writer) !=
         DRMF_SUCCESS) {
         LOG(drcontext, SYSCALL_VERBOSE, "drsys_iterate_memargs failed, sysnum = %d",
             sysnum);
         return false;
     }
-    if (drsyscall_write_syscall_end_timestamp_record(write_func, sysnum_full,
+    if (drsyscall_write_syscall_end_timestamp_record(drcontext, write_func, sysnum_full,
                                                      timestamp) == 0) {
         LOG(drcontext, SYSCALL_VERBOSE, "failed to write syscall end record, sysnum = %d",
             sysnum);
