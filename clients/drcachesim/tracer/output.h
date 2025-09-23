@@ -75,24 +75,11 @@ is_new_window_buffer_empty(per_thread_t *data)
         data->cur_window_instr_count == 0;
 }
 
-// Creates a syscall record file in the directory specified by -outdir. Returns
-// true when the file is created, false otherwise.
-bool
-initialize_syscall_record_file();
-
-// Closes the syscall record file.
-void
-close_syscall_record_file();
-
 // write_syscall_record() is a per-syscall callback function. The syscall_record_buffer
 // is used to batch records and defer I/O to improve performance by reducing the the
 // frequency of file writes.
 size_t
-write_syscall_record(char *buf, size_t size);
-
-// Writes syscall records stored in the syscall_record_buffer to the syscall record file.
-size_t
-flush_syscall_records();
+write_syscall_record(void *drcontext, char *buf, size_t size);
 
 } // namespace drmemtrace
 } // namespace dynamorio

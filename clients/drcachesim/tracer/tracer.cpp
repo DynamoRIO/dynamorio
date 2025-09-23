@@ -2077,8 +2077,6 @@ event_exit(void)
     }
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
-        flush_syscall_records();
-        close_syscall_record_file();
         if (drsys_exit() != DRMF_SUCCESS) {
             DR_ASSERT(false);
         }
@@ -2657,9 +2655,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         };
         if (drsys_init(id, &ops) != DRMF_SUCCESS) {
             FATAL("Failed to initialize Dr. Syscall extension.");
-        }
-        if (!initialize_syscall_record_file()) {
-            FATAL("Failed to open syscall record file.\n");
         }
     }
 #endif

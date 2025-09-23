@@ -365,16 +365,14 @@ droption_t<bool> op_align_endpoints(
 droption_t<bool> op_collect_syscall_records(
     // TODO i#5383: Add macOS ARM64 support to DrSyscall.
     // TODO i#7399: Add Android, MacOS, MUSL, RISCV64 support to DrSyscall.
-    // TODO i#7635: Add multi-thread support.
     DROPTION_SCOPE_CLIENT, "collect_syscall_records", false, "Collect syscall records",
     "Collect syscall records including the start time, pre-syscall parameters and memory "
     "regions (both addresses and contents), post-syscall parameters and memory regions "
-    "(both addresses and contents), return value, and the end time. Syscall records for "
-    "all threads are stored in the same file. Records are stored as syscall_record_t. "
-    "The records are saved in a separate file to the directory specified by -outdir "
-    "named syscall_record_file.<process-ID>. Records in the file can be viewed using the "
-    "drsyscall_record_viewer. This feature only supports single-threaded applications. "
-    "This is only supported on Linux.");
+    "(both addresses and contents), return value, and the end time. Syscall records are "
+    "stored as syscall_record_t. They are saved in per-thread files to the directory "
+    "specified by -outdir named syscall_record_file.<process-ID>.<thread-ID>. Records "
+    "in the files can be viewed using the drsyscall_record_viewer. This is only "
+    "supported on Linux.");
 #endif
 
 droption_t<bool> op_memdump_on_window(
