@@ -1391,7 +1391,7 @@ init_thread_io(void *drcontext)
         data->syscall_record_file =
             file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
         if (data->syscall_record_file == INVALID_FILE) {
-            FATAL("Failed to open syscall record file.\n");
+            FATAL("Failed to open syscall record file %s\n", data->syscall_record_file);
         }
     }
 #endif
