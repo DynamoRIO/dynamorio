@@ -75,11 +75,13 @@ is_new_window_buffer_empty(per_thread_t *data)
         data->cur_window_instr_count == 0;
 }
 
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
 // write_syscall_record() is a per-syscall callback function. The syscall_record_buffer
 // is used to batch records and defer I/O to improve performance by reducing the the
 // frequency of file writes.
 size_t
 write_syscall_record(void *drcontext, char *buf, size_t size);
+#endif
 
 } // namespace drmemtrace
 } // namespace dynamorio

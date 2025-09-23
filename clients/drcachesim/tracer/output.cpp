@@ -1534,6 +1534,10 @@ exit_io()
     notify_beyond_global_max_once = 0;
 }
 
+/***************************************************************************
+ * Syscall record callback function.
+ */
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
 size_t
 write_syscall_record(void *drcontext, char *buf, size_t size)
 {
@@ -1564,6 +1568,7 @@ write_syscall_record(void *drcontext, char *buf, size_t size)
     data->syscall_record_buffer_offset += size;
     return size;
 }
+#endif
 
 } // namespace drmemtrace
 } // namespace dynamorio
