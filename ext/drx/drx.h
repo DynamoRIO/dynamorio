@@ -597,8 +597,10 @@ typedef struct _drx_time_scale_stat_t {
     /**
      * Count of the instances that might need scaling.
      * For timers, this counts the initial value and the interval separately.
-     * If #count_failed and #count_nop are subtracted from this, the result
-     * is the count that were successfully scaled to a larger duration.
+     * This is incremented in addition to any of the other counts; if the sum
+     * of the other counts is subtracted from this value, the result is the count
+     * of instances that were were successfully scaled to a larger duration without
+     * further categorization.
      */
     ptr_int_t count_attempted;
     /**
@@ -613,6 +615,12 @@ typedef struct _drx_time_scale_stat_t {
      * Count of instances converted from zero to non-zero before scaling.
      */
     ptr_int_t count_zero_to_nonzero;
+    /**
+     * Count of the instances where scaling could not be completed as the
+     * time fields would have overflowed.  This indicates abnormal values used
+     * by the application which were so large scaling would not have mattered.
+     */
+    ptr_int_t count_time_too_large;
 } drx_time_scale_stat_t;
 
 /**
