@@ -490,6 +490,13 @@ get_mock_syscall_sequence(int syscall_base, addr_t syscall_pc_start = 0xfeed101)
             test_util::make_instr(syscall_pc_start + 12, TRACE_TYPE_INSTR_INDIRECT_JUMP),
             test_util::make_marker(
                 TRACE_MARKER_TYPE_SYSCALL_TRACE_END, syscall_base + 1),
+            test_util::make_marker(
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+            test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
+            test_util::make_instr(syscall_pc_start + 20, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+            test_util::make_marker(
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_END, DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
             test_util::make_exit(TID_IN_SYSCALLS),
             test_util::make_footer(),
         /* clang-format on */
@@ -7633,7 +7640,10 @@ test_kernel_syscall_sequences()
                     bool add_post_timestamp = true;
                     inputs.push_back(test_util::make_timestamp(TIMESTAMP + instr_idx));
                     inputs.push_back(test_util::make_marker(
-                        TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 2));
+                        // We specify syscall_num = SYSCALL_BASE + {0, 1, or 2}.
+                        // SYSCALL_BASE+2 does not have a trace specified by our test
+                        // template file, so will use the default one.
+                        TRACE_MARKER_TYPE_SYSCALL, SYSCALL_BASE + (instr_idx / 2) % 3));
                     // Every other syscall is a blocking syscall.
                     if (instr_idx % 4 == 0) {
                         inputs.push_back(test_util::make_marker(
@@ -7719,10 +7729,10 @@ test_kernel_syscall_sequences()
         // quantum, but no context switch happens in the middle of the syscall seq.
         assert(sched_as_string[0] ==
                "Avf0i0SsFF1ii1kk,Cvf0i0SsFF1ii1FFs0,Aii0S2iii20,Cii0S2iii20,"
-               "Aii0Ss1ii10,Cii0Ss1ii10,Aii0S2iii20,Cii0S2iii20,Aii0Ss1ii10,Cii0Ss1ii10");
+               "Aii0Ss3i30,Cii0Ss3i30,Aii0S1ii10,Cii0S1ii10,Aii0Ss2iii20,Cii0Ss2iii20");
         assert(sched_as_string[1] ==
-               "Bvf0i0SsFF1ii1k0ii0S2iii20ii0Ss1ii10ii0S2iii20ii0Ss1ii10______________"
-               "____________________________________________");
+               "Bvf0i0SsFF1ii1k0ii0S2iii20ii0Ss3i30ii0S1ii10ii0Ss2iii20______________"
+               "___________________________________________");
         // Zoom in and check the first few syscall sequences on the first output record
         // by record with value checks.
         int idx = 0;

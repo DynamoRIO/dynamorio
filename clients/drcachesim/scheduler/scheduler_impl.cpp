@@ -1598,15 +1598,37 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_switch_sequences()
 }
 
 template <typename RecordType, typename ReaderType>
+typename scheduler_impl_tmpl_t<RecordType, ReaderType>::trace_sequence_t *
+scheduler_impl_tmpl_t<RecordType, ReaderType>::get_syscall_sequence(int syscall_num)
+{
+    if (syscall_sequence_.find(syscall_num) != syscall_sequence_.end()) {
+        return &syscall_sequence_[syscall_num];
+    }
+    if (default_syscall_sequence_.first_pc_valid) {
+        return &default_syscall_sequence_;
+    }
+    return nullptr;
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::read_syscall_sequences()
 {
-
-    return read_kernel_sequences(syscall_sequence_, options_.kernel_syscall_trace_path,
-                                 std::move(options_.kernel_syscall_reader),
-                                 std::move(options_.kernel_syscall_reader_end),
-                                 TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                 TRACE_MARKER_TYPE_SYSCALL_TRACE_END, "system call");
+    scheduler_status_t status =
+        read_kernel_sequences(syscall_sequence_, options_.kernel_syscall_trace_path,
+                              std::move(options_.kernel_syscall_reader),
+                              std::move(options_.kernel_syscall_reader_end),
+                              TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                              TRACE_MARKER_TYPE_SYSCALL_TRACE_END, "system call");
+    if (status != sched_type_t::STATUS_SUCCESS) {
+        return status;
+    }
+    auto default_seq_it = syscall_sequence_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM);
+    if (default_seq_it != syscall_sequence_.end()) {
+        default_syscall_sequence_ = std::move(default_seq_it->second);
+        syscall_sequence_.erase(default_seq_it);
+    }
+    return status;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -1885,17 +1907,17 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_pending_syscall_sequence(
         // records from the reader.
         input->queue.emplace_front(record);
     }
-    int syscall_num = input->to_inject_syscall;
-    input->to_inject_syscall = input_info_t::INJECT_NONE;
-    assert(syscall_sequence_.find(syscall_num) != syscall_sequence_.end());
-    stream_status_t res = inject_kernel_sequence(syscall_sequence_[syscall_num], input);
+    trace_sequence_t *to_inject_sequence = get_syscall_sequence(input->to_inject_syscall);
+    assert(to_inject_sequence != nullptr);
+    stream_status_t res = inject_kernel_sequence(*to_inject_sequence, input);
     if (res != stream_status_t::STATUS_OK)
         return res;
     ++outputs_[output]
           .stats[memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS];
     VPRINT(this, 3, "Inserted %zu syscall records for syscall %d to %d.%d\n",
-           syscall_sequence_[syscall_num].records.size(), syscall_num, input->workload,
+           to_inject_sequence->records.size(), input->to_inject_syscall, input->workload,
            input->index);
+    input->to_inject_syscall = input_info_t::INJECT_NONE;
 
     // Return the first injected record.
     assert(!input->queue.empty());
@@ -1972,7 +1994,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     assert(!sequence.records.empty());
     bool saw_any_instr = false;
     bool set_branch_target_marker = false;
-    trace_marker_type_t marker_type;
+    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_RESERVED_END;
     uintptr_t marker_value = 0;
 
     // We walk the to-be-injected trace backwards, so next_trace_pc starts at the
@@ -1992,6 +2014,15 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
     const addr_t next_input_trace_pc = static_cast<addr_t>(next_trace_pc);
     for (int i = static_cast<int>(sequence.records.size()) - 1; i >= 0; --i) {
         RecordType record = sequence.records[i];
+        // If we're injecting the default syscall trace, we need to adjust the
+        // values of the syscall_trace_start and syscall_trace_end markers
+        // to the actual syscall num, instead of the sentinel.
+        if (record_type_is_marker(record, marker_type, marker_value) &&
+            (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
+             marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) &&
+            marker_value == DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM) {
+            record_type_set_marker_value(record, input->to_inject_syscall);
+        }
         // TODO i#7495: Add invariant checks that ensure these are equal to the
         // context-switched-to thread when the switch sequence is injected into a
         // trace.
@@ -3244,17 +3275,18 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::finalize_next_record(
     bool is_marker = record_type_is_marker(record, marker_type, marker_value);
     // Good to queue the injected records at this point, because we now surely will
     // be done with TRACE_MARKER_TYPE_SYSCALL.
-    if (is_marker && marker_type == TRACE_MARKER_TYPE_SYSCALL &&
-        syscall_sequence_.find(static_cast<int>(marker_value)) !=
-            syscall_sequence_.end()) {
+    if (is_marker && marker_type == TRACE_MARKER_TYPE_SYSCALL) {
         assert(!input->in_syscall_injection);
-        // The actual injection of the syscall trace happens later at the intended
-        // point between the syscall function tracing markers.
-        input->to_inject_syscall = static_cast<int>(marker_value);
-        assert(syscall_sequence_[input->to_inject_syscall].first_pc_valid);
-        input->to_inject_syscall_first_pc =
-            syscall_sequence_[input->to_inject_syscall].first_pc;
-        input->saw_first_func_id_marker_after_syscall = false;
+        int syscall_num = static_cast<int>(marker_value);
+        trace_sequence_t *to_inject_sequence = get_syscall_sequence(syscall_num);
+        if (to_inject_sequence != nullptr) {
+            // The actual injection of the syscall trace happens later at the intended
+            // point between the syscall function tracing markers.
+            input->to_inject_syscall = syscall_num;
+            assert(to_inject_sequence->first_pc_valid);
+            input->to_inject_syscall_first_pc = to_inject_sequence->first_pc;
+            input->saw_first_func_id_marker_after_syscall = false;
+        }
     } else if (record_type_is_instr(record, &instr_pc, &instr_size)) {
         input->last_pc_fallthrough = instr_pc + instr_size;
     }
