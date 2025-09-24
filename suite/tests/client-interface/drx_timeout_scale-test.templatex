@@ -7,6 +7,7 @@ in dr_client_main.*
 .*Refusing to scale too-large time.*
 #ifdef X64
 .*Refusing to scale too-large absolute time.*
+.*Refusing to scale too-large absolute time.*
 #endif
 client done.*
 in dr_client_main.*

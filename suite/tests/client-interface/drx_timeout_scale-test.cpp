@@ -123,6 +123,11 @@ test_overflow()
     res = syscall(SYS_futex, &mismatch_var, FUTEX_WAIT_BITSET | FUTEX_CLOCK_REALTIME,
                   FUTEX_VAL, &timeout, /*uaddr2=*/nullptr, FUTEX_BITSET_MATCH_ANY);
     assert(res != 0 && errno == EAGAIN);
+    // Test a not-too-large absolute but too-large-diff absolute timeout.
+    timeout.tv_sec = IF_X64_ELSE(INT64_MAX, INT_MAX) / MAX_TV_NSEC / 2;
+    res = syscall(SYS_futex, &mismatch_var, FUTEX_WAIT_BITSET | FUTEX_CLOCK_REALTIME,
+                  FUTEX_VAL, &timeout, /*uaddr2=*/nullptr, FUTEX_BITSET_MATCH_ANY);
+    assert(res != 0 && errno == EAGAIN);
 }
 
 static int64_t
@@ -323,25 +328,27 @@ event_exit(void *user_data)
                    stats[i].count_zero_to_nonzero);
     }
     assert(stats[cur_optype].count_attempted > 0);
-    assert(stats[cur_optype].count_attempted >=
-           stats[cur_optype].count_failed + stats[cur_optype].count_nop);
+    assert(stats[cur_optype].count_attempted >= stats[cur_optype].count_failed +
+               stats[cur_optype].count_nop + stats[cur_optype].count_time_too_large);
+    assert(stats[cur_optype].count_failed == 0);
     if (cur_optype == DRX_SCALE_FUTEX) {
-        // We passed in too-large-to-scale values: 2 if scaling, 1 if not, for
+        // We passed in too-large-to-scale values: 3 if scaling, 1 if not, for
         // 64-bit; 1 and 0 for 32-bit..
 #ifdef X64
-        assert(stats[cur_optype].count_failed == 1 ||
-               stats[cur_optype].count_failed == 2);
+        assert(stats[cur_optype].count_time_too_large == 1 ||
+               stats[cur_optype].count_time_too_large == 3);
 #else
-        assert(stats[cur_optype].count_failed == 1 ||
-               stats[cur_optype].count_failed == 0);
+        assert(stats[cur_optype].count_time_too_large == 1 ||
+               stats[cur_optype].count_time_too_large == 0);
 #endif
     } else {
-        assert(stats[cur_optype].count_failed == 0);
+        assert(stats[cur_optype].count_time_too_large == 0);
     }
     // Either scale was 1 and everything is a nop, or if scaling then our 0-duration
     // futex should have become non-0.
     assert(stats[cur_optype].count_nop ==
-               (stats[cur_optype].count_attempted - stats[cur_optype].count_failed) ||
+               (stats[cur_optype].count_attempted - stats[cur_optype].count_failed -
+                stats[cur_optype].count_time_too_large) ||
            stats[cur_optype].count_nop == 0);
     if (cur_optype == DRX_SCALE_FUTEX) {
         assert(stats[cur_optype].count_zero_to_nonzero > 0);

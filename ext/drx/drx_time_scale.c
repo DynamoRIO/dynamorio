@@ -155,6 +155,16 @@ increment_failure(drx_time_scale_type_t type)
 }
 
 static inline void
+increment_too_large(drx_time_scale_type_t type)
+{
+#ifdef X64
+    dr_atomic_add64_return_sum(&stats[type].count_time_too_large, 1);
+#else
+    dr_atomic_add32_return_sum(&stats[type].count_time_too_large, 1);
+#endif
+}
+
+static inline void
 increment_convert_zero(drx_time_scale_type_t type)
 {
 #ifdef X64
@@ -208,10 +218,25 @@ is_timeval_zero(struct timeval *val)
     return val->tv_sec == 0 && val->tv_usec == 0;
 }
 
-static inline int64_t
-timespec_to_nanos(struct timespec *spec)
+/* Returns false if the resulting value would overflow; in that case it also emits
+ * a message and increments count_too_large (but does not increment attempts).
+ */
+static inline bool
+timespec_to_nanos(void *drcontext, struct timespec *spec, drx_time_scale_type_t type,
+                  int64_t *nanos)
 {
-    return (int64_t)spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
+    /* Check for overflow. */
+    const int64_t MAX_PRESCALED_TV_SEC = INT64_MAX / MAX_TV_NSEC;
+    if (spec->tv_sec > MAX_PRESCALED_TV_SEC) {
+        NOTIFY(0,
+               "T" TIDFMT " Refusing to scale too-large absolute time %" SSZFC
+               ".%.12" SSZFC "\n",
+               dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
+        increment_too_large(type);
+        return false;
+    }
+    *nanos = (int64_t)spec->tv_sec * MAX_TV_NSEC + spec->tv_nsec;
+    return true;
 }
 
 static inline void
@@ -240,7 +265,7 @@ inflate_timespec(void *drcontext, struct timespec *spec, int scale,
         NOTIFY(0,
                "T" TIDFMT " Refusing to scale too-large time %" SSZFC ".%.12" SSZFC "\n",
                dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
-        increment_failure(type);
+        increment_too_large(type);
         return;
     }
     spec->tv_nsec *= scale;
@@ -267,43 +292,27 @@ inflate_absolute_timespec(void *drcontext, struct timespec *spec, int scale,
         increment_attempt_and_failure(type);
         return false;
     }
-    /* We need an extra check here beyond what's in inflate_timespec as here we multiply
-     * tv_sec by MAX_TV_NSEC in timespec_to_nanos().
-     */
-    const int64_t MAX_PRESCALED_TV_SEC = INT64_MAX / MAX_TV_NSEC;
-    if (spec->tv_sec > MAX_PRESCALED_TV_SEC) {
-        NOTIFY(0,
-               "T" TIDFMT " Refusing to scale too-large absolute time %" SSZFC
-               ".%.12" SSZFC "\n",
-               dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
-        increment_attempt_and_failure(type);
+    int64_t cur_nanos, target_nanos;
+    if (!timespec_to_nanos(drcontext, &cur_time, type, &cur_nanos) ||
+        !timespec_to_nanos(drcontext, spec, type, &target_nanos)) {
+        increment_attempt(type);
         return false;
     }
-    int64_t cur_nanos = timespec_to_nanos(&cur_time);
-    int64_t target_nanos = timespec_to_nanos(spec);
     int64_t diff_nanos = target_nanos < cur_nanos ? 0 : target_nanos - cur_nanos;
     if (diff_nanos == 0) {
         diff_nanos = ZERO_PRE_INFLATE_NSEC;
         increment_convert_zero(type);
-    }
-    /* We need another check here as the diff can be too large even if the absolute
-     * wasn't, and then overflow timespec_to_nanos() below.
-     */
-    const int64_t MAX_DIFF = INT64_MAX / MAX_TV_NSEC / scale;
-    if (diff_nanos > MAX_DIFF) {
-        NOTIFY(0,
-               "T" TIDFMT " Refusing to scale too-large absolute time %" SSZFC
-               ".%.12" SSZFC " diff=%" INT64_FORMAT_CODE "\n",
-               dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec, diff_nanos);
-        increment_attempt_and_failure(type);
-        return false;
     }
     struct timespec rel;
     nanos_to_timespec(diff_nanos, &rel);
     /* Now inflate the relative. */
     inflate_timespec(drcontext, &rel, scale, type);
     /* Now convert back to absolute. */
-    int64_t scaled_diff_nanos = timespec_to_nanos(&rel);
+    int64_t scaled_diff_nanos;
+    if (!timespec_to_nanos(drcontext, &rel, type, &scaled_diff_nanos)) {
+        /* inflate_timespec() already incremented attempts. */
+        return false;
+    }
     int64_t scaled_target_nanos = cur_nanos + scaled_diff_nanos;
     nanos_to_timespec(scaled_target_nanos, spec);
     return true;
@@ -326,9 +335,11 @@ inflate_timespec64(void *drcontext, timespec64_t *spec, int scale,
     /* Do not try to scale ridiculously huge values, which will overflow and
      * result in EINVAL syscall failure.
      */
-    /* Our __divdi3 => int64_divmod can't handle "INT64_MAX / scale" (for scale=10):
+    /* Our software-assisted 64-bit integer division for 32-bit code (__divdi3()
+     * calling int64_divmod()) can't handle "INT64_MAX / scale" (for scale=10):
      * it generates #DE => SIGFPE running IDIV on 0x7:0xffffffff / 10
-     * (since 0xcccccccc is too large for 32-bit result reg).
+     * (the : is the edx:eax IDIV double-register value)
+     * since 0xcccccccc is too large for 32-bit result reg.
      * So we help it out with simpler computation.
      */
     const int64_t MAX_PRESCALED_TV_SEC = (0x7fffffffULL / scale) << 32;
@@ -337,7 +348,7 @@ inflate_timespec64(void *drcontext, timespec64_t *spec, int scale,
                "T" TIDFMT " Refusing to scale too-large time %" INT64_FORMAT_CODE
                ".%.12" INT64_FORMAT_CODE "\n",
                dr_get_thread_id(drcontext), spec->tv_sec, spec->tv_nsec);
-        increment_failure(type);
+        increment_too_large(type);
         return;
     }
     spec->tv_nsec *= scale;
@@ -398,7 +409,7 @@ inflate_timeval(void *drcontext, struct timeval *val, int scale,
         NOTIFY(0,
                "T" TIDFMT " Refusing to scale too-large time %" SSZFC ".%.9" SSZFC "\n",
                dr_get_thread_id(drcontext), val->tv_sec, val->tv_usec);
-        increment_failure(type);
+        increment_too_large(type);
         return;
     }
     val->tv_usec *= scale;
