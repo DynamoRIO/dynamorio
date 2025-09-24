@@ -1,0 +1,69 @@
+#if defined(X86) && defined(X64)
+#    define ADDRESS 0x402000
+#    define CONTENT_ADDRESS 0x0000000000402000
+#    define SYSCALL_WRITE 1
+#    define SYSCALL_EXIT_GROUP 231
+#elif defined(AARCH64)
+#    define ADDRESS 0x4101c0
+#    define CONTENT_ADDRESS 0x00000000004101c0
+#    define SYSCALL_WRITE 64
+#    define SYSCALL_EXIT_GROUP 94
+#else
+#    error Unsupported architecture
+#endif
+Hello, world!
+(<unable to determine lib path for cross-arch execve>
+)*syscall: 257, timestamp: 10011
+pre-syscall ordinal 0, value 0xffffffffffffff9c
+pre-syscall ordinal 1, value 0x7ffda70240f0
+pre-syscall ordinal 2, value 0x42
+pre-syscall ordinal 3, value 0x0
+memory content address 0x00007ffda70240f0, size 0x21
+    73797363 616c6c5f 66696c65 5f696f5f
+    74657374 2e333636 32333234 2e747874
+    00
+post-syscall ordinal 0, value 0xffffffffffffff9c
+post-syscall ordinal 1, value 0x7ffda70240f0
+post-syscall ordinal 2, value 0x42
+post-syscall ordinal 3, value 0x0
+return value 0x4
+syscall end: 257, timestamp: 10012
+syscall: 1, timestamp: 10013
+pre-syscall ordinal 0, value 0x4
+pre-syscall ordinal 1, value 0x7fab725fc070
+pre-syscall ordinal 2, value 0xd
+memory content address 0x00007fab725fc070, size 0xd
+    48656c6c 6f20576f 726c6421 00
+post-syscall ordinal 0, value 0x4
+post-syscall ordinal 1, value 0x7fab725fc070
+post-syscall ordinal 2, value 0xd
+return value 0xd
+syscall end: 1, timestamp: 10014
+syscall: 0, timestamp: 10015
+pre-syscall ordinal 0, value 0x4
+pre-syscall ordinal 1, value 0x7ffda70240e2
+pre-syscall ordinal 2, value 0xd
+post-syscall ordinal 0, value 0x4
+post-syscall ordinal 1, value 0x7ffda70240e2
+post-syscall ordinal 2, value 0xd
+return value 0xd
+memory content address 0x00007ffda70240e2, size 0xd
+    48656c6c 6f20576f 726c6421 00
+syscall end: 0, timestamp: 10016
+syscall: 3, timestamp: 10017
+pre-syscall ordinal 0, value 0x4
+post-syscall ordinal 0, value 0x4
+return value 0x0
+syscall end: 3, timestamp: 10018
+(<unable to determine lib path for cross-arch execve>
+)*syscall: 1, timestamp: 10013
+pre-syscall ordinal 0, value 0x4
+pre-syscall ordinal 1, value 0x7fab725fc070
+pre-syscall ordinal 2, value 0xd
+memory content address 0x00007fab725fc070, size 0xd
+    48656c6c 6f20576f 726c6421 00
+post-syscall ordinal 0, value 0x4
+post-syscall ordinal 1, value 0x7fab725fc070
+post-syscall ordinal 2, value 0xd
+return value 0xd
+syscall end: 1, timestamp: 10014

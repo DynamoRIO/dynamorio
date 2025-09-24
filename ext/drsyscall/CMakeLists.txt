@@ -211,4 +211,11 @@ if (LINUX)
   use_DynamoRIO_extension(drsyscall_record_viewer drsyscall_record_lib_static)
   set_target_properties(drsyscall_record_viewer PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
+
+  add_executable(drsyscall_record_trimmer drsyscall_record_trimmer.c)
+  configure_DynamoRIO_standalone(drsyscall_record_trimmer)
+  configure_DynamoRIO_static(drsyscall_record_trimmer)
+  use_DynamoRIO_extension(drsyscall_record_trimmer drsyscall_record_lib_static)
+  set_target_properties(drsyscall_record_trimmer PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
 endif ()

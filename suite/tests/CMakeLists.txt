@@ -6534,14 +6534,15 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
   use_DynamoRIO_extension(client.syscall-file-io-test.dll drmgr)
   use_DynamoRIO_extension(client.syscall-file-io-test.dll drsyscall)
 
+  set(drsyscall_record_viewer
+    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer")
   add_exe(linux.syscall_records linux/syscall-records.c)
   set(client.syscall-records-test_runcmp
     "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
   set(client.syscall-records-test_precmd
     "rm@${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
   string(CONCAT client.syscall-records-test_postcmd
-    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
-    "${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
+    "${drsyscall_record_viewer}@${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.*")
   set(client.syscall-records-test_expectbase "syscall-records")
   tobuild_ci(client.syscall-records-test
     client-interface/syscall-records-test.c "" "" "")
@@ -6555,7 +6556,7 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
   set(client.attach-memory-dump-syscall-test_precmd
     "rm@${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
   string(CONCAT client.attach-memory-dump-syscall-test_postcmd
-    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
+    "${drsyscall_record_viewer}@"
     "${PROJECT_BINARY_DIR}/suite/tests/attach_syscall_record_file.*")
   set(client.attach-memory-dump-syscall-test_realtest linux.syscall_records_attach)
   tobuild_ci(client.attach-memory-dump-syscall-test
@@ -6564,6 +6565,20 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     drsyscall)
   use_DynamoRIO_extension(client.attach-memory-dump-syscall-test.dll
     drsyscall_record_lib)
+
+  file(COPY syscall_record_file.test DESTINATION "${PROJECT_BINARY_DIR}/suite/tests")
+  set(syscall_record_test_file "${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.test")
+  set(tool.drsyscall-record-trimmer-test_runcmp
+    "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+  set(tool.drsyscall-record-trimmer-test_expectbase "drsyscall-record-trimmer-test")
+  string(CONCAT tool.drsyscall-record-trimmer-test_postcmd
+    "${drsyscall_record_viewer}@${syscall_record_test_file}")
+  string(CONCAT tool.drsyscall-record-trimmer-test_postcmd2
+    "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_trimmer@"
+    "-i@${syscall_record_test_file}@-o@${syscall_record_test_file}.trimmed@-b@10013@-a@10014")
+  string(CONCAT tool.drsyscall-record-trimmer-test_postcmd3
+    "${drsyscall_record_viewer}@${syscall_record_test_file}.trimmed")
+  torunonly(tool.drsyscall-record-trimmer-test ${ci_shared_app} ${ci_shared_app_src} "" "")
 endif ()
 
 ###########################################################################
