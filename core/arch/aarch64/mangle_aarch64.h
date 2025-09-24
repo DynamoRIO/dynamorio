@@ -40,6 +40,13 @@ icache_op_ic_ivau_asm(void);
 void
 icache_op_isb_asm(void);
 
+/* XXX i#7643: The design with this global struct will probably need
+ * to be changed. There is at least one inter-thread issue with the
+ * current code when an address given by an IC IVAU gets picked up by
+ * a different thread on a different core; the second thread could get
+ * swapped out, and the first thread could attempt to run the modified
+ * code, before the flush_fragments_from_region happens.
+ */
 typedef struct ALIGN_VAR(16) _icache_op_struct_t {
     /* This flag is set if any icache lines have been invalidated. */
     unsigned int flag;
