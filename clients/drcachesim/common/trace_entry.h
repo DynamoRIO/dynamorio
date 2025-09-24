@@ -1090,8 +1090,10 @@ typedef enum {
      * thread's trace when the trace template is injected.
      *
      * The file may also include a "default" trace that can be used for system calls that
-     * do not have any trace specified in this file. The default trace sets the
-     * sysnum as #DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM in the various markers.
+     * do not have any trace specified in this file. The default trace has the sysnum
+     * set to #DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM in the enclosing markers in the
+     * trace template file. When this trace is injected by the scheduler for some
+     * syscall, the value in the enclosing markers will be changed to that syscall num.
      *
      * See the sample file written by the burst_syscall_inject.cpp test for more
      * details on the expected format for the system call template file.
@@ -1524,7 +1526,7 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
  * #OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES) in the
  * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and
  * #TRACE_MARKER_TYPE_SYSCALL_TRACE_END markers to denote a trace to
- * be used when no other trace is available for some syscall in the
+ * be used for syscalls that have no other trace available in the
  * template file.
  */
 constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM = 0xffff;
