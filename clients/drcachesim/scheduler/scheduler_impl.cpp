@@ -193,7 +193,7 @@ bool
 scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_has_tid(memref_t record,
                                                                memref_tid_t &tid)
 {
-    if (record.marker.tid == INVALID_THREAD_ID || record.marker.tid == IDLE_THREAD_ID)
+    if (record.marker.tid == INVALID_THREAD_ID)
         return false;
     tid = record.marker.tid;
     return true;
@@ -3298,7 +3298,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
     // on Mac with its 64-bit tid type.
     int64_t workload = get_workload_ordinal(output);
     memref_tid_t cur_tid;
-    if (record_type_has_tid(record, cur_tid) && workload > 0) {
+    if (record_type_has_tid(record, cur_tid) && cur_tid != IDLE_THREAD_ID &&
+        workload > 0) {
         memref_tid_t new_tid = (workload << MEMREF_ID_WORKLOAD_SHIFT) | cur_tid;
         record_type_set_tid(record, new_tid);
     }
