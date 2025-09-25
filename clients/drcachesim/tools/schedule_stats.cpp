@@ -339,7 +339,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         // scheduler_tmpl_t::stream_status_t::STATUS_IDLE), which are converted
         // to a TRACE_MARKER_TYPE_CORE_IDLE with tid set to IDLE_THREAD_ID,
         // in the same manner as above.
-        assert(memref.marker.tid == IDLE_THREAD_ID);
+        assert(memref.marker.tid == dynamorio::drmemtrace::IDLE_THREAD_ID);
         shard->cur_state = STATE_IDLE;
     } else
         shard->cur_state = STATE_CPU;
@@ -394,7 +394,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     assert(tid != INVALID_THREAD_ID);
     if ((workload_id != prev_workload_id || tid != prev_tid) &&
         // Do not count the initial records of a start-idle core.
-        tid != IDLE_THREAD_ID) {
+        tid != dynamorio::drmemtrace::IDLE_THREAD_ID) {
         if (shard->in_syscall_trace) {
             shard->error =
                 "Found unexpected switch in the middle of a kernel syscall trace.";
