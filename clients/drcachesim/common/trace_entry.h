@@ -639,7 +639,9 @@ typedef enum {
      * is roughly the time where a regular record could have been read and passed
      * along.  This idle marker indicates that a core actually had no work to do,
      * as opposed to #TRACE_MARKER_TYPE_CORE_WAIT which is an artifact of an
-     * imposed re-created schedule.
+     * imposed re-created schedule.  When presented as a
+     * #dynamorio::drmemtrace::memref_t record, the tid field will be set to
+     * #dynamorio::drmemtrace::IDLE_THREAD_ID.
      */
     TRACE_MARKER_TYPE_CORE_IDLE,
 
