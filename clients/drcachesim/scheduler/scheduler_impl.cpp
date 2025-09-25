@@ -193,7 +193,7 @@ bool
 scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_has_tid(memref_t record,
                                                                memref_tid_t &tid)
 {
-    if (record.marker.tid == INVALID_THREAD_ID)
+    if (record.marker.tid == INVALID_THREAD_ID || record.marker.tid == IDLE_THREAD_ID)
         return false;
     tid = record.marker.tid;
     return true;
