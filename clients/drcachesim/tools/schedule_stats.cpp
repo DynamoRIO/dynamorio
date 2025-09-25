@@ -326,9 +326,22 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT)
         shard->cur_state = STATE_WAIT;
     else if (memref.marker.type == TRACE_TYPE_MARKER &&
-             memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE)
+             memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
+        // For trace scheduling done online (during trace analysis), we expect
+        // scheduler_tmpl_t::stream_status_t::STATUS_IDLE to be converted to
+        // a TRACE_MARKER_TYPE_CORE_IDLE with tid set to IDLE_THREAD_ID.
+        // For already-scheduled traces (aka core-sharded-on-disk traces), the
+        // TRACE_MARKER_TYPE_CORE_IDLE on disk may not have a preceding
+        // tid marker set to IDLE_THREAD_ID (therefore may be associated with
+        // the tid of the prior input as far as the on-disk records are
+        // concerned). But we have scheduler logic that converts such on-disk
+        // TRACE_MARKER_TYPE_CORE_IDLE into the scheduler idle status (that is,
+        // scheduler_tmpl_t::stream_status_t::STATUS_IDLE), which are converted
+        // to a TRACE_MARKER_TYPE_CORE_IDLE with tid set to IDLE_THREAD_ID,
+        // in the same manner as above.
+        assert(memref.marker.tid == IDLE_THREAD_ID);
         shard->cur_state = STATE_IDLE;
-    else
+    } else
         shard->cur_state = STATE_CPU;
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START)
@@ -378,7 +391,10 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) || input_id < 0)
         ? tid
         : input_id;
-    if ((workload_id != prev_workload_id || tid != prev_tid) && tid != IDLE_THREAD_ID) {
+    assert (tid != INVALID_THREAD_ID);
+    if ((workload_id != prev_workload_id || tid != prev_tid) &&
+        // Do not count the initial records of a start-idle core.
+        tid != IDLE_THREAD_ID) {
         if (shard->in_syscall_trace) {
             shard->error =
                 "Found unexpected switch in the middle of a kernel syscall trace.";
