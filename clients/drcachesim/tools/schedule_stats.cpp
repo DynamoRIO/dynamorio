@@ -391,7 +391,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) || input_id < 0)
         ? tid
         : input_id;
-    assert (tid != INVALID_THREAD_ID);
+    assert(tid != INVALID_THREAD_ID);
     if ((workload_id != prev_workload_id || tid != prev_tid) &&
         // Do not count the initial records of a start-idle core.
         tid != IDLE_THREAD_ID) {
