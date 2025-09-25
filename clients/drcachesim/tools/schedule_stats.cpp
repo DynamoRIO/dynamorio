@@ -327,13 +327,13 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         shard->cur_state = STATE_WAIT;
     else if (memref.marker.type == TRACE_TYPE_MARKER &&
              memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
-        // For trace scheduling done online (during trace analysis), we expect
+        // When analyzing dynamically scheduled trace records, we expect
         // scheduler_tmpl_t::stream_status_t::STATUS_IDLE to be converted to
         // a TRACE_MARKER_TYPE_CORE_IDLE with tid set to IDLE_THREAD_ID.
-        // For already-scheduled traces (aka core-sharded-on-disk traces), the
-        // TRACE_MARKER_TYPE_CORE_IDLE on disk may not have a preceding
-        // tid marker set to IDLE_THREAD_ID (therefore may be associated with
-        // the tid of the prior input as far as the on-disk records are
+        // When analyzing already-scheduled traces (aka core-sharded-on-disk
+        // traces), the TRACE_MARKER_TYPE_CORE_IDLE on disk may not have a
+        // preceding tid marker set to IDLE_THREAD_ID (therefore may be associated
+        // with the tid of the prior input as far as the on-disk records are
         // concerned). But we have scheduler logic that converts such on-disk
         // TRACE_MARKER_TYPE_CORE_IDLE into the scheduler idle status (that is,
         // scheduler_tmpl_t::stream_status_t::STATUS_IDLE), which are converted

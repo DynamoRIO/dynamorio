@@ -193,7 +193,7 @@ Some of the more important markers are:
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL - This identifies a system call.  A timestamp is inserted in the trace before and after marker of this type.  This marker should be considered to be the actual system call invocation by the kernel, rather than the prior system call gateway instruction fetch record.  Thus, these timestamps provide the system call latency.
 
-- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE - This is inserted by the trace scheduler (see \ref sec_drcachesim_sched) when there is no work available on a core in core-sharded mode.  This is meant to simulate actual idle time on a core.
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE - This is inserted by the trace scheduler (see \ref sec_drcachesim_sched) when there is no work available on a core in core-sharded mode.  This is meant to simulate actual idle time on a core.  When presented as part of a #dynamorio::drmemtrace::memref_t record, the scheduler sets the tid for the marker to #dynamorio::drmemtrace::IDLE_THREAD_ID.
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_WAIT - This is inserted by the trace scheduler (see \ref sec_drcachesim_sched) during replay of a previously recorded schedule when one core gets too far ahead of another according to the recorded timestamps.  This is an artificial wait to keep the replay on track, as opposed to the natural idle time of #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE.
 
@@ -1782,7 +1782,9 @@ parameters appropriately.
 \section sec_drcachesim_sched_idle Idle Time
 
 The dynamic scheduler inserts markers of type
-#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE when there is no work available on a
+#dynamorio::drmemtrace::TRACE_MARKER_TYPE_CORE_IDLE (with the tid field set to
+#dynamorio::drmemtrace::IDLE_THREAD_ID when it is presented as a
+#dynamorio::drmemtrace::memref_t record) when there is no work available on a
 core, simulating actual idle time.  This can happen even when there are inputs
 potentially available as the scheduler simulates i/o by blocking inputs from executing
 for a period of time when they make blocking system calls.  This time is based on the
