@@ -296,6 +296,11 @@ typedef enum {
     // Update trace_type_names[] when adding here.
 } trace_type_t;
 
+/**
+ * A thread id sentinel for an idle core with no software thread.
+ */
+constexpr int IDLE_THREAD_ID = -1;
+
 /** The sub-type for TRACE_TYPE_MARKER. */
 /* For offline traces, we are not able to place a marker accurately in the middle
  * of a block (except for kernel event markers which contain their interruption PC).
@@ -634,7 +639,9 @@ typedef enum {
      * is roughly the time where a regular record could have been read and passed
      * along.  This idle marker indicates that a core actually had no work to do,
      * as opposed to #TRACE_MARKER_TYPE_CORE_WAIT which is an artifact of an
-     * imposed re-created schedule.
+     * imposed re-created schedule.  When presented as a
+     * #dynamorio::drmemtrace::memref_t record, the tid field will be set to
+     * #dynamorio::drmemtrace::IDLE_THREAD_ID.
      */
     TRACE_MARKER_TYPE_CORE_IDLE,
 

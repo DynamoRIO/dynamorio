@@ -358,9 +358,9 @@ test_idle()
         {
             gen_instr(TID_B),
             gen_instr(TID_B),
-            gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            gen_marker(TID_B, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             // A switch from idle w/ no syscall is an involuntary switch.
             gen_instr(TID_B),
             gen_instr(TID_B),
@@ -368,14 +368,17 @@ test_idle()
             gen_exit(TID_B),
         },
         {
+            // This is a start-idle core.
+            gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            // Switch to the first thread from the start-idle state.
             gen_instr(TID_C),
             // Involuntary switch.
             gen_instr(TID_A),
             // Involuntary switch.
             gen_instr(TID_C),
-            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
+            gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             // A switch from idle w/ no syscall is an involuntary switch.
             gen_instr(TID_C),
             gen_instr(TID_C),
@@ -394,7 +397,7 @@ test_idle()
     };
     auto result = run_schedule_stats(memrefs);
     assert(result.instrs == 13);
-    assert(result.total_switches == 6);
+    assert(result.total_switches == 7);
     assert(result.voluntary_switches == 1);
     assert(result.direct_switches == 0);
     assert(result.syscalls == 0);
@@ -402,7 +405,7 @@ test_idle()
     assert(result.direct_switch_requests == 0);
     assert(result.observed_migrations == 0);
     assert(result.waits == 3);
-    assert(result.idles == 6);
+    assert(result.idles == 7);
     assert(result.idle_microseconds >= 6);
     assert(result.idle_micros_at_last_instr > 0 &&
            result.idle_micros_at_last_instr <= result.idle_microseconds);
