@@ -297,7 +297,7 @@ typedef enum {
 } trace_type_t;
 
 /**
- * A separate sentinel for an idle core with no software thread.
+ * A thread id sentinel for an idle core with no software thread.
  */
 constexpr int IDLE_THREAD_ID = -1;
 
