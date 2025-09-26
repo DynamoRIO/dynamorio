@@ -31,36 +31,47 @@
  */
 
 #include <fcntl.h>
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "dr_api.h"
+#include "dr_tools.h"
+#include "droption.h"
 #include "drsyscall_record_lib.h"
 
-int output_file = -1;
-int record_file = -1;
+namespace {
+
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
+droption_t<std::string> op_input_file(DROPTION_SCOPE_FRONTEND, "input_file", "",
+                                      "Input syscall record file",
+                                      "Input syscall record file");
+droption_t<std::string> op_output_file(DROPTION_SCOPE_FRONTEND, "output_file", "",
+                                       "Output trimmed syscall record file",
+                                       "Output trimmed syscall record file");
+droption_t<uint64_t> op_trim_after_timestamp(
+    DROPTION_SCOPE_FRONTEND, "trim_after_timestamp", UINT64_MAX,
+    "Trim syscall records started until this timestamp (in us).",
+    "Remove all syscall records started until this timestamp (in us).");
+droption_t<uint64_t> op_trim_before_timestamp(
+    DROPTION_SCOPE_FRONTEND, "trim_before_timestamp", 0,
+    "Trim syscall records started after this timestamp (in us).",
+    "Remove all syscall records started after this timestamp (in us).");
+
+int output_file = INVALID_FILE;
+int record_file = INVALID_FILE;
 uint64_t trim_after_timestamp = UINT64_MAX;
 uint64_t trim_before_timestamp = 0;
-
-static int
-usage(char *command)
-{
-    dr_printf("\
-Usage: %s\n\
-drsyscall_record_trimmer \n\
-    -i <input syscall record file> \n\
-    -o <output trimmed syscall recode file> \n\
-    -a <trim syscall records started after timestamp(us)> \n\
-    -b <trim syscall records started before timestamp(us)> \n",
-              command);
-    return 0;
-}
 
 static size_t
 read_func(char *buffer, size_t size)
 {
-    return read(record_file, buffer, size);
+    return dr_read_file(record_file, buffer, size);
 }
 
 static bool
@@ -72,9 +83,10 @@ write_record(char *buffer, size_t size, const char *type, uint64_t timestamp)
     if (timestamp > trim_after_timestamp) {
         return false;
     }
-    const ssize_t wrote = write(output_file, buffer, size);
-    if (wrote != size) {
-        dr_printf("wrote %ld bytes instead of %ld bytes for %s.", wrote, size, type);
+    const ssize_t wrote = dr_write_file(output_file, buffer, size);
+    if (wrote != static_cast<ssize_t>(size)) {
+        std::cerr << "wrote " << wrote << " bytes instead of " << size
+                  << " bytes for type " << type << "\n";
         return false;
     }
     return true;
@@ -87,8 +99,8 @@ record_cb(syscall_record_t *record, char *buffer, size_t size)
     switch (record->type) {
     case DRSYS_RECORD_END_DEPRECATED:
     case DRSYS_SYSCALL_NUMBER_DEPRECATED:
-        dr_printf("Syscall record type DRSYS_RECORD_END_DEPRECATED "
-                  "and DRSYS_SYSCALL_NUMBER_DEPRECATED are not supported.");
+        std::cerr << "Syscall record type DRSYS_RECORD_END_DEPRECATED "
+                     "and DRSYS_SYSCALL_NUMBER_DEPRECATED are not supported.\n";
         return false;
     case DRSYS_SYSCALL_NUMBER_TIMESTAMP:
         current_record_timestamp = record->syscall_number_timestamp.timestamp;
@@ -118,69 +130,54 @@ record_cb(syscall_record_t *record, char *buffer, size_t size)
         }
         current_record_timestamp = record->syscall_number_timestamp.timestamp;
         return true;
-    default: dr_printf("unknown record type %d\n", record->type); return false;
+    default: std::cerr << "unknown record type " << record->type << "\n"; return false;
     }
     return true;
 }
 
+} // namespace
+
 int
-main(int argc, char *argv[])
+main(int argc, const char *argv[])
 {
-    if (argc < 2) {
-        usage(argv[0]);
-        return -1;
+    dr_standalone_init();
+    int last_index;
+    std::string parse_err;
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, argv, &parse_err,
+                                       &last_index)) {
+        std::cerr << "Usage error: " << parse_err << "\nUsage:\n " << argv[0]
+                  << "\nOptions:\n"
+                  << droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
+        return 1;
     }
 
-    int arg_index = 1;
-    while (arg_index < argc) {
-        if (!strncmp(argv[arg_index], "--help", 6)) {
-            usage(argv[0]);
-            return 0;
-        }
-        if (!strncmp(argv[arg_index], "-i", 2)) {
-            record_file = open(argv[++arg_index], O_RDONLY);
-            if (record_file == -1) {
-                dr_printf("unable to open input file %s.\n", argv[arg_index]);
-                return -1;
-            }
-
-        } else if (!strncmp(argv[arg_index], "-o", 2)) {
-            output_file =
-                open(argv[++arg_index], O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
-            if (output_file == -1) {
-                dr_printf("unable to open output file %s.\n", "blah");
-                return -1;
-            }
-        } else if (!strncmp(argv[arg_index], "-a", 2)) {
-            char *end_ptr;
-            trim_after_timestamp = strtoull(argv[++arg_index], &end_ptr, /*base=*/10);
-            if (end_ptr == NULL) {
-                dr_printf("invalid trim after timestamp: %s.\n", argv[arg_index]);
-                return -1;
-            }
-        } else if (!strncmp(argv[arg_index], "-b", 2)) {
-            char *end_ptr;
-            trim_before_timestamp = strtoull(argv[++arg_index], &end_ptr, /*base=*/10);
-            if (end_ptr == NULL) {
-                dr_printf("invalid trim before timestamp: %s.\n", argv[arg_index]);
-                return -1;
-            }
-        }
-        ++arg_index;
+    if (op_input_file.get_value().empty()) {
+        std::cerr << "missing input file name.\n";
+        return 1;
     }
-
-    if (record_file == -1) {
-        dr_printf("missing input file name\n");
-        return -1;
+    if (op_output_file.get_value().empty()) {
+        std::cerr << "missing output file name.\n";
+        return 1;
     }
-    if (output_file == -1) {
-        dr_printf("missing output file name\n");
-        return -1;
+    record_file = dr_open_file(op_input_file.get_value().c_str(), DR_FILE_READ);
+    if (record_file == INVALID_FILE) {
+        std::cerr << "failed to open " << op_input_file.get_value() << "\n";
+        return 1;
     }
+    output_file =
+        dr_open_file(op_output_file.get_value().c_str(), DR_FILE_WRITE_OVERWRITE);
+    if (output_file == INVALID_FILE) {
+        std::cerr << "failed to open " << op_output_file.get_value() << "\n";
+        return 1;
+    }
+    trim_after_timestamp = op_trim_after_timestamp.get_value();
+    trim_before_timestamp = op_trim_before_timestamp.get_value();
 
-    drsyscall_iterate_records(read_func, record_cb);
-
-    close(output_file);
-    close(record_file);
+    const bool success = drsyscall_iterate_records(read_func, record_cb);
+    dr_close_file(output_file);
+    dr_close_file(record_file);
+    if (!success) {
+        std::cerr << "failed to iterate syscall records\n";
+    }
     return 0;
 }
