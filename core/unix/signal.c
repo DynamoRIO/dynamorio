@@ -3354,7 +3354,7 @@ thread_set_segment_registers(sigcontext_t *sc)
 void
 thread_set_self_mcontext(priv_mcontext_t *mc, bool is_detach_external)
 {
-    kernel_ucontext_t ucxt;
+    kernel_ucontext_t ucxt = { 0 };
     sig_full_cxt_t sc_full;
     sig_full_initialize(&sc_full, &ucxt);
 #if defined(LINUX) && defined(X86)
