@@ -6579,7 +6579,7 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
       "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_trimmer@"
       "-input_file@${syscall_record_test_file}@"
       "-output_file@${syscall_record_test_file}.trimmed@"
-      "-trim_before_timestamp@10013@-trim_after_timestamp@10014")
+      "-trim_before_timestamp@10013@-trim_after_timestamp@10015")
     string(CONCAT tool.drsyscall-record-trimmer-test_postcmd3
       "${drsyscall_record_viewer}@${syscall_record_test_file}.trimmed")
     torunonly(tool.drsyscall-record-trimmer-test ${ci_shared_app} ${ci_shared_app_src} "" "")

@@ -30,6 +30,29 @@
  * DAMAGE.
  */
 
+/*
+ * Standalone syscall record trimming tool.
+ *
+ * Usage:
+ * drsyscall_record_trimmer -input_file <input syscall record file>
+ *                          -output_file <output trimmed syscall record file>
+ *                          -trim_after_timestamp
+ *                            <timestamp in microseconds since Jan 1, 1601>
+ *                          -trim_before_timestamp
+ *                            <timestamp in microseconds since Jan 1, 1601>
+ *
+ * Each syscall starts with a DRSYS_SYSCALL_NUMBER_TIMESTAMP record and ends
+ * with a DRSYS_RECORD_END_TIMESTAMP record (exception: exit_group has no end record).
+ *
+ * To prevent partial syscall records in the output file, only the timestamp
+ * of the DRSYS_SYSCALL_NUMBER_TIMESTAMP record is used for trimming decisions.
+ *
+ * If trim_before_timestamp falls within the syscall boundary (between start/end),
+ * all its records are filtered out.
+ * If trim_after_timestamp falls within the syscall boundary, all its records are kept in
+ * the output file.
+ *
+ */
 #include <fcntl.h>
 #include <iostream>
 #include <stdio.h>
@@ -61,7 +84,9 @@ droption_t<uint64_t> op_trim_after_timestamp(
 droption_t<uint64_t> op_trim_before_timestamp(
     DROPTION_SCOPE_FRONTEND, "trim_before_timestamp", 0,
     "Trim syscall records started after this timestamp (in us).",
-    "Remove all syscall records started after this timestamp (in us).");
+    "Remove all syscall records started after this timestamp (in us). "
+    "drsyscall_record_viewer can be used to read the syscall record file and retrieve "
+    "the specfic timestamps for trimming the syscall record file.");
 
 int output_file = INVALID_FILE;
 int record_file = INVALID_FILE;
@@ -133,7 +158,6 @@ record_cb(syscall_record_t *record, char *buffer, size_t size)
                                           current_record_timestamp)) {
             return false;
         }
-        current_record_timestamp = record->syscall_number_timestamp.timestamp;
         return true;
     default: std::cerr << "unknown record type " << record->type << "\n"; return false;
     }

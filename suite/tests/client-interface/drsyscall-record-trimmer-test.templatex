@@ -54,3 +54,14 @@ post-syscall ordinal 1, value 0x7fab725fc070
 post-syscall ordinal 2, value 0xd
 return value 0xd
 syscall end: 1, timestamp: 10014
+syscall: 0, timestamp: 10015
+pre-syscall ordinal 0, value 0x4
+pre-syscall ordinal 1, value 0x7ffda70240e2
+pre-syscall ordinal 2, value 0xd
+post-syscall ordinal 0, value 0x4
+post-syscall ordinal 1, value 0x7ffda70240e2
+post-syscall ordinal 2, value 0xd
+return value 0xd
+memory content address 0x00007ffda70240e2, size 0xd
+    48656c6c 6f20576f 726c6421 00
+syscall end: 0, timestamp: 10016
