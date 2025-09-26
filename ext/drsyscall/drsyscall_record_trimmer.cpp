@@ -75,7 +75,8 @@ read_func(char *buffer, size_t size)
 }
 
 static bool
-write_record(char *buffer, size_t size, const char *type, uint64_t timestamp)
+write_record_if_not_filtered(char *buffer, size_t size, const char *type,
+                             uint64_t timestamp)
 {
     if (timestamp < trim_before_timestamp) {
         return true;
@@ -104,28 +105,32 @@ record_cb(syscall_record_t *record, char *buffer, size_t size)
         return false;
     case DRSYS_SYSCALL_NUMBER_TIMESTAMP:
         current_record_timestamp = record->syscall_number_timestamp.timestamp;
-        return write_record((char *)record, sizeof(*record),
-                            "DRSYS_SYSCALL_NUMBER_TIMESTAMP", current_record_timestamp);
+        return write_record_if_not_filtered((char *)record, sizeof(*record),
+                                            "DRSYS_SYSCALL_NUMBER_TIMESTAMP",
+                                            current_record_timestamp);
     case DRSYS_PRECALL_PARAM:
     case DRSYS_POSTCALL_PARAM:
-        return write_record((char *)record, sizeof(*record),
-                            (record->type == DRSYS_PRECALL_PARAM
-                                 ? "DRSYS_PRECALL_PARAM"
-                                 : "DRSYS_POSTCALL_PARAM"),
-                            current_record_timestamp);
+        return write_record_if_not_filtered((char *)record, sizeof(*record),
+                                            (record->type == DRSYS_PRECALL_PARAM
+                                                 ? "DRSYS_PRECALL_PARAM"
+                                                 : "DRSYS_POSTCALL_PARAM"),
+                                            current_record_timestamp);
     case DRSYS_MEMORY_CONTENT:
-        if (!write_record((char *)record, sizeof(*record), "DRSYS_MEMORY_CONTENT record",
-                          current_record_timestamp)) {
+        if (!write_record_if_not_filtered((char *)record, sizeof(*record),
+                                          "DRSYS_MEMORY_CONTENT record",
+                                          current_record_timestamp)) {
             return false;
         }
-        return write_record(buffer, size, "DRSYS_MEMORY_CONTENT content",
-                            current_record_timestamp);
+        return write_record_if_not_filtered(buffer, size, "DRSYS_MEMORY_CONTENT content",
+                                            current_record_timestamp);
     case DRSYS_RETURN_VALUE:
-        return write_record((char *)record, sizeof(*record), "DRSYS_RETURN_VALUE",
-                            current_record_timestamp);
+        return write_record_if_not_filtered((char *)record, sizeof(*record),
+                                            "DRSYS_RETURN_VALUE",
+                                            current_record_timestamp);
     case DRSYS_RECORD_END_TIMESTAMP:
-        if (!write_record((char *)record, sizeof(*record), "DRSYS_RECORD_END_TIMESTAMP",
-                          current_record_timestamp)) {
+        if (!write_record_if_not_filtered((char *)record, sizeof(*record),
+                                          "DRSYS_RECORD_END_TIMESTAMP",
+                                          current_record_timestamp)) {
             return false;
         }
         current_record_timestamp = record->syscall_number_timestamp.timestamp;
