@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025 Arm Limited  All rights reserved.
  * **********************************************************/
 
 /*
@@ -329,9 +330,11 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
     /* Unfortunately, since it's RISC, we have to use x0 in the asm loop.
      * Its value could be either 0x1 or &sideline_exit.
      */
-    check_gpr_value_with_alt("x0", *(xsp + 0), 0x1, (ptr_uint_t)&sideline_exit);
+    if (!selfmod)
+        check_gpr_value_with_alt("x0", *(xsp + 0), 0x1, (ptr_uint_t)&sideline_exit);
     check_gpr_value("x1", *(xsp + 1), MAKE_HEX_C(X1_BASE()));
-    check_gpr_value("x2", *(xsp + 2), MAKE_HEX_C(X2_BASE()));
+    if (!selfmod)
+        check_gpr_value("x2", *(xsp + 2), MAKE_HEX_C(X2_BASE()));
     check_gpr_value("x3", *(xsp + 3), MAKE_HEX_C(X3_BASE()));
     check_gpr_value("x4", *(xsp + 4), MAKE_HEX_C(X4_BASE()));
     check_gpr_value("x5", *(xsp + 5), MAKE_HEX_C(X5_BASE()));
@@ -624,8 +627,10 @@ main(void)
     sideline_ready_for_attach = create_cond_var();
 
     test_thread_func(thread_check_gprs_from_cache);
-#    ifdef X86 /* TODO i#1698: Port to AArch64. */
+#    if defined(X86) || defined(AARCH64)
     test_thread_func(thread_check_gprs_from_DR);
+#    endif
+#    ifdef X86 /* TODO i#4698: Port to AArch64. */
     test_thread_func(thread_check_eflags_from_cache);
     test_thread_func(thread_check_eflags_from_DR);
 
@@ -1448,7 +1453,62 @@ check_gprs_from_cache_spin:
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#ifdef X86 /* TODO i#4698: Port to AArch64. */
+#if defined(X86)
+#define MAKE_WRITEABLE \
+        call     LOCAL_LABEL(retaddr) @N@\
+LOCAL_LABEL(retaddr): @N@\
+        pop      REG_XAX @N@\
+        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
+
+#define SELFMOD_INIT \
+        mov      eax, HEX(0)
+
+#define SELFMOD \
+        inc      eax @N@\
+        lea      REG_XDX, SYMREF(LOCAL_LABEL(immed_plus_four) - 4) @N@\
+        mov      DWORD [REG_XDX], eax        /* selfmod write */ @N@\
+        mov      REG_XDX, HEX(0)             /* mov_imm to modify */ @N@\
+ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
+#endif
+
+#if defined(AARCH64)
+#define MAKE_WRITEABLE \
+        adr      REG_SCRATCH0, 0 @N@\
+        CALLC1(GLOBAL_REF(make_mem_writable), REG_SCRATCH0)
+
+/* Clean a single cache line covering the address in addr_reg.
+ * We can't call tool_clear_icache() because that would disturb the register state
+ * and interfere with the test. Instead we need to use this sequence if instructions
+ * from Arm ARM B2.7.4.2:
+ */
+#define CLEAN_CACHE_LINE(addr_reg) \
+        dc       cvau, addr_reg @N@\
+        dsb      ish @N@\
+        ic       ivau, addr_reg @N@\
+        dsb      ish @N@\
+        isb
+
+#define SELFMOD_INIT \
+        mov      w2, #0x52800000 /* Encoding of movz w0, #0 instruction. */
+
+/* Self-modifying code that increments the immediate field in a movz instruction.
+ * Any registers that we use here can't be checked in check_gpr_vals() so we need to
+ * minimize the number of registers used.
+ * We need at least two registers for the str: one for the address, one for the value to
+ * write. We use w2 to hold the instruction value and x0 as a scratch register.
+ */
+#define SELFMOD \
+        ubfx     w0, w2, #5, #16 /* Extract the immedate field from the instr. */ @N@\
+        add      w0, w0, #1      /* Increment the immediate value. */ @N@\
+        bfi      w2, w0, #5, #16 /* Put the modified immed value back in. */ @N@\
+        adr      x0, GLOBAL_REF(LOCAL_LABEL(instr_to_modify)) @N@\
+        str      w2, [x0]        /* And write the instruction back to memory. */ @N@\
+        CLEAN_CACHE_LINE(x0) @N@\
+ADDRTAKEN_LABEL(LOCAL_LABEL(instr_to_modify:)) @N@\
+        movz     w0, #0          /* This instruction is modified. */
+#endif
+
+#if defined(X86) || defined(AARCH64)
 #define FUNCNAME thread_check_gprs_from_DR
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -1456,38 +1516,33 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Make code writable for selfmod below */
-        call     check_gprs_from_DR_retaddr
-check_gprs_from_DR_retaddr:
-        pop      REG_XAX
-        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
+        MAKE_WRITEABLE
         /* Put in unique values. */
-        CALLC0(unique_values_to_registers)
+        SET_UNIQUE_REGISTER_VALS
         /* Signal that we are ready for a detach. */
-        mov      BYTE SYMREF(sideline_ready_for_detach), HEX(1)
+        SET_SIDELINE_READY
         /* Now modify our own code so we're likely to detach from DR.
          * The DR code's changed state means we're more likely to see
          * errors in restoring the app state.
          */
-        mov      eax, HEX(0)
+        SELFMOD_INIT
 check_gprs_from_DR_spin:
-        inc      eax
-        lea      REG_XDX, SYMREF(check_gprs_immed_plus_four - 4)
-        mov      DWORD [REG_XDX], eax        /* selfmod write */
-        mov      REG_XDX, HEX(0)             /* mov_imm to modify */
-ADDRTAKEN_LABEL(check_gprs_immed_plus_four:)
-        cmp      BYTE SYMREF(sideline_exit), HEX(1)
-        jne      check_gprs_from_DR_spin
+        SELFMOD
+        CHECK_SIDELINE_EXIT
+        JUMP_NOT_EQUAL check_gprs_from_DR_spin
         PUSHALL
-        mov      REG_XAX, REG_XSP
-        mov      REG_XCX, 1 /* regs had to be changed */
-        CALLC2(GLOBAL_REF(check_gpr_vals), REG_XAX, REG_XCX)
+        mov      REG_SCRATCH0, REG_SP
+        mov      REG_SCRATCH1, 1 /* regs had to be changed */
+        CALLC2(GLOBAL_REF(check_gpr_vals), REG_SCRATCH0, REG_SCRATCH1)
         POPALL
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+#endif /* defined(X86) || defined(AARCH64) */
 
+#if defined(X86)
 #define FUNCNAME thread_check_eflags_from_cache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
