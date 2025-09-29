@@ -314,7 +314,11 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     }
 
     if (sve != NULL) {
-        /* Check that we have a full SVE record with space for the register data. */
+        /* Check that we have a full SVE record with space for the register data.
+         * The kernel only includes space for register data if it considers the SVE state
+         * to be "live" for the current thread.
+         * See https://docs.kernel.org/arch/arm64/sve.html for more information.
+         */
         ASSERT(sve->vl == proc_get_vector_length_bytes());
         if (sve->head.size < SVE_SIG_CONTEXT_SIZE(sve_vecquad_from_veclen(sve->vl))) {
             /* sigcontext has an sve_context record but it doesn't contain any register
