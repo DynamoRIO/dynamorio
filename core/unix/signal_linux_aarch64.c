@@ -313,6 +313,9 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         next_head = GET_RECORD_AT_OFFSET(offset);
     }
 
+    struct _aarch64_ctx *terminator_record = next_head;
+    ASSERT(terminator_record->magic == 0);
+
     if (sve != NULL) {
         /* Check that we have a full SVE record with space for the register data.
          * The kernel only includes space for register data if it considers the SVE state
@@ -327,14 +330,12 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
              */
             size_t sve_record_size = sve->head.size;
 
+            /* Shift the following records back on top of the SVE record. */
             byte *dst = (void *)sve;
-            byte *src = dst + sve_record_size;
-            size_t length =
-                (ptr_uint_t)next_head + sizeof(struct _aarch64_ctx) - (ptr_uint_t)src;
-            /* We can't use memcpy because the ranges overlap. */
-            for (size_t i = 0; i < length; i++) {
-                dst[i] = src[i];
-            }
+            byte *src = dst + sve_record_size; /* start of the next revord  */
+            byte *end_of_records = (byte *)terminator_record + sizeof(*terminator_record);
+            size_t length = (ptr_uint_t)end_of_records - (ptr_uint_t)src;
+            memmove(dst, src, length);
 
             /* Set sve to NULL so the code below will add a new sve_context record. */
             sve = NULL;
@@ -342,24 +343,23 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
             /* And move next_head backwards to the new end of the list. */
             offset -= sve_record_size;
             next_head = GET_RECORD_AT_OFFSET(offset);
-            ASSERT(next_head->magic == 0);
+            terminator_record = next_head;
+            ASSERT(terminator_record->magic == 0);
         }
     }
 
     if (fpsimd == NULL) {
-        ASSERT(next_head->magic == 0);
-        fpsimd = (struct fpsimd_context *)next_head;
+        fpsimd = (struct fpsimd_context *)terminator_record;
         fpsimd->head.magic = FPSIMD_MAGIC;
         fpsimd->head.size = sizeof(struct fpsimd_context);
 
         offset += fpsimd->head.size;
-        next_head = GET_RECORD_AT_OFFSET(offset);
-        *next_head = null_ctx;
+        terminator_record = GET_RECORD_AT_OFFSET(offset);
+        *terminator_record = null_ctx;
     }
 
     if (sve == NULL && proc_has_feature(FEATURE_SVE)) {
-        ASSERT(next_head->magic == 0);
-        sve = (struct sve_context *)next_head;
+        sve = (struct sve_context *)terminator_record;
         /* Set other fields of sve_context to zero. New fields may be added and
          * unexpected values in those fields may cause problems. This is a small
          * struct so the compiler will allocate it to a virtual register and
@@ -373,8 +373,8 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         sve->head.size = ALIGN_FORWARD(SVE_SIG_CONTEXT_SIZE(quads_per_vector), 16);
 
         offset += sve->head.size;
-        next_head = GET_RECORD_AT_OFFSET(offset);
-        *next_head = null_ctx;
+        terminator_record = GET_RECORD_AT_OFFSET(offset);
+        *terminator_record = null_ctx;
     }
 
     fpsimd->fpsr = mc->fpsr;
@@ -400,8 +400,6 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
         }
         memcpy((byte *)sve + SVE_SIG_FFR_OFFSET(quads_per_vector), &mc->ffr, sve->vl / 8);
     }
-
-    ASSERT(next_head->magic == 0);
 #endif
 }
 
