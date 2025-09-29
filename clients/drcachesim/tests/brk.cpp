@@ -38,7 +38,8 @@
 const intptr_t program_break_increments[] = {
     0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, DEFAULT_HEAP_SIZE / 2,
     0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, DEFAULT_HEAP_SIZE / 2,
-    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, 0x10000, 0x10000, 0x10000
+    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, 0x10000,
+    0x10000, 0x10000
 };
 
 int
@@ -55,10 +56,8 @@ main(int argc, const char *argv[])
             return 1;
         }
         char *new_program_break = static_cast<char *>(sbrk(0));
-        std::cerr << "incremented program break by "
-                  << (increment > 0 ? "0x" : "-0x")
-                  << (increment > 0 ? increment : -increment)
-                  << ", new program break 0x"
+        std::cerr << "incremented program break by " << (increment > 0 ? "0x" : "-0x")
+                  << (increment > 0 ? increment : -increment) << ", new program break 0x"
                   << reinterpret_cast<intptr_t>(new_program_break) << "\n";
         if (new_program_break != current_program_break + increment) {
             std::cerr << "brk failed to increment program break\n";
