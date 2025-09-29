@@ -1,0 +1,7 @@
+current program break 0x[0-9a-f]+
+(incremented program break by -?0x[0-9a-f]+, new program break 0x[0-9a-f]+
+)+all done
+---- <application exited with code 0> ----
+Syscall mix tool results:
+  syscall count : syscall_num
+.*

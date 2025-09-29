@@ -4032,6 +4032,14 @@ if (BUILD_CLIENTS)
         "-tool miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
+    # Test syscall brk handling.
+    if (LINUX)
+      add_exe(brk
+              ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/brk.cpp)
+      get_target_path_for_execution(brk_path brk "${location_suffix}")
+      torunonly_drcachesim(syscall-brk brk "-tool syscall_mix" "")
+    endif ()
+
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
       torunonly_ci(tool.${testname} ${exetgt} drmemtrace_launcher

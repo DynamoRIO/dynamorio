@@ -3387,7 +3387,7 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
         /* Just return cur val */
     } else if (new_val < app_brk_cur) {
         /* Shrink */
-        if (munmap_syscall(new_val, app_brk_cur - new_val) == 0) {
+        if (munmap_syscall(new_val, app_brk_end - new_val) == 0) {
             app_brk_cur = new_val;
             app_brk_end = new_val;
         }
