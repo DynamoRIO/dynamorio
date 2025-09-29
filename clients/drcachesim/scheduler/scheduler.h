@@ -263,7 +263,14 @@ public:
          * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
          * If multiple entries list the same shard ordinal, only the last one is
          * honored.
+         *
+         * If #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.only_shards
+         * is also set, the indices here apply to the input list *after* only those
+         * matching only_shards are removed.
          */
+        // The only_shards wart is due to use cases that apply only_shards before
+        // sending a set of reader_t inputs; it is not ideal, but we do not have
+        // a simple solution for now.
         std::vector<int> shards;
         /**
          * Limits these threads to this set of output streams, which are specified by
@@ -1282,6 +1289,9 @@ public:
          */
         bool
         is_record_kernel() const override;
+
+        uint64_t
+        get_next_trace_pc() const override;
 
         /**
          * Returns the value of the specified statistic for this output stream.

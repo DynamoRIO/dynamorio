@@ -121,7 +121,7 @@ private:
      * invoke set_decode_info() for each new decoded instruction.
      *
      * The responsibility for invoking instr_destroy() on the provided \p instr
-     * lies with this #decode_info_base_t object, unless the
+     * lies with this #dynamorio::drmemtrace::decode_info_base_t object, unless the
      * #dynamorio::drmemtrace::decode_cache_t was constructed with
      * \p persist_decoded_instr_ set to false, in which case no heap allocation
      * takes place.

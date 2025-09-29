@@ -156,6 +156,11 @@ public:
     scheduler_status_t
     write_recorded_schedule();
 
+    // If the given record has a pc, sets the provided pc parameter to it and
+    // returns true, otherwise returns false and leaves it unchanged.
+    static bool
+    record_type_has_pc(RecordType record, uint64_t &pc);
+
 protected:
     typedef speculator_tmpl_t<RecordType> spec_type_t;
 
@@ -192,11 +197,39 @@ protected:
         memref_pid_t pid = INVALID_PID;
         // Used for combined streams.
         memref_tid_t last_record_tid = INVALID_THREAD_ID;
+
+        struct queued_record_t {
+            queued_record_t()
+            {
+            }
+            queued_record_t(const RecordType &record)
+                : record(record)
+            {
+            }
+            queued_record_t(const RecordType &record, uint64_t next_trace_pc)
+                : record(record)
+                , next_trace_pc(next_trace_pc)
+                , next_trace_pc_valid(true)
+            {
+            }
+
+            RecordType record;
+            uint64_t next_trace_pc = 0;
+            // If this is false, it means the next trace pc should be obtained
+            // from the input stream get_next_trace_pc() API instead.
+            bool next_trace_pc_valid = false;
+        };
+
         // If non-empty these records should be returned before incrementing the reader.
         // This is used for read-ahead and inserting synthetic records.
         // We use a deque so we can iterate over it.
-        std::deque<RecordType> queue;
-        bool cur_from_queue;
+        // Records should be removed from the front of the queue using the
+        // get_queued_record() helper which sets the related state automatically.
+        std::deque<queued_record_t> queue;
+        bool cur_from_queue = false;
+        // Valid only if cur_from_queue is set.
+        queued_record_t cur_queue_record;
+
         addr_t last_pc_fallthrough = 0;
         // Whether we're in the middle of returning injected syscall records.
         bool in_syscall_injection = false;
@@ -265,6 +298,8 @@ protected:
         bool skip_next_unscheduled = false;
         uint64_t last_run_time = 0;
         int to_inject_syscall = INJECT_NONE;
+        // Valid only if to_inject_syscall is not INJECT_NONE.
+        uint64_t to_inject_syscall_first_pc = 0;
         bool saw_first_func_id_marker_after_syscall = false;
 
         // Sentinel value for to_inject_syscall.
@@ -355,6 +390,11 @@ protected:
         // that a new entry does not always mean a context switch.
         uint64_t timestamp = 0;
     } END_PACKED_STRUCTURE;
+
+    // Gets a queued record if one is available and sets related state in input_info_t.
+    // Returns whether a queued record was indeed available and returned.
+    bool
+    get_queued_record(input_info_t *input, RecordType &record);
 
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
@@ -578,6 +618,8 @@ protected:
         std::set<memref_tid_t> unfiltered_tids;
         // The count of original pre-filtered inputs (might not match
         // unfiltered_tids.size() for core-sharded inputs with IDLE_THREAD_ID).
+        uint64_t unfiltered_input_count = 0;
+        // The count of filtered inputs.
         uint64_t input_count = 0;
         // The index into inputs_ at which this workload's inputs begin.
         input_ordinal_t first_input_ordinal = 0;
@@ -768,9 +810,15 @@ protected:
     SequenceKey
     invalid_kernel_sequence_key();
 
+    struct trace_sequence_t {
+        std::vector<RecordType> records;
+        uint64_t first_pc = 0;
+        bool first_pc_valid = false;
+    };
+
     template <typename SequenceKey>
     scheduler_status_t
-    read_kernel_sequences(std::unordered_map<SequenceKey, std::vector<RecordType>,
+    read_kernel_sequences(std::unordered_map<SequenceKey, trace_sequence_t,
                                              custom_hash_t<SequenceKey>> &sequence,
                           std::string trace_path, std::unique_ptr<ReaderType> reader,
                           std::unique_ptr<ReaderType> reader_end,
@@ -779,6 +827,9 @@ protected:
 
     scheduler_status_t
     read_switch_sequences();
+
+    trace_sequence_t *
+    get_syscall_sequence(int syscall_num);
 
     scheduler_status_t
     read_syscall_sequences();
@@ -827,6 +878,7 @@ protected:
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
     // If the given record has a thread id field, returns true and the value.
+    // This considers IDLE_THREAD_ID as a valid tid.
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);
 
@@ -905,7 +957,7 @@ protected:
 
     // Performs the actual injection of the kernel sequence.
     stream_status_t
-    inject_kernel_sequence(std::vector<RecordType> &sequence, input_info_t *input);
+    inject_kernel_sequence(trace_sequence_t &sequence, input_info_t *input);
 
     // Performs the actual injection of a kernel syscall sequence, using
     // inject_kernel_sequence as helper.
@@ -987,6 +1039,10 @@ protected:
     uint64_t
     get_input_last_timestamp(output_ordinal_t output);
 
+    // Returns the next continuous pc that will be seen in the trace.
+    uint64_t
+    get_next_trace_pc(output_ordinal_t output);
+
     stream_status_t
     start_speculation(output_ordinal_t output, addr_t start_address,
                       bool queue_current_record);
@@ -1059,13 +1115,12 @@ protected:
     };
     std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
 
-    std::unordered_map<switch_type_t, std::vector<RecordType>,
-                       custom_hash_t<switch_type_t>>
+    std::unordered_map<switch_type_t, trace_sequence_t, custom_hash_t<switch_type_t>>
         switch_sequence_;
     // We specify a custom hash function only to make it easier to generalize with
     // switch_sequence_ defined above.
-    std::unordered_map<int, std::vector<RecordType>, custom_hash_t<int>>
-        syscall_sequence_;
+    std::unordered_map<int, trace_sequence_t, custom_hash_t<int>> syscall_sequence_;
+    trace_sequence_t default_syscall_sequence_;
     // For single_lockstep_output.
     std::unique_ptr<stream_t> global_stream_;
     // For online where we currently have to map dynamically observed thread ids

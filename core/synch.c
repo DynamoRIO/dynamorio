@@ -2015,6 +2015,10 @@ detach_set_mcontext_helper(thread_record_t *thread)
     ASSERT(ok);
     /* i#249: restore app's PEB/TEB fields */
     IF_WINDOWS(restore_peb_pointer_for_thread(thread->dcontext));
+    /* Put the translation into the dcontext's mcontext so the detach state
+     * is available via dr_get_mcontext().
+     */
+    *get_mcontext(thread->dcontext) = mc;
 }
 
 static void

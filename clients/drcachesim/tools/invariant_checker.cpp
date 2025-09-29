@@ -163,6 +163,7 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(init_mutex_);
     per_shard->tid_ = shard_stream->get_tid();
+    per_shard->last_next_trace_pc_ = shard_stream->get_next_trace_pc();
     shard_map_[shard_index] = std::move(per_shard);
     return res;
 }
@@ -340,16 +341,48 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             ++shard->dyn_injected_syscall_instr_count_;
         }
     }
+    int at_skip = false;
     // XXX: We also can't verify counts with a skip invoked from the middle, but
     // we have no simple way to detect that here.
     if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         shard->stream->get_instruction_ordinal() > 1) {
         shard->skipped_instrs_ = true;
+        at_skip = true;
         if (!shard->saw_filetype_) {
             shard->file_type_ =
                 static_cast<offline_file_type_t>(shard->stream->get_filetype());
         }
     }
+
+    if (!is_a_unit_test(shard) && knob_offline_ &&
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 shard->file_type_)) {
+        if (type_is_instr(memref.instr.type)) {
+            report_if_false(shard,
+                            at_skip || shard->last_next_trace_pc_ == memref.instr.addr,
+                            "Unexpected next trace pc from instr");
+        } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+                   memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            report_if_false(shard,
+                            at_skip ||
+                                shard->last_next_trace_pc_ == memref.marker.marker_value,
+                            "Unexpected next trace pc from kernel_event marker");
+        } else {
+            report_if_false(
+                shard,
+                at_skip ||
+                    // We do expect the returned next trace pc to change when the
+                    // decision to inject a syscall trace is made at the
+                    // TRACE_MARKER_TYPE_SYSCALL which is when the syscall number
+                    // becomes known.
+                    (memref.marker.type == TRACE_TYPE_MARKER &&
+                     memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) ||
+                    shard->last_next_trace_pc_ == shard->stream->get_next_trace_pc(),
+                "Unexpected change to stream next trace pc");
+        }
+        shard->last_next_trace_pc_ = shard->stream->get_next_trace_pc();
+    }
+
     if (!shard->skipped_instrs_ && !is_a_unit_test(shard) &&
         (shard->stream != serial_stream_ || shard_map_.size() == 1)) {
         if (trace_incomplete_ && !shard->adjusted_ordinal_for_incomplete_ &&
@@ -1184,18 +1217,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->retaddr_stack_.push(0);
             }
         }
-#ifdef LINUX
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER &&
-            shard->syscall_trace_num_after_last_userspace_instr_ == SYS_rt_sigreturn) {
-            // It is an undocumented property that the TRACE_MARKER_TYPE_KERNEL_XFER
-            // marker values are also set to the syscall-fallthrough pc. So it is
-            // expected that prev_syscall_end_branch_target_ == the kernel_xfer value.
-            // TODO i#7496: We skip the PC continuity check for the branch_target marker
-            // at the end of syscall traces injected for sigreturn, as they're not
-            // expected to match.
-            shard->prev_syscall_end_branch_target_ = 0;
-        }
-#endif
 #ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
@@ -1260,6 +1281,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     const std::string error_msg_suffix = " @ kernel_event marker";
                     report_if_false(shard, discontinuity.empty(),
                                     discontinuity + error_msg_suffix);
+                } else if (shard->prev_syscall_end_branch_target_ != 0 &&
+                           !type_is_instr(
+                               shard->last_instr_in_cur_context_.memref.instr.type)) {
+                    // If we skipped the pc continuity checks because there was no prior
+                    // instruction in the same context, we still want to verify that
+                    // the branch target marker at the last injected syscall trace was
+                    // set correctly to the next instruction's pc.
+                    report_if_false(shard,
+                                    shard->prev_syscall_end_branch_target_ ==
+                                        memref.marker.marker_value,
+                                    "Syscall trace-end branch marker incorrect "
+                                    "@ context-initial kernel_event marker");
+                    shard->prev_syscall_end_branch_target_ = 0;
                 }
                 shard->signal_stack_.push(
                     { memref.marker.marker_value, shard->last_instr_in_cur_context_ });
@@ -1402,6 +1436,7 @@ invariant_checker_t::process_memref(const memref_t &memref)
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
         per_shard->tid_ = serial_stream_->get_tid();
+        per_shard->last_next_trace_pc_ = serial_stream_->get_next_trace_pc();
         shard_map_[shard_index] = std::move(per_shard_unique);
     } else
         per_shard = lookup->second.get();
@@ -1586,16 +1621,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     if (shard->prev_syscall_end_branch_target_ != 0) {
         const addr_t syscall_end_branch_target = shard->prev_syscall_end_branch_target_;
         shard->prev_syscall_end_branch_target_ = 0;
-        if (!(syscall_end_branch_target == cur_pc ||
-              // XXX i#7157, i#6495: For auto-restart syscalls interrupted by a signal,
-              // the kernel_event marker will hold the syscall pc itself. However, the
-              // kernel syscall injection logic sets the syscall-trace-end branch_target
-              // marker to the fallthrough pc of the syscall. We bail on trying to
-              // read-ahead and figure this out during injection, since the kernel_event
-              // marker already holds the correct next pc. Also, for such interrupted
-              // syscalls, maybe we shouldn't inject the full syscall trace anyway.
-              (at_kernel_event &&
-               syscall_end_branch_target == cur_pc + prev_instr_info.memref.instr.size)))
+        if (syscall_end_branch_target != cur_pc)
             return "Syscall trace-end branch marker incorrect";
     }
     if (prev_instr_trace_pc == 0 /*first*/) {

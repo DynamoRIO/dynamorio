@@ -1,0 +1,31 @@
+#if defined(X86) && defined(X64)
+#    define ADDRESS 0x402000
+#    define CONTENT_ADDRESS 0x0000000000402000
+#    define SYSCALL_WRITE 1
+#    define SYSCALL_EXIT_GROUP 231
+#elif defined(AARCH64)
+#    define ADDRESS 0x4101c0
+#    define CONTENT_ADDRESS 0x00000000004101c0
+#    define SYSCALL_WRITE 64
+#    define SYSCALL_EXIT_GROUP 94
+#else
+#    error Unsupported architecture
+#endif
+Hello world!
+Syscall mix tool results:
+  syscall count : syscall_num
+              1 : ( )+ SYSCALL_EXIT_GROUP
+              1 : ( )+ SYSCALL_WRITE
+(\n|.)*syscall: SYSCALL_WRITE, timestamp: [0-9]+
+pre-syscall ordinal 0, value 0x2
+pre-syscall ordinal 1, value ADDRESS
+pre-syscall ordinal 2, value 0xd
+memory content address CONTENT_ADDRESS, size 0xd
+    48656c6c 6f20776f 726c6421 0a
+post-syscall ordinal 0, value 0x2
+post-syscall ordinal 1, value ADDRESS
+post-syscall ordinal 2, value 0xd
+return value 0xd
+syscall end: SYSCALL_WRITE, timestamp: [0-9]+
+syscall: SYSCALL_EXIT_GROUP, timestamp: [0-9]+
+pre-syscall ordinal 0, value 0x0

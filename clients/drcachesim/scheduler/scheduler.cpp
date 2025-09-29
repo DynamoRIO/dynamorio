@@ -344,6 +344,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::is_record_kernel() const
 }
 
 template <typename RecordType, typename ReaderType>
+uint64_t
+scheduler_tmpl_t<RecordType, ReaderType>::stream_t::get_next_trace_pc() const
+
+{
+    return scheduler_->get_next_trace_pc(ordinal_);
+}
+
+template <typename RecordType, typename ReaderType>
 double
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::get_schedule_statistic(
     schedule_statistic_t stat) const

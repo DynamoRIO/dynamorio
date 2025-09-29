@@ -124,10 +124,6 @@ do_some_syscalls()
                   KERNEL_SIGSET_SIZE);
     assert(res != 0 && errno == EFAULT);
 
-    // XXX i#6490: Printing to stderr here causes flakiness in the test
-    // output due to garbage, presumably caused by some DynamoRIO transparency violation.
-    // Since the prior message printed here in the past was not essential to the test, we
-    // were able to simply remove it. But this needs more investigation.
     return 1;
 }
 

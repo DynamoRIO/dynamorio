@@ -142,7 +142,7 @@ analyzer_t::create_idle_marker()
     memref_t record = {}; // Zero the other fields.
     record.marker.type = TRACE_TYPE_MARKER;
     record.marker.marker_type = TRACE_MARKER_TYPE_CORE_IDLE;
-    record.marker.tid = INVALID_THREAD_ID;
+    record.marker.tid = IDLE_THREAD_ID;
     return record;
 }
 

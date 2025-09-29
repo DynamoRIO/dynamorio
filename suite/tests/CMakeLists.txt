@@ -4101,7 +4101,8 @@ if (BUILD_CLIENTS)
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
 
         torunonly_simtool(counts_only_thread ${ci_shared_app}
-          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 872906"
+          # We add -skip_instrs to test i#7626.
+          "-indir ${thread_trace_dir} -tool basic_counts -only_thread 872906 -skip_instrs 10"
           "")
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
 
@@ -4154,6 +4155,11 @@ if (BUILD_CLIENTS)
           "-indir ${thread_trace_dir} ${thread_trace_scale} -tool invariant_checker -sched_syscall_file ${syscall_file}"
           "")
         set(tool.syscall_insertion_invariants_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(serial_invariants ${ci_shared_app}
+          "-indir ${thread_trace_dir} -jobs 0 -tool invariant_checker"
+          "")
+        set(tool.serial_invariants_rawtemp ON) # no preprocessor
 
         torunonly_simtool(syscall_insertion_core_sharded ${ci_shared_app}
           "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file}"
@@ -5013,6 +5019,10 @@ if (BUILD_CLIENTS)
 
       torunonly_drcacheoff(allasm-dyn-inject-invariants allasm_repstr
         "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+
+      set(tool.drcacheoff.longblock_nodr ON)
+      torunonly_drcacheoff(longblock tool.drcacheoff.longblock
+        "" "@-tool@invariant_checker" "")
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
@@ -5423,6 +5433,23 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(getretaddr_record_replace_retaddr common.getretaddr
             "-record_replace_retaddr -record_function tailcall_with_retaddr|1&foo|1"
             "@-tool@invariant_checker" "")
+  endif ()
+
+  if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL AND X64)
+    if (X86)
+      add_exe(hello_world_asm common/hello_world_x86_64.asm)
+    else ()
+      add_exe(hello_world_asm common/hello_world_aarch64.asm)
+    endif ()
+    set_target_properties(hello_world_asm PROPERTIES LINKER_LANGUAGE C)
+    append_link_flags(hello_world_asm "-nostartfiles -nodefaultlibs -static")
+
+    torunonly_drcacheoff(collect-syscall-records hello_world_asm "-collect_syscall_records"
+            "@-tool@syscall_mix" "")
+    unset(tool.drcacheoff.collect-syscall-records_rawtemp) # use preprocessor
+    string(CONCAT tool.drcacheoff.collect-syscall-records_postcmd2
+      "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
+      "${dir_prefix}.*.dir/raw/syscall_record_file.*")
   endif ()
 
   ###########################################################################
@@ -6904,6 +6931,7 @@ if (UNIX AND X86 AND CPU_AMD AND NOT DR_HOST_X64)
     code_api|tool.drcacheoff.func_view_noret
     code_api|tool.drcacheoff.gencode
     code_api|tool.drcacheoff.gencode_filtered
+    code_api|tool.drcacheoff.longblock
     code_api|tool.drcacheoff.invariant_checker_pthreads
     code_api|tool.drcacheoff.legacy
     code_api|tool.drcacheoff.max-global

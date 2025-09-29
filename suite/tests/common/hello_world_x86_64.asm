@@ -1,5 +1,5 @@
-/* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ /* **********************************************************
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,49 +30,25 @@
  * DAMAGE.
  */
 
-#include <fstream>
+/* This is a statically-linked app. */
+.text
+.globl _start
+.type _start, @function
 
-#include "record_file_reader.h"
-#include "trace_entry.h"
+        .align   8
+_start:
+        and      rsp, -16         // align stack pointer to cache line
+        mov      rdi, 2           // stderr
+        lea      rsi, hello
+        mov      rdx, 13          // sizeof(hello)
+        mov      eax, 1           // SYS_write
+        syscall
+// exit:
+        mov      rdi, 0           // exit code
+        mov      eax, 231         // SYS_exit_group
+        syscall
 
-namespace dynamorio {
-namespace drmemtrace {
-
-/* clang-format off */ /* (make vera++ newline-after-type check happy) */
-template <>
-/* clang-format on */
-record_file_reader_t<std::ifstream>::~record_file_reader_t()
-{
-}
-
-template <>
-bool
-record_file_reader_t<std::ifstream>::open_single_file(const std::string &path)
-{
-    auto fstream =
-        std::unique_ptr<std::ifstream>(new std::ifstream(path, std::ifstream::binary));
-    if (!*fstream)
-        return false;
-    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_file_ = std::move(fstream);
-    return true;
-}
-
-template <>
-trace_entry_t *
-record_file_reader_t<std::ifstream>::read_next_entry()
-{
-    if (!input_file_->read((char *)&entry_copy_, sizeof(entry_copy_))) {
-        if (input_file_->eof()) {
-            at_eof_ = true;
-        }
-        return nullptr;
-    }
-    VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
-           trace_type_names[entry_copy_.type], entry_copy_.type, entry_copy_.size,
-           entry_copy_.addr);
-    return &entry_copy_;
-}
-
-} // namespace drmemtrace
-} // namespace dynamorio
+        .data
+        .align   8
+hello:
+        .string   "Hello world!\n"

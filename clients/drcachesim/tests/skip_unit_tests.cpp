@@ -165,6 +165,66 @@ test_skip_initial()
     return true;
 }
 
+bool
+check_ord2pc(uint64_t sim_initial, uint64_t skip,
+             std::unordered_map<uint64_t, uint64_t> &ord2pc, bool record)
+{
+    std::unique_ptr<reader_t> iter =
+        std::unique_ptr<reader_t>(new zipfile_file_reader_t(op_trace_file.get_value()));
+    CHECK(!!iter, "failed to open zipfile");
+    CHECK(iter->init(), "failed to initialize reader");
+    std::unique_ptr<reader_t> iter_end =
+        std::unique_ptr<reader_t>(new zipfile_file_reader_t());
+    uint64_t expected_next_instr_ord = 1;
+    while (*iter != *iter_end) {
+        const memref_t &memref = **iter;
+        if (type_is_instr(memref.instr.type)) {
+            CHECK(iter->get_instruction_ordinal() == expected_next_instr_ord,
+                  "unexpected stream instr ord");
+            if (record) {
+                CHECK(ord2pc.find(expected_next_instr_ord) == ord2pc.end(),
+                      "stream instr ord already seen");
+                ord2pc[expected_next_instr_ord] = memref.instr.addr;
+            } else {
+                CHECK(ord2pc.find(expected_next_instr_ord) != ord2pc.end(),
+                      "stream instr ord not seen in initial run");
+                CHECK(ord2pc[expected_next_instr_ord] == memref.instr.addr,
+                      "incorrect instr pc at instr ord");
+            }
+            ++expected_next_instr_ord;
+            if (expected_next_instr_ord == sim_initial + 1) {
+                iter->skip_instructions(skip);
+                expected_next_instr_ord += skip;
+            }
+        }
+        ++(*iter);
+    }
+    return true;
+}
+
+bool
+test_skip_middle_ord2pc()
+{
+    std::unordered_map<uint64_t, uint64_t> ord2pc;
+    // Record ordinal-pc mapping for all instrs in the trace.
+    if (!check_ord2pc(0, 0, ord2pc, true)) {
+        return false;
+    }
+    CHECK(ord2pc.size() >= 100, "Too few instrs in the trace");
+    // Then verify the same ordinal-pc mapping for the partial set of
+    // instrs seen with skip values.
+    // We test many combinations of initial_sim and skip, so that we
+    // test edge cases at chunk boundaries.
+    // The test trace used here is known to have a chunk count of 20.
+    for (size_t i = 0; i <= ord2pc.size(); ++i) {
+        for (size_t j = 0; j + i <= ord2pc.size(); ++j) {
+            if (!check_ord2pc(i, j, ord2pc, false))
+                return false;
+        }
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -175,7 +235,7 @@ test_main(int argc, const char *argv[])
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
-    if (!test_skip_initial())
+    if (!test_skip_initial() || !test_skip_middle_ord2pc())
         return 1;
     // TODO i#5538: Add tests that skip from the middle once we have full support
     // for duplicating the timestamp,cpu in that scenario.

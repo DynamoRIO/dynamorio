@@ -3684,8 +3684,8 @@ check_kernel_syscall_trace(void)
         if (!run_checker(memrefs, false))
             res = false;
     }
-    // Control resumes at the kernel_event marker with the sys instr pc, instead of the
-    // pc specified in the syscall-trace-end branch_target marker which is sys+len(sys).
+    // Control resumes at the kernel_event marker with the sys instr pc, which is also
+    // the pc specified in the syscall-trace-end branch_target marker.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3706,7 +3706,7 @@ check_kernel_syscall_trace(void)
             // Specifies post_sys, but really the next instr is the auto-restarted sys.
             // This is a documented case where the TRACE_MARKER_TYPE_KERNEL_EVENT value
             // takes precedence.
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), sys },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), sys },
@@ -3831,10 +3831,9 @@ check_kernel_syscall_trace(void)
             res = false;
     }
 #    ifdef LINUX
-    // Signal return immediately after sigreturn syscall trace.
-    // TODO i#7496: We set the syscall trace-end branch_target marker always to the
-    // fallthrough pc of the syscall. This isn't correct for injected sigreturn traces,
-    // but we live with this for now.
+    // Signal return immediately after sigreturn syscall trace. The syscall-trace-end
+    // branch target marker holds the pc of the signal resumption point, which is an
+    // instr in this test.
     {
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
@@ -3853,7 +3852,7 @@ check_kernel_syscall_trace(void)
             { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             // add_encodings_to_memrefs removes this from the memref list and adds it
             // to memref_t.instr.indirect_branch_target instead for the following instr.
-            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), post_sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), move },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_rt_sigreturn),
               nullptr },
@@ -3863,6 +3862,90 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, false))
+            res = false;
+    }
+    // Signal return immediately after sigreturn syscall trace. The syscall-trace-end
+    // branch target marker holds the pc of the signal resumption point, which is a
+    // kernel_event marker from another signal in this test. The kernel_event marker is
+    // the first thing in its signal context (since the first signal context was just
+    // ended by the kernel_xfer), so regular pc continuity checks would be disabled, but
+    // we want to ensure proper operation of syscall-trace-end-branch-target vs next-pc
+    // equality checks.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, SYS_rt_sigreturn), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_rt_sigreturn),
+              nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nop },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_rt_sigreturn),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 42), nullptr },
+            // Ensure the syscall-trace-end branch_target marker vs next-pc check
+            // happens at this kernel_event marker.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), nop },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    // Signal return immediately after sigreturn syscall trace. The syscall-trace-end
+    // branch target marker holds incorrect pc of the signal resumption point, which is a
+    // kernel_event marker from another signal in this test.
+    // Similar to the test above, but verifies the case where the check fails.
+    {
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE_FULL_SYSCALL_TRACE),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096), nullptr },
+            { gen_instr(TID_A), sys },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, SYS_rt_sigreturn), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYS_rt_sigreturn),
+              nullptr },
+            { gen_instr(TID_A), move },
+            { gen_instr(TID_A), load },
+            { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
+            // add_encodings_to_memrefs removes this from the memref list and adds it
+            // to memref_t.instr.indirect_branch_target instead for the following instr.
+            // Incorrectly points to the load instruction, when the resumption point
+            // specified by the later kernel_event marker is the nop instruction.
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), load },
+            { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_rt_sigreturn),
+              nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 42), nullptr },
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), nop },
+            { gen_exit(TID_A), nullptr }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Syscall trace-end branch marker incorrect "
+                           "@ context-initial kernel_event marker",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/14, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/4 },
+                         "Failed to detect PC discontinuity after syscall-trace at "
+                         "context-initial kernel_event marker"))
             res = false;
     }
 #    endif

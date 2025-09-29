@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,49 +30,21 @@
  * DAMAGE.
  */
 
-#include <fstream>
+/* This is a statically-linked app. */
+        .global  _start
 
-#include "record_file_reader.h"
-#include "trace_entry.h"
+        .align   6
+_start:
+        mov      w0, #2            // stderr
+        adr      x1, hello
+        mov      w2, #13           // sizeof(hello)
+        mov      w8, #64           // SYS_write
+        svc      #0
+        mov      w0, #0            // status
+        mov      w8, #94           // SYS_exit_group
+        svc      #0
 
-namespace dynamorio {
-namespace drmemtrace {
-
-/* clang-format off */ /* (make vera++ newline-after-type check happy) */
-template <>
-/* clang-format on */
-record_file_reader_t<std::ifstream>::~record_file_reader_t()
-{
-}
-
-template <>
-bool
-record_file_reader_t<std::ifstream>::open_single_file(const std::string &path)
-{
-    auto fstream =
-        std::unique_ptr<std::ifstream>(new std::ifstream(path, std::ifstream::binary));
-    if (!*fstream)
-        return false;
-    VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_file_ = std::move(fstream);
-    return true;
-}
-
-template <>
-trace_entry_t *
-record_file_reader_t<std::ifstream>::read_next_entry()
-{
-    if (!input_file_->read((char *)&entry_copy_, sizeof(entry_copy_))) {
-        if (input_file_->eof()) {
-            at_eof_ = true;
-        }
-        return nullptr;
-    }
-    VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
-           trace_type_names[entry_copy_.type], entry_copy_.type, entry_copy_.size,
-           entry_copy_.addr);
-    return &entry_copy_;
-}
-
-} // namespace drmemtrace
-} // namespace dynamorio
+        .data
+        .align   6
+hello:
+        .ascii   "Hello world!\n"

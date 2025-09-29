@@ -84,6 +84,10 @@
 #    include "kcore_copy.h"
 #endif
 
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+#    include "drsyscall_record_lib.h"
+#endif
+
 /* Make sure we export function name as the symbol name without mangling. */
 #ifdef __cplusplus
 extern "C" {
@@ -1710,6 +1714,16 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
+
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    if (op_collect_syscall_records.get_value()) {
+        if (!drsyscall_write_pre_syscall_records(write_syscall_record, drcontext, sysnum,
+                                                 instru_t::get_timestamp())) {
+            dr_log(NULL, DR_LOG_ALL, 1, "failed to write pre-syscall records\n");
+            return false;
+        }
+    }
+#endif
     return true;
 }
 
@@ -1783,7 +1797,17 @@ event_post_syscall(void *drcontext, int sysnum)
             // pre-syscall event for sysnum.
         }
     }
+#endif
 
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    if (op_collect_syscall_records.get_value()) {
+        if (!drsyscall_write_post_syscall_records(write_syscall_record, drcontext, sysnum,
+                                                  instru_t::get_timestamp())) {
+            dr_log(NULL, DR_LOG_ALL, 1, "failed to write post-syscall records\n");
+            NOTIFY(0, "ERROR: failed to write post-syscall records for syscall %d\n",
+                   sysnum);
+        }
+    }
 #endif
 }
 
@@ -2051,6 +2075,13 @@ event_exit(void)
                " physical address markers in " UINT64_FORMAT_STRING " writeouts.\n",
                num_phys_markers, num_v2p_writeouts);
     }
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    if (op_collect_syscall_records.get_value()) {
+        if (drsys_exit() != DRMF_SUCCESS) {
+            DR_ASSERT(false);
+        }
+    }
+#endif
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
@@ -2086,6 +2117,7 @@ event_exit(void)
     }
     drmgr_unregister_exit_event(event_exit);
     drmgr_unregister_post_attach_event(event_post_attach);
+    drmgr_unregister_pre_detach_event(event_pre_detach);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
@@ -2545,7 +2577,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Failed to register post-attach event.\n");
     attached_midway = dr_attached_midrun();
 
-    dr_register_pre_detach_event(event_pre_detach);
+    drmgr_register_pre_detach_event(event_pre_detach);
     dr_register_nudge_event(event_nudge, id);
 
     /* We need our thread exit event to run *before* drmodtrack's as we may
@@ -2613,6 +2645,18 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (!drpttracer_init())
             FATAL("Failed to initialize drpttracer.\n");
+    }
+#endif
+
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    if (op_collect_syscall_records.get_value()) {
+        drsys_options_t ops = {
+            sizeof(ops),
+            0,
+        };
+        if (drsys_init(id, &ops) != DRMF_SUCCESS) {
+            FATAL("Failed to initialize Dr. Syscall extension.");
+        }
     }
 #endif
 }

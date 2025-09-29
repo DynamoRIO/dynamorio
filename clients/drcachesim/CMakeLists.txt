@@ -143,6 +143,10 @@ if (liblz4)
   set(lz4_reader reader/lz4_file_reader.cpp)
 endif ()
 
+if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL)
+  add_definitions(-DBUILD_DRMEMTRACE_WITH_DR_SYSCALL)
+endif ()
+
 set(client_and_sim_srcs
   common/named_pipe_${os_name}.cpp
   common/options.cpp
@@ -239,6 +243,7 @@ set(raw2trace_srcs
   tracer/instru_online.cpp
   tracer/instru_offline.cpp
   reader/reader.cpp
+  reader/reader_base.cpp
   common/trace_entry.cpp
   reader/record_file_reader.cpp
   ${zlib_reader}
@@ -287,6 +292,7 @@ set(drcachesim_srcs
   analyzer_multi.cpp
   ${client_and_sim_srcs}
   reader/reader.cpp
+  reader/reader_base.cpp
   reader/config_reader.cpp
   reader/v2p_reader.cpp
   reader/file_reader.cpp
@@ -353,6 +359,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   scheduler/noise_generator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
+  reader/reader_base.cpp
   reader/config_reader.cpp
   reader/v2p_reader.cpp
   reader/file_reader.cpp
@@ -381,6 +388,8 @@ install_client_nonDR_header(drmemtrace common/archive_istream.h)
 install_client_nonDR_header(drmemtrace common/archive_ostream.h)
 install_client_nonDR_header(drmemtrace common/mutex_dbg_owned.h)
 install_client_nonDR_header(drmemtrace reader/reader.h)
+install_client_nonDR_header(drmemtrace reader/file_reader.h)
+install_client_nonDR_header(drmemtrace reader/reader_base.h)
 install_client_nonDR_header(drmemtrace reader/record_file_reader.h)
 install_client_nonDR_header(drmemtrace analysis_tool.h)
 install_client_nonDR_header(drmemtrace analyzer.h)
@@ -569,6 +578,9 @@ macro(add_drmemtrace name type static_DR no_main)
   use_DynamoRIO_extension(${name} drbbdup${ext_sfx})
   if (BUILD_PT_TRACER)
     use_DynamoRIO_extension(${name} drpttracer${ext_sfx})
+  endif ()
+  if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL)
+    use_DynamoRIO_extension(${name} drsyscall_record_lib${ext_sfx})
   endif ()
   if (libsnappy)
     target_link_libraries(${name} snappy)
@@ -1325,6 +1337,15 @@ if (BUILD_TESTS)
            COMMAND drmemtrace_shared_raw2trace_tests)
   set_tests_properties(drmemtrace_shared_raw2trace_tests PROPERTIES
     TIMEOUT ${test_seconds})
+
+  if (X86 AND X64 AND LINUX)
+    add_executable(tool.drcacheoff.longblock tests/burst_longblock.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.longblock)
+    use_DynamoRIO_static_client(tool.drcacheoff.longblock drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.longblock test_helpers)
+    add_win32_flags(tool.drcacheoff.longblock ON)
+    link_with_pthread(tool.drcacheoff.longblock)
+  endif ()
 endif ()
 
 ##################################################

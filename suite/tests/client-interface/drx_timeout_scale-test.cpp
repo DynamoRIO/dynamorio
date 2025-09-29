@@ -52,6 +52,7 @@
 #include "../../core/unix/include/syscall.h"
 
 #include <assert.h>
+#include <limits.h>
 #include <linux/futex.h>
 #include <math.h>
 #include <pthread.h>
@@ -65,6 +66,8 @@
 #include <cstdint>
 #include <iostream>
 #include <thread>
+
+static constexpr ptr_uint_t PRE_DETACH_USER_DATA = 0x12345678;
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -87,6 +90,7 @@ static pthread_cond_t condvar;
 static bool child_ready;
 static pthread_mutex_t lock;
 static std::atomic<bool> child_should_exit;
+static bool pre_detach_ran;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -94,9 +98,43 @@ my_setenv(const char *var, const char *value)
     return setenv(var, value, 1 /*override*/) == 0;
 }
 
+static void
+test_overflow()
+{
+    // Test large timeout values that will overflow if scaled.
+    // We use a mismatched value to avoid actually waiting that long
+    // and ensure the scaling doesn't create an invalid timeout.
+    constexpr int FUTEX_VAL = 0xabcd;
+    int32_t mismatch_var = FUTEX_VAL + 1;
+
+    constexpr int MAX_TV_NSEC = 1000000000ULL;
+    struct timespec timeout;
+    timeout.tv_sec = IF_X64_ELSE(INT64_MAX, INT_MAX) / 10;
+    timeout.tv_nsec = MAX_TV_NSEC - 1;
+
+    // Test a too-large relative timeout.
+    int res = syscall(SYS_futex, &mismatch_var, FUTEX_WAIT, FUTEX_VAL, &timeout,
+                      /*uaddr2=*/nullptr, /*val3=*/0);
+    // A timeout overflow will return EINVAL so make sure we see EAGAIN (from
+    // the futex val not matching the target) instead.
+    assert(res != 0 && errno == EAGAIN);
+
+    // Test a too-large absolute timeout.
+    res = syscall(SYS_futex, &mismatch_var, FUTEX_WAIT_BITSET | FUTEX_CLOCK_REALTIME,
+                  FUTEX_VAL, &timeout, /*uaddr2=*/nullptr, FUTEX_BITSET_MATCH_ANY);
+    assert(res != 0 && errno == EAGAIN);
+    // Test a not-too-large absolute but too-large-diff absolute timeout.
+    timeout.tv_sec = IF_X64_ELSE(INT64_MAX, INT_MAX) / MAX_TV_NSEC / 2;
+    res = syscall(SYS_futex, &mismatch_var, FUTEX_WAIT_BITSET | FUTEX_CLOCK_REALTIME,
+                  FUTEX_VAL, &timeout, /*uaddr2=*/nullptr, FUTEX_BITSET_MATCH_ANY);
+    assert(res != 0 && errno == EAGAIN);
+}
+
 static int64_t
 perform_futexes()
 {
+    test_overflow();
+
     // We perform a futex that will always time out as our value never changes.
     int64_t futex_count = 0;
     constexpr int FUTEX_VAL = 0xabcd;
@@ -268,6 +306,13 @@ do_some_work(drx_time_scale_type_t optype)
 }
 
 static void
+event_pre_detach(void *user_data)
+{
+    pre_detach_ran = true;
+    assert(reinterpret_cast<ptr_uint_t>(user_data) == PRE_DETACH_USER_DATA);
+}
+
+static void
 event_exit(void *user_data)
 {
     auto cur_optype =
@@ -283,12 +328,27 @@ event_exit(void *user_data)
                    stats[i].count_zero_to_nonzero);
     }
     assert(stats[cur_optype].count_attempted > 0);
-    assert(stats[cur_optype].count_attempted >=
-           stats[cur_optype].count_failed + stats[cur_optype].count_nop);
+    assert(stats[cur_optype].count_attempted >= stats[cur_optype].count_failed +
+               stats[cur_optype].count_nop + stats[cur_optype].count_time_too_large);
     assert(stats[cur_optype].count_failed == 0);
+    if (cur_optype == DRX_SCALE_FUTEX) {
+        // We passed in too-large-to-scale values: 3 if scaling, 1 if not, for
+        // 64-bit; 1 and 0 for 32-bit..
+#ifdef X64
+        assert(stats[cur_optype].count_time_too_large == 1 ||
+               stats[cur_optype].count_time_too_large == 3);
+#else
+        assert(stats[cur_optype].count_time_too_large == 1 ||
+               stats[cur_optype].count_time_too_large == 0);
+#endif
+    } else {
+        assert(stats[cur_optype].count_time_too_large == 0);
+    }
     // Either scale was 1 and everything is a nop, or if scaling then our 0-duration
     // futex should have become non-0.
-    assert(stats[cur_optype].count_nop == stats[cur_optype].count_attempted ||
+    assert(stats[cur_optype].count_nop ==
+               (stats[cur_optype].count_attempted - stats[cur_optype].count_failed -
+                stats[cur_optype].count_time_too_large) ||
            stats[cur_optype].count_nop == 0);
     if (cur_optype == DRX_SCALE_FUTEX) {
         assert(stats[cur_optype].count_zero_to_nonzero > 0);
@@ -298,8 +358,15 @@ event_exit(void *user_data)
     } else
         assert(false);
 
+    assert(pre_detach_ran);
+
     ok = drx_unregister_time_scaling();
     assert(ok);
+    ok = drmgr_unregister_exit_event_user_data(event_exit);
+    assert(ok);
+    ok = drmgr_unregister_pre_detach_event_user_data(event_pre_detach);
+    assert(ok);
+
     drx_exit();
     drmgr_exit();
     dr_fprintf(STDERR, "client done\n");
@@ -362,6 +429,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                              reinterpret_cast<void *>(optype));
     assert(ok);
     ok = drx_init();
+    assert(ok);
+
+    // We sanity-test the drmgr pre-detach user data here as this is one
+    // of the few tests that does a detach and uses drmgr.
+    ok = drmgr_register_pre_detach_event_user_data(
+        dynamorio::drmemtrace::event_pre_detach, nullptr,
+        reinterpret_cast<void *>(PRE_DETACH_USER_DATA));
     assert(ok);
 
     drx_time_scale_t scale = {

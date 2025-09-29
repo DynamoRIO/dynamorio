@@ -571,6 +571,9 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   if (EXISTS "${PROJECT_SOURCE_DIR}/.git")
     find_program(GIT git DOC "git client")
     if (GIT)
+      # Avoid local git configs that change the log format, as we're about to
+      # parse it as text.
+      set(ENV{GIT_CONFIG_GLOBAL} /dev/null)
       # We want the committer date (not author date) (xref i#1565).  We request UNIX
       # timestamp format and then divide down to days to get a small enough number
       # for the Windows resource limits.
@@ -1334,6 +1337,14 @@ if (LINUX AND X86 AND X64)
 else (LINUX AND X86 AND X64)
   message(STATUS "PT related libraries only supported on Linux x86_64")
 endif (LINUX AND X86 AND X64)
+
+set(BUILD_DRMEMTRACE_WITH_DR_SYSCALL OFF)
+# TODO i#7399: Add Android, MUSL, RISCV64, and Windows support to DrSyscall.
+# TODO i#5383: Add macOS ARM64 support to DrSyscall.
+if (LINUX AND (X86 OR (AARCH64 AND NOT APPLE)) AND NOT MUSL AND NOT ANDROID)
+  set(BUILD_DRMEMTRACE_WITH_DR_SYSCALL ON)
+  add_definitions(-DBUILD_DRMEMTRACE_WITH_DR_SYSCALL)
+endif ()
 
 ###########################################################################
 

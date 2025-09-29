@@ -59,10 +59,6 @@ namespace drmemtrace {
 #define INVALID_THREAD_ID 0
 // We avoid collisions with DR's INVALID_PROCESS_ID by using our own name.
 #define INVALID_PID -1
-// A separate sentinel for an idle core with no software thread.
-// XXX i#6703: Export this in scheduler.h as part of its API when we have
-// the scheduler insert synthetic headers.
-#define IDLE_THREAD_ID -1
 
 // XXX: perhaps we should use a C++-ish stream approach instead
 // This cannot be named ERROR as that conflicts with Windows headers.

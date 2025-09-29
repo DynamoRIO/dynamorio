@@ -119,6 +119,13 @@ typedef struct {
     /* For syscall kernel trace. */
     syscall_pt_trace_t syscall_pt_trace;
 #endif
+#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
+    /* For syscall records. */
+#    define SYSCALL_RECORD_BUFFER_SIZE 1024
+    file_t syscall_record_file = INVALID_FILE;
+    ssize_t syscall_record_buffer_offset = 0;
+    char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
+#endif
 } per_thread_t;
 
 /* Allocated TLS slot offsets */
