@@ -365,8 +365,8 @@ typedef struct _kernel_sigcontext_t {
  * *_MAGIC constants, see below. The null terminator's magic number is 0.
  */
 struct _aarch64_ctx {
-    __u32 magic;
-    __u32 size;
+    __u32 magic; /* Magic number indicating the struct type. */
+    __u32 size;  /* Size of the context struct (including this header). */
 };
 
 #        define FPSIMD_MAGIC 0x46508001
