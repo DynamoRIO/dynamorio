@@ -292,6 +292,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     size_t offset = 0;
     struct _aarch64_ctx *next_head = GET_RECORD_AT_OFFSET(offset);
 
+    /* Make sure sc_full->fp_simd_state is not NULL. */
     if (next_head == NULL) {
         return;
     }
