@@ -30,6 +30,11 @@
  * DAMAGE.
  */
 
+/*
+ * Tests Linux brk emulation functionality. Verifies proper handling of heap
+ * expansion and contraction by performing a series of incremental and
+ * decremental adjustments to the program break.
+ */
 #include <iostream>
 #include <unistd.h>
 
