@@ -1906,6 +1906,12 @@ DR_API
  * - \%x: Matches an unsigned hexadecimal integer, with or without a leading 0x.
  * - \%p: Matches a pointer-sized hexadecimal integer as %x does.
  * - \%%: Matches a literal % character.  Does not store output.
+ * - \%[..]: Matches characters in the set within the brackets, or all other
+ *   characters if the first character after the open bracket is ^.
+ *   To include a close bracket in the set, make it the first set character.
+ *   A range of characters can be specified with a hyphen.
+ *   The result is copied into the provided output string buffer.
+ *   To avoid buffer overflow, the caller should use a width specifier.
  *
  * Supported format modifiers:
  * - *: The * modifier causes the scan to match the specifier, but not store any
