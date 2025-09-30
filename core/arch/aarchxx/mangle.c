@@ -57,18 +57,10 @@ pick_scratch_reg(dcontext_t *dcontext, instr_t *instr, reg_id_t do_not_pick_a,
  * Thus we use instr_create_{save_to,restore_from}_tls() directly.
  */
 
-#ifdef AARCH64
-/* Used in aarch64.asm. */
-icache_op_struct_t icache_op_struct;
-#endif
-
 void
 mangle_arch_init(void)
 {
-#ifdef AARCH64
-    /* Check address of "lock" is unaligned. See comment in icache_op_struct_t. */
-    ASSERT(!ALIGNED(&icache_op_struct.lock, 16));
-#endif
+    /* Nothing yet. */
 }
 
 void
@@ -3064,46 +3056,6 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Remove original instruction. */
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);
-    } else if (opc == OP_isb) {
-        instr_t *label = INSTR_CREATE_label(dcontext);
-        instr = next_instr;
-        /* isb is followed by: */
-        PRE(ilist, instr, /* str x0, [x28] */
-            instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
-        insert_mov_immed_arch(dcontext, NULL, NULL, (ptr_int_t)&icache_op_struct.flag,
-                              opnd_create_reg(DR_REG_X0), ilist, instr, NULL, NULL);
-        PRE(ilist, instr, /* ldr w0, [x0] */
-            XINST_CREATE_load(
-                dcontext, opnd_create_reg(DR_REG_W0),
-                opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_4)));
-        PRE(ilist, instr, /* cbz ... */
-            INSTR_CREATE_cbz(dcontext, opnd_create_instr(label),
-                             opnd_create_reg(DR_REG_W0)));
-        PRE(ilist, instr, /* stp x1, x2, [x28, #8] */
-            INSTR_CREATE_stp(
-                dcontext,
-                opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 8, OPSZ_16),
-                opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
-#    ifdef DR_HOST_NOT_TARGET
-        /* We built all our asm code for the host, but here we need it for the target.
-         * We have to ifdef it out to separate.  Xref i#1684.
-         */
-        ASSERT_NOT_REACHED();
-#    else
-        insert_mov_immed_arch(dcontext, NULL, NULL, (ptr_int_t)icache_op_isb_asm,
-                              opnd_create_reg(DR_REG_X2), ilist, instr, NULL, NULL);
-#    endif
-        insert_mov_immed_arch(dcontext, NULL, NULL, (ptr_int_t)pc,
-                              opnd_create_reg(DR_REG_X1), ilist, instr, NULL, NULL);
-        PRE(ilist, instr, /* mov x0, x28 */
-            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
-                              opnd_create_reg(dr_reg_stolen)));
-        PRE(ilist, instr, /* br x2 */
-            INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X2)));
-        PRE(ilist, instr, label);
-        PRE(ilist, instr, /* ldr x0, [x28] */
-            instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
-        /* Leave original instruction. */
     } else
         ASSERT_NOT_REACHED();
     return next_instr;

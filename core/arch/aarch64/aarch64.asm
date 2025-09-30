@@ -68,7 +68,6 @@ DECL_EXTERN(d_r_internal_error)
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(d_r_initstack)
 DECL_EXTERN(initstack_mutex)
-DECL_EXTERN(icache_op_struct)
 DECL_EXTERN(linkstub_selfmod)
 
 /* bool mrs_id_reg_supported(void)
@@ -627,197 +626,55 @@ GLOBAL_LABEL(tlsdesc_resolver:)
         ret
 
 /* This function is called from the fragment cache when the original code had
- * IC IVAU, Xt. Typically it just records which cache lines have been invalidated
- * and sets icache_op_struct.flag. However, if non-contiguous cache lines have
- * been invalidated we branch to fcache_return instead of returning.
- * When we enter here:
+ * IC IVAU, Xt. When we enter here:
  *
  * X0 contains the pointer to spill_state_t.
- * X30 contains the return address in the fragment cache.
+ * X30 contains the return address in the fragment cache (no longer required).
  * TLS_REG0_SLOT contains app's X0.
  * TLS_REG1_SLOT contains app's X30.
  * TLS_REG2_SLOT contains the argument of "IC IVAU, Xt".
  * TLS_REG3_SLOT contains the original address of the instruction after the IC.
  *
- * If we return, the first two slots and all registers except X0 and X30 must
- * be preserved.
+ * When we branch to fcache_return:
  *
- * XXX: We do not correctly handle the case where the set of contiguous cache
- * lines covers the entire address space, so begin == end again, but that would
- * require more than 1e14 calls to this function even with the largest possible
- * icache line.
+ * X0 contains linkstub_selfmod.
+ * X1 contains fcache_return.
+ * TLS_REG0_SLOT contains app's X0.
+ * TLS_REG1_SLOT contains app's X1.
+ * TLS_REG2_SLOT contains begin of flushed region.
+ * TLS_REG3_SLOT contains end of flushed region.
+ * TLS_REG4_SLOT contains the original address of the instruction after the IC.
  */
         DECLARE_FUNC(icache_op_ic_ivau_asm)
 GLOBAL_LABEL(icache_op_ic_ivau_asm:)
-        /* Spill X1 and X2 to TLS_REG4_SLOT and TLS_REG5_SLOT. */
-        stp      x1, x2, [x0, #spill_state_t_OFFSET_r4]
-        /* Point X1 at icache_op_struct.lock. */
-        AARCH64_ADRP_GOT((GLOBAL_REF(icache_op_struct) + icache_op_struct_t_OFFSET_lock), x1)
-        /* Acquire lock. */
-        prfm     pstl1keep, [x1]
-1:
-        ldaxr    w2, [x1]
-        cbnz     w2, 1b
-        stxr     w2, w1, [x1] /* w1 is non-zero! */
-        cbnz     w2, 1b
-        /* Point X1 at iccache_op_struct. */
-        sub      x1, x1, #icache_op_struct_t_OFFSET_lock
-        /* Spill X3 and X4 to icache_op_struct.spill. */
-        stp      x3, x4, [x1, #icache_op_struct_t_OFFSET_spill]
-        /* Load size of icache line to X2. */
-        ldr      x2, [x1, #icache_op_struct_t_OFFSET_linesize]
-        cbz      x2, set_linesize
-linesize_set:
-        /* Align argument to cache line. */
-        ldr      x3, [x0, #spill_state_t_OFFSET_r2]
-        sub      x4, x2, #1
-        bic      x3, x3, x4
-        str      x3, [x0, #spill_state_t_OFFSET_r2]
-        /* Is (begin == end)? */
-        ldp      x3, x4, [x1, #icache_op_struct_t_OFFSET_begin]
-        eor      x3, x3, x4
-        cbnz     x3, 2f
-        /* Yes, so set begin, end, flag, and return. */
-        ldr      x3, [x0, #spill_state_t_OFFSET_r2]
-        add      x4, x3, x2
-        stp      x3, x4, [x1, #icache_op_struct_t_OFFSET_begin]
-        mov      w3, #1
-        str      w3, [x1, #icache_op_struct_t_OFFSET_flag]
-        b        ic_ivau_return
-2:
-        /* Is (argument == end)? */
-        ldr      x3, [x0, #spill_state_t_OFFSET_r2]
-        ldr      x4, [x1, #(icache_op_struct_t_OFFSET_begin + 8)]
-        eor      x4, x3, x4
-        cbnz     x4, 3f
-        /* Yes, so increment end by linesize, and return. */
-        add      x3, x3, x2
-        str      x3, [x1, #(icache_op_struct_t_OFFSET_begin + 8)]
-        b        ic_ivau_return
-3:
-        /* Is (argument == begin - linesize)? */
-        ldr      x4, [x1, #icache_op_struct_t_OFFSET_begin]
-        sub      x4, x4, x2
-        eor      x4, x3, x4
-        cbnz     x4, 4f
-        /* Yes, so decrement begin by linesize, and return. */
-        str      x3, [x1, #icache_op_struct_t_OFFSET_begin]
-        b        ic_ivau_return
-4:
-        /* Is argument in the range from begin to end? */
-        ldp      x2, x4, [x1, #icache_op_struct_t_OFFSET_begin]
-        sub      x3, x3, x2 /* (argument - begin) */
-        sub      x4, x4, x2 /* (end - begin) */
-        lsr      x3, x3, #1
-        sub      x3, x3, x4, lsr #1 /* ((argument - begin) / 2 - (end - begin) / 2) */
-        tbz      x3, #63, 5f
-        /* Yes, so just return. */
-ic_ivau_return:
-        /* Restore X3 and X4 from icache_op_struct.spill. */
-        ldp      x3, x4, [x1, #icache_op_struct_t_OFFSET_spill]
-        /* Point X1 at icache_op_struct_lock. */
-        add      x1, x1, #icache_op_struct_t_OFFSET_lock
-        /* Release lock. */
-        stlr     wzr, [x1]
-        /* Restore X1 and X2 from TLS_REG4_SLOT and TLS_REG5_SLOT. */
-        ldp      x1, x2, [x0, #spill_state_t_OFFSET_r4]
-        /* Return to fragment cache. */
-        ret
-5:
-        /* The new cache line is not contiguous with the previous set. */
-        /* Restore X30 from TLS_REG1_SLOT. */
-        ldr      x30, [x0, #spill_state_t_OFFSET_r1]
-        /* Move PC and X1 from slots 3 and 4 to slots 4 and 1. */
-        ldp      x3, x4, [x0, #spill_state_t_OFFSET_r3]
-        str      x3, [x0, #spill_state_t_OFFSET_r4]
-        str      x4, [x0, #spill_state_t_OFFSET_r1]
-        /* Load argument from TLS_REG2_SLOT to X2. */
-        ldr      x2, [x0, #spill_state_t_OFFSET_r2]
-        /* Save (begin, end) to TLS_REG_SLOT2 and TLS_REG_SLOT3. */
-        ldp      x3, x4, [x1, #icache_op_struct_t_OFFSET_begin]
-        stp      x3, x4, [x0, #spill_state_t_OFFSET_r2]
-        /* Set icache_op_struct. */
-        ldr      x4, [x1, #icache_op_struct_t_OFFSET_linesize]
-        add      x3, x2, x4
-        stp      x2, x3, [x1, #icache_op_struct_t_OFFSET_begin]
-        /* Restore X2 from TLS_REG5_SLOT. */
-        ldr      x2, [x0, #spill_state_t_OFFSET_r5]
-        /* Restore X3 and X4 from icache_op_struct.spill. */
-        ldp      x3, x4, [x1, #icache_op_struct_t_OFFSET_spill]
-        /* Release lock. */
-        add      x1, x1, #icache_op_struct_t_OFFSET_lock
-        stlr     wzr, [x1]
-        /* Load fcache_return into X1. */
-        ldr      x1, [x0, #spill_state_t_OFFSET_fcache_return]
-        /* Point X0 at fake linkstub. */
-        AARCH64_ADRP_GOT(GLOBAL_REF(linkstub_selfmod), x0)
-        /* Branch to fcache_return. */
-        br       x1
-
-set_linesize:
-        mrs      x3, ctr_el0
-        and      w3, w3, #15
+        /* Copy app's PC and X2 to slots 4 and 5. */
+        ldr      x30, [x0, #spill_state_t_OFFSET_r3]
+        stp      x30, x2, [x0, #spill_state_t_OFFSET_r4]
+        /* Compute icache line size in X30. */
+        mrs      x30, ctr_el0
+        and      x30, x30, #15
         mov      x2, #4
-        lsl      x2, x2, x3
-        str      x2, [x1, #icache_op_struct_t_OFFSET_linesize]
-        b        linesize_set
-
-        END_FUNC(icache_op_ic_ivau_asm)
-
-/* This code is branched to from the fragment cache when the original code had
- * ISB and icache_op_struct.flag was found to be set. We must reset icache_op_struct,
- * then branch to fcache_return, where we will call flush_fragments_from_region.
- * When we enter here:
- *
- * X0 contains the pointer to spill_state_t.
- * X1 contains the original address of the instruction after the ISB.
- * X2 is corrupted.
- * TLS_REG0_SLOT contains app's X0.
- * TLS_REG1_SLOT contains app's X1.
- * TLS_REG2_SLOT contains app's X2.
- */
-        DECLARE_FUNC(icache_op_isb_asm)
-GLOBAL_LABEL(icache_op_isb_asm:)
-        /* Save PC to TLS_REG4_SLOT, and move X2 to TLS_REG5_SLOT. */
+        lsl      x30, x2, x30
+        /* Compute "begin" of region to be flushed in X2. */
         ldr      x2, [x0, #spill_state_t_OFFSET_r2]
-        stp      x1, x2, [x0, #spill_state_t_OFFSET_r4]
-        /* Point X1 at icache_op_struct.lock. */
-        AARCH64_ADRP_GOT((GLOBAL_REF(icache_op_struct) + icache_op_struct_t_OFFSET_lock), x1)
-        /* Acquire lock. */
-        prfm     pstl1keep, [x1]
-1:
-        ldaxr    w2, [x1]
-        cbnz     w2, 1b
-        stxr     w2, w1, [x1] /* w2 is non-zero! */
-        cbnz     w2, 1b
-        /* Point X1 at icache_op_struct. */
-        sub      x1, x1, #icache_op_struct_t_OFFSET_lock
-        /* Release lock and return if icache_op_struct.flag was reset
-         * before we acquired the lock.
-         */
-        ldr      w2, [x1, #icache_op_struct_t_OFFSET_flag]
-        cbz      w2, 2f
-        /* Save (begin, end) to TLS_REG_SLOT2 and TLS_REG_SLOT3. */
-        ldr      x2, [x1, #icache_op_struct_t_OFFSET_begin]
-        str      x2, [x0, #spill_state_t_OFFSET_r2]
-        ldr      x2, [x1, #icache_op_struct_t_OFFSET_end]
-        str      x2, [x0, #spill_state_t_OFFSET_r3]
-        /* Reset icache_op_struct. */
-        str      wzr, [x1, #icache_op_struct_t_OFFSET_flag]
-        stp      xzr, xzr, [x1, #icache_op_struct_t_OFFSET_begin]
-2:
-        /* Point X1 at icache_op_struct.lock. */
-        add      x1, x1, #4
-        /* Release lock. */
-        stlr     wzr, [x1]
-        /* Restore X2 from TLS_REG5_SLOT. */
+        sub      x30, x30, #1
+        bic      x2, x2, x30
+        /* Compute "end" of region to be flushed in X30. */
+        add      x30, x2, x30
+        add      x30, x30, #1
+        /* Write "begin" and "end" to slots 2 and 3. */
+        stp      x2, x30, [x0, #spill_state_t_OFFSET_r2]
+        /* Restore app's X30 and X2. */
+        ldr      x30, [x0, #spill_state_t_OFFSET_r1]
         ldr      x2, [x0, #spill_state_t_OFFSET_r5]
+        /* Store app's X1 to slot 1. */
+        str      x1, [x0, #spill_state_t_OFFSET_r1]
         /* Load fcache_return into X1. */
         ldr      x1, [x0, #spill_state_t_OFFSET_fcache_return]
         /* Point X0 at fake linkstub. */
         AARCH64_ADRP_GOT(GLOBAL_REF(linkstub_selfmod), x0)
         /* Branch to fcache_return. */
         br       x1
-        END_FUNC(icache_op_isb_asm)
+        END_FUNC(icache_op_ic_ivau_asm)
 
 END_FILE
