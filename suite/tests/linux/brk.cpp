@@ -48,8 +48,27 @@ main(int argc, const char *argv[])
     char *current_program_break = reinterpret_cast<char *>(sbrk(0));
     std::cerr << "current program break 0x" << std::hex
               << reinterpret_cast<intptr_t>(current_program_break) << "\n";
+    /*
+     * Verify attempt to shrink below the original heap base returns the current
+     * program break.
+     */
+    if (brk(current_program_break - DEFAULT_HEAP_SIZE) != 0) {
+        std::cerr << "brk(0x"
+                  << reinterpret_cast<intptr_t>(current_program_break - DEFAULT_HEAP_SIZE)
+                  << ") failed\n";
+        return 1;
+    }
+    char *temp_program_break = static_cast<char *>(sbrk(0));
+    std::cerr << "decremented program break by -0x" << DEFAULT_HEAP_SIZE
+              << ", new program break 0x"
+              << reinterpret_cast<intptr_t>(temp_program_break) << "\n";
+    if (temp_program_break != current_program_break) {
+        std::cerr << "decrement program break by 0x" << DEFAULT_HEAP_SIZE
+                  << " changed the program break to 0x" << temp_program_break << "\n";
+        return 1;
+    }
     for (intptr_t increment : program_break_increments) {
-        if (brk(static_cast<char *>(current_program_break + increment)) != 0) {
+        if (brk(current_program_break + increment) != 0) {
             std::cerr << "brk(0x"
                       << reinterpret_cast<intptr_t>(current_program_break + increment)
                       << ") failed to increment program break by 0x" << increment << "\n";
