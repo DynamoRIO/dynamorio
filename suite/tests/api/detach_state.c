@@ -336,7 +336,7 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
      * AARCH64
      */
 
-    if (gpr_check_mask & 1 != 0) {
+    if ((gpr_check_mask & 1) != 0) {
         /* Unfortunately, since it's RISC, we have to use x0 in the asm loop.
          * Its value could be either 0x1 or &sideline_exit.
          */
