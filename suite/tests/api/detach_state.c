@@ -1478,7 +1478,7 @@ ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
 
 /* Clean a single cache line covering the address in addr_reg.
  * We can't call tool_clear_icache() because that would disturb the register state
- * and interfere with the test. Instead we need to use this sequence if instructions
+ * and interfere with the test. Instead we need to use this sequence of instructions
  * from Arm ARM B2.7.4.2:
  */
 #define CLEAN_CACHE_LINE(addr_reg) \
