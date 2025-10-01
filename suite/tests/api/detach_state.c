@@ -1487,7 +1487,7 @@ LOCAL_LABEL(retaddr): @N@\
 ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
 
 /* Define two versions of the SELFMOD macros which use disjoint registers.
- * This allows us to create two versions of thread_check_gprs_from_DR() which use clobber
+ * This allows us to create two versions of thread_check_gprs_from_DR() which clobber
  * different registers so between them get get coverage of all registers.
  */
 #define SELFMOD_INIT1 SELFMOD_INIT(eax)
