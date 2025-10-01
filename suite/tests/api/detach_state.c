@@ -1716,7 +1716,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SELFMOD_INIT1
 check_status_reg_from_DR_spin:
         SELFMOD1
-        CHECK_SIDELINE_EXIT_WITHOUT_USING_FLAGS(check_status_reg_from_cache_spin)
+        CHECK_SIDELINE_EXIT_WITHOUT_USING_FLAGS(check_status_reg_from_DR_spin)
         PUSH_STATUS_REG
         mov      REG_SCRATCH0, REG_SP
         CALLC1(GLOBAL_REF(check_status_reg), REG_SCRATCH0)
