@@ -1488,8 +1488,15 @@ LOCAL_LABEL(retaddr): @N@\
 #define SELFMOD_INIT(reg) \
         mov      reg, HEX(0)
 
+/* This macro is used in multiple test functions which need different CPU state to be
+ * preserved. We need to minimize the state we modify in order to make it widely
+ * applicable. In particular:
+ * - Minimize the number of registers used
+ * - Avoid any instructions which modify CPU flags.
+ */
 #define SELFMOD(counter_reg, addr_reg) \
-        inc      counter_reg @N@\
+        /* Increment counter without modifying the flags. */ @N@\
+        lea      counter_reg, [1 + counter_reg] @N@\
         lea      addr_reg, SYMREF(LOCAL_LABEL(immed_plus_four) - 4) @N@\
         mov      DWORD [addr_reg], counter_reg /* selfmod write */ @N@\
         mov      addr_reg, HEX(0)              /* mov_imm to modify */ @N@\
@@ -1532,7 +1539,13 @@ ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
         movz reg, @P@scratch_reg_num @N@\
         movk reg, @P@0x5280, lsl @P@16
 
-/* Self-modifying code that increments the immediate field in a movz instruction. */
+/* Self-modifying code that increments the immediate field in a movz instruction.
+ * This macro is used in multiple test functions which need different CPU state to be
+ * preserved. We need to minimize the state we modify in order to make it widely
+ * applicable. In particular:
+ * - Minimize the number of registers used
+ * - Avoid any instructions which modify CPU flags.
+ */
 #define SELFMOD(counter_reg, addr_reg, scratch_reg32) \
         /* Extract the immedate field from the instr. */ @N@\
         ubfx     scratch_reg32, counter_reg, @P@5, @P@16 @N@\
