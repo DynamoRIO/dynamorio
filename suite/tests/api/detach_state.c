@@ -1488,7 +1488,7 @@ ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
 
 /* Define two versions of the SELFMOD macros which use disjoint registers.
  * This allows us to create two versions of thread_check_gprs_from_DR() which clobber
- * different registers so between them get get coverage of all registers.
+ * different registers so between them they achieve coverage of all registers.
  */
 #define SELFMOD_INIT1 SELFMOD_INIT(eax)
 #define SELFMOD1 SELFMOD(eax, REG_XDX)
@@ -1539,8 +1539,8 @@ ADDRTAKEN_LABEL(LOCAL_LABEL(instr_to_modify:)) @N@\
         movz     scratch_reg32, @P@0          /* This instruction is modified. */
 
 /* Define two versions of the SELFMOD macros which use disjoint registers.
- * This allows us to create two versions of thread_check_gprs_from_DR() which use clobber
- * different registers so between them get get coverage of all registers.
+ * This allows us to create two versions of thread_check_gprs_from_DR() which clobber
+ * different registers so between them they achieve coverage of all registers.
  */
 #define SELFMOD_INIT1 SELFMOD_INIT(w2, 0)
 #define SELFMOD1 SELFMOD(w2, x0, w0)
