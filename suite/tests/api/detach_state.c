@@ -1525,11 +1525,15 @@ ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
 
 /* Self-modifying code that increments the immediate field in a movz instruction. */
 #define SELFMOD(counter_reg, addr_reg, scratch_reg32) \
-        ubfx     scratch_reg32, counter_reg, @P@5, @P@16 /* Extract the immedate field from the instr. */ @N@\
-        add      scratch_reg32, scratch_reg32, @P@1      /* Increment the immediate value. */ @N@\
-        bfi      counter_reg, scratch_reg32, @P@5, @P@16 /* Put the modified immed value back in. */ @N@\
+        /* Extract the immedate field from the instr. */ @N@\
+        ubfx     scratch_reg32, counter_reg, @P@5, @P@16 @N@\
+        /* Increment the immediate value. */ @N@\
+        add      scratch_reg32, scratch_reg32, @P@1 @N@\
+        /* Put the modified immed value back in. */ @N@\
+        bfi      counter_reg, scratch_reg32, @P@5, @P@16 @N@\
         adr      addr_reg, GLOBAL_REF(LOCAL_LABEL(instr_to_modify)) @N@\
-        str      counter_reg, [addr_reg]                 /* And write the instruction back to memory. */ @N@\
+        /* And write the instruction back to memory. */ @N@\
+        str      counter_reg, [addr_reg] @N@\
         CLEAN_CACHE_LINE(addr_reg) @N@\
 ADDRTAKEN_LABEL(LOCAL_LABEL(instr_to_modify:)) @N@\
         movz     scratch_reg32, @P@0          /* This instruction is modified. */
