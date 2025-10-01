@@ -310,10 +310,10 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
                          MAKE_HEX_C(XMM0_HIGH_BASE()) << i);
     }
 #        endif
-#        define CHECK_GPR(name, num, reference_value)                     \
-            do {                                                          \
-                if (TEST(1 << (num), gpr_check_mask))                     \
-                    check_gpr_value(name, *(xsp + num), reference_value); \
+#        define CHECK_GPR(name, num, reference_value)                       \
+            do {                                                            \
+                if (TEST(1 << (num), gpr_check_mask))                       \
+                    check_gpr_value(name, *(xsp + (num)), reference_value); \
             } while (0)
     CHECK_GPR("r15", 15, MAKE_HEX_C(R15_BASE()));
     CHECK_GPR("r14", 14, MAKE_HEX_C(R14_BASE()));
@@ -342,10 +342,10 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
          */
         check_gpr_value_with_alt("x0", *(xsp + 0), 0x1, (ptr_uint_t)&sideline_exit);
     }
-#        define CHECK_GPR(name, num, reference_value)                     \
-            do {                                                          \
-                if (TEST(1 << (num), gpr_check_mask))                     \
-                    check_gpr_value(name, *(xsp + num), reference_value); \
+#        define CHECK_GPR(name, num, reference_value)                       \
+            do {                                                            \
+                if (TEST(1 << (num), gpr_check_mask))                       \
+                    check_gpr_value(name, *(xsp + (num)), reference_value); \
             } while (0)
     CHECK_GPR("x1", 1, MAKE_HEX_C(X1_BASE()));
     CHECK_GPR("x2", 2, MAKE_HEX_C(X2_BASE()));
