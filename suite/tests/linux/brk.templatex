@@ -1,0 +1,4 @@
+current program break 0x[0-9a-f]+
+decremented program break by -0x400000, new program break 0x[0-9a-f]+
+(incremented program break by -?0x[0-9a-f]+, new program break 0x[0-9a-f]+
+)+all done

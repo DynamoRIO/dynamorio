@@ -6063,6 +6063,10 @@ if (UNIX)
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
   endif ()
+  # Test Linux brk emulation.
+  if (LINUX)
+    tobuild(linux.brk linux/brk.cpp)
+  endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
   add_exe(win32.attachee win32/attachee.c)

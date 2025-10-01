@@ -1,0 +1,97 @@
+/* **********************************************************
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/*
+ * Tests Linux brk emulation functionality. Verifies proper handling of heap
+ * expansion and contraction by performing a series of incremental and
+ * decremental adjustments to the program break.
+ */
+#include <iostream>
+#include <unistd.h>
+
+/*
+ * BRK_INITIAL_SIZE is the initial heap size used by init_emulated_brk() (core/unix/os.c).
+ */
+#define BRK_INITIAL_SIZE 4 * 1024 * 1024
+
+const intptr_t program_break_increments[] = {
+    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, BRK_INITIAL_SIZE / 2,
+    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, BRK_INITIAL_SIZE / 2,
+    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, 0x10000,
+    0x10000, 0x10000
+};
+
+int
+main(int argc, const char *argv[])
+{
+    char *current_program_break = reinterpret_cast<char *>(sbrk(0));
+    std::cerr << "current program break 0x" << std::hex
+              << reinterpret_cast<intptr_t>(current_program_break) << "\n";
+    /*
+     * Verify attempt to shrink below the original heap base returns the current
+     * program break.
+     */
+    if (brk(current_program_break - BRK_INITIAL_SIZE) != 0) {
+        std::cerr << "brk(0x"
+                  << reinterpret_cast<intptr_t>(current_program_break - BRK_INITIAL_SIZE)
+                  << ") failed\n";
+        return 1;
+    }
+    char *temp_program_break = static_cast<char *>(sbrk(0));
+    std::cerr << "decremented program break by -0x" << BRK_INITIAL_SIZE
+              << ", new program break 0x"
+              << reinterpret_cast<intptr_t>(temp_program_break) << "\n";
+    if (temp_program_break != current_program_break) {
+        std::cerr << "decrement program break by 0x" << BRK_INITIAL_SIZE
+                  << " changed the program break to 0x" << temp_program_break << "\n";
+        return 1;
+    }
+    for (intptr_t increment : program_break_increments) {
+        if (brk(current_program_break + increment) != 0) {
+            std::cerr << "brk(0x"
+                      << reinterpret_cast<intptr_t>(current_program_break + increment)
+                      << ") failed to increment program break by 0x" << increment << "\n";
+            return 1;
+        }
+        char *new_program_break = static_cast<char *>(sbrk(0));
+        std::cerr << "incremented program break by " << (increment > 0 ? "0x" : "-0x")
+                  << (increment > 0 ? increment : -increment) << ", new program break 0x"
+                  << reinterpret_cast<intptr_t>(new_program_break) << "\n";
+        if (new_program_break != current_program_break + increment) {
+            std::cerr << "brk failed to increment program break\n";
+            return 1;
+        }
+        current_program_break = new_program_break;
+    }
+    std::cerr << "all done\n";
+    return 0;
+}
