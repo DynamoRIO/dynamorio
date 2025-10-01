@@ -38,11 +38,14 @@
 #include <iostream>
 #include <unistd.h>
 
-#define DEFAULT_HEAP_SIZE 0x400000
+/*
+ * BRK_INITIAL_SIZE is the initial heap size used by init_emulated_brk() (core/unix/os.c).
+ */
+#define BRK_INITIAL_SIZE 4 * 1024 * 1024
 
 const intptr_t program_break_increments[] = {
-    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, DEFAULT_HEAP_SIZE / 2,
-    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, DEFAULT_HEAP_SIZE / 2,
+    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, BRK_INITIAL_SIZE / 2,
+    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, BRK_INITIAL_SIZE / 2,
     0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, 0x10000,
     0x10000, 0x10000
 };
@@ -57,18 +60,18 @@ main(int argc, const char *argv[])
      * Verify attempt to shrink below the original heap base returns the current
      * program break.
      */
-    if (brk(current_program_break - DEFAULT_HEAP_SIZE) != 0) {
+    if (brk(current_program_break - BRK_INITIAL_SIZE) != 0) {
         std::cerr << "brk(0x"
-                  << reinterpret_cast<intptr_t>(current_program_break - DEFAULT_HEAP_SIZE)
+                  << reinterpret_cast<intptr_t>(current_program_break - BRK_INITIAL_SIZE)
                   << ") failed\n";
         return 1;
     }
     char *temp_program_break = static_cast<char *>(sbrk(0));
-    std::cerr << "decremented program break by -0x" << DEFAULT_HEAP_SIZE
+    std::cerr << "decremented program break by -0x" << BRK_INITIAL_SIZE
               << ", new program break 0x"
               << reinterpret_cast<intptr_t>(temp_program_break) << "\n";
     if (temp_program_break != current_program_break) {
-        std::cerr << "decrement program break by 0x" << DEFAULT_HEAP_SIZE
+        std::cerr << "decrement program break by 0x" << BRK_INITIAL_SIZE
                   << " changed the program break to 0x" << temp_program_break << "\n";
         return 1;
     }

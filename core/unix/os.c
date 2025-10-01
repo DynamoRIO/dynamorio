@@ -3362,6 +3362,9 @@ init_emulated_brk(app_pc exe_end)
      * we need at least a page to have an mmap placeholder.  We also want to reserve
      * enough memory to avoid a client lib or other mmap truncating the brk at a
      * too-small size, which can crash the app (i#3982).
+     *
+     * If the value of BRK_INITIAL_SIZE is modified here, ensure the corresponding value
+     * in suite/tests/linux/brk.cpp is also updated to remain synchronized.
      */
 #    define BRK_INITIAL_SIZE 4 * 1024 * 1024
     app_brk_map = mmap_syscall(exe_end, BRK_INITIAL_SIZE, PROT_READ | PROT_WRITE,
