@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025 Arm Limited  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,7 +66,9 @@
 extern void
 thread_check_gprs_from_cache(void);
 extern void
-thread_check_gprs_from_DR(void);
+thread_check_gprs_from_DR1(void);
+extern void
+thread_check_gprs_from_DR2(void);
 extern void
 thread_check_eflags_from_cache(void);
 extern void
@@ -247,11 +250,13 @@ check_simd_value(const char *prefix, int idx,
     check_gpr_value(name, value, expect);
 }
 
-/* If selfmod is true, allows xax and xcx to not match (selfmod code had to
- * tweak them).
+/*
+ * Check the values of all SIMD and GPR restisters saved to the stack against reference
+ * values. Some tests clobber values of certain registers meaning those registers can't be
+ * checked. gpr_check_mask contains a mask indicating which GPRs should be checked.
  */
 void
-check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
+check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
 {
     int i;
 #    ifdef X86_64
@@ -305,61 +310,74 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
                          MAKE_HEX_C(XMM0_HIGH_BASE()) << i);
     }
 #        endif
-    check_gpr_value("r15", *(xsp + 15), MAKE_HEX_C(R15_BASE()));
-    check_gpr_value("r14", *(xsp + 14), MAKE_HEX_C(R14_BASE()));
-    check_gpr_value("r13", *(xsp + 13), MAKE_HEX_C(R13_BASE()));
-    check_gpr_value("r12", *(xsp + 12), MAKE_HEX_C(R12_BASE()));
-    check_gpr_value("r11", *(xsp + 11), MAKE_HEX_C(R11_BASE()));
-    check_gpr_value("r10", *(xsp + 10), MAKE_HEX_C(R10_BASE()));
-    check_gpr_value("r9", *(xsp + 9), MAKE_HEX_C(R9_BASE()));
-    check_gpr_value("r8", *(xsp + 8), MAKE_HEX_C(R8_BASE()));
-    if (!selfmod)
-        check_gpr_value("xax", *(xsp + 7), MAKE_HEX_C(XAX_BASE()));
-    check_gpr_value("xcx", *(xsp + 6), MAKE_HEX_C(XCX_BASE()));
-    if (!selfmod)
-        check_gpr_value("xdx", *(xsp + 5), MAKE_HEX_C(XDX_BASE()));
-    check_gpr_value("xbx", *(xsp + 4), MAKE_HEX_C(XBX_BASE()));
-    check_gpr_value("xbp", *(xsp + 2), MAKE_HEX_C(XBP_BASE()));
-    check_gpr_value("xsi", *(xsp + 1), MAKE_HEX_C(XSI_BASE()));
-    check_gpr_value("xdi", *(xsp + 0), MAKE_HEX_C(XDI_BASE()));
+#        define CHECK_GPR(name, num, reference_value)                       \
+            do {                                                            \
+                if (TEST(1 << (num), gpr_check_mask))                       \
+                    check_gpr_value(name, *(xsp + (num)), reference_value); \
+            } while (0)
+    CHECK_GPR("r15", 15, MAKE_HEX_C(R15_BASE()));
+    CHECK_GPR("r14", 14, MAKE_HEX_C(R14_BASE()));
+    CHECK_GPR("r13", 13, MAKE_HEX_C(R13_BASE()));
+    CHECK_GPR("r12", 12, MAKE_HEX_C(R12_BASE()));
+    CHECK_GPR("r11", 11, MAKE_HEX_C(R11_BASE()));
+    CHECK_GPR("r10", 10, MAKE_HEX_C(R10_BASE()));
+    CHECK_GPR("r9", 9, MAKE_HEX_C(R9_BASE()));
+    CHECK_GPR("r8", 8, MAKE_HEX_C(R8_BASE()));
+    CHECK_GPR("xax", 7, MAKE_HEX_C(XAX_BASE()));
+    CHECK_GPR("xcx", 6, MAKE_HEX_C(XCX_BASE()));
+    CHECK_GPR("xdx", 5, MAKE_HEX_C(XDX_BASE()));
+    CHECK_GPR("xbx", 4, MAKE_HEX_C(XBX_BASE()));
+    CHECK_GPR("xbp", 2, MAKE_HEX_C(XBP_BASE()));
+    CHECK_GPR("xsi", 1, MAKE_HEX_C(XSI_BASE()));
+    CHECK_GPR("xdi", 0, MAKE_HEX_C(XDI_BASE()));
+#        undef CHECK_GPR
 #    elif defined(AARCH64)
     /**************************************************
      * AARCH64
      */
-    /* Unfortunately, since it's RISC, we have to use x0 in the asm loop.
-     * Its value could be either 0x1 or &sideline_exit.
-     */
-    check_gpr_value_with_alt("x0", *(xsp + 0), 0x1, (ptr_uint_t)&sideline_exit);
-    check_gpr_value("x1", *(xsp + 1), MAKE_HEX_C(X1_BASE()));
-    check_gpr_value("x2", *(xsp + 2), MAKE_HEX_C(X2_BASE()));
-    check_gpr_value("x3", *(xsp + 3), MAKE_HEX_C(X3_BASE()));
-    check_gpr_value("x4", *(xsp + 4), MAKE_HEX_C(X4_BASE()));
-    check_gpr_value("x5", *(xsp + 5), MAKE_HEX_C(X5_BASE()));
-    check_gpr_value("x6", *(xsp + 6), MAKE_HEX_C(X6_BASE()));
-    check_gpr_value("x7", *(xsp + 7), MAKE_HEX_C(X7_BASE()));
-    check_gpr_value("x8", *(xsp + 8), MAKE_HEX_C(X8_BASE()));
-    check_gpr_value("x9", *(xsp + 9), MAKE_HEX_C(X9_BASE()));
-    check_gpr_value("x10", *(xsp + 10), MAKE_HEX_C(X10_BASE()));
-    check_gpr_value("x11", *(xsp + 11), MAKE_HEX_C(X11_BASE()));
-    check_gpr_value("x12", *(xsp + 12), MAKE_HEX_C(X12_BASE()));
-    check_gpr_value("x13", *(xsp + 13), MAKE_HEX_C(X13_BASE()));
-    check_gpr_value("x14", *(xsp + 14), MAKE_HEX_C(X14_BASE()));
-    check_gpr_value("x15", *(xsp + 15), MAKE_HEX_C(X15_BASE()));
-    check_gpr_value("x16", *(xsp + 16), MAKE_HEX_C(X16_BASE()));
-    check_gpr_value("x17", *(xsp + 17), MAKE_HEX_C(X17_BASE()));
-    check_gpr_value("x18", *(xsp + 18), MAKE_HEX_C(X18_BASE()));
-    check_gpr_value("x19", *(xsp + 19), MAKE_HEX_C(X19_BASE()));
-    check_gpr_value("x20", *(xsp + 20), MAKE_HEX_C(X20_BASE()));
-    check_gpr_value("x21", *(xsp + 21), MAKE_HEX_C(X21_BASE()));
-    check_gpr_value("x22", *(xsp + 22), MAKE_HEX_C(X22_BASE()));
-    check_gpr_value("x23", *(xsp + 23), MAKE_HEX_C(X23_BASE()));
-    check_gpr_value("x24", *(xsp + 24), MAKE_HEX_C(X24_BASE()));
-    check_gpr_value("x25", *(xsp + 25), MAKE_HEX_C(X25_BASE()));
-    check_gpr_value("x26", *(xsp + 26), MAKE_HEX_C(X26_BASE()));
-    check_gpr_value("x27", *(xsp + 27), MAKE_HEX_C(X27_BASE()));
-    check_gpr_value("x28", *(xsp + 28), MAKE_HEX_C(X28_BASE()));
-    check_gpr_value("x29", *(xsp + 29), MAKE_HEX_C(X29_BASE()));
-    check_gpr_value("x30", *(xsp + 30), MAKE_HEX_C(X30_BASE()));
+
+    if (TEST(1, gpr_check_mask)) {
+        /* Unfortunately, since it's RISC, we have to use x0 in the asm loop.
+         * Its value could be either 0x1 or &sideline_exit.
+         */
+        check_gpr_value_with_alt("x0", *(xsp + 0), 0x1, (ptr_uint_t)&sideline_exit);
+    }
+#        define CHECK_GPR(name, num, reference_value)                       \
+            do {                                                            \
+                if (TEST(1 << (num), gpr_check_mask))                       \
+                    check_gpr_value(name, *(xsp + (num)), reference_value); \
+            } while (0)
+    CHECK_GPR("x1", 1, MAKE_HEX_C(X1_BASE()));
+    CHECK_GPR("x2", 2, MAKE_HEX_C(X2_BASE()));
+    CHECK_GPR("x3", 3, MAKE_HEX_C(X3_BASE()));
+    CHECK_GPR("x4", 4, MAKE_HEX_C(X4_BASE()));
+    CHECK_GPR("x5", 5, MAKE_HEX_C(X5_BASE()));
+    CHECK_GPR("x6", 6, MAKE_HEX_C(X6_BASE()));
+    CHECK_GPR("x7", 7, MAKE_HEX_C(X7_BASE()));
+    CHECK_GPR("x8", 8, MAKE_HEX_C(X8_BASE()));
+    CHECK_GPR("x9", 9, MAKE_HEX_C(X9_BASE()));
+    CHECK_GPR("x10", 10, MAKE_HEX_C(X10_BASE()));
+    CHECK_GPR("x11", 11, MAKE_HEX_C(X11_BASE()));
+    CHECK_GPR("x12", 12, MAKE_HEX_C(X12_BASE()));
+    CHECK_GPR("x13", 13, MAKE_HEX_C(X13_BASE()));
+    CHECK_GPR("x14", 14, MAKE_HEX_C(X14_BASE()));
+    CHECK_GPR("x15", 15, MAKE_HEX_C(X15_BASE()));
+    CHECK_GPR("x16", 16, MAKE_HEX_C(X16_BASE()));
+    CHECK_GPR("x17", 17, MAKE_HEX_C(X17_BASE()));
+    CHECK_GPR("x18", 18, MAKE_HEX_C(X18_BASE()));
+    CHECK_GPR("x19", 19, MAKE_HEX_C(X19_BASE()));
+    CHECK_GPR("x20", 20, MAKE_HEX_C(X20_BASE()));
+    CHECK_GPR("x21", 21, MAKE_HEX_C(X21_BASE()));
+    CHECK_GPR("x22", 22, MAKE_HEX_C(X22_BASE()));
+    CHECK_GPR("x23", 23, MAKE_HEX_C(X23_BASE()));
+    CHECK_GPR("x24", 24, MAKE_HEX_C(X24_BASE()));
+    CHECK_GPR("x25", 25, MAKE_HEX_C(X25_BASE()));
+    CHECK_GPR("x26", 26, MAKE_HEX_C(X26_BASE()));
+    CHECK_GPR("x27", 27, MAKE_HEX_C(X27_BASE()));
+    CHECK_GPR("x28", 28, MAKE_HEX_C(X28_BASE()));
+    CHECK_GPR("x29", 29, MAKE_HEX_C(X29_BASE()));
+    CHECK_GPR("x30", 30, MAKE_HEX_C(X30_BASE()));
+#        undef CHECK_GPR
 
 #        if defined(__ARM_FEATURE_SVE)
     size_t vector_length_in_bytes;
@@ -624,8 +642,11 @@ main(void)
     sideline_ready_for_attach = create_cond_var();
 
     test_thread_func(thread_check_gprs_from_cache);
-#    ifdef X86 /* TODO i#1698: Port to AArch64. */
-    test_thread_func(thread_check_gprs_from_DR);
+#    if defined(X86) || defined(AARCH64)
+    test_thread_func(thread_check_gprs_from_DR1);
+    test_thread_func(thread_check_gprs_from_DR2);
+#    endif
+#    ifdef X86 /* TODO i#4698: Port to AArch64. */
     test_thread_func(thread_check_eflags_from_cache);
     test_thread_func(thread_check_eflags_from_DR);
 
@@ -1439,7 +1460,7 @@ check_gprs_from_cache_spin:
 #endif
         PUSHALL
         mov      REG_SCRATCH0, REG_SP
-        mov      REG_SCRATCH1, 0 /* no regs changed */
+        mov      REG_SCRATCH1, 0xffffffff /* no regs changed */
         CALLC2(GLOBAL_REF(check_gpr_vals), REG_SCRATCH0, REG_SCRATCH1)
         POPALL
         POP_CALLEE_SAVED
@@ -1448,39 +1469,117 @@ check_gprs_from_cache_spin:
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#ifdef X86 /* TODO i#4698: Port to AArch64. */
-#define FUNCNAME thread_check_gprs_from_DR
+#if defined(X86)
+#define MAKE_WRITEABLE \
+        call     LOCAL_LABEL(retaddr) @N@\
+LOCAL_LABEL(retaddr): @N@\
+        pop      REG_XAX @N@\
+        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
+
+#define SELFMOD_INIT(reg) \
+        mov      reg, HEX(0)
+
+#define SELFMOD(counter_reg, addr_reg) \
+        inc      counter_reg @N@\
+        lea      addr_reg, SYMREF(LOCAL_LABEL(immed_plus_four) - 4) @N@\
+        mov      DWORD [addr_reg], counter_reg /* selfmod write */ @N@\
+        mov      addr_reg, HEX(0)              /* mov_imm to modify */ @N@\
+ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
+
+/* Define two versions of the SELFMOD macros which use disjoint registers.
+ * This allows us to create two versions of thread_check_gprs_from_DR() which clobber
+ * different registers so between them they achieve coverage of all registers.
+ */
+#define SELFMOD_INIT1 SELFMOD_INIT(eax)
+#define SELFMOD1 SELFMOD(eax, REG_XDX)
+#define SELFMOD_GPR_MASK1 ~((1 << 7) | (1 << 5))
+
+#define SELFMOD_INIT2 SELFMOD_INIT(ebx)
+#define SELFMOD2 SELFMOD(ebx, REG_XCX)
+#define SELFMOD_GPR_MASK2 ~((1 << 6) | (1 << 4))
+#endif
+
+#if defined(AARCH64)
+#define MAKE_WRITEABLE \
+        adr      REG_SCRATCH0, 0 @N@\
+        CALLC1(GLOBAL_REF(make_mem_writable), REG_SCRATCH0)
+
+/* Clean a single cache line covering the address in addr_reg.
+ * We can't call tool_clear_icache() because that would disturb the register state
+ * and interfere with the test. Instead we need to use this sequence of instructions
+ * from Arm ARM B2.7.4.2:
+ */
+#define CLEAN_CACHE_LINE(addr_reg) \
+        dc       cvau, addr_reg @N@\
+        dsb      ish @N@\
+        ic       ivau, addr_reg @N@\
+        dsb      ish @N@\
+        isb
+
+/* Generate the encoding of:
+ *      movz      w(scratch_reg_num), #0
+ */
+#define SELFMOD_INIT(reg, scratch_reg_num) \
+        movz reg, @P@scratch_reg_num @N@\
+        movk reg, @P@0x5280, lsl @P@16
+
+/* Self-modifying code that increments the immediate field in a movz instruction. */
+#define SELFMOD(counter_reg, addr_reg, scratch_reg32) \
+        /* Extract the immedate field from the instr. */ @N@\
+        ubfx     scratch_reg32, counter_reg, @P@5, @P@16 @N@\
+        /* Increment the immediate value. */ @N@\
+        add      scratch_reg32, scratch_reg32, @P@1 @N@\
+        /* Put the modified immed value back in. */ @N@\
+        bfi      counter_reg, scratch_reg32, @P@5, @P@16 @N@\
+        adr      addr_reg, GLOBAL_REF(LOCAL_LABEL(instr_to_modify)) @N@\
+        /* And write the instruction back to memory. */ @N@\
+        str      counter_reg, [addr_reg] @N@\
+        CLEAN_CACHE_LINE(addr_reg) @N@\
+ADDRTAKEN_LABEL(LOCAL_LABEL(instr_to_modify:)) @N@\
+        movz     scratch_reg32, @P@0          /* This instruction is modified. */
+
+/* Define two versions of the SELFMOD macros which use disjoint registers.
+ * This allows us to create two versions of thread_check_gprs_from_DR() which clobber
+ * different registers so between them they achieve coverage of all registers.
+ */
+#define SELFMOD_INIT1 SELFMOD_INIT(w2, 0)
+#define SELFMOD1 SELFMOD(w2, x0, w0)
+#define SELFMOD_GPR_MASK1 (~((1 << 0) | (1 << 2)))
+
+#define SELFMOD_INIT2 SELFMOD_INIT(w5, 6)
+#define SELFMOD2 SELFMOD(w5, x6, w6)
+#define SELFMOD_GPR_MASK2 (~((1 << 5) | (1 << 6)))
+#endif
+
+#if defined(X86) || defined(AARCH64)
+
+/* Any changes to this function should be replicated in thread_check_gprs_from_DR2 below.
+ */
+#define FUNCNAME thread_check_gprs_from_DR1
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Make code writable for selfmod below */
-        call     check_gprs_from_DR_retaddr
-check_gprs_from_DR_retaddr:
-        pop      REG_XAX
-        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
+        MAKE_WRITEABLE
         /* Put in unique values. */
-        CALLC0(unique_values_to_registers)
+        SET_UNIQUE_REGISTER_VALS
         /* Signal that we are ready for a detach. */
-        mov      BYTE SYMREF(sideline_ready_for_detach), HEX(1)
+        SET_SIDELINE_READY
         /* Now modify our own code so we're likely to detach from DR.
          * The DR code's changed state means we're more likely to see
          * errors in restoring the app state.
          */
-        mov      eax, HEX(0)
-check_gprs_from_DR_spin:
-        inc      eax
-        lea      REG_XDX, SYMREF(check_gprs_immed_plus_four - 4)
-        mov      DWORD [REG_XDX], eax        /* selfmod write */
-        mov      REG_XDX, HEX(0)             /* mov_imm to modify */
-ADDRTAKEN_LABEL(check_gprs_immed_plus_four:)
-        cmp      BYTE SYMREF(sideline_exit), HEX(1)
-        jne      check_gprs_from_DR_spin
+        SELFMOD_INIT1
+check_gprs_from_DR1_spin:
+        SELFMOD1
+        CHECK_SIDELINE_EXIT
+        JUMP_NOT_EQUAL check_gprs_from_DR1_spin
         PUSHALL
-        mov      REG_XAX, REG_XSP
-        mov      REG_XCX, 1 /* regs had to be changed */
-        CALLC2(GLOBAL_REF(check_gpr_vals), REG_XAX, REG_XCX)
+        mov      REG_SCRATCH0, REG_SP
+        mov      REG_SCRATCH1, SELFMOD_GPR_MASK1
+        CALLC2(GLOBAL_REF(check_gpr_vals), REG_SCRATCH0, REG_SCRATCH1)
         POPALL
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
@@ -1488,6 +1587,44 @@ ADDRTAKEN_LABEL(check_gprs_immed_plus_four:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+/*
+ * This is identical to thread_check_gprs_from_DR1 except that the SELDMOD loop clobbers
+ * different registers. By running both tests we get coverage of all GPRs.
+ */
+#define FUNCNAME thread_check_gprs_from_DR2
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        ALIGN_STACK_ON_FUNC_ENTRY
+        /* Preserve callee-saved state. */
+        PUSH_CALLEE_SAVED
+        /* Make code writable for selfmod below */
+        MAKE_WRITEABLE
+        /* Put in unique values. */
+        SET_UNIQUE_REGISTER_VALS
+        /* Signal that we are ready for a detach. */
+        SET_SIDELINE_READY
+        /* Now modify our own code so we're likely to detach from DR.
+         * The DR code's changed state means we're more likely to see
+         * errors in restoring the app state.
+         */
+        SELFMOD_INIT2
+check_gprs_from_DR2_spin:
+        SELFMOD2
+        CHECK_SIDELINE_EXIT
+        JUMP_NOT_EQUAL check_gprs_from_DR2_spin
+        PUSHALL
+        mov      REG_SCRATCH0, REG_SP
+        mov      REG_SCRATCH1, SELFMOD_GPR_MASK2
+        CALLC2(GLOBAL_REF(check_gpr_vals), REG_SCRATCH0, REG_SCRATCH1)
+        POPALL
+        POP_CALLEE_SAVED
+        UNALIGN_STACK_ON_FUNC_EXIT
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+#endif /* defined(X86) || defined(AARCH64) */
+
+#if defined(X86)
 #define FUNCNAME thread_check_eflags_from_cache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
