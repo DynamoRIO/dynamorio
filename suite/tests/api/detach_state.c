@@ -484,21 +484,17 @@ check_status_reg(ptr_uint_t *xsp)
     check_gpr_value("fpsr", *(xsp + 2), MAKE_HEX_C(FPSR_BASE()));
 #        endif
 }
-#    endif
 
-#    ifdef X86
 void
 check_xsp(ptr_uint_t *xsp)
 {
     check_gpr_value("xsp", *xsp, (ptr_uint_t)safe_stack);
-#        ifdef X64
+#        if defined(X86) && defined(X64)
     /* Ensure redzone unchanged. */
     check_gpr_value("*(xsp-1)", *(-1 + (ptr_uint_t *)(*xsp)), MAKE_HEX_C(XAX_BASE()));
     check_gpr_value("*(xsp-2)", *(-2 + (ptr_uint_t *)(*xsp)), MAKE_HEX_C(XDX_BASE()));
 #        endif
 }
-#    else
-/* TODO i#4698: Port to AArch64. */
 #    endif
 
 void
@@ -656,9 +652,7 @@ main(void)
 
     test_thread_func(thread_check_status_reg_from_cache);
     test_thread_func(thread_check_status_reg_from_DR);
-#    endif
 
-#    ifdef X86 /* TODO i#4698: Port to AArch64. */
     /* DR's detach assumes the app has its regular xsp so we can't put in
      * a weird sentinel value, unfortunately.
      */
@@ -1744,9 +1738,39 @@ check_status_reg_from_DR_spin:
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#endif /* defined(X86) || defined(AARCH64) */
-
 #if defined(X86)
+#define SET_UNIQUE_SP \
+        mov      REG_XSP, PTRSZ SYMREF(safe_stack) @N@\
+#ifdef X64 @N@\
+        /* Put unique values in the redzone. */ @N@\
+        mov      REG_XAX, MAKE_HEX_ASM(XAX_BASE()) @N@\
+        mov      [-8 + REG_XSP], REG_XAX @N@\
+        mov      REG_XDX, MAKE_HEX_ASM(XDX_BASE()) @N@\
+        mov      [-16 + REG_XSP], REG_XDX @N@\
+#endif
+
+#define PUSH_SP \
+        mov      [-16 + REG_XCX], REG_XSP @N@\
+        lea      REG_XSP, [-16 + REG_XCX]
+
+#define POP_SP \
+        lea      REG_XSP, [16 + REG_XSP]
+
+#elif defined(AARCH64)
+/* AARCH64 Linux follows AAPCS64 which does not include a redzone. */
+#define SET_UNIQUE_SP \
+        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(safe_stack), x0) @N@\
+        ldr      x0, [x0] @N@\
+        mov      sp, x0
+
+#define PUSH_SP \
+        mov        x0, sp @N@\
+        str        x0, [x1, #-16] @N@\
+        sub        sp, x1, #16
+
+#define POP_SP \
+        add        sp, sp, #16
+#endif
 
 #define FUNCNAME thread_check_xsp_from_cache
         DECLARE_FUNC(FUNCNAME)
@@ -1755,26 +1779,19 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Put unique values in the redzone and in the stack pointer. */
-        mov      REG_XCX, REG_XSP
-        mov      REG_XSP, PTRSZ SYMREF(safe_stack)
-#ifdef X64
-        /* Put unique values in the redzone. */
-        mov      REG_XAX, MAKE_HEX_ASM(XAX_BASE())
-        mov      [-8 + REG_XSP], REG_XAX
-        mov      REG_XDX, MAKE_HEX_ASM(XDX_BASE())
-        mov      [-16 + REG_XSP], REG_XDX
-#endif
+        mov      REG_SCRATCH1, REG_SP
+        SET_UNIQUE_SP
         /* Signal that we are ready for a detach. */
-        mov      BYTE SYMREF(sideline_ready_for_detach), HEX(1)
+        SET_SIDELINE_READY
         /* Now spin so we'll detach from the code cache. */
 check_xsp_from_cache_spin:
-        cmp      BYTE SYMREF(sideline_exit), HEX(1)
-        jne      check_xsp_from_DR_spin
-        mov      [-16 + REG_XCX], REG_XSP
-        lea      REG_XSP, [-16 + REG_XCX]
-        mov      REG_XAX, REG_XSP
-        CALLC1(GLOBAL_REF(check_xsp), REG_XAX)
-        lea      REG_XSP, [16 + REG_XSP]
+        CHECK_SIDELINE_EXIT
+        JUMP_NOT_EQUAL check_xsp_from_cache_spin
+        /* Push SP on to the real stack and restore the real SP value. */
+        PUSH_SP
+        mov        REG_SCRATCH0, REG_SP
+        CALLC1(GLOBAL_REF(check_xsp), REG_SCRATCH0)
+        POP_SP
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
@@ -1788,46 +1805,32 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Make code writable for selfmod below */
-        call     check_xsp_from_DR_retaddr
-check_xsp_from_DR_retaddr:
-        pop      REG_XAX
-        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
+        MAKE_WRITEABLE
         /* Put in a unique value. */
-        mov      REG_XCX, REG_XSP
-        mov      REG_XSP, PTRSZ SYMREF(safe_stack)
-#ifdef X64
-        /* Put unique values in the redzone. */
-        mov      REG_XAX, MAKE_HEX_ASM(XAX_BASE())
-        mov      [-8 + REG_XSP], REG_XAX
-        mov      REG_XDX, MAKE_HEX_ASM(XDX_BASE())
-        mov      [-16 + REG_XSP], REG_XDX
-#endif
+        mov      REG_SCRATCH1, REG_SP
+        SET_UNIQUE_SP
         /* Signal that we are ready for a detach. */
-        mov      BYTE SYMREF(sideline_ready_for_detach), HEX(1)
+        SET_SIDELINE_READY
         /* Now modify our own code so we're likely to detach from DR.
          * The DR code's changed state means we're more likely to see
          * errors in restoring the app state.
          */
-        mov      eax, HEX(0)
+        SELFMOD_INIT1
 check_xsp_from_DR_spin:
-        lea      REG_XAX, [1 + REG_XAX]
-        lea      REG_XDX, SYMREF(check_xsp_immed_plus_four - 4)
-        mov      DWORD [REG_XDX], eax        /* selfmod write */
-        mov      REG_XDX, HEX(0)             /* mov_imm to modify */
-ADDRTAKEN_LABEL(check_xsp_immed_plus_four:)
-        cmp      BYTE SYMREF(sideline_exit), HEX(1)
-        jne      check_xsp_from_DR_spin
-        mov      [-16 + REG_XCX], REG_XSP
-        lea      REG_XSP, [-16 + REG_XCX]
-        mov      REG_XAX, REG_XSP
-        CALLC1(GLOBAL_REF(check_xsp), REG_XAX)
-        lea      REG_XSP, [16 + REG_XSP]
+        SELFMOD1
+        CHECK_SIDELINE_EXIT
+        JUMP_NOT_EQUAL check_xsp_from_DR_spin
+        /* Push SP on to the real stack and restore the real SP value. */
+        PUSH_SP
+        mov        REG_SCRATCH0, REG_SP
+        CALLC1(GLOBAL_REF(check_xsp), REG_SCRATCH0)
+        POP_SP
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
-#endif /* X86 */
+#endif /* defined(X86) || defined(AARCH64) */
 
 END_FILE
 /* Not turning clang format back on b/c of a clang-format-diff wart:
