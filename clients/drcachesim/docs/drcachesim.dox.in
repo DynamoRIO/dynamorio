@@ -1132,6 +1132,29 @@ if the peak live cores is not the whole socket.
 
 These traces are supported starting from DynamoRIO 11.3.
 
+\section Simulation Recommendations
+
+As noted above, for each workload, we recommend using our scheduler (see \ref
+sec_drcachesim_sched) to interleave the individual software thread traces to produce a
+realistic hardware-view schedule for that workload.  Configure the scheduler for the
+number of cores listed in the info.textproto file as the peak live cores.
+
+We recommend configuring simulation to use the same peak live core count, simulating all
+cores simultaneously.  Scale the LLC accordingly if the peak live cores is not the whole
+socket.  We strongly caution against simulating a single core in isolation, as this will
+not produce representative results.
+
+We do not recommend creating a schedule and then independently feeding each core's view
+into the simulator.  This can lead to drift where cores no longer align and two software
+threads could then run simultaneously on two cores.  Instead, use online conversion into
+the simulator's input format, with the scheduler integrated into the worfklow.  We
+recommend using dynamic scheduling with the scheduler selecting the schedule as the
+simulation unfolds, so the simulated time drives the scheduling.  For repeatable
+schedules, leverage the record-replay capability of the scheduler: record one schedule
+and replay in subsequent runs.  When replaying a previously recorded schedule, the
+scheduler will cause a core that gets ahead to wait and not continue until other cores
+catch up.
+
 \section sec_google_get Getting the Traces
 
 The Google Workload Traces can be downloaded from:
