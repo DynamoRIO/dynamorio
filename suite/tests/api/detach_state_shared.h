@@ -147,6 +147,12 @@
 #    define X28_BASE() fdef0123456789ab
 #    define X29_BASE() fef0123456789abc
 #    define X30_BASE() ff0123456789abcd
+/* Status register values must only set bits which are guaranteed by the architecture
+ * to be supported by all AArch64 implementations.
+ */
+#    define NZCV_BASE() 00000000a0000000
+#    define FPCR_BASE() 0000000007800000
+#    define FPSR_BASE() 000000000000009c
 
 /* SVE SIMD register length is implementation defined and can be any power of two between
  * 16 and 256 bytes. Instead of a full 256 bytes of data for each Z register we use the

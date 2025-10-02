@@ -70,9 +70,9 @@ thread_check_gprs_from_DR1(void);
 extern void
 thread_check_gprs_from_DR2(void);
 extern void
-thread_check_eflags_from_cache(void);
+thread_check_status_reg_from_cache(void);
 extern void
-thread_check_eflags_from_DR(void);
+thread_check_status_reg_from_DR(void);
 extern void
 thread_check_xsp_from_cache(void);
 extern void
@@ -472,13 +472,21 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
 #    endif
 }
 
-#    ifdef X86
+#    if defined(X86) || defined(AARCH64)
 void
-check_eflags(ptr_uint_t *xsp)
+check_status_reg(ptr_uint_t *xsp)
 {
+#        if defined(X86)
     check_gpr_value("eflags", *xsp, MAKE_HEX_C(XFLAGS_BASE()));
+#        elif defined(AARCH64)
+    check_gpr_value("nzcv", *xsp, MAKE_HEX_C(NZCV_BASE()));
+    check_gpr_value("fpcr", *(xsp + 1), MAKE_HEX_C(FPCR_BASE()));
+    check_gpr_value("fpsr", *(xsp + 2), MAKE_HEX_C(FPSR_BASE()));
+#        endif
 }
+#    endif
 
+#    ifdef X86
 void
 check_xsp(ptr_uint_t *xsp)
 {
@@ -645,11 +653,12 @@ main(void)
 #    if defined(X86) || defined(AARCH64)
     test_thread_func(thread_check_gprs_from_DR1);
     test_thread_func(thread_check_gprs_from_DR2);
-#    endif
-#    ifdef X86 /* TODO i#4698: Port to AArch64. */
-    test_thread_func(thread_check_eflags_from_cache);
-    test_thread_func(thread_check_eflags_from_DR);
 
+    test_thread_func(thread_check_status_reg_from_cache);
+    test_thread_func(thread_check_status_reg_from_DR);
+#    endif
+
+#    ifdef X86 /* TODO i#4698: Port to AArch64. */
     /* DR's detach assumes the app has its regular xsp so we can't put in
      * a weird sentinel value, unfortunately.
      */
@@ -1479,8 +1488,15 @@ LOCAL_LABEL(retaddr): @N@\
 #define SELFMOD_INIT(reg) \
         mov      reg, HEX(0)
 
+/* This macro is used in multiple test functions which need different CPU state to be
+ * preserved. We need to minimize the state we modify in order to make it widely
+ * applicable. In particular:
+ * - Minimize the number of registers used
+ * - Avoid any instructions which modify CPU flags.
+ */
 #define SELFMOD(counter_reg, addr_reg) \
-        inc      counter_reg @N@\
+        /* Increment counter without modifying the flags. */ @N@\
+        lea      counter_reg, [1 + counter_reg] @N@\
         lea      addr_reg, SYMREF(LOCAL_LABEL(immed_plus_four) - 4) @N@\
         mov      DWORD [addr_reg], counter_reg /* selfmod write */ @N@\
         mov      addr_reg, HEX(0)              /* mov_imm to modify */ @N@\
@@ -1523,7 +1539,13 @@ ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
         movz reg, @P@scratch_reg_num @N@\
         movk reg, @P@0x5280, lsl @P@16
 
-/* Self-modifying code that increments the immediate field in a movz instruction. */
+/* Self-modifying code that increments the immediate field in a movz instruction.
+ * This macro is used in multiple test functions which need different CPU state to be
+ * preserved. We need to minimize the state we modify in order to make it widely
+ * applicable. In particular:
+ * - Minimize the number of registers used
+ * - Avoid any instructions which modify CPU flags.
+ */
 #define SELFMOD(counter_reg, addr_reg, scratch_reg32) \
         /* Extract the immedate field from the instr. */ @N@\
         ubfx     scratch_reg32, counter_reg, @P@5, @P@16 @N@\
@@ -1622,74 +1644,109 @@ check_gprs_from_DR2_spin:
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
-#endif /* defined(X86) || defined(AARCH64) */
 
 #if defined(X86)
-#define FUNCNAME thread_check_eflags_from_cache
+#define PUSH_STATUS_REG \
+        PUSHF
+
+#define POP_STATUS_REG \
+        pop      REG_XAX
+
+#define SET_UNIQUE_STATUS_REG_VALS \
+        mov      REG_XAX, MAKE_HEX_ASM(XFLAGS_BASE()) @N@\
+        push     REG_XAX @N@\
+        POPF
+
+#define CHECK_SIDELINE_EXIT_WITHOUT_USING_FLAGS(loop_label) \
+        mov      cl, BYTE SYMREF(sideline_exit) @N@\
+        jecxz    loop_label
+
+#elif defined(AARCH64)
+#define PUSH_STATUS_REG \
+        mrs      x0, fpsr @N@\
+        stp      x0, x0, [sp, #-16]! @N@\
+        mrs      x0, nzcv @N@\
+        mrs      x1, fpcr @N@\
+        stp      x0, x1, [sp, #-16]!
+
+#define POP_STATUS_REG \
+        add      sp, sp, #32
+
+/* The values we set here have a narrow range of bits so we can move them using a single
+ * mov instruction. If these values are changed or we add additional registers which set
+ * a wider range of bits set we might need to use SET_GPR_IMMED() instead.
+*/
+#define SET_UNIQUE_STATUS_REG_VALS \
+        mov      x0, MAKE_HEX_ASM(NZCV_BASE()) @N@\
+        msr      nzcv, x0 @N@\
+        mov      x0, MAKE_HEX_ASM(FPCR_BASE()) @N@\
+        msr      fpcr, x0 @N@\
+        mov      x0, MAKE_HEX_ASM(FPSR_BASE()) @N@\
+        msr      fpsr, x0
+
+#define CHECK_SIDELINE_EXIT_WITHOUT_USING_FLAGS(loop_label) \
+        adrp     x0, sideline_exit @N@ \
+        add      x0, x0, :lo12:sideline_exit @N@ \
+        ldrb     w0, [x0] @N@\
+        cbz      x0, loop_label
+#endif
+
+#define FUNCNAME thread_check_status_reg_from_cache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Put in a unique value. */
-        mov      REG_XAX, MAKE_HEX_ASM(XFLAGS_BASE())
-        push     REG_XAX
-        POPF
+        SET_UNIQUE_STATUS_REG_VALS
         /* Signal that we are ready for a detach. */
-        mov      BYTE SYMREF(sideline_ready_for_detach), HEX(1)
+        SET_SIDELINE_READY
         /* Now spin so we'll detach from the code cache. */
-check_eflags_from_cache_spin:
-        mov      cl, BYTE SYMREF(sideline_exit)
-        jecxz    check_eflags_from_DR_spin
-        PUSHF
-        mov      REG_XAX, REG_XSP
-        CALLC1(GLOBAL_REF(check_eflags), REG_XAX)
-        pop      REG_XAX
+check_status_reg_from_cache_spin:
+        CHECK_SIDELINE_EXIT_WITHOUT_USING_FLAGS(check_status_reg_from_cache_spin)
+        PUSH_STATUS_REG
+        mov      REG_SCRATCH0, REG_SP
+        CALLC1(GLOBAL_REF(check_status_reg), REG_SCRATCH0)
+        POP_STATUS_REG
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#define FUNCNAME thread_check_eflags_from_DR
+#define FUNCNAME thread_check_status_reg_from_DR
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         ALIGN_STACK_ON_FUNC_ENTRY
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Make code writable for selfmod below */
-        call     check_eflags_from_DR_retaddr
-check_eflags_from_DR_retaddr:
-        pop      REG_XAX
-        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
+        MAKE_WRITEABLE
         /* Put in a unique value. */
-        mov      REG_XAX, MAKE_HEX_ASM(XFLAGS_BASE())
-        push     REG_XAX
-        POPF
+        SET_UNIQUE_STATUS_REG_VALS
         /* Signal that we are ready for a detach. */
-        mov      BYTE SYMREF(sideline_ready_for_detach), HEX(1)
+        SET_SIDELINE_READY
         /* Now modify our own code so we're likely to detach from DR.
          * The DR code's changed state means we're more likely to see
          * errors in restoring the app state.
          */
-        mov      eax, HEX(0)
-check_eflags_from_DR_spin:
-        lea      REG_XAX, [1 + REG_XAX]
-        lea      REG_XDX, SYMREF(check_eflags_immed_plus_four - 4)
-        mov      DWORD [REG_XDX], eax        /* selfmod write */
-        mov      REG_XDX, HEX(0)             /* mov_imm to modify */
-ADDRTAKEN_LABEL(check_eflags_immed_plus_four:)
-        mov      cl, BYTE SYMREF(sideline_exit)
-        jecxz    check_eflags_from_DR_spin
-        PUSHF
-        mov      REG_XAX, REG_XSP
-        CALLC1(GLOBAL_REF(check_eflags), REG_XAX)
-        pop      REG_XAX
+        SELFMOD_INIT1
+check_status_reg_from_DR_spin:
+        SELFMOD1
+        CHECK_SIDELINE_EXIT_WITHOUT_USING_FLAGS(check_status_reg_from_DR_spin)
+        PUSH_STATUS_REG
+        mov      REG_SCRATCH0, REG_SP
+        CALLC1(GLOBAL_REF(check_status_reg), REG_SCRATCH0)
+        POP_STATUS_REG
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+#endif /* defined(X86) || defined(AARCH64) */
+
+#if defined(X86)
 
 #define FUNCNAME thread_check_xsp_from_cache
         DECLARE_FUNC(FUNCNAME)
