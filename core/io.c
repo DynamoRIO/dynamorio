@@ -574,7 +574,6 @@ d_r_vsscanf(const char *str, const char *fmt, va_list ap)
                 break;
             /* XXX: Modifiers we could add support for:
              * - j, z, t: C99 modifiers for intmax_t, size_t, and ptrdiff_t.
-             * - [] scan sets: These are complicated and better to avoid.
              * - .*: For dynamically sized strings.  Not part of C scanf.
              * - n$: Store the result into the nth pointer arg after fmt.
              */
