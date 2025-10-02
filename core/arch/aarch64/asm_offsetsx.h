@@ -49,19 +49,6 @@ OFFSET(dcontext_t, dstack, 0x9f8)
 OFFSET(dcontext_t, is_exiting, 0xa00)
 #define dcontext_t_OFFSET_is_exiting 0xa00
 
-OFFSET(icache_op_struct_t, flag, 0)
-#define icache_op_struct_t_OFFSET_flag 0
-OFFSET(icache_op_struct_t, lock, 4)
-#define icache_op_struct_t_OFFSET_lock 4
-OFFSET(icache_op_struct_t, linesize, 8)
-#define icache_op_struct_t_OFFSET_linesize 8
-OFFSET(icache_op_struct_t, begin, 16)
-#define icache_op_struct_t_OFFSET_begin 16
-OFFSET(icache_op_struct_t, end, 24)
-#define icache_op_struct_t_OFFSET_end 24
-OFFSET(icache_op_struct_t, spill, 32)
-#define icache_op_struct_t_OFFSET_spill 32
-
 OFFSET(priv_mcontext_t, simd, 288)
 #define priv_mcontext_t_OFFSET_simd 288
 SIZE(priv_mcontext_t, 2480)

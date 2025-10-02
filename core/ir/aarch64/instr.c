@@ -405,8 +405,6 @@ instr_is_icache_op(instr_t *instr)
     int opc = instr_get_opcode(instr);
     if (opc == OP_ic_ivau)
         return true; /* ic ivau, xT */
-    if (opc == OP_isb)
-        return true; /* isb */
     return false;
 }
 
