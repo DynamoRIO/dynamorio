@@ -3047,12 +3047,10 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, instr, /* mov x0, x28 */
             XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                               opnd_create_reg(dr_reg_stolen)));
-        PRE(ilist, instr, /* blr x30 */
-            INSTR_CREATE_blr(dcontext, opnd_create_reg(DR_REG_X30)));
-        PRE(ilist, instr, /* ldp x0, x30, [x28] */
-            INSTR_CREATE_ldp(
-                dcontext, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X30),
-                opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 0, OPSZ_16)));
+        PRE(ilist, instr, /* br x30 */
+            INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X30)));
+        /* Does not return. */
+
         /* Remove original instruction. */
         instrlist_remove(ilist, instr);
         instr_destroy(dcontext, instr);

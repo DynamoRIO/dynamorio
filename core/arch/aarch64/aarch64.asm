@@ -629,7 +629,6 @@ GLOBAL_LABEL(tlsdesc_resolver:)
  * IC IVAU, Xt. When we enter here:
  *
  * X0 contains the pointer to spill_state_t.
- * X30 contains the return address in the fragment cache (no longer required).
  * TLS_REG0_SLOT contains app's X0.
  * TLS_REG1_SLOT contains app's X30.
  * TLS_REG2_SLOT contains the argument of "IC IVAU, Xt".
