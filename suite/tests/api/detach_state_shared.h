@@ -147,6 +147,9 @@
 #    define X28_BASE() fdef0123456789ab
 #    define X29_BASE() fef0123456789abc
 #    define X30_BASE() ff0123456789abcd
+/* Status register values must only set bits which are guaranteed by the architecture
+ * to be supported by all AArch64 implementations.
+ */
 #    define NZCV_BASE() 00000000a0000000
 #    define FPCR_BASE() 0000000007800000
 #    define FPSR_BASE() 000000000000009c

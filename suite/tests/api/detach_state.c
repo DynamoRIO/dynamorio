@@ -1672,12 +1672,16 @@ check_gprs_from_DR2_spin:
 #define POP_STATUS_REG \
         add      sp, sp, #32
 
+/* The values we set here have a narrow range of bits so we can move them using a single
+ * mov instruction. If these values are changed or we add additional registers which set
+ * a wider range of bits set we might need to use SET_GPR_IMMED() instead.
+*/
 #define SET_UNIQUE_STATUS_REG_VALS \
         mov      x0, MAKE_HEX_ASM(NZCV_BASE()) @N@\
         msr      nzcv, x0 @N@\
-        SET_GPR_IMMED(x0, MAKE_HEX_C(FPCR_BASE())) @N@\
+        mov      x0, MAKE_HEX_ASM(FPCR_BASE()) @N@\
         msr      fpcr, x0 @N@\
-        SET_GPR_IMMED(x0, MAKE_HEX_C(FPSR_BASE())) @N@\
+        mov      x0, MAKE_HEX_ASM(FPSR_BASE()) @N@\
         msr      fpsr, x0
 
 #define CHECK_SIDELINE_EXIT_WITHOUT_USING_FLAGS(loop_label) \
