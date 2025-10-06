@@ -2386,7 +2386,7 @@ check_option_compatibility_helper(int recurse_count)
 #    ifdef AARCHXX
     if (DYNAMO_OPTION(steal_reg) < DR_REG_STOLEN_MIN - DR_REG_R0 ||
         DYNAMO_OPTION(steal_reg) > DR_REG_STOLEN_MAX - DR_REG_R0) {
-        USAGE_ERROR("-steal_reg only supports register between %d and %d",
+        USAGE_ERROR("-steal_reg only supports register between r%d and r%d",
                     DR_REG_STOLEN_MIN - DR_REG_R0, DR_REG_STOLEN_MAX - DR_REG_R0);
         dynamo_options.steal_reg = IF_X64_ELSE(28 /*r28*/, 10 /*r10*/);
         changed_options = true;
