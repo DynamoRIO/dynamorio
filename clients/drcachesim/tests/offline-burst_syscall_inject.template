@@ -29,7 +29,9 @@ Output format:
           12           3:       W0.T1 read         8 byte\(s\) @ 0x00000000decafbad by PC 0x000000008badf000
           13           4:       W0.T1 ifetch       2 byte\(s\) @ 0x000000008badf003 0f 07                sysret \(target 0xf00d\)
           14           4:       W0.T1 <marker: trace end for system call number 186>
-
+          15           4:       W0.T1 <marker: trace start for system call number 65535>
+          16           5:       W0.T1 ifetch       2 byte\(s\) @ 0x00000000f00d8bad 0f 07                sysret \(target 0xf00d\)
+          17           5:       W0.T1 <marker: trace end for system call number 65535>
 #else
            6           0:       W0.T1 <marker: trace start for system call number 283>
            7           1:       W0.T1 ifetch       4 byte\(s\) @ 0x00000000deadbe00 d503201f   nop
@@ -40,7 +42,10 @@ Output format:
           12           3:       W0.T1 read         8 byte\(s\) @ 0x00000000decafbad by PC 0x000000008badf000
           13           4:       W0.T1 ifetch       4 byte\(s\) @ 0x000000008badf004 d69f03e0   eret \(target 0xf00d\)
           14           4:       W0.T1 <marker: trace end for system call number 178>
+          15           4:       W0.T1 <marker: trace start for system call number 65535>
+          16           5:       W0.T1 ifetch       4 byte\(s\) @ 0x00000000f00d8bad d69f03e0   eret \(target 0xf00d\)
+          17           5:       W0.T1 <marker: trace end for system call number 65535>
 #endif
-          15           4:       W0.T1 <thread W0.T1 exited>
+          18           5:       W0.T1 <thread W0.T1 exited>
 View tool results:
-              4 : total instructions
+              5 : total instructions
