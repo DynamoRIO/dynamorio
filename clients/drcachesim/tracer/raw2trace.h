@@ -913,11 +913,11 @@ protected:
     read_syscall_template_file();
 
     /**
-     * Returns the app pc of the first instruction in the system call template
-     * read for syscall_num. Returns nullptr if it could not find it.
+     * Returns the app pc of the first instruction in the given system call template.
+     * Returns nullptr if it could not find it.
      */
     app_pc
-    get_first_app_pc_for_syscall_template(int syscall_num);
+    get_first_app_pc_for_syscall_template(trace_template_t *trace_template);
 
     /**
      * Returns the trace template for the given syscall num, or the default

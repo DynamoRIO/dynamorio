@@ -210,9 +210,9 @@ raw2trace_t::get_syscall_template(int syscall_num)
 }
 
 app_pc
-raw2trace_t::get_first_app_pc_for_syscall_template(int syscall_num)
+raw2trace_t::get_first_app_pc_for_syscall_template(trace_template_t *trace_template)
 {
-    trace_template_t *trace_template = get_syscall_template(syscall_num);
+    assert(trace_template != nullptr);
     auto it = trace_template->entries.begin();
     while (it != trace_template->entries.end()) {
         if (type_is_instr(static_cast<trace_type_t>(it->type))) {
@@ -243,7 +243,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     // (has a corresponding system call number marker) but is also a CTI so is
     // delayed. We expect delayed branches only in that case.
     if (delayed_branches_exist(tdata)) {
-        app_pc next_pc = get_first_app_pc_for_syscall_template(syscall_num);
+        app_pc next_pc = get_first_app_pc_for_syscall_template(trace_template);
         if (next_pc == nullptr) {
             tdata->error = "Could not find first app pc in system call template for " +
                 std::to_string(syscall_num);
