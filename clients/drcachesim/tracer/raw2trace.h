@@ -769,6 +769,11 @@ protected:
         static constexpr int INJECT_NONE = -1;
     };
 
+    struct trace_template_t {
+        std::vector<trace_entry_t> entries;
+        int instr_count = 0;
+    };
+
 #ifdef BUILD_PT_POST_PROCESSOR
     /**
      * Returns the next #pt_data_buf_t entry from the thread's kernel raw file. If the
@@ -913,6 +918,13 @@ protected:
      */
     app_pc
     get_first_app_pc_for_syscall_template(int syscall_num);
+
+    /**
+     * Returns the trace template for the given syscall num, or the default
+     * syscall template if one is available.
+     */
+    trace_template_t *
+    get_syscall_template(int syscall_num);
 
     /**
      * Writes the system call template to the output trace, if any was provided in
@@ -1345,10 +1357,6 @@ private:
     // For inserting system call traces from provided templates.
     std::unique_ptr<dynamorio::drmemtrace::record_reader_t> syscall_template_file_reader_;
 
-    struct trace_template_t {
-        std::vector<trace_entry_t> entries;
-        int instr_count = 0;
-    };
     std::unordered_map<int, trace_template_t> syscall_trace_templates_;
     memref_counter_t syscall_trace_template_encodings_;
     offline_file_type_t syscall_template_file_type_ = OFFLINE_FILE_TYPE_DEFAULT;

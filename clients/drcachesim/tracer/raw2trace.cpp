@@ -196,11 +196,25 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address,
  * Top-level
  */
 
+raw2trace_t::trace_template_t *
+raw2trace_t::get_syscall_template(int syscall_num)
+{
+    auto it = syscall_trace_templates_.find(syscall_num);
+    if (it != syscall_trace_templates_.end()) {
+        return &it->second;
+    }
+    it = syscall_trace_templates_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM);
+    if (it != syscall_trace_templates_.end())
+        return &it->second;
+    return nullptr;
+}
+
 app_pc
 raw2trace_t::get_first_app_pc_for_syscall_template(int syscall_num)
 {
-    auto it = syscall_trace_templates_[syscall_num].entries.begin();
-    while (it != syscall_trace_templates_[syscall_num].entries.end()) {
+    trace_template_t *trace_template = get_syscall_template(syscall_num);
+    auto it = trace_template->entries.begin();
+    while (it != trace_template->entries.end()) {
         if (type_is_instr(static_cast<trace_type_t>(it->type))) {
             return reinterpret_cast<app_pc>(it->addr);
         }
@@ -214,7 +228,8 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
                                     trace_entry_t *buf_base, int syscall_num)
 {
     // Check if we have a template for this system call.
-    if (syscall_trace_templates_.find(syscall_num) == syscall_trace_templates_.end())
+    trace_template_t *trace_template = get_syscall_template(syscall_num);
+    if (trace_template == nullptr)
         return true;
     if ((get_file_type(tdata) & OFFLINE_FILE_TYPE_ARCH_ALL) !=
         (syscall_template_file_type_ & OFFLINE_FILE_TYPE_ARCH_ALL)) {
@@ -263,7 +278,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
     // XXX i#6495: For now we write out the template as-is to the output trace. But we can
     // potentially customize some properties of the trace. E.g. the start address for the
     // kernel code section.
-    for (const auto &entry : syscall_trace_templates_[syscall_num].entries) {
+    for (const auto &entry : trace_template->entries) {
         if (type_is_instr(static_cast<trace_type_t>(entry.type)) ||
             // We want to write out at each repstr instance so that we do not accumulate
             // too many buffered entries.
@@ -278,8 +293,7 @@ raw2trace_t::write_syscall_template(raw2trace_thread_data_t *tdata, byte *&buf_i
             // signal.
             if (type_is_instr_branch(static_cast<trace_type_t>(entry.type)) &&
                 !type_is_instr_direct_branch(static_cast<trace_type_t>(entry.type)) &&
-                inserted_instr_count ==
-                    syscall_trace_templates_[syscall_num].instr_count - 1 &&
+                inserted_instr_count == trace_template->instr_count - 1 &&
                 buf_last_branch_target_marker != nullptr) {
                 buf_last_branch_target_marker->addr =
                     reinterpret_cast<addr_t>(get_last_pc_fallthrough_if_syscall(tdata));
@@ -394,8 +408,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // check for it here.
             if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
                 if (marker_type == TRACE_MARKER_TYPE_SYSCALL &&
-                    syscall_trace_templates_.find(static_cast<int>(marker_val)) !=
-                        syscall_trace_templates_.end()) {
+                    get_syscall_template(static_cast<int>(marker_val)) != nullptr) {
                     assert(tdata->to_inject_syscall_ ==
                            raw2trace_thread_data_t::INJECT_NONE);
                     // The actual injection of the syscall trace happens later at the
