@@ -1535,8 +1535,12 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
  * #TRACE_MARKER_TYPE_SYSCALL_TRACE_END markers to denote a trace to
  * be used for syscalls that have no other trace available in the
  * template file.
+ *
+ * We chose this value to not collide with any actual syscall number
+ * on any platform, and also differ from other possible sentinels
+ * like -1 on 32-bit.
  */
-constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM = 0xffff;
+constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM = 0xfffffff;
 
 /**
  * The name of the file in -offline mode where module data is written.

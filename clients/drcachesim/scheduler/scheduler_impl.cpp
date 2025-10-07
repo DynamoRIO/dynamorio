@@ -2020,7 +2020,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
         if (record_type_is_marker(record, marker_type, marker_value) &&
             (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
              marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) &&
-            marker_value == DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM) {
+            marker_value == static_cast<uintptr_t>(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM)) {
             record_type_set_marker_value(record, input->to_inject_syscall);
         }
         // TODO i#7495: Add invariant checks that ensure these are equal to the
