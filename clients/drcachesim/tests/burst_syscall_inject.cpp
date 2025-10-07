@@ -68,7 +68,7 @@ namespace drmemtrace {
 
 #define PC_SYSCALL_MEMBARRIER 0xdeadbe00
 #define PC_SYSCALL_GETTID 0x8badf000
-#define PC_SYSCALL_DEFAULT_TRACE 0xf00d8bad
+#define PC_SYSCALL_DEFAULT_TRACE 0xf00d8b00
 #define READ_MEMADDR_GETTID 0xdecafbad
 #define REP_MOVS_COUNT 1024
 #define SYSCALL_INSTR_COUNT 2
