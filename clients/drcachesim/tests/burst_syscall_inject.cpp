@@ -460,11 +460,6 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
         assert(status == scheduler_t::STATUS_OK);
         int prev_syscall_num_marker_saved = prev_syscall_num_marker;
         prev_syscall_num_marker = -1;
-        // std::cerr << "AAA at: " << memref.instr.type << ", " <<
-        // memref.marker.marker_type
-        // << std::hex << " :: " << memref.instr.addr << ", " <<
-        // memref.marker.marker_value
-        // << std::dec << "\n";
         if (memref.marker.type == TRACE_TYPE_MARKER) {
             switch (memref.marker.marker_type) {
             case TRACE_MARKER_TYPE_FILETYPE:
