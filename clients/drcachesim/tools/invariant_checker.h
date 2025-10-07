@@ -170,6 +170,7 @@ protected:
             // the instruction. The data member defaults and is_valid() allow
             // simplifying various conditional checks.
             decoding_info_t decoding;
+            bool is_kernel_instr = false;
         };
         std::unique_ptr<decode_cache_t<decoding_info_t>> decode_cache_;
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
@@ -208,7 +209,8 @@ protected:
         bool found_page_size_marker_ = false;
         bool found_syscall_marker_ = false;
         bool prev_was_syscall_marker_ = false;
-        int last_syscall_marker_value_ = 0;
+        int last_syscall_marker_value_ = -1;
+        bool expect_syscall_trace_ = false;
         int syscall_trace_num_after_last_userspace_instr_ = -1;
         bool found_blocking_marker_ = false;
         uint64_t syscall_count_ = 0;
@@ -251,7 +253,7 @@ protected:
         int signal_stack_depth_at_syscall_trace_start_ = -1;
         int signal_stack_depth_at_context_switch_trace_start_ = -1;
 #endif
-        addr_t prev_syscall_end_branch_target_ = 0;
+        addr_t prev_kernel_end_branch_target_ = 0;
         // Relevant when -no_abort_on_invariant_error.
         uint64_t error_count_ = 0;
         int64_t last_chunk_ordinal_ = -1;
@@ -259,6 +261,10 @@ protected:
         // Initializing to a non-zero constant so that invalid zero values
         // are detected properly.
         uint64_t last_next_trace_pc_ = static_cast<uint64_t>(-1);
+
+        // Resets specific state on context switch to a different thread.
+        void
+        reset_at_context_switch(const memref_t &memref, bool core_sharded_on_disk);
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -321,6 +327,7 @@ protected:
 
     memtrace_stream_t *serial_stream_ = nullptr;
 
+    bool core_sharded_ = false;
     bool abort_on_invariant_error_ = true;
     bool dynamic_syscall_trace_injection_ = false;
     bool trace_incomplete_ = false;
