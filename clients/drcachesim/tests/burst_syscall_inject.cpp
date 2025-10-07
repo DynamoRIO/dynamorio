@@ -349,7 +349,7 @@ postprocess(void *dr_context, std::string syscall_trace_template_file,
                           /*verbosity=*/0, /*worker_count=*/-1,
                           /*alt_module_dir=*/"",
                           /*chunk_instr_count=*/10 * 1000 * 1000,
-                          /*kthread_files_map=*/ { },
+                          /*kthread_files_map=*/ {},
                           /*kcore_path=*/"", /*kallsyms_path=*/"",
                           std::move(dir.syscall_template_file_reader_));
     std::string error = raw2trace.do_conversion();
