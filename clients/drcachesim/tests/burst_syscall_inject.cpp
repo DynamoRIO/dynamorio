@@ -73,6 +73,7 @@ namespace drmemtrace {
 #define REP_MOVS_COUNT 1024
 #define SYSCALL_INSTR_COUNT 2
 #define DEFAULT_INSTR_COUNT 1
+#define SOME_VAL 0xf00d
 
 static instr_t *instrs_in_membarrier[SYSCALL_INSTR_COUNT];
 static instr_t *instrs_in_gettid[SYSCALL_INSTR_COUNT];
@@ -207,6 +208,31 @@ write_header_entries(std::unique_ptr<std::ostream> &writer)
     write_trace_entry(writer, test_util::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1));
 }
 
+// Returns an instr_t for the one and only instr in the template, which must be
+// freed by the caller.
+static instr_t *
+write_default_syscall_trace(void *dr_context, std::unique_ptr<std::ostream> &writer)
+{
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
+#ifdef X86
+    instr_t *instr = INSTR_CREATE_sysret(dr_context);
+#elif defined(AARCHXX)
+    instr_t *instr = INSTR_CREATE_eret(dr_context);
+#endif
+    // The value doesn't really matter as it will be replaced during trace injection.
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
+    write_instr_entry(dr_context, writer, instr,
+                      reinterpret_cast<app_pc>(PC_SYSCALL_DEFAULT_TRACE),
+                      TRACE_TYPE_INSTR_INDIRECT_JUMP);
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
+    return instr;
+}
+
 static void
 write_footer_entries(std::unique_ptr<std::ostream> &writer)
 {
@@ -240,7 +266,6 @@ write_system_call_template(void *dr_context)
     write_instr_entry(dr_context, writer, instrs_in_membarrier[0],
                       reinterpret_cast<app_pc>(PC_SYSCALL_MEMBARRIER));
 
-    constexpr uintptr_t SOME_VAL = 0xf00d;
 #ifdef X86
     instrs_in_membarrier[1] = INSTR_CREATE_sysret(dr_context);
 #elif defined(AARCHXX)
@@ -296,24 +321,7 @@ write_system_call_template(void *dr_context)
     write_trace_entry(
         writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
 
-    // Write the default trace template.
-    write_trace_entry(writer,
-                      test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
-#ifdef X86
-    instrs_in_default_trace[0] = INSTR_CREATE_sysret(dr_context);
-#elif defined(AARCHXX)
-    instrs_in_default_trace[0] = INSTR_CREATE_eret(dr_context);
-#endif
-    // The value doesn't really matter as it will be replaced during trace injection.
-    write_trace_entry(writer,
-                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
-    write_instr_entry(dr_context, writer, instrs_in_default_trace[0],
-                      reinterpret_cast<app_pc>(PC_SYSCALL_DEFAULT_TRACE),
-                      TRACE_TYPE_INSTR_INDIRECT_JUMP);
-    write_trace_entry(writer,
-                      test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
+    instrs_in_default_trace[0] = write_default_syscall_trace(dr_context, writer);
 
     write_footer_entries(writer);
     return syscall_trace_template_file;
@@ -341,7 +349,7 @@ postprocess(void *dr_context, std::string syscall_trace_template_file,
                           /*verbosity=*/0, /*worker_count=*/-1,
                           /*alt_module_dir=*/"",
                           /*chunk_instr_count=*/10 * 1000 * 1000,
-                          /*kthread_files_map=*/ {},
+                          /*kthread_files_map=*/ { },
                           /*kcore_path=*/"", /*kallsyms_path=*/"",
                           std::move(dir.syscall_template_file_reader_));
     std::string error = raw2trace.do_conversion();
@@ -652,7 +660,6 @@ write_system_call_template_with_repstr(void *dr_context)
                                                  opnd_size_in_bytes(OPSZ_PTR)));
     }
 
-    constexpr uintptr_t SOME_VAL = 0xf00d;
     instr_t *sys_return;
 #    ifdef X86
     sys_return = INSTR_CREATE_sysret(dr_context);
@@ -671,22 +678,11 @@ write_system_call_template_with_repstr(void *dr_context)
         writer,
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_membarrier));
 
-    // Write the default trace template.
-    write_trace_entry(writer,
-                      test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
-    // The value doesn't really matter as it will be replaced during trace injection.
-    write_trace_entry(writer,
-                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
-    write_instr_entry(dr_context, writer, sys_return,
-                      reinterpret_cast<app_pc>(PC_SYSCALL_DEFAULT_TRACE),
-                      TRACE_TYPE_INSTR_INDIRECT_JUMP);
-    write_trace_entry(writer,
-                      test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
+    instr_t *default_trace_instr = write_default_syscall_trace(dr_context, writer);
 
     write_footer_entries(writer);
 
+    instr_destroy(dr_context, default_trace_instr);
     instr_destroy(dr_context, sys_return);
     instr_destroy(dr_context, rep_movs);
     return syscall_trace_template_file;
