@@ -208,7 +208,7 @@ write_header_entries(std::unique_ptr<std::ostream> &writer)
     write_trace_entry(writer, test_util::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1));
 }
 
-// Returns an instr_t for the one and only instr in the template, which must be
+// Returns an instr_t* for the one and only instr in the template, which must be
 // freed by the caller.
 static instr_t *
 write_default_syscall_trace(void *dr_context, std::unique_ptr<std::ostream> &writer)
@@ -698,7 +698,7 @@ test_template_with_repstr(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
-    int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT + 1;
+    int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT + DEFAULT_INSTR_COUNT;
     if (!(template_counts.instrs == distinct_instrs_in_tmpl &&
           template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
           template_counts.encodings == REP_MOVS_COUNT + SYSCALL_INSTR_COUNT &&
@@ -748,7 +748,7 @@ test_trace_templates(void *dr_context)
 
     // We have two templates of two instrs each, and one default template with
     // just one instr.
-    int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT * 2 + 1;
+    int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT * 2 + DEFAULT_INSTR_COUNT;
     if (!(template_counts.instrs == distinct_instrs_in_tmpl &&
           template_counts.instrs_nofetch == 0 &&
           template_counts.encodings == distinct_instrs_in_tmpl &&
