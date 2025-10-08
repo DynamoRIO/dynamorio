@@ -2014,7 +2014,8 @@ invariant_checker_t::per_shard_t::reset_at_context_switch(const memref_t &memref
     prev_func_id_ = 0;
     prev_was_syscall_marker_ = false;
     syscall_trace_num_after_last_userspace_instr_ = -1;
-    verify_next_thread_exit_ = false;
+    in_rseq_region_ = false;
+    retaddr_stack_ = std::stack<addr_t>();
 #ifdef X86
     instrs_since_sti = -1;
 #endif
