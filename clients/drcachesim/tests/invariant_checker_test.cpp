@@ -5059,13 +5059,13 @@ check_core_sharded_with_kernel()
             gen_marker(TID_B, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_B, /*pc=*/1),
             gen_instr(TID_B, /*pc=*/2),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM),
-            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/101, /*size=*/1,
+            gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_B, /*pc=*/101, /*size=*/1,
                            // Branch target of zero should be acceptable as the
                            // thread is exiting next.
                            /*indirect_branch_target=*/0),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM),
             gen_exit(TID_B),
 
             // Thread switch to TID_A, marked by a switch sequence that ends with an
