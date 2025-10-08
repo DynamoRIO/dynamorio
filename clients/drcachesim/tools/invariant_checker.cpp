@@ -415,12 +415,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         uint64_t adjusted_ref_count = shard->ref_count_;
         uint64_t adjusted_instr_count = shard->instr_count_;
         if (!core_sharded_ ||
-            !TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->file_type_)) {
-            // We're not using the SCHEDULER_USE_INPUT_ORDINALS mode, so the
-            // stream-reported ordinals should already include the dynamically injected
-            // ones.
+            TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->file_type_)) {
             adjusted_ref_count -= shard->dyn_injected_syscall_ref_count_;
             adjusted_instr_count -= shard->dyn_injected_syscall_instr_count_;
+        } else {
+            // During dynamic core-sharding with kernel injection, the stream ordinals
+            // also include the injected counts.
         }
         report_if_false(shard, adjusted_ref_count == shard->stream->get_record_ordinal(),
                         "Stream record ordinal inaccurate");
