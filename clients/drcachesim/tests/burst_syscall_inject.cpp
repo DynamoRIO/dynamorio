@@ -77,7 +77,7 @@ namespace drmemtrace {
 
 static instr_t *instrs_in_membarrier[SYSCALL_INSTR_COUNT];
 static instr_t *instrs_in_gettid[SYSCALL_INSTR_COUNT];
-static instr_t *instrs_in_default_trace[DEFAULT_INSTR_COUNT];
+static instr_t *instr_in_default_trace;
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -321,7 +321,7 @@ write_system_call_template(void *dr_context)
     write_trace_entry(
         writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
 
-    instrs_in_default_trace[0] = write_default_syscall_trace(dr_context, writer);
+    instr_in_default_trace = write_default_syscall_trace(dr_context, writer);
 
     write_footer_entries(writer);
     return syscall_trace_template_file;
@@ -596,7 +596,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                               << ") for default trace instr.\n";
                     return false;
                 }
-                if (!check_instr_same(dr_context, memref, instrs_in_default_trace[0])) {
+                if (!check_instr_same(dr_context, memref, instr_in_default_trace)) {
                     return false;
                 }
                 ++default_trace_instr_found;
@@ -774,7 +774,7 @@ test_trace_templates(void *dr_context)
         instr_destroy(dr_context, instrs_in_membarrier[i]);
         instr_destroy(dr_context, instrs_in_gettid[i]);
     }
-    instr_destroy(dr_context, instrs_in_default_trace[0]);
+    instr_destroy(dr_context, instr_in_default_trace);
     if (!success) {
         return 1;
     }
