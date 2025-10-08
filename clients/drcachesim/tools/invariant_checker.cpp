@@ -914,6 +914,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         shard->saw_thread_exit_ = true;
+        shard->verify_next_thread_exit_ = false;
         report_if_false(shard,
                         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                                  shard->file_type_) ||
@@ -984,6 +985,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        report_if_false(shard, !shard->verify_next_thread_exit_,
+                        "Expected thread exit after branch-to-zero in syscall trace");
+
         // We wait until we see an actual non-kernel instruction to reset the following
         // fields. We cannot do this on seeing the respective TRACE_MARKER_TYPE_*_END
         // marker because we may need it again if there's a consecutive syscall/switch.
@@ -1393,9 +1397,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (!type_is_instr_direct_branch(memref.instr.type)) {
                 is_indirect = true;
                 report_if_false(shard,
-                                // We assume the app doesn't actually target PC=0.
-                                memref.instr.indirect_branch_target != 0,
+                                shard->between_kernel_syscall_trace_markers_ ||
+                                    // We assume the app doesn't actually target PC=0.
+                                    memref.instr.indirect_branch_target != 0,
                                 "Indirect branches must contain targets");
+                if (memref.instr.indirect_branch_target == 0 &&
+                    shard->between_kernel_syscall_trace_markers_) {
+                    shard->verify_next_thread_exit_ = true;
+                }
             }
         }
         if (type_is_instr(memref.instr.type) && !is_indirect) {
@@ -2005,6 +2014,7 @@ invariant_checker_t::per_shard_t::reset_at_context_switch(const memref_t &memref
     prev_func_id_ = 0;
     prev_was_syscall_marker_ = false;
     syscall_trace_num_after_last_userspace_instr_ = -1;
+    verify_next_thread_exit_ = false;
 #ifdef X86
     instrs_since_sti = -1;
 #endif
