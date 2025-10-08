@@ -1135,10 +1135,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                              shard->file_type_) &&
                      shard->prev_kernel_end_branch_target_ == 0) ||
                     // Instruction-filtered are exempted.
-                    TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
-                                // Syscall and switch template files are exempt because
-                                // they will have another trace template
-                                OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                    TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                             shard->file_type_),
                 "Branch target not immediately after branch");
         }
@@ -1348,8 +1345,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     report_if_false(shard,
                                     shard->prev_kernel_end_branch_target_ ==
                                         memref.marker.marker_value,
-                                    "Kernel trace-end branch marker incorrect "
-                                    "@ context-initial kernel_event marker");
+                                    "Kernel trace-end branch marker does not match "
+                                    "context-first kernel_event marker");
                     shard->prev_kernel_end_branch_target_ = 0;
                 }
                 shard->signal_stack_.push(
@@ -1679,10 +1676,12 @@ invariant_checker_t::check_for_pc_discontinuity(
         const addr_t kernel_end_branch_target = shard->prev_kernel_end_branch_target_;
         shard->prev_kernel_end_branch_target_ = 0;
         if (kernel_end_branch_target != cur_pc)
-            return "Kernel trace-end branch marker incorrect";
+            // We want the check for PC continuity of cur_pc to take precedence
+            // over this, so later code may overwrite error_msg.
+            error_msg = "Kernel trace-end branch marker does not match next pc";
     }
     if (prev_instr_trace_pc == 0 /*first*/) {
-        return "";
+        return error_msg;
     }
     // We do not bother to support legacy traces without encodings.
     if (expect_encoding && type_is_instr_direct_branch(prev_instr.instr.type)) {
@@ -1958,6 +1957,9 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
     }
 }
 
+// XXX: Share this with the drmemtrace scheduler. We do not want to depend on the
+// scheduler here, and we cannot move this to trace_entry.h or memref.h because
+// those files are included by multiple modules which causes duplicate definitions.
 static bool
 memref_has_pc(const memref_t &memref, uint64_t &pc)
 {

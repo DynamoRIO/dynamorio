@@ -3128,14 +3128,15 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_exit(TID_A),
         };
         std::string expected_error;
+        // We get a different error based on the type of kernel trace. When there's
+        // a context switch, we don't report an error vs the prior pc because the
+        // prior pc was on a different thread context.
         if (for_syscall) {
-            expected_error =
-                "Kernel trace-end branch marker incorrect @ kernel_event marker";
-        } else {
-            // We start a new context after the context switch trace, so we'd see a
-            // different error message;
-            expected_error = "Kernel trace-end branch marker incorrect @ context-initial "
+            expected_error = "Non-explicit control flow has no marker @ "
                              "kernel_event marker";
+        } else {
+            expected_error = "Kernel trace-end branch marker does not match "
+                             "context-first kernel_event marker";
         }
         if (!run_checker(memrefs, true,
                          { expected_error,
@@ -3215,6 +3216,23 @@ check_kernel_context_switch_trace(void)
             gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0),
             gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Switch trace does not end with indirect branch", TID_A,
+                           /*ref_ordinal=*/6, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch missing switch-trace end indirect branch"))
+            return false;
+    }
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0),
+            gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0),
@@ -3222,7 +3240,7 @@ check_kernel_context_switch_trace(void)
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
-                         { "Kernel trace-end branch marker incorrect", TID_A,
+                         { "Kernel trace-end branch marker does not match next pc", TID_A,
                            /*ref_ordinal=*/8, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/4 },
                          "Failed to catch incorrect switch-trace end branch")) {
@@ -3603,7 +3621,7 @@ check_kernel_syscall_trace(void)
             { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             // add_encodings_to_memrefs removes this from the memref list and adds it
             // to memref_t.instr.indirect_branch_target instead for the following instr.
-            // Specifies incorrect branch target instr.
+            // Specifies incorrect branch target, which should have been post_sys.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), move },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
@@ -3613,7 +3631,7 @@ check_kernel_syscall_trace(void)
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(
                 memrefs, true,
-                { "Kernel trace-end branch marker incorrect",
+                { "Kernel trace-end branch marker does not match next pc",
                   /*tid=*/TID_A,
                   /*ref_ordinal=*/13, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/5 },
@@ -3773,13 +3791,14 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "Kernel trace-end branch marker incorrect @ "
+                         { // Ensure the error reported is for the kernel_event marker,
+                           // and not the syscall-trace-end branch target.
+                           "Non-explicit control flow has no marker @ "
                            "kernel_event marker",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/13, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/4 },
-                         "Failed to detect incorrect branch target marker at syscall "
-                         "trace end @ kernel_event marker"))
+                         "Failed to detect incorrect kernel_event marker"))
             res = false;
     }
     // Seemingly correct indirect branch target at the syscall trace end. But there's a
@@ -3960,13 +3979,13 @@ check_kernel_syscall_trace(void)
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "Kernel trace-end branch marker incorrect "
-                           "@ context-initial kernel_event marker",
+                         { "Kernel trace-end branch marker does not match "
+                           "context-first kernel_event marker",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/14, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/4 },
-                         "Failed to detect PC discontinuity after syscall-trace at "
-                         "context-initial kernel_event marker"))
+                         "Failed to detect PC discontinuity at syscall-trace-end at "
+                         "context-first kernel_event marker"))
             res = false;
     }
 #    endif
@@ -4906,6 +4925,7 @@ check_core_sharded()
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
+            // Thread switch.
             gen_marker(TID_B, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_B, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_B, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
@@ -4913,6 +4933,7 @@ check_core_sharded()
             gen_instr(TID_B, /*pc=*/2),
             gen_instr(TID_B, /*pc=*/3),
             gen_exit(TID_B),
+            // Thread switch.
             gen_instr(TID_A, /*pc=*/2),
             gen_instr(TID_A, /*pc=*/3),
             gen_exit(TID_A),
@@ -4928,6 +4949,7 @@ check_core_sharded()
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
+            // Thread switch.
             gen_marker(TID_B, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_B, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_B, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
@@ -4936,6 +4958,7 @@ check_core_sharded()
             gen_instr(TID_B, /*pc=*/3),
             gen_exit(TID_B),
             gen_instr(TID_A, /*pc=*/2),
+            // PC discontinuity.
             gen_instr(TID_A, /*pc=*/4),
             gen_exit(TID_A),
         };
@@ -4948,13 +4971,15 @@ check_core_sharded()
             return false;
     }
     // Verify that no PC discontinuity is reported when there's no switch to
-    // a different thread but there are core_idle markers.
+    // a different thread but there are core_idle markers which indicate
+    // a process switch.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
+            // Thread switch.
             gen_marker(TID_B, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_B, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_B, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
@@ -4962,8 +4987,10 @@ check_core_sharded()
             gen_instr(TID_B, /*pc=*/2),
             gen_instr(TID_B, /*pc=*/3),
             gen_exit(TID_B),
+            // Thread switch.
             gen_instr(TID_A, /*pc=*/2),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 1),
+            // Process switch.
             gen_instr(TID_A, /*pc=*/4),
             gen_exit(TID_A),
         };
@@ -4977,6 +5004,7 @@ check_core_sharded()
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
+            // Incorrect TID; should always be IDLE_THREAD_ID.
             gen_marker(TID_A, TRACE_MARKER_TYPE_CORE_IDLE, 1),
             gen_instr(TID_A, /*pc=*/4),
             gen_exit(TID_A),
@@ -4999,8 +5027,9 @@ check_core_sharded_with_kernel()
         OFFLINE_FILE_TYPE_CORE_SHARDED | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
         OFFLINE_FILE_TYPE_SYSCALL_NUMBERS);
     constexpr int SYSNUM = 42;
-    // Verify that no PC discontinuity is reported in a core-sharded-on-disk trace with
-    // switch and syscall sequences where required.
+    constexpr int DONT_CARE = 0x50f00d;
+    // Verify that no error is reported in a core-sharded-on-disk trace that
+    // has switch and syscall sequences whereever they're required.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
@@ -5012,19 +5041,19 @@ check_core_sharded_with_kernel()
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/101, /*size=*/1,
-                           /*indirect_branch_target=*/2),
+                           /*indirect_branch_target=*/DONT_CARE),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM),
 
             // core_idles that indicate a blocked output with nothing else to run yet.
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 1),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 1),
 
-            // Switch to TID_B, marked by a switch sequence that ends with an indirect
-            // branch to the right pc.
-            gen_marker(TID_B, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 1),
+            // Process switch to TID_B, marked by a switch sequence that ends with an
+            // indirect branch to the correct pc.
+            gen_marker(TID_B, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 2),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_B, /*pc=*/101, /*size=*/1,
                            /*indirect_branch_target=*/1),
-            gen_marker(TID_B, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 1),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 2),
             gen_marker(TID_B, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_B, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_B, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
@@ -5033,8 +5062,8 @@ check_core_sharded_with_kernel()
             gen_instr(TID_B, /*pc=*/3),
             gen_exit(TID_B),
 
-            // Switch to TID_A, marked by a switch sequence that ends with an indirect
-            // branch to the right pc.
+            // Thread switch to TID_A, marked by a switch sequence that ends with an
+            // indirect branch to the correct pc.
             gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 1),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
                            /*indirect_branch_target=*/2),
@@ -5049,6 +5078,7 @@ check_core_sharded_with_kernel()
                            /*indirect_branch_target=*/3),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM),
             gen_instr(TID_A, /*pc=*/3),
+
             gen_exit(TID_A),
         };
         if (!run_csod_checker(memrefs, false))
@@ -5081,6 +5111,7 @@ check_core_sharded_with_kernel()
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
+            // Thread switch but no switch trace.
             gen_marker(TID_B, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_B, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_B, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
