@@ -3143,7 +3143,7 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/14, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/4 },
-                         "Failed to catch incorrect kernel_event marker value after " +
+                         "Failed to catch mismatched kernel_event marker value after " +
                              test_type + " trace"))
             return false;
     }
@@ -3984,7 +3984,7 @@ check_kernel_syscall_trace(void)
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/14, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/4 },
-                         "Failed to detect PC discontinuity at syscall-trace-end at "
+                         "Failed to detect PC discontinuity for syscall-trace-end at "
                          "context-first kernel_event marker"))
             res = false;
     }
@@ -5027,7 +5027,6 @@ check_core_sharded_with_kernel()
         OFFLINE_FILE_TYPE_CORE_SHARDED | OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
         OFFLINE_FILE_TYPE_SYSCALL_NUMBERS);
     constexpr int SYSNUM = 42;
-    constexpr int DONT_CARE = 0x50f00d;
     // Verify that no error is reported in a core-sharded-on-disk trace that
     // has switch and syscall sequences whereever they're required.
     {
@@ -5041,7 +5040,10 @@ check_core_sharded_with_kernel()
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/101, /*size=*/1,
-                           /*indirect_branch_target=*/DONT_CARE),
+                           // The next instr on TID_A is at pc=2, but we don't see
+                           // it immediately because of the upcoming idles and
+                           // switch.
+                           /*indirect_branch_target=*/2),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM),
 
             // core_idles that indicate a blocked output with nothing else to run yet.

@@ -412,21 +412,21 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->ref_count_ = shard->stream->get_record_ordinal();
             shard->adjusted_ordinal_for_incomplete_ = true;
         }
-        // When the input trace is core-sharded, we do not use the
-        // SCHEDULER_USE_INPUT_ORDINALS mode, so the streams are expected to
-        // return the actual ordinals.
-        report_if_false(
-            shard,
-            shard->ref_count_ -
-                    (core_sharded_ ? 0 : shard->dyn_injected_syscall_ref_count_) ==
-                shard->stream->get_record_ordinal(),
-            "Stream record ordinal inaccurate");
-        report_if_false(
-            shard,
-            shard->instr_count_ -
-                    (core_sharded_ ? 0 : shard->dyn_injected_syscall_instr_count_) ==
-                shard->stream->get_instruction_ordinal(),
-            "Stream instr ordinal inaccurate");
+        uint64_t adjusted_ref_count = shard->ref_count_;
+        uint64_t adjusted_instr_count = shard->instr_count_;
+        if (!core_sharded_ ||
+            !TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->file_type_)) {
+            // We're not using the SCHEDULER_USE_INPUT_ORDINALS mode, so the
+            // stream-reported ordinals should already include the dynamically injected
+            // ones.
+            adjusted_ref_count -= shard->dyn_injected_syscall_ref_count_;
+            adjusted_instr_count -= shard->dyn_injected_syscall_instr_count_;
+        }
+        report_if_false(shard, adjusted_ref_count == shard->stream->get_record_ordinal(),
+                        "Stream record ordinal inaccurate");
+        report_if_false(shard,
+                        adjusted_instr_count == shard->stream->get_instruction_ordinal(),
+                        "Stream instr ordinal inaccurate");
     }
 #ifdef UNIX
     if (has_annotations_) {
@@ -1997,6 +1997,8 @@ invariant_checker_t::per_shard_t::reset_at_context_switch(const memref_t &memref
     }
 
     if (!core_sharded_on_disk) {
+        // Stream ordinals in core-sharded-on-disk traces do not change
+        // on context switches, so we can keep the existing values.
         dyn_injected_syscall_ref_count_ = 0;
         dyn_injected_syscall_instr_count_ = 0;
         instr_count_since_last_timestamp_ = 0;
