@@ -68,12 +68,16 @@ namespace drmemtrace {
 
 #define PC_SYSCALL_MEMBARRIER 0xdeadbe00
 #define PC_SYSCALL_GETTID 0x8badf000
+#define PC_SYSCALL_DEFAULT_TRACE 0xf00d8b00
 #define READ_MEMADDR_GETTID 0xdecafbad
 #define REP_MOVS_COUNT 1024
 #define SYSCALL_INSTR_COUNT 2
+#define DEFAULT_INSTR_COUNT 1
+#define SOME_VAL 0xf00d
 
 static instr_t *instrs_in_membarrier[SYSCALL_INSTR_COUNT];
 static instr_t *instrs_in_gettid[SYSCALL_INSTR_COUNT];
+static instr_t *instr_in_default_trace;
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -97,6 +101,12 @@ do_gettid(void)
     return syscall(SYS_gettid);
 }
 
+static pid_t
+do_getpid(void)
+{
+    return syscall(SYS_getpid);
+}
+
 static int
 do_some_syscalls()
 {
@@ -105,7 +115,8 @@ do_some_syscalls()
     // Considered as a regular non-blocking syscall by raw2trace; we also
     // specify it in -record_syscall for this test.
     do_gettid();
-
+    // Will be injected with the default syscall trace.
+    do_getpid();
     // Make some failing sigaction syscalls, which we record such that
     // syscall_mix will count the failure codes.
     // We bypass libc to ensure these make it to the syscall itself.
@@ -197,6 +208,31 @@ write_header_entries(std::unique_ptr<std::ostream> &writer)
     write_trace_entry(writer, test_util::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1));
 }
 
+// Returns an instr_t* for the one and only instr in the template, which must be
+// freed by the caller.
+static instr_t *
+write_default_syscall_trace(void *dr_context, std::unique_ptr<std::ostream> &writer)
+{
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
+#ifdef X86
+    instr_t *instr = INSTR_CREATE_sysret(dr_context);
+#elif defined(AARCHXX)
+    instr_t *instr = INSTR_CREATE_eret(dr_context);
+#endif
+    // The value doesn't really matter as it will be replaced during trace injection.
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, SOME_VAL));
+    write_instr_entry(dr_context, writer, instr,
+                      reinterpret_cast<app_pc>(PC_SYSCALL_DEFAULT_TRACE),
+                      TRACE_TYPE_INSTR_INDIRECT_JUMP);
+    write_trace_entry(writer,
+                      test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
+    return instr;
+}
+
 static void
 write_footer_entries(std::unique_ptr<std::ostream> &writer)
 {
@@ -230,7 +266,6 @@ write_system_call_template(void *dr_context)
     write_instr_entry(dr_context, writer, instrs_in_membarrier[0],
                       reinterpret_cast<app_pc>(PC_SYSCALL_MEMBARRIER));
 
-    constexpr uintptr_t SOME_VAL = 0xf00d;
 #ifdef X86
     instrs_in_membarrier[1] = INSTR_CREATE_sysret(dr_context);
 #elif defined(AARCHXX)
@@ -286,13 +321,15 @@ write_system_call_template(void *dr_context)
     write_trace_entry(
         writer, test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_gettid));
 
+    instr_in_default_trace = write_default_syscall_trace(dr_context, writer);
+
     write_footer_entries(writer);
     return syscall_trace_template_file;
 }
 
 static std::string
 postprocess(void *dr_context, std::string syscall_trace_template_file,
-            int expected_injected_syscall_count, std::string suffix = "")
+            int expected_min_injected_syscall_count, std::string suffix = "")
 {
     // Get path to write the final trace to.
     const char *raw_dir;
@@ -320,9 +357,9 @@ postprocess(void *dr_context, std::string syscall_trace_template_file,
         FATAL_ERROR("raw2trace failed: %s\n", error.c_str());
     uint64 injected_syscall_count =
         raw2trace.get_statistic(RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED);
-    if (injected_syscall_count != expected_injected_syscall_count) {
+    if (injected_syscall_count < expected_min_injected_syscall_count) {
         std::cerr << "Incorrect injected syscall count (found: " << injected_syscall_count
-                  << " vs expected:" << expected_injected_syscall_count << ")\n";
+                  << " vs expected: >= " << expected_min_injected_syscall_count << ")\n";
     }
     return outdir;
 }
@@ -413,6 +450,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     int gettid_instr_found = 0;
     int membarrier_instr_len = 0;
     int gettid_instr_len = 0;
+    int default_trace_instr_found = 0;
     bool found_gettid_read = false;
     bool have_syscall_trace_type = false;
     // Non-sentinel only when we're actually between the syscall_trace_start and
@@ -549,6 +587,23 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 return false;
             }
             break;
+        default:
+            if (is_instr) {
+                if (memref.instr.addr != PC_SYSCALL_DEFAULT_TRACE) {
+                    std::cerr << "Found incorrect addr (" << std::hex << memref.instr.addr
+                              << " vs expected "
+                              << PC_SYSCALL_MEMBARRIER + membarrier_instr_len << std::dec
+                              << ") for default trace instr.\n";
+                    return false;
+                }
+                if (!check_instr_same(dr_context, memref, instr_in_default_trace)) {
+                    return false;
+                }
+                ++default_trace_instr_found;
+            } else {
+                std::cerr << "Found unexpected data memref in default trace\n";
+                return false;
+            }
         }
     }
     if (!have_syscall_trace_type) {
@@ -565,6 +620,8 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
     } else if (!saw_aux_syscall_markers_for_gettid) {
         std::cerr << "Did not see any auxillary syscall markers for gettid. "
                   << "Ensure test is setup properly\n";
+    } else if (default_trace_instr_found == 0) {
+        std::cerr << "Did not see any default trace instrs\n";
     } else {
         return true;
     }
@@ -603,7 +660,6 @@ write_system_call_template_with_repstr(void *dr_context)
                                                  opnd_size_in_bytes(OPSZ_PTR)));
     }
 
-    constexpr uintptr_t SOME_VAL = 0xf00d;
     instr_t *sys_return;
 #    ifdef X86
     sys_return = INSTR_CREATE_sysret(dr_context);
@@ -622,8 +678,11 @@ write_system_call_template_with_repstr(void *dr_context)
         writer,
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYS_membarrier));
 
+    instr_t *default_trace_instr = write_default_syscall_trace(dr_context, writer);
+
     write_footer_entries(writer);
 
+    instr_destroy(dr_context, default_trace_instr);
     instr_destroy(dr_context, sys_return);
     instr_destroy(dr_context, rep_movs);
     return syscall_trace_template_file;
@@ -639,9 +698,10 @@ test_template_with_repstr(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
-    if (!(template_counts.instrs == SYSCALL_INSTR_COUNT &&
+    int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT + DEFAULT_INSTR_COUNT;
+    if (!(template_counts.instrs == distinct_instrs_in_tmpl &&
           template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
-          template_counts.encodings == REP_MOVS_COUNT + (SYSCALL_INSTR_COUNT - 1) &&
+          template_counts.encodings == REP_MOVS_COUNT + SYSCALL_INSTR_COUNT &&
           template_counts.loads == REP_MOVS_COUNT &&
           template_counts.stores == REP_MOVS_COUNT)) {
         std::cerr << "Unexpected counts in system call trace template with repstr ("
@@ -654,12 +714,13 @@ test_template_with_repstr(void *dr_context)
     }
     assert(syscall_stats.syscall_errno_counts.empty());
 
-    std::string trace_dir = postprocess(dr_context, syscall_trace_template,
-                                        /*expected_injected_syscall_count=*/1, "repstr");
+    std::string trace_dir =
+        postprocess(dr_context, syscall_trace_template,
+                    /*expected_min_injected_syscall_count=*/2, "repstr");
 
     basic_counts_t::counters_t final_trace_counts;
     get_tool_results(trace_dir, final_trace_counts, syscall_stats);
-    if (final_trace_counts.kernel_instrs != SYSCALL_INSTR_COUNT ||
+    if (final_trace_counts.kernel_instrs < distinct_instrs_in_tmpl ||
         final_trace_counts.kernel_nofetch_instrs != REP_MOVS_COUNT - 1) {
         std::cerr << "Unexpected counts in the final trace with repstr (#instr="
                   << final_trace_counts.kernel_instrs
@@ -684,9 +745,13 @@ test_trace_templates(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
-    if (!(template_counts.instrs == SYSCALL_INSTR_COUNT * 2 &&
+
+    // We have two templates of two instrs each, and one default template with
+    // just one instr.
+    int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT * 2 + DEFAULT_INSTR_COUNT;
+    if (!(template_counts.instrs == distinct_instrs_in_tmpl &&
           template_counts.instrs_nofetch == 0 &&
-          template_counts.encodings == SYSCALL_INSTR_COUNT * 2 &&
+          template_counts.encodings == distinct_instrs_in_tmpl &&
           template_counts.loads == 1 && template_counts.stores == 0 &&
           // We only have trace start and end markers, no syscall number markers.
           template_counts.syscall_number_markers == 0)) {
@@ -703,18 +768,19 @@ test_trace_templates(void *dr_context)
     assert(syscall_stats.syscall_errno_counts.empty());
 
     std::string trace_dir = postprocess(dr_context, syscall_trace_template,
-                                        /*expected_injected_syscall_count=*/2, "");
+                                        /*expected_min_injected_syscall_count=*/3, "");
     bool success = look_for_syscall_trace(dr_context, trace_dir);
     for (int i = 0; i < SYSCALL_INSTR_COUNT; ++i) {
         instr_destroy(dr_context, instrs_in_membarrier[i]);
         instr_destroy(dr_context, instrs_in_gettid[i]);
     }
+    instr_destroy(dr_context, instr_in_default_trace);
     if (!success) {
         return 1;
     }
     basic_counts_t::counters_t final_trace_counts;
     get_tool_results(trace_dir, final_trace_counts, syscall_stats);
-    if (final_trace_counts.kernel_instrs != SYSCALL_INSTR_COUNT * 2) {
+    if (final_trace_counts.kernel_instrs < distinct_instrs_in_tmpl) {
         std::cerr << "Unexpected kernel instr count in the final trace ("
                   << final_trace_counts.kernel_instrs << ")\n";
         return 1;
