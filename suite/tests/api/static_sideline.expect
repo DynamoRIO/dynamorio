@@ -4,7 +4,6 @@ client thread 0 is alive
 client thread 1 is alive
 client thread 2 is alive
 client thread 3 is alive
-pre-DR start
 Saw some bb events
 post-DR detach
 re-attach attempt

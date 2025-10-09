@@ -575,6 +575,8 @@ dynamo_thread_exit(void);
 void
 dynamo_thread_stack_free_and_exit(byte *stack);
 int
+dynamo_thread_exit_dcontext(dcontext_t *dcontext);
+int
 dynamo_other_thread_exit(thread_record_t *tr _IF_WINDOWS(bool detach_stacked_callbacks));
 void
 dynamo_thread_under_dynamo(dcontext_t *dcontext);
