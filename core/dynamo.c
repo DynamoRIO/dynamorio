@@ -2730,7 +2730,7 @@ int
 dynamo_thread_exit_dcontext(dcontext_t *dcontext)
 {
     ASSERT(dcontext != NULL);
-#ifdef X86
+#if defined(X86) && defined(UNIX)
     /* We went to the trouble of passing in the dcontext for client threads, but
      * we want to preserve the i#3535 solution to avoid races during detach
      * causing problems with x86's safe_read TLS scheme on non-client threads.
