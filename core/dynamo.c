@@ -2504,12 +2504,13 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     dcontext_t *dcontext_next;
     int num_dcontext;
 #endif
-    bool on_dstack = !other_thread && is_currently_on_dstack(dcontext);
-    /* cache this now for use after freeing dcontext */
-    local_state_t *local_state = dcontext->local_state;
-
     if (INTERNAL_OPTION(nullcalls) || dcontext == NULL)
         return SUCCESS;
+
+    bool on_dstack = !other_thread && is_currently_on_dstack(dcontext);
+    bool client_thread = IS_CLIENT_THREAD(dcontext);
+    /* cache this now for use after freeing dcontext */
+    local_state_t *local_state = dcontext->local_state;
 
     /* make sure don't get into deadlock w/ flusher */
     enter_threadexit(dcontext);
@@ -2596,7 +2597,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
      * This must be called after dynamo_thread_exit_pre_client where
      * we called event callbacks.
      */
-    if (!other_thread) {
+    if (!other_thread && !client_thread) {
 #if !(defined(MACOS) && defined(AARCH64))
         dynamo_thread_not_under_dynamo(dcontext);
 #else
@@ -2721,6 +2722,27 @@ NOINLINE int
 dynamo_thread_exit(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
+    return dynamo_thread_exit_common(dcontext, d_r_get_thread_id(),
+                                     IF_WINDOWS_(false) false);
+}
+
+int
+dynamo_thread_exit_dcontext(dcontext_t *dcontext)
+{
+    ASSERT(dcontext != NULL);
+#if defined(X86) && defined(UNIX)
+    /* We went to the trouble of passing in the dcontext for client threads, but
+     * we want to preserve the i#3535 solution to avoid races during detach
+     * causing problems with x86's safe_read TLS scheme on non-client threads.
+     */
+    if (!IS_CLIENT_THREAD(dcontext) && detacher_tid != INVALID_THREAD_ID &&
+        detacher_tid != get_sys_thread_id()) {
+        /* Keep the get_thread_private_dcontext()==NULL behavior of exiting,
+         * letting detach clean us up.
+         */
+        return SUCCESS;
+    }
+#endif
     return dynamo_thread_exit_common(dcontext, d_r_get_thread_id(),
                                      IF_WINDOWS_(false) false);
 }

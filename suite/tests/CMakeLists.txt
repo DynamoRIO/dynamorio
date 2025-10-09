@@ -530,7 +530,7 @@ set(sve_tests
       api.detach_spawn api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit
       api.ibl-stress api.ibl-stress-aarch64-far-link_LONG api.static_startstop
       api.static_noclient api.static_noinit api.static_detach api.static_prepop
-      api.static_reattach_client_flags api.static_crash api.static_sideline_FLAKY
+      api.static_reattach_client_flags api.static_crash api.static_sideline
       api.static_symbols api.static_maps_mixup_yesvars
       api.static_maps_mixup_novars_FLAKY api.thread_churn client.app_args
       client.destructor builtin_prefetch stride_benchmark
@@ -3581,10 +3581,12 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
     tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON OFF)
     target_link_libraries(api.static_crash ${libmath})
     # XXX i#2346: add delayed sideline thread exit on Windows
-    # XXX i#297: static_sideline is flaky and sometimes hangs on exit.
-    tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON OFF)
-    target_link_libraries(api.static_sideline_FLAKY ${libmath})
-    link_with_pthread(api.static_sideline_FLAKY)
+    # XXX i#7670: Fix aarch64 static DR client thread TLS.
+    if (NOT AARCH64)
+      tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON OFF)
+      target_link_libraries(api.static_sideline ${libmath})
+      link_with_pthread(api.static_sideline)
+    endif ()
 
     # i#3348: Ensure that DR without local symbols hidden is linkable and
     # avoids conflicts (though CMake_symbol_check does most of the conflict
