@@ -154,6 +154,7 @@ DECL_EXTERN(dr_app_start_helper)
 #endif
 DECL_EXTERN(dynamo_process_exit)
 DECL_EXTERN(dynamo_thread_exit)
+DECL_EXTERN(dynamo_thread_exit_dcontext)
 DECL_EXTERN(dynamo_thread_stack_free_and_exit)
 DECL_EXTERN(dynamorio_app_take_over_helper)
 DECL_EXTERN(found_modified_code)
@@ -608,7 +609,12 @@ cat_done_saving_dstack:
         CALLC0(GLOBAL_REF(dynamo_process_exit))
         jmp      cat_no_thread
 cat_thread_only:
-        CALLC0(GLOBAL_REF(dynamo_thread_exit))
+        /* We need to pass dcontext as get_thread_private_dcontext() can return
+         * NULL from is_thread_tls_initialized() seeing detacher_tid being set
+         * which we do not want for client threads.
+         */
+        mov      REG_XAX, [1*ARG_SZ + REG_XBP] /* dcontext */
+        CALLC1(GLOBAL_REF(dynamo_thread_exit_dcontext), REG_XAX)
 cat_no_thread:
         /* now switch to d_r_initstack for cleanup of dstack
          * could use d_r_initstack for whole thing but that's too long
