@@ -3581,12 +3581,9 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
     tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON OFF)
     target_link_libraries(api.static_crash ${libmath})
     # XXX i#2346: add delayed sideline thread exit on Windows
-    # XXX i#7670: Fix aarch64 static DR client thread TLS.
-    if (NOT AARCH64)
-      tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON OFF)
-      target_link_libraries(api.static_sideline ${libmath})
-      link_with_pthread(api.static_sideline)
-    endif ()
+    tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON OFF)
+    target_link_libraries(api.static_sideline ${libmath})
+    link_with_pthread(api.static_sideline)
 
     # i#3348: Ensure that DR without local symbols hidden is linkable and
     # avoids conflicts (though CMake_symbol_check does most of the conflict
