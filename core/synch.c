@@ -1383,7 +1383,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                       * can't tell whether we suspended safely b/c is_in_client_lib()
                       * is true for the whole app!
                       */
-                     || loop_count < num_threads
+                     || (int)loop_count < num_threads
 #endif
                      ) &&
                     IS_CLIENT_THREAD(threads[i]->dcontext)) {

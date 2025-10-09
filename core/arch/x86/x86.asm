@@ -610,7 +610,8 @@ cat_done_saving_dstack:
         jmp      cat_no_thread
 cat_thread_only:
         /* We need to pass dcontext as get_thread_private_dcontext() can return
-         * NULL from is_thread_tls_initialized() seeing detacher_tid being set.
+         * NULL from is_thread_tls_initialized() seeing detacher_tid being set
+         * which we do not want for client threads.
          */
         mov      REG_XAX, [1*ARG_SZ + REG_XBP] /* dcontext */
         CALLC1(GLOBAL_REF(dynamo_thread_exit_dcontext), REG_XAX)

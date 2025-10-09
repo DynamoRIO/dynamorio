@@ -2730,6 +2730,19 @@ int
 dynamo_thread_exit_dcontext(dcontext_t *dcontext)
 {
     ASSERT(dcontext != NULL);
+#ifdef X86
+    /* We went to the trouble of passing in the dcontext for client threads, but
+     * we want to preserve the i#3535 solution to avoid races during detach
+     * causing problems with x86's safe_read TLS scheme on non-client threads.
+     */
+    if (!IS_CLIENT_THREAD(dcontext) && detacher_tid != INVALID_THREAD_ID &&
+        detacher_tid != get_sys_thread_id()) {
+        /* Keep the get_thread_private_dcontext()==NULL behavior of exiting,
+         * letting detach clean us up.
+         */
+        return SUCCESS;
+    }
+#endif
     return dynamo_thread_exit_common(dcontext, d_r_get_thread_id(),
                                      IF_WINDOWS_(false) false);
 }
