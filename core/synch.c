@@ -579,7 +579,15 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                  * of time holding locks.
                  */
                 (!should_suspend_client_thread(trec->dcontext, desired_state) ||
-                 trec->dcontext->client_data->mutex_count == 0);
+                 trec->dcontext->client_data->mutex_count == 0) &&
+                /* If a client thread has set is_exiting in cleanup_and_terminate, it
+                 * next increments exiting_thread_count and waits for the
+                 * thread_initexit_lock to exit: and for static DR that satisfies
+                 * is_in_client_lib(), but if we kill it then exiting_thread_count
+                 * will never decrement and we'll fail to synch.
+                 * Better to consider unsafe and let the thread exit and retry.
+                 */
+                !trec->dcontext->is_exiting;
         }
         if (is_native_thread_state_valid(trec->dcontext, mc->pc, (byte *)mc->xsp)) {
             safe = true;
@@ -1376,16 +1384,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
         for (i = 0; i < num_threads; i++) {
             /* do not de-ref threads[i] after synching if it was cleaned up! */
             if (synch_array[i] != SYNCH_WITH_ALL_SYNCHED && threads[i]->id != my_id) {
-                if ((!finished_non_client_threads
-#ifdef STATIC_LIBRARY
-                     /* Give client threads who may be in dynamo_thread_exit waiting
-                      * on thread_initexit_lock a chance to exit.  For static DR we
-                      * can't tell whether we suspended safely b/c is_in_client_lib()
-                      * is true for the whole app!
-                      */
-                     || (int)loop_count < num_threads
-#endif
-                     ) &&
+                if (!finished_non_client_threads &&
                     IS_CLIENT_THREAD(threads[i]->dcontext)) {
                     all_synched = false;
                     continue; /* skip this thread for now till non-client are finished */
