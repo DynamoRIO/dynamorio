@@ -586,6 +586,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                  * is_in_client_lib(), but if we kill it then exiting_thread_count
                  * will never decrement and we'll fail to synch.
                  * Better to consider unsafe and let the thread exit and retry.
+                 * XXX i#7673: Adding a client join feature could avoid complexity here.
                  */
                 !trec->dcontext->is_exiting;
         }
@@ -1387,6 +1388,9 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                 if (!finished_non_client_threads &&
                     IS_CLIENT_THREAD(threads[i]->dcontext)) {
                     all_synched = false;
+                    /* XXX i#7673: Adding a client join feature could avoid complexity
+                     * here.
+                     */
                     continue; /* skip this thread for now till non-client are finished */
                 }
                 if (IS_CLIENT_THREAD(threads[i]->dcontext) &&
