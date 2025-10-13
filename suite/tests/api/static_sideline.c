@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -92,14 +92,13 @@ event_exit(void)
     first_detach = false;
 }
 
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
+static void
+event_post_attach(void)
 {
-    int i;
-    print("in dr_client_main\n");
-    dr_register_bb_event(event_bb);
-    dr_register_exit_event(event_exit);
-    for (i = 0; i < NUM_SIDELINE_THREADS; i++) {
+    /* Client threads are paused until attach, so we can't do this in
+     * dr_client_main().
+     */
+    for (int i = 0; i < NUM_SIDELINE_THREADS; i++) {
         child_alive[i] = dr_event_create();
         if (first_detach) {
             child_continue[i] = dr_event_create();
@@ -108,6 +107,15 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_create_client_thread(sideline_run, (void *)(ptr_int_t)i);
         dr_event_wait(child_alive[i]);
     }
+}
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    print("in dr_client_main\n");
+    dr_register_bb_event(event_bb);
+    dr_register_post_attach_event(event_post_attach);
+    dr_register_exit_event(event_exit);
     /* XXX i#975: add some more thorough tests of different events */
 }
 
@@ -144,11 +152,8 @@ main(int argc, const char *argv[])
         pthread_create(&thread[i], NULL, thread_func, (void *)(ptr_int_t)i);
     }
     print("pre-DR init\n");
-    dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
-
-    print("pre-DR start\n");
-    dr_app_start();
+    dr_app_setup_and_start();
     assert(dr_app_running_under_dynamorio());
 
     for (i = 0; i < NUM_APP_THREADS; i++) {
