@@ -1120,7 +1120,7 @@ typedef enum {
      * #dynamorio::drmemtrace::scheduler_tmpl_t::
      * scheduler_options_t.kernel_switch_trace_path and #dynamorio::
      * drmemtrace::scheduler_tmpl_t::scheduler_options_t.kernel_switch_reader to the
-     * scheduler. Each system call trace template uses the regular drmemtrace format,
+     * scheduler. Each context switch trace template uses the regular drmemtrace format,
      * similar to the syscall trace templates described above.
      *
      * TODO i#6495: Add support for reading a zipfile where each trace template is in
