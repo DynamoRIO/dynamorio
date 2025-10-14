@@ -3209,6 +3209,7 @@ check_kernel_context_switch_trace(void)
             gen_marker(
                 TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
                 scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
             gen_marker(
                 TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
                 scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),

@@ -709,7 +709,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER) {
         report_if_false(
             shard,
-            shard->skipped_instrs_ ||
+            // Chunks in kernel trace template files are not defined by any fixed
+            // instr count.
+            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                    shard->file_type_) ||
+                shard->skipped_instrs_ ||
                 (shard->chunk_instr_count_ != 0 &&
                  (shard->instr_count_ - shard->dyn_injected_syscall_instr_count_) %
                          shard->chunk_instr_count_ ==
