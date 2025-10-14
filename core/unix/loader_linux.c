@@ -77,6 +77,11 @@
  * they are put before the TCB, which allows TCB to have any size.
  * Using [%seg:0x0] as the TP, all modules' static TLS are accessed
  * via negative offsets, and TCB fields are accessed via positive offsets.
+ *
+ * For AArchXX and RISCV, struct pthread is separate and comes before
+ * the TCB structure, at the start of the allocation.
+ * The Thread Pointer (TP) points to the end of the TCB, with the app and
+ * library TLS coming afterward.
  */
 /* There are two possible TLS memory, static TLS and dynamic TLS.
  * Static TLS is the memory allocated in the TLS segment, and can be accessed
@@ -142,7 +147,9 @@ static size_t client_tls_size = 2 * 4096;
  *    0xf779e5bc:  mov    %eax,0x8(%edx)
  *    0xf779e5bf:  movb   $0x0,%gs:0x4fe
  */
-/* On A32, the pthread is put before tcbhead instead tcbhead being part of pthread */
+/* On AArchXX and RISCV, the pthread struct is put before tcbhead instead of tcbhead
+ * being part of the pthread struct.
+ */
 static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x500);
 
 /* thread contol block header type from
@@ -166,7 +173,6 @@ typedef struct _tcb_head_t {
     ptr_uint_t stack_guard;
     ptr_uint_t pointer_guard;
 #elif defined(AARCH64)
-    /* XXX i#1569: This may be wrong! */
     void *dtv;
     void *private;
 #elif defined(ARM)
@@ -182,7 +188,7 @@ typedef struct _tcb_head_t {
 #ifdef X86
 #    define TLS_PRE_TCB_SIZE 0
 #elif defined(AARCHXX)
-/* XXX i#1569: This may be wrong for AArch64! */
+/* XXX i#7676: This may not be fully correct for AArch64. */
 /* Data structure to match libc pthread.
  * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
  * the size and member locations match to avoid gdb crash.
@@ -223,9 +229,8 @@ typedef struct _dr_pthread_t {
  */
 #    define APP_LIBC_TLS_SIZE 0x400
 #elif defined(AARCHXX)
-/* XXX i#1551, i#1569: investigate the difference between ARM and X86 on TLS.
- * On ARM, it seems that TLS variables are not put before the thread pointer
- * as they are on X86.
+/* On AArchXX and RISCV, app and library TLS is after the TCB so we don't need to
+ * know its size to find the allocation base.
  */
 #    define APP_LIBC_TLS_SIZE 0
 #elif defined(RISCV64)
@@ -243,7 +248,7 @@ privload_mod_tls_init(privmod_t *mod)
 {
     os_privmod_data_t *opd;
     size_t offset;
-#    ifndef RISCV64
+#    ifdef X86
     int first_byte;
 #    endif
     IF_X86(ASSERT(TLS_APP_SELF_OFFSET_ASM == offsetof(tcb_head_t, self)));
@@ -258,7 +263,7 @@ privload_mod_tls_init(privmod_t *mod)
     tls_info.mods[tls_info.num_mods] = mod;
     opd->tls_modid = tls_info.num_mods;
     offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
-#    ifndef RISCV64
+#    ifdef X86
     /* decide the offset of each module in the TLS segment from
      * thread pointer.
      * Because the tls memory is located before thread pointer, we use
@@ -398,8 +403,7 @@ privload_copy_tls_block(privmod_t *mod, app_pc priv_tls_base, uint mod_idx)
     os_privmod_data_t *opd = tls_info.mods[mod_idx]->os_privmod_data;
     void *dest;
     /* now copy the tls memory from the image */
-    dest =
-        priv_tls_base + IF_RISCV64_ELSE(tls_info.offs[mod_idx], -tls_info.offs[mod_idx]);
+    dest = priv_tls_base + IF_X86_ELSE(-tls_info.offs[mod_idx], tls_info.offs[mod_idx]);
     LOG(GLOBAL, LOG_LOADER, 2,
         "%s: copying ELF TLS from " PFX " to " PFX " block %zu image %zu\n", __FUNCTION__,
         opd->tls_image, dest, opd->tls_block_size, opd->tls_image_size);
@@ -441,7 +445,7 @@ privload_tls_init(void *app_tp)
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     app_pc dr_tp;
     tcb_head_t *dr_tcb;
-    size_t tls_bytes_read;
+    size_t tls_bytes_read = 0;
 
     /* XXX: These should be a thread logs, but dcontext is not ready yet. */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is " PFX "\n", __FUNCTION__,
@@ -462,6 +466,9 @@ privload_tls_init(void *app_tp)
 #ifdef RISCV64
     dr_tp = dr_tp + TLS_PRE_TCB_SIZE + sizeof(tcb_head_t);
     dr_tcb = (tcb_head_t *)(dr_tp - sizeof(tcb_head_t));
+#elif defined(AARCHXX)
+    dr_tp = dr_tp + TLS_PRE_TCB_SIZE + sizeof(tcb_head_t);
+    dr_tcb = (tcb_head_t *)(dr_tp - sizeof(tcb_head_t));
 #else
     dr_tp = dr_tp + client_tls_alloc_size - tcb_size_estimate;
     dr_tcb = (tcb_head_t *)dr_tp;
@@ -471,25 +478,29 @@ privload_tls_init(void *app_tp)
     /* We copy the whole tcb to avoid initializing it by ourselves.
      * and update some fields accordingly.
      */
+    byte *app_start =
+        app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_NOT_X86(-sizeof(tcb_head_t));
+    byte *dr_start =
+        dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_NOT_X86(-sizeof(tcb_head_t));
+    size_t size_to_copy = APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate;
     if (app_tp != NULL &&
-        !safe_read_ex(
-            app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)),
-            APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate,
-            dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)),
-            &tls_bytes_read)) {
+        !safe_read_ex(app_start, size_to_copy, dr_start, &tls_bytes_read)) {
         LOG(GLOBAL, LOG_LOADER, 2,
             "%s: read failed, tcb was 0x%lx bytes "
             "instead of 0x%lx\n",
             __FUNCTION__, tls_bytes_read - APP_LIBC_TLS_SIZE, tcb_size_estimate);
+    }
+    LOG(GLOBAL, LOG_LOADER, 2, "%d copied %zu bytes from %p to %p (TP %p)\n",
+        get_sys_thread_id(), tls_bytes_read, app_start, dr_start, dr_tp);
 #if defined(AARCHXX) || defined(RISCV64)
-    } else {
+    if (tls_bytes_read >= sizeof(dr_pthread_t)) {
         dr_pthread_t *dp =
             (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE -
-                             TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)));
+                             TLS_PRE_TCB_SIZE IF_NOT_X86(-sizeof(tcb_head_t)));
         dp->pid = get_process_id();
         dp->tid = get_sys_thread_id();
-#endif
     }
+#endif
     /* We do not assert or warn on a truncated read as it does happen when TCB
      * + our over-estimate crosses a page boundary (our estimate is for latest
      * libc and is larger than on older libc versions): i#855.
@@ -505,6 +516,8 @@ privload_tls_init(void *app_tp)
 #elif defined(AARCHXX) || defined(RISCV64)
     dr_tcb->dtv = NULL;
     dr_tcb->private = NULL;
+    /* We use the private field to store DR's TLS pointer. */
+    ASSERT(dr_tp + DR_TLS_BASE_OFFSET == (byte *)&dr_tcb->private);
 #endif
 
     /* We initialize the primary thread's ELF TLS in privload_mod_tls_init()
@@ -527,6 +540,8 @@ privload_tls_exit(void *dr_tp)
     if (dr_tp == NULL)
         return;
 #ifdef RISCV64
+    dr_tp = dr_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
+#elif defined(AARCHXX)
     dr_tp = dr_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
 #else
     dr_tp = dr_tp + tcb_size_estimate - client_tls_alloc_size;
