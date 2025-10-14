@@ -3262,6 +3262,43 @@ check_kernel_context_switch_trace(void)
             return false;
         }
     }
+    // Invalid context switch type.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,
+                       OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 3),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_instr(TID_A, /*pc=*/11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 3),
+            gen_marker(
+                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_instr(TID_A, /*pc=*/11),
+            gen_marker(
+                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(
+                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_instr(TID_A, /*pc=*/11),
+            gen_marker(
+                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Invalid switch type", TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch invalid switch type in template file")) {
+            return false;
+        }
+    }
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),

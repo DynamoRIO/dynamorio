@@ -636,7 +636,7 @@ public:
          */
         SWITCH_PROCESS,
         /**
-         * Holds the total type of context switches.
+         * Holds the count of different types of context switches.
          */
         SWITCH_TYPE_MAX,
     };

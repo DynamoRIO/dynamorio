@@ -183,21 +183,23 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
     if (shard->decode_cache_ != nullptr)
         shard->decode_cache_->clear_cache();
     if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES, shard->file_type_)) {
-        bool is_switch_template_file = shard->saw_switch_trace_.size() != 0;
-        bool is_syscall_template_file = shard->saw_syscall_trace_.size() != 0;
-        bool saw_default_syscall_trace =
+        bool has_switch_templates = shard->saw_switch_trace_.size() != 0;
+        bool has_syscall_templates = shard->saw_syscall_trace_.size() != 0;
+        bool has_default_syscall_templates =
             shard->saw_syscall_trace_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM) !=
             shard->saw_syscall_trace_.end();
         report_if_false(shard,
-                        (!is_switch_template_file && is_syscall_template_file) ||
-                            (is_switch_template_file && !is_syscall_template_file),
+                        (!has_switch_templates && has_syscall_templates) ||
+                            (has_switch_templates && !has_syscall_templates),
                         "Expected either switch or syscall traces in the template file");
-        report_if_false(shard, is_switch_template_file || saw_default_syscall_trace,
+        report_if_false(shard, has_switch_templates || has_default_syscall_templates,
                         "Missing default syscall trace in template file");
+        // Using >= to avoid multiple invariant errors when there's an invalid context
+        // switch type which is detected separately.
         report_if_false(
             shard,
-            is_syscall_template_file ||
-                shard->saw_switch_trace_.size() ==
+            has_syscall_templates ||
+                shard->saw_switch_trace_.size() >=
                     scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_TYPE_MAX -
                         1,
             "Missing switch traces in template file");
@@ -745,10 +747,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #ifdef UNIX
         shard->signal_stack_depth_at_syscall_trace_start_ = shard->signal_stack_.size();
 #endif
+        shard->saw_syscall_trace_.insert(static_cast<int>(memref.marker.marker_value));
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
-        shard->saw_syscall_trace_.insert(memref.marker.marker_value);
         report_if_false(shard, shard->between_kernel_syscall_trace_markers_,
                         "Found kernel syscall trace end without start");
         if (!TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
@@ -811,22 +813,22 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->signal_stack_depth_at_context_switch_trace_start_ =
             shard->signal_stack_.size();
 #endif
-    }
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
         scheduler_tmpl_t<memref_t, reader_t>::switch_type_t switch_type =
             static_cast<scheduler_tmpl_t<memref_t, reader_t>::switch_type_t>(
                 memref.marker.marker_value);
-        report_if_false(shard, shard->between_kernel_context_switch_markers_,
-                        "Found kernel context switch trace end without start");
         report_if_false(
             shard,
             switch_type >
-                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_INVALID ||
+                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_INVALID &&
                 switch_type <
                     scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_TYPE_MAX,
             "Invalid switch type");
         shard->saw_switch_trace_.insert(switch_type);
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
+        report_if_false(shard, shard->between_kernel_context_switch_markers_,
+                        "Found kernel context switch trace end without start");
 #ifdef UNIX
         if (shard->between_kernel_context_switch_markers_) {
             // Protected by above if-condition to avoid noise from another invariant
