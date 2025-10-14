@@ -3581,12 +3581,9 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
     tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON OFF)
     target_link_libraries(api.static_crash ${libmath})
     # XXX i#2346: add delayed sideline thread exit on Windows
-    # XXX i#7670: Fix aarch64 static DR client thread TLS.
-    if (NOT AARCH64)
-      tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON OFF)
-      target_link_libraries(api.static_sideline ${libmath})
-      link_with_pthread(api.static_sideline)
-    endif ()
+    tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON OFF)
+    target_link_libraries(api.static_sideline ${libmath})
+    link_with_pthread(api.static_sideline)
 
     # i#3348: Ensure that DR without local symbols hidden is linkable and
     # avoids conflicts (though CMake_symbol_check does most of the conflict
@@ -4168,10 +4165,20 @@ if (BUILD_CLIENTS)
           "")
         set(tool.syscall_insertion_core_sharded_rawtemp ON) # no preprocessor
 
+        torunonly_simtool(kernel_insertion_core_invariants ${ci_shared_app}
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool invariant_checker -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file} -sched_switch_file ${switch_file}"
+          "")
+        set(tool.kernel_insertion_core_invariants_rawtemp ON) # no preprocessor
+
         torunonly_simtool(syscall_file_invariants ${ci_shared_app}
           "-infile ${syscall_file} -tool invariant_checker"
           "")
         set(tool.syscall_file_invariants_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(switch_file_invariants ${ci_shared_app}
+          "-infile ${switch_file} -tool invariant_checker"
+          "")
+        set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
         # Test -multi_indir with 3 copies of our sample dir.
         torunonly_simtool(multi_indir ${ci_shared_app}
@@ -4196,6 +4203,11 @@ if (BUILD_CLIENTS)
           # Avoid the default core-sharded from re-scheduling the trace.
           "-indir ${core_sharded_dir} -tool schedule_stats -no_core_sharded" "")
         set(tool.core_on_disk_schedule_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(core_on_disk_invariants ${ci_shared_app}
+          # Avoid the default core-sharded from re-scheduling the trace.
+          "-indir ${core_sharded_dir} -tool invariant_checker -no_core_sharded" "")
+        set(tool.core_on_disk_invariants_rawtemp ON) # no preprocessor
 
         # Test -only_shards on core-sharded-on-disk traces.
         torunonly_simtool(only_shards ${ci_shared_app}

@@ -1385,7 +1385,16 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
         for (i = 0; i < num_threads; i++) {
             /* do not de-ref threads[i] after synching if it was cleaned up! */
             if (synch_array[i] != SYNCH_WITH_ALL_SYNCHED && threads[i]->id != my_id) {
-                if (!finished_non_client_threads &&
+                if ((!finished_non_client_threads
+#ifdef STATIC_LIBRARY
+                     /* Give client threads who may be in dynamo_thread_exit waiting
+                      * on thread_initexit_lock a chance to exit.  For static DR we
+                      * can't tell whether we suspended safely b/c is_in_client_lib()
+                      * is true for the whole app!
+                      */
+                     || (int)loop_count < num_threads
+#endif
+                     ) &&
                     IS_CLIENT_THREAD(threads[i]->dcontext)) {
                     all_synched = false;
                     /* XXX i#7673: Adding a client join feature could avoid complexity
