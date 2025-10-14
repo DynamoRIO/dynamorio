@@ -247,6 +247,9 @@ protected:
         int expected_write_records_ = 0;
         bool between_kernel_syscall_trace_markers_ = false;
         bool between_kernel_context_switch_markers_ = false;
+        // The kernel-trace-end branch target marker may have a zero value if it's at the
+        // end of some thread's trace. If we find a zero-value branch_target marker, we
+        // set this flag to verify that there's a thread exit next.
         bool verify_next_thread_exit_ = false;
         instr_info_t pre_syscall_trace_instr_;
         instr_info_t pre_context_switch_trace_instr_;

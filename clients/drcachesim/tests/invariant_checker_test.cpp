@@ -4971,8 +4971,8 @@ check_core_sharded()
             return false;
     }
     // Verify that no PC discontinuity is reported when there's no switch to
-    // a different thread but there are core_idle markers which indicate
-    // a process switch.
+    // a different thread but there are core_idle markers which may mean that
+    // the thread ran on a different core in the meantime.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
@@ -4990,7 +4990,7 @@ check_core_sharded()
             // Thread switch.
             gen_instr(TID_A, /*pc=*/2),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 1),
-            // Process switch.
+            // TID_A back on this stream.
             gen_instr(TID_A, /*pc=*/4),
             gen_exit(TID_A),
         };
@@ -5050,12 +5050,12 @@ check_core_sharded_with_kernel()
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 1),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 1),
 
-            // Process switch to TID_B, marked by a switch sequence that ends with an
+            // Thread switch to TID_B, marked by a switch sequence that ends with an
             // indirect branch to the correct pc.
-            gen_marker(TID_B, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 2),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 1),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_B, /*pc=*/101, /*size=*/1,
                            /*indirect_branch_target=*/1),
-            gen_marker(TID_B, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 2),
+            gen_marker(TID_B, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 1),
             gen_marker(TID_B, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_B, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_B, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),

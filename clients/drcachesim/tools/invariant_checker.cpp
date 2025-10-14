@@ -1966,24 +1966,6 @@ invariant_checker_t::check_regdeps_invariants(per_shard_t *shard, const memref_t
     }
 }
 
-// XXX: Share this with the drmemtrace scheduler. We do not want to depend on the
-// scheduler here, and we cannot move this to trace_entry.h or memref.h because
-// those files are included by multiple modules which causes duplicate definitions.
-static bool
-memref_has_pc(const memref_t &memref, uint64_t &pc)
-{
-    if (type_is_instr(memref.instr.type)) {
-        pc = memref.instr.addr;
-        return true;
-    }
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        pc = memref.marker.marker_value;
-        return true;
-    }
-    return false;
-}
-
 void
 invariant_checker_t::per_shard_t::reset_at_context_switch(const memref_t &memref,
                                                           bool core_sharded_on_disk)
@@ -2008,6 +1990,12 @@ invariant_checker_t::per_shard_t::reset_at_context_switch(const memref_t &memref
 
     // Reset various state that depends on the trace content seen before.
     // In some ways, we want to act like we're now processing a new trace.
+    // This results in not being able to check any invariants that rely on
+    // state from the current thread extending to its future actions. But
+    // this is a reasonable compromise for core-sharded traces, until we
+    // add support for per-thread state during dynamic scheduling.
+    // TODO i#7674: Such "reset" actions may be avoided if can keep this
+    // state across core-shards more easily.
     last_branch_ = {};
     prev_entry_ = {};
     prev_prev_entry_ = {};
