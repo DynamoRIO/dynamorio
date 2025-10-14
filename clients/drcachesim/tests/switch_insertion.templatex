@@ -2,7 +2,7 @@ Schedule stats tool results:
 Total counts:
            4 cores
 .*
-      650640 instructions
+      650672 instructions
           32 total context switches
 .*
           18 voluntary context switches
@@ -16,7 +16,7 @@ Total counts:
 .*
 Core #0 counts:
 .*
-      211153 instructions
+      211164 instructions
           11 total context switches
 .*
            9 voluntary context switches
