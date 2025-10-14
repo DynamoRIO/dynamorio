@@ -231,6 +231,21 @@ typedef union _memref_t {
     struct _memref_marker_t marker;          /**< A marker holding metadata. */
 } memref_t;
 
+static inline bool
+memref_has_pc(const memref_t &memref, uint64_t &pc)
+{
+    if (type_is_instr(memref.instr.type)) {
+        pc = memref.instr.addr;
+        return true;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        pc = memref.marker.marker_value;
+        return true;
+    }
+    return false;
+}
+
 static_assert(sizeof(memref_t) == MEMREF_T_SIZE_BYTES,
               "Update MEMREF_T_SIZE_BYTES to match sizeof(memref_t).  Did the largest "
               "union member change?");
