@@ -3258,7 +3258,7 @@ check_kernel_context_switch_trace(void)
             return false;
         }
     }
-    // Missing trace for all types of context switches.
+    // Trace not available for one type of context switch.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE,

@@ -1086,10 +1086,10 @@ typedef enum {
      * The individual traces are enclosed within a pair of
      * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END
      * markers which also specify what system call the contained trace belongs to. This
-     * file can be used to create an #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace with
-     * -syscall_template_file to raw2trace, with -sched_syscall_file to the
-     * drmemtrace analyzer framework, and also with #dynamorio::drmemtrace::
-     * scheduler_tmpl_t::scheduler_options_t.kernel_syscall_trace_path and #dynamorio::
+     * file can be used to create an #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace by passing
+     * -syscall_template_file to raw2trace, by passing -sched_syscall_file to the
+     * drmemtrace analyzer framework, or by providing #dynamorio::drmemtrace::
+     * scheduler_tmpl_t::scheduler_options_t.kernel_syscall_trace_path or #dynamorio::
      * drmemtrace::scheduler_tmpl_t::scheduler_options_t.kernel_syscall_reader to the
      * scheduler. Each system call trace template uses the regular drmemtrace format,
      * including using paired #TRACE_MARKER_TYPE_KERNEL_EVENT and
@@ -1116,9 +1116,9 @@ typedef enum {
      * context switch the trace is for (see the enum
      * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t). This
      * file can be used to create a dynamic #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace
-     * with -sched_switch_file to the drmemtrace analyzer framework, and also with
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::
-     * scheduler_options_t.kernel_switch_trace_path and #dynamorio::
+     * by passing -sched_switch_file to the drmemtrace analyzer framework, or by
+     * providing #dynamorio::drmemtrace::scheduler_tmpl_t::
+     * scheduler_options_t.kernel_switch_trace_path or #dynamorio::
      * drmemtrace::scheduler_tmpl_t::scheduler_options_t.kernel_switch_reader to the
      * scheduler. Each context switch trace template uses the regular drmemtrace format,
      * similar to the syscall trace templates described above.

@@ -638,7 +638,7 @@ public:
         /**
          * Holds the count of different types of context switches.
          */
-        SWITCH_TYPE_MAX,
+        SWITCH_LAST_VALID_ENUM = SWITCH_PROCESS,
     };
 
     /**
