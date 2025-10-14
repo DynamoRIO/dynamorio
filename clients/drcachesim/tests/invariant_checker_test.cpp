@@ -5264,7 +5264,7 @@ check_core_sharded_with_kernel()
         OFFLINE_FILE_TYPE_SYSCALL_NUMBERS);
     constexpr int SYSNUM = 42;
     // Verify that no error is reported in a core-sharded-on-disk trace that
-    // has switch and syscall sequences whereever they're required.
+    // has switch and syscall sequences wherever they're required.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
