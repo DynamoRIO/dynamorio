@@ -635,6 +635,10 @@ public:
          * Generic process context switch.  A workload is considered a process.
          */
         SWITCH_PROCESS,
+        /**
+         * Holds the total type of context switches.
+         */
+        SWITCH_TYPE_MAX,
     };
 
     /**
