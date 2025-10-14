@@ -314,6 +314,8 @@ typedef struct _os_local_state_t {
      * with client threads and static DR.
      */
     bool custom_alloc;
+    /* Whether privload_tls_init() was used to set up client thread TLS. */
+    bool custom_privlib_tls;
 #endif
 } os_local_state_t;
 

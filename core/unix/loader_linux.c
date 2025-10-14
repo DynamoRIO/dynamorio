@@ -112,8 +112,12 @@ static tls_info_t tls_info;
 
 /* Maximum size of TLS for client private libraries.
  * We will round this up to a multiple of the page size.
+ * We give more space for static DR where with no private library support
+ * we may end up wanting to run limited app code in client threads and
+ * other places and need space to match the app.
+ * XXX i#7670: Try to parse all the app's ELF headers to compute the size?
  */
-static size_t client_tls_size = 2 * 4096;
+static size_t client_tls_size = IF_STATIC_LIBRARY_ELSE(6, 2) * 4096;
 
 /* The actual tcb size is the size of struct pthread from nptl/descr.h, which is
  * a glibc internal header that we can't include.  We hardcode a guess for the
@@ -512,6 +516,14 @@ privload_tls_init(void *app_tp)
     byte *app_start = (byte *)ALIGN_BACKWARD(app_tp, PAGE_SIZE);
     byte *dr_start = (byte *)ALIGN_BACKWARD(dr_tp, PAGE_SIZE);
     size_t size_to_copy = tcb_size_estimate;
+    if (!INTERNAL_OPTION(private_loader)) {
+        /* With no private loader, we use this code to set up TLS for client threads.
+         * For static DR we want to copy as much of the app+lib TLS as possible here,
+         * as the privload_copy_tls_block() below will be a nop.
+         * XXX i#7670: Also copy this much on x86?
+         */
+        size_to_copy = client_tls_alloc_size;
+    }
 #endif
     if (app_tp != NULL &&
         !safe_read_ex(app_start, size_to_copy, dr_start, &tls_bytes_read)) {
