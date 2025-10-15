@@ -280,13 +280,11 @@ test_basic_stats_with_syscall_trace()
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0),
             gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2300),
             // Direct switch.
-            gen_marker(
-                TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_C),
-            gen_marker(
-                TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_C),
             // No switch: latency too small.
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2500),
@@ -594,13 +592,11 @@ test_syscall_latencies_with_kernel_trace()
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_Y),
             gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2300),
             // Direct switch: latency 200.
-            gen_marker(
-                TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_C),
-            gen_marker(
-                TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_C),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2500),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),

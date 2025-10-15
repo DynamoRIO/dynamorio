@@ -104,7 +104,6 @@ protected:
     using input_thread_info_t = typename sched_type_t::input_thread_info_t;
     using scheduler_flags_t = typename sched_type_t::scheduler_flags_t;
     using range_t = typename sched_type_t::range_t;
-    using switch_type_t = typename sched_type_t::switch_type_t;
 
 public:
     scheduler_impl_tmpl_t() = default;
