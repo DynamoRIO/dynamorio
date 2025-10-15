@@ -1619,7 +1619,6 @@ constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM = 0x0fffffff;
  */
 #define DRMEMTRACE_V2P_FILENAME "v2p.textproto"
 
-
 /**
  * Types of scheduler context switch. Used in the content specified to
  * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
