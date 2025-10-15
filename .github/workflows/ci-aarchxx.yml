@@ -57,6 +57,12 @@ jobs:
         include:
           - os: ah-ubuntu_20_04-c6g_4x-50
             sve: false
+          - os: ah-ubuntu_20_04-c7g_4x-50
+            sve: true
+            sve_length: 256
+          - os: ah-ubuntu_20_04-c7g_4x-50
+            sve: true
+            sve_length: 128
     runs-on: ${{ matrix.os }}
     name: aarch64-${{matrix.sve && 'sve-' || ''}}precommit${{matrix.sve_length && '-' || ''}}${{matrix.sve_length}}
     steps:
@@ -142,10 +148,6 @@ jobs:
           CI_BRANCH: ${{ github.ref }}
           DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
         if: ${{ matrix.sve == true && matrix.sve_length != ''}}
-
-      - name: Setup tmate session
-        if: failure()
-        uses: mxschmitt/action-tmate@v3
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
