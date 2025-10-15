@@ -30,21 +30,21 @@
  * DAMAGE.
  */
 
-/* Scheduler of traced software threads onto simulated cpus. */
+/* Scheduler related declarations for easier sharing. */
 
 #ifndef _DRMEMTRACE_SCHEDULER_COMMON_H_
 #define _DRMEMTRACE_SCHEDULER_COMMON_H_ 1
 
 /**
- * @file drmemtrace/scheduler.h
- * @brief DrMemtrace top-level trace scheduler.
+ * @file drmemtrace/scheduler_common.h
+ * @brief DrMemtrace trace scheduler shared declarations.
  */
 
 namespace dynamorio {  /**< General DynamoRIO namespace. */
 namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure namespace. */
 
 /**
- * Types of context switches for
+ * Types of scheduler context switch. Used in the content specified to
  * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
  * kernel_switch_trace_path and kernel_switch_reader.
  * The enum value is the subfile component name in the archive_istream_t.
@@ -67,4 +67,4 @@ enum switch_type_t {
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _DRMEMTRACE_SCHEDULER_H_ */
+#endif /* _DRMEMTRACE_SCHEDULER_COMMON_H_ */
