@@ -283,7 +283,7 @@ privload_mod_tls_init(privmod_t *mod)
         ALIGN_FORWARD(offset + opd->tls_block_size + first_byte, opd->tls_align);
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
-#    else /* RISCV64 */
+#    else
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
     offset = ALIGN_FORWARD(offset + opd->tls_block_size, opd->tls_align);
@@ -392,13 +392,9 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
                 SYSLOG_INTERNAL_WARNING("%s: failed to read tid from slot %p\n",
                                         __FUNCTION__, tid_slot);
             } else if (cur_tid == real_tid) {
-                print_file(STDERR, "%s: tid slot %p is already correct\n", __FUNCTION__,
-                           tid_slot); // NOCHECK
                 LOG(GLOBAL, LOG_LOADER, 2, "%s: tid slot is already correct\n",
                     __FUNCTION__);
             } else {
-                print_file(STDERR, "%s: tid slot %p has %d vs %d\n", __FUNCTION__,
-                           tid_slot, cur_tid, real_tid); // NOCHECK
                 LOG(GLOBAL, LOG_LOADER, 2, "%s: writing tid " TIDFMT " to slot %p\n",
                     __FUNCTION__, real_tid, tid_slot);
                 size_t written;
@@ -407,8 +403,6 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
                     SYSLOG_INTERNAL_WARNING("%s: failed to write tid to slot %p\n",
                                             __FUNCTION__, tid_slot);
                 }
-                print_file(STDERR, "%s: wrote tid to %p\n", __FUNCTION__,
-                           tid_slot); // NOCHECK
             }
             break;
         }
@@ -519,11 +513,8 @@ privload_tls_init(void *app_tp)
     }
     LOG(GLOBAL, LOG_LOADER, 2, "%d copied %zu bytes from %p to %p (TP %p)\n",
         get_sys_thread_id(), tls_bytes_read, app_start, dr_start, dr_tp);
-    print_file(STDERR, "%d copied %zu bytes from %p to %p (TP %p)\n", get_sys_thread_id(),
-               tls_bytes_read, app_start, dr_start, dr_tp); // NOCHECK
 #if defined(AARCHXX) || defined(RISCV64)
     dr_pthread_t *dp = (dr_pthread_t *)(dr_tp - LIBC_PTHREAD_SIZE - sizeof(tcb_head_t));
-    print_file(STDERR, "setting %p to tid\n", &dp->tid); // NOCHECK
     dp->pid = get_process_id();
     dp->tid = get_sys_thread_id();
 #endif
@@ -591,8 +582,11 @@ redirect___tls_get_addr(tls_index_t *ti)
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n", ti->ti_module,
         ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-#ifndef RISCV64
+#ifdef X86
     return (os_get_priv_tls_base(NULL, TLS_REG_LIB) - tls_info.offs[ti->ti_module] +
+            ti->ti_offset);
+#elif defined(AARCHXX)
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) + tls_info.offs[ti->ti_module] +
             ti->ti_offset);
 #else
 #    define TLS_DTV_OFFSET 0x800
