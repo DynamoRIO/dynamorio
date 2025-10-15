@@ -63,7 +63,6 @@
 #include "reader.h"
 #include "reader_base.h"
 #include "record_file_reader.h"
-#include "scheduler_common.h"
 #include "trace_entry.h"
 #ifdef HAS_LZ4
 #    include "lz4_file_reader.h"

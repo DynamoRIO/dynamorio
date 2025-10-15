@@ -47,7 +47,6 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 #include "scheduler.h"
-#include "scheduler_common.h"
 #include "test_helpers.h"
 
 namespace dynamorio {

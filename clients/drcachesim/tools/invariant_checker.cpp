@@ -51,7 +51,6 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "invariant_checker_create.h"
-#include "scheduler_common.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef LINUX

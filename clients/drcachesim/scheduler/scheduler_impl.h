@@ -62,7 +62,6 @@
 #include "mutex_dbg_owned.h"
 #include "reader.h"
 #include "record_file_reader.h"
-#include "scheduler_common.h"
 #include "speculator.h"
 #include "trace_entry.h"
 #include "utils.h"

@@ -54,7 +54,6 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "schedule_file.h"
-#include "scheduler_common.h"
 #include "trace_entry.h"
 
 namespace dynamorio {

@@ -1619,6 +1619,28 @@ constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM = 0x0fffffff;
  */
 #define DRMEMTRACE_V2P_FILENAME "v2p.textproto"
 
+
+/**
+ * Types of scheduler context switch. Used in the content specified to
+ * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
+ * kernel_switch_trace_path and kernel_switch_reader.
+ * The enum value is the subfile component name in the archive_istream_t.
+ */
+enum switch_type_t {
+    /** Invalid value. */
+    SWITCH_INVALID = 0,
+    /** Generic thread context switch. */
+    SWITCH_THREAD,
+    /**
+     * Generic process context switch.  A workload is considered a process.
+     */
+    SWITCH_PROCESS,
+    /**
+     * Holds the count of different types of context switches.
+     */
+    SWITCH_LAST_VALID_ENUM = SWITCH_PROCESS,
+};
+
 } // namespace drmemtrace
 } // namespace dynamorio
 
