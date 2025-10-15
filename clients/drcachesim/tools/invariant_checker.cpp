@@ -183,6 +183,28 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     if (shard->decode_cache_ != nullptr)
         shard->decode_cache_->clear_cache();
+    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES, shard->file_type_)) {
+        bool has_switch_templates = !shard->saw_switch_trace_.empty();
+        bool has_syscall_templates = !shard->saw_syscall_trace_.empty();
+        bool has_default_syscall_template =
+            shard->saw_syscall_trace_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM) !=
+            shard->saw_syscall_trace_.end();
+        report_if_false(shard,
+                        (!has_switch_templates && has_syscall_templates) ||
+                            (has_switch_templates && !has_syscall_templates),
+                        "Expected either switch or syscall traces in the template file");
+        report_if_false(shard, has_switch_templates || has_default_syscall_template,
+                        "Missing default syscall trace in template file");
+        // Using >= to avoid multiple invariant errors when there's an invalid context
+        // switch type which is detected separately.
+        report_if_false(
+            shard,
+            has_syscall_templates ||
+                shard->saw_switch_trace_.size() >=
+                    scheduler_tmpl_t<memref_t,
+                                     reader_t>::switch_type_t::SWITCH_LAST_VALID_ENUM,
+            "Missing switch traces in template file");
+    }
     report_if_false(shard,
                     shard->saw_thread_exit_ ||
                         trace_incomplete_
@@ -687,7 +709,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER) {
         report_if_false(
             shard,
-            shard->skipped_instrs_ ||
+            // Chunks in kernel trace template files are not defined by any fixed
+            // instr count.
+            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                    shard->file_type_) ||
+                shard->skipped_instrs_ ||
                 (shard->chunk_instr_count_ != 0 &&
                  (shard->instr_count_ - shard->dyn_injected_syscall_instr_count_) %
                          shard->chunk_instr_count_ ==
@@ -755,6 +781,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #ifdef UNIX
         shard->signal_stack_depth_at_syscall_trace_start_ = shard->signal_stack_.size();
 #endif
+        shard->saw_syscall_trace_.insert(static_cast<int>(memref.marker.marker_value));
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
@@ -820,6 +847,18 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->signal_stack_depth_at_context_switch_trace_start_ =
             shard->signal_stack_.size();
 #endif
+        scheduler_tmpl_t<memref_t, reader_t>::switch_type_t switch_type =
+            static_cast<scheduler_tmpl_t<memref_t, reader_t>::switch_type_t>(
+                memref.marker.marker_value);
+        report_if_false(
+            shard,
+            switch_type >
+                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_INVALID &&
+                switch_type <=
+                    scheduler_tmpl_t<memref_t,
+                                     reader_t>::switch_type_t::SWITCH_LAST_VALID_ENUM,
+            "Invalid switch type");
+        shard->saw_switch_trace_.insert(switch_type);
         // Need to reset to disable the PC continuity check for context switch trace
         // template files where we do have consecutive switch traces without any
         // intervening user-space instr.
