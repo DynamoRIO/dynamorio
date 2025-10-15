@@ -187,7 +187,7 @@ typedef struct _tcb_head_t {
 
 #ifdef X86
 #    define TLS_PRE_TCB_SIZE 0
-#elif defined(AARCHXX)
+#elif defined(AARCH64)
 /* Data structure to match libc pthread.
  * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
  * the size and member locations match to avoid gdb crash.
@@ -204,6 +204,17 @@ typedef struct _dr_pthread_t {
 #    define LIBC_PTHREAD_SIZE sizeof(dr_pthread_t)
 /* To handle a future larger pthread we give ourselves some room. */
 #    define TLS_PRE_TCB_SIZE (LIBC_PTHREAD_SIZE + 0x100)
+#elif defined(ARM)
+typedef struct _dr_pthread_t {
+    byte data1[0x68]; /* # of bytes before tid within pthread */
+    process_id_t tid;
+    thread_id_t pid;
+    byte data2[0x450]; /* # of bytes after pid within pthread */
+} dr_pthread_t;
+#    define LIBC_PTHREAD_SIZE sizeof(dr_pthread_t)
+/* To handle a future larger pthread we give ourselves some room. */
+#    define TLS_PRE_TCB_SIZE (LIBC_PTHREAD_SIZE + 0x100)
+#    define LIBC_PTHREAD_TID_OFFSET 0x68
 #elif defined(RISCV64)
 typedef struct _dr_pthread_t {
     byte data1[0xd0]; /* # of bytes before tid within pthread */
@@ -534,7 +545,9 @@ privload_tls_init(void *app_tp)
     dr_tcb->dtv = NULL;
     dr_tcb->private = NULL;
     /* We use the private field to store DR's TLS pointer. */
+#    ifndef ARM /* For arm we use the padding field. */
     ASSERT(dr_tp + DR_TLS_BASE_OFFSET == (byte *)&dr_tcb->private);
+#    endif
 #endif
 
     /* We initialize the primary thread's ELF TLS in privload_mod_tls_init()
