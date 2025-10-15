@@ -492,10 +492,7 @@ privload_tls_init(void *app_tp)
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at " PFX "\n", __FUNCTION__,
         client_tls_alloc_size, dr_tp);
-#ifdef RISCV64
-    dr_tp = dr_tp + TLS_PRE_TCB_SIZE + sizeof(tcb_head_t);
-    dr_tcb = (tcb_head_t *)(dr_tp - sizeof(tcb_head_t));
-#elif defined(AARCHXX)
+#ifndef X86
     dr_tp = dr_tp + TLS_PRE_TCB_SIZE + sizeof(tcb_head_t);
     dr_tcb = (tcb_head_t *)(dr_tp - sizeof(tcb_head_t));
 #else
@@ -568,9 +565,7 @@ privload_tls_exit(void *dr_tp)
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     if (dr_tp == NULL)
         return;
-#ifdef RISCV64
-    dr_tp = dr_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
-#elif defined(AARCHXX)
+#ifndef X86
     dr_tp = dr_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
 #else
     dr_tp = dr_tp + tcb_size_estimate - client_tls_alloc_size;
