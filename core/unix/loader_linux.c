@@ -178,7 +178,6 @@ typedef struct _tcb_head_t {
 #elif defined(ARM)
     void *dtv;
     void *private;
-    byte padding[2]; /* make it 16-byte align */
 #elif defined(RISCV64)
     void *dtv;
     void *private;

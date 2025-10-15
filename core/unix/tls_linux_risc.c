@@ -72,10 +72,14 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
         ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
 #ifdef STATIC_LIBRARY
     } else if (read_thread_register(TLS_REG_LIB) == 0) {
-        byte *tls = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE,
+        /* XXX i#7670: Use privload_tls_init() to set up a more representative
+         * TLS layout.
+         */
+        byte *tls = heap_mmap(2 * PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE,
                               VMM_SPECIAL_MMAP | VMM_PER_THREAD);
-        write_thread_register(tls);
-        ASSERT((byte *)read_thread_register(TLS_REG_LIB) == tls);
+        /* Point to the middle to support access on both sides. */
+        write_thread_register(tls + PAGE_SIZE);
+        ASSERT((byte *)read_thread_register(TLS_REG_LIB) == tls + PAGE_SIZE);
         ASSERT(os_tls->os_seg_info.priv_lib_tls_base == NULL);
         os_tls->custom_alloc = true;
 #endif
@@ -118,7 +122,7 @@ tls_thread_free(tls_type_t tls_type, int index)
     *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
 #ifdef STATIC_LIBRARY
     if (os_tls->custom_alloc) {
-        heap_munmap((byte *)read_thread_register(TLS_REG_LIB), PAGE_SIZE,
+        heap_munmap((byte *)read_thread_register(TLS_REG_LIB) - PAGE_SIZE, 2 * PAGE_SIZE,
                     VMM_SPECIAL_MMAP | VMM_PER_THREAD);
     }
 #endif
