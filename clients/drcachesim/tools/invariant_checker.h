@@ -54,7 +54,6 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "schedule_file.h"
-#include "scheduler.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
@@ -267,7 +266,7 @@ protected:
         // Initializing to a non-zero constant so that invalid zero values
         // are detected properly.
         uint64_t last_next_trace_pc_ = static_cast<uint64_t>(-1);
-        std::set<scheduler_tmpl_t<memref_t, reader_t>::switch_type_t> saw_switch_trace_;
+        std::set<switch_type_t> saw_switch_trace_;
         std::set<int> saw_syscall_trace_;
 
         // Resets specific state on context switch to a different thread.

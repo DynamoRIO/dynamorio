@@ -151,6 +151,8 @@ changes:
  - Added a parameter to the constructor of #dynamorio::drmemtrace:reader_t and
    #dynamorio::drmemtrace:record_reader_t that indicates whether it is being used in
    the online or offline mode.
+ - Moved the switch type enum from scheduler.h to trace_entry.h, now referenced as
+   #dynamorio::drmemtrace::switch_type_t.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
