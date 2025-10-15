@@ -150,7 +150,7 @@ static size_t client_tls_size = 2 * 4096;
 /* On AArchXX and RISCV, the pthread struct is put before tcbhead instead of tcbhead
  * being part of the pthread struct.
  */
-static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x500);
+static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x800);
 
 /* thread contol block header type from
  * - sysdeps/x86_64/nptl/tls.h
@@ -188,20 +188,22 @@ typedef struct _tcb_head_t {
 #ifdef X86
 #    define TLS_PRE_TCB_SIZE 0
 #elif defined(AARCHXX)
-/* XXX i#7676: This may not be fully correct for AArch64. */
 /* Data structure to match libc pthread.
  * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
  * the size and member locations match to avoid gdb crash.
+ * The values here are for Ubuntu22 libc 2.38; we adjust in
+ * pthread_set_pthread_tls_fields() below for other versions.
  */
+#    define LIBC_PTHREAD_TID_OFFSET 0xd0
 typedef struct _dr_pthread_t {
-    byte data1[0x68]; /* # of bytes before tid within pthread */
+    byte data1[LIBC_PTHREAD_TID_OFFSET];
     process_id_t tid;
     thread_id_t pid;
-    byte data2[0x450]; /* # of bytes after pid within pthread */
+    byte data2[0x6d8]; /* # of bytes after pid within pthread */
 } dr_pthread_t;
-#    define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
-#    define LIBC_PTHREAD_SIZE 0x4c0
-#    define LIBC_PTHREAD_TID_OFFSET 0x68
+#    define LIBC_PTHREAD_SIZE sizeof(dr_pthread_t)
+/* To handle a future larger pthread we give ourselves some room. */
+#    define TLS_PRE_TCB_SIZE (LIBC_PTHREAD_SIZE + 0x100)
 #elif defined(RISCV64)
 typedef struct _dr_pthread_t {
     byte data1[0xd0]; /* # of bytes before tid within pthread */
@@ -327,6 +329,10 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
      */
 #    define MAX_INSTRS_TO_DECODE 64
     int instr_count = 0;
+#    ifdef AARCH64
+    reg_id_t mrs_reg = DR_REG_NULL, sub_dst = DR_REG_NULL;
+    int pthread_size = 0;
+#    endif
     while (instr_count < MAX_INSTRS_TO_DECODE) {
         IF_DEBUG(app_pc prev_pc = pc;)
         pc = decode(dcontext, pc, &instr);
@@ -352,30 +358,47 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
             tid_slot = (long *)(priv_tls_base + offs);
         }
 #    elif defined(AARCH64)
-        /* TODO i#6611: We have to decode something like this to come up with
-         * privlib_tls_base - 0x700 + 208 but we need a 2.37+ machine to test on:
+        /* We expect something like this:
          *     13dec:       d53bd042        mrs     x2, tpidr_el0
          *     13df0:       52800000        mov     w0, #0x0
-         *     13df4:       d11c0042        sub     x2, x2, #0x700
+         *     13df4:       d11c0042        sub     x2, x2, #0x7c0
          *     13df8:       b940d042        ldr     w2, [x2, #208]
          */
-        /* We have a glibc 2.37+ SYSLOG_INTERNAL_WARNING in privload_os_finalize(). */
-        break;
+        if (instr_get_opcode(&instr) == OP_mrs) {
+            mrs_reg = opnd_get_reg(instr_get_dst(&instr, 0));
+        }
+        if (mrs_reg != DR_REG_NULL && instr_get_opcode(&instr) == OP_sub &&
+            opnd_is_reg(instr_get_src(&instr, 0)) &&
+            opnd_get_reg(instr_get_src(&instr, 0)) == mrs_reg &&
+            opnd_is_immed(instr_get_src(&instr, 1))) {
+            sub_dst = opnd_get_reg(instr_get_dst(&instr, 0));
+            pthread_size = opnd_get_immed_int(instr_get_src(&instr, 1));
+        }
+        if (mrs_reg != DR_REG_NULL && pthread_size > 0 && sub_dst != DR_REG_NULL &&
+            instr_get_opcode(&instr) == OP_ldr &&
+            opnd_get_base(instr_get_src(&instr, 0)) == sub_dst) {
+            int offs = opnd_get_disp(instr_get_src(&instr, 0));
+            tid_slot = (long *)(priv_tls_base - pthread_size + offs);
+        }
 #    else
         /* XXX i#6611: Not supported yet. */
         /* We have a glibc 2.37+ SYSLOG_INTERNAL_WARNING in privload_os_finalize(). */
         break;
 #    endif
         if (tid_slot != NULL) {
-            long cur_tid;
+            thread_id_t cur_tid;
             thread_id_t real_tid = get_sys_thread_id();
             if (!d_r_safe_read(tid_slot, sizeof(cur_tid), &cur_tid)) {
                 SYSLOG_INTERNAL_WARNING("%s: failed to read tid from slot %p\n",
                                         __FUNCTION__, tid_slot);
             } else if (cur_tid == real_tid) {
+                print_file(STDERR, "%s: tid slot %p is already correct\n", __FUNCTION__,
+                           tid_slot); // NOCHECK
                 LOG(GLOBAL, LOG_LOADER, 2, "%s: tid slot is already correct\n",
                     __FUNCTION__);
             } else {
+                print_file(STDERR, "%s: tid slot %p has %d vs %d\n", __FUNCTION__,
+                           tid_slot, cur_tid, real_tid); // NOCHECK
                 LOG(GLOBAL, LOG_LOADER, 2, "%s: writing tid " TIDFMT " to slot %p\n",
                     __FUNCTION__, real_tid, tid_slot);
                 size_t written;
@@ -384,6 +407,8 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
                     SYSLOG_INTERNAL_WARNING("%s: failed to write tid to slot %p\n",
                                             __FUNCTION__, tid_slot);
                 }
+                print_file(STDERR, "%s: wrote tid to %p\n", __FUNCTION__,
+                           tid_slot); // NOCHECK
             }
             break;
         }
@@ -458,7 +483,7 @@ privload_tls_init(void *app_tp)
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
      * the size and member locations match to avoid gdb crash.
      */
-    ASSERT(TLS_PRE_TCB_SIZE == LIBC_PTHREAD_SIZE);
+    ASSERT(TLS_PRE_TCB_SIZE >= LIBC_PTHREAD_SIZE);
     ASSERT(LIBC_PTHREAD_TID_OFFSET == offsetof(dr_pthread_t, tid));
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at " PFX "\n", __FUNCTION__,
@@ -475,31 +500,32 @@ privload_tls_init(void *app_tp)
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to " PFX "\n", __FUNCTION__,
         dr_tp);
-    /* We copy the whole tcb to avoid initializing it by ourselves.
+    /* We copy the whole tcb to avoid initializing it by ourselves,
      * and update some fields accordingly.
      */
-    byte *app_start =
-        app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_NOT_X86(-sizeof(tcb_head_t));
-    byte *dr_start =
-        dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_NOT_X86(-sizeof(tcb_head_t));
+#ifdef X86
+    byte *app_start = app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE;
+    byte *dr_start = dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE;
     size_t size_to_copy = APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate;
+#else
+    byte *app_start = (byte *)ALIGN_BACKWARD(app_tp, PAGE_SIZE);
+    byte *dr_start = (byte *)ALIGN_BACKWARD(dr_tp, PAGE_SIZE);
+    size_t size_to_copy = tcb_size_estimate;
+#endif
     if (app_tp != NULL &&
         !safe_read_ex(app_start, size_to_copy, dr_start, &tls_bytes_read)) {
-        LOG(GLOBAL, LOG_LOADER, 2,
-            "%s: read failed, tcb was 0x%lx bytes "
-            "instead of 0x%lx\n",
-            __FUNCTION__, tls_bytes_read - APP_LIBC_TLS_SIZE, tcb_size_estimate);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed after %zd bytes\n", __FUNCTION__,
+            tls_bytes_read);
     }
     LOG(GLOBAL, LOG_LOADER, 2, "%d copied %zu bytes from %p to %p (TP %p)\n",
         get_sys_thread_id(), tls_bytes_read, app_start, dr_start, dr_tp);
+    print_file(STDERR, "%d copied %zu bytes from %p to %p (TP %p)\n", get_sys_thread_id(),
+               tls_bytes_read, app_start, dr_start, dr_tp); // NOCHECK
 #if defined(AARCHXX) || defined(RISCV64)
-    if (tls_bytes_read >= sizeof(dr_pthread_t)) {
-        dr_pthread_t *dp =
-            (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE -
-                             TLS_PRE_TCB_SIZE IF_NOT_X86(-sizeof(tcb_head_t)));
-        dp->pid = get_process_id();
-        dp->tid = get_sys_thread_id();
-    }
+    dr_pthread_t *dp = (dr_pthread_t *)(dr_tp - LIBC_PTHREAD_SIZE - sizeof(tcb_head_t));
+    print_file(STDERR, "setting %p to tid\n", &dp->tid); // NOCHECK
+    dp->pid = get_process_id();
+    dp->tid = get_sys_thread_id();
 #endif
     /* We do not assert or warn on a truncated read as it does happen when TCB
      * + our over-estimate crosses a page boundary (our estimate is for latest
