@@ -67,6 +67,7 @@
 #include "mutex_dbg_owned.h"
 #include "reader.h"
 #include "record_file_reader.h"
+#include "scheduler_common.h"
 #include "speculator.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -621,27 +622,6 @@ public:
     };
 
     /**
-     * Types of context switches for
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::
-     * kernel_switch_trace_path and kernel_switch_reader.
-     * The enum value is the subfile component name in the archive_istream_t.
-     */
-    enum switch_type_t {
-        /** Invalid value. */
-        SWITCH_INVALID = 0,
-        /** Generic thread context switch. */
-        SWITCH_THREAD,
-        /**
-         * Generic process context switch.  A workload is considered a process.
-         */
-        SWITCH_PROCESS,
-        /**
-         * Holds the count of different types of context switches.
-         */
-        SWITCH_LAST_VALID_ENUM = SWITCH_PROCESS,
-    };
-
-    /**
      * Collects the parameters specifying how the scheduler should behave, outside
      * of the workload inputs and the output count.
      */
@@ -749,8 +729,8 @@ public:
          * Input file containing template sequences of kernel context switch code.
          * Each sequence must start with a #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START
          * marker and end with #TRACE_MARKER_TYPE_CONTEXT_SWITCH_END.
-         * The values of each marker must hold a #switch_type_t enum value
-         * indicating which type of switch it corresponds to.
+         * The values of each marker must hold a #dynamorio::drmemtrace::switch_type_t
+         * enum value indicating which type of switch it corresponds to.
          * Each sequence can be stored as a separate subfile of an archive file,
          * or concatenated into a single file.
          * Each sequence should be in the regular offline drmemtrace format.

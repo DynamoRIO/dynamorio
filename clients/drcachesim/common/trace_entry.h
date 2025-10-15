@@ -648,14 +648,14 @@ typedef enum {
     /**
      * Indicates a point in the trace where context switch's kernel trace starts.
      * The value of the marker is set to the switch type enum value from
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     * #dynamorio::drmemtrace::switch_type_t.
      */
     TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
 
     /**
      * Indicates a point in the trace where a context switch's kernel trace ends.
      * The value of the marker is set to the switch type enum value from
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t.
+     * #dynamorio::drmemtrace::switch_type_t.
      */
     TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
 
@@ -1114,7 +1114,7 @@ typedef enum {
      * #TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and
      * #TRACE_MARKER_TYPE_CONTEXT_SWITCH_END markers which also specify what kind of
      * context switch the trace is for (see the enum
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::switch_type_t). This
+     * #dynamorio::drmemtrace::switch_type_t). This
      * file can be used to create a dynamic #OFFLINE_FILE_TYPE_KERNEL_SYSCALLS trace
      * by passing -sched_switch_file to the drmemtrace analyzer framework, or by
      * providing #dynamorio::drmemtrace::scheduler_tmpl_t::

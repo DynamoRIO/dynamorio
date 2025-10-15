@@ -3200,25 +3200,21 @@ check_kernel_context_switch_trace(void)
                        OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_PROCESS),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_PROCESS),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false))
@@ -3231,24 +3227,20 @@ check_kernel_context_switch_trace(void)
                        OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/12, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_PROCESS),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_PROCESS),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -3266,15 +3258,13 @@ check_kernel_context_switch_trace(void)
                        OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -3297,24 +3287,20 @@ check_kernel_context_switch_trace(void)
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 3),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_PROCESS),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_PROCESS),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -3330,15 +3316,13 @@ check_kernel_context_switch_trace(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
@@ -3350,13 +3334,11 @@ check_kernel_context_switch_trace(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -3371,15 +3353,13 @@ check_kernel_context_switch_trace(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/11, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/3),
             gen_exit(TID_A),
         };
@@ -3396,15 +3376,13 @@ check_kernel_context_switch_trace(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/12, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
@@ -3422,13 +3400,11 @@ check_kernel_context_switch_trace(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/10),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                       switch_type_t::SWITCH_THREAD),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -3445,9 +3421,8 @@ check_kernel_context_switch_trace(void)
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/1, /*size=*/1,
                            /*indirect_branch_target=*/2),
-            gen_marker(
-                TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                       switch_type_t::SWITCH_THREAD),
             gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
@@ -4524,17 +4499,15 @@ check_kernel_syscall_trace(void)
                          DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
               nullptr },
             // Switch template.
-            { gen_marker(
-                  TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                  scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
+                         switch_type_t::SWITCH_THREAD),
               nullptr },
             { gen_instr(TID_A), load },
             { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
-            { gen_marker(
-                  TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                  scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD),
+            { gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                         switch_type_t::SWITCH_THREAD),
               nullptr },
             { gen_exit(TID_A), nullptr }
         };

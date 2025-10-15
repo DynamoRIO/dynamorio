@@ -63,6 +63,7 @@
 #include "reader.h"
 #include "reader_base.h"
 #include "record_file_reader.h"
+#include "scheduler_common.h"
 #include "trace_entry.h"
 #ifdef HAS_LZ4
 #    include "lz4_file_reader.h"
@@ -412,7 +413,7 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &i
 
 template <>
 template <>
-typename scheduler_tmpl_t<memref_t, reader_t>::switch_type_t
+switch_type_t
 scheduler_impl_tmpl_t<memref_t, reader_t>::invalid_kernel_sequence_key()
 {
     return switch_type_t::SWITCH_INVALID;
@@ -701,7 +702,7 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
 
 template <>
 template <>
-typename scheduler_tmpl_t<trace_entry_t, record_reader_t>::switch_type_t
+switch_type_t
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::invalid_kernel_sequence_key()
 {
     return switch_type_t::SWITCH_INVALID;
@@ -2926,14 +2927,14 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
 
     bool injected_switch_trace = false;
     if (!switch_sequence_.empty()) {
-        switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
+        switch_type_t switch_type = switch_type_t::SWITCH_INVALID;
         if ( // XXX: idle-to-input transitions are assumed to be process switches
              // for now. But we may want to improve this heuristic.
             prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
             inputs_[prev_input].workload != inputs_[new_input].workload)
-            switch_type = sched_type_t::SWITCH_PROCESS;
+            switch_type = switch_type_t::SWITCH_PROCESS;
         else
-            switch_type = sched_type_t::SWITCH_THREAD;
+            switch_type = switch_type_t::SWITCH_THREAD;
         if (switch_sequence_.find(switch_type) != switch_sequence_.end()) {
             stream_status_t res = inject_kernel_sequence(switch_sequence_[switch_type],
                                                          &inputs_[new_input]);

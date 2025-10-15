@@ -51,6 +51,7 @@
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "invariant_checker_create.h"
+#include "scheduler_common.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef LINUX
@@ -197,13 +198,11 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
                         "Missing default syscall trace in template file");
         // Using >= to avoid multiple invariant errors when there's an invalid context
         // switch type which is detected separately.
-        report_if_false(
-            shard,
-            has_syscall_templates ||
-                shard->saw_switch_trace_.size() >=
-                    scheduler_tmpl_t<memref_t,
-                                     reader_t>::switch_type_t::SWITCH_LAST_VALID_ENUM,
-            "Missing switch traces in template file");
+        report_if_false(shard,
+                        has_syscall_templates ||
+                            shard->saw_switch_trace_.size() >=
+                                switch_type_t::SWITCH_LAST_VALID_ENUM,
+                        "Missing switch traces in template file");
     }
     report_if_false(shard,
                     shard->saw_thread_exit_ ||
@@ -847,17 +846,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->signal_stack_depth_at_context_switch_trace_start_ =
             shard->signal_stack_.size();
 #endif
-        scheduler_tmpl_t<memref_t, reader_t>::switch_type_t switch_type =
-            static_cast<scheduler_tmpl_t<memref_t, reader_t>::switch_type_t>(
-                memref.marker.marker_value);
-        report_if_false(
-            shard,
-            switch_type >
-                    scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_INVALID &&
-                switch_type <=
-                    scheduler_tmpl_t<memref_t,
-                                     reader_t>::switch_type_t::SWITCH_LAST_VALID_ENUM,
-            "Invalid switch type");
+        switch_type_t switch_type =
+            static_cast<switch_type_t>(memref.marker.marker_value);
+        report_if_false(shard,
+                        switch_type > switch_type_t::SWITCH_INVALID &&
+                            switch_type <= switch_type_t::SWITCH_LAST_VALID_ENUM,
+                        "Invalid switch type");
         shard->saw_switch_trace_.insert(switch_type);
         // Need to reset to disable the PC continuity check for context switch trace
         // template files where we do have consecutive switch traces without any
