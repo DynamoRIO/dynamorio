@@ -514,14 +514,14 @@ privload_tls_init(void *app_tp)
     size_t size_to_copy = APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate;
 #else
     /* PAGE_SIZE could be 64K so don't go too far back. */
-    byte *app_start = app_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
+    byte *app_start = (byte *)app_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
     byte *app_page_start = (byte *)ALIGN_BACKWARD(app_tp, PAGE_SIZE);
     /* Our estimate is deliberately larger than the current, so make sure we didn't
      * go onto the previous page.
      */
     if (app_start < app_page_start)
         app_start = app_page_start;
-    byte *dr_start = (byte *)ALIGN_BACKWARD(dr_tp, PAGE_SIZE);
+    byte *dr_start = dr_tp - ((byte *)app_tp - app_start);
     size_t size_to_copy = tcb_size_estimate;
     if (!INTERNAL_OPTION(private_loader)) {
         /* With no private loader, we use this code to set up TLS for client threads.
@@ -529,8 +529,8 @@ privload_tls_init(void *app_tp)
          * as the privload_copy_tls_block() below will be a nop.
          * XXX i#7670: Also copy this much on x86?
          */
-        size_to_copy = ALIGN_BACKWARD(app_start + client_tls_alloc_size, PAGE_SIZE) -
-            (ptr_uint_t)app_start;
+        size_to_copy = ALIGN_BACKWARD(dr_start + client_tls_alloc_size, PAGE_SIZE) -
+            (ptr_uint_t)dr_start;
     }
 #endif
     if (app_tp != NULL &&
