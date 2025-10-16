@@ -55,9 +55,8 @@ jobs:
       matrix:
         # This job will run in parallel.
         include:
-          - os: ah-ubuntu_20_04-c7g_4x-50
-            sve: true
-            sve_length: 256
+          - os: ah-ubuntu_20_04-c6g_4x-50
+            sve: false
     runs-on: ${{ matrix.os }}
     name: aarch64-${{matrix.sve && 'sve-' || ''}}precommit${{matrix.sve_length && '-' || ''}}${{matrix.sve_length}}
     steps:
