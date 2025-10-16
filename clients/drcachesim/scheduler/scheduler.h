@@ -1235,7 +1235,9 @@ public:
 
         /**
          * Returns the #dynamorio::drmemtrace::memtrace_stream_t interface for the
-         * current input stream feeding this output stream.
+         * current input stream feeding this output stream. When we're at a
+         * #TRACE_MARKER_TYPE_CORE_IDLE record, it returns a nullptr as there is no
+         * input feeding the output stream at that time.
          */
         memtrace_stream_t *
         get_input_interface() const override;
