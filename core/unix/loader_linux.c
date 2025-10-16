@@ -112,8 +112,12 @@ static tls_info_t tls_info;
 
 /* Maximum size of TLS for client private libraries.
  * We will round this up to a multiple of the page size.
+ * We give more space for static DR where with no private library support
+ * we may end up wanting to run limited app code in client threads and
+ * other places and need space to match the app.
+ * XXX i#7670: Try to parse all the app's ELF headers to compute the size?
  */
-static size_t client_tls_size = 2 * 4096;
+static size_t client_tls_size = IF_STATIC_LIBRARY_ELSE(6, 2) * 4096;
 
 /* The actual tcb size is the size of struct pthread from nptl/descr.h, which is
  * a glibc internal header that we can't include.  We hardcode a guess for the
@@ -150,7 +154,7 @@ static size_t client_tls_size = 2 * 4096;
 /* On AArchXX and RISCV, the pthread struct is put before tcbhead instead of tcbhead
  * being part of the pthread struct.
  */
-static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x800);
+static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x900);
 
 /* thread contol block header type from
  * - sysdeps/x86_64/nptl/tls.h
@@ -509,9 +513,25 @@ privload_tls_init(void *app_tp)
     byte *dr_start = dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE;
     size_t size_to_copy = APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate;
 #else
-    byte *app_start = (byte *)ALIGN_BACKWARD(app_tp, PAGE_SIZE);
-    byte *dr_start = (byte *)ALIGN_BACKWARD(dr_tp, PAGE_SIZE);
+    /* PAGE_SIZE could be 64K so don't go too far back. */
+    byte *app_start = (byte *)app_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
+    byte *app_page_start = (byte *)ALIGN_BACKWARD(app_tp, PAGE_SIZE);
+    /* Our estimate is deliberately larger than the current, so make sure we didn't
+     * go onto the previous page.
+     */
+    if (app_start < app_page_start)
+        app_start = app_page_start;
+    byte *dr_start = dr_tp - ((byte *)app_tp - app_start);
     size_t size_to_copy = tcb_size_estimate;
+    if (!INTERNAL_OPTION(private_loader)) {
+        /* With no private loader, we use this code to set up TLS for client threads.
+         * For static DR we want to copy as much of the app+lib TLS as possible here,
+         * as the privload_copy_tls_block() below will be a nop.
+         * XXX i#7670: Also copy this much on x86?
+         */
+        size_to_copy = ALIGN_BACKWARD(dr_start + client_tls_alloc_size, PAGE_SIZE) -
+            (ptr_uint_t)dr_start;
+    }
 #endif
     if (app_tp != NULL &&
         !safe_read_ex(app_start, size_to_copy, dr_start, &tls_bytes_read)) {
