@@ -294,9 +294,9 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     int64_t input_id = shard->stream->get_input_id();
-    assert (shard->stream->get_input_interface() != nullptr ||
-            (memref.marker.type == TRACE_TYPE_MARKER &&
-             memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE));
+    assert(shard->stream->get_input_interface() != nullptr ||
+           (memref.marker.type == TRACE_TYPE_MARKER &&
+            memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE));
     if (knob_verbose_ >= 4) {
         std::ostringstream line;
         memtrace_stream_t *input_stream = shard->stream->get_input_interface();
