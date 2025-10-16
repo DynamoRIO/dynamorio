@@ -2542,18 +2542,17 @@ test_synthetic_time_quanta_with_kernel()
 
         // Switch sequence immediately after the syscall sequence on cpu1.
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER,
-                   // Counts as a process switch because of the idles.
-                   switch_type_t::SWITCH_PROCESS, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
+                   TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR, PROCESS_SWITCH_PC_START);
+                   TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    // Ensure indirect_branch_target is correctly set to the 3rd instr
                    // in TID_A.
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, PROCESS_SWITCH_PC_START + 1, NO_MARKER,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
                    INSTR_3_TID_A_PC);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_PROCESS,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
 
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
