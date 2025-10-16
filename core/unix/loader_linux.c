@@ -154,7 +154,7 @@ static size_t client_tls_size = IF_STATIC_LIBRARY_ELSE(6, 2) * 4096;
 /* On AArchXX and RISCV, the pthread struct is put before tcbhead instead of tcbhead
  * being part of the pthread struct.
  */
-static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x800);
+static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x900);
 
 /* thread contol block header type from
  * - sysdeps/x86_64/nptl/tls.h
@@ -513,7 +513,8 @@ privload_tls_init(void *app_tp)
     byte *dr_start = dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE;
     size_t size_to_copy = APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate;
 #else
-    byte *app_start = (byte *)ALIGN_BACKWARD(app_tp, PAGE_SIZE);
+    /* PAGE_SIZE could be 64K so don't back-align the app. */
+    byte *app_start = app_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
     byte *dr_start = (byte *)ALIGN_BACKWARD(dr_tp, PAGE_SIZE);
     size_t size_to_copy = tcb_size_estimate;
     if (!INTERNAL_OPTION(private_loader)) {
@@ -522,7 +523,7 @@ privload_tls_init(void *app_tp)
          * as the privload_copy_tls_block() below will be a nop.
          * XXX i#7670: Also copy this much on x86?
          */
-        size_to_copy = client_tls_alloc_size;
+        size_to_copy = ALIGN_FORWARD(app_start, PAGE_SIZE) - (ptr_uint_t)app_start;
     }
 #endif
     if (app_tp != NULL &&
