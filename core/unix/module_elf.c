@@ -1575,7 +1575,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         struct tlsdesc_t *tlsdesc = (void *)r_addr;
         ASSERT(is_rela);
         tlsdesc->entry = tlsdesc_resolver;
-        tlsdesc->arg = (void *)(sym->st_value + addend - pd->tls_offset);
+        tlsdesc->arg = (void *)(sym->st_value + addend IF_X86_ELSE(-, +) pd->tls_offset);
         break;
     }
 #    endif

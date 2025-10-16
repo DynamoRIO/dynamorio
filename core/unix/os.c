@@ -1694,7 +1694,7 @@ os_timeout(int time_in_milliseconds)
  */
 #    define WRITE_TLS_SLOT_IMM(imm, var)                                            \
         do {                                                                        \
-            uint _base_offs = DR_TLS_BASE_OFFSET;                                   \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
             __asm__ __volatile__("mov " ASM_R2 ", %0 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
                                  "str %1, [" ASM_R3 ", %2] \n\t"                    \
                                  :                                                  \
@@ -1703,7 +1703,7 @@ os_timeout(int time_in_milliseconds)
         } while (0)
 #    define READ_TLS_SLOT_IMM(imm, var)                                             \
         do {                                                                        \
-            uint _base_offs = DR_TLS_BASE_OFFSET;                                   \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
             __asm__ __volatile__("mov " ASM_R2 ", %1 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
                                  "ldr %0, [" ASM_R3 ", %2] \n\t"                    \
                                  : "=r"(var)                                        \
@@ -1714,7 +1714,7 @@ os_timeout(int time_in_milliseconds)
 #    define READ_TLS_INT_SLOT_IMM READ_TLS_SLOT_IMM   /* b/c 32-bit */
 #    define WRITE_TLS_SLOT(offs, var)                                               \
         do {                                                                        \
-            uint _base_offs = DR_TLS_BASE_OFFSET;                                   \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
             __asm__ __volatile__("mov " ASM_R2 ", %0 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
                                  "add " ASM_R3 ", " ASM_R3 ", %2 \n\t"              \
                                  "str %1, [" ASM_R3 "]   \n\t"                      \
@@ -1724,7 +1724,7 @@ os_timeout(int time_in_milliseconds)
         } while (0)
 #    define READ_TLS_SLOT(offs, var)                                                \
         do {                                                                        \
-            uint _base_offs = DR_TLS_BASE_OFFSET;                                   \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
             __asm__ __volatile__("mov " ASM_R2 ", %1 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
                                  "add " ASM_R3 ", " ASM_R3 ", %2 \n\t"              \
                                  "ldr %0, [" ASM_R3 "]   \n\t"                      \

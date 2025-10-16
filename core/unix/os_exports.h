@@ -185,7 +185,7 @@ extern uint android_tls_base_offs;
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
  */
-#        define DR_TLS_BASE_OFFSET IF_X64_ELSE(8, 4) /* skip dtv */
+#        define DR_TLS_BASE_OFFSET IF_X64_ELSE(-8, -4)
 #    endif
 /* opcode for reading usr mode TLS base (user-read-only-thread-ID-register)
  * mrc p15, 0, reg_app, c13, c0, 3
