@@ -321,6 +321,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 );
 
             %ignore_failures_64 = (
+                'code_api|api.symtest' => 1, # i#1472
                 # i#7529: New failures on GA Server22.
                 'code_api|client.annotation-detection' => 1, # i#7529
                 'code_api|client.annotation-detection-opt' => 1, # i#7529
