@@ -6720,6 +6720,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|sample.bbbuf
     code_api|sample.bbcount
     code_api|sample.bbsize
+    code_api|sample.bbv
     code_api|sample.div
     code_api|sample.empty
     code_api|sample.inline
