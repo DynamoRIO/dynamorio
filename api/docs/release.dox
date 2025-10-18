@@ -267,9 +267,9 @@ Further non-compatibility-affecting changes include:
    PC in the trace, which is from the next instruction or the next
    #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker, whichever comes
    first.
- - Add a new hashtable_t iterator hashtable_apply_to_all_key_payload_pairs_user_data()
+ - Added a new hashtable_t iterator hashtable_apply_to_all_key_payload_pairs_user_data()
    that exposes the key of every element in the table.
- - Add a new Dynamorio client in api/samples to compute the Basic Block Vectors of a
+ - Added a new Dynamorio client in api/samples to compute the Basic Block Vectors of a
    program given a user-defined instruction interval.
 
 **************************************************
