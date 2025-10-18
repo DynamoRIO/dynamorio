@@ -260,6 +260,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
 
+    // TODO i#7685: don't rely on absolute PC values. Use drmodtrack library to compute
+    // relative offset instead.
+
     // Get the BB ID.
     app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
     void *bb_id_ptr = hashtable_lookup(&pc_to_id_map, (void *)bb_pc);
@@ -270,8 +273,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         ++unique_bb_count;
     }
 
-    // TODO i#7685: use hit_count_ptr with drx_increase_counter() when we inline the
-    // counter increments.
+    // TODO i#7685: use hit_count_ptr when we inline the counter increments.
     int *hit_count_ptr =
         (int *)hashtable_lookup(&hit_count_table, (void *)(ptr_int_t)bb_id);
     if (hit_count_ptr == NULL) {
