@@ -317,6 +317,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_init() || !drx_init())
         DR_ASSERT(false);
 
+    // TODO i#7685: register the dr_register_thread_init_event() event and abort the
+    // client when triggered. We don't currently support multi-threaded programs.
+
     // Register events.
     drmgr_register_exit_event(dynamorio::samples::event_exit);
     if (!drmgr_register_bb_instrumentation_event(
