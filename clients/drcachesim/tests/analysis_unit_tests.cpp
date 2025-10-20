@@ -259,13 +259,13 @@ public:
         return true;
     }
     bool
-    entry_has_pc(RecordType record, uint64_t &pc);
+    record_has_pc(RecordType record, uint64_t &pc);
     bool
     parallel_shard_memref(void *shard_data, const RecordType &record) override
     {
         per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
         uint64_t pc;
-        if (entry_has_pc(record, pc)) {
+        if (record_has_pc(record, pc)) {
             assert(pc == shard->expected_next_trace_pc);
             shard->expected_next_trace_pc = shard->stream->get_next_trace_pc();
         } else {
@@ -284,13 +284,13 @@ private:
 
 template <>
 bool
-next_trace_pc_test_tool_t<memref_t>::entry_has_pc(memref_t memref, uint64_t &pc)
+next_trace_pc_test_tool_t<memref_t>::record_has_pc(memref_t memref, uint64_t &pc)
 {
     return memref_has_pc(memref, pc);
 }
 template <>
 bool
-next_trace_pc_test_tool_t<trace_entry_t>::entry_has_pc(trace_entry_t entry, uint64_t &pc)
+next_trace_pc_test_tool_t<trace_entry_t>::record_has_pc(trace_entry_t entry, uint64_t &pc)
 {
     return entry_has_pc(entry, pc);
 }
