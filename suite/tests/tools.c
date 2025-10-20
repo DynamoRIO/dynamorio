@@ -631,6 +631,65 @@ dump_ucontext(ucontext_t *ucxt, bool is_sve, int vl_bytes)
 
 #    endif /* UNIX */
 
+int
+adaptive_retry(bool (*run)(int *adjust, unsigned long long param, void *arg), int tries,
+               unsigned long long param, void *arg, bool stop_on_hit)
+{
+    int hits = 0;
+    /* Typically we halve the step each time, which results in a
+     * binary search, but if we have had the same non-zero result
+     * several times in succession then we suspect that something has
+     * changed so we start doubling the step instead.
+     */
+    unsigned long long step = 1; /* This will always be a power of two. */
+    int max_unchanged_results = 4;
+    /* Initialise unchanged_results so that we immediately start doubling. */
+    int unchanged_results = max_unchanged_results - 1;
+    int previous_result = 0;
+    for (int i = 0; i < tries; i++) {
+        /* Call run. */
+        int adjust = 0;
+        bool hit = run(&adjust, param, arg);
+
+        /* Handle hit. */
+        if (hit) {
+            ++hits;
+            if (stop_on_hit)
+                break;
+        }
+
+        /* Convert result. */
+        int result = adjust < 0 ? -1 : adjust > 0 ? 1 : 0;
+
+        /* Update unchanged_results. */
+        if (result && (i == 0 || result == previous_result))
+            ++unchanged_results;
+        else
+            unchanged_results = 0;
+        previous_result = result;
+
+        /* Update step. */
+        if (unchanged_results <= max_unchanged_results)
+            step = step / 2 > 0 ? step / 2 : step;
+        else
+            step = step * 2 > 0 ? step * 2 : step;
+
+        /* Adjust param for next try. */
+        if (result < 0) {
+            param = param + step > param ? param + step : -1ULL;
+        } else if (result > 0) {
+            if (param > step)
+                param = param - step;
+            else {
+                param = 1;
+                step = 1;
+            }
+        }
+    }
+
+    return hits;
+}
+
 #else /* asm code *************************************************************/
 /*
  * Assembly routines shared among multiple tests

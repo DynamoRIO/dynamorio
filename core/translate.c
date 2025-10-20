@@ -266,8 +266,6 @@ instr_is_load_mcontext_base(instr_t *inst)
 
 #ifdef X86
 
-/* XXX i#3329: add support for ARM/AArch64. */
-
 static bool
 translate_walk_enters_mangling_epilogue(dcontext_t *tdcontext, instr_t *inst,
                                         translate_walk_t *walk)
@@ -930,6 +928,68 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
     return res;
 }
 
+#ifdef AARCH64 /* XXX: Add other non-x86 architectures here? */
+/* Emulate instructions in mangling epilogue. */
+static void
+emulate_epilogue(priv_mcontext_t *mc, instr_t *first_inst)
+{
+    app_pc translation = first_inst->translation;
+    for (instr_t *inst = first_inst;
+         inst != NULL && instr_is_our_mangling_epilogue(inst) &&
+         instr_get_translation(inst) == translation;
+         inst = instr_get_next(inst)) {
+        switch (instr_get_opcode(inst)) {
+        case OP_ldr: {
+            ASSERT(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 1);
+            opnd_t dst = instr_get_dst(inst, 0);
+            opnd_t src = instr_get_src(inst, 0);
+            ASSERT(opnd_is_reg(dst) && opnd_is_base_disp(src));
+            reg_t rd = opnd_get_reg(dst);
+            ASSERT(DR_REG_X0 <= rd && rd <= DR_REG_X30);
+            reg_t value;
+            memcpy(&value, opnd_compute_address_priv(src, mc), sizeof(value));
+            reg_set_value_priv(rd, mc, value);
+            break;
+        }
+        case OP_orr: {
+            ASSERT(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 4);
+            opnd_t dst = instr_get_dst(inst, 0);
+            opnd_t src1 = instr_get_src(inst, 0);
+            opnd_t src2 = instr_get_src(inst, 1);
+            opnd_t src3 = instr_get_src(inst, 2);
+            opnd_t src4 = instr_get_src(inst, 3);
+            (void)src1;
+            (void)src3;
+            (void)src4;
+            ASSERT(opnd_is_reg(dst) && opnd_is_reg(src1) && opnd_is_reg(src2) &&
+                   opnd_is_immed(src3) && opnd_is_immed(src4));
+            ASSERT(opnd_get_reg(src1) == DR_REG_XZR);
+            ASSERT(opnd_get_immed_int(src3) == DR_SHIFT_LSL);
+            ASSERT(opnd_get_immed_int(src4) == 0);
+            reg_t rd = opnd_get_reg(dst);
+            reg_t rs = opnd_get_reg(src2);
+            ASSERT(DR_REG_X0 <= rd && rd <= DR_REG_X30 && DR_REG_X0 <= rs &&
+                   rs <= DR_REG_X30);
+            reg_set_value_priv(rd, mc, reg_get_value_priv(rs, mc));
+            break;
+        }
+        case OP_str: {
+            ASSERT(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 1);
+            opnd_t dst = instr_get_dst(inst, 0);
+            opnd_t src = instr_get_src(inst, 0);
+            ASSERT(opnd_is_base_disp(dst) && opnd_is_reg(src));
+            reg_t rs = opnd_get_reg(src);
+            ASSERT(DR_REG_X0 <= rs && rs <= DR_REG_X30);
+            reg_t value = reg_get_value_priv(rs, mc);
+            memcpy(opnd_compute_address_priv(dst, mc), &value, sizeof(value));
+            break;
+        }
+        default: ASSERT(false && "emulate_epilogue unimplemented instr");
+        }
+    }
+}
+#endif /* AARCH64 */
+
 /* Returns a success code, but makes a best effort regardless.
  * If just_pc is true, only recreates pc.
  * Modifies mc with the recreated state.
@@ -1127,6 +1187,14 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                     }
                 }
             }
+#ifdef AARCH64 /* XXX: Add other non-x86 architectures here? */
+            if (instr_is_our_mangling_epilogue(inst)) {
+                if (!just_pc)
+                    emulate_epilogue(mc, inst);
+                mc->pc = answer + 4;
+                return res;
+            }
+#endif
             if (!just_pc)
                 translate_walk_restore(tdcontext, &walk, inst, answer);
             answer = translate_restore_special_cases(tdcontext, answer);
@@ -1962,6 +2030,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
 void
 stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
 {
+#    ifndef AARCH64 /* XXX: Update this test for AArch64. */
     priv_mcontext_t mc;
     bool res;
     cache_pc cpc;
@@ -2082,6 +2151,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     if (TEST(FRAG_IS_TRACE, f->flags)) {
         instrlist_clear_and_destroy(dcontext, ilist);
     }
+#    endif /* AARCH64 */
 }
 #endif /* INTERNAL */
 

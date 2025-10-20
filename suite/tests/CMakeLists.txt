@@ -6081,6 +6081,12 @@ if (UNIX)
   if (LINUX)
     tobuild(linux.brk linux/brk.cpp)
   endif ()
+  # Test translation of mangling epilogue.
+  # XXX: Port to other (non-x86) architectures.
+  if (LINUX AND AARCH64)
+    tobuild(linux.sigtrans linux/sigtrans.c)
+    target_link_libraries(linux.sigtrans rt)
+  endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
   add_exe(win32.attachee win32/attachee.c)
