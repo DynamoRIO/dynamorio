@@ -291,16 +291,7 @@ bool
 scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_has_pc(memref_t record,
                                                               uint64_t &pc)
 {
-    if (type_is_instr(record.instr.type)) {
-        pc = record.instr.addr;
-        return true;
-    }
-    if (record.marker.type == TRACE_TYPE_MARKER &&
-        record.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        pc = record.marker.marker_value;
-        return true;
-    }
-    return false;
+    return memref_has_pc(record, pc);
 }
 
 template <>
@@ -594,7 +585,7 @@ bool
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_has_pc(
     trace_entry_t record, uint64_t &pc)
 {
-    return entry_queue_t::entry_has_pc(record, &pc);
+    return entry_has_pc(record, pc);
 }
 
 template <>

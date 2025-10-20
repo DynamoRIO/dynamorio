@@ -131,13 +131,6 @@ public:
     void
     push_back(const trace_entry_t &entry);
 
-    /**
-     * Returns whether the given #dynamorio::drmemtrace::trace_entry_t has a PC, and if
-     * so, sets it at the given *pc.
-     */
-    static bool
-    entry_has_pc(const trace_entry_t &entry, uint64_t *pc = nullptr);
-
 private:
     // Trace entries queued up to be returned.
     std::deque<trace_entry_t> entries_;

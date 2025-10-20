@@ -65,9 +65,10 @@ entry_queue_t::has_record_and_next_pc_after_front()
 {
     if (entries_.empty())
         return false;
+    uint64_t unused;
     // If the record at the front is already a record with a PC, we want
     // there to be yet another record in the queue that holds the next PC.
-    bool front_has_pc = entry_has_pc(entries_.front());
+    bool front_has_pc = entry_has_pc(entries_.front(), unused);
     int non_first_entries_with_pc =
         static_cast<int>(pcs_.size()) - (front_has_pc ? 1 : 0);
     return non_first_entries_with_pc >= 1;
@@ -77,7 +78,7 @@ void
 entry_queue_t::push_back(const trace_entry_t &entry)
 {
     uint64_t pc;
-    if (entry_has_pc(entry, &pc)) {
+    if (entry_has_pc(entry, pc)) {
         pcs_.push_back(pc);
     }
     entries_.push_back(entry);
@@ -87,7 +88,7 @@ void
 entry_queue_t::push_front(const trace_entry_t &entry, uint64_t &next_trace_pc)
 {
     uint64_t pc;
-    if (entry_has_pc(entry, &pc)) {
+    if (entry_has_pc(entry, pc)) {
         pcs_.push_front(pc);
         next_trace_pc = pc;
     }
@@ -99,30 +100,14 @@ entry_queue_t::pop_front(trace_entry_t &entry, uint64_t &next_pc)
 {
     entry = entries_.front();
     entries_.pop_front();
-    if (entry_has_pc(entry)) {
+    uint64_t unused;
+    if (entry_has_pc(entry, unused)) {
         pcs_.pop_front();
     }
     next_pc = 0;
     if (!pcs_.empty()) {
         next_pc = pcs_.front();
     }
-}
-
-bool
-entry_queue_t::entry_has_pc(const trace_entry_t &entry, uint64_t *pc)
-{
-    if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
-        if (pc != nullptr)
-            *pc = entry.addr;
-        return true;
-    }
-    if (static_cast<trace_type_t>(entry.type) == TRACE_TYPE_MARKER &&
-        static_cast<trace_marker_type_t>(entry.size) == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        if (pc != nullptr)
-            *pc = entry.addr;
-        return true;
-    }
-    return false;
 }
 
 /****************************************************************************

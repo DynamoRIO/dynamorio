@@ -1202,6 +1202,25 @@ build_target_arch_type()
 }
 #endif
 
+/**
+ * Returns whether the given #trace_entry_t has a PC value, and returns it
+ * in the \p pc arg.
+ */
+static inline bool
+entry_has_pc(const trace_entry_t &entry, uint64_t &pc)
+{
+    if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+        pc = entry.addr;
+        return true;
+    }
+    if (static_cast<trace_type_t>(entry.type) == TRACE_TYPE_MARKER &&
+        static_cast<trace_marker_type_t>(entry.size) == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        pc = entry.addr;
+        return true;
+    }
+    return false;
+}
+
 // This structure may be big- or little-endian, but when converted to trace_entry_t
 // it must be converted to litte-endian.
 START_PACKED_STRUCTURE
