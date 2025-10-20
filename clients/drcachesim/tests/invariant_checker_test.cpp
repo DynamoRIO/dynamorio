@@ -238,6 +238,17 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
 }
 
 bool
+run_csod_checker(const std::vector<memref_t> &memrefs, bool expect_error,
+                 const error_info_t &expected_error_info = {},
+                 const std::string &toprint_if_fail = "")
+{
+    return run_checker(memrefs, expect_error, expected_error_info, toprint_if_fail,
+                       /*serial_schedule_file=*/nullptr,
+                       /*set_skipped=*/false,
+                       /*core_sharded_on_disk=*/true);
+}
+
+bool
 check_branch_target_after_branch()
 {
     std::cerr << "Testing branch targets\n";
@@ -5091,6 +5102,59 @@ check_chunk_order(void)
                          "Failed to catch chunk ordinal skip"))
             return false;
     }
+    // Incorrect: inconsistent chunk instr count.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Chunk instruction counts are inconsistent",
+                           /*tid=*/TID_A,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to detect inconsistent chunk instr count"))
+            return false;
+    }
+    // Correct: skip for dynamically core-sharded traces.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_csod_checker(memrefs, false))
+            return false;
+    }
+    // ... but do not skip for core-sharded-on-disk traces.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_CORE_SHARDED),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_csod_checker(memrefs, true,
+                              { "Chunk instruction counts are inconsistent",
+                                /*tid=*/TID_A,
+                                /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                                /*instrs_since_last_timestamp=*/1 },
+                              "Failed to detect inconsistent chunk instr count for csod"))
+            return false;
+    }
     // Correct: skip when we did an explicit skip.
     {
         std::vector<memref_t> memrefs = {
@@ -5109,18 +5173,47 @@ check_chunk_order(void)
                          /*set_skipped=*/true))
             return false;
     }
+    // Correct: skip for dynamically core-sharded traces.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_csod_checker(memrefs, false))
+            return false;
+    }
+    // ... but do not skip the check for core-sharded-on-disk traces.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_CORE_SHARDED),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 0),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_instr(TID_A, /*pc=*/3),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CHUNK_FOOTER, 1),
+            gen_exit(TID_A),
+        };
+        if (!run_csod_checker(memrefs, true,
+                              { "Chunks do not increase monotonically",
+                                /*tid=*/TID_A,
+                                /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                                /*instrs_since_last_timestamp=*/3 },
+                              "Failed to catch chunk ordinal skip for csod"))
+            return false;
+    }
     return true;
-}
-
-bool
-run_csod_checker(const std::vector<memref_t> &memrefs, bool expect_error,
-                 const error_info_t &expected_error_info = {},
-                 const std::string &toprint_if_fail = "")
-{
-    return run_checker(memrefs, expect_error, expected_error_info, toprint_if_fail,
-                       /*serial_schedule_file=*/nullptr,
-                       /*set_skipped=*/false,
-                       /*core_sharded_on_disk=*/true);
 }
 
 bool
