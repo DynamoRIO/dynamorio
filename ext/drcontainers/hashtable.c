@@ -510,8 +510,7 @@ hashtable_apply_to_all_key_payload_pairs_user_data(
     void *user_data)
 {
     DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
-    uint i;
-    for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
+    for (uint i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
         hash_entry_t *e = table->table[i];
         while (e != NULL) {
             hash_entry_t *nexte = e->next;

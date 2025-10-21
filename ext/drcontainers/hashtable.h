@@ -87,6 +87,7 @@ typedef struct _hashtable_config_t {
     void (*free_key_func)(void *);
 } hashtable_config_t;
 
+/** The storage for a hashtable. */
 typedef struct _hashtable_t {
     hash_entry_t **table;
     hash_type_t hashtype;
