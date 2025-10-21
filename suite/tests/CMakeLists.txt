@@ -6083,7 +6083,7 @@ if (UNIX)
   endif ()
   # Test translation of mangling epilogue.
   # XXX: Port to other (non-x86) architectures.
-  if (LINUX AND AARCH64)
+  if (LINUX AND NOT ANDROID AND AARCH64)
     tobuild(linux.sigtrans linux/sigtrans.c)
     target_link_libraries(linux.sigtrans rt)
   endif ()

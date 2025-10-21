@@ -676,7 +676,7 @@ adaptive_retry(bool (*run)(int *adjust, unsigned long long param, void *arg), in
 
         /* Adjust param for next try. */
         if (result < 0) {
-            param = param + step > param ? param + step : -1ULL;
+            param = param + step > param ? param + step : -1;
         } else if (result > 0) {
             if (param > step)
                 param = param - step;
