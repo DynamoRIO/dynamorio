@@ -632,6 +632,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER &&
+        // TODO i#7674: This check can be enabled using per-thread last chunk ordinals
+        // when we have per-thread state tracking for dynamically core-sharded traces.
         !is_dynamically_core_sharded(shard)) {
         if (shard->skipped_instrs_) {
             report_if_false(shard,
