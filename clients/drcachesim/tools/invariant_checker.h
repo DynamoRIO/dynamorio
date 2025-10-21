@@ -316,6 +316,11 @@ protected:
     relax_expected_read_count_check_for_kernel(per_shard_t *shard);
 #endif
 
+    // Returns whether the trace being processed is dynamically core-sharded. The
+    // caller must use this only after the file type has been set in the per_shard_t.
+    bool
+    is_dynamically_core_sharded(per_shard_t *shard);
+
     void *drcontext_ = dr_standalone_init();
     std::unordered_map<int, std::unique_ptr<per_shard_t>> shard_map_;
     // This mutex is only needed in parallel_shard_init to initialize shard_map_ with

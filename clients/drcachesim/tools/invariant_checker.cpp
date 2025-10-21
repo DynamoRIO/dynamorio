@@ -290,6 +290,12 @@ invariant_checker_t::relax_expected_read_count_check_for_kernel(per_shard_t *sha
 #endif
 
 bool
+invariant_checker_t::is_dynamically_core_sharded(per_shard_t *shard)
+{
+    return core_sharded_ && !TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->file_type_);
+}
+
+bool
 invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
@@ -434,8 +440,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         uint64_t adjusted_ref_count = shard->ref_count_;
         uint64_t adjusted_instr_count = shard->instr_count_;
-        if (!core_sharded_ ||
-            TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->file_type_)) {
+        if (!is_dynamically_core_sharded(shard)) {
             adjusted_ref_count -= shard->dyn_injected_syscall_ref_count_;
             adjusted_instr_count -= shard->dyn_injected_syscall_instr_count_;
         } else {
@@ -626,7 +631,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Stream interface version != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER &&
+        // TODO i#7674: This check can be enabled using per-thread last chunk ordinals
+        // when we have per-thread state tracking for dynamically core-sharded traces.
+        !is_dynamically_core_sharded(shard)) {
         if (shard->skipped_instrs_) {
             report_if_false(shard,
                             static_cast<int64_t>(memref.marker.marker_value) >=
@@ -704,7 +712,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Stream interface chunk instr count != trace marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER &&
+        !is_dynamically_core_sharded(shard)) {
         report_if_false(
             shard,
             // Chunks in kernel trace template files are not defined by any fixed
