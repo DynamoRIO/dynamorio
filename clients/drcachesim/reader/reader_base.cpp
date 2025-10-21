@@ -34,6 +34,7 @@
 
 #include <cassert>
 #include <cinttypes>
+#include <cstdint>
 #include <queue>
 #include <stack>
 
