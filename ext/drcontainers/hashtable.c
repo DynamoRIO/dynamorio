@@ -504,6 +504,23 @@ hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
     }
 }
 
+void
+hashtable_apply_to_all_key_payload_pairs_user_data(
+    hashtable_t *table, void (*apply_func)(void *key, void *payload, void *user_data),
+    void *user_data)
+{
+    DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
+    uint i;
+    for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
+        hash_entry_t *e = table->table[i];
+        while (e != NULL) {
+            hash_entry_t *nexte = e->next;
+            apply_func(e->key, e->payload, user_data);
+            e = nexte;
+        }
+    }
+}
+
 static void
 hashtable_clear_internal(hashtable_t *table)
 {
