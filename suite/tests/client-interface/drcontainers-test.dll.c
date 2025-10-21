@@ -218,7 +218,7 @@ test_hashtable_apply_all_key_payload_pairs_user_data(void)
     hashtable_apply_to_all_key_payload_pairs_user_data(
         &hash_table, sum_key_payload_user_data, (void *)1);
 
-    CHECK(c == (/*counting key + payload, hence :2*/ 2 * hash_table.entries),
+    CHECK(c == (/*counting key + payload, hence: 2*/ 2 * hash_table.entries),
           "hashtable_apply_to_all_key_payload_pairs_user_data (count test) failed");
     CHECK(total ==
               (/*key sum*/ 6 + /*payload sum*/ 6 + /*user data sum*/ hash_table.entries),
