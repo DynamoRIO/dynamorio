@@ -204,6 +204,8 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end);
 
 /**
  * Calls the \p apply_func for each payload.
+ * \p apply_func is not allowed to add or remove elements to/from the hashtable being
+ * iterated.
  * @param table The hashtable to apply the function.
  * @param apply_func A pointer to a function that is called for all payloads
  * stored in the map.
@@ -212,8 +214,9 @@ void
 hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload));
 
 /**
- * Calls the \p apply_func for each payload with user data. Similar to
- * hashtable_apply_to_all_payloads().
+ * Calls the \p apply_func for each payload with user data.
+ * \p apply_func is not allowed to add or remove elements to/from the hashtable being
+ * iterated. Similar to hashtable_apply_to_all_payloads().
  * @param table The hashtable to apply the function.
  * @param apply_func A pointer to a function that is called for all payloads
  * stored in the map. It also takes user data as a parameter.
@@ -227,7 +230,8 @@ hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
 
 /**
  * Calls the \p apply_func for each key-payload pair with user data.
- * Similar to hashtable_apply_to_all_payloads_user_data().
+ * \p apply_func is not allowed to add or remove elements to/from the hashtable being
+ * iterated. Similar to hashtable_apply_to_all_payloads_user_data().
  * @param table The hashtable to apply the function.
  * @param apply_func A pointer to a function that is called for all key-payload pairs
  * stored in the map. It also takes user data as a parameter.
