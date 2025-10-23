@@ -2140,7 +2140,7 @@ restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_
     }
 }
 
-/* store app value from dr_reg_stolen to slot if writback is true and
+/* store app value from dr_reg_stolen to slot if writeback is true and
  * restore tls_base from reg back to dr_reg_stolen
  */
 static void

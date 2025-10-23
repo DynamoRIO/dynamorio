@@ -933,7 +933,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
 static void
 emulate_epilogue(priv_mcontext_t *mc, instr_t *first_inst)
 {
-    app_pc translation = first_inst->translation;
+    app_pc translation = instr_get_translation(first_inst);
     for (instr_t *inst = first_inst;
          inst != NULL && instr_is_our_mangling_epilogue(inst) &&
          instr_get_translation(inst) == translation;
