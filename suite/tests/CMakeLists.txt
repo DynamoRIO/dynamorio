@@ -1477,6 +1477,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
+      if ("${runall}" MATCHES "<state>")
+        # Test register state before and after attaching using attach_state app.
+        set(nokill_arg "nokill")
+        set(wait_arg "wait")
+      endif ()
       if ("${runall}" MATCHES "<detach>")
         set(exe_ops "${exe_ops};-v;")
       endif ()
@@ -1578,6 +1583,8 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D nudge=${nudge_arg}
       -D clear=${clear_arg}
       -D pidfile=${pidfile}
+      -D nokill=${nokill_arg}
+      -D wait=${wait_arg}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
   elseif (is_runcmp)
     # Some apps have enough output that ctest runs out of memory when
@@ -2743,6 +2750,12 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
     # Test attaching during a blocking syscall.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
       client-interface/attach_blocking.runall "" "" "")
+    if (AARCH64)
+      # Test register state before and after attaching, see
+      # suite/tests/linux/attach_state.c
+      torunonly_ci(client.attach_state linux.attach_state client.attach_test.dll
+        client-interface/attach_state.runall "" "" "")
+    endif ()
   endif ()
   if (X64 AND (LINUX OR WIN32))
     if (LINUX)
@@ -6028,10 +6041,14 @@ if (UNIX)
     endif (NOT ARM)
   endif (NOT CMAKE_COMPILER_IS_CLANG)
 
-  # this app is used in nudge tests
-  # XXX: should all these infloop tests be made cross-platform?
+  # These apps are used in nudge tests
+  # XXX: should the infloop and attach_state tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
   add_exe(linux.infloop linux/infloop.c)
+  if (AARCH64)
+    # App to test register state before and after attaching.
+    add_executable(linux.attach_state linux/attach_state.c linux/attach_state_aarch64.asm)
+  endif ()
   torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # XXX i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet
