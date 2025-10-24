@@ -38,8 +38,10 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 
+#    include "tools.h"
+
 #    include <signal.h>
-#    include <stdio.h>
+#    include <stdbool.h>
 #    include <stdlib.h>
 #    include <string.h>
 #    include <time.h>
@@ -73,9 +75,11 @@ handler(int signum, siginfo_t *info, void *ucontext)
  * signal will never appear to have happened during the critical block
  * because we delay the delivery of async signals to the end of the block.
  */
-int
-try(timer_t timer, unsigned long long timer_duration_ns)
+bool
+try(int *adjust, unsigned long long timer_duration_ns, void *arg)
 {
+    timer_t timer = *(timer_t *)arg;
+
     flag_dst = 1;
     flag_src = -1;
 
@@ -93,7 +97,8 @@ try(timer_t timer, unsigned long long timer_duration_ns)
     if (timer_settime(timer, 0, &spec0, NULL))
         fail("timer_settime");
 
-    return flag_dst;
+    *adjust = flag_dst;
+    return *adjust == 0;
 }
 
 int
@@ -116,57 +121,9 @@ main(int argc, char *argv[])
     if (timer_create(CLOCK_MONOTONIC, &sevp, &timer))
         fail("timer_create");
 
-    /* Repeatedly call try(), changing timer_duration_ns each time.
-     * Typically we halve the step each time, which results in a
-     * binary search, but if we have had the same result several times
-     * in succession then we suspect that something has changed so we
-     * start doubling the step instead.
-     */
-    unsigned long long timer_duration_ns = 1024; /* arbitrary initial value */
-    unsigned long long step = 1024;              /* power of two */
-    int result = -1;
-    unsigned long long unchanged_results = 0;
-    /* A thousand tries took a few seconds and gave a few hundred hits
-     * when tested on current hardware.
-     */
-    for (int i = 0; i < 1000; i++) {
-        int previous_result = result;
-        result = try(timer, timer_duration_ns);
+    adaptive_retry(try, 1000, 1024, &timer, true);
 
-        /* Stop trying if the signal arrived during the critical block.
-         * This never happens (or seems never to happen) under DynamoRIO.
-         */
-        if (result == 0)
-            break;
-
-        /* Update unchanged_results. */
-        if (result == previous_result)
-            ++unchanged_results;
-        else
-            unchanged_results = 0;
-
-        /* Update step. */
-        if (unchanged_results < 5)
-            step = step / 2 > 0 ? step / 2 : step;
-        else
-            step = step * 2 > 0 ? step * 2 : step;
-
-        /* Adjust timer_duration_ns for next try. */
-        if (result < 0)
-            timer_duration_ns = timer_duration_ns + step > timer_duration_ns
-                ? timer_duration_ns + step
-                : (unsigned long long)-1;
-        else {
-            if (timer_duration_ns > step)
-                timer_duration_ns -= step;
-            else {
-                timer_duration_ns = 1;
-                step = 1;
-            }
-        }
-    }
-
-    printf("all done\n");
+    print("all done\n");
     return 0;
 }
 
