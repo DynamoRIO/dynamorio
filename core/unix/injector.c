@@ -896,6 +896,7 @@ enum { MAX_SHELL_CODE = 4096 };
 #        define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
 #    elif defined(DR_HOST_AARCH64)
 #        define USER_REGS_TYPE user_pt_regs
+#        define USER_VREGS_TYPE user_fpsimd_struct
 #        define REG_PC_FIELD pc
 #        define REG_SP_FIELD sp
 #        define REG_RETVAL_FIELD regs[0] /* x0 in user_regs_struct */
@@ -1036,6 +1037,15 @@ our_ptrace_getregs(pid_t pid, struct USER_REGS_TYPE *regs)
     return our_ptrace(PTRACE_GETREGS, pid, NULL, regs);
 #    endif
 }
+
+#    if defined(DR_HOST_AARCH64)
+static long
+our_ptrace_getvregs(pid_t pid, struct USER_VREGS_TYPE *vregs)
+{
+    struct iovec iovec = { vregs, sizeof(*vregs) };
+    return our_ptrace(PTRACE_GETREGSET, pid, (void *)NT_FPREGSET, &iovec);
+}
+#    endif
 
 static long
 our_ptrace_setregs(pid_t pid, struct USER_REGS_TYPE *regs)
@@ -1537,7 +1547,12 @@ injectee_memset(void *dst, int val, size_t size)
  * struct.
  */
 static void
+#    if defined(DR_HOST_AARCH64)
+user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs,
+                struct USER_VREGS_TYPE *vregs)
+#    else
 user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
+#    endif
 {
 #    if defined(DR_HOST_NOT_TARGET)
     ASSERT_NOT_IMPLEMENTED(false);
@@ -1623,7 +1638,17 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->r30 = regs->regs[30];
     mc->sp = regs->sp;
     mc->pc = (app_pc)regs->pc;
-#    endif /* X86/ARM */
+    mc->nzcv = regs->pstate & 0xF0000000;
+
+    /* # XXX i#7577: Add SVE registers. */
+    int i;
+    for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
+        memcpy(&mc->simd[i].q, &vregs->vregs[i], sizeof(mc->simd->q));
+    }
+    mc->fpsr = vregs->fpsr;
+    mc->fpcr = vregs->fpcr;
+
+#    endif /* X86/ARM/AARCH64 */
 }
 
 /* Detach from the injectee and re-exec ourselves as gdb with --pid.  This is
@@ -1736,6 +1761,9 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     long r;
     int dr_fd;
     struct USER_REGS_TYPE regs;
+#    if defined(DR_HOST_AARCH64)
+    struct USER_VREGS_TYPE vregs;
+#    endif
     ptrace_stack_args_t args;
     app_pc injected_base;
     app_pc injected_dr_start;
@@ -1809,6 +1837,10 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injected_dr_start = (app_pc)loader.ehdr->e_entry + loader.load_delta;
 
     our_ptrace_getregs(info->pid, &regs);
+#    if defined(DR_HOST_AARCH64)
+    our_ptrace_getvregs(info->pid, &vregs);
+#    endif
+
     dr_isa_mode_t app_mode;
 #    if defined(X86)
     app_mode = IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32);
@@ -1867,7 +1899,11 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      * good place to put it.
      */
     memset(&args, 0, sizeof(args));
+#    if defined(DR_HOST_AARCH64)
+    user_regs_to_mc(&args.mc, &regs, &vregs);
+#    else
     user_regs_to_mc(&args.mc, &regs);
+#    endif
     args.argc = ARGC_PTRACE_SENTINEL;
 #    ifdef ARM
     if (app_mode == DR_ISA_ARM_THUMB)

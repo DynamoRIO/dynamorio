@@ -46,6 +46,8 @@
 # * nudge = arguments to drnudgeunix or drconfig
 # * clear = dir to clear ahead of time
 
+cmake_minimum_required(VERSION 3.14)
+
 get_filename_component(current_directory_path "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(${current_directory_path}/process_cmdline.cmake NO_POLICY_SCOPE)
 
@@ -121,6 +123,30 @@ function (do_sleep ms)
     execute_process(COMMAND ${PING} 127.0.0.1 -n 2 OUTPUT_QUIET)
   endif ()
 endfunction (do_sleep)
+
+function (wait_to_attach pid)
+  set(status_file "/proc/${pid}/status")
+  # Is attach_state still running?
+  if (NOT EXISTS "${status_file}")
+    message(FATAL_ERROR "attach_state process ${pid} not running.\n")
+  endif()
+  # Wait until attach_state has set status to "att_test_loop".
+  set(iters 0)
+  while (EXISTS "${status_file}")
+    execute_process(COMMAND "grep" ^Name ${status_file}
+                    COMMAND "cut" -f 2
+                    COMMAND tr -d $'\n' OUTPUT_VARIABLE name)
+    if ("${name}" STREQUAL "att_test_loop")
+      return()
+    endif ()
+    do_sleep(0.1)
+    math(EXPR iters "${iters}+1")
+    if (${iters} GREATER ${MAX_ITERS})
+      message(FATAL_ERROR "Timed out waiting for attach_state (${pid}) to be ready.")
+    endif ()
+  endwhile ()
+  message(FATAL_ERROR "attach_state (${pid}) ended without being ready for attach.")
+endfunction (wait_to_attach)
 
 function (kill_background_process force)
   if (UNIX)
@@ -211,6 +237,9 @@ if ("${nudge}" MATCHES "<use-persisted>")
     set(fail_msg "no .dpc files found in ${maps}: not using pcaches!")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
+  if ("${wait}" STREQUAL "wait")
+    wait_to_attach(${pid})
+  endif ()
   set(nudge_cmd run_in_bg)
   string(REGEX REPLACE "<attach>"
     "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000"
@@ -323,7 +352,9 @@ if ("${orig_nudge}" MATCHES "<detach>")
   endwhile()
 endif ()
 
-kill_background_process(OFF)
+if (NOT "${nokill}" STREQUAL "nokill")
+  kill_background_process(OFF)
+endif ()
 
 if (NOT "${fail_msg}" STREQUAL "")
   message(FATAL_ERROR "${fail_msg}")
