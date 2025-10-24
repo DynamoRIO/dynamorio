@@ -6084,8 +6084,8 @@ if (UNIX)
   # Test translation of mangling epilogue.
   # XXX: Port to other (non-x86) architectures.
   if (LINUX AND NOT ANDROID AND AARCH64)
-    tobuild(linux.sigtrans linux/sigtrans.c)
-    target_link_libraries(linux.sigtrans rt)
+    tobuild(linux.signal_translate linux/signal_translate.c)
+    target_link_libraries(linux.signal_translate rt)
   endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
