@@ -461,11 +461,14 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     // in iter.comment. Region names are stored in the section name table
     // without duplications. An offset is used in the section header to locate
     // the section name in the section name table.
+    int vvar_section = -1;
     while (memquery_iterator_next(&iter)) {
         // Skip non-readable section.
-        if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VVAR_SECTION) == 0 ||
-            strcmp(iter.comment, VSYSCALL_SECTION) == 0) {
+        if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VSYSCALL_SECTION) == 0) {
             continue;
+        }
+        if (strcmp(iter.comment, VVAR_SECTION) == 0) {
+            vvar_section = section_count;
         }
         ELF_ADDR offset = 0;
         if (iter.comment != NULL && iter.comment[0] != '\0') {
@@ -493,7 +496,9 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
         section_header_info[section_count].vm_end = iter.vm_end;
         section_header_info[section_count].prot = iter.prot;
         section_header_info[section_count].name_offset = offset;
-        section_data_size += iter.vm_end - iter.vm_start;
+        if (section_count != vvar_section) {
+            section_data_size += iter.vm_end - iter.vm_start;
+        }
         ++section_count;
         if (section_count > MAX_SECTION_HEADERS) {
             SYSLOG_INTERNAL_ERROR("Too many section headers.");
@@ -591,14 +596,16 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
                 /*virtual_address=*/(ELF_ADDR)section_header_info[section_index].vm_start,
                 /*physical_address=*/
                 (ELF_ADDR)section_header_info[section_index].vm_start,
-                /*file_size=*/size,
+                /*file_size=*/section_index == vvar_section ? 0 : size,
                 /*memory_size=*/size,
                 /*alignment=*/os_page_size())) {
             os_close(elf_file);
             return false;
         }
-        core_file_offset += section_header_info[section_index].vm_end -
-            section_header_info[section_index].vm_start;
+        if (section_index != vvar_section) {
+            core_file_offset += section_header_info[section_index].vm_end -
+                section_header_info[section_index].vm_start;
+        }
     }
     if (!write_prstatus_note(&mc, elf_file)) {
         os_close(elf_file);
@@ -632,6 +639,9 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     }
     // Write memory content to the core dump file.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
+        if (section_index == vvar_section) {
+            continue;
+        }
         const size_t length = section_header_info[section_index].vm_end -
             section_header_info[section_index].vm_start;
         const size_t written = os_write(
@@ -683,8 +693,10 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
             os_close(elf_file);
             return false;
         }
-        core_file_offset += section_header_info[section_index].vm_end -
-            section_header_info[section_index].vm_start;
+        if (section_index != vvar_section) {
+            core_file_offset += section_header_info[section_index].vm_end -
+                section_header_info[section_index].vm_start;
+        }
     }
     // Write the section name section.
     if (!write_section_header(
