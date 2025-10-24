@@ -60,17 +60,17 @@ fail(const char *s)
     exit(1);
 }
 
-/* XXX: These initial values must be large enough to avoid i#7675, but
- * should probably be reduced when that bug is fixed.
+/* XXX i#7675: These initial values must be large enough to avoid that
+ * issue but should probably be reduced when it is fixed.
  */
-int iters = 1000;
+unsigned int iters = 2048;
 unsigned long init_param = 10000;
 
 bool
 test_code(int *adjust)
 {
     unsigned long count = 0;
-    for (int i = 0; i < iters * 2; i++) {
+    for (int i = 0; i < iters; i++) {
         /* XXX: Port to other (non-x86) architectures. */
         asm volatile("mov x28, %[count] \n\t"
 #define INC "add x28, x28, #1 \n\t"
@@ -82,13 +82,14 @@ test_code(int *adjust)
                      : "x28");
         volatile_src = i + 2;
     }
-    /* We aim for volatile_dst to equal iters, but we never set *adjust
+    /* We aim for volatile_dst to equal iters/2, but we never set *adjust
      * to zero because we want the timer delay to be constantly
      * adjusted.
      */
     int dst = volatile_dst;
-    *adjust = (dst == 0 ? iters * 2 + 1 : dst < iters ? dst - iters : dst - iters + 1);
-    return count != iters * 2 * 8;
+    *adjust = (dst == 0 ? iters + 1 : dst < iters / 2 ? dst - iters / 2 :
+               dst - iters / 2 + 1);
+    return count != iters * 8;
 }
 
 bool
@@ -125,8 +126,8 @@ int
 main()
 {
     /* This test relies on SIGPIPE, delivered by a timer, being
-     * treated as a synchronous signal, like a fault and may become
-     * useless if that ceases to be true.
+     * treated as a synchronous signal, like a fault, and may become
+     * useless if that ceases to be true (i#133).
      */
     int signum = SIGPIPE;
 
