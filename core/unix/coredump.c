@@ -590,6 +590,8 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
         }
         const ELF_WORD size = section_header_info[section_index].vm_end -
             section_header_info[section_index].vm_start;
+        // The vvar section is not readable. The file size is set to zero to
+        // initialize the memory region to 0.
         if (!write_program_header(
                 elf_file, PT_LOAD, flags,
                 /*offset=*/core_file_offset,
@@ -639,6 +641,9 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     }
     // Write memory content to the core dump file.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
+        // The vvar section is not readable. The program header has the file
+        // size set to zero to indicate the content is not recorded in the
+        // memory dump file.
         if (section_index == vvar_section) {
             continue;
         }

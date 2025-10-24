@@ -30,7 +30,6 @@ Section Headers:
        Size              EntSize          Flags  Link  Info  Align
 .* \[vvar\]            PROGBITS.*
 .* \[vdso\]            PROGBITS.*
-.* \[stack\]           PROGBITS.*
 .* shstrtab          STRTAB.*
 Program Headers:
   Type           Offset             VirtAddr           PhysAddr
