@@ -6299,8 +6299,8 @@ flush_and_remove_executable_vm_area(dcontext_t *dcontext, app_pc base, size_t si
     flush_fragments_in_region_start(
         dcontext, base, size, false /* don't own initexit_lock */,
         false /* case 2236: keep futures */, true /* exec invalid */,
-        false /* don't force synchall */
-        _IF_DGCDIAG(NULL));
+        false /* don't force synchall */,
+        THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
     DEBUG_DECLARE(res =)
     remove_executable_vm_area(base, base + size, true /*have lock*/);
     DODEBUG(if (!res) {
@@ -10757,9 +10757,8 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
             flush_fragments_in_region_start(
                 dcontext, (app_pc)tgt_pstart, (tgt_pend + PAGE_SIZE - tgt_pstart),
                 false /* don't own initexit_lock */, false /* keep futures */,
-                true /* exec invalid */,
-                false /* don't force synchall */
-                _IF_DGCDIAG(target));
+                true /* exec invalid */, false /* don't force synchall */,
+                THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(target));
             /* flush_* grabbed exec areas lock for us, to make following
              * sequence atomic.
              * Need to change all exec areas on these pages to be selfmod.
@@ -10879,8 +10878,8 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
     flush_fragments_in_region_start(dcontext, flush_start, flush_size,
                                     false /* don't own initexit_lock */,
                                     false /* keep futures */, true /* exec invalid */,
-                                    false /* don't force synchall */
-                                    _IF_DGCDIAG(target));
+                                    false /* don't force synchall */,
+                                    THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(target));
     f = NULL; /* after the flush we don't know if it's safe to deref f */
 
     if (DYNAMO_OPTION(ro2sandbox_threshold) > 0) {
@@ -11124,8 +11123,8 @@ vm_area_selfmod_check_clear_exec_count(dcontext_t *dcontext, fragment_t *f)
     flush_fragments_in_region_start(dcontext, start, end - start,
                                     false /* don't own initexit_lock */,
                                     false /* keep futures */, true /* exec invalid */,
-                                    false /* don't force synchall */
-                                    _IF_DGCDIAG(NULL));
+                                    false /* don't force synchall */,
+                                    THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
     if (convert_s2ro) {
         DODEBUG(ro2s->s2ro_xfers++;);
         /* flush_* grabbed executable_areas lock for us */

@@ -3960,11 +3960,10 @@ fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
      * list anymore, but the fragments are reachable.
      */
     DEBUG_DECLARE(flushed =)
-    flush_fragments_synch_unlink_priv(dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
-                                      false /*don't have thread_initexit_lock*/,
-                                      false /*not invalidating exec areas*/,
-                                      false /*don't force synchall*/
-                                      _IF_DGCDIAG(NULL));
+    flush_fragments_synch_unlink_priv(
+        dcontext, EMPTY_REGION_BASE, EMPTY_REGION_SIZE,
+        false /*don't have thread_initexit_lock*/, false /*not invalidating exec areas*/,
+        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
     ASSERT(flushed);
 
     KSTART(cache_flush_unit_walk);
@@ -4099,9 +4098,8 @@ fcache_flush_all_caches()
     flush_fragments_in_region_start(
         dcontext, UNIVERSAL_REGION_BASE, UNIVERSAL_REGION_SIZE,
         false /* don't own initexit_lock */, true /* remove futures */,
-        false /*not invalidating exec areas*/,
-        false /*don't force synchall*/
-        _IF_DGCDIAG(NULL));
+        false /*not invalidating exec areas*/, false /*don't force synchall*/,
+        THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
     /* In presence of any shared fragments, all threads are stuck here at synch point,
      * so we can mess w/ global cache units in an atomic manner wrt the flush.
      * We can't do private here since threads are let go if no shared
