@@ -69,7 +69,9 @@ namespace drmemtrace {
 #endif
 #define OUTFILE_SUBDIR "raw"
 #define WINDOW_SUBDIR_PREFIX "window"
-#define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
+#define WINDOW_SUBDIR_FORMAT                               \
+    "window.%04zd" /* ptr_int_t is the window number type. \
+                    */
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 #define TRACE_CHUNK_PREFIX "chunk."
@@ -484,7 +486,7 @@ print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
 
 /**
  * Subclasses module_mapper_t and replaces the module loading with a buffer
- * of encoded instr_t. Useful for tests where we want to mock the module
+ * of encoded #instr_t. Useful for tests where we want to mock the module
  * files with an in-memory buffer of instrs.
  */
 class test_module_mapper_t : public module_mapper_t {

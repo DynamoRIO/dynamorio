@@ -136,16 +136,16 @@
 /** @{ */ /* doxygen start group */
 
 /**
- * This platform-independent macro creates an instr_t for a debug trap
+ * This platform-independent macro creates an #instr_t for a debug trap
  * instruction, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_debug_instr(dc) INSTR_CREATE_brk((dc), OPND_CREATE_INT16(0))
 
 /**
- * This platform-independent macro creates an instr_t for a 4-byte
+ * This platform-independent macro creates an #instr_t for a 4-byte
  * or 8-byte memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
@@ -163,37 +163,37 @@
                m))
 
 /**
- * This platform-independent macro creates an instr_t which loads 1 byte
+ * This platform-independent macro creates an #instr_t which loads 1 byte
  * from memory, zero-extends it to 4 bytes, and writes it to a 4 byte
  * destination register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_1byte_zext4(dc, r, m) INSTR_CREATE_ldrb(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t for a 1-byte
+ * This platform-independent macro creates an #instr_t for a 1-byte
  * memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_1byte(dc, r, m) INSTR_CREATE_ldrb(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t for a 2-byte
+ * This platform-independent macro creates an #instr_t for a 2-byte
  * memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_2bytes(dc, r, m) INSTR_CREATE_ldrh(dc, r, m)
 
 /**
- * This platform-independent macro creates an instr_t for a 4-byte
+ * This platform-independent macro creates an #instr_t for a 4-byte
  * or 8-byte memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
@@ -209,9 +209,9 @@
                opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))))
 
 /**
- * This platform-independent macro creates an instr_t for a 1-byte
+ * This platform-independent macro creates an #instr_t for a 1-byte
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
@@ -219,9 +219,9 @@
     INSTR_CREATE_strb(dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
 
 /**
- * This platform-independent macro creates an instr_t for a 2-byte
+ * This platform-independent macro creates an #instr_t for a 2-byte
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
@@ -229,9 +229,9 @@
     INSTR_CREATE_strh(dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
 
 /**
- * This AArchXX-platform-independent macro creates an instr_t for a 2-register
+ * This AArchXX-platform-independent macro creates an #instr_t for a 2-register
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r1  The first register opnd.
  * \param r2  The second register opnd.
@@ -239,9 +239,9 @@
 #define XINST_CREATE_store_pair(dc, m, r1, r2) INSTR_CREATE_stp(dc, m, r1, r2)
 
 /**
- * This AArchXX-platform-independent macro creates an instr_t for a 2-register
+ * This AArchXX-platform-independent macro creates an #instr_t for a 2-register
  * memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r1  The first register opnd.
  * \param r2  The second register opnd.
  * \param m   The source memory opnd.
@@ -249,9 +249,9 @@
 #define XINST_CREATE_load_pair(dc, r1, r2, m) INSTR_CREATE_ldp(dc, r1, r2, m)
 
 /**
- * This platform-independent macro creates an instr_t for a register
+ * This platform-independent macro creates an #instr_t for a register
  * to register move instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
@@ -264,35 +264,35 @@
                                   OPND_CREATE_LSL(), OPND_CREATE_INT(0)))
 
 /**
- * This platform-independent macro creates an instr_t for a multimedia
+ * This platform-independent macro creates an #instr_t for a multimedia
  * register load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_simd(dc, r, m) INSTR_CREATE_ldr((dc), (r), (m))
 
 /**
- * This platform-independent macro creates an instr_t for a multimedia
+ * This platform-independent macro creates an #instr_t for a multimedia
  * register store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_str((dc), (m), (r))
 
 /**
- * This platform-independent macro creates an instr_t for an indirect
+ * This platform-independent macro creates an #instr_t for an indirect
  * jump instruction through a register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The register opnd holding the target.
  */
 #define XINST_CREATE_jump_reg(dc, r) INSTR_CREATE_br((dc), (r))
 
 /**
- * This platform-independent macro creates an instr_t for an immediate
+ * This platform-independent macro creates an #instr_t for an immediate
  * integer load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
@@ -303,17 +303,17 @@
          : INSTR_CREATE_movz((dc), (r), (i), OPND_CREATE_INT(0)))
 
 /**
- * This platform-independent macro creates an instr_t for a return instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * This platform-independent macro creates an #instr_t for a return instruction.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_return(dc) INSTR_CREATE_ret(dc, opnd_create_reg(DR_REG_X30))
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -321,11 +321,11 @@
 #define XINST_CREATE_jump(dc, t) INSTR_CREATE_b((dc), (t))
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction with the smallest available reach.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -333,11 +333,11 @@
 #define XINST_CREATE_jump_short(dc, t) INSTR_CREATE_b((dc), (t))
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -345,13 +345,13 @@
 #define XINST_CREATE_call(dc, t) INSTR_CREATE_bl(dc, t)
 
 /**
- * This platform-independent macro creates an instr_t for a conditional
+ * This platform-independent macro creates an #instr_t for a conditional
  * branch instruction that branches if the previously-set condition codes
  * indicate the condition indicated by \p pred.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param pred  The #dr_pred_type_t condition to match.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -360,19 +360,19 @@
     (INSTR_PRED(INSTR_CREATE_bcond((dc), (t)), (pred)))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_add(dc, d, s) INSTR_CREATE_add(dc, d, d, s)
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags and takes two sources
  * plus a destination.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s1  The opnd_t explicit first source operand for the instruction. This
  * must be a register.
@@ -382,11 +382,11 @@
 #define XINST_CREATE_add_2src(dc, d, s1, s2) INSTR_CREATE_add(dc, d, s1, s2)
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags and takes two register sources
  * plus a destination, with one source being shifted logically left by
  * an immediate amount that is limited to either 0, 1, 2, or 3.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s1  The opnd_t explicit first source operand for the instruction.  This
  * must be a register.
@@ -399,62 +399,62 @@
                            OPND_CREATE_INT8(shift_amount))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_adds(dc, d, d, s)
 
 /**
- * This platform-independent macro creates an instr_t for a subtraction
+ * This platform-independent macro creates an #instr_t for a subtraction
  * instruction that does not affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_sub(dc, d, s) INSTR_CREATE_sub(dc, d, d, s)
 
 /**
- * This platform-independent macro creates an instr_t for a subtraction
+ * This platform-independent macro creates an #instr_t for a subtraction
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_subs(dc, d, d, s)
 
 /**
- * This platform-independent macro creates an instr_t for a bitwise and
+ * This platform-independent macro creates an #instr_t for a bitwise and
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_ands(dc, d, d, s)
 
 /**
- * This platform-independent macro creates an instr_t for a comparison
+ * This platform-independent macro creates an #instr_t for a comparison
  * instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param s1  The opnd_t explicit source operand for the instruction.
  * \param s2  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_cmp(dc, s1, s2) INSTR_CREATE_cmp(dc, s1, s2)
 
 /**
- * This platform-independent macro creates an instr_t for a software
+ * This platform-independent macro creates an #instr_t for a software
  * interrupt instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param i   The source integer constant opnd_t operand.
  */
 #define XINST_CREATE_interrupt(dc, i) INSTR_CREATE_svc(dc, (i))
 
 /**
- * This platform-independent macro creates an instr_t for a logical right shift
+ * This platform-independent macro creates an #instr_t for a logical right shift
  * instruction that does affect the status flags.
- * \param dc         The void * dcontext used to allocate memory for the instr_t.
+ * \param dc         The void * dcontext used to allocate memory for the #instr_t.
  * \param d          The opnd_t explicit destination operand for the instruction.
  * \param rm_or_imm  The opnd_t explicit source operand for the instruction.
  */
@@ -471,15 +471,15 @@
                                                            : OPND_CREATE_INT(63)))
 
 /**
- * This platform-independent macro creates an instr_t for a nop instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * This platform-independent macro creates an #instr_t for a nop instruction.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
 
 /**
- * This platform-independent macro creates an instr_t for an indirect call instr
+ * This platform-independent macro creates an #instr_t for an indirect call instr
  * through a register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The opnd_t explicit source operand for the instruction. This should
  * be a reg_id_t operand with the address of the subroutine.
  */
@@ -497,7 +497,8 @@
 /** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_add(dc, rd, rn, rm_or_imm)                                         \
     opnd_is_reg(rm_or_imm)                                                              \
-        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm.      \
+           */                                                                           \
         INSTR_CREATE_add_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
                                 OPND_CREATE_INT(0))                                     \
         : INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \
@@ -522,7 +523,7 @@
 
 /**
  * Creates an AND instruction with one output and two inputs.
- * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param rd   The output register.
  * \param rn   The first input register.
  * \param rm_or_imm   The second input register or immediate.
@@ -535,7 +536,7 @@
 
 /**
  * Creates an ORR instruction with one output and two inputs.
- * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param rd   The output register.
  * \param rn   The first input register.
  * \param rm_or_imm   The second input register or immediate.
@@ -560,7 +561,7 @@
 
 /**
  * Creates an ANDS instruction with one output and two inputs.
- * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param rd   The output register.
  * \param rn   The first input register.
  * \param rm_or_imm   The second input register or immediate.
@@ -578,15 +579,15 @@
 #define INSTR_CREATE_b(dc, pc) instr_create_0dst_1src((dc), OP_b, (pc))
 /** \endcond disabled_until_i4106_is_fixed */
 /**
- * This macro creates an instr_t for a conditional branch instruction. The condition
+ * This macro creates an #instr_t for a conditional branch instruction. The condition
  * can be set using INSTR_PRED macro.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param pc The opnd_t target operand containing the program counter to jump to.
  */
 #define INSTR_CREATE_bcond(dc, pc) instr_create_0dst_1src((dc), OP_bcond, (pc))
 /**
- * This macro creates an instr_t for a BL (branch and link) instruction.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * This macro creates an #instr_t for a BL (branch and link) instruction.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param pc The opnd_t target operand containing the program counter to jump to.
  */
 #define INSTR_CREATE_bl(dc, pc) \
@@ -663,7 +664,7 @@
  * Creates an EOR instruction with one output and two inputs. For simplicity, the first
  * input reuses the output register.
  *
- * \param dc        The void * dcontext used to allocate memory for the instr_t.
+ * \param dc        The void * dcontext used to allocate memory for the #instr_t.
  * \param d         The output register and the first input register.
  * \param s_or_imm  The second input register or immediate.
  */
@@ -680,7 +681,7 @@
 /**
  * Creates a CSINC instruction with one output and three inputs.
  *
- * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param rd   The output register.
  * \param rn   The first input register.
  * \param rm   The second input register.
@@ -692,7 +693,7 @@
 /**
  * Creates a UBFM instruction with one output and three inputs.
  *
- * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param rd   The output register.
  * \param rn   The first input register.
  * \param immr The second input immediate.
@@ -776,7 +777,8 @@
     instr_create_2dst_2src(dc, OP_stlxp, mem, rs, rt1, rt2)
 #define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm)                                         \
     opnd_is_reg(rm_or_imm)                                                              \
-        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm.      \
+           */                                                                           \
         INSTR_CREATE_sub_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
                                 OPND_CREATE_INT(0))                                     \
         : INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \
@@ -943,7 +945,7 @@
 
 /**
  * Creates a CLREX instruction.
- * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_clrex(dc) instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(15))
 #define INSTR_CREATE_clrex_imm(dc, imm) \
@@ -972,7 +974,7 @@
  *    FMOV    <Hd>, <Hn>
  *    FMOV    <Sd>, <Sn>
  * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd   The output register.
  * \param Rn   The first input register.
  */
@@ -980,7 +982,7 @@
 
 /**
  * Creates an FMOV instruction to move between GPRs and floating point registers.
- * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd   The output register.
  * \param Rn   The first input vector register.
  */
@@ -996,7 +998,7 @@
 
 /**
  * Creates a SHADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1008,7 +1010,7 @@
 
 /**
  * Creates a SQADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1020,7 +1022,7 @@
 
 /**
  * Creates a SRHADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1032,7 +1034,7 @@
 
 /**
  * Creates a SHSUB vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1044,7 +1046,7 @@
 
 /**
  * Creates a SQSUB vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1056,7 +1058,7 @@
 
 /**
  * Creates a CMGT vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1068,7 +1070,7 @@
 
 /**
  * Creates a CMGE vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1080,7 +1082,7 @@
 
 /**
  * Creates a SSHL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1092,7 +1094,7 @@
 
 /**
  * Creates a SQSHL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1104,7 +1106,7 @@
 
 /**
  * Creates a SRSHL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1116,7 +1118,7 @@
 
 /**
  * Creates a SQRSHL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1128,7 +1130,7 @@
 
 /**
  * Creates a SMAX vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1140,7 +1142,7 @@
 
 /**
  * Creates a SMIN vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1152,7 +1154,7 @@
 
 /**
  * Creates a SABD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1164,7 +1166,7 @@
 
 /**
  * Creates a SABA vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1176,7 +1178,7 @@
 
 /**
  * Creates a ADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1188,7 +1190,7 @@
 
 /**
  * Creates an ADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output SVE register (created with
  *                opnd_create_reg_element_vector).
  * \param Rm      The first input SVE register (created with
@@ -1201,7 +1203,7 @@
 
 /**
  * Creates a CMTST vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1213,7 +1215,7 @@
 
 /**
  * Creates a MLA vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1225,7 +1227,7 @@
 
 /**
  * Creates a MUL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1237,7 +1239,7 @@
 
 /**
  * Creates a SMAXP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1249,7 +1251,7 @@
 
 /**
  * Creates a SMINP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1261,7 +1263,7 @@
 
 /**
  * Creates a SQDMULH vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1273,7 +1275,7 @@
 
 /**
  * Creates a ADDP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1285,7 +1287,7 @@
 
 /**
  * Creates a FMAXNM vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1341,7 +1343,7 @@
 
 /**
  * Creates a FADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1529,7 +1531,7 @@
 
 /**
  * Creates a FMAX vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1651,7 +1653,7 @@
 
 /**
  * Creates a AND vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1661,7 +1663,7 @@
 
 /**
  * Creates a BIC vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1671,7 +1673,7 @@
 
 /**
  * Creates a FMINNM vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1727,7 +1729,7 @@
 
 /**
  * Creates a FSUB vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1739,7 +1741,7 @@
 
 /**
  * Creates a FMLSL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1748,7 +1750,7 @@
     instr_create_1dst_4src(dc, OP_fmlsl, Rd, Rd, Rm, Rn, OPND_CREATE_HALF())
 /**
  * Creates a FMLSL indexed vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1759,7 +1761,7 @@
 
 /**
  * Creates a FMIN vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1811,7 +1813,7 @@
 
 /**
  * Creates a ORR vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1821,7 +1823,7 @@
 
 /**
  * Creates a ORN vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1831,7 +1833,7 @@
 
 /**
  * Creates a UHADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1843,7 +1845,7 @@
 
 /**
  * Creates a UQADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1855,7 +1857,7 @@
 
 /**
  * Creates a URHADD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1867,7 +1869,7 @@
 
 /**
  * Creates a UHSUB vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1879,7 +1881,7 @@
 
 /**
  * Creates a UQSUB vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1891,7 +1893,7 @@
 
 /**
  * Creates a CMHI vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1903,7 +1905,7 @@
 
 /**
  * Creates a CMHS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1915,7 +1917,7 @@
 
 /**
  * Creates a USHL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1927,7 +1929,7 @@
 
 /**
  * Creates a UQSHL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1939,7 +1941,7 @@
 
 /**
  * Creates a URSHL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1951,7 +1953,7 @@
 
 /**
  * Creates a UQRSHL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1963,7 +1965,7 @@
 
 /**
  * Creates a UMAX vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1975,7 +1977,7 @@
 
 /**
  * Creates a UMIN vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1987,7 +1989,7 @@
 
 /**
  * Creates a UABD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -1999,7 +2001,7 @@
 
 /**
  * Creates a UABA vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2011,7 +2013,7 @@
 
 /**
  * Creates a SUB vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2023,7 +2025,7 @@
 
 /**
  * Creates a CMEQ vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2035,7 +2037,7 @@
 
 /**
  * Creates a MLS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2047,7 +2049,7 @@
 
 /**
  * Creates a PMUL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2058,7 +2060,7 @@
 
 /**
  * Creates a UMAXP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2070,7 +2072,7 @@
 
 /**
  * Creates a UMINP vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2082,7 +2084,7 @@
 
 /**
  * Creates a SQRDMULH vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2094,7 +2096,7 @@
 
 /**
  * Creates a SQRDMLSH scalar instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2104,7 +2106,7 @@
 
 /**
  * Creates a SQRDMLSH scalar indexed instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2117,7 +2119,7 @@
 
 /**
  * Creates a SQRDMLSH vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2129,7 +2131,7 @@
 
 /**
  * Creates a SQRDMLSH vector indexed instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2218,7 +2220,7 @@
 
 /**
  * Creates a FMUL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2230,7 +2232,7 @@
 
 /**
  * Creates a FCMGE vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2434,7 +2436,7 @@
 
 /**
  * Creates a FDIV vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2446,7 +2448,7 @@
 
 /**
  * Creates a EOR vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2456,7 +2458,7 @@
 
 /**
  * Creates a BSL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2525,7 +2527,7 @@
 
 /**
  * Creates a FMLSL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2534,7 +2536,7 @@
     instr_create_1dst_4src(dc, OP_fmlsl2, Rd, Rd, Rm, Rn, OPND_CREATE_HALF())
 /**
  * Creates a FMLSL2 indexed vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2545,7 +2547,7 @@
 
 /**
  * Creates a FABD vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2713,7 +2715,7 @@
 
 /**
  * Creates a BIT vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -2723,7 +2725,7 @@
 
 /**
  * Creates a BIF vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3050,7 +3052,7 @@
 
 /**
  * Creates an FMOV floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3058,7 +3060,7 @@
 
 /**
  * Creates a FABS floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3066,7 +3068,7 @@
 
 /**
  * Creates a FNEG floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3074,7 +3076,7 @@
 
 /**
  * Creates a FSQRT floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3251,7 +3253,7 @@
 
 /**
  * Creates a FRINTN floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3271,7 +3273,7 @@
 
 /**
  * Creates a FRINTP floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3291,7 +3293,7 @@
 
 /**
  * Creates a FRINTM floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3311,7 +3313,7 @@
 
 /**
  * Creates a FRINTZ floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3331,7 +3333,7 @@
 
 /**
  * Creates a FRINTA floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3351,7 +3353,7 @@
 
 /**
  * Creates a FRINTX floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3371,7 +3373,7 @@
 
 /**
  * Creates a FRINTI floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
@@ -3391,7 +3393,7 @@
 
 /**
  * Creates a LDPSW floating point instruction.
- * \param dc    The void * dcontext used to allocate memory for the instr_t.
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
  * \param Xt1   The first GPR output register.
  * \param Xt2   The second GPR output register.
  * \param Xn    The input Stack-pointer or GPR register.
@@ -3416,7 +3418,7 @@
 
 /**
  * Creates a FMUL floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3426,7 +3428,7 @@
 
 /**
  * Creates a FDIV floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3436,7 +3438,7 @@
 
 /**
  * Creates a FADD floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3446,7 +3448,7 @@
 
 /**
  * Creates a FSUB floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3456,7 +3458,7 @@
 
 /**
  * Creates a FMAX floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3466,7 +3468,7 @@
 
 /**
  * Creates a FMIN floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3476,7 +3478,7 @@
 
 /**
  * Creates a FMAXNM floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3486,7 +3488,7 @@
 
 /**
  * Creates a FMINNM floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3496,7 +3498,7 @@
 
 /**
  * Creates a FNMUL floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3508,7 +3510,7 @@
 
 /**
  * Creates a FMADD floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3519,7 +3521,7 @@
 
 /**
  * Creates a FMSUB floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3530,7 +3532,7 @@
 
 /**
  * Creates a FNMADD floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3541,7 +3543,7 @@
 
 /**
  * Creates a FNMSUB floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3559,7 +3561,7 @@
  * Creates an Advanced SIMD (NEON) LD2 instruction to load multiple 2-element
  * structures to two vector registers with post-indexing, e.g. LD2 {V0.4H, V1.4H}, [X0],
  * #32.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Xn      The stack-pointer or GPR to load into Vt1 and Vt2.
@@ -3573,7 +3575,7 @@
 /**
  * Creates an Advanced SIMD (NEON) LD2 instruction to load a 2-element
  * structure to the index of two vector registers, e.g. LD2 {V0.4H, V1.4H}[5], [X0].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Xn      The stack-pointer or GPR to load into Vt1 and Vt2.
@@ -3587,7 +3589,7 @@
  * Creates an Advanced SIMD (NEON) LD2 instruction to load a 2-element
  * structure to the index of two vector registers with post-indexing,
  * e.g. LD2 {V0.4H, V1.4H}[5], [X0], X1.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Xn      The stack-pointer or register to load into Vt and Vt2.
@@ -3603,7 +3605,7 @@
  * Creates an Advanced SIMD (NEON) LD2R instruction to load and replicate a
  * single 2-element structure to all lanes of two vector registers,
  * e.g. LD2R {V0.4H, V1.4H}, [X0].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Xn      The stack-pointer or GPR to load into Vt1 and Vt2.
@@ -3616,7 +3618,7 @@
  * Creates an Advanced SIMD (NEON) LD2R instruction to load and replicate a
  * single 2-element structure to all lanes of two vector registers with post-indexing
  * , e.g. LD2R {V0.4H, V1.4H}, [X0], X1.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Xn      The stack-pointer or GPR to load into Vt and Vt2.
@@ -3631,7 +3633,7 @@
  * Creates an Advanced SIMD (NEON) LD3 instruction to load multiple 3-element
  * structures from memory to three vector register,
  * e.g. LD3 {V0.4H, V1.4H, V2.4H}, [X0].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3645,7 +3647,7 @@
  * Creates an Advanced SIMD (NEON) LD3 instruction to load multiple 3-element
  * structures from memory to the index of three vector registers with
  * post-index offset, e.g. LD3 {V0.4H, V1.4H, V2.4H}, [X0], X1.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3660,7 +3662,7 @@
 /**
  * Creates an Advanced SIMD (NEON) LD3 instruction to load a single 3-element
  * structure to the index of three vector registers, e.g. LD3 {V0.4H, V1.4H, V2.4H}[15],
- * [X0]. \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * [X0]. \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3675,7 +3677,7 @@
  * Creates an Advanced SIMD (NEON) LD3 instruction to load a single 3-element
  * structure to the index of three vector registers with post-index offset,
  * e.g. LD3 {V0.4H, V1.4H, V2.4H}[15], [X0], X1.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3692,7 +3694,7 @@
  * Creates an Advanced SIMD (NEON) LD3 instruction to load and replicate a single
  * 3-element structure to the index of three vector registers, e.g. LD3 {V0.4H, V1.4H,
  * V2.4H}[15], [X0].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3706,7 +3708,7 @@
  * Creates an Advanced SIMD (NEON) LD3 instruction to load and replicate a single
  * 3-element structure to the index of three vector registers with post-index offset, e.g.
  * LD3 {V0.4H, V1.4H, V2.4H}[15], [X0], X1.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3721,7 +3723,7 @@
 /**
  * Creates an Advanced SIMD (NEON) LD4 instruction to load single or multiple 4-element
  * structures to four vector registers, e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3736,7 +3738,7 @@
  * Creates an Advanced SIMD (NEON) LD4 instruction to load multiple 4-element
  * structures to four vector registers with post-index,
  * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3752,7 +3754,7 @@
 /**
  * Creates an Advanced SIMD (NEON) LD4 instruction to load single or multiple 4-element
  * structures to four vector registers, e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3768,7 +3770,7 @@
  * Creates an Advanced SIMD (NEON) LD4 instruction to load a single 4-element
  * structures to four vector registers with post-index,
  * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3787,7 +3789,7 @@
  * Creates an Advanced SIMD (NEON) LD4R instruction to load
  * and replicate a single 4-element structure to four vector registers,
  * e.g. LD4R {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3802,7 +3804,7 @@
  * Creates an Advanced SIMD (NEON) LD4R instruction to load and
  * replicate a single 4-element structure to four vector registers with post-indexing,
  * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt1     The first destination vector register operand.
  * \param Vt2     The second destination vector register operand.
  * \param Vt3     The third destination vector register operand.
@@ -3818,7 +3820,7 @@
 /**
  * Creates an Advanced SIMD (NEON) LD1 instruction to load multiple
  * single element structures to one vector register, e.g. LD1 {V0.4H},[X0].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param q       The destination vector register operand.
  * \param r       The source memory operand.
  * \param s       The size of the vector element.
@@ -3828,7 +3830,7 @@
 /**
  * Creates an Advanced SIMD (NEON) ST1 instruction to store multiple
  * single element structures from one vector register, e.g. ST1 {V1.2S},[X1].
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param r       The destination memory operand.
  * \param q       The source vector register operand.
  * \param s       The size of the vector element.
@@ -3839,7 +3841,7 @@
 
 /**
  * Creates a SADDL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3851,7 +3853,7 @@
 
 /**
  * Creates a SADDL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3863,7 +3865,7 @@
 
 /**
  * Creates a SADDW vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3875,7 +3877,7 @@
 
 /**
  * Creates a SADDW2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3887,7 +3889,7 @@
 
 /**
  * Creates a SSUBL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3899,7 +3901,7 @@
 
 /**
  * Creates a SSUBL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3911,7 +3913,7 @@
 
 /**
  * Creates a SSUBW vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3923,7 +3925,7 @@
 
 /**
  * Creates a SSUBW2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3935,7 +3937,7 @@
 
 /**
  * Creates a ADDHN vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3947,7 +3949,7 @@
 
 /**
  * Creates a ADDHN2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3959,7 +3961,7 @@
 
 /**
  * Creates a SABAL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3971,7 +3973,7 @@
 
 /**
  * Creates a SABAL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3983,7 +3985,7 @@
 
 /**
  * Creates a SUBHN vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -3995,7 +3997,7 @@
 
 /**
  * Creates a SUBHN2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4007,7 +4009,7 @@
 
 /**
  * Creates a SABDL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4019,7 +4021,7 @@
 
 /**
  * Creates a SABDL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4031,7 +4033,7 @@
 
 /**
  * Creates a SMLAL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4043,7 +4045,7 @@
 
 /**
  * Creates a SMLAL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4055,7 +4057,7 @@
 
 /**
  * Creates a SQDMLAL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4067,7 +4069,7 @@
 
 /**
  * Creates a SQDMLAL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4079,7 +4081,7 @@
 
 /**
  * Creates a SMLSL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4091,7 +4093,7 @@
 
 /**
  * Creates a SMLSL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4103,7 +4105,7 @@
 
 /**
  * Creates a SQDMLSL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4115,7 +4117,7 @@
 
 /**
  * Creates a SQDMLSL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4127,7 +4129,7 @@
 
 /**
  * Creates a SMULL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4139,7 +4141,7 @@
 
 /**
  * Creates a SMULL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4151,7 +4153,7 @@
 
 /**
  * Creates a SQDMULL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4163,7 +4165,7 @@
 
 /**
  * Creates a SQDMULL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4175,7 +4177,7 @@
 
 /**
  * Creates a PMULL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4187,7 +4189,7 @@
 
 /**
  * Creates a PMULL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4199,7 +4201,7 @@
 
 /**
  * Creates a UADDL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4211,7 +4213,7 @@
 
 /**
  * Creates a UADDL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4223,7 +4225,7 @@
 
 /**
  * Creates a UADDW vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4235,7 +4237,7 @@
 
 /**
  * Creates a UADDW2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4247,7 +4249,7 @@
 
 /**
  * Creates a USUBL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4259,7 +4261,7 @@
 
 /**
  * Creates a USUBL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4271,7 +4273,7 @@
 
 /**
  * Creates a USUBW vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4283,7 +4285,7 @@
 
 /**
  * Creates a USUBW2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4295,7 +4297,7 @@
 
 /**
  * Creates a RADDHN vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4307,7 +4309,7 @@
 
 /**
  * Creates a RADDHN2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4319,7 +4321,7 @@
 
 /**
  * Creates a UABAL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4331,7 +4333,7 @@
 
 /**
  * Creates a UABAL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4343,7 +4345,7 @@
 
 /**
  * Creates a RSUBHN vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4355,7 +4357,7 @@
 
 /**
  * Creates a RSUBHN2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4367,7 +4369,7 @@
 
 /**
  * Creates a UABDL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4379,7 +4381,7 @@
 
 /**
  * Creates a UABDL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4391,7 +4393,7 @@
 
 /**
  * Creates a UMLAL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4403,7 +4405,7 @@
 
 /**
  * Creates a UMLAL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4415,7 +4417,7 @@
 
 /**
  * Creates a UMLSL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4427,7 +4429,7 @@
 
 /**
  * Creates a UMLSL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4439,7 +4441,7 @@
 
 /**
  * Creates a UMULL vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4451,7 +4453,7 @@
 
 /**
  * Creates a UMULL2 vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
@@ -4463,7 +4465,7 @@
 
 /**
  * Creates an FMOV immediate to vector floating point move instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output vector register.
  * \param f       The source immediate floating point opnd.
  * \param width   The output vector element width. Use either OPND_CREATE_HALF()
@@ -4474,7 +4476,7 @@
 
 /**
  * Creates an FMOV immediate to scalar floating point move instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output scalar register.
  * \param f       The source immediate floating point opnd.
  */

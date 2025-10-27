@@ -226,7 +226,7 @@ DR_API
  * basic block, usually global heap (#dr_global_alloc()) is a better
  * choice than heap tied to the thread that happened to first create
  * the basic block (#dr_thread_alloc()).  Thread-private heap is fine
- * for temporary structures such as instr_t and instrlist_t.
+ * for temporary structures such as #instr_t and instrlist_t.
  *
  * - \p tag is a unique identifier for the basic block fragment.
  * Use dr_fragment_app_pc() to translate it to an application address.

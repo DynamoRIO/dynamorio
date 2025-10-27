@@ -265,16 +265,26 @@ enum {
 #define OPSZ_sidt OPSZ_6x10      /**< Operand size for sidt memory reference. */
 #define OPSZ_bound OPSZ_8_short4 /**< Operand size for bound memory reference. */
 #define OPSZ_maskmovq OPSZ_8     /**< Operand size for maskmovq memory reference. */
-#define OPSZ_maskmovdqu OPSZ_16  /**< Operand size for maskmovdqu memory reference. */
-#define OPSZ_fldenv OPSZ_28_short14  /**< Operand size for fldenv memory reference. */
+#define OPSZ_maskmovdqu                                        \
+    OPSZ_16 /**< Operand size for maskmovdqu memory reference. \
+             */
+#define OPSZ_fldenv                                                                 \
+    OPSZ_28_short14                  /**< Operand size for fldenv memory reference. \
+                                      */
 #define OPSZ_fnstenv OPSZ_28_short14 /**< Operand size for fnstenv memory reference. */
-#define OPSZ_fnsave OPSZ_108_short94 /**< Operand size for fnsave memory reference. */
-#define OPSZ_frstor OPSZ_108_short94 /**< Operand size for frstor memory reference. */
-#define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
-#define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
-#define OPSZ_ptwrite OPSZ_4_rex8     /**< Operand size for ptwrite memory reference. */
+#define OPSZ_fnsave                                                 \
+    OPSZ_108_short94 /**< Operand size for fnsave memory reference. \
+                      */
+#define OPSZ_frstor                                                             \
+    OPSZ_108_short94             /**< Operand size for frstor memory reference. \
+                                  */
+#define OPSZ_fxsave OPSZ_512     /**< Operand size for fxsave memory reference. */
+#define OPSZ_fxrstor OPSZ_512    /**< Operand size for fxrstor memory reference. */
+#define OPSZ_ptwrite OPSZ_4_rex8 /**< Operand size for ptwrite memory reference. */
 #ifdef AARCH64
-#    define OPSZ_sys OPSZ_1 /**< Operand size for sys instruction memory reference. */
+#    define OPSZ_sys                                                   \
+        OPSZ_1 /**< Operand size for sys instruction memory reference. \
+                */
 #endif
 
 /* We encode this enum plus the OPSZ_ extensions in bytes, so we can have
@@ -1697,11 +1707,17 @@ typedef enum {
 #endif /* X86 */
 
 #ifdef X86 /* We don't need these for ARM which uses clear numbering */
-#    define DR_REG_START_GPR DR_REG_XAX /**< Start of general register enum values */
+#    define DR_REG_START_GPR                                  \
+        DR_REG_XAX /**< Start of general register enum values \
+                    */
 #    ifdef X64
-#        define DR_REG_STOP_GPR DR_REG_R15 /**< End of general register enum values */
+#        define DR_REG_STOP_GPR                                 \
+            DR_REG_R15 /**< End of general register enum values \
+                        */
 #    else
-#        define DR_REG_STOP_GPR DR_REG_XDI /**< End of general register enum values */
+#        define DR_REG_STOP_GPR                                 \
+            DR_REG_XDI /**< End of general register enum values \
+                        */
 #    endif
 /** Number of general registers */
 #    define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
@@ -1722,7 +1738,9 @@ typedef enum {
         DR_REG_R15W                  /**< End of 16-bit general register enum values \
                                       */
 #    define DR_REG_START_8 DR_REG_AL /**< Start of 8-bit general register enum values */
-#    define DR_REG_STOP_8 DR_REG_DIL /**< End of 8-bit general register enum values */
+#    define DR_REG_STOP_8                                         \
+        DR_REG_DIL /**< End of 8-bit general register enum values \
+                    */
 #    define DR_REG_START_8HL \
         DR_REG_AL                     /**< Start of 8-bit high-low register enum values */
 #    define DR_REG_STOP_8HL DR_REG_BH /**< End of 8-bit high-low register enum values */
@@ -1734,9 +1752,11 @@ typedef enum {
         DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
 #    define DR_REG_STOP_x64_8 \
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
-#    define DR_REG_START_MMX DR_REG_MM0  /**< Start of mmx register enum values */
-#    define DR_REG_STOP_MMX DR_REG_MM7   /**< End of mmx register enum values */
-#    define DR_REG_START_XMM DR_REG_XMM0 /**< Start of sse xmm register enum values */
+#    define DR_REG_START_MMX DR_REG_MM0 /**< Start of mmx register enum values */
+#    define DR_REG_STOP_MMX DR_REG_MM7  /**< End of mmx register enum values */
+#    define DR_REG_START_XMM                                                        \
+        DR_REG_XMM0                      /**< Start of sse xmm register enum values \
+                                          */
 #    define DR_REG_START_YMM DR_REG_YMM0 /**< Start of ymm register enum values */
 #    define DR_REG_START_ZMM DR_REG_ZMM0 /**< Start of zmm register enum values */
 #    ifdef X64
@@ -1748,10 +1768,14 @@ typedef enum {
 #        define DR_REG_STOP_YMM DR_REG_YMM7 /**< End of ymm register enum values */
 #        define DR_REG_STOP_ZMM DR_REG_ZMM7 /**< End of zmm register enum values */
 #    endif
-#    define DR_REG_START_OPMASK DR_REG_K0 /**< Start of opmask register enum values */
-#    define DR_REG_STOP_OPMASK DR_REG_K7  /**< End of opmask register enum values */
-#    define DR_REG_START_BND DR_REG_BND0  /**< Start of bounds register enum values */
-#    define DR_REG_STOP_BND DR_REG_BND3   /**< End of bounds register enum values */
+#    define DR_REG_START_OPMASK                                                    \
+        DR_REG_K0                        /**< Start of opmask register enum values \
+                                          */
+#    define DR_REG_STOP_OPMASK DR_REG_K7 /**< End of opmask register enum values */
+#    define DR_REG_START_BND                                                      \
+        DR_REG_BND0                     /**< Start of bounds register enum values \
+                                         */
+#    define DR_REG_STOP_BND DR_REG_BND3 /**< End of bounds register enum values */
 #    define DR_REG_START_FLOAT \
         DR_REG_ST0 /**< Start of floating-point-register enum values*/
 #    define DR_REG_STOP_FLOAT \
@@ -1759,11 +1783,13 @@ typedef enum {
 #    define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
 #    define DR_REG_START_SEGMENT_x64 \
         DR_SEG_FS /**< Start of segment register enum values for x64 */
-#    define DR_REG_STOP_SEGMENT DR_SEG_GS /**< End of segment register enum values */
-#    define DR_REG_START_DR DR_REG_DR0    /**< Start of debug register enum values */
-#    define DR_REG_STOP_DR DR_REG_DR15    /**< End of debug register enum values */
-#    define DR_REG_START_CR DR_REG_CR0    /**< Start of control register enum values */
-#    define DR_REG_STOP_CR DR_REG_CR15    /**< End of control register enum values */
+#    define DR_REG_STOP_SEGMENT                                                 \
+        DR_SEG_GS                      /**< End of segment register enum values \
+                                        */
+#    define DR_REG_START_DR DR_REG_DR0 /**< Start of debug register enum values */
+#    define DR_REG_STOP_DR DR_REG_DR15 /**< End of debug register enum values */
+#    define DR_REG_START_CR DR_REG_CR0 /**< Start of control register enum values */
+#    define DR_REG_STOP_CR DR_REG_CR15 /**< End of control register enum values */
 
 #endif /* X86 */
 
@@ -2591,7 +2617,7 @@ opnd_create_instr_ex(instr_t *instr, opnd_size_t size, ushort shift);
 
 DR_API
 /**
- * Returns a far instr_t pointer address with value \p seg_selector:instr.
+ * Returns a far #instr_t pointer address with value \p seg_selector:instr.
  * \p seg_selector is a segment selector, not a DR_SEG_ constant.
  */
 opnd_t
@@ -2998,22 +3024,22 @@ opnd_is_far_pc(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
-/** Returns true iff \p opnd is a (near or far) instr_t pointer address operand. */
+/** Returns true iff \p opnd is a (near or far) #instr_t pointer address operand. */
 bool
 opnd_is_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a near instr_t pointer address operand. */
+/** Returns true iff \p opnd is a near #instr_t pointer address operand. */
 bool
 opnd_is_near_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a far instr_t pointer address operand. */
+/** Returns true iff \p opnd is a far #instr_t pointer address operand. */
 bool
 opnd_is_far_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a memory reference to an instr_t address operand. */
+/** Returns true iff \p opnd is a memory reference to an #instr_t address operand. */
 bool
 opnd_is_mem_instr(opnd_t opnd);
 
@@ -3188,7 +3214,7 @@ DR_API
 /**
  * Sets the data size of \p opnd.
  * Assumes \p opnd is an immediate integer, a memory reference,
- * or an instr_t pointer address operand.
+ * or an #instr_t pointer address operand.
  */
 void
 opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
@@ -3292,12 +3318,13 @@ ushort
 opnd_get_segment_selector(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is an instr_t (near, far, or memory) operand and returns its value. */
+/** Assumes \p opnd is an #instr_t (near, far, or memory) operand and returns its value.
+ */
 instr_t *
 opnd_get_instr(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is a near instr_t operand and returns its shift value. */
+/** Assumes \p opnd is a near #instr_t operand and returns its shift value. */
 ushort
 opnd_get_shift(opnd_t opnd);
 

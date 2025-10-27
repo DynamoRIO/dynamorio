@@ -212,8 +212,8 @@ DR_API
  * Encodes \p instr into the memory at \p pc.
  * Uses the x86/x64 mode stored in instr, not the mode of the current thread.
  * Returns the pc after the encoded instr, or NULL if the encoding failed.
- * If instr is a cti with an instr_t target, the offset fields of instr and
- * of the target must be set with the respective offsets of each instr_t!
+ * If instr is a cti with an #instr_t target, the offset fields of instr and
+ * of the target must be set with the respective offsets of each #instr_t!
  * (instrlist_encode does this automatically, if the target is in the list).
  * x86 instructions can occupy up to 17 bytes, so the caller should ensure
  * the target location has enough room to avoid overflow.
@@ -234,8 +234,8 @@ DR_API
  *
  * Uses the x86/x64 mode stored in instr, not the mode of the current thread.
  * Returns the pc after the encoded instr, or NULL if the encoding failed.
- * If instr is a cti with an instr_t target, the offset fields of instr and
- * of the target must be set with the respective offsets of each instr_t!
+ * If instr is a cti with an #instr_t target, the offset fields of instr and
+ * of the target must be set with the respective offsets of each #instr_t!
  * (instrlist_encode does this automatically, if the target is in the list).
  * x86 instructions can occupy up to 17 bytes, so the caller should ensure
  * the target location has enough room to avoid overflow.
@@ -253,10 +253,10 @@ DR_API
  * at \p pc.  Returns the pc after all of the encodings, or NULL if any one
  * of the encodings failed.
  * Uses the x86/x64 mode stored in each instr, not the mode of the current thread.
- * In order for instr_t operands to be encoded properly,
+ * In order for #instr_t operands to be encoded properly,
  * \p has_instr_jmp_targets must be true.  If \p has_instr_jmp_targets is true,
- * the offset field of each instr_t in ilist will be overwritten, and if any
- * instr_t targets are not in \p ilist, they must have their offset fields set with
+ * the offset field of each #instr_t in ilist will be overwritten, and if any
+ * #instr_t targets are not in \p ilist, they must have their offset fields set with
  * their offsets relative to pc.
  * x86 instructions can occupy up to 17 bytes each, so the caller should ensure
  * the target location has enough room to avoid overflow.
@@ -278,10 +278,10 @@ DR_API
  *
  * Uses the x86/x64 mode stored in each instr, not the mode of the current thread.
  *
- * In order for instr_t operands to be encoded properly,
+ * In order for #instr_t operands to be encoded properly,
  * \p has_instr_jmp_targets must be true.  If \p has_instr_jmp_targets is true,
- * the offset field of each instr_t in ilist will be overwritten, and if any
- * instr_t targets are not in \p ilist, they must have their offset fields set with
+ * the offset field of each #instr_t in ilist will be overwritten, and if any
+ * #instr_t targets are not in \p ilist, they must have their offset fields set with
  * their offsets relative to pc.
  *
  * If \p max_pc is non-NULL, computes the total size required to encode the
