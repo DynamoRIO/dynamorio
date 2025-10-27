@@ -118,7 +118,7 @@ check_simd(const __uint128_t *reg)
     return 0;
 }
 
-#define CHECK_REG(cond, ...)     \
+#define UNSET_PASS_IF(cond, ...) \
     do {                         \
         if ((cond)) {            \
             printf(__VA_ARGS__); \
@@ -152,9 +152,8 @@ main(void)
         simd_ref[i] = (((__uint128_t)hi) << 64) | lo;
     }
 
-    /* Uncomment this for manual attach testing:
-     * printf("PID: %ld\n", (long)getpid());
-     */
+    /* Useful for manual attach testing. */
+    printf("PID: %ld\n", (long)getpid());
 
     attach_state_test(gpr_ref, simd_ref, gpr_att, simd_att, &fpcr_att, &fpsr_att, &sp_ref,
                       &pc_before, &nzcv_ref, &sp_att, &pc_after, &nzcv_att);
@@ -166,30 +165,30 @@ main(void)
     if (check_simd(simd_att) != 0)
         pass = 0;
 
-    CHECK_REG(nzcv_att != nzcv_ref, "NZCV mismatch: expected 0x%08x, got 0x%08x\n",
-              nzcv_ref, nzcv_att);
+    UNSET_PASS_IF(nzcv_att != nzcv_ref, "NZCV mismatch: expected 0x%08x, got 0x%08x\n",
+                  nzcv_ref, nzcv_att);
 
-    CHECK_REG(fpcr_att != fpcr_ref, "FPCR mismatch: expected 0x%08x, got 0x%08x\n",
-              fpcr_ref, fpcr_att);
+    UNSET_PASS_IF(fpcr_att != fpcr_ref, "FPCR mismatch: expected 0x%08x, got 0x%08x\n",
+                  fpcr_ref, fpcr_att);
 
-    CHECK_REG(fpsr_att != fpsr_ref, "FPSR mismatch: expected 0x%08x, got 0x%08x\n",
-              fpsr_ref, fpsr_att);
+    UNSET_PASS_IF(fpsr_att != fpsr_ref, "FPSR mismatch: expected 0x%08x, got 0x%08x\n",
+                  fpsr_ref, fpsr_att);
 
-    CHECK_REG(sp_att != sp_ref, "SP changed: expected 0x%016llx, got 0x%016llx\n",
-              (unsigned long long)sp_ref, (unsigned long long)sp_att);
+    UNSET_PASS_IF(sp_att != sp_ref, "SP changed: expected 0x%016llx, got 0x%016llx\n",
+                  (unsigned long long)sp_ref, (unsigned long long)sp_att);
 
-    CHECK_REG((sp_att & 0xF) != 0, "SP is not 16-byte aligned: 0x%016llx\n",
-              (unsigned long long)sp_att);
+    UNSET_PASS_IF((sp_att & 0xF) != 0, "SP is not 16-byte aligned: 0x%016llx\n",
+                  (unsigned long long)sp_att);
 
-    CHECK_REG(pc_before != (uint64_t)(uintptr_t)&pc_before_label,
-              "PC(before) mismatch: expected 0x%016llx, got 0x%016llx\n",
-              (unsigned long long)(uintptr_t)&pc_before_label,
-              (unsigned long long)pc_before);
+    UNSET_PASS_IF(pc_before != (uint64_t)(uintptr_t)&pc_before_label,
+                  "PC(before) mismatch: expected 0x%016llx, got 0x%016llx\n",
+                  (unsigned long long)(uintptr_t)&pc_before_label,
+                  (unsigned long long)pc_before);
 
-    CHECK_REG(pc_after != (uint64_t)(uintptr_t)&pc_after_label,
-              "PC(after) mismatch: expected 0x%016llx, got 0x%016llx\n",
-              (unsigned long long)(uintptr_t)&pc_after_label,
-              (unsigned long long)pc_after);
+    UNSET_PASS_IF(pc_after != (uint64_t)(uintptr_t)&pc_after_label,
+                  "PC(after) mismatch: expected 0x%016llx, got 0x%016llx\n",
+                  (unsigned long long)(uintptr_t)&pc_after_label,
+                  (unsigned long long)pc_after);
 
     if (pass) {
         printf("done\n");
