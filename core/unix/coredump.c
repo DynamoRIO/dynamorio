@@ -463,7 +463,9 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     // the section name in the section name table.
     int vvar_section = -1;
     while (memquery_iterator_next(&iter)) {
-        // Skip non-readable section.
+        // Skip non-readable sections during processing, with the exception of the VVAR
+        // section. The VVAR mapping is included in the core dump file, but its contents
+        // are not saved.
         if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VSYSCALL_SECTION) == 0) {
             continue;
         }
