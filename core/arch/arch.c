@@ -4035,6 +4035,9 @@ unit_test_atomic_ops(void)
     EXPECT(count1, -2);
     EXPECT(atomic_compare_exchange_int(&count1, -2, 1), true); /* exchange */
     EXPECT(atomic_dec_becomes_zero(&count1), true);            /* result is 0 */
+    EXPECT(atomic_dec_and_test(&count1), true); /* init value is 0, result is -1 */
+    EXPECT(atomic_dec_and_test(&count1), true); /* init value is -1, result is -2 */
+    ATOMIC_4BYTE_WRITE(&count1, 0, false);
     do_parallel_updates();
     EXPECT(count1, MAX_NUM_THREADS);
     EXPECT(count2, MAX_NUM_THREADS);

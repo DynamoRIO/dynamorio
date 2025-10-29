@@ -337,25 +337,28 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 #        define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("q", var)
 #        define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 /* "res", the output, is assumed to be a single-byte bool. */
-#        define ATOMIC_INC_int_res(var, test, res)               \
-            __asm__ __volatile__("lock incl %0; set" #test " %1" \
-                                 : "=m"(var), "=qm"(res)         \
-                                 :                               \
+#        define ATOMIC_INC_int_res(var, test, res)              \
+            __asm__ __volatile__("lock incl %0; set" test " %1" \
+                                 : "=m"(var), "=qm"(res)        \
+                                 :                              \
                                  : "cc", "memory")
-#        define ATOMIC_INC_int_res_eq(var, res) ATOMIC_INC_int_res(var, e, res)
+#        define ATOMIC_INC_int_nowzero(var, is_now_zero) \
+            ATOMIC_INC_int_res(var, "e", is_now_zero)
 #        define ATOMIC_DEC_suffix(suffix, var) \
             __asm__ __volatile__("lock dec" suffix " %0" : "=m"(var) : : "cc", "memory")
 #        define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
 #        define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
 #        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
 /* "res", the output, is assumed to be a single-byte bool. */
-#        define ATOMIC_DEC_int_res(var, test, res)               \
-            __asm__ __volatile__("lock decl %0; set" #test " %1" \
-                                 : "=m"(var), "=qm"(res)         \
-                                 :                               \
+#        define ATOMIC_DEC_int_res(var, test, res)              \
+            __asm__ __volatile__("lock decl %0; set" test " %1" \
+                                 : "=m"(var), "=qm"(res)        \
+                                 :                              \
                                  : "cc", "memory")
-#        define ATOMIC_DEC_int_res_eq(var, res) ATOMIC_DEC_int_res(var, e, res)
-#        define ATOMIC_DEC_int_res_lt(var, res) ATOMIC_DEC_int_res(var, l, res)
+#        define ATOMIC_DEC_int_nowzero(var, is_now_zero) \
+            ATOMIC_DEC_int_res(var, "e", is_now_zero)
+#        define ATOMIC_DEC_int_nowneg(var, is_now_negative) \
+            ATOMIC_DEC_int_res(var, "l", is_now_negative)
 /* with just "r" gcc will put $0 from PROBE_WRITE_PC into %eax
  * and then complain that "lock addq" can't take %eax!
  * so we use "ri":
@@ -659,13 +662,14 @@ atomic_dec_becomes_zero(volatile int *var)
                                  "   bne   1b               \n\t"                  \
                                  "   cmp   r2, #0           \n\t"                  \
                                  "   mov   r2, #1           \n\t"                  \
-                                 "   b" #test " 2f          \n\t"                  \
+                                 "   b" test " 2f          \n\t"                   \
                                  "   mov r2, #0             \n\t"                  \
                                  "2: strb  r2, %1"                                 \
                                  : "=Q"(var) /* no offs for ARM mode */, "=m"(res) \
                                  :                                                 \
                                  : "cc", "memory", "r2", "r3");
-#        define ATOMIC_INC_int_res_eq(var, res) ATOMIC_INC_int_res(var, eq, res)
+#        define ATOMIC_INC_int_nowzero(var, is_now_zero) \
+            ATOMIC_INC_int_res(var, "eq", is_now_zero)
 #        define ATOMIC_DEC_suffix(suffix, var)                            \
             __asm__ __volatile__("   dmb ish                        \n\t" \
                                  "1: ldrex" suffix " r2, %0         \n\t" \
@@ -689,14 +693,16 @@ atomic_dec_becomes_zero(volatile int *var)
                                  "   bne   1b               \n\t"                  \
                                  "   cmp   r2, #0           \n\t"                  \
                                  "   mov   r2, #1           \n\t"                  \
-                                 "   b" #test " 2f          \n\t"                  \
+                                 "   b" test " 2f          \n\t"                   \
                                  "   mov r2, #0             \n\t"                  \
                                  "2: strb  r2, %1"                                 \
                                  : "=Q"(var) /* no offs for ARM mode */, "=m"(res) \
                                  :                                                 \
                                  : "cc", "memory", "r2", "r3");
-#        define ATOMIC_DEC_int_res_eq(var, res) ATOMIC_DEC_int_res(var, eq, res)
-#        define ATOMIC_DEC_int_res_lt(var, res) ATOMIC_DEC_int_res(var, lt, res)
+#        define ATOMIC_DEC_int_nowzero(var, is_now_zero) \
+            ATOMIC_DEC_int_res(var, "eq", is_now_zero)
+#        define ATOMIC_DEC_int_nowneg(var, is_now_negative) \
+            ATOMIC_DEC_int_res(var, "lt", is_now_negative)
 #        define ATOMIC_ADD_suffix(suffix, var, value)                              \
             __asm__ __volatile__("   dmb ish                        \n\t"          \
                                  "1: ldrex" suffix " r2, %0         \n\t"          \
@@ -1082,19 +1088,19 @@ static inline bool
 atomic_inc_and_test(volatile int *var)
 {
     bool is_zero;
-    ATOMIC_INC_int_res_eq(*var, is_zero);
+    ATOMIC_INC_int_nowzero(*var, is_zero);
     return is_zero;
 }
 
 /* Atomically decrements *var by 1.
- * Returns true if the initial value was zero, otherwise returns false.
+ * Returns true if the result is negative, otherwise returns false.
  */
 static inline bool
 atomic_dec_and_test(volatile int *var)
 {
-    bool was_zero;
-    ATOMIC_DEC_int_res_lt(*var, was_zero);
-    return was_zero;
+    bool is_negative;
+    ATOMIC_DEC_int_nowneg(*var, is_negative);
+    return is_negative;
 }
 
 /* Atomically decrements *var by 1.
@@ -1104,7 +1110,7 @@ static inline bool
 atomic_dec_becomes_zero(volatile int *var)
 {
     bool is_zero;
-    ATOMIC_DEC_int_res_eq(*var, is_zero);
+    ATOMIC_DEC_int_nowzero(*var, is_zero);
     return is_zero;
 }
 
