@@ -4666,8 +4666,8 @@ exception_frame_chain_depth(dcontext_t *dcontext)
 void
 dump_context_info(CONTEXT *context, file_t file, bool all)
 {
-#    define DUMP(r) LOG(file, LOG_ASYNCH, 2, #r "=" PFX " ", context->r);
-#    define DUMPNM(r, nm) LOG(file, LOG_ASYNCH, 2, #nm "=" PFX " ", context->r);
+#    define DUMP(r) LOG(file, LOG_ASYNCH, 2, #    r "=" PFX " ", context->r);
+#    define DUMPNM(r, nm) LOG(file, LOG_ASYNCH, 2, #    nm "=" PFX " ", context->r);
 #    define NEWLINE LOG(file, LOG_ASYNCH, 2, "\n  ");
     DUMP(ContextFlags);
     NEWLINE;
@@ -7306,13 +7306,11 @@ intercept_image_entry(app_state_at_intercept_t *state)
                  * again.
                  */
                 /* note we only flush, but not remove region, since we will not rewalk */
-                flush_fragments_in_region_start(existing_dcontext, image_entry_pc, 1,
-                                                false /* don't own initexit_lock */,
-                                                false /* keep futures */,
-                                                false /* exec still valid */,
-                                                false /* don't force sychall */
-                                                THREAD_SYNCH_NO_LOCKS_NO_XFER,
-                                                _IF_DGCDIAG(NULL));
+                flush_fragments_in_region_start(
+                    existing_dcontext, image_entry_pc, 1,
+                    false /* don't own initexit_lock */, false /* keep futures */,
+                    false /* exec still valid */, false /* don't force sychall */,
+                    THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
                 flush_fragments_in_region_finish(existing_dcontext, false);
 
                 ASSERT_NOT_TESTED();
