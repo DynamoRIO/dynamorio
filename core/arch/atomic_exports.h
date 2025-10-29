@@ -199,11 +199,11 @@ atomic_inc_and_test(volatile int *var)
 {
     return (ATOMIC_INC(int, *(var)) == 0);
 }
-/* returns true if initial value was zero */
+/* Returns true if result value is negative. */
 static inline bool
 atomic_dec_and_test(volatile int *var)
 {
-    return (ATOMIC_DEC(int, *(var)) == -1);
+    return (ATOMIC_DEC(int, *(var)) < 0);
 }
 /* returns true if result value is zero */
 static inline bool
@@ -584,7 +584,7 @@ atomic_inc_and_test(volatile int *var)
 static inline bool
 atomic_dec_and_test(volatile int *var)
 {
-    return atomic_add_exchange_int(var, -1) == -1;
+    return atomic_add_exchange_int(var, -1) < 0;
 }
 
 static inline bool
@@ -1058,7 +1058,7 @@ atomic_inc_and_test(volatile int *var)
 static inline bool
 atomic_dec_and_test(volatile int *var)
 {
-    return atomic_add_exchange_int(var, -1) == -1;
+    return atomic_add_exchange_int(var, -1) < 0;
 }
 
 static inline bool
