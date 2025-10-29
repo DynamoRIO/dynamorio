@@ -1075,7 +1075,7 @@ atomic_dec_becomes_zero(volatile int *var)
 #    endif
 
 #    if !defined(DR_HOST_AARCH64) && !defined(DR_HOST_RISCV64)
-/* Atomically increments *var by 1
+/* Atomically increments *var by 1.
  * Returns true if the resulting value is zero, otherwise returns false
  */
 static inline bool
@@ -1097,7 +1097,7 @@ atomic_dec_and_test(volatile int *var)
     return was_zero;
 }
 
-/* Atomically decrements *var by 1
+/* Atomically decrements *var by 1.
  * Returns true if the resulting value is zero, otherwise returns false.
  */
 static inline bool
@@ -1108,8 +1108,8 @@ atomic_dec_becomes_zero(volatile int *var)
     return is_zero;
 }
 
-/* returns true if var was equal to compare, and now is equal to exchange,
-   otherwise returns false
+/* Returns true if var was equal to compare, and now is equal to exchange;
+ * otherwise returns false.
  */
 static inline bool
 atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
@@ -1119,7 +1119,7 @@ atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
     return matched;
 }
 
-/* exchanges *var with newval and returns original *var */
+/* Exchanges *var with newval and returns original *var. */
 static inline int
 atomic_exchange_int(volatile int *var, int newval)
 {
@@ -1129,8 +1129,8 @@ atomic_exchange_int(volatile int *var, int newval)
 }
 
 #        ifdef X64
-/* returns true if var was equal to compare, and now is equal to exchange,
-   otherwise returns false
+/* Returns true if var was equal to compare, and now is equal to exchange;
+ * otherwise returns false.
  */
 static inline bool
 atomic_compare_exchange_int64(volatile int64 *var, int64 compare, int64 exchange)
@@ -1141,7 +1141,7 @@ atomic_compare_exchange_int64(volatile int64 *var, int64 compare, int64 exchange
 }
 #        endif
 
-/* atomically adds value to memory location var and returns the sum */
+/* Atomically adds value to memory location var and returns the sum. */
 static inline int
 atomic_add_exchange_int(volatile int *var, int value)
 {
