@@ -199,11 +199,11 @@ atomic_inc_and_test(volatile int *var)
 {
     return (ATOMIC_INC(int, *(var)) == 0);
 }
-/* returns true if initial value was zero */
+/* Returns true if result value is negative. */
 static inline bool
 atomic_dec_and_test(volatile int *var)
 {
-    return (ATOMIC_DEC(int, *(var)) == -1);
+    return (ATOMIC_DEC(int, *(var)) < 0);
 }
 /* returns true if result value is zero */
 static inline bool
@@ -336,11 +336,29 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 #        define ATOMIC_INC_int(var) ATOMIC_INC_suffix("l", var)
 #        define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("q", var)
 #        define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
+/* "res", the output, is assumed to be a single-byte bool. */
+#        define ATOMIC_INC_int_res(var, test, res)              \
+            __asm__ __volatile__("lock incl %0; set" test " %1" \
+                                 : "=m"(var), "=qm"(res)        \
+                                 :                              \
+                                 : "cc", "memory")
+#        define ATOMIC_INC_int_nowzero(var, is_now_zero) \
+            ATOMIC_INC_int_res(var, "e", is_now_zero)
 #        define ATOMIC_DEC_suffix(suffix, var) \
             __asm__ __volatile__("lock dec" suffix " %0" : "=m"(var) : : "cc", "memory")
 #        define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
 #        define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
 #        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
+/* "res", the output, is assumed to be a single-byte bool. */
+#        define ATOMIC_DEC_int_res(var, test, res)              \
+            __asm__ __volatile__("lock decl %0; set" test " %1" \
+                                 : "=m"(var), "=qm"(res)        \
+                                 :                              \
+                                 : "cc", "memory")
+#        define ATOMIC_DEC_int_nowzero(var, is_now_zero) \
+            ATOMIC_DEC_int_res(var, "e", is_now_zero)
+#        define ATOMIC_DEC_int_nowneg(var, is_now_negative) \
+            ATOMIC_DEC_int_res(var, "l", is_now_negative)
 /* with just "r" gcc will put $0 from PROBE_WRITE_PC into %eax
  * and then complain that "lock addq" can't take %eax!
  * so we use "ri":
@@ -363,15 +381,16 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             ATOMIC_ADD_EXCHANGE_suffix("l", var, val, res)
 #        define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
             ATOMIC_ADD_EXCHANGE_suffix("q", var, val, res)
-#        define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange) \
-            __asm__ __volatile__("lock cmpxchg" suffix " %2,%0"                \
-                                 : "=m"(var)                                   \
-                                 : "a"(compare), "r"(exchange)                 \
+/* "matched" is assumed to be a single byte bool. */
+#        define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange, matched) \
+            __asm__ __volatile__("lock cmpxchg" suffix " %3,%0; sete %1"                \
+                                 : "=m"(var), "=m"(matched)                             \
+                                 : "a"(compare), "r"(exchange)                          \
                                  : "cc", "memory")
-#        define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
-            ATOMIC_COMPARE_EXCHANGE_suffix("l", var, compare, exchange)
-#        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
-            ATOMIC_COMPARE_EXCHANGE_suffix("q", var, compare, exchange)
+#        define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange, matched) \
+            ATOMIC_COMPARE_EXCHANGE_suffix("l", var, compare, exchange, matched)
+#        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange, matched) \
+            ATOMIC_COMPARE_EXCHANGE_suffix("q", var, compare, exchange, matched)
 #        define ATOMIC_EXCHANGE(var, newval, result)   \
             __asm __volatile("xchgl %0, %1"            \
                              : "=r"(result), "=m"(var) \
@@ -384,11 +403,6 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                                  :                         \
                                  :                         \
                                  : "eax", "ebx", "ecx", "edx");
-
-#        define SET_FLAG(cc, flag) \
-            __asm__ __volatile__("set" #cc " %0" : "=qm"(flag) : : "cc", "memory")
-#        define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
-#        define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
 
 #    elif defined(DR_HOST_AARCH64)
 
@@ -570,7 +584,7 @@ atomic_inc_and_test(volatile int *var)
 static inline bool
 atomic_dec_and_test(volatile int *var)
 {
-    return atomic_add_exchange_int(var, -1) == -1;
+    return atomic_add_exchange_int(var, -1) < 0;
 }
 
 static inline bool
@@ -596,16 +610,16 @@ atomic_dec_becomes_zero(volatile int *var)
                                      : "r"(value), "r"(target) \
                                      : "memory");              \
             } while (0)
-#        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                     \
-            do {                                                                 \
-                ASSERT(sizeof(value) == 4);                                      \
-                /* Load and store instructions are atomic on ARM if aligned. */  \
-                /* XXX i#1551: we need patch the whole instruction instead. */ \
-                ASSERT(ALIGNED(target, 4));                                      \
-                __asm__ __volatile__("dmb ish; str %0, [%1]"                     \
-                                     :                                           \
-                                     : "r"(value), "r"(target)                   \
-                                     : "memory");                                \
+#        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
+            do {                                                                \
+                ASSERT(sizeof(value) == 4);                                     \
+                /* Load and store instructions are atomic on ARM if aligned. */ \
+                /* XXX i#1551: we need patch the whole instruction instead. */  \
+                ASSERT(ALIGNED(target, 4));                                     \
+                __asm__ __volatile__("dmb ish; str %0, [%1]"                    \
+                                     :                                          \
+                                     : "r"(value), "r"(target)                  \
+                                     : "memory");                               \
             } while (0)
 #        define ATOMIC_4BYTE_ALIGNED_WRITE ATOMIC_4BYTE_WRITE
 #        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)              \
@@ -625,34 +639,70 @@ atomic_dec_becomes_zero(volatile int *var)
  * so we require alignment here.
  */
 /* XXX i#1551: should we allow infinite loops for those ATOMIC ops */
-#        define ATOMIC_INC_suffix(suffix, var)                                     \
-            __asm__ __volatile__("   dmb ish                        \n\t"          \
-                                 "1: ldrex" suffix " r2, %0         \n\t"          \
-                                 "   add" suffix " r2, r2, #1     \n\t"            \
-                                 "   strex" suffix " r3, r2, %0     \n\t"          \
-                                 "   cmp   r3, #0                   \n\t"          \
-                                 "   bne   1b                       \n\t"          \
-                                 "   cmp   r2, #0" /* for possible SET_FLAG use */ \
-                                 : "=Q"(var)       /* no offset for ARM mode */    \
-                                 :                                                 \
+#        define ATOMIC_INC_suffix(suffix, var)                            \
+            __asm__ __volatile__("   dmb ish                        \n\t" \
+                                 "1: ldrex" suffix " r2, %0         \n\t" \
+                                 "   add" suffix " r2, r2, #1       \n\t" \
+                                 "   strex" suffix " r3, r2, %0     \n\t" \
+                                 "   cmp   r3, #0                   \n\t" \
+                                 "   bne   1b                       \n\t" \
+                                 : "=Q"(var) /* no offset for ARM mode */ \
+                                 :                                        \
                                  : "cc", "memory", "r2", "r3");
 #        define ATOMIC_INC_int(var) ATOMIC_INC_suffix("", var)
 #        define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("d", var)
 #        define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
-#        define ATOMIC_DEC_suffix(suffix, var)                                     \
-            __asm__ __volatile__("   dmb ish                        \n\t"          \
-                                 "1: ldrex" suffix " r2, %0         \n\t"          \
-                                 "   sub" suffix " r2, r2, #1     \n\t"            \
-                                 "   strex" suffix " r3, r2, %0     \n\t"          \
-                                 "   cmp   r3, #0                   \n\t"          \
-                                 "   bne   1b                       \n\t"          \
-                                 "   cmp   r2, #0" /* for possible SET_FLAG use */ \
-                                 : "=Q"(var)       /* no offset for ARM mode */    \
+/* "res", the output, is assumed to be a single-byte bool. */
+#        define ATOMIC_INC_int_res(var, test, res)                                 \
+            __asm__ __volatile__("   dmb ish                \n\t"                  \
+                                 "1: ldrex r2, %0           \n\t"                  \
+                                 "   add r2, r2, #1         \n\t"                  \
+                                 "   strex r3, r2, %0       \n\t"                  \
+                                 "   cmp   r3, #0           \n\t"                  \
+                                 "   bne   1b               \n\t"                  \
+                                 "   cmp   r2, #0           \n\t"                  \
+                                 "   mov   r2, #1           \n\t"                  \
+                                 "   b" test " 2f          \n\t"                   \
+                                 "   mov r2, #0             \n\t"                  \
+                                 "2: strb  r2, %1"                                 \
+                                 : "=Q"(var) /* no offs for ARM mode */, "=m"(res) \
                                  :                                                 \
+                                 : "cc", "memory", "r2", "r3");
+#        define ATOMIC_INC_int_nowzero(var, is_now_zero) \
+            ATOMIC_INC_int_res(var, "eq", is_now_zero)
+#        define ATOMIC_DEC_suffix(suffix, var)                            \
+            __asm__ __volatile__("   dmb ish                        \n\t" \
+                                 "1: ldrex" suffix " r2, %0         \n\t" \
+                                 "   sub" suffix " r2, r2, #1       \n\t" \
+                                 "   strex" suffix " r3, r2, %0     \n\t" \
+                                 "   cmp   r3, #0                   \n\t" \
+                                 "   bne   1b                       \n\t" \
+                                 : "=Q"(var) /* no offset for ARM mode */ \
+                                 :                                        \
                                  : "cc", "memory", "r2", "r3");
 #        define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("", var)
 #        define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("d", var)
 #        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
+/* "res", the output, is assumed to be a single-byte bool. */
+#        define ATOMIC_DEC_int_res(var, test, res)                                 \
+            __asm__ __volatile__("   dmb ish                \n\t"                  \
+                                 "1: ldrex r2, %0           \n\t"                  \
+                                 "   sub r2, r2, #1         \n\t"                  \
+                                 "   strex r3, r2, %0       \n\t"                  \
+                                 "   cmp   r3, #0           \n\t"                  \
+                                 "   bne   1b               \n\t"                  \
+                                 "   cmp   r2, #0           \n\t"                  \
+                                 "   mov   r2, #1           \n\t"                  \
+                                 "   b" test " 2f          \n\t"                   \
+                                 "   mov r2, #0             \n\t"                  \
+                                 "2: strb  r2, %1"                                 \
+                                 : "=Q"(var) /* no offs for ARM mode */, "=m"(res) \
+                                 :                                                 \
+                                 : "cc", "memory", "r2", "r3");
+#        define ATOMIC_DEC_int_nowzero(var, is_now_zero) \
+            ATOMIC_DEC_int_res(var, "eq", is_now_zero)
+#        define ATOMIC_DEC_int_nowneg(var, is_now_negative) \
+            ATOMIC_DEC_int_res(var, "lt", is_now_negative)
 #        define ATOMIC_ADD_suffix(suffix, var, value)                              \
             __asm__ __volatile__("   dmb ish                        \n\t"          \
                                  "1: ldrex" suffix " r2, %0         \n\t"          \
@@ -684,23 +734,28 @@ atomic_dec_becomes_zero(volatile int *var)
             ATOMIC_ADD_EXCHANGE_suffix("", var, val, res)
 #        define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
             ATOMIC_ADD_EXCHANGE_suffix("d", var, val, res)
-#        define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange)           \
-            __asm__ __volatile__("   dmb ish                      \n\t"                  \
-                                 "2: ldrex" suffix " r2, %0       \n\t"                  \
-                                 "   cmp" suffix " r2, %1       \n\t"                    \
-                                 "   bne    1f                    \n\t"                  \
-                                 "   strex" suffix " r3, %2, %0   \n\t"                  \
-                                 "   cmp   r3, #0                 \n\t"                  \
-                                 "   bne   2b                     \n\t"                  \
-                                 "   cmp" suffix " r2, %1       \n\t" /* for SET_FLAG */ \
-                                 "1: clrex                        \n\t"                  \
-                                 : "=Q"(var) /* no offset for ARM mode */                \
-                                 : "r"(compare), "r"(exchange)                           \
+/* "matched" is assumed to be a single byte bool. */
+#        define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange, matched) \
+            __asm__ __volatile__("   dmb ish                      \n\t"                 \
+                                 "2: ldrex" suffix " r2, %0       \n\t"                 \
+                                 "   cmp" suffix " r2, %2         \n\t"                 \
+                                 "   bne    1f                    \n\t"                 \
+                                 "   strex" suffix " r3, %3, %0   \n\t"                 \
+                                 "   cmp   r3, #0                 \n\t"                 \
+                                 "   bne   2b                     \n\t"                 \
+                                 "   cmp" suffix " r2, %2         \n\t"                 \
+                                 "1: clrex                        \n\t"                 \
+                                 "   mov r2, #1                   \n\t"                 \
+                                 "   beq   3f                     \n\t"                 \
+                                 "   mov r2, #0                   \n\t"                 \
+                                 "3: strb  r2, %1"                                      \
+                                 : "=Q"(var) /* no offs for ARM mode */, "=m"(matched)  \
+                                 : "r"(compare), "r"(exchange)                          \
                                  : "cc", "memory", "r2", "r3");
-#        define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
-            ATOMIC_COMPARE_EXCHANGE_suffix("", var, compare, exchange)
-#        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
-            ATOMIC_COMPARE_EXCHANGE_suffix("d", var, compare, exchange)
+#        define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange, matched) \
+            ATOMIC_COMPARE_EXCHANGE_suffix("", var, compare, exchange, matched)
+#        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange, matched) \
+            ATOMIC_COMPARE_EXCHANGE_suffix("d", var, compare, exchange, matched)
 #        define ATOMIC_EXCHANGE(var, newval, result)            \
             __asm__ __volatile__("   dmb ish              \n\t" \
                                  "1: ldrex r2, %0         \n\t" \
@@ -718,17 +773,6 @@ atomic_dec_becomes_zero(volatile int *var)
  */
 #        define SPINLOCK_PAUSE() __asm__ __volatile__("wfe") /* wait for interrupt */
 #        define SERIALIZE_INSTRUCTIONS() __asm__ __volatile__("clrex");
-/* assuming flag is unsigned char */
-#        define SET_FLAG(cc, flag)                            \
-            __asm__ __volatile__("   mov       r2, #1  \n\t"  \
-                                 "   b" #cc "   1f      \n\t" \
-                                 "   mov       r2, #0  \n\t"  \
-                                 "1: strb r2, %0"             \
-                                 : "=m"(flag)                 \
-                                 :                            \
-                                 : "r2")
-#        define SET_IF_NOT_ZERO(flag) SET_FLAG(ne, flag)
-#        define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
 #    elif defined(DR_HOST_RISCV64)
 #        define ATOMIC_1BYTE_READ(addr_src, addr_res)               \
             do {                                                    \
@@ -1014,7 +1058,7 @@ atomic_inc_and_test(volatile int *var)
 static inline bool
 atomic_dec_and_test(volatile int *var)
 {
-    return atomic_add_exchange_int(var, -1) == -1;
+    return atomic_add_exchange_int(var, -1) < 0;
 }
 
 static inline bool
@@ -1037,75 +1081,51 @@ atomic_dec_becomes_zero(volatile int *var)
 #    endif
 
 #    if !defined(DR_HOST_AARCH64) && !defined(DR_HOST_RISCV64)
-/* Atomically increments *var by 1
+/* Atomically increments *var by 1.
  * Returns true if the resulting value is zero, otherwise returns false
  */
 static inline bool
 atomic_inc_and_test(volatile int *var)
 {
-    unsigned char c;
-
-    ATOMIC_INC(int, *var);
-    /* flags should be set according to resulting value, now we convert that back to C */
-    SET_IF_NOT_ZERO(c);
-    /* XXX: we add an extra memory reference to a local,
-       although we could put the return value in EAX ourselves */
-    return c == 0;
+    bool is_zero;
+    ATOMIC_INC_int_nowzero(*var, is_zero);
+    return is_zero;
 }
 
-/* Atomically decrements *var by 1
- * Returns true if the initial value was zero, otherwise returns false
+/* Atomically decrements *var by 1.
+ * Returns true if the result is negative, otherwise returns false.
  */
 static inline bool
 atomic_dec_and_test(volatile int *var)
 {
-    unsigned char c;
-
-    ATOMIC_DEC(int, *var);
-    /* result should be set according to value before change, now we
-     * convert that back to C.
-     */
-    SET_IF_NOT_LESS(c);
-    /* XXX: we add an extra memory reference to a local,
-       although we could put the return value in EAX ourselves */
-    return c == 0;
+    bool is_negative;
+    ATOMIC_DEC_int_nowneg(*var, is_negative);
+    return is_negative;
 }
 
-/* Atomically decrements *var by 1
- * Returns true if the resulting value is zero, otherwise returns false
+/* Atomically decrements *var by 1.
+ * Returns true if the resulting value is zero, otherwise returns false.
  */
 static inline bool
 atomic_dec_becomes_zero(volatile int *var)
 {
-    unsigned char c;
-
-    ATOMIC_DEC(int, *var);
-    /* result should be set according to value after change, now we
-     * convert that back to C.
-     */
-    SET_IF_NOT_ZERO(c);
-    /* XXX: we add an extra memory reference to a local,
-       although we could put the return value in EAX ourselves */
-    return c == 0;
+    bool is_zero;
+    ATOMIC_DEC_int_nowzero(*var, is_zero);
+    return is_zero;
 }
 
-/* returns true if var was equal to compare, and now is equal to exchange,
-   otherwise returns false
+/* Returns true if var was equal to compare, and now is equal to exchange;
+ * otherwise returns false.
  */
 static inline bool
 atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
 {
-    unsigned char c;
-    ATOMIC_COMPARE_EXCHANGE(*var, compare, exchange);
-    /* ZF is set if matched, all other flags are as if a normal compare happened */
-    /* we convert ZF value back to C */
-    SET_IF_NOT_ZERO(c);
-    /* XXX: we add an extra memory reference to a local,
-       although we could put the return value in EAX ourselves */
-    return c == 0;
+    bool matched;
+    ATOMIC_COMPARE_EXCHANGE(*var, compare, exchange, matched);
+    return matched;
 }
 
-/* exchanges *var with newval and returns original *var */
+/* Exchanges *var with newval and returns original *var. */
 static inline int
 atomic_exchange_int(volatile int *var, int newval)
 {
@@ -1115,24 +1135,19 @@ atomic_exchange_int(volatile int *var, int newval)
 }
 
 #        ifdef X64
-/* returns true if var was equal to compare, and now is equal to exchange,
-   otherwise returns false
+/* Returns true if var was equal to compare, and now is equal to exchange;
+ * otherwise returns false.
  */
 static inline bool
 atomic_compare_exchange_int64(volatile int64 *var, int64 compare, int64 exchange)
 {
-    unsigned char c;
-    ATOMIC_COMPARE_EXCHANGE_int64(*var, compare, exchange);
-    /* ZF is set if matched, all other flags are as if a normal compare happened */
-    /* we convert ZF value back to C */
-    SET_IF_NOT_ZERO(c);
-    /* XXX: we add an extra memory reference to a local,
-       although we could put the return value in EAX ourselves */
-    return c == 0;
+    bool matched;
+    ATOMIC_COMPARE_EXCHANGE_int64(*var, compare, exchange, matched);
+    return matched;
 }
 #        endif
 
-/* atomically adds value to memory location var and returns the sum */
+/* Atomically adds value to memory location var and returns the sum. */
 static inline int
 atomic_add_exchange_int(volatile int *var, int value)
 {
