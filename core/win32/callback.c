@@ -3896,7 +3896,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     d_r_debug_register[0] = (app_pc)cxt->Dr0;
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[0], 1 /* size */,
-                        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                        false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
@@ -3904,7 +3904,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 if (d_r_debug_register[0] != NULL) {
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[0], 1 /* size */,
-                        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                        false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[0] = NULL;
                 }
@@ -3914,7 +3914,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     d_r_debug_register[1] = (app_pc)cxt->Dr1;
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[1], 1 /* size */,
-                        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                        false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
@@ -3922,7 +3922,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 if (d_r_debug_register[1] != NULL) {
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[1], 1 /* size */,
-                        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                        false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[1] = NULL;
                 }
@@ -3932,7 +3932,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     d_r_debug_register[2] = (app_pc)cxt->Dr2;
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[2], 1 /* size */,
-                        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                        false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
@@ -3940,7 +3940,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 if (d_r_debug_register[2] != NULL) {
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[2], 1 /* size */,
-                        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                        false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[2] = NULL;
                 }
@@ -3950,7 +3950,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     d_r_debug_register[3] = (app_pc)cxt->Dr3;
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[3], 1 /* size */,
-                        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                        false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
@@ -3958,7 +3958,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 if (d_r_debug_register[3] != NULL) {
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[3], 1 /* size */,
-                        false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                        false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[3] = NULL;
                 }

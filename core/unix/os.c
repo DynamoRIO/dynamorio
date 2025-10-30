@@ -8519,7 +8519,7 @@ pre_system_call(dcontext_t *dcontext)
              * use synch to ensure other threads see the
              * new code.
              */
-            false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+            false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT,
             NULL /*flush_completion_callback*/, NULL /*user_data*/);
         break;
     }
