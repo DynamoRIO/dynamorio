@@ -939,4 +939,14 @@ my_getenv(const char *var, char *dest, size_t size)
 #endif
 }
 
+/* Repeatedly call "run", upto "tries" times, starting with the
+ * initial value for "param" and adjusting it according to whether
+ * "run" sets *adjust to a positive, negative or zero value. If
+ * "stop_on_hit" is true then stop when "run" returns true. Returns
+ * the number of times that "run" returned true.
+ */
+int
+adaptive_retry(bool (*run)(int *adjust, unsigned long long param, void *arg), int tries,
+               unsigned long long param, void *arg, bool stop_on_hit);
+
 #endif /* TOOLS_H */
