@@ -69,9 +69,7 @@ namespace drmemtrace {
 #endif
 #define OUTFILE_SUBDIR "raw"
 #define WINDOW_SUBDIR_PREFIX "window"
-#define WINDOW_SUBDIR_FORMAT                               \
-    "window.%04zd" /* ptr_int_t is the window number type. \
-                    */
+#define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 #define TRACE_CHUNK_PREFIX "chunk."

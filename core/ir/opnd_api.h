@@ -265,26 +265,16 @@ enum {
 #define OPSZ_sidt OPSZ_6x10      /**< Operand size for sidt memory reference. */
 #define OPSZ_bound OPSZ_8_short4 /**< Operand size for bound memory reference. */
 #define OPSZ_maskmovq OPSZ_8     /**< Operand size for maskmovq memory reference. */
-#define OPSZ_maskmovdqu                                        \
-    OPSZ_16 /**< Operand size for maskmovdqu memory reference. \
-             */
-#define OPSZ_fldenv                                                                 \
-    OPSZ_28_short14                  /**< Operand size for fldenv memory reference. \
-                                      */
+#define OPSZ_maskmovdqu OPSZ_16  /**< Operand size for maskmovdqu memory reference. */
+#define OPSZ_fldenv OPSZ_28_short14  /**< Operand size for fldenv memory reference. */
 #define OPSZ_fnstenv OPSZ_28_short14 /**< Operand size for fnstenv memory reference. */
-#define OPSZ_fnsave                                                 \
-    OPSZ_108_short94 /**< Operand size for fnsave memory reference. \
-                      */
-#define OPSZ_frstor                                                             \
-    OPSZ_108_short94             /**< Operand size for frstor memory reference. \
-                                  */
-#define OPSZ_fxsave OPSZ_512     /**< Operand size for fxsave memory reference. */
-#define OPSZ_fxrstor OPSZ_512    /**< Operand size for fxrstor memory reference. */
-#define OPSZ_ptwrite OPSZ_4_rex8 /**< Operand size for ptwrite memory reference. */
+#define OPSZ_fnsave OPSZ_108_short94 /**< Operand size for fnsave memory reference. */
+#define OPSZ_frstor OPSZ_108_short94 /**< Operand size for frstor memory reference. */
+#define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
+#define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
+#define OPSZ_ptwrite OPSZ_4_rex8     /**< Operand size for ptwrite memory reference. */
 #ifdef AARCH64
-#    define OPSZ_sys                                                   \
-        OPSZ_1 /**< Operand size for sys instruction memory reference. \
-                */
+#    define OPSZ_sys OPSZ_1 /**< Operand size for sys instruction memory reference. */
 #endif
 
 /* We encode this enum plus the OPSZ_ extensions in bytes, so we can have

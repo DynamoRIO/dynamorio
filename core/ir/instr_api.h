@@ -2532,11 +2532,9 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls DR_PARA
 #    define EFLAGS_READ_AC 0x00400000  /**< Reads AC (Alignment Check Flag). */
 #    define EFLAGS_WRITE_AC 0x00800000 /**< Writes AC (Alignment Check Flag). */
 
-#    define EFLAGS_READ_ALL 0x004007ff /**< Reads all flags. */
-#    define EFLAGS_READ_NON_PRED                                           \
-        EFLAGS_READ_ALL                 /**< Flags not read by predicates. \
-                                         */
-#    define EFLAGS_WRITE_ALL 0x00bff800 /**< Writes all flags. */
+#    define EFLAGS_READ_ALL 0x004007ff           /**< Reads all flags. */
+#    define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
+#    define EFLAGS_WRITE_ALL 0x00bff800          /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 #    define EFLAGS_READ_6 0x0000011f

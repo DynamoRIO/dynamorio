@@ -497,8 +497,7 @@
 /** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_add(dc, rd, rn, rm_or_imm)                                         \
     opnd_is_reg(rm_or_imm)                                                              \
-        ? /* _extend supports sp in rn, so prefer it, but it does not support imm.      \
-           */                                                                           \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
         INSTR_CREATE_add_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
                                 OPND_CREATE_INT(0))                                     \
         : INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \

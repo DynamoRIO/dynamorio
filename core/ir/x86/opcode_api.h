@@ -1703,16 +1703,14 @@ enum {
 #define OP_cwd OP_cdq    /**< Alternative opcode name for 16-bit version. */
 #define OP_jcxz OP_jecxz /**< Alternative opcode name for 16-bit version. */
 /* 64-bit versions that have different names */
-#define OP_cdqe OP_cwde   /**< Alternative opcode name for 64-bit version. */
-#define OP_cqo OP_cdq     /**< Alternative opcode name for 64-bit version. */
-#define OP_jrcxz OP_jecxz /**< Alternative opcode name for 64-bit version. */
-#define OP_cmpxchg16b                                                          \
-    OP_cmpxchg8b              /**< Alternative opcode name for 64-bit version. \
-                               */
-#define OP_pextrq OP_pextrd   /**< Alternative opcode name for 64-bit version. */
-#define OP_pinsrq OP_pinsrd   /**< Alternative opcode name for 64-bit version. */
-#define OP_vpextrq OP_vpextrd /**< Alternative opcode name for 64-bit version. */
-#define OP_vpinsrq OP_vpinsrd /**< Alternative opcode name for 64-bit version. */
+#define OP_cdqe OP_cwde            /**< Alternative opcode name for 64-bit version. */
+#define OP_cqo OP_cdq              /**< Alternative opcode name for 64-bit version. */
+#define OP_jrcxz OP_jecxz          /**< Alternative opcode name for 64-bit version. */
+#define OP_cmpxchg16b OP_cmpxchg8b /**< Alternative opcode name for 64-bit version. */
+#define OP_pextrq OP_pextrd        /**< Alternative opcode name for 64-bit version. */
+#define OP_pinsrq OP_pinsrd        /**< Alternative opcode name for 64-bit version. */
+#define OP_vpextrq OP_vpextrd      /**< Alternative opcode name for 64-bit version. */
+#define OP_vpinsrq OP_vpinsrd      /**< Alternative opcode name for 64-bit version. */
 /* reg-reg version has different name */
 #define OP_movhlps OP_movlps   /**< Alternative opcode name for reg-reg version. */
 #define OP_movlhps OP_movhps   /**< Alternative opcode name for reg-reg version. */
