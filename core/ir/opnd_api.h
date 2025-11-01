@@ -3292,7 +3292,10 @@ ushort
 opnd_get_segment_selector(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is an #instr_t (near, far, or memory) operand and returns its value. */
+/**
+ * Assumes \p opnd is an #instr_t (near, far, or memory) operand and returns its
+ * value.
+ */
 instr_t *
 opnd_get_instr(opnd_t opnd);
 
