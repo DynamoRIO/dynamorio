@@ -1697,17 +1697,11 @@ typedef enum {
 #endif /* X86 */
 
 #ifdef X86 /* We don't need these for ARM which uses clear numbering */
-#    define DR_REG_START_GPR                                  \
-        DR_REG_XAX /**< Start of general register enum values \
-                    */
+#    define DR_REG_START_GPR DR_REG_XAX /**< Start of general register enum values */
 #    ifdef X64
-#        define DR_REG_STOP_GPR                                 \
-            DR_REG_R15 /**< End of general register enum values \
-                        */
+#        define DR_REG_STOP_GPR DR_REG_R15 /**< End of general register enum values */
 #    else
-#        define DR_REG_STOP_GPR                                 \
-            DR_REG_XDI /**< End of general register enum values \
-                        */
+#        define DR_REG_STOP_GPR DR_REG_XDI /**< End of general register enum values */
 #    endif
 /** Number of general registers */
 #    define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
@@ -1728,9 +1722,7 @@ typedef enum {
         DR_REG_R15W                  /**< End of 16-bit general register enum values \
                                       */
 #    define DR_REG_START_8 DR_REG_AL /**< Start of 8-bit general register enum values */
-#    define DR_REG_STOP_8                                         \
-        DR_REG_DIL /**< End of 8-bit general register enum values \
-                    */
+#    define DR_REG_STOP_8 DR_REG_DIL /**< End of 8-bit general register enum values */
 #    define DR_REG_START_8HL \
         DR_REG_AL                     /**< Start of 8-bit high-low register enum values */
 #    define DR_REG_STOP_8HL DR_REG_BH /**< End of 8-bit high-low register enum values */
@@ -1742,11 +1734,9 @@ typedef enum {
         DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
 #    define DR_REG_STOP_x64_8 \
         DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
-#    define DR_REG_START_MMX DR_REG_MM0 /**< Start of mmx register enum values */
-#    define DR_REG_STOP_MMX DR_REG_MM7  /**< End of mmx register enum values */
-#    define DR_REG_START_XMM                                                        \
-        DR_REG_XMM0                      /**< Start of sse xmm register enum values \
-                                          */
+#    define DR_REG_START_MMX DR_REG_MM0  /**< Start of mmx register enum values */
+#    define DR_REG_STOP_MMX DR_REG_MM7   /**< End of mmx register enum values */
+#    define DR_REG_START_XMM DR_REG_XMM0 /**< Start of sse xmm register enum values */
 #    define DR_REG_START_YMM DR_REG_YMM0 /**< Start of ymm register enum values */
 #    define DR_REG_START_ZMM DR_REG_ZMM0 /**< Start of zmm register enum values */
 #    ifdef X64
@@ -1758,14 +1748,10 @@ typedef enum {
 #        define DR_REG_STOP_YMM DR_REG_YMM7 /**< End of ymm register enum values */
 #        define DR_REG_STOP_ZMM DR_REG_ZMM7 /**< End of zmm register enum values */
 #    endif
-#    define DR_REG_START_OPMASK                                                    \
-        DR_REG_K0                        /**< Start of opmask register enum values \
-                                          */
-#    define DR_REG_STOP_OPMASK DR_REG_K7 /**< End of opmask register enum values */
-#    define DR_REG_START_BND                                                      \
-        DR_REG_BND0                     /**< Start of bounds register enum values \
-                                         */
-#    define DR_REG_STOP_BND DR_REG_BND3 /**< End of bounds register enum values */
+#    define DR_REG_START_OPMASK DR_REG_K0 /**< Start of opmask register enum values */
+#    define DR_REG_STOP_OPMASK DR_REG_K7  /**< End of opmask register enum values */
+#    define DR_REG_START_BND DR_REG_BND0  /**< Start of bounds register enum values */
+#    define DR_REG_STOP_BND DR_REG_BND3   /**< End of bounds register enum values */
 #    define DR_REG_START_FLOAT \
         DR_REG_ST0 /**< Start of floating-point-register enum values*/
 #    define DR_REG_STOP_FLOAT \
@@ -1773,13 +1759,11 @@ typedef enum {
 #    define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
 #    define DR_REG_START_SEGMENT_x64 \
         DR_SEG_FS /**< Start of segment register enum values for x64 */
-#    define DR_REG_STOP_SEGMENT                                                 \
-        DR_SEG_GS                      /**< End of segment register enum values \
-                                        */
-#    define DR_REG_START_DR DR_REG_DR0 /**< Start of debug register enum values */
-#    define DR_REG_STOP_DR DR_REG_DR15 /**< End of debug register enum values */
-#    define DR_REG_START_CR DR_REG_CR0 /**< Start of control register enum values */
-#    define DR_REG_STOP_CR DR_REG_CR15 /**< End of control register enum values */
+#    define DR_REG_STOP_SEGMENT DR_SEG_GS /**< End of segment register enum values */
+#    define DR_REG_START_DR DR_REG_DR0    /**< Start of debug register enum values */
+#    define DR_REG_STOP_DR DR_REG_DR15    /**< End of debug register enum values */
+#    define DR_REG_START_CR DR_REG_CR0    /**< Start of control register enum values */
+#    define DR_REG_STOP_CR DR_REG_CR15    /**< End of control register enum values */
 
 #endif /* X86 */
 
@@ -3308,8 +3292,7 @@ ushort
 opnd_get_segment_selector(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is an #instr_t (near, far, or memory) operand and returns its value.
- */
+/** Assumes \p opnd is an #instr_t (near, far, or memory) operand and returns its value. */
 instr_t *
 opnd_get_instr(opnd_t opnd);
 
