@@ -262,14 +262,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                               // We're using drmgr, so these slots
                               // here won't be used: drreg's slots will be.
                               static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              bb_count_ptr, bb_size, DRX_COUNTER_64BIT);
+                              bb_count_ptr, static_cast<int>(bb_size), DRX_COUNTER_64BIT);
 
     // Increment the instruction count by BB size in #instructions.
     drx_insert_counter_update(drcontext, bb, inst,
                               // We're using drmgr, so these slots
                               // here won't be used: drreg's slots will be.
                               static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              &instr_count, bb_size, DRX_COUNTER_64BIT);
+                              &instr_count, static_cast<int>(bb_size), DRX_COUNTER_64BIT);
     if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         FATAL("ERROR: failed to reserve aflags");
     if (instr_interval_value < INT_MAX) {
