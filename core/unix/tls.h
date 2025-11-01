@@ -309,6 +309,14 @@ typedef struct _os_local_state_t {
         void *client_tls[MAX_NUM_CLIENT_TLS];
     };
 #endif
+#if defined(LINUX) && !defined(X86)
+    /* Whether a custom mmap was used because no TLS was set up, which happens
+     * with client threads and static DR.
+     */
+    bool custom_alloc;
+    /* Whether privload_tls_init() was used to set up client thread TLS. */
+    bool custom_privlib_tls;
+#endif
 } os_local_state_t;
 
 os_local_state_t *

@@ -291,16 +291,7 @@ bool
 scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_has_pc(memref_t record,
                                                               uint64_t &pc)
 {
-    if (type_is_instr(record.instr.type)) {
-        pc = record.instr.addr;
-        return true;
-    }
-    if (record.marker.type == TRACE_TYPE_MARKER &&
-        record.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        pc = record.marker.marker_value;
-        return true;
-    }
-    return false;
+    return memref_has_pc(record, pc);
 }
 
 template <>
@@ -412,7 +403,7 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::insert_switch_tid_pid(input_info_t &i
 
 template <>
 template <>
-typename scheduler_tmpl_t<memref_t, reader_t>::switch_type_t
+switch_type_t
 scheduler_impl_tmpl_t<memref_t, reader_t>::invalid_kernel_sequence_key()
 {
     return switch_type_t::SWITCH_INVALID;
@@ -594,7 +585,7 @@ bool
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_has_pc(
     trace_entry_t record, uint64_t &pc)
 {
-    return entry_queue_t::entry_has_pc(record, &pc);
+    return entry_has_pc(record, pc);
 }
 
 template <>
@@ -701,7 +692,7 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::insert_switch_tid_pid(
 
 template <>
 template <>
-typename scheduler_tmpl_t<trace_entry_t, record_reader_t>::switch_type_t
+switch_type_t
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::invalid_kernel_sequence_key()
 {
     return switch_type_t::SWITCH_INVALID;
@@ -2926,14 +2917,15 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
 
     bool injected_switch_trace = false;
     if (!switch_sequence_.empty()) {
-        switch_type_t switch_type = sched_type_t::SWITCH_INVALID;
-        if ( // XXX: idle-to-input transitions are assumed to be process switches
-             // for now. But we may want to improve this heuristic.
+        switch_type_t switch_type = switch_type_t::SWITCH_INVALID;
+        if ( // XXX i#7683: idle-to-input transitions are assumed to be thread switches
+             // for now. We should track the previous real input to know when to mark
+             // as a process switch.
             prev_input == sched_type_t::INVALID_INPUT_ORDINAL ||
-            inputs_[prev_input].workload != inputs_[new_input].workload)
-            switch_type = sched_type_t::SWITCH_PROCESS;
+            inputs_[prev_input].workload == inputs_[new_input].workload)
+            switch_type = switch_type_t::SWITCH_THREAD;
         else
-            switch_type = sched_type_t::SWITCH_THREAD;
+            switch_type = switch_type_t::SWITCH_PROCESS;
         if (switch_sequence_.find(switch_type) != switch_sequence_.end()) {
             stream_status_t res = inject_kernel_sequence(switch_sequence_[switch_type],
                                                          &inputs_[new_input]);

@@ -321,6 +321,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 );
 
             %ignore_failures_64 = (
+                'code_api|api.symtest' => 1, # i#1472
                 # i#7529: New failures on GA Server22.
                 'code_api|client.annotation-detection' => 1, # i#7529
                 'code_api|client.annotation-detection-opt' => 1, # i#7529
@@ -437,6 +438,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
                                    'code_api|tool.drcacheoff.rseq' => 1, # i#5734
                                    'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
+                                   'code_api|api.detach_state' => 1, # i#7576
                                    );
             # XXX i#5365: fix flaky AArch64 tests running on SVE hardware.
             # Note that apart from tool.drcachesim.scattergather-aarch64, these

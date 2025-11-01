@@ -1694,7 +1694,7 @@ os_timeout(int time_in_milliseconds)
  */
 #    define WRITE_TLS_SLOT_IMM(imm, var)                                            \
         do {                                                                        \
-            uint _base_offs = DR_TLS_BASE_OFFSET;                                   \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
             __asm__ __volatile__("mov " ASM_R2 ", %0 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
                                  "str %1, [" ASM_R3 ", %2] \n\t"                    \
                                  :                                                  \
@@ -1703,7 +1703,7 @@ os_timeout(int time_in_milliseconds)
         } while (0)
 #    define READ_TLS_SLOT_IMM(imm, var)                                             \
         do {                                                                        \
-            uint _base_offs = DR_TLS_BASE_OFFSET;                                   \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
             __asm__ __volatile__("mov " ASM_R2 ", %1 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
                                  "ldr %0, [" ASM_R3 ", %2] \n\t"                    \
                                  : "=r"(var)                                        \
@@ -1714,7 +1714,7 @@ os_timeout(int time_in_milliseconds)
 #    define READ_TLS_INT_SLOT_IMM READ_TLS_SLOT_IMM   /* b/c 32-bit */
 #    define WRITE_TLS_SLOT(offs, var)                                               \
         do {                                                                        \
-            uint _base_offs = DR_TLS_BASE_OFFSET;                                   \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
             __asm__ __volatile__("mov " ASM_R2 ", %0 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
                                  "add " ASM_R3 ", " ASM_R3 ", %2 \n\t"              \
                                  "str %1, [" ASM_R3 "]   \n\t"                      \
@@ -1724,7 +1724,7 @@ os_timeout(int time_in_milliseconds)
         } while (0)
 #    define READ_TLS_SLOT(offs, var)                                                \
         do {                                                                        \
-            uint _base_offs = DR_TLS_BASE_OFFSET;                                   \
+            ptr_int_t _base_offs = DR_TLS_BASE_OFFSET;                              \
             __asm__ __volatile__("mov " ASM_R2 ", %1 \n\t" READ_TP_TO_R3_DISP_IN_R2 \
                                  "add " ASM_R3 ", " ASM_R3 ", %2 \n\t"              \
                                  "ldr %0, [" ASM_R3 "]   \n\t"                      \
@@ -2446,6 +2446,12 @@ os_tls_thread_exit(local_state_t *local_state)
 
     if (should_zero_tls_at_thread_exit()) {
         tls_thread_free(tls_type, index);
+
+#    if (defined(AARCHXX) || defined(RISCV64)) && !defined(MACOS)
+        if (os_tls->custom_privlib_tls) {
+            privload_tls_exit((void *)read_thread_register(TLS_REG_LIB));
+        }
+#    endif
 
 #    if defined(X86) && defined(X64) && !defined(MACOS)
         if (tls_type == TLS_TYPE_ARCH_PRCTL) {
@@ -4133,6 +4139,12 @@ client_thread_run(void)
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
+#if (defined(AARCHXX) || defined(RISCV64)) && !defined(MACOS)
+    if (!INTERNAL_OPTION(private_loader)) {
+        /* Record that dr_create_client_thread() used privload_tls_init(). */
+        get_os_tls()->custom_privlib_tls = true;
+    }
+#endif
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", d_r_get_thread_id());
     /* We stored the func and args in particular clone record fields */
     func = (void (*)(void *param))dcontext->next_tag;
@@ -4231,8 +4243,24 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * app threads, so we're doing this here and not in os_clone_pre().
      * XXX: Find a way to put this in os_clone_* to simplify the code?
      */
-    void *tls = (void *)read_thread_register(LIB_SEG_TLS);
-    write_thread_register(NULL);
+    void *our_tls = (void *)read_thread_register(LIB_SEG_TLS);
+    if (INTERNAL_OPTION(private_loader)) {
+        write_thread_register(NULL);
+    } else {
+        /* Try to leverage privload TLS setup to ensure the client thread has
+         * some TLS in place in case it invokes some app code (though client-safe
+         * code is better, in some cases it is a big advantage to be able to run
+         * some limited app code in a static-DR setup).
+         */
+        void *child_tls = privload_tls_init(our_tls);
+        write_thread_register(child_tls);
+        byte **dr_tls_base_addr = (byte **)get_dr_tls_base_addr();
+        ASSERT(dr_tls_base_addr != NULL);
+        *dr_tls_base_addr = NULL;
+        /* client_thread_run() will set get_os_tls()->custom_privlib_tls for
+         * triggering privload_tls_exit() in os_tls_thread_exit().
+         */
+    }
 #endif
 
 #ifdef MACOS
@@ -4245,7 +4273,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
 #if (defined(AARCHXX) || defined(RISCV64)) && !defined(MACOS)
-    write_thread_register(tls);
+    write_thread_register(our_tls);
 #endif
     /* i#501 the app's tls was switched in os_clone_pre. */
     if (INTERNAL_OPTION(private_loader))

@@ -151,6 +151,8 @@ changes:
  - Added a parameter to the constructor of #dynamorio::drmemtrace:reader_t and
    #dynamorio::drmemtrace:record_reader_t that indicates whether it is being used in
    the online or offline mode.
+ - Moved the switch type enum from scheduler.h to trace_entry.h, now referenced as
+   #dynamorio::drmemtrace::switch_type_t.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
@@ -267,10 +269,10 @@ Further non-compatibility-affecting changes include:
    PC in the trace, which is from the next instruction or the next
    #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker, whichever comes
    first.
- - Added a new hashtable_t iterator hashtable_apply_to_all_key_payload_pairs_user_data()
+ - Added a new #hashtable_t iterator hashtable_apply_to_all_key_payload_pairs_user_data()
    that exposes the key of every element in the table.
- - Added a new Dynamorio client in api/samples to compute the Basic Block Vectors of a
-   program given a user-defined instruction interval.
+ - Added a new Dynamorio client "DrPoints" in clients/drpoints to compute the Basic Block
+   Vectors of a program given a user-defined instruction interval.
 
 **************************************************
 <hr>

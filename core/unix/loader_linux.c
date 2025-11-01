@@ -77,6 +77,11 @@
  * they are put before the TCB, which allows TCB to have any size.
  * Using [%seg:0x0] as the TP, all modules' static TLS are accessed
  * via negative offsets, and TCB fields are accessed via positive offsets.
+ *
+ * For AArchXX and RISCV, struct pthread is separate and comes before
+ * the TCB structure, at the start of the allocation.
+ * The Thread Pointer (TP) points to the end of the TCB, with the app and
+ * library TLS coming afterward.
  */
 /* There are two possible TLS memory, static TLS and dynamic TLS.
  * Static TLS is the memory allocated in the TLS segment, and can be accessed
@@ -107,8 +112,12 @@ static tls_info_t tls_info;
 
 /* Maximum size of TLS for client private libraries.
  * We will round this up to a multiple of the page size.
+ * We give more space for static DR where with no private library support
+ * we may end up wanting to run limited app code in client threads and
+ * other places and need space to match the app.
+ * XXX i#7670: Try to parse all the app's ELF headers to compute the size?
  */
-static size_t client_tls_size = 2 * 4096;
+static size_t client_tls_size = IF_STATIC_LIBRARY_ELSE(6, 2) * 4096;
 
 /* The actual tcb size is the size of struct pthread from nptl/descr.h, which is
  * a glibc internal header that we can't include.  We hardcode a guess for the
@@ -142,8 +151,10 @@ static size_t client_tls_size = 2 * 4096;
  *    0xf779e5bc:  mov    %eax,0x8(%edx)
  *    0xf779e5bf:  movb   $0x0,%gs:0x4fe
  */
-/* On A32, the pthread is put before tcbhead instead tcbhead being part of pthread */
-static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x500);
+/* On AArchXX and RISCV, the pthread struct is put before tcbhead instead of tcbhead
+ * being part of the pthread struct.
+ */
+static size_t tcb_size_estimate = IF_X64_ELSE(0x1000, 0x900);
 
 /* thread contol block header type from
  * - sysdeps/x86_64/nptl/tls.h
@@ -166,13 +177,11 @@ typedef struct _tcb_head_t {
     ptr_uint_t stack_guard;
     ptr_uint_t pointer_guard;
 #elif defined(AARCH64)
-    /* XXX i#1569: This may be wrong! */
     void *dtv;
     void *private;
 #elif defined(ARM)
     void *dtv;
     void *private;
-    byte padding[2]; /* make it 16-byte align */
 #elif defined(RISCV64)
     void *dtv;
     void *private;
@@ -181,20 +190,33 @@ typedef struct _tcb_head_t {
 
 #ifdef X86
 #    define TLS_PRE_TCB_SIZE 0
-#elif defined(AARCHXX)
-/* XXX i#1569: This may be wrong for AArch64! */
+#elif defined(AARCH64)
 /* Data structure to match libc pthread.
  * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
  * the size and member locations match to avoid gdb crash.
+ * The values here are for Ubuntu22 libc 2.38; we adjust in
+ * pthread_set_pthread_tls_fields() below for other versions.
  */
+#    define LIBC_PTHREAD_TID_OFFSET 0xd0
+typedef struct _dr_pthread_t {
+    byte data1[LIBC_PTHREAD_TID_OFFSET];
+    process_id_t tid;
+    thread_id_t pid;
+    byte data2[0x6d8]; /* # of bytes after pid within pthread */
+} dr_pthread_t;
+#    define LIBC_PTHREAD_SIZE sizeof(dr_pthread_t)
+/* To handle a future larger pthread we give ourselves some room. */
+#    define TLS_PRE_TCB_SIZE (LIBC_PTHREAD_SIZE + 0x100)
+#elif defined(ARM)
 typedef struct _dr_pthread_t {
     byte data1[0x68]; /* # of bytes before tid within pthread */
     process_id_t tid;
     thread_id_t pid;
     byte data2[0x450]; /* # of bytes after pid within pthread */
 } dr_pthread_t;
-#    define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
-#    define LIBC_PTHREAD_SIZE 0x4c0
+#    define LIBC_PTHREAD_SIZE sizeof(dr_pthread_t)
+/* To handle a future larger pthread we give ourselves some room. */
+#    define TLS_PRE_TCB_SIZE (LIBC_PTHREAD_SIZE + 0x100)
 #    define LIBC_PTHREAD_TID_OFFSET 0x68
 #elif defined(RISCV64)
 typedef struct _dr_pthread_t {
@@ -223,9 +245,8 @@ typedef struct _dr_pthread_t {
  */
 #    define APP_LIBC_TLS_SIZE 0x400
 #elif defined(AARCHXX)
-/* XXX i#1551, i#1569: investigate the difference between ARM and X86 on TLS.
- * On ARM, it seems that TLS variables are not put before the thread pointer
- * as they are on X86.
+/* On AArchXX and RISCV, app and library TLS is after the TCB so we don't need to
+ * know its size to find the allocation base.
  */
 #    define APP_LIBC_TLS_SIZE 0
 #elif defined(RISCV64)
@@ -243,7 +264,7 @@ privload_mod_tls_init(privmod_t *mod)
 {
     os_privmod_data_t *opd;
     size_t offset;
-#    ifndef RISCV64
+#    ifdef X86
     int first_byte;
 #    endif
     IF_X86(ASSERT(TLS_APP_SELF_OFFSET_ASM == offsetof(tcb_head_t, self)));
@@ -258,7 +279,7 @@ privload_mod_tls_init(privmod_t *mod)
     tls_info.mods[tls_info.num_mods] = mod;
     opd->tls_modid = tls_info.num_mods;
     offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
-#    ifndef RISCV64
+#    ifdef X86
     /* decide the offset of each module in the TLS segment from
      * thread pointer.
      * Because the tls memory is located before thread pointer, we use
@@ -276,7 +297,7 @@ privload_mod_tls_init(privmod_t *mod)
         ALIGN_FORWARD(offset + opd->tls_block_size + first_byte, opd->tls_align);
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
-#    else /* RISCV64 */
+#    else
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
     offset = ALIGN_FORWARD(offset + opd->tls_block_size, opd->tls_align);
@@ -322,6 +343,10 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
      */
 #    define MAX_INSTRS_TO_DECODE 64
     int instr_count = 0;
+#    ifdef AARCH64
+    reg_id_t mrs_reg = DR_REG_NULL, sub_dst = DR_REG_NULL;
+    int pthread_size = 0;
+#    endif
     while (instr_count < MAX_INSTRS_TO_DECODE) {
         IF_DEBUG(app_pc prev_pc = pc;)
         pc = decode(dcontext, pc, &instr);
@@ -347,22 +372,35 @@ privload_set_pthread_tls_fields(privmod_t *mod, app_pc priv_tls_base)
             tid_slot = (long *)(priv_tls_base + offs);
         }
 #    elif defined(AARCH64)
-        /* TODO i#6611: We have to decode something like this to come up with
-         * privlib_tls_base - 0x700 + 208 but we need a 2.37+ machine to test on:
+        /* We expect something like this:
          *     13dec:       d53bd042        mrs     x2, tpidr_el0
          *     13df0:       52800000        mov     w0, #0x0
-         *     13df4:       d11c0042        sub     x2, x2, #0x700
+         *     13df4:       d11c0042        sub     x2, x2, #0x7c0
          *     13df8:       b940d042        ldr     w2, [x2, #208]
          */
-        /* We have a glibc 2.37+ SYSLOG_INTERNAL_WARNING in privload_os_finalize(). */
-        break;
+        if (instr_get_opcode(&instr) == OP_mrs) {
+            mrs_reg = opnd_get_reg(instr_get_dst(&instr, 0));
+        }
+        if (mrs_reg != DR_REG_NULL && instr_get_opcode(&instr) == OP_sub &&
+            opnd_is_reg(instr_get_src(&instr, 0)) &&
+            opnd_get_reg(instr_get_src(&instr, 0)) == mrs_reg &&
+            opnd_is_immed(instr_get_src(&instr, 1))) {
+            sub_dst = opnd_get_reg(instr_get_dst(&instr, 0));
+            pthread_size = opnd_get_immed_int(instr_get_src(&instr, 1));
+        }
+        if (mrs_reg != DR_REG_NULL && pthread_size > 0 && sub_dst != DR_REG_NULL &&
+            instr_get_opcode(&instr) == OP_ldr &&
+            opnd_get_base(instr_get_src(&instr, 0)) == sub_dst) {
+            int offs = opnd_get_disp(instr_get_src(&instr, 0));
+            tid_slot = (long *)(priv_tls_base - pthread_size + offs);
+        }
 #    else
         /* XXX i#6611: Not supported yet. */
         /* We have a glibc 2.37+ SYSLOG_INTERNAL_WARNING in privload_os_finalize(). */
         break;
 #    endif
         if (tid_slot != NULL) {
-            long cur_tid;
+            thread_id_t cur_tid;
             thread_id_t real_tid = get_sys_thread_id();
             if (!d_r_safe_read(tid_slot, sizeof(cur_tid), &cur_tid)) {
                 SYSLOG_INTERNAL_WARNING("%s: failed to read tid from slot %p\n",
@@ -398,8 +436,7 @@ privload_copy_tls_block(privmod_t *mod, app_pc priv_tls_base, uint mod_idx)
     os_privmod_data_t *opd = tls_info.mods[mod_idx]->os_privmod_data;
     void *dest;
     /* now copy the tls memory from the image */
-    dest =
-        priv_tls_base + IF_RISCV64_ELSE(tls_info.offs[mod_idx], -tls_info.offs[mod_idx]);
+    dest = priv_tls_base + IF_X86_ELSE(-tls_info.offs[mod_idx], tls_info.offs[mod_idx]);
     LOG(GLOBAL, LOG_LOADER, 2,
         "%s: copying ELF TLS from " PFX " to " PFX " block %zu image %zu\n", __FUNCTION__,
         opd->tls_image, dest, opd->tls_block_size, opd->tls_image_size);
@@ -441,7 +478,7 @@ privload_tls_init(void *app_tp)
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     app_pc dr_tp;
     tcb_head_t *dr_tcb;
-    size_t tls_bytes_read;
+    size_t tls_bytes_read = 0;
 
     /* XXX: These should be a thread logs, but dcontext is not ready yet. */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is " PFX "\n", __FUNCTION__,
@@ -454,12 +491,12 @@ privload_tls_init(void *app_tp)
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
      * the size and member locations match to avoid gdb crash.
      */
-    ASSERT(TLS_PRE_TCB_SIZE == LIBC_PTHREAD_SIZE);
+    ASSERT(TLS_PRE_TCB_SIZE >= LIBC_PTHREAD_SIZE);
     ASSERT(LIBC_PTHREAD_TID_OFFSET == offsetof(dr_pthread_t, tid));
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at " PFX "\n", __FUNCTION__,
         client_tls_alloc_size, dr_tp);
-#ifdef RISCV64
+#ifndef X86
     dr_tp = dr_tp + TLS_PRE_TCB_SIZE + sizeof(tcb_head_t);
     dr_tcb = (tcb_head_t *)(dr_tp - sizeof(tcb_head_t));
 #else
@@ -468,28 +505,46 @@ privload_tls_init(void *app_tp)
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to " PFX "\n", __FUNCTION__,
         dr_tp);
-    /* We copy the whole tcb to avoid initializing it by ourselves.
+    /* We copy the whole tcb to avoid initializing it by ourselves,
      * and update some fields accordingly.
      */
-    if (app_tp != NULL &&
-        !safe_read_ex(
-            app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)),
-            APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate,
-            dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)),
-            &tls_bytes_read)) {
-        LOG(GLOBAL, LOG_LOADER, 2,
-            "%s: read failed, tcb was 0x%lx bytes "
-            "instead of 0x%lx\n",
-            __FUNCTION__, tls_bytes_read - APP_LIBC_TLS_SIZE, tcb_size_estimate);
-#if defined(AARCHXX) || defined(RISCV64)
-    } else {
-        dr_pthread_t *dp =
-            (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE -
-                             TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t)));
-        dp->pid = get_process_id();
-        dp->tid = get_sys_thread_id();
-#endif
+#ifdef X86
+    byte *app_start = app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE;
+    byte *dr_start = dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE;
+    size_t size_to_copy = APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate;
+#else
+    /* PAGE_SIZE could be 64K so don't go too far back. */
+    byte *app_start = (byte *)app_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
+    byte *app_page_start = (byte *)ALIGN_BACKWARD(app_tp, PAGE_SIZE);
+    /* Our estimate is deliberately larger than the current, so make sure we didn't
+     * go onto the previous page.
+     */
+    if (app_start < app_page_start)
+        app_start = app_page_start;
+    byte *dr_start = dr_tp - ((byte *)app_tp - app_start);
+    size_t size_to_copy = tcb_size_estimate;
+    if (!INTERNAL_OPTION(private_loader)) {
+        /* With no private loader, we use this code to set up TLS for client threads.
+         * For static DR we want to copy as much of the app+lib TLS as possible here,
+         * as the privload_copy_tls_block() below will be a nop.
+         * XXX i#7670: Also copy this much on x86?
+         */
+        size_to_copy = ALIGN_BACKWARD(dr_start + client_tls_alloc_size, PAGE_SIZE) -
+            (ptr_uint_t)dr_start;
     }
+#endif
+    if (app_tp != NULL &&
+        !safe_read_ex(app_start, size_to_copy, dr_start, &tls_bytes_read)) {
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed after %zd bytes\n", __FUNCTION__,
+            tls_bytes_read);
+    }
+    LOG(GLOBAL, LOG_LOADER, 2, "%d copied %zu bytes from %p to %p (TP %p)\n",
+        get_sys_thread_id(), tls_bytes_read, app_start, dr_start, dr_tp);
+#if defined(AARCHXX) || defined(RISCV64)
+    dr_pthread_t *dp = (dr_pthread_t *)(dr_tp - LIBC_PTHREAD_SIZE - sizeof(tcb_head_t));
+    dp->pid = get_process_id();
+    dp->tid = get_sys_thread_id();
+#endif
     /* We do not assert or warn on a truncated read as it does happen when TCB
      * + our over-estimate crosses a page boundary (our estimate is for latest
      * libc and is larger than on older libc versions): i#855.
@@ -505,6 +560,10 @@ privload_tls_init(void *app_tp)
 #elif defined(AARCHXX) || defined(RISCV64)
     dr_tcb->dtv = NULL;
     dr_tcb->private = NULL;
+    /* We use the private field to store DR's TLS pointer. */
+#    ifndef ARM /* For arm we use the padding field. */
+    ASSERT(dr_tp + DR_TLS_BASE_OFFSET == (byte *)&dr_tcb->private);
+#    endif
 #endif
 
     /* We initialize the primary thread's ELF TLS in privload_mod_tls_init()
@@ -526,7 +585,7 @@ privload_tls_exit(void *dr_tp)
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     if (dr_tp == NULL)
         return;
-#ifdef RISCV64
+#ifndef X86
     dr_tp = dr_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
 #else
     dr_tp = dr_tp + tcb_size_estimate - client_tls_alloc_size;
@@ -550,8 +609,11 @@ redirect___tls_get_addr(tls_index_t *ti)
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n", ti->ti_module,
         ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-#ifndef RISCV64
+#ifdef X86
     return (os_get_priv_tls_base(NULL, TLS_REG_LIB) - tls_info.offs[ti->ti_module] +
+            ti->ti_offset);
+#elif defined(AARCHXX)
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) + tls_info.offs[ti->ti_module] +
             ti->ti_offset);
 #else
 #    define TLS_DTV_OFFSET 0x800

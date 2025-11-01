@@ -530,7 +530,7 @@ set(sve_tests
       api.detach_spawn api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit
       api.ibl-stress api.ibl-stress-aarch64-far-link_LONG api.static_startstop
       api.static_noclient api.static_noinit api.static_detach api.static_prepop
-      api.static_reattach_client_flags api.static_crash api.static_sideline_FLAKY
+      api.static_reattach_client_flags api.static_crash api.static_sideline
       api.static_symbols api.static_maps_mixup_yesvars
       api.static_maps_mixup_novars_FLAKY api.thread_churn client.app_args
       client.destructor builtin_prefetch stride_benchmark
@@ -1477,6 +1477,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # is failing).
         set(exe_ops "${exe_ops};-v;-attach")
       endif ()
+      if ("${runall}" MATCHES "<state>")
+        # Test register state before and after attaching using attach_state app.
+        set(nokill_arg "nokill")
+        set(wait_arg "wait")
+      endif ()
       if ("${runall}" MATCHES "<detach>")
         set(exe_ops "${exe_ops};-v;")
       endif ()
@@ -1578,6 +1583,8 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D nudge=${nudge_arg}
       -D clear=${clear_arg}
       -D pidfile=${pidfile}
+      -D nokill=${nokill_arg}
+      -D wait=${wait_arg}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
   elseif (is_runcmp)
     # Some apps have enough output that ctest runs out of memory when
@@ -2743,6 +2750,12 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
     # Test attaching during a blocking syscall.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
       client-interface/attach_blocking.runall "" "" "")
+    if (AARCH64)
+      # Test register state before and after attaching, see
+      # suite/tests/linux/attach_state.c
+      torunonly_ci(client.attach_state linux.attach_state client.attach_test.dll
+        client-interface/attach_state.runall "" "" "")
+    endif ()
   endif ()
   if (X64 AND (LINUX OR WIN32))
     if (LINUX)
@@ -3581,10 +3594,9 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
     tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON OFF)
     target_link_libraries(api.static_crash ${libmath})
     # XXX i#2346: add delayed sideline thread exit on Windows
-    # XXX i#297: static_sideline is flaky and sometimes hangs on exit.
-    tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON OFF)
-    target_link_libraries(api.static_sideline_FLAKY ${libmath})
-    link_with_pthread(api.static_sideline_FLAKY)
+    tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON OFF)
+    target_link_libraries(api.static_sideline ${libmath})
+    link_with_pthread(api.static_sideline)
 
     # i#3348: Ensure that DR without local symbols hidden is linkable and
     # avoids conflicts (though CMake_symbol_check does most of the conflict
@@ -4166,10 +4178,20 @@ if (BUILD_CLIENTS)
           "")
         set(tool.syscall_insertion_core_sharded_rawtemp ON) # no preprocessor
 
+        torunonly_simtool(kernel_insertion_core_invariants ${ci_shared_app}
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool invariant_checker -core_sharded -sched_quantum 1000 -sched_syscall_file ${syscall_file} -sched_switch_file ${switch_file}"
+          "")
+        set(tool.kernel_insertion_core_invariants_rawtemp ON) # no preprocessor
+
         torunonly_simtool(syscall_file_invariants ${ci_shared_app}
           "-infile ${syscall_file} -tool invariant_checker"
           "")
         set(tool.syscall_file_invariants_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(switch_file_invariants ${ci_shared_app}
+          "-infile ${switch_file} -tool invariant_checker"
+          "")
+        set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
         # Test -multi_indir with 3 copies of our sample dir.
         torunonly_simtool(multi_indir ${ci_shared_app}
@@ -4194,6 +4216,11 @@ if (BUILD_CLIENTS)
           # Avoid the default core-sharded from re-scheduling the trace.
           "-indir ${core_sharded_dir} -tool schedule_stats -no_core_sharded" "")
         set(tool.core_on_disk_schedule_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(core_on_disk_invariants ${ci_shared_app}
+          # Avoid the default core-sharded from re-scheduling the trace.
+          "-indir ${core_sharded_dir} -tool invariant_checker -no_core_sharded" "")
+        set(tool.core_on_disk_invariants_rawtemp ON) # no preprocessor
 
         # Test -only_shards on core-sharded-on-disk traces.
         torunonly_simtool(only_shards ${ci_shared_app}
@@ -6014,10 +6041,14 @@ if (UNIX)
     endif (NOT ARM)
   endif (NOT CMAKE_COMPILER_IS_CLANG)
 
-  # this app is used in nudge tests
-  # XXX: should all these infloop tests be made cross-platform?
+  # These apps are used in nudge tests
+  # XXX: should the infloop and attach_state tests be made cross-platform?
   # or rely on runall tests that run calc covering this on Windows?
   add_exe(linux.infloop linux/infloop.c)
+  if (AARCH64)
+    # App to test register state before and after attaching.
+    add_executable(linux.attach_state linux/attach_state.c linux/attach_state_aarch64.asm)
+  endif ()
   torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # XXX i#1551: add coarse-grain ARM support
     # XXX: 64-bit support not quite there yet

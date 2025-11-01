@@ -435,13 +435,13 @@ get_mock_switch_sequence(addr_t thread_switch_pc_start = 0xcafe101,
         test_util::make_version(TRACE_ENTRY_VERSION),
         test_util::make_timestamp(1),
         test_util::make_marker(
-            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, switch_type_t::SWITCH_PROCESS),
         test_util::make_instr(process_switch_pc_start),
         test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
         test_util::make_instr(process_switch_pc_start + 1,
             TRACE_TYPE_INSTR_INDIRECT_JUMP),
         test_util::make_marker(
-            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, switch_type_t::SWITCH_PROCESS),
         test_util::make_exit(TID_IN_SWITCHES),
         test_util::make_footer(),
         // Test a complete trace after the first one, which is how we plan to store
@@ -451,12 +451,12 @@ get_mock_switch_sequence(addr_t thread_switch_pc_start = 0xcafe101,
         test_util::make_pid(TID_IN_SWITCHES),
         test_util::make_version(TRACE_ENTRY_VERSION),
         test_util::make_marker(
-            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_THREAD),
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, switch_type_t::SWITCH_THREAD),
         test_util::make_instr(thread_switch_pc_start),
         test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
         test_util::make_instr(thread_switch_pc_start + 1, TRACE_TYPE_INSTR_INDIRECT_JUMP),
         test_util::make_marker(
-            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_THREAD),
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, switch_type_t::SWITCH_THREAD),
         test_util::make_exit(TID_IN_SWITCHES),
         test_util::make_footer(),
         /* clang-format on */
@@ -2449,8 +2449,7 @@ test_synthetic_time_quanta_with_kernel()
 
         // switch sequence on cpu0.
         check_next(sched_cpu0, cpu0, ++time, scheduler_t::STATUS_OK, TID_C,
-                   TRACE_TYPE_MARKER,
-                   scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
                    TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
@@ -2460,8 +2459,7 @@ test_synthetic_time_quanta_with_kernel()
                    TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
                    INSTR_1_TID_C_PC);
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
-                   TRACE_TYPE_MARKER,
-                   scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
         // Now TID_C starts.
         check_next(sched_cpu0, cpu0, time, scheduler_t::STATUS_OK, TID_C,
@@ -2483,8 +2481,7 @@ test_synthetic_time_quanta_with_kernel()
 
         // switch sequence on cpu1.
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER,
-                   scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
@@ -2494,8 +2491,7 @@ test_synthetic_time_quanta_with_kernel()
                    TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
                    INSTR_2_TID_A_PC);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER,
-                   scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_THREAD,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
 
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
@@ -2546,20 +2542,17 @@ test_synthetic_time_quanta_with_kernel()
 
         // Switch sequence immediately after the syscall sequence on cpu1.
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER,
-                   // Counts as a process switch because of the idles.
-                   scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_INSTR, PROCESS_SWITCH_PC_START);
+                   TRACE_TYPE_INSTR, THREAD_SWITCH_PC_START);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
                    // Ensure indirect_branch_target is correctly set to the 3rd instr
                    // in TID_A.
-                   TRACE_TYPE_INSTR_INDIRECT_JUMP, PROCESS_SWITCH_PC_START + 1, NO_MARKER,
+                   TRACE_TYPE_INSTR_INDIRECT_JUMP, THREAD_SWITCH_PC_START + 1, NO_MARKER,
                    INSTR_3_TID_A_PC);
         check_next(sched_cpu1, cpu1, time, scheduler_t::STATUS_OK, TID_A,
-                   TRACE_TYPE_MARKER,
-                   scheduler_tmpl_t<memref_t, reader_t>::switch_type_t::SWITCH_PROCESS,
+                   TRACE_TYPE_MARKER, switch_type_t::SWITCH_THREAD,
                    TRACE_MARKER_TYPE_CONTEXT_SWITCH_END);
 
         check_next(sched_cpu1, cpu1, ++time, scheduler_t::STATUS_OK, TID_A,
@@ -7185,9 +7178,9 @@ run_lockstep_simulation_for_kernel_seq(scheduler_t &scheduler, int num_outputs,
                     in_switch[i] = false;
                     ANNOTATE_FALLTHROUGH;
                 case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
-                    if (memref.marker.marker_value == scheduler_t::SWITCH_PROCESS)
+                    if (memref.marker.marker_value == switch_type_t::SWITCH_PROCESS)
                         sched_as_string[i] += 'p';
-                    else if (memref.marker.marker_value == scheduler_t::SWITCH_THREAD)
+                    else if (memref.marker.marker_value == switch_type_t::SWITCH_THREAD)
                         sched_as_string[i] += 't';
                     else
                         assert(false && "unknown context switch type");
@@ -7333,14 +7326,15 @@ test_kernel_switch_sequences()
             // Thread switch.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                      scheduler_t::SWITCH_THREAD) &&
+                      switch_type_t::SWITCH_THREAD) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_INSTR_INDIRECT_JUMP,
                       TRACE_MARKER_TYPE_RESERVED_END,
                       // Points to the 1st instruction in thread 3.
                       static_cast<uintptr_t>(THREAD_3_INSTR_1_PC)) &&
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
-                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_THREAD) &&
+                      TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
+                      switch_type_t::SWITCH_THREAD) &&
             // We now see the headers for this thread.
             check_ref(refs[0], idx, TID_BASE + 2, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
@@ -7354,7 +7348,7 @@ test_kernel_switch_sequences()
             // Process switch.
             check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
-                      scheduler_t::SWITCH_PROCESS) &&
+                      switch_type_t::SWITCH_PROCESS) &&
             check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR) &&
             check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_INSTR_INDIRECT_JUMP,
                       TRACE_MARKER_TYPE_RESERVED_END,
@@ -7362,7 +7356,7 @@ test_kernel_switch_sequences()
                       static_cast<uintptr_t>(THREAD_5_INSTR_1_PC)) &&
             check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
-                      scheduler_t::SWITCH_PROCESS) &&
+                      switch_type_t::SWITCH_PROCESS) &&
             // We now see the headers for this thread.
             check_ref(refs[0], idx, workload1_tid1_final, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_VERSION) &&
@@ -7543,20 +7537,20 @@ test_kernel_switch_sequences()
         test_util::make_thread(TID_IN_SWITCHES),
         test_util::make_pid(TID_IN_SWITCHES),
         test_util::make_marker(
-            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, switch_type_t::SWITCH_PROCESS),
         test_util::make_instr(PROCESS_SWITCH_PC_START),
         test_util::make_marker(
-            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, switch_type_t::SWITCH_PROCESS),
         test_util::make_footer(),
         test_util::make_header(TRACE_ENTRY_VERSION),
         test_util::make_thread(TID_IN_SWITCHES),
         test_util::make_pid(TID_IN_SWITCHES),
         // Error: duplicate type.
         test_util::make_marker(
-            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, scheduler_t::SWITCH_PROCESS),
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, switch_type_t::SWITCH_PROCESS),
         test_util::make_instr(PROCESS_SWITCH_PC_START),
         test_util::make_marker(
-            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, scheduler_t::SWITCH_PROCESS),
+            TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, switch_type_t::SWITCH_PROCESS),
         test_util::make_footer(),
             /* clang-format on */
         };
