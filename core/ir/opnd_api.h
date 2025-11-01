@@ -2591,7 +2591,7 @@ opnd_create_instr_ex(instr_t *instr, opnd_size_t size, ushort shift);
 
 DR_API
 /**
- * Returns a far instr_t pointer address with value \p seg_selector:instr.
+ * Returns a far #instr_t pointer address with value \p seg_selector:instr.
  * \p seg_selector is a segment selector, not a DR_SEG_ constant.
  */
 opnd_t
@@ -2998,22 +2998,22 @@ opnd_is_far_pc(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
-/** Returns true iff \p opnd is a (near or far) instr_t pointer address operand. */
+/** Returns true iff \p opnd is a (near or far) #instr_t pointer address operand. */
 bool
 opnd_is_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a near instr_t pointer address operand. */
+/** Returns true iff \p opnd is a near #instr_t pointer address operand. */
 bool
 opnd_is_near_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a far instr_t pointer address operand. */
+/** Returns true iff \p opnd is a far #instr_t pointer address operand. */
 bool
 opnd_is_far_instr(opnd_t opnd);
 
 DR_API
-/** Returns true iff \p opnd is a memory reference to an instr_t address operand. */
+/** Returns true iff \p opnd is a memory reference to an #instr_t address operand. */
 bool
 opnd_is_mem_instr(opnd_t opnd);
 
@@ -3188,7 +3188,7 @@ DR_API
 /**
  * Sets the data size of \p opnd.
  * Assumes \p opnd is an immediate integer, a memory reference,
- * or an instr_t pointer address operand.
+ * or an #instr_t pointer address operand.
  */
 void
 opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
@@ -3292,12 +3292,15 @@ ushort
 opnd_get_segment_selector(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is an instr_t (near, far, or memory) operand and returns its value. */
+/**
+ * Assumes \p opnd is an #instr_t (near, far, or memory) operand and returns its
+ * value.
+ */
 instr_t *
 opnd_get_instr(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is a near instr_t operand and returns its shift value. */
+/** Assumes \p opnd is a near #instr_t operand and returns its shift value. */
 ushort
 opnd_get_shift(opnd_t opnd);
 

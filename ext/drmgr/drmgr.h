@@ -293,7 +293,7 @@ DR_EXPORT
  * All instrumentation must follow the guidelines for
  * #dr_register_bb_event() with the exception that multiple
  * application control transfer instructions are supported so long as
- * all but one have intra-block \p instr_t targets.  This is to
+ * all but one have intra-block \p #instr_t targets.  This is to
  * support internal control flow that may be necessary for some
  * application-to-application transformations.  These control transfer
  * instructions should have a translation set so that later passes

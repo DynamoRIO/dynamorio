@@ -53,7 +53,7 @@
  *   5) instr_create macros
  *   6) suite/tests/api/ir* tests
  */
-/** Opcode constants for use in the instr_t data structure. */
+/** Opcode constants for use in the #instr_t data structure. */
 enum {
     /*   0 */ OP_INVALID,
     /* NULL, */ /**< INVALID opcode */

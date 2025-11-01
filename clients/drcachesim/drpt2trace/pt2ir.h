@@ -358,7 +358,7 @@ public:
     /**
      * The convert function performs two processes: (1) decode the PT raw trace into
      * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
-     * instr_t and append it to ilist inside the drir object.
+     * #instr_t and append it to ilist inside the drir object.
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.

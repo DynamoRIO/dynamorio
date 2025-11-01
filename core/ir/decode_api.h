@@ -65,7 +65,7 @@ DR_API
  * (xref instr_get_raw_bits()).
  * Assumes that \p instr is already initialized, but uses the x86/x64 mode
  * for the thread \p dcontext rather than that set in instr.
- * If caller is re-using same instr_t struct over multiple decodings,
+ * If caller is re-using same #instr_t struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
  * Returns the address of the next byte after the decoded instruction.
  * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
@@ -88,7 +88,7 @@ DR_API
  * all filled in.
  * Assumes that \p instr is already initialized, but uses the x86/x64 mode
  * for the thread \p dcontext rather than that set in instr.
- * If caller is re-using same instr_t struct over multiple decodings,
+ * If caller is re-using same #instr_t struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
  * Returns the address of the next byte after the decoded instruction
  * copy at \p copy_pc.

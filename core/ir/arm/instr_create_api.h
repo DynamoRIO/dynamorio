@@ -88,7 +88,7 @@ enum {
 };
 
 /* Macros for building instructions, one for each opcode.
- * Each INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * Each INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The macro parameter types, encoded by name, are:
  *   dc = DR Context*
@@ -109,80 +109,80 @@ enum {
 /** @{ */ /* doxygen start group */
 
 /**
- * This platform-independent macro creates an instr_t for a debug trap
+ * This platform-independent macro creates an #instr_t for a debug trap
  * instruction, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_debug_instr(dc) INSTR_CREATE_bkpt((dc), OPND_CREATE_INT8(1))
 
 /**
- * This platform-independent macro creates an instr_t for a 4-byte
+ * This platform-independent macro creates an #instr_t for a 4-byte
  * or 8-byte (x64 only) memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load(dc, r, m) INSTR_CREATE_ldr((dc), (r), (m))
 
 /**
- * This platform-independent macro creates an instr_t which loads 1 byte
+ * This platform-independent macro creates an #instr_t which loads 1 byte
  * from memory, zero-extends it to 4 bytes, and writes it to a 4 byte
  * destination register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_1byte_zext4(dc, r, m) INSTR_CREATE_ldrb((dc), (r), (m))
 
 /**
- * This platform-independent macro creates an instr_t for a 1-byte
+ * This platform-independent macro creates an #instr_t for a 1-byte
  * memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_1byte(dc, r, m) INSTR_CREATE_ldrb((dc), (r), (m))
 
 /**
- * This platform-independent macro creates an instr_t for a 2-byte
+ * This platform-independent macro creates an #instr_t for a 2-byte
  * memory load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load_2bytes(dc, r, m) INSTR_CREATE_ldrh((dc), (r), (m))
 
 /**
- * This platform-independent macro creates an instr_t for a 4-byte
+ * This platform-independent macro creates an #instr_t for a 4-byte
  * or 8-byte (x64 only) memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store(dc, m, r) INSTR_CREATE_str((dc), (m), (r))
 
 /**
- * This platform-independent macro creates an instr_t for a 1-byte
+ * This platform-independent macro creates an #instr_t for a 1-byte
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store_1byte(dc, m, r) INSTR_CREATE_strb((dc), (m), (r))
 
 /**
- * This platform-independent macro creates an instr_t for a 2-byte
+ * This platform-independent macro creates an #instr_t for a 2-byte
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_strh((dc), (m), (r))
 
 /**
- * This AArchXX-platform-independent macro creates an instr_t for a 2-register
+ * This AArchXX-platform-independent macro creates an #instr_t for a 2-register
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r1  The first register opnd.
  * \param r2  The second register opnd.
@@ -190,9 +190,9 @@ enum {
 #define XINST_CREATE_store_pair(dc, m, r1, r2) INSTR_CREATE_strd((dc), (m), (r1), (r2))
 
 /**
- * This AArchXX-platform-independent macro creates an instr_t for a 2-register
+ * This AArchXX-platform-independent macro creates an #instr_t for a 2-register
  * memory store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r1  The first register opnd.
  * \param r2  The second register opnd.
  * \param m   The source memory opnd.
@@ -200,18 +200,18 @@ enum {
 #define XINST_CREATE_load_pair(dc, r1, r2, m) INSTR_CREATE_ldrd((dc), (r1), (r2), (m))
 
 /**
- * This platform-independent macro creates an instr_t for a register
+ * This platform-independent macro creates an #instr_t for a register
  * to register move instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
 #define XINST_CREATE_move(dc, d, s) INSTR_CREATE_mov((dc), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a multimedia
+ * This platform-independent macro creates an #instr_t for a multimedia
  * register load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  *
@@ -220,9 +220,9 @@ enum {
 #define XINST_CREATE_load_simd(dc, r, m) INSTR_CREATE_vldr((dc), (r), (m))
 
 /**
- * This platform-independent macro creates an instr_t for a multimedia
+ * This platform-independent macro creates an #instr_t for a multimedia
  * register store instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  *
@@ -231,27 +231,27 @@ enum {
 #define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_vstr((dc), (m), (r))
 
 /**
- * This platform-independent macro creates an instr_t for an indirect
+ * This platform-independent macro creates an #instr_t for an indirect
  * jump through memory instruction.  For AArch32, the memory address
  * must be aligned to 4.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param m   The memory opnd holding the target.
  */
 #define XINST_CREATE_jump_mem(dc, m) \
     INSTR_CREATE_ldr((dc), opnd_create_reg(DR_REG_PC), (m))
 
 /**
- * This platform-independent macro creates an instr_t for an indirect
+ * This platform-independent macro creates an #instr_t for an indirect
  * jump instruction through a register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The register opnd holding the target.
  */
 #define XINST_CREATE_jump_reg(dc, r) INSTR_CREATE_bx((dc), (r))
 
 /**
- * This platform-independent macro creates an instr_t for an immediate
+ * This platform-independent macro creates an #instr_t for an immediate
  * integer load instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
@@ -261,17 +261,17 @@ enum {
          : INSTR_CREATE_movw((dc), (r), (i)))
 
 /**
- * This platform-independent macro creates an instr_t for a return instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * This platform-independent macro creates an #instr_t for a return instruction.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_return(dc) INSTR_CREATE_pop(dc, opnd_create_reg(DR_REG_PC))
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -279,11 +279,11 @@ enum {
 #define XINST_CREATE_jump(dc, t) INSTR_CREATE_b((dc), (t))
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -291,11 +291,11 @@ enum {
 #define XINST_CREATE_call(dc, t) INSTR_CREATE_bl((dc), (t))
 
 /**
- * This platform-independent macro creates an instr_t for an unconditional
+ * This platform-independent macro creates an #instr_t for an unconditional
  * branch instruction with the smallest available reach.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -305,13 +305,13 @@ enum {
                                              : INSTR_CREATE_b((dc), (t)))
 
 /**
- * This platform-independent macro creates an instr_t for a conditional
+ * This platform-independent macro creates an #instr_t for a conditional
  * branch instruction that branches if the previously-set condition codes
  * indicate the condition indicated by \p pred.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param pred  The #dr_pred_type_t condition to match.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc)()) or an #instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
@@ -320,19 +320,19 @@ enum {
     (INSTR_PRED(INSTR_CREATE_b((dc), (t)), (pred)))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_add(dc, d, s) INSTR_CREATE_add((dc), (d), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags and takes two sources
  * plus a destination.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s1  The opnd_t explicit first source operand for the instruction.  This
  * must be a register.
@@ -342,11 +342,11 @@ enum {
 #define XINST_CREATE_add_2src(dc, d, s1, s2) INSTR_CREATE_add((dc), (d), (s1), (s2))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does not affect the status flags and takes two register sources
  * plus a destination, with one source being shifted logically left by
  * an immediate amount that is limited to either 0, 1, 2, or 3.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s1  The opnd_t explicit first source operand for the instruction.  This
  * must be a register.
@@ -360,77 +360,77 @@ enum {
                            OPND_CREATE_INT8(shift_amount))
 
 /**
- * This platform-independent macro creates an instr_t for an addition
+ * This platform-independent macro creates an #instr_t for an addition
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_adds((dc), (d), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a subtraction
+ * This platform-independent macro creates an #instr_t for a subtraction
  * instruction that does not affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_sub(dc, d, s) INSTR_CREATE_sub((dc), (d), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a subtraction
+ * This platform-independent macro creates an #instr_t for a subtraction
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_subs((dc), (d), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a bitwise and
+ * This platform-independent macro creates an #instr_t for a bitwise and
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_ands((dc), (d), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a logical right shift
+ * This platform-independent macro creates an #instr_t for a logical right shift
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_slr_s(dc, d, s) INSTR_CREATE_lsrs((dc), (d), (d), (s))
 
 /**
- * This platform-independent macro creates an instr_t for a comparison
+ * This platform-independent macro creates an #instr_t for a comparison
  * instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param s1  The opnd_t explicit source operand for the instruction.
  * \param s2  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_cmp(dc, s1, s2) INSTR_CREATE_cmp((dc), (s1), (s2))
 
 /**
- * This platform-independent macro creates an instr_t for a software
+ * This platform-independent macro creates an #instr_t for a software
  * interrupt instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param i   The source integer constant opnd_t operand.
  */
 #define XINST_CREATE_interrupt(dc, i) INSTR_CREATE_svc(dc, (i))
 
 /**
- * This platform-independent macro creates an instr_t for a nop instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * This platform-independent macro creates an #instr_t for a nop instruction.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  */
 #define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
 
 /**
- * This platform-independent macro creates an instr_t for an indirect call instr
+ * This platform-independent macro creates an #instr_t for an indirect call instr
  * through a register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param dc  The void * dcontext used to allocate memory for the #instr_t.
  * \param r   The opnd_t explicit source operand for the instruction. This should
  * be a reg_id_t operand with the address of the subroutine.
  */
@@ -442,9 +442,9 @@ enum {
  */
 
 /**
- * This macro creates an instr_t for a pop instruction into a single
+ * This macro creates an #instr_t for a pop instruction into a single
  * register, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  */
 #define INSTR_CREATE_pop(dc, Rd)                                          \
@@ -452,9 +452,9 @@ enum {
                            OPND_CREATE_INT16(sizeof(void *)))
 
 /**
- * This macro creates an instr_t for a pop instruction into a list of
+ * This macro creates an #instr_t for a pop instruction into a list of
  * registers, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
  */
@@ -462,9 +462,9 @@ enum {
     INSTR_CREATE_ldm_wb((dc), OPND_CREATE_MEMLIST(DR_REG_XSP), list_len, __VA_ARGS__)
 
 /**
- * This macro creates an instr_t for a push instruction of a single
+ * This macro creates an #instr_t for a push instruction of a single
  * register, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rt The destination register opnd_t operand.
  */
 #define INSTR_CREATE_push(dc, Rt)                                                       \
@@ -472,9 +472,9 @@ enum {
                            OPND_CREATE_INT16(-sizeof(void *)))
 
 /**
- * This macro creates an instr_t for a push instruction of a list of
+ * This macro creates an #instr_t for a push instruction of a list of
  * registers, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
  */
@@ -482,9 +482,9 @@ enum {
     INSTR_CREATE_stmdb_wb((dc), OPND_CREATE_MEMLIST(DR_REG_XSP), list_len, __VA_ARGS__)
 
 /**
- * This macro creates an instr_t for a negate instruction,
+ * This macro creates an #instr_t for a negate instruction,
  automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  */
@@ -492,9 +492,9 @@ enum {
     INSTR_CREATE_rsb((dc), (Rd), (Rn), OPND_CREATE_INT16(0))
 
 /**
- * This macro creats an instr_t for a jump instruction with a short
+ * This macro creats an #instr_t for a jump instruction with a short
  * reach, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param pc The program counter constant opnd_t operand.
  */
 #define INSTR_CREATE_b_short(dc, pc) instr_create_0dst_1src((dc), OP_b_short, (pc))
@@ -511,12 +511,12 @@ enum {
 /** @name Signature: () */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_clrex(dc) instr_create_0dst_0src((dc), OP_clrex)
 #define INSTR_CREATE_dcps1(dc) instr_create_0dst_0src((dc), OP_dcps1)
@@ -537,12 +537,12 @@ enum {
 /** @name Signature: (Rd) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  */
 #define INSTR_CREATE_vmrs(dc, Rd) \
@@ -552,12 +552,12 @@ enum {
 /** @name Signature: (Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_blx_ind(dc, Rm) \
@@ -569,12 +569,12 @@ enum {
 /** @name Signature: (Rt) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rt The source register opnd_t operand.
  */
 #define INSTR_CREATE_vmsr(dc, Rt) \
@@ -584,12 +584,12 @@ enum {
 /** @name Signature: (pc) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param pc The program counter constant opnd_t operand.
  */
 #define INSTR_CREATE_b(dc, pc) instr_create_0dst_1src((dc), OP_b, (pc))
@@ -603,12 +603,12 @@ enum {
 /** @name Signature: (Rd, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rm The source register opnd_t operand.
  */
@@ -624,12 +624,12 @@ enum {
 /** @name Signature: (Rd, Rn) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  */
@@ -642,12 +642,12 @@ enum {
 /** @name Signature: (pc, Rn) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param pc The program counter constant opnd_t operand.
  * \param Rn The source register opnd_t operand.
  */
@@ -658,12 +658,12 @@ enum {
 /** @name Signature: (Rd, statreg) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  */
@@ -674,12 +674,12 @@ enum {
 /** @name Signature: (Rd, Rm, Rn) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rm The source register opnd_t operand.
  * \param Rn The source register opnd_t operand.
@@ -691,12 +691,12 @@ enum {
 /** @name Signature: (Rd, Rn, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  * \param Rm The second source register opnd_t operand.
@@ -832,12 +832,12 @@ enum {
 /** @name Signature: (Rd, Rn, Rm, Ra) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  * \param Rm The second source register opnd_t operand.
@@ -884,12 +884,12 @@ enum {
 /** @name Signature: (Rd, Rd2, Rn, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rd2 The second destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
@@ -934,12 +934,12 @@ enum {
 /** @name Signature: (imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_bkpt(dc, imm) instr_create_0dst_1src((dc), OP_bkpt, (imm))
@@ -963,12 +963,12 @@ enum {
 /** @name Signature: (Rd, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  */
@@ -983,12 +983,12 @@ enum {
 /** @name Signature: (Rt, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rt The source register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  */
@@ -999,12 +999,12 @@ enum {
 /** @name Signature: (imm, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param imm The integer constant opnd_t operand.
  * \param Rm The source register opnd_t operand.
  */
@@ -1015,12 +1015,12 @@ enum {
 /** @name Signature: (imm, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
  */
@@ -1034,12 +1034,12 @@ enum {
 /** @name Signature: (Rd, Rm_or_imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rm_or_imm The source register, or integer constant, opnd_t operand.
  */
@@ -1062,12 +1062,12 @@ enum {
 /** @name Signature: (Rn, Rm_or_imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rn The source register opnd_t operand.
  * \param Rm_or_imm The second source register, or integer constant, opnd_t operand.
  */
@@ -1096,12 +1096,12 @@ enum {
 /** @name Signature: (Rd, Rm, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rm The source register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -1123,12 +1123,12 @@ enum {
 /** @name Signature: (Rd, Rn, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -1142,12 +1142,12 @@ enum {
 /** @name Signature: (Rd, imm, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -1161,12 +1161,12 @@ enum {
 /** @name Signature: (Rd, imm, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
@@ -1178,12 +1178,12 @@ enum {
 /** @name Signature: (Rd, Rn, Rm_or_imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  * \param Rm_or_imm The second source register, or integer constant, opnd_t operand.
@@ -1319,12 +1319,12 @@ enum {
 /** @name Signature: (Rd, statreg, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -1336,12 +1336,12 @@ enum {
 /** @name Signature: (statreg, imm, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -1353,12 +1353,12 @@ enum {
 /** @name Signature: (statreg, imm, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
@@ -1370,12 +1370,12 @@ enum {
 /** @name Signature: (statreg, imm_msr, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  * \param imm_msr The integer constant (typically from OPND_CREATE_INT_MSR*) opnd_t
  * operand. \param Rm The source register opnd_t operand.
@@ -1387,12 +1387,12 @@ enum {
 /** @name Signature: (Rd, Rn, Rm, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  * \param Rm The second source register opnd_t operand.
@@ -1415,12 +1415,12 @@ enum {
 /** @name Signature: (Rd, Rm, imm, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rm The source register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -1437,12 +1437,12 @@ enum {
 /** @name Signature: (Rd, Rm, shift, Rs) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rm The source register opnd_t operand.
  * \param shift The dr_shift_type_t integer constant opnd_t operand.
@@ -1461,12 +1461,12 @@ enum {
 /** @name Signature: (Rn, Rm, shift, Rs) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rn The source register opnd_t operand.
  * \param Rm The second source register opnd_t operand.
  * \param shift The dr_shift_type_t integer constant opnd_t operand.
@@ -1493,12 +1493,12 @@ enum {
 /** @name Signature: (Rd, Rn, Rm, shift, Rs) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  * \param Rm The second source register opnd_t operand.
@@ -1590,12 +1590,12 @@ enum {
 /** @name Signature: (Rd, Rm, shift, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rm The source register opnd_t operand.
  * \param shift The dr_shift_type_t integer constant opnd_t operand.
@@ -1614,12 +1614,12 @@ enum {
 /** @name Signature: (Rn, Rm, shift, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rn The source register opnd_t operand.
  * \param Rm The second source register opnd_t operand.
  * \param shift The dr_shift_type_t integer constant opnd_t operand.
@@ -1646,12 +1646,12 @@ enum {
 /** @name Signature: (Rd, Rn, Rm, shift, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  * \param Rm The second source register opnd_t operand.
@@ -1757,12 +1757,12 @@ enum {
 /** @name Signature: (Rd, imm, Rm, shift, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -1782,12 +1782,12 @@ enum {
 /** @name Signature: (mem) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  */
 #define INSTR_CREATE_pld(dc, mem) instr_create_0dst_1src((dc), OP_pld, (mem))
@@ -1800,12 +1800,12 @@ enum {
 /** @name Signature: (Rd, mem) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param mem The memory opnd_t operand.
  */
@@ -1845,12 +1845,12 @@ enum {
 /** @name Signature: (mem, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rm The source register opnd_t operand.
  */
@@ -1862,12 +1862,12 @@ enum {
 /** @name Signature: (mem, Rt) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rt The source register opnd_t operand.
  */
@@ -1884,12 +1884,12 @@ enum {
 /** @name Signature: (statreg, mem) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  * \param mem The memory opnd_t operand.
  */
@@ -1918,12 +1918,12 @@ enum {
 /** @name Signature: (Rd, Rd2, mem) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rd2 The second destination register opnd_t operand.
  * \param mem The memory opnd_t operand.
@@ -1939,12 +1939,12 @@ enum {
 /** @name Signature: (Rd, mem, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -1988,12 +1988,12 @@ enum {
 /** @name Signature: (mem, Rd, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rd The destination register opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -2015,12 +2015,12 @@ enum {
 /** @name Signature: (mem, Rt, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rt The source register opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -2040,12 +2040,12 @@ enum {
 /** @name Signature: (mem, Rt, Rt2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rt The source register opnd_t operand.
  * \param Rt2 The second source register opnd_t operand.
@@ -2057,12 +2057,12 @@ enum {
 /** @name Signature: (Rd, Rd2, mem, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rd2 The second destination register opnd_t operand.
  * \param mem The memory opnd_t operand.
@@ -2078,12 +2078,12 @@ enum {
 /** @name Signature: (mem, Rd, Rt, Rt2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rd The destination register opnd_t operand.
  * \param Rt The source register opnd_t operand.
@@ -2098,12 +2098,12 @@ enum {
 /** @name Signature: (mem, Rt, Rt2, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rt The source register opnd_t operand.
  * \param Rt2 The second source register opnd_t operand.
@@ -2119,12 +2119,12 @@ enum {
 /** @name Signature: (Rd, mem, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -2164,12 +2164,12 @@ enum {
 /** @name Signature: (mem, Rt, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rt The source register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -2197,12 +2197,12 @@ enum {
 /** @name Signature: (mem, imm, statreg) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
@@ -2240,12 +2240,12 @@ enum {
 /** @name Signature: (Rd, Rd2, mem, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rd2 The second destination register opnd_t operand.
  * \param mem The memory opnd_t operand.
@@ -2260,12 +2260,12 @@ enum {
 /** @name Signature: (mem, Rt, Rt2, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rt The source register opnd_t operand.
  * \param Rt2 The second source register opnd_t operand.
@@ -2279,12 +2279,12 @@ enum {
 /** @name Signature: (Rd, mem, Rm, shift, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -2320,12 +2320,12 @@ enum {
 /** @name Signature: (mem, Rt, Rm, shift, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rt The source register opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -2361,12 +2361,12 @@ enum {
 /** @name Signature: (mem, list_len, ...) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param list_len The number of registers in the register list.
  * \param ... The register list as separate opnd_t arguments.
@@ -2509,12 +2509,12 @@ enum {
 /** @name Signature: (mem, Rm, list_len, ...) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rm The source register opnd_t operand.
  * \param list_len The number of registers in the register list.
@@ -2546,12 +2546,12 @@ enum {
 /** @name Signature: (mem, imm, list_len, ...) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param list_len The number of registers in the register list.
@@ -2843,12 +2843,12 @@ enum {
 /** @name Signature: (mem, imm, Rm, list_len, ...) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param Rm The source register opnd_t operand.
@@ -3064,12 +3064,12 @@ enum {
 /** @name Signature: (mem, imm, imm2, list_len, ...) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
@@ -3166,12 +3166,12 @@ enum {
 /** @name Signature: (mem, imm, imm2, Rm, list_len, ...) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
@@ -3251,12 +3251,12 @@ enum {
 /** @name Signature: (Ra, Rd, imm, imm2, cpreg) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Ra The third source register opnd_t operand.
  * \param Rd The destination register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -3272,12 +3272,12 @@ enum {
 /** @name Signature: (cpreg, Rn, Rt, imm, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param cpreg The coprocessor register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  * \param Rt The source register opnd_t operand.
@@ -3293,12 +3293,12 @@ enum {
 /** @name Signature: (cpreg, cpreg2, imm, imm2, Rt) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param cpreg The coprocessor register opnd_t operand.
  * \param cpreg2 The second coprocessor register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -3312,12 +3312,12 @@ enum {
 /** @name Signature: (cpreg, imm, imm2, cpreg2, cpreg3) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param cpreg The coprocessor register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
@@ -3331,12 +3331,12 @@ enum {
 /** @name Signature: (Rd, imm, imm2, cpreg, cpreg2, imm3) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
@@ -3353,12 +3353,12 @@ enum {
 /** @name Signature: (cpreg, cpreg2, imm, imm2, Rt, imm3) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param cpreg The coprocessor register opnd_t operand.
  * \param cpreg2 The second coprocessor register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -3373,12 +3373,12 @@ enum {
 /** @name Signature: (cpreg, imm, imm2, cpreg2, cpreg3, imm3) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param cpreg The coprocessor register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
@@ -3394,12 +3394,12 @@ enum {
 /** @name Signature: (cpreg, mem, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param cpreg The coprocessor register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -3413,12 +3413,12 @@ enum {
 /** @name Signature: (mem, imm, cpreg, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param cpreg The coprocessor register opnd_t operand.
@@ -3449,12 +3449,12 @@ enum {
 /** @name Signature: (cpreg, mem, imm, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param cpreg The coprocessor register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -3485,12 +3485,12 @@ enum {
 /** @name Signature: (Rd, Vn) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Vn The source SIMD register opnd_t operand.
  */
@@ -3501,12 +3501,12 @@ enum {
 /** @name Signature: (Vd, Vm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vm The source SIMD register opnd_t operand.
  */
@@ -3800,7 +3800,7 @@ enum {
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Rt The source register opnd_t operand.
  */
@@ -3817,12 +3817,12 @@ enum {
 /** @name Signature: (Ra, Rd, Vm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Ra The third source register opnd_t operand.
  * \param Rd The destination register opnd_t operand.
  * \param Vm The source SIMD register opnd_t operand.
@@ -3834,12 +3834,12 @@ enum {
 /** @name Signature: (Vd, Vn, Vm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vn The source SIMD register opnd_t operand.
  * \param Vm The second source SIMD register opnd_t operand.
@@ -4363,12 +4363,12 @@ enum {
 /** @name Signature: (Vd, Rt, Rt2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Rt The source register opnd_t operand.
  * \param Rt2 The second source register opnd_t operand.
@@ -4380,12 +4380,12 @@ enum {
 /** @name Signature: (Rd, Rd2, Vt, Vt2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Rd2 The second destination register opnd_t operand.
  * \param Vt The source SIMD register opnd_t operand.
@@ -4398,12 +4398,12 @@ enum {
 /** @name Signature: (Vd, Vd2, Rt, Rt2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vd2 The second destination register opnd_t operand.
  * \param Rt The source register opnd_t operand.
@@ -4416,12 +4416,12 @@ enum {
 /** @name Signature: (Vd, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  */
@@ -4450,12 +4450,12 @@ enum {
 /** @name Signature: (Vd, Vm_or_imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vm_or_imm The source SIMD register, or integer constant, opnd_t operand.
  */
@@ -4468,12 +4468,12 @@ enum {
 /** @name Signature: (Vt, Vm_or_imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vt The source SIMD register opnd_t operand.
  * \param Vm_or_imm The source SIMD register, or integer constant, opnd_t operand.
  */
@@ -4494,12 +4494,12 @@ enum {
 /** @name Signature: (Rd, Vn, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd The destination register opnd_t operand.
  * \param Vn The source SIMD register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -4519,12 +4519,12 @@ enum {
 /** @name Signature: (Vd, Vm, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vm The source SIMD register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -4750,12 +4750,12 @@ enum {
 /** @name Signature: (Vd, Rt, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Rt The source register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -4771,12 +4771,12 @@ enum {
 /** @name Signature: (Vd, Vn, Vm_or_imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vn The source SIMD register opnd_t operand.
  * \param Vm_or_imm The source SIMD register, or integer constant, opnd_t operand.
@@ -4826,12 +4826,12 @@ enum {
 /** @name Signature: (Vd, Vn, Vm, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vn The source SIMD register opnd_t operand.
  * \param Vm The second source SIMD register opnd_t operand.
@@ -4906,12 +4906,12 @@ enum {
 /** @name Signature: (Vd, imm, Vn, Vm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param Vn The source SIMD register opnd_t operand.
@@ -4938,12 +4938,12 @@ enum {
 /** @name Signature: (Vd, mem) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param mem The memory opnd_t operand.
  */
@@ -4953,12 +4953,12 @@ enum {
 /** @name Signature: (mem, Vt) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Vt The source SIMD register opnd_t operand.
  */
@@ -4968,12 +4968,12 @@ enum {
 /** @name Signature: (Vd, mem, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -4989,12 +4989,12 @@ enum {
 /** @name Signature: (mem, Vt, imm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Vt The source SIMD register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -5010,12 +5010,12 @@ enum {
 /** @name Signature: (Vd, mem, imm, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -5031,12 +5031,12 @@ enum {
 /** @name Signature: (Vd, mem, imm, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -5059,12 +5059,12 @@ enum {
 /** @name Signature: (mem, Vt, imm, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Vt The source SIMD register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -5080,12 +5080,12 @@ enum {
 /** @name Signature: (mem, Vt, imm, imm2) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Vt The source SIMD register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -5108,12 +5108,12 @@ enum {
 /** @name Signature: (Vd, mem, imm, imm2, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -5135,12 +5135,12 @@ enum {
 /** @name Signature: (mem, Vt, imm, imm2, Rm) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param mem The memory opnd_t operand.
  * \param Vt The source SIMD register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
@@ -5162,12 +5162,12 @@ enum {
 /** @name Signature: (Vd, Vm, list_len, ...) */
 /** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * The operands should be listed with destinations first, followed by sources.
  * The ordering within these two groups should follow the conventional
  * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vm The source SIMD register opnd_t operand.
  * \param list_len The number of registers in the register list.

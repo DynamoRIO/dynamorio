@@ -371,7 +371,7 @@ typedef struct {
 } opnd_t;
 
 /**
- * Internal structure of instr_t is below abstraction layer, but we
+ * Internal structure of #instr_t is below abstraction layer, but we
  * provide its size so that it can be used in stack variables
  * instead of always allocated on the heap.
  */
