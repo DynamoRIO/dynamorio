@@ -36,6 +36,7 @@
  * AArch64 only.
  */
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -106,12 +107,12 @@ check_simd(const __uint128_t *reg)
 {
     for (int i = 0; i < 32; i++) {
         if (reg[i] != simd_ref[i]) {
-            unsigned long long got_hi, got_lo, exp_hi, exp_lo;
+            uint64_t got_hi, got_lo, exp_hi, exp_lo;
             u128_to_2xu64(reg[i], &got_hi, &got_lo);
             u128_to_2xu64(simd_ref[i], &exp_hi, &exp_lo);
-            printf(
-                "SIMD mismatch v%-2d: expected 0x%016llx%016llx, got 0x%016llx%016llx\n",
-                i, exp_hi, exp_lo, got_hi, got_lo);
+            printf("SIMD mismatch v%-2d: expected 0x%016" PRIx64 "%016" PRIx64
+                   ", got 0x%016" PRIx64 "%016" PRIx64 "\n",
+                   i, exp_hi, exp_lo, got_hi, got_lo);
             return -1;
         }
     }
