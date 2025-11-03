@@ -60,7 +60,7 @@
 
 /**
  * Set the translation field for an instruction. For example:
- * instr_t *pushf_instr = INSTR_XL8(INSTR_CREATE_pushf(drcontext), addr);
+ * #instr_t *pushf_instr = INSTR_XL8(INSTR_CREATE_pushf(drcontext), addr);
  */
 #define INSTR_XL8(instr_ptr, app_addr) instr_set_translation((instr_ptr), (app_addr))
 
@@ -154,10 +154,10 @@
                                                          : OPND_CREATE_INT16(val))
 
 /**
- * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
- * jump or call instr_t target, and when emitted it will take no space in the
+ * Creates an #instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
+ * jump or call #instr_t target, and when emitted it will take no space in the
  * resulting machine code.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
  */
 #define INSTR_CREATE_label(dc) instr_create_0dst_0src((dc), OP_LABEL)
 

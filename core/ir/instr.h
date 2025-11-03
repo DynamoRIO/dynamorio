@@ -428,7 +428,7 @@ instr_get_translation(instr_t *instr);
 DR_UNS_API
 /**
  * Brings all instrs in ilist up to the decode_cti level, and
- * hooks up intra-ilist cti targets to use instr_t targets, by
+ * hooks up intra-ilist cti targets to use #instr_t targets, by
  * matching pc targets to each instruction's raw bits.
  *
  * decode_cti decodes only enough of instr to determine
@@ -602,7 +602,7 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 1 byte (byte).
  */
 instr_t *
@@ -610,7 +610,7 @@ instr_create_raw_1byte(dcontext_t *dcontext, byte byte);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 2 bytes (byte1, byte2).
  */
 instr_t *
@@ -618,7 +618,7 @@ instr_create_raw_2bytes(dcontext_t *dcontext, byte byte1, byte byte2);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 3 bytes (byte1, byte2, byte3).
  */
 instr_t *
@@ -626,7 +626,7 @@ instr_create_raw_3bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 4 bytes (byte1, byte2, byte3, byte4).
  */
 instr_t *
@@ -635,7 +635,7 @@ instr_create_raw_4bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 5 bytes (byte1, byte2, byte3, byte4, byte5).
  */
 instr_t *
@@ -644,7 +644,7 @@ instr_create_raw_5bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 6 bytes (byte1, byte2, byte3, byte4, byte5, byte6).
  */
 instr_t *
@@ -653,7 +653,7 @@ instr_create_raw_6bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 7 bytes (byte1, byte2, byte3, byte4, byte5, byte6,
  * byte7).
  */
@@ -663,7 +663,7 @@ instr_create_raw_7bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialized instr_t with invalid operands
+ * Convenience routine that returns an initialized #instr_t with invalid operands
  * and allocated raw bits with 7 bytes (byte1, byte2, byte3, byte4, byte5, byte6,
  * byte7, byte8).
  */

@@ -60,7 +60,7 @@
  *   7) suite/tests/api/ir* tests
  *   8) add binutils tests in third_party/binutils/test_decenc
  */
-/** Opcode constants for use in the instr_t data structure. */
+/** Opcode constants for use in the #instr_t data structure. */
 enum {
     /*   0 */ OP_INVALID,
     /* NULL, */ /**< INVALID opcode */

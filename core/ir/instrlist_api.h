@@ -110,7 +110,7 @@ dr_pred_type_t
 instrlist_get_auto_predicate(instrlist_t *ilist);
 
 DR_API
-/** Returns the first instr_t in \p ilist. */
+/** Returns the first #instr_t in \p ilist. */
 instr_t *
 instrlist_first(instrlist_t *ilist);
 
@@ -140,7 +140,7 @@ instr_t *
 instrlist_first_nonlabel(instrlist_t *ilist);
 
 DR_API
-/** Returns the last instr_t in \p ilist. */
+/** Returns the last #instr_t in \p ilist. */
 instr_t *
 instrlist_last(instrlist_t *ilist);
 
@@ -178,10 +178,10 @@ instrlist_prepend(instrlist_t *ilist, instr_t *instr);
 
 DR_API
 /**
- * Allocates a new instrlist_t and for each instr_t in \p old allocates
- * a new instr_t using instr_clone to produce a complete copy of \p old.
+ * Allocates a new instrlist_t and for each #instr_t in \p old allocates
+ * a new #instr_t using instr_clone to produce a complete copy of \p old.
  * Each operand that is opnd_is_instr() has its target updated
- * to point to the corresponding instr_t in the new instrlist_t
+ * to point to the corresponding #instr_t in the new instrlist_t
  * (this routine assumes that all such targets are contained within \p old,
  * and may fault otherwise).
  */
