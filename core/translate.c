@@ -680,7 +680,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
      */
     if (instr_is_our_mangling_epilogue(inst)) {
         emulate_epilogue(walk->mc, inst);
-        return translate_pc + AARCH64_INSTR_SIZE;
+        return translate_pc;
     }
 #endif
     reg_id_t r;

@@ -2154,8 +2154,8 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t
             opnd_create_base_disp(reg, REG_NULL, 0, os_tls_offset(TLS_REG_STOLEN_SLOT),
                                   OPSZ_PTR),
             opnd_create_reg(dr_reg_stolen));
-        instr_set_our_mangling_epilogue(store, true);
-        PRE(ilist, next_instr, store);
+        PRE(ilist, next_instr,
+            instr_set_translation_mangling_epilogue(dcontext, ilist, store));
         ASSERT(instr_is_our_mangling(store));
     } else {
         DOLOG(4, LOG_INTERP, {
@@ -2168,8 +2168,8 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t
     /* This precise opcode (OP_orr) is checked for in instr_is_stolen_reg_move(). */
     instr_t *move =
         XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen), opnd_create_reg(reg));
-    instr_set_our_mangling_epilogue(move, true);
-    PRE(ilist, next_instr, move);
+    PRE(ilist, next_instr,
+        instr_set_translation_mangling_epilogue(dcontext, ilist, move));
     ASSERT(instr_is_our_mangling(move));
 }
 
@@ -2240,8 +2240,8 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* restore tmp if necessary */
     if (should_restore) {
         instr_t *restore = instr_create_restore_from_tls(dcontext, tmp, slot);
-        instr_set_our_mangling_epilogue(restore, true);
-        PRE(ilist, next_instr, restore);
+        PRE(ilist, next_instr,
+            instr_set_translation_mangling_epilogue(dcontext, ilist, restore));
         ASSERT(instr_is_our_mangling(restore));
     }
 }
