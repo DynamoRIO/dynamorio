@@ -87,8 +87,9 @@ test_code(int *adjust)
      * adjusted.
      */
     int dst = volatile_dst;
-    *adjust = (dst == 0 ? iters + 1 : dst < iters / 2 ? dst - iters / 2 :
-               dst - iters / 2 + 1);
+    *adjust = (dst == 0              ? iters + 1
+                   : dst < iters / 2 ? dst - iters / 2
+                                     : dst - iters / 2 + 1);
     return count != iters * 8;
 }
 
