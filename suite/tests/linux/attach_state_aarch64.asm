@@ -51,7 +51,9 @@
  *                        uint32_t *nzcv_ref,              SP + 0
  *                        uint64_t *sp_att,                SP + 8
  *                        uint64_t *pc_after,              SP + 16
- *                        uint32_t *nzcv_att);             SP + 24
+ *                        uint32_t *nzcv_att,              SP + 24
+ *                        const uint16_t *pred_ref,        SP + 32
+ *                        uint16_t *pred_att);             SP + 40
  *
  * x9 is used as a scratch register and for the loop count so is excluded from
  * the state check.
@@ -65,6 +67,7 @@ attach_state_test:
     mov     x12, sp
     ldp     x13, x14, [x12, #0]   // nzcv_ref, sp_att
     ldp     x15, x16, [x12, #16]  // pc_after, nzcv_att
+    ldp     x8,  x10, [x12, #32]  // pred_ref, pred_att
 
     /* Local stack frame layout (288 bytes, 16 byte aligned):
      * [sp+0]   = gpr_att     (x2)
@@ -89,6 +92,7 @@ attach_state_test:
      * [sp+240] = shadow x5  (           "          )
      * [sp+248] = shadow x8  (           "          )
      * [sp+256] = shadow x10 (           "          )
+     * [sp+288] = pred_att    (x10)
      */
     sub     sp, sp, #288
     stp     x2, x3, [sp, #0]    // gpr_att, simd_att
@@ -98,6 +102,7 @@ attach_state_test:
     stp     x13, x14, [sp, #48] // nzcv_ref, sp_att
     stp     x15, x16, [sp, #64] // pc_after, nzcv_att
     str     x0,  [sp, #192]     // Save gpr_ref
+    str     x10, [sp, #264]     // Save pred_att
 
     // Save callee-saved registers and LR.
     stp     x19, x20, [sp, #96]
@@ -140,6 +145,59 @@ pc_before_label:
 
     // Load SIMD registers from simd_ref (x1).
     mov     x2, x1
+#if defined(__ARM_FEATURE_SVE)
+    ldr     z0, [x2, #0, mul vl]
+    ldr     z1, [x2, #1, mul vl]
+    ldr     z2, [x2, #2, mul vl]
+    ldr     z3, [x2, #3, mul vl]
+    ldr     z4, [x2, #4, mul vl]
+    ldr     z5, [x2, #5, mul vl]
+    ldr     z6, [x2, #6, mul vl]
+    ldr     z7, [x2, #7, mul vl]
+    ldr     z8, [x2, #8, mul vl]
+    ldr     z9, [x2, #9, mul vl]
+    ldr     z10, [x2, #10, mul vl]
+    ldr     z11, [x2, #11, mul vl]
+    ldr     z12, [x2, #12, mul vl]
+    ldr     z13, [x2, #13, mul vl]
+    ldr     z14, [x2, #14, mul vl]
+    ldr     z15, [x2, #15, mul vl]
+    ldr     z16, [x2, #16, mul vl]
+    ldr     z17, [x2, #17, mul vl]
+    ldr     z18, [x2, #18, mul vl]
+    ldr     z19, [x2, #19, mul vl]
+    ldr     z20, [x2, #20, mul vl]
+    ldr     z21, [x2, #21, mul vl]
+    ldr     z22, [x2, #22, mul vl]
+    ldr     z23, [x2, #23, mul vl]
+    ldr     z24, [x2, #24, mul vl]
+    ldr     z25, [x2, #25, mul vl]
+    ldr     z26, [x2, #26, mul vl]
+    ldr     z27, [x2, #27, mul vl]
+    ldr     z28, [x2, #28, mul vl]
+    ldr     z29, [x2, #29, mul vl]
+    ldr     z30, [x2, #30, mul vl]
+    ldr     z31, [x2, #31, mul vl]
+    // Load predicate registers from pred_ref (x8).
+    ldr     p0, [x8, #0, mul vl]
+    ldr     p1, [x8, #1, mul vl]
+    ldr     p2, [x8, #2, mul vl]
+    ldr     p3, [x8, #3, mul vl]
+    ldr     p4, [x8, #4, mul vl]
+    ldr     p5, [x8, #5, mul vl]
+    ldr     p6, [x8, #6, mul vl]
+    ldr     p7, [x8, #7, mul vl]
+    ldr     p8, [x8, #8, mul vl]
+    ldr     p9, [x8, #9, mul vl]
+    ldr     p10, [x8, #10, mul vl]
+    ldr     p11, [x8, #11, mul vl]
+    ldr     p12, [x8, #12, mul vl]
+    ldr     p13, [x8, #13, mul vl]
+    ldr     p14, [x8, #14, mul vl]
+    ldr     p15, [x8, #16, mul vl]
+    wrffr   p15.b
+    ldr     p15, [x8, #15, mul vl]
+#else
     ldp     q0,  q1,  [x2, #  0]
     ldp     q2,  q3,  [x2, # 32]
     ldp     q4,  q5,  [x2, # 64]
@@ -156,6 +214,7 @@ pc_before_label:
     ldp     q26, q27, [x2, #416]
     ldp     q28, q29, [x2, #448]
     ldp     q30, q31, [x2, #480]
+#endif /* defined(__ARM_FEATURE_SVE) */
 
     // Load GPRs from gpr_ref (x0).
     mov     x27, x0
@@ -189,6 +248,60 @@ pc_before_label:
     str     x5,  [sp, #240]
     str     x8,  [sp, #248]
     str     x10, [sp, #256]
+#if defined(__ARM_FEATURE_SVE)
+    addvl   sp, sp,  #-32
+    str     z0,  [sp, #0, mul vl]
+    str     z1,  [sp, #1, mul vl]
+    str     z2,  [sp, #2, mul vl]
+    str     z3,  [sp, #3, mul vl]
+    str     z4,  [sp, #4, mul vl]
+    str     z5,  [sp, #5, mul vl]
+    str     z6,  [sp, #6, mul vl]
+    str     z7,  [sp, #7, mul vl]
+    str     z8,  [sp, #8, mul vl]
+    str     z9,  [sp, #9, mul vl]
+    str     z10, [sp, #10, mul vl]
+    str     z11, [sp, #11, mul vl]
+    str     z12, [sp, #12, mul vl]
+    str     z13, [sp, #13, mul vl]
+    str     z14, [sp, #14, mul vl]
+    str     z15, [sp, #15, mul vl]
+    str     z16, [sp, #16, mul vl]
+    str     z17, [sp, #17, mul vl]
+    str     z18, [sp, #18, mul vl]
+    str     z19, [sp, #19, mul vl]
+    str     z20, [sp, #20, mul vl]
+    str     z21, [sp, #21, mul vl]
+    str     z22, [sp, #22, mul vl]
+    str     z23, [sp, #23, mul vl]
+    str     z24, [sp, #24, mul vl]
+    str     z25, [sp, #25, mul vl]
+    str     z26, [sp, #26, mul vl]
+    str     z27, [sp, #27, mul vl]
+    str     z28, [sp, #28, mul vl]
+    str     z29, [sp, #29, mul vl]
+    str     z30, [sp, #30, mul vl]
+    str     z31, [sp, #31, mul vl]
+    addpl   sp, sp,  #-24
+    str     p0,  [sp, #0, mul vl]
+    str     p1,  [sp, #1, mul vl]
+    str     p2,  [sp, #2, mul vl]
+    str     p3,  [sp, #3, mul vl]
+    str     p4,  [sp, #4, mul vl]
+    str     p5,  [sp, #5, mul vl]
+    str     p6,  [sp, #6, mul vl]
+    str     p7,  [sp, #7, mul vl]
+    str     p8,  [sp, #8, mul vl]
+    str     p9,  [sp, #9, mul vl]
+    str     p10, [sp, #10, mul vl]
+    str     p11, [sp, #11, mul vl]
+    str     p12, [sp, #12, mul vl]
+    str     p13, [sp, #13, mul vl]
+    str     p14, [sp, #14, mul vl]
+    str     p15, [sp, #15, mul vl]
+    rdffr   p15.b
+    str     p15, [sp, #16, mul vl]
+#endif
 
     adrp    x1, name_att_test_loop
     add     x1, x1, :lo12:name_att_test_loop
@@ -204,6 +317,61 @@ pc_before_label:
      * test in runall.cmake invokes an attach before the loads complete) but it
      * is minimal and will suffice for this test.
      */
+#if defined(__ARM_FEATURE_SVE)
+    ldr     p0,  [sp, #0, mul vl]
+    ldr     p1,  [sp, #1, mul vl]
+    ldr     p2,  [sp, #2, mul vl]
+    ldr     p3,  [sp, #3, mul vl]
+    ldr     p4,  [sp, #4, mul vl]
+    ldr     p5,  [sp, #5, mul vl]
+    ldr     p6,  [sp, #6, mul vl]
+    ldr     p7,  [sp, #7, mul vl]
+    ldr     p8,  [sp, #8, mul vl]
+    ldr     p9,  [sp, #9, mul vl]
+    ldr     p10, [sp, #10, mul vl]
+    ldr     p11, [sp, #11, mul vl]
+    ldr     p12, [sp, #12, mul vl]
+    ldr     p13, [sp, #13, mul vl]
+    ldr     p14, [sp, #14, mul vl]
+    ldr     p15, [sp, #16, mul vl]
+    wrffr   p15.b
+    ldr     p15, [sp, #15, mul vl]
+    addpl   sp, sp, #24
+    ldr     z0,  [sp, #0, mul vl]
+    ldr     z1,  [sp, #1, mul vl]
+    ldr     z2,  [sp, #2, mul vl]
+    ldr     z3,  [sp, #3, mul vl]
+    ldr     z4,  [sp, #4, mul vl]
+    ldr     z5,  [sp, #5, mul vl]
+    ldr     z6,  [sp, #6, mul vl]
+    ldr     z7,  [sp, #7, mul vl]
+    ldr     z8,  [sp, #8, mul vl]
+    ldr     z9,  [sp, #9, mul vl]
+    ldr     z10, [sp, #10, mul vl]
+    ldr     z11, [sp, #11, mul vl]
+    ldr     z12, [sp, #12, mul vl]
+    ldr     z13, [sp, #13, mul vl]
+    ldr     z14, [sp, #14, mul vl]
+    ldr     z15, [sp, #15, mul vl]
+    ldr     z16, [sp, #16, mul vl]
+    ldr     z17, [sp, #17, mul vl]
+    ldr     z18, [sp, #18, mul vl]
+    ldr     z19, [sp, #19, mul vl]
+    ldr     z20, [sp, #20, mul vl]
+    ldr     z21, [sp, #21, mul vl]
+    ldr     z22, [sp, #22, mul vl]
+    ldr     z23, [sp, #23, mul vl]
+    ldr     z24, [sp, #24, mul vl]
+    ldr     z25, [sp, #25, mul vl]
+    ldr     z26, [sp, #26, mul vl]
+    ldr     z27, [sp, #27, mul vl]
+    ldr     z28, [sp, #28, mul vl]
+    ldr     z29, [sp, #29, mul vl]
+    ldr     z30, [sp, #30, mul vl]
+    ldr     z31, [sp, #31, mul vl]
+    addvl   sp, sp, #31 /* Maximum offset is 31. */
+    addvl   sp, sp, #1
+#endif
     ldr     x0,  [sp, #200]
     ldr     x1,  [sp, #208]
     ldr     x2,  [sp, #216]
@@ -244,6 +412,60 @@ pc_before_label:
 
     // Save post-attach SIMDs to simd_att.
     ldr     x9, [sp, #8]
+#if defined(__ARM_FEATURE_SVE)
+    str     z0, [x9, #0, mul vl]
+    str     z1, [x9, #1, mul vl]
+    str     z2, [x9, #2, mul vl]
+    str     z3, [x9, #3, mul vl]
+    str     z4, [x9, #4, mul vl]
+    str     z5, [x9, #5, mul vl]
+    str     z6, [x9, #6, mul vl]
+    str     z7, [x9, #7, mul vl]
+    str     z8, [x9, #8, mul vl]
+    str     z9, [x9, #9, mul vl]
+    str     z10, [x9, #10, mul vl]
+    str     z11, [x9, #11, mul vl]
+    str     z12, [x9, #12, mul vl]
+    str     z13, [x9, #13, mul vl]
+    str     z14, [x9, #14, mul vl]
+    str     z15, [x9, #15, mul vl]
+    str     z16, [x9, #16, mul vl]
+    str     z17, [x9, #17, mul vl]
+    str     z18, [x9, #18, mul vl]
+    str     z19, [x9, #19, mul vl]
+    str     z20, [x9, #20, mul vl]
+    str     z21, [x9, #21, mul vl]
+    str     z22, [x9, #22, mul vl]
+    str     z23, [x9, #23, mul vl]
+    str     z24, [x9, #24, mul vl]
+    str     z25, [x9, #25, mul vl]
+    str     z26, [x9, #26, mul vl]
+    str     z27, [x9, #27, mul vl]
+    str     z28, [x9, #28, mul vl]
+    str     z29, [x9, #29, mul vl]
+    str     z30, [x9, #30, mul vl]
+    str     z31, [x9, #31, mul vl]
+    // Save post-attach predicates to pred_att.
+    ldr     x9, [sp, #264]
+    str     p0, [x9, #0, mul vl]
+    str     p1, [x9, #1, mul vl]
+    str     p2, [x9, #2, mul vl]
+    str     p3, [x9, #3, mul vl]
+    str     p4, [x9, #4, mul vl]
+    str     p5, [x9, #5, mul vl]
+    str     p6, [x9, #6, mul vl]
+    str     p7, [x9, #7, mul vl]
+    str     p8, [x9, #8, mul vl]
+    str     p9, [x9, #9, mul vl]
+    str     p10, [x9, #10, mul vl]
+    str     p11, [x9, #11, mul vl]
+    str     p12, [x9, #12, mul vl]
+    str     p13, [x9, #13, mul vl]
+    str     p14, [x9, #14, mul vl]
+    str     p15, [x9, #15, mul vl]
+    rdffr   p15.b
+    str     p15, [x9, #16, mul vl]
+#else
     stp     q0,  q1,  [x9, #  0]
     stp     q2,  q3,  [x9, # 32]
     stp     q4,  q5,  [x9, # 64]
@@ -260,6 +482,7 @@ pc_before_label:
     stp     q26, q27, [x9, #416]
     stp     q28, q29, [x9, #448]
     stp     q30, q31, [x9, #480]
+#endif /* defined(__ARM_FEATURE_SVE) */
 
     // Save post-attach FPCR/FPSR to fpcr_att/fpsr_att.
     ldr     x9, [sp, #16]

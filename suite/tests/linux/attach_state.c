@@ -56,11 +56,16 @@ void
 attach_state_test(const uint64_t *gpr_ref, const __uint128_t *simd_ref, uint64_t *gpr_att,
                   __uint128_t *simd_att, uint32_t *fpcr_att, uint32_t *fpsr_att,
                   uint64_t *sp_ref, uint64_t *pc_before, uint32_t *nzcv_ref,
-                  uint64_t *sp_att, uint64_t *pc_after, uint32_t *nzcv_att);
+                  uint64_t *sp_att, uint64_t *pc_after, uint32_t *nzcv_att,
+                  const uint16_t *pred_ref, uint16_t *pred_att);
 
-/* Register reference data. i#7577: SVE registers to be added. */
 static uint64_t gpr_ref[31];
-static __uint128_t simd_ref[32] __attribute__((aligned(16)));
+#define MAX_SIMD_REG_SIZE_IN_QUADWORDS (256 / sizeof(__uint128_t))
+static __uint128_t simd_ref[32 * MAX_SIMD_REG_SIZE_IN_QUADWORDS]
+    __attribute__((aligned(16)));
+
+/* 16 predicate P registers and the First Fault Register (FFR). */
+static uint16_t pred_ref[17 * MAX_SIMD_REG_SIZE_IN_QUADWORDS];
 
 /* Non-zero reference values for status registers. */
 static const uint32_t nzcv_ref = 0x60000000; /* N=0 Z=1 C=1 V=0                */
@@ -95,6 +100,19 @@ check_gprs(const uint64_t *reg)
     return 0;
 }
 
+static inline size_t
+get_vector_length_in_bytes(void)
+{
+#if defined(__ARM_FEATURE_SVE)
+    size_t vector_length_in_bytes;
+    asm("rdvl %[dest], 1" : [dest] "=r"(vector_length_in_bytes));
+    return vector_length_in_bytes;
+#else
+    /* No SVE support. Neon registers are always 128-bit (1 quadword). */
+    return sizeof(__uint128_t);
+#endif
+}
+
 static inline void
 u128_to_2xu64(__uint128_t v, uint64_t *hi, uint64_t *lo)
 {
@@ -105,19 +123,58 @@ u128_to_2xu64(__uint128_t v, uint64_t *hi, uint64_t *lo)
 static int
 check_simd(const __uint128_t *reg)
 {
-    for (int i = 0; i < 32; i++) {
+    int status = 0;
+#if defined(__ARM_FEATURE_SVE)
+    const char *reg_file = "z";
+#else
+    const char *reg_file = "v";
+#endif
+    const size_t quadwords_per_register =
+        get_vector_length_in_bytes() / sizeof(__uint128_t);
+    const size_t number_of_simd_registers = 32;
+    for (size_t i = 0; i < (quadwords_per_register * number_of_simd_registers); i++) {
         if (reg[i] != simd_ref[i]) {
+            const uint64_t reg_num = i / quadwords_per_register;
+            const uint64_t q_element_num = i % quadwords_per_register;
             uint64_t got_hi, got_lo, exp_hi, exp_lo;
             u128_to_2xu64(reg[i], &got_hi, &got_lo);
             u128_to_2xu64(simd_ref[i], &exp_hi, &exp_lo);
-            printf("SIMD mismatch v%-2d: expected 0x%016" PRIx64 "%016" PRIx64
-                   ", got 0x%016" PRIx64 "%016" PRIx64 "\n",
-                   i, exp_hi, exp_lo, got_hi, got_lo);
-            return -1;
+            printf("SIMD mismatch %s%-2" PRId64 "[%" PRIx64 "]: expected 0x%016" PRIx64
+                   "%016" PRIx64 ", got 0x%016" PRIx64 "%016" PRIx64 "\n",
+                   reg_file, reg_num, q_element_num, exp_hi, exp_lo, got_hi, got_lo);
+            status = -1;
         }
     }
-    return 0;
+    return status;
 }
+
+#if defined(__ARM_FEATURE_SVE)
+static int
+check_pred(const uint16_t *reg)
+{
+    int status = 0;
+    const char *reg_file = "v";
+    const size_t halfwords_per_register =
+        get_vector_length_in_bytes() / (8 * sizeof(uint16_t));
+    const size_t number_of_pred_registers = 17;
+    for (size_t i = 0; i < (halfwords_per_register * number_of_pred_registers); i++) {
+        if (reg[i] != pred_ref[i]) {
+            const uint64_t reg_num = i / halfwords_per_register;
+            const uint64_t element_num = i % halfwords_per_register;
+            if (reg_num < 16) {
+                printf("Predicate mismatch p%-2" PRId64 "[%" PRIx64
+                       "]: expected 0x%04x, got 0x%04x\n",
+                       reg_num, element_num, pred_ref[i], reg[i]);
+            } else {
+                printf("FFR[%" PRId64 "] mismatch: expected 0x%04x, got 0x%04x\n",
+                       element_num, pred_ref[i], reg[i]);
+            }
+            status = -1;
+        }
+    }
+    return status;
+}
+#endif
 
 #define UNSET_PASS_IF(cond, ...) \
     do {                         \
@@ -132,7 +189,9 @@ main(void)
 {
     /* Register values after the attach to be checked against _ref values. */
     uint64_t gpr_att[31];
-    __uint128_t simd_att[32] __attribute__((aligned(16)));
+    __uint128_t simd_att[32 * MAX_SIMD_REG_SIZE_IN_QUADWORDS]
+        __attribute__((aligned(16)));
+    uint16_t pred_att[17 * MAX_SIMD_REG_SIZE_IN_QUADWORDS];
     uint32_t fpcr_att = 0, fpsr_att = 0;
 
     uint32_t nzcv_ref = 0, nzcv_att = 0;
@@ -147,17 +206,25 @@ main(void)
     for (int i = 0; i < 31; i++)
         gpr_ref[i] = base + (uint64_t)i;
 
-    for (int i = 0; i < 32; i++) {
+    const size_t quadwords_per_register =
+        get_vector_length_in_bytes() / sizeof(__uint128_t);
+    for (size_t i = 0; i < 32 * quadwords_per_register; i++) {
         uint64_t lo = 0xaaaabbbbccccddddULL + (uint64_t)i;
-        uint64_t hi = 0x111122223333aaaaULL ^ (uint64_t)(31 - i);
+        uint64_t hi =
+            0x111122223333aaaaULL ^ (uint64_t)((32 * quadwords_per_register) - 1 - i);
         simd_ref[i] = (((__uint128_t)hi) << 64) | lo;
+    }
+
+    for (size_t i = 0; i < 17 * quadwords_per_register; i++) {
+        pred_ref[i] = 0xabcd + (uint16_t)i;
     }
 
     /* Useful for manual attach testing. */
     printf("PID: %ld\n", (long)getpid());
 
     attach_state_test(gpr_ref, simd_ref, gpr_att, simd_att, &fpcr_att, &fpsr_att, &sp_ref,
-                      &pc_before, &nzcv_ref, &sp_att, &pc_after, &nzcv_att);
+                      &pc_before, &nzcv_ref, &sp_att, &pc_after, &nzcv_att, pred_ref,
+                      pred_att);
 
     int pass = 1;
 
@@ -165,6 +232,10 @@ main(void)
         pass = 0;
     if (check_simd(simd_att) != 0)
         pass = 0;
+#if defined(__ARM_FEATURE_SVE)
+    if (check_pred(pred_att) != 0)
+        pass = 0;
+#endif
 
     UNSET_PASS_IF(nzcv_att != nzcv_ref, "NZCV mismatch: expected 0x%08x, got 0x%08x\n",
                   nzcv_ref, nzcv_att);
