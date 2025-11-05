@@ -5593,7 +5593,7 @@ if (BUILD_CLIENTS)
           "${PROJECT_SOURCE_DIR}/clients/drpoints/tests")
       endmacro ()
 
-      if (X64)
+      if (X86 AND X64)
         add_drpoints_asm_test(bb_10_instr_5 10)
       endif ()
     endif ()
