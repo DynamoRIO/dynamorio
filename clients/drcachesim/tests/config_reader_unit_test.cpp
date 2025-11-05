@@ -33,8 +33,11 @@
 #include <iostream>
 #include "config_reader_unit_test.h"
 #include "reader/config_reader.h"
+#include "reader/config_reader_helpers.h"
 #include "simulator/cache.h"
 #include "simulator/cache_simulator_create.h"
+
+#include <cassert>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -118,6 +121,196 @@ unit_test_config_reader(const std::string &testdir)
             exit(1);
         }
     }
+}
+
+void
+unit_test_get_type_name()
+{
+    std::cerr << "Testing get_type_name" << std::endl;
+    assert(strcmp(get_type_name<bool>(), "bool") == 0);
+    assert(strcmp(get_type_name<int>(), "int") == 0);
+    assert(strcmp(get_type_name<unsigned int>(), "unsigned int") == 0);
+    assert(strcmp(get_type_name<float>(), "float") == 0);
+    assert(strcmp(get_type_name<double>(), "double") == 0);
+}
+
+void
+unit_test_parse_value()
+{
+    std::cerr << "Testing parse_value" << std::endl;
+
+    // Parse boolean values
+    // Supported values are: true, True, TRUE, false, False, FALSE
+    bool dst_bool = false;
+    assert(parse_value("true", &dst_bool) && dst_bool);
+    assert(parse_value("False", &dst_bool) && !dst_bool);
+    assert(parse_value("True", &dst_bool) && dst_bool);
+    assert(parse_value("false", &dst_bool) && !dst_bool);
+    assert(parse_value("TRUE", &dst_bool) && dst_bool);
+    assert(parse_value("FALSE", &dst_bool) && !dst_bool);
+    assert(!parse_value("0", &dst_bool));   // Numbers not supported
+    assert(!parse_value("1", &dst_bool));   // Numbers not supported
+    assert(!parse_value("abc", &dst_bool)); // Strings not supported
+
+    // Parse signed integer values
+    int dst_int = -1;
+    assert(parse_value("0", &dst_int) && dst_int == 0);
+    assert(parse_value("1", &dst_int) && dst_int == 1);
+    assert(parse_value("-123", &dst_int) && dst_int == -123);
+    assert(!parse_value("abc", &dst_int));  // Not a number
+    assert(!parse_value("123f", &dst_int)); // Not a number
+    assert(!parse_value("a123", &dst_int)); // Not a number
+
+    // Parse unsigned integer values
+    unsigned int dst_uint = -1;
+    assert(parse_value("0", &dst_uint) && dst_uint == 0);
+    assert(parse_value("123", &dst_uint) && dst_uint == 123);
+    assert(!parse_value("-1", &dst_uint)); // Signed values not supported
+
+    // Parse double values
+    double dst_double = .0;
+    assert(parse_value("123", &dst_double) && dst_double == 123);
+    assert(parse_value("123.4", &dst_double) && dst_double == 123.4);
+    assert(parse_value("-123.45", &dst_double) && dst_double == -123.45);
+    assert(!parse_value("abc", &dst_double));
+    assert(!parse_value("1.abc", &dst_double));
+    assert(!parse_value("a1.23", &dst_double));
+}
+
+void
+unit_test_read_parameter_map_simple()
+{
+    {
+        // Simple key-value pair
+        config_t config;
+        std::istringstream ss { "key 1" };
+        assert(read_param_map(&ss, &config));
+        assert(config["key"].type == config_node_t::SCALAR &&
+               config["key"].scalar.compare("1") == 0);
+    }
+
+    {
+        // Several key-value pairs
+        config_t config;
+        std::istringstream ss { "key1 1 key2 2 key3 123" };
+        assert(read_param_map(&ss, &config));
+        assert(config["key1"].type == config_node_t::SCALAR &&
+               config["key1"].scalar.compare("1") == 0);
+        assert(config["key1"].p_line == 1 && config["key1"].p_column == 1);
+        assert(config["key1"].v_line == 1 && config["key1"].v_column == 6);
+        assert(config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].scalar.compare("2") == 0);
+        assert(config["key2"].p_line == 1 && config["key2"].p_column == 8);
+        assert(config["key2"].v_line == 1 && config["key2"].v_column == 13);
+        assert(config["key3"].type == config_node_t::SCALAR &&
+               config["key3"].scalar.compare("123") == 0);
+        assert(config["key3"].p_line == 1 && config["key3"].p_column == 15);
+        assert(config["key3"].v_line == 1 && config["key3"].v_column == 20);
+    }
+
+    {
+        // Multiline configuration
+        config_t config;
+        std::istringstream ss { "key1 1\nkey2 2\nkey3 123" };
+        assert(read_param_map(&ss, &config));
+        assert(config["key1"].type == config_node_t::SCALAR &&
+               config["key1"].scalar.compare("1") == 0);
+        assert(config["key1"].p_line == 1 && config["key1"].p_column == 1);
+        assert(config["key1"].v_line == 1 && config["key1"].v_column == 6);
+        assert(config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].scalar.compare("2") == 0);
+        assert(config["key2"].p_line == 2 && config["key2"].p_column == 1);
+        assert(config["key2"].v_line == 2 && config["key2"].v_column == 6);
+        assert(config["key3"].type == config_node_t::SCALAR &&
+               config["key3"].scalar.compare("123") == 0);
+        assert(config["key3"].p_line == 3 && config["key3"].p_column == 1);
+        assert(config["key3"].v_line == 3 && config["key3"].v_column == 6);
+    }
+
+    {
+        // Multiline configuration with comments and extra spaces
+        config_t config;
+        std::istringstream ss {
+            "key1 1\nkey2 2 // This is the comment key3 123\n   key4   4\t "
+        };
+        assert(read_param_map(&ss, &config));
+        assert(config["key1"].type == config_node_t::SCALAR &&
+               config["key1"].scalar.compare("1") == 0);
+        assert(config["key1"].p_line == 1 && config["key1"].p_column == 1);
+        assert(config["key1"].v_line == 1 && config["key1"].v_column == 6);
+        assert(config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].scalar.compare("2") == 0);
+        assert(config["key2"].p_line == 2 && config["key2"].p_column == 1);
+        assert(config["key2"].v_line == 2 && config["key2"].v_column == 6);
+        assert(config.find("key3") == config.end());
+        assert(config["key4"].type == config_node_t::SCALAR &&
+               config["key4"].scalar.compare("4") == 0);
+        assert(config["key4"].p_line == 3 && config["key4"].p_column == 4);
+        assert(config["key4"].v_line == 3 && config["key4"].v_column == 11);
+    }
+}
+
+void
+unit_test_read_parameter_map_nested()
+{
+    {
+        // Simple nested configuration
+        config_t config;
+        std::istringstream ss { "key0{key1 1 key2 2 key3 123}" };
+        assert(read_param_map(&ss, &config));
+        assert(config["key0"].type == config_node_t::MAP);
+        auto &key0 = config["key0"].children;
+        assert(key0["key1"].type == config_node_t::SCALAR &&
+               key0["key1"].scalar.compare("1") == 0 &&
+               key0["key2"].type == config_node_t::SCALAR &&
+               key0["key2"].scalar.compare("2") == 0 &&
+               key0["key3"].type == config_node_t::SCALAR &&
+               key0["key3"].scalar.compare("123") == 0);
+    }
+
+    {
+        // 2-level nested configuration
+        config_t config;
+        std::istringstream ss { "key0{key1 1 key2 {key3 123 key4 4}}" };
+        assert(read_param_map(&ss, &config));
+        assert(config["key0"].type == config_node_t::MAP);
+        auto &key0 = config["key0"].children;
+        assert(key0["key1"].type == config_node_t::SCALAR &&
+               key0["key1"].scalar.compare("1") == 0);
+        assert(key0["key2"].type == config_node_t::MAP);
+        auto &key2 = key0["key2"].children;
+        assert(key2["key3"].type == config_node_t::SCALAR &&
+               key2["key3"].scalar.compare("123") == 0 &&
+               key2["key4"].type == config_node_t::SCALAR &&
+               key2["key4"].scalar.compare("4") == 0);
+    }
+
+    {
+        // Wrong configuration: Single "}" brace missed
+        config_t config;
+        std::istringstream ss { "key0{key1 1" };
+        assert(!read_param_map(&ss, &config));
+    }
+    {
+        // Wrong configuration: Multiple "}" braces missed
+        config_t config;
+        std::istringstream ss { "key0{key1 {" };
+        assert(!read_param_map(&ss, &config));
+    }
+    {
+        // Wrong configuration: Braces without parameter name
+        config_t config;
+        std::istringstream ss { "key0{{" };
+        assert(!read_param_map(&ss, &config));
+    }
+}
+
+void
+unit_test_read_parameter_map()
+{
+    std::cerr << "Testing read_parameter_map" << std::endl;
+    unit_test_read_parameter_map_simple();
+    unit_test_read_parameter_map_nested();
 }
 
 } // namespace drmemtrace
