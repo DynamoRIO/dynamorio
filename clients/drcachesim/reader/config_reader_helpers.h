@@ -39,6 +39,10 @@
 #include <map>
 #include <string>
 #include <istream>
+#include <sstream>
+#include <iostream>
+
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -47,12 +51,12 @@ namespace drmemtrace {
 struct config_node_t {
     enum { UNKNOWN, SCALAR, MAP } type; // Type: scalar value or nested parameters
 
-    // Line and column where the parameter name is defined
-    int param_line;
-    int param_column;
-    // Line and column where the value is defined
-    int val_line;
-    int val_column;
+    // Line and column where the parameter name is defined starting from 1
+    int p_line;
+    int p_column;
+    // Line and column where the value is defined starting from 1
+    int v_line;
+    int v_column;
 
     std::string scalar; // Value in string representation.
                         // Will be converted to simple type later
@@ -64,78 +68,42 @@ typedef config_node_t::map_t config_t;
 
 class config_tokenizer_t {
 public:
-    config_tokenizer_t(std::istream *is)
-        : is_(is)
-        , line_(-1)
-        , column_(-1)
-    {
-    }
+    config_tokenizer_t(std::istream *is);
 
-    // TODO: Treat braces as spaces:
-    //      name{n0 v0 n1 v1}
+    // Read the next token from the stream
+    // Return true if the token successfully read, false otherwise.
+    // In case of EOF the function returns false and set config_tokenizer_t EOF flag.
     bool
-    next(std::string &token)
-    {
-        std::string tmp;
-        do {
-            if (!(*is_ >> tmp)) {
-                ERRMSG("Unable to extract token from line %d column %d\n", line_,
-                       column_);
-                return false;
-            }
-            if (tmp == "//") {
-                // A comment. Skip it till the end of the line
-                if (!std::getline(*is_, tmp)) {
-                    ERRMSG("Comment expected but not found at line %d column %d\n", line_,
-                           column_);
-                    return false;
-                }
-                // Read next token
-                continue;
-            }
+    next(std::string &token);
 
-            if (!is_->eof()) {
-                *is_ >> std::ws;
-                if (!(*is_)) {
-                    ERRMSG("Unable to read from the configuration\n");
-                    return false;
-                }
-            }
-        } while (0);
-        token = tmp;
-        return true;
-    }
-
-    // TODO: Implement
-    bool
+    // Returns EOF flag
+    inline bool
     eof() const
     {
-        return false;
+        return eof_;
     }
 
-    // TODO: Implement
-    int
+    // Returns current line number starting from 1
+    inline int
     getline() const
     {
         return line_;
     }
 
-    // TODO: Implement
-    int
+    // Returns current column number in the line starting from 1
+    inline int
     getcolumn() const
     {
         return column_;
     }
 
 private:
-    std::istream *is_;
-    std::string buffer_;
-    int line_;
-    int column_;
+    std::istream *is_;     // Input stream
+    std::stringstream ss_; // Temporary stream containing single line
+    int line_;             // Current line number
+    int column_;           // Current column number
+    bool eof_;             // EOF flag
 };
-
-bool
-read_param_map_impl(config_tokenizer_t *, config_t *);
 
 // Read configuration parameters from stream
 // Supported scalar parameters:
@@ -146,66 +114,7 @@ read_param_map_impl(config_tokenizer_t *, config_t *);
 //      name0 val0 name5 { name6 val6 name7 { name8 val8 name9 val9 } }
 // Tokens separated with spaces
 bool
-read_param_map(std::istream *is, config_t *params)
-{
-    config_tokenizer_t tokenizer(is);
-    return read_param_map_impl(&tokenizer, params);
-}
-
-bool
-read_param_map_impl(config_tokenizer_t *tokenizer, config_t *params)
-{
-
-    while (!tokenizer->eof()) {
-        std::string token;
-        if (!tokenizer->next(token)) {
-            if (tokenizer->eof()) {
-                // ?
-            } else {
-                ERRMSG("Failed to read the configuration file\n");
-                return false;
-            }
-        }
-        int p_line = tokenizer->getline();
-        int p_column = tokenizer->getcolumn();
-
-        if (token == "{") {
-            ERRMSG("Braces without parameter name not allowed at line %d column %d\n",
-                   p_line, p_column);
-            return false;
-        } else if (token == "}") {
-            // Parameter map ended. Just end processing
-            return true;
-        } else {
-            std::string name = token;
-            if (!tokenizer->next(token)) {
-                ERRMSG("Error reading '%s' from line %d column %d\n", name.c_str(),
-                       p_line, p_column);
-                return false;
-            }
-            int v_line = tokenizer->getline();
-            int v_column = tokenizer->getcolumn();
-            if (token == "{") {
-                // This is nested parameter map
-                config_node_t val { config_node_t::MAP, p_line, p_column, v_line,
-                                    v_column };
-                if (!read_param_map_impl(tokenizer, &(val.children))) {
-                    ERRMSG("Error reading structure '%s' from the configuration file\n",
-                           name.c_str());
-                    return false;
-                }
-                params->emplace(name, val);
-            } else {
-                // Parameter value
-                config_node_t val { config_node_t::SCALAR, p_line, p_column, v_line,
-                                    v_column };
-                val.scalar = token;
-                params->emplace(name, val);
-            }
-        }
-    }
-    return true;
-}
+read_param_map(std::istream *is, config_t *params);
 
 #ifndef WINDOWS
 // Returns real name for the type

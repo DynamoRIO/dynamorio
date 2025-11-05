@@ -195,11 +195,17 @@ unit_test_read_parameter_map_simple()
         std::istringstream ss { "key1 1 key2 2 key3 123" };
         assert(read_param_map(&ss, &config));
         assert(config["key1"].type == config_node_t::SCALAR &&
-               config["key1"].scalar.compare("1") == 0 &&
-               config["key2"].type == config_node_t::SCALAR &&
-               config["key2"].scalar.compare("2") == 0 &&
-               config["key3"].type == config_node_t::SCALAR &&
+               config["key1"].scalar.compare("1") == 0);
+        assert(config["key1"].p_line == 1 && config["key1"].p_column == 1);
+        assert(config["key1"].v_line == 1 && config["key1"].v_column == 6);
+        assert(config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].scalar.compare("2") == 0);
+        assert(config["key2"].p_line == 1 && config["key2"].p_column == 8);
+        assert(config["key2"].v_line == 1 && config["key2"].v_column == 13);
+        assert(config["key3"].type == config_node_t::SCALAR &&
                config["key3"].scalar.compare("123") == 0);
+        assert(config["key3"].p_line == 1 && config["key3"].p_column == 15);
+        assert(config["key3"].v_line == 1 && config["key3"].v_column == 20);
     }
 
     {
@@ -208,11 +214,17 @@ unit_test_read_parameter_map_simple()
         std::istringstream ss { "key1 1\nkey2 2\nkey3 123" };
         assert(read_param_map(&ss, &config));
         assert(config["key1"].type == config_node_t::SCALAR &&
-               config["key1"].scalar.compare("1") == 0 &&
-               config["key2"].type == config_node_t::SCALAR &&
-               config["key2"].scalar.compare("2") == 0 &&
-               config["key3"].type == config_node_t::SCALAR &&
+               config["key1"].scalar.compare("1") == 0);
+        assert(config["key1"].p_line == 1 && config["key1"].p_column == 1);
+        assert(config["key1"].v_line == 1 && config["key1"].v_column == 6);
+        assert(config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].scalar.compare("2") == 0);
+        assert(config["key2"].p_line == 2 && config["key2"].p_column == 1);
+        assert(config["key2"].v_line == 2 && config["key2"].v_column == 6);
+        assert(config["key3"].type == config_node_t::SCALAR &&
                config["key3"].scalar.compare("123") == 0);
+        assert(config["key3"].p_line == 3 && config["key3"].p_column == 1);
+        assert(config["key3"].v_line == 3 && config["key3"].v_column == 6);
     }
 
     {
@@ -223,12 +235,18 @@ unit_test_read_parameter_map_simple()
         };
         assert(read_param_map(&ss, &config));
         assert(config["key1"].type == config_node_t::SCALAR &&
-               config["key1"].scalar.compare("1") == 0 &&
-               config["key2"].type == config_node_t::SCALAR &&
-               config["key2"].scalar.compare("2") == 0 &&
-               config.find("key3") == config.end() &&
-               config["key4"].type == config_node_t::SCALAR &&
+               config["key1"].scalar.compare("1") == 0);
+        assert(config["key1"].p_line == 1 && config["key1"].p_column == 1);
+        assert(config["key1"].v_line == 1 && config["key1"].v_column == 6);
+        assert(config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].scalar.compare("2") == 0);
+        assert(config["key2"].p_line == 2 && config["key2"].p_column == 1);
+        assert(config["key2"].v_line == 2 && config["key2"].v_column == 6);
+        assert(config.find("key3") == config.end());
+        assert(config["key4"].type == config_node_t::SCALAR &&
                config["key4"].scalar.compare("4") == 0);
+        assert(config["key4"].p_line == 3 && config["key4"].p_column == 4);
+        assert(config["key4"].v_line == 3 && config["key4"].v_column == 11);
     }
 }
 
@@ -238,7 +256,7 @@ unit_test_read_parameter_map_nested()
     {
         // Simple nested configuration
         config_t config;
-        std::istringstream ss { "key0 { key1 1 key2 2 key3 123 }" };
+        std::istringstream ss { "key0{key1 1 key2 2 key3 123}" };
         assert(read_param_map(&ss, &config));
         assert(config["key0"].type == config_node_t::MAP);
         auto &key0 = config["key0"].children;
@@ -253,7 +271,7 @@ unit_test_read_parameter_map_nested()
     {
         // 2-level nested configuration
         config_t config;
-        std::istringstream ss { "key0 { key1 1 key2 { key3 123 key4 4 } }" };
+        std::istringstream ss { "key0{key1 1 key2 {key3 123 key4 4}}" };
         assert(read_param_map(&ss, &config));
         assert(config["key0"].type == config_node_t::MAP);
         auto &key0 = config["key0"].children;
@@ -265,6 +283,25 @@ unit_test_read_parameter_map_nested()
                key2["key3"].scalar.compare("123") == 0 &&
                key2["key4"].type == config_node_t::SCALAR &&
                key2["key4"].scalar.compare("4") == 0);
+    }
+
+    {
+        // Wrong configuration: Single "}" brace missed
+        config_t config;
+        std::istringstream ss { "key0{key1 1" };
+        assert(!read_param_map(&ss, &config));
+    }
+    {
+        // Wrong configuration: Multiple "}" braces missed
+        config_t config;
+        std::istringstream ss { "key0{key1 {" };
+        assert(!read_param_map(&ss, &config));
+    }
+    {
+        // Wrong configuration: Braces without parameter name
+        config_t config;
+        std::istringstream ss { "key0{{" };
+        assert(!read_param_map(&ss, &config));
     }
 }
 

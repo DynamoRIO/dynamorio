@@ -38,6 +38,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 // Extract parameter value from string
+// TODO: Print line number
 template <typename T>
 bool
 parse_param_value_or_fail(const std::string &pname, const config_node_t &p, T *dst)
