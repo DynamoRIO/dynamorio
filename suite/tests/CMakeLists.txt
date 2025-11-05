@@ -5570,13 +5570,15 @@ if (BUILD_CLIENTS)
   ###########################################################################
   # drpoints tests
 
-  if (X86)
-    torunonly_ci(tool.drpoints.simple ${ci_shared_app} drpoints
-      client-interface/${ci_shared_app} # for .expect
-      "-instr_interval 100 -no_out_bbv_file" "" "")
-    set(tool.drpoints.simple_toolname "drpoints")
+  if (X86 OR AARCH64)
+    if (NOT WINDOWS)
+      torunonly_ci(tool.drpoints.simple ${ci_shared_app} drpoints
+        client-interface/${ci_shared_app} # for .expect
+        "-instr_interval 100 -no_out_bbv_file" "" "")
+      set(tool.drpoints.simple_toolname "drpoints")
+    endif ()
 
-    if (UNIX AND NOT APPLE)
+    if (UNIX AND NOT APPLE AND NOT WINDOWS)
       # For more targeted tests, we need whole-asm, which is much easier
       # on Linux where we can make a static app that executes just a few insrs.
       macro (add_drpoints_asm_test name instr_interval)
@@ -5595,7 +5597,7 @@ if (BUILD_CLIENTS)
         add_drpoints_asm_test(bb_10_instr_5 10)
       endif ()
     endif ()
-  endif (X86)
+  endif ()
 
 endif (BUILD_CLIENTS)
 
