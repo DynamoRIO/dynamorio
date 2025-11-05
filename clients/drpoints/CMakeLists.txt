@@ -57,6 +57,19 @@ endif ()
 
 install_target(drpoints ${INSTALL_CLIENTS_LIB})
 
+# On Linux we rely on the rpath
+if (WIN32)
+  DynamoRIO_get_full_path(DR_TARGET_LOCATION dynamorio "${location_suffix}")
+  DR_install(FILES "${DR_TARGET_LOCATION}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
+  # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
+  # if we found one, so our drcov2lcov works pre-Vista.
+  if (dbghelp_path)
+    DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_CLIENTS_BIN})
+  endif ()
+  # We need a copy of DR for the build dir:
+  add_dependencies(drpoints client_dr_copy)
+endif (WIN32)
+
 set(INSTALL_DRPOINTS_CONFIG ${INSTALL_CLIENTS_BASE})
 
 if (X64)
