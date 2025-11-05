@@ -5594,7 +5594,7 @@ if (BUILD_CLIENTS)
       endmacro ()
 
       if (X86 AND X64)
-        add_drpoints_asm_test(bb_10_instr_5 10)
+        add_drpoints_asm_test(bb_12_instr_5_x86 10)
       endif ()
     endif ()
   endif ()
