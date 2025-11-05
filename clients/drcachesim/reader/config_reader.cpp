@@ -38,19 +38,20 @@ namespace dynamorio {
 namespace drmemtrace {
 
 // Extract parameter value from string
-// TODO: Print line number
 template <typename T>
 bool
 parse_param_value_or_fail(const std::string &pname, const config_node_t &p, T *dst)
 {
     if (p.type == config_node_t::MAP) {
-        ERRMSG("Array for '%s' not supported, '%s' value expected.\n", pname.c_str(),
-               get_type_name<T>());
+        ERRMSG(
+            "Array for '%s' not supported at line %d column %d. '%s' value expected.\n",
+            pname.c_str(), p.v_line, p.v_column, get_type_name<T>());
         return false;
     }
     if (!parse_value(p.scalar, dst)) {
-        ERRMSG("Incorrect value '%s' for '%s', '%s' value expected.\n", p.scalar.c_str(),
-               pname.c_str(), get_type_name<T>());
+        ERRMSG(
+            "Incorrect value '%s' for '%s' at line %d column %d. '%s' value expected.\n",
+            p.scalar.c_str(), pname.c_str(), p.v_line, p.v_column, get_type_name<T>());
         return false;
     }
     return true;
