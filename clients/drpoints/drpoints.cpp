@@ -37,6 +37,7 @@
  */
 
 #include "dr_api.h"
+#include "dr_defines.h"
 #include "dr_events.h"
 #include "drmgr.h"
 #include "droption.h"
@@ -72,7 +73,7 @@ using ::dynamorio::droption::droption_t;
 
 static droption_t<bytesize_t> instr_interval(
     DROPTION_SCOPE_CLIENT, "instr_interval", 100000000 /*=100M instructions*/,
-    "The instruction interval to generate BBVs",
+    "The instruction interval for which to generate BBVs",
     "Divides the program execution in instruction intervals of the specified size and "
     "generates BBVs as the BB execution frequency within the interval times the number "
     "of instructions in the BB. Default is 100M instructions.");
@@ -82,6 +83,12 @@ static droption_t<bool>
                     "Enables printing the Basic Block Vectors to standard output",
                     "Also prints to standard output on top of generating the .bbv file. "
                     "Default is false.");
+
+static droption_t<bool> no_out_bbv_file(
+    DROPTION_SCOPE_CLIENT, "no_out_bbv_file", false,
+    "Disables the generation of the output .bbv file",
+    "Disables the generation of the output .bbv file, but still runs the client. Useful "
+    "for unit tests or paired with -print_to_stdout. Default is false.");
 
 // Global hash table that maps the PC of a BB's first instruction to a unique,
 // increasing ID that comes from unique_bb_count.
@@ -318,19 +325,23 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 static void
 event_exit(void)
 {
-    // Get the current working directory where drrun is executing. We save the .bbv file
-    // there.
-    char cwd[MAXIMUM_PATH];
-    if (!dr_get_current_directory(cwd, sizeof(cwd)))
-        FATAL("ERROR: dr_get_current_directory() failed");
+    bool generate_file = !no_out_bbv_file.get_value();
+    file_t bbvs_file = INVALID_FILE;
+    if (generate_file) {
+        // Get the current working directory where drrun is executing. We save the .bbv
+        // file there.
+        char cwd[MAXIMUM_PATH];
+        if (!dr_get_current_directory(cwd, sizeof(cwd)))
+            FATAL("ERROR: dr_get_current_directory() failed");
 
-    // Create and open the drpoints.PROC_BIN_NAME.PID.UNIQUE_ID.bbv file.
-    char buf[MAXIMUM_PATH];
-    file_t bbvs_file =
-        drx_open_unique_appid_file(cwd, dr_get_process_id(), "drpoints", "bbv",
-                                   DR_FILE_WRITE_REQUIRE_NEW, buf, sizeof(buf));
-    if (bbvs_file == INVALID_FILE)
-        FATAL("ERROR: unable to create BBVs file");
+        // Create and open the drpoints.PROC_BIN_NAME.PID.UNIQUE_ID.bbv file.
+        char buf[MAXIMUM_PATH];
+        bbvs_file =
+            drx_open_unique_appid_file(cwd, dr_get_process_id(), "drpoints", "bbv",
+                                       DR_FILE_WRITE_REQUIRE_NEW, buf, sizeof(buf));
+        if (bbvs_file == INVALID_FILE)
+            FATAL("ERROR: unable to create BBVs file");
+    }
 
     // Define the format strings we use to write the file.
     const char *one_pair_only = "T:%d:%d \n";
@@ -363,11 +374,13 @@ event_exit(void)
             if (print_to_stdout.get_value())
                 dr_fprintf(STDOUT, "%s", msg);
 
-            dr_write_file(bbvs_file, msg, (size_t)len);
+            if (generate_file)
+                dr_write_file(bbvs_file, msg, (size_t)len);
         }
     }
 
-    dr_close_file(bbvs_file);
+    if (generate_file)
+        dr_close_file(bbvs_file);
 
     // Free DR memory.
     hashtable_delete(&pc_to_id_map);

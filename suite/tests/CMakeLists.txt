@@ -5567,6 +5567,36 @@ if (BUILD_CLIENTS)
     # b/c our tests have too-new instrs for older machines.
   endif (X86)
 
+  ###########################################################################
+  # drpoints tests
+
+  if (X86)
+    torunonly_ci(tool.drpoints.simple ${ci_shared_app} drpoints
+      client-interface/${ci_shared_app} # for .expect
+      "-instr_interval 100 -no_out_bbv_file" "" "")
+    set(tool.drpoints.simple_toolname "drpoints")
+
+    if (UNIX AND NOT APPLE)
+      # For more targeted tests, we need whole-asm, which is much easier
+      # on Linux where we can make a static app that executes just a few insrs.
+      macro (add_drpoints_asm_test name instr_interval)
+        add_exe(tool.${name} ${PROJECT_SOURCE_DIR}/clients/drpoints/tests/${name}.asm)
+        set_target_properties(tool.${name} PROPERTIES LINKER_LANGUAGE C)
+        append_link_flags(tool.${name} "-nostartfiles -nodefaultlibs -static")
+        torunonly_ci(tool.drpoints.${name} tool.${name} drpoints
+          ${PROJECT_SOURCE_DIR}/clients/drpoints/tests/${name}.asm
+          "-instr_interval ${instr_interval} -print_to_stdout -no_out_bbv_file" "" "")
+        set(tool.drpoints.${name}_toolname "drpoints")
+        set(tool.drpoints.${name}_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drpoints/tests")
+      endmacro ()
+
+      if (X64)
+        add_drpoints_asm_test(bb_10_instr_5 10)
+      endif ()
+    endif ()
+  endif (X86)
+
 endif (BUILD_CLIENTS)
 
 # ##########################################################################
