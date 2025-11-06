@@ -5479,6 +5479,14 @@ if (BUILD_CLIENTS)
       "${dir_prefix}.*.dir/raw/syscall_record_file.*")
   endif ()
 
+  if (LINUX AND (X86 OR AARCH64))
+    add_exe(linux.vdso_functions linux/vdso-functions.c)
+    append_link_flags(linux.vdso_functions "-static")
+    torunonly_drcacheoff(vdso-functions linux.vdso_functions "-collect_syscall_records"
+            "@-tool@syscall_mix" "")
+    unset(tool.drcacheoff.vdso-functions_rawtemp) # use preprocessor
+  endif ()
+
   ###########################################################################
   # drcpusim tests
 

@@ -1,0 +1,52 @@
+#ifdef X86
+#    ifdef X64
+#        define SYSCALL_GETTIMEOFDAY 96
+#        define SYSCALL_CLOCK_GETTIME 228
+#        define SYSCALL_GETCPU 309
+#        define SYSCALL_TIME 201
+#    else
+#        define SYSCALL_GETTIMEOFDAY 78
+#        define SYSCALL_CLOCK_GETTIME 265
+#        define SYSCALL_GETCPU 318
+#        define SYSCALL_TIME 13
+#    endif
+#elif defined(AARCH64)
+#    define SYSCALL_GETTIMEOFDAY 169
+#    define SYSCALL_CLOCK_GETTIME 113
+#    define SYSCALL_CLOCK_GETRES 114
+#else
+#    error Unsupported architecture
+#endif
+gettimeofday returns [0-9]+ seconds and [0-9]+ microseconds
+syscall SYS_gettimeofday returns [0-9]+ seconds and [0-9]+ microseconds
+clock_gettime returns [0-9]+ seconds and [0-9]+ nanoseconds
+syscall SYS_clock_gettime returns [0-9]+ seconds and [0-9]+ nanoseconds
+#ifdef X86
+getcpu returns [0-9]+ cpu and [0-9]+ node
+syscall SYS_getcpu returns [0-9]+ cpu and [0-9]+ node
+time returns [0-9]+ seconds since the Epoch
+syscall SYS_time returns [0-9]+ seconds since the Epoch
+#elif defined(AARCH64)
+clock_getres returns [0-9]+ seconds and [0-9]+ nanoseconds
+syscall SYS_clock_getres returns [0-9]+ seconds and [0-9]+ nanoseconds
+#endif
+Syscall mix tool results:
+  syscall count : syscall_num
+#ifdef X86
+#    ifdef X64
+(\n|.)*              1 : ( )+ SYSCALL_GETCPU
+(\n|.)*              1 : ( )+ SYSCALL_CLOCK_GETTIME
+(\n|.)*              1 : ( )+ SYSCALL_TIME
+(\n|.)*              1 : ( )+ SYSCALL_GETTIMEOFDAY
+#    else
+(\n|.)*              1 : ( )+ SYSCALL_GETCPU
+(\n|.)*              1 : ( )+ SYSCALL_CLOCK_GETTIME
+(\n|.)*              1 : ( )+ SYSCALL_GETTIMEOFDAY
+(\n|.)*              1 : ( )+ SYSCALL_TIME
+#    endif
+#elif defined(AARCH64)
+(\n|.)*              1 : ( )+ SYSCALL_GETTIMEOFDAY
+(\n|.)*              1 : ( )+ SYSCALL_GETTIME
+(\n|.)*              1 : ( )+ SYSCALL_GETRES
+#endif
+(\n|.)*
