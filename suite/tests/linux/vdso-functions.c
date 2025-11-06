@@ -70,7 +70,7 @@ main(int argc, char **argv)
           tp.tv_nsec);
 
 #ifdef X86
-#ifdef X64
+#    ifdef X64
     unsigned int cpu, node;
     if (getcpu(&cpu, &node) != 0) {
         print("getcpu failed, errno %d", errno);
@@ -82,7 +82,7 @@ main(int argc, char **argv)
         return 1;
     }
     print("syscall SYS_getcpu returns %d cpu and %d node\n", cpu, node);
-#endif
+#    endif
     time_t epoch_time = time(/*tloc=*/NULL);
     if (epoch_time == -1) {
         print("time failed, errno %d", errno);
