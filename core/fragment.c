@@ -6822,9 +6822,7 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 {
     flush_fragments_in_region_start(dcontext, base, size, own_initexit_lock, free_futures,
                                     true /*exec invalid*/, false /*don't force synchall*/,
-                                    THREAD_SYNCH_NO_LOCKS_NO_XFER
-
-                                        _IF_DGCDIAG(NULL));
+                                    THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
     /* ok to call on non-exec region, so don't need to test return value
      * both flush routines will return quickly if nothing to flush/was flushed
      */
