@@ -39,14 +39,14 @@ Syscall mix tool results:
 (\n|.)*              1 : ( )+ SYSCALL_TIME
 (\n|.)*              1 : ( )+ SYSCALL_GETTIMEOFDAY
 #    else
-(\n|.)*              1 : ( )+ SYSCALL_GETCPU
+(\n|.)*              2 : ( )+ SYSCALL_GETCPU
 (\n|.)*              1 : ( )+ SYSCALL_CLOCK_GETTIME
 (\n|.)*              1 : ( )+ SYSCALL_GETTIMEOFDAY
 (\n|.)*              1 : ( )+ SYSCALL_TIME
 #    endif
 #elif defined(AARCH64)
 (\n|.)*              1 : ( )+ SYSCALL_GETTIMEOFDAY
-(\n|.)*              1 : ( )+ SYSCALL_GETTIME
-(\n|.)*              1 : ( )+ SYSCALL_GETRES
+(\n|.)*              1 : ( )+ SYSCALL_CLOCK_GETTIME
+(\n|.)*              1 : ( )+ SYSCALL_CLOCK_GETRES
 #endif
 (\n|.)*
