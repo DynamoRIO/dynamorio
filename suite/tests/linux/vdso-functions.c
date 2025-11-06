@@ -107,7 +107,7 @@ main(int argc, char **argv)
         print("syscall SYS_clock_getres failed, errno %d", errno);
         return 1;
     }
-    print("clock_getres returns %d seconds and %d nanoseconds\n", res.tv_sec,
+    print("syscall clock_getres returns %d seconds and %d nanoseconds\n", res.tv_sec,
           res.tv_nsec);
 #else
 #    error Unsupported arch
