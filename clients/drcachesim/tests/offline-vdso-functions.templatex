@@ -21,8 +21,10 @@ syscall SYS_gettimeofday returns [0-9]+ seconds and [0-9]+ microseconds
 clock_gettime returns [0-9]+ seconds and [0-9]+ nanoseconds
 syscall SYS_clock_gettime returns [0-9]+ seconds and [0-9]+ nanoseconds
 #ifdef X86
+#    ifdef X64
 getcpu returns [0-9]+ cpu and [0-9]+ node
 syscall SYS_getcpu returns [0-9]+ cpu and [0-9]+ node
+#    endif
 time returns [0-9]+ seconds since the Epoch
 syscall SYS_time returns [0-9]+ seconds since the Epoch
 #elif defined(AARCH64)
