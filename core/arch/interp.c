@@ -8305,7 +8305,8 @@ d_r_emulate_instr(dcontext_t *dcontext, instr_t *inst, priv_mcontext_t *mc)
         }
 #endif
         return true;
-#ifdef AARCH64 /* XXX i#7707: This part, used by emulate_epilogue, may be unnecessary. */
+#ifdef AARCH64
+        /* XXX i#7707: This part, used by emulate_epilogue, may become unnecessary. */
     } else if (opc == OP_ldr) {
         if (!(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 1))
             return false;
@@ -8331,13 +8332,11 @@ d_r_emulate_instr(dcontext_t *dcontext, instr_t *inst, priv_mcontext_t *mc)
         if (!(opnd_is_reg(dst) && opnd_is_reg(src1) && opnd_is_reg(src2) &&
               opnd_is_immed(src3) && opnd_is_immed(src4)) ||
             opnd_get_reg(src1) != DR_REG_XZR ||
-            opnd_get_immed_int(src3) != DR_SHIFT_LSL ||
-            opnd_get_immed_int(src4) != 0)
+            opnd_get_immed_int(src3) != DR_SHIFT_LSL || opnd_get_immed_int(src4) != 0)
             return false;
         reg_t rd = opnd_get_reg(dst);
         reg_t rs = opnd_get_reg(src2);
-        if (!(DR_REG_X0 <= rd && rd <= DR_REG_X30 && DR_REG_X0 <= rs &&
-              rs <= DR_REG_X30))
+        if (!(DR_REG_X0 <= rd && rd <= DR_REG_X30 && DR_REG_X0 <= rs && rs <= DR_REG_X30))
             return false;
         reg_set_value_priv(rd, mc, reg_get_value_priv(rs, mc));
         return true;
@@ -8376,7 +8375,7 @@ d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
     DOLOG(2, LOG_INTERP, { d_r_loginst(dcontext, 2, &instr, "emulating"); });
     if (!d_r_emulate_instr(dcontext, &instr, mc))
         next_pc = NULL;
- finish:
+finish:
     instr_free(dcontext, &instr);
     return next_pc;
 }
