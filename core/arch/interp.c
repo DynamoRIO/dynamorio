@@ -8235,43 +8235,29 @@ add_profile_call(dcontext_t *dcontext)
 }
 #endif
 
-/* emulates the effects of the instruction at pc with the state in mcontext
- * limited right now to only mov instructions
- * returns NULL if failed or not yet implemented, else returns the pc of the next instr.
+/* Emulates the effects of the instruction with the state in mcontext. Limited
+ * to a few simple instructions. Returns false if failed or not yet implemented.
  */
-app_pc
-d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
+bool
+d_r_emulate_instr(dcontext_t *dcontext, instr_t *inst, priv_mcontext_t *mc)
 {
-    instr_t instr;
-    app_pc next_pc = NULL;
-    uint opc;
-    instr_init(dcontext, &instr);
-    next_pc = decode(dcontext, pc, &instr);
-    if (!instr_valid(&instr)) {
-        next_pc = NULL;
-        goto emulate_failure;
-    }
-    DOLOG(2, LOG_INTERP, { d_r_loginst(dcontext, 2, &instr, "emulating"); });
-    opc = instr_get_opcode(&instr);
+    uint opc = instr_get_opcode(inst);
     if (opc == OP_store) {
-        opnd_t src = instr_get_src(&instr, 0);
-        opnd_t dst = instr_get_dst(&instr, 0);
+        opnd_t src = instr_get_src(inst, 0);
+        opnd_t dst = instr_get_dst(inst, 0);
         reg_t *target;
         reg_t val;
         uint sz = opnd_size_in_bytes(opnd_get_size(dst));
         ASSERT(opnd_is_memory_reference(dst));
-        if (sz != 4 IF_X64(&&sz != 8)) {
-            next_pc = NULL;
-            goto emulate_failure;
-        }
+        if (sz != 4 IF_X64(&&sz != 8))
+            return false;
         target = (reg_t *)opnd_compute_address_priv(dst, mc);
         if (opnd_is_reg(src)) {
             val = reg_get_value_priv(opnd_get_reg(src), mc);
         } else if (opnd_is_immed_int(src)) {
             val = (reg_t)opnd_get_immed_int(src);
         } else {
-            next_pc = NULL;
-            goto emulate_failure;
+            return false;
         }
         DOCHECK(1, {
             uint prot = 0;
@@ -8286,14 +8272,13 @@ d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
         else if (sz == 8)
             *target = val;
 #endif
+        return true;
     } else if (opc == IF_X86_ELSE(OP_inc, OP_add) || opc == IF_X86_ELSE(OP_dec, OP_sub)) {
-        opnd_t src = instr_get_src(&instr, 0);
+        opnd_t src = instr_get_src(inst, 0);
         reg_t *target;
         uint sz = opnd_size_in_bytes(opnd_get_size(src));
-        if (sz != 4 IF_X64(&&sz != 8)) {
-            next_pc = NULL;
-            goto emulate_failure;
-        }
+        if (sz != 4 IF_X64(&&sz != 8))
+            return false;
         /* XXX: handle changing register value */
         ASSERT(opnd_is_memory_reference(src));
         /* XXX: change these to take in priv_mcontext_t* ? */
@@ -8319,8 +8304,78 @@ d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
                 (*target)--;
         }
 #endif
+        return true;
+#ifdef AARCH64
+        /* XXX i#7707: This part, used by emulate_epilogue, may become unnecessary. */
+    } else if (opc == OP_ldr) {
+        if (!(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 1))
+            return false;
+        opnd_t dst = instr_get_dst(inst, 0);
+        opnd_t src = instr_get_src(inst, 0);
+        if (!(opnd_is_reg(dst) && opnd_is_base_disp(src)))
+            return false;
+        reg_t rd = opnd_get_reg(dst);
+        if (!(DR_REG_X0 <= rd && rd <= DR_REG_X30))
+            return false;
+        reg_t value;
+        memcpy(&value, opnd_compute_address_priv(src, mc), sizeof(value));
+        reg_set_value_priv(rd, mc, value);
+        return true;
+    } else if (opc == OP_orr) {
+        if (!(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 4))
+            return false;
+        opnd_t dst = instr_get_dst(inst, 0);
+        opnd_t src1 = instr_get_src(inst, 0);
+        opnd_t src2 = instr_get_src(inst, 1);
+        opnd_t src3 = instr_get_src(inst, 2);
+        opnd_t src4 = instr_get_src(inst, 3);
+        if (!(opnd_is_reg(dst) && opnd_is_reg(src1) && opnd_is_reg(src2) &&
+              opnd_is_immed(src3) && opnd_is_immed(src4)) ||
+            opnd_get_reg(src1) != DR_REG_XZR ||
+            opnd_get_immed_int(src3) != DR_SHIFT_LSL || opnd_get_immed_int(src4) != 0)
+            return false;
+        reg_t rd = opnd_get_reg(dst);
+        reg_t rs = opnd_get_reg(src2);
+        if (!(DR_REG_X0 <= rd && rd <= DR_REG_X30 && DR_REG_X0 <= rs && rs <= DR_REG_X30))
+            return false;
+        reg_set_value_priv(rd, mc, reg_get_value_priv(rs, mc));
+        return true;
+    } else if (opc == OP_str) {
+        if (!(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 1))
+            return false;
+        opnd_t dst = instr_get_dst(inst, 0);
+        opnd_t src = instr_get_src(inst, 0);
+        if (!(opnd_is_base_disp(dst) && opnd_is_reg(src)))
+            return false;
+        reg_t rs = opnd_get_reg(src);
+        if (!(DR_REG_X0 <= rs && rs <= DR_REG_X30))
+            return false;
+        reg_t value = reg_get_value_priv(rs, mc);
+        memcpy(opnd_compute_address_priv(dst, mc), &value, sizeof(value));
+        return true;
+#endif /* AARCH64 */
+    } else {
+        return false;
     }
-emulate_failure:
+}
+
+/* Emulates the effects of the instruction at pc with the state in mcontext.
+ * Returns NULL if failed or not yet implemented, else returns the pc of the next instr.
+ */
+app_pc
+d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
+{
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    app_pc next_pc = decode(dcontext, pc, &instr);
+    if (!instr_valid(&instr)) {
+        next_pc = NULL;
+        goto finish;
+    }
+    DOLOG(2, LOG_INTERP, { d_r_loginst(dcontext, 2, &instr, "emulating"); });
+    if (!d_r_emulate_instr(dcontext, &instr, mc))
+        next_pc = NULL;
+finish:
     instr_free(dcontext, &instr);
     return next_pc;
 }
