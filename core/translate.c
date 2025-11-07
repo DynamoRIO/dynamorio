@@ -610,61 +610,15 @@ translate_walk_good_state(dcontext_t *tdcontext, translate_walk_t *walk,
  * translate_walk_t mechanism instead, in which case this function can be removed.
  */
 static void
-emulate_epilogue(priv_mcontext_t *mc, instr_t *first_inst)
+emulate_epilogue(dcontext_t *tdcontext, priv_mcontext_t *mc, instr_t *first_inst)
 {
     app_pc translation = instr_get_translation(first_inst);
     for (instr_t *inst = first_inst;
          inst != NULL && instr_is_our_mangling_epilogue(inst) &&
          instr_get_translation(inst) == translation;
          inst = instr_get_next(inst)) {
-        switch (instr_get_opcode(inst)) {
-        case OP_ldr: {
-            ASSERT(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 1);
-            opnd_t dst = instr_get_dst(inst, 0);
-            opnd_t src = instr_get_src(inst, 0);
-            ASSERT(opnd_is_reg(dst) && opnd_is_base_disp(src));
-            reg_t rd = opnd_get_reg(dst);
-            ASSERT(DR_REG_X0 <= rd && rd <= DR_REG_X30);
-            reg_t value;
-            memcpy(&value, opnd_compute_address_priv(src, mc), sizeof(value));
-            reg_set_value_priv(rd, mc, value);
-            break;
-        }
-        case OP_orr: {
-            ASSERT(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 4);
-            opnd_t dst = instr_get_dst(inst, 0);
-            opnd_t src1 = instr_get_src(inst, 0);
-            opnd_t src2 = instr_get_src(inst, 1);
-            opnd_t src3 = instr_get_src(inst, 2);
-            opnd_t src4 = instr_get_src(inst, 3);
-            (void)src1;
-            (void)src3;
-            (void)src4;
-            ASSERT(opnd_is_reg(dst) && opnd_is_reg(src1) && opnd_is_reg(src2) &&
-                   opnd_is_immed(src3) && opnd_is_immed(src4));
-            ASSERT(opnd_get_reg(src1) == DR_REG_XZR);
-            ASSERT(opnd_get_immed_int(src3) == DR_SHIFT_LSL);
-            ASSERT(opnd_get_immed_int(src4) == 0);
-            reg_t rd = opnd_get_reg(dst);
-            reg_t rs = opnd_get_reg(src2);
-            ASSERT(DR_REG_X0 <= rd && rd <= DR_REG_X30 && DR_REG_X0 <= rs &&
-                   rs <= DR_REG_X30);
-            reg_set_value_priv(rd, mc, reg_get_value_priv(rs, mc));
-            break;
-        }
-        case OP_str: {
-            ASSERT(instr_num_dsts(inst) == 1 && instr_num_srcs(inst) == 1);
-            opnd_t dst = instr_get_dst(inst, 0);
-            opnd_t src = instr_get_src(inst, 0);
-            ASSERT(opnd_is_base_disp(dst) && opnd_is_reg(src));
-            reg_t rs = opnd_get_reg(src);
-            ASSERT(DR_REG_X0 <= rs && rs <= DR_REG_X30);
-            reg_t value = reg_get_value_priv(rs, mc);
-            memcpy(opnd_compute_address_priv(dst, mc), &value, sizeof(value));
-            break;
-        }
-        default: ASSERT(false && "emulate_epilogue unimplemented instr");
-        }
+        if (!d_r_emulate_instr(tdcontext, inst, mc))
+            ASSERT(false && "emulate_epilogue emulation failed");
     }
 }
 #endif /* AARCH64 */
@@ -679,7 +633,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
      * register and other aspects of non-x86 mangling (i#7675).
      */
     if (instr_is_our_mangling_epilogue(inst)) {
-        emulate_epilogue(walk->mc, inst);
+        emulate_epilogue(tdcontext, walk->mc, inst);
         return translate_pc;
     }
 #endif
