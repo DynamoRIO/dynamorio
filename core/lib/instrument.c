@@ -7147,7 +7147,8 @@ dr_flush_region_ex(app_pc start, size_t size,
     }
 
     flush_fragments_from_region(dcontext, start, size, true /*force synchall*/,
-                                flush_completion_callback, user_data);
+                                THREAD_SYNCH_NO_LOCKS_NO_XFER, flush_completion_callback,
+                                user_data);
 
     return true;
 }
@@ -7209,6 +7210,7 @@ dr_unlink_flush_region(app_pc start, size_t size)
         return true;
 
     flush_fragments_from_region(dcontext, start, size, false /*don't force synchall*/,
+                                THREAD_SYNCH_NO_LOCKS_NO_XFER,
                                 NULL /*flush_completion_callback*/, NULL /*user_data*/);
 
     return true;

@@ -45,6 +45,7 @@
 #include "hashtable.h"
 #include "translate.h"
 #include "fragment_api.h"
+#include "synch.h"
 
 /* Flags, stored in fragment_t->flags bitfield
  */
@@ -468,7 +469,7 @@ typedef struct _fragment_entry_t {
 #    define CUSTOM_FIELDS                                                            \
         ibl_branch_type_t branch_type;                                               \
         /* stats written from the cache must be unprotected by allocating separately \
-         * XXX: we could avoid this when protect_mask==0 by having a union here,   \
+         * XXX: we could avoid this when protect_mask==0 by having a union here,     \
          * like we have with mcontext in the dcontext, but not worth the complexity  \
          * or space for debug-build-only stats                                       \
          */                                                                          \
@@ -1123,9 +1124,10 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
  * If size==0, synch is always performed and true is always returned.
  */
 bool
-flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size,
-                                  bool own_initexit_lock, bool exec_invalid,
-                                  bool force_synchall _IF_DGCDIAG(app_pc written_pc));
+flush_fragments_synch_unlink_priv(
+    dcontext_t *dcontext, app_pc base, size_t size, bool own_initexit_lock,
+    bool exec_invalid, bool force_synchall,
+    thread_synch_permission_t cur_state _IF_DGCDIAG(app_pc written_pc));
 
 void
 flush_fragments_unlink_shared(dcontext_t *dcontext, app_pc base, size_t size,
@@ -1141,10 +1143,10 @@ void
 flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock);
 
 void
-flush_fragments_in_region_start(dcontext_t *dcontext, app_pc base, size_t size,
-                                bool own_initexit_lock, bool free_futures,
-                                bool exec_invalid,
-                                bool force_synchall _IF_DGCDIAG(app_pc written_pc));
+flush_fragments_in_region_start(
+    dcontext_t *dcontext, app_pc base, size_t size, bool own_initexit_lock,
+    bool free_futures, bool exec_invalid, bool force_synchall,
+    thread_synch_permission_t cur_state _IF_DGCDIAG(app_pc written_pc));
 
 void
 flush_fragments_in_region_finish(dcontext_t *dcontext, bool keep_initexit_lock);
@@ -1155,7 +1157,7 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
-                            bool force_synchall,
+                            bool force_synchall, thread_synch_permission_t cur_state,
                             void (*flush_completion_callback)(void *user_data),
                             void *user_data);
 

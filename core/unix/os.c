@@ -8513,14 +8513,14 @@ pre_system_call(dcontext_t *dcontext)
         app_pc end = (app_pc)sys_param(dcontext, 1);
         LOG(THREAD, LOG_VMAREAS | LOG_SYSCALLS, 2,
             "syscall: cacheflush " PFX "-" PFX "\n", start, end);
-        flush_fragments_from_region(dcontext, start, end - start,
-                                    /* An unlink flush should be fine: the app must
-                                     * use synch to ensure other threads see the
-                                     * new code.
-                                     */
-                                    false /*don't force synchall*/,
-                                    NULL /*flush_completion_callback*/,
-                                    NULL /*user_data*/);
+        flush_fragments_from_region(
+            dcontext, start, end - start,
+            /* An unlink flush should be fine: the app must
+             * use synch to ensure other threads see the
+             * new code.
+             */
+            false /*don't force synchall*/, THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
+            NULL /*flush_completion_callback*/, NULL /*user_data*/);
         break;
     }
 #    endif /* ARM */
