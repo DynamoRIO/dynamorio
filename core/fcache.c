@@ -4180,6 +4180,7 @@ fcache_reset_all_caches_proactively(uint target)
         " suspending all threads\n",
         d_r_get_thread_id());
 
+    ASSERT_OWN_NO_LOCKS();
     /* Suspend all DR-controlled threads at safe locations.
      * Case 6821: other synch-all-thread uses can be ignored, as none of them carry
      * any non-persistent state.

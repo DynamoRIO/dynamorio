@@ -5614,6 +5614,7 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
                 /* XXX - for implementation simplicity we do a synch-all flush so
                  * that we can inform the client right away, it might be nice to use
                  * the more performant regular flush when possible. */
+                ASSERT_OWN_NO_LOCKS();
                 flush_fragments_from_region(
                     dcontext, iter->start, iter->size, true /*force synchall*/,
                     THREAD_SYNCH_NO_LOCKS_NO_XFER, NULL /*flush_completion_callback*/,
@@ -6820,6 +6821,7 @@ void
 flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size,
                                   bool own_initexit_lock, bool free_futures)
 {
+    ASSERT_OWN_NO_LOCKS();
     flush_fragments_in_region_start(dcontext, base, size, own_initexit_lock, free_futures,
                                     true /*exec invalid*/, false /*don't force synchall*/,
                                     THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
