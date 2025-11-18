@@ -85,7 +85,8 @@ dr_app_cleanup(void);
 
 /**
  * Causes the application to run under DR control upon return from this call.
- * Attempts to take over any existing threads in the application.
+ * Attempts to take over any existing threads in the application. Must be called
+ * from the same thread as dr_app_setup.
  *
  * \warning On Linux, DR detects threads by listing thread ids in the current
  * process's thread group.  This, and other queries about the current process
