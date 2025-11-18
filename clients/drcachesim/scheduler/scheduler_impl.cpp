@@ -843,8 +843,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::check_valid_input_limits(
 
 // Clang versions 18 and above warn about the use of offsetof with non-POD types.
 #ifdef UNIX
-#   pragma GCC diagnostic push
-#   pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
 template <typename RecordType, typename ReaderType>
@@ -1173,7 +1173,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::legacy_field_support()
 }
 
 #ifdef UNIX
-#   pragma GCC diagnostic pop
+#    pragma GCC diagnostic pop
 #endif
 
 template <typename RecordType, typename ReaderType>
