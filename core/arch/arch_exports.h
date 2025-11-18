@@ -1480,6 +1480,8 @@ shift_ctis_in_fragment(dcontext_t *dcontext, fragment_t *f, ssize_t shift, cache
 void
 add_profile_call(dcontext_t *dcontext);
 #endif
+bool
+d_r_emulate_instr(dcontext_t *dcontext, instr_t *inst, priv_mcontext_t *mc);
 app_pc
 d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc);
 

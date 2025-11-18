@@ -2140,7 +2140,7 @@ restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_
     }
 }
 
-/* store app value from dr_reg_stolen to slot if writback is true and
+/* store app value from dr_reg_stolen to slot if writeback is true and
  * restore tls_base from reg back to dr_reg_stolen
  */
 static void
@@ -2149,12 +2149,14 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t
 {
     /* store app val back if it might be written  */
     if (instr_writes_to_reg(instr, dr_reg_stolen, DR_QUERY_INCLUDE_COND_DSTS)) {
+        instr_t *store = XINST_CREATE_store(
+            dcontext,
+            opnd_create_base_disp(reg, REG_NULL, 0, os_tls_offset(TLS_REG_STOLEN_SLOT),
+                                  OPSZ_PTR),
+            opnd_create_reg(dr_reg_stolen));
         PRE(ilist, next_instr,
-            XINST_CREATE_store(dcontext,
-                               opnd_create_base_disp(reg, REG_NULL, 0,
-                                                     os_tls_offset(TLS_REG_STOLEN_SLOT),
-                                                     OPSZ_PTR),
-                               opnd_create_reg(dr_reg_stolen)));
+            instr_set_translation_mangling_epilogue(dcontext, ilist, store));
+        ASSERT(instr_is_our_mangling(store));
     } else {
         DOLOG(4, LOG_INTERP, {
             LOG(THREAD, LOG_INTERP, 4, "skip save stolen reg app value for: ");
@@ -2164,9 +2166,11 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t
     }
     /* restore stolen reg from spill reg */
     /* This precise opcode (OP_orr) is checked for in instr_is_stolen_reg_move(). */
+    instr_t *move =
+        XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen), opnd_create_reg(reg));
     PRE(ilist, next_instr,
-        XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen),
-                          opnd_create_reg(reg)));
+        instr_set_translation_mangling_epilogue(dcontext, ilist, move));
+    ASSERT(instr_is_our_mangling(move));
 }
 
 /* Mangle simple dr_reg_stolen access.
@@ -2234,8 +2238,12 @@ mangle_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* restore tls_base back to dr_reg_stolen */
     restore_tls_base_to_stolen_reg(dcontext, ilist, instr, next_instr, tmp, slot);
     /* restore tmp if necessary */
-    if (should_restore)
-        PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, tmp, slot));
+    if (should_restore) {
+        instr_t *restore = instr_create_restore_from_tls(dcontext, tmp, slot);
+        PRE(ilist, next_instr,
+            instr_set_translation_mangling_epilogue(dcontext, ilist, restore));
+        ASSERT(instr_is_our_mangling(restore));
+    }
 }
 
 /* replace thread register read instruction with a TLS load instr */

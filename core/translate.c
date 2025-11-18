@@ -266,8 +266,6 @@ instr_is_load_mcontext_base(instr_t *inst)
 
 #ifdef X86
 
-/* XXX i#3329: add support for ARM/AArch64. */
-
 static bool
 translate_walk_enters_mangling_epilogue(dcontext_t *tdcontext, instr_t *inst,
                                         translate_walk_t *walk)
@@ -606,10 +604,39 @@ translate_walk_good_state(dcontext_t *tdcontext, translate_walk_t *walk,
             (walk->in_mangle_region && translate_pc != walk->translation));
 }
 
+#ifdef AARCH64
+/* Emulate instructions in mangling epilogue.
+ * TODO i#7707, i#7708: Either add other non-x86 architectures here or use
+ * translate_walk_t mechanism instead, in which case this function can be removed.
+ */
 static void
+emulate_epilogue(dcontext_t *tdcontext, priv_mcontext_t *mc, instr_t *first_inst)
+{
+    app_pc translation = instr_get_translation(first_inst);
+    for (instr_t *inst = first_inst;
+         inst != NULL && instr_is_our_mangling_epilogue(inst) &&
+         instr_get_translation(inst) == translation;
+         inst = instr_get_next(inst)) {
+        if (!d_r_emulate_instr(tdcontext, inst, mc))
+            ASSERT(false && "emulate_epilogue emulation failed");
+    }
+}
+#endif /* AARCH64 */
+
+static app_pc
 translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *inst,
                        app_pc translate_pc)
 {
+#ifdef AARCH64
+    /* TODO i#7707, i#7708: Either add other non-x86 architectures to emulate_epilogue
+     * or improve the translate_walk_t mechanism so that it can handle the stolen
+     * register and other aspects of non-x86 mangling (i#7675).
+     */
+    if (instr_is_our_mangling_epilogue(inst)) {
+        emulate_epilogue(tdcontext, walk->mc, inst);
+        return translate_pc;
+    }
+#endif
     reg_id_t r;
 
     if (IF_X86_ELSE(translate_walk_enters_mangling_epilogue(tdcontext, inst, walk),
@@ -718,6 +745,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
                 walk->xsp_adjust, walk->mc->xsp);
         }
     }
+    return translate_pc;
 }
 
 static void
@@ -923,7 +951,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
     }
 
     if (!just_pc)
-        translate_walk_restore(tdcontext, &walk, &instr, answer);
+        answer = translate_walk_restore(tdcontext, &walk, &instr, answer);
     answer = translate_restore_special_cases(tdcontext, answer);
     LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n", answer);
     mc->pc = answer;
@@ -1128,7 +1156,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                 }
             }
             if (!just_pc)
-                translate_walk_restore(tdcontext, &walk, inst, answer);
+                answer = translate_walk_restore(tdcontext, &walk, inst, answer);
             answer = translate_restore_special_cases(tdcontext, answer);
             LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n",
                 answer);
@@ -1962,6 +1990,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
 void
 stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
 {
+#    ifndef AARCH64 /* XXX: Update this test for AArch64. */
     priv_mcontext_t mc;
     bool res;
     cache_pc cpc;
@@ -2082,6 +2111,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     if (TEST(FRAG_IS_TRACE, f->flags)) {
         instrlist_clear_and_destroy(dcontext, ilist);
     }
+#    endif /* AARCH64 */
 }
 #endif /* INTERNAL */
 
