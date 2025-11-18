@@ -79,7 +79,30 @@ can select a particular reviewer if desired.
 
 \section sec_commit_messages Commit Messages
 
-Commit messages should include an initial title line separated from the body of the message by a blank line.  The title line should be a concise summary and should start with the issue number followed by a colon which is followed by the description of the issue fix.  If the issue is fixed by more than one commit, the title should instead start with the issue number followed by a space and a short issue description, then a colon, and then a description of this particular fix, with a reference to the issue at the bottom for automatic linking in Github.  In either case, the body of the message should elaborate on the contents of the commit using complete sentences.
+When merging a pull request, the commit message comes from the pull request's
+description, which is the first comment box on the pull request's Conversation tab.
+The pull request title followed by a blank line is prefixed onto this body.  The pull
+request description is initially populated by the first commit message of the branch
+used to create the request, but it can be edited later through the web interface.
+The commit messages of subsequent commits to the pull request branch have no effect
+on the pull request description and thus no effect on the final merged commit
+message.  Thus, the first commit and edits to the pull request description (resulting
+in a final merge commit message) should follow the following style rules, but
+subsequent commits should use messages that describe the changes or updates they are
+making (typically based on review requests).
+
+Final to-merge commit messages should include an initial title line separated from
+the body of the message by a blank line, which is created automatically from the pull
+request's title.
+
+The title line (and thus the pull request title) should be a concise summary and
+should start with the issue number followed by a colon which is followed by the
+description of the issue fix.  If the issue is fixed by more than one commit, the
+title should instead start with the issue number followed by a space and a short
+issue description, then a colon, and then a description of this particular fix, with
+a reference to the issue at the bottom for automatic linking in Github.  In either
+case, the body of the message should elaborate on the contents of the commit using
+complete sentences.
 
 For a commit that fixes an Issue, be sure to resolve the Issue with a
 message indicating the commit revision number.  If you use the exact string
@@ -135,6 +158,15 @@ Note that there is no "i" before the "#" for issue references when
 communicating with Github, but that our convention is to prefix the "i" for
 our own references to make it clearer that it's an issue and not a pull
 request or some other hashtag.
+
+As noted above, these rules apply only to the final merged commit message, and thus
+to the initial branch commit message and manual edits to the pull request
+description.  Additional commits do not affect the description and so should use
+messages that describe their incremental changes.  For example:
+
+\verbatim
+Reviewer-requested change: refactor foo() to use helper functions
+\endverbatim
 
 # Review Sizes
 
