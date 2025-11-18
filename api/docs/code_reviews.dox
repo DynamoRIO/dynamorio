@@ -212,12 +212,13 @@ git review
 
 Do not use a force push to change the history of the shared branch!  Use a new,
 separate commit.  These separate commits will all be squashed together upon merging.
-The commit message of the final merge commit is taking from the pull request's title
+The commit message of the final merge commit is taken from the pull request's title
 and description, which came from the initial branch commit and are unaffected by
 subsequent commits.  The pull request title and description can be edited in the web
 interface.  There is no benefit to a force push and many negatives: it makes
-reviewing much harder as it is not possible to see changes since the last review
-anymore, and it breaks the anchors of review conversation threads.
+reviewing much harder as it is not possible to see the Github-generated diff of
+changes since the last review anymore, and it breaks the anchors of review
+conversation threads.
 
 When the requested changes have been pushed, request a re-review from the reviewer so they know that the pull request is ready for another round of reviewing.
 This can be done by clicking the re-review button next to the reviewer's name at the top of the right sidebar on the pull request page.
