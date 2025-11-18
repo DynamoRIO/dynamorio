@@ -941,15 +941,15 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 #ifdef AARCH64
         if (!INTERNAL_OPTION(hw_cache_consistency) &&
             dcontext->last_exit == get_selfmod_linkstub()) {
-            /* Software cache consistency: we are handling an ISB
-             * following some IC IVAU instructions.
-             */
+            /* Software cache consistency: we are handling an IC IVAU instruction. */
             app_pc begin = (app_pc)dcontext->local_state->spill_space.r2;
             app_pc end = (app_pc)dcontext->local_state->spill_space.r3;
             dcontext->next_tag = (app_pc)dcontext->local_state->spill_space.r4;
-            flush_fragments_from_region(dcontext, begin, end - begin, true,
-                                        NULL /*flush_completion_callback*/,
-                                        NULL /*user_data*/);
+            priv_mcontext_t *mcontext = get_mcontext(dcontext);
+            mcontext->pc = get_fcache_target(dcontext);
+            flush_fragments_from_region(
+                dcontext, begin, end - begin, true, THREAD_SYNCH_VALID_MCONTEXT,
+                NULL /*flush_completion_callback*/, NULL /*user_data*/);
         }
 #endif
 

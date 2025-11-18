@@ -438,7 +438,14 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
     if (!native_translate) {
         /* check if waiting at a good spot */
         spinmutex_lock(tsd->synch_lock);
-        res = THREAD_SYNCH_SAFE(tsd->synch_perm, THREAD_SYNCH_VALID_MCONTEXT);
+        /* THREAD_SYNCH_VALID_MCONTEXT_NO_XFER does not allow transferring but it does
+         * allow detaching. If we know we are detaching the thread we can lower the
+         * required permissions to THREAD_SYNCH_VALID_MCONTEXT_NO_XFER.
+         */
+        const thread_synch_permission_t required_permission = doing_detach
+            ? THREAD_SYNCH_VALID_MCONTEXT_NO_XFER
+            : THREAD_SYNCH_VALID_MCONTEXT;
+        res = THREAD_SYNCH_SAFE(tsd->synch_perm, required_permission);
         spinmutex_unlock(tsd->synch_lock);
         if (res) {
             LOG(THREAD_GET, LOG_SYNCH, 1,

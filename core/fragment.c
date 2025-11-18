@@ -5614,15 +5614,18 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
                 /* XXX - for implementation simplicity we do a synch-all flush so
                  * that we can inform the client right away, it might be nice to use
                  * the more performant regular flush when possible. */
+                ASSERT_OWN_NO_LOCKS();
                 flush_fragments_from_region(
                     dcontext, iter->start, iter->size, true /*force synchall*/,
-                    NULL /*flush_completion_callback*/, NULL /*user_data*/);
+                    THREAD_SYNCH_NO_LOCKS_NO_XFER, NULL /*flush_completion_callback*/,
+                    NULL /*user_data*/);
                 (*iter->flush_callback)(iter->flush_id);
             } else {
                 /* do a regular flush */
                 flush_fragments_from_region(
                     dcontext, iter->start, iter->size, false /*don't force synchall*/,
-                    NULL /*flush_completion_callback*/, NULL /*user_data*/);
+                    THREAD_SYNCH_NO_LOCKS_NO_XFER, NULL /*flush_completion_callback*/,
+                    NULL /*user_data*/);
             }
         }
         HEAP_TYPE_FREE(alloc_dcontext, iter, client_flush_req_t, ACCT_CLIENT,
@@ -5931,7 +5934,7 @@ flush_fragments_free_futures(app_pc base, size_t size)
  */
 static void
 flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
-                               bool exec_invalid)
+                               bool exec_invalid, thread_synch_permission_t cur_state)
 {
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     app_pc exec_start = NULL, exec_end = NULL;
@@ -5948,8 +5951,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
     STATS_INC(flush_synchall);
     /* suspend all DR-controlled threads at safe locations */
     DEBUG_DECLARE(ok =)
-    synch_with_all_threads(desired_state, &flush_threads, &flush_num_threads,
-                           THREAD_SYNCH_NO_LOCKS_NO_XFER,
+    synch_with_all_threads(desired_state, &flush_threads, &flush_num_threads, cur_state,
                            /* if we fail to suspend a thread (e.g., for
                             * privilege reasons), ignore it since presumably
                             * the failed thread is some injected thread not
@@ -6423,12 +6425,13 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
  * performed.  Returns true otherwise.
  */
 bool
-flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size,
-                                  /* WARNING: case 8572: the caller owning this lock
-                                   * is incompatible w/ suspend-the-world flushing!
-                                   */
-                                  bool own_initexit_lock, bool exec_invalid,
-                                  bool force_synchall _IF_DGCDIAG(app_pc written_pc))
+flush_fragments_synch_unlink_priv(
+    dcontext_t *dcontext, app_pc base, size_t size,
+    /* WARNING: case 8572: the caller owning this lock
+     * is incompatible w/ suspend-the-world flushing!
+     */
+    bool own_initexit_lock, bool exec_invalid, bool force_synchall,
+    thread_synch_permission_t cur_state _IF_DGCDIAG(app_pc written_pc))
 {
     LOG(THREAD, LOG_FRAGMENT, 2,
         "FLUSH STAGE 1: synch_unlink_priv(thread " TIDFMT " flushtime %d): " PFX "-" PFX
@@ -6470,7 +6473,7 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
          */
         ASSERT(!own_initexit_lock);
         /* The synchall will flush fine as well as coarse so we'll be done */
-        flush_fragments_synchall_start(dcontext, base, size, exec_invalid);
+        flush_fragments_synchall_start(dcontext, base, size, exec_invalid, cur_state);
         return true;
     }
 
@@ -6764,16 +6767,16 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
  *       flushing overlapped w/ it (vmareas.c handle_modified_code)
  */
 void
-flush_fragments_in_region_start(dcontext_t *dcontext, app_pc base, size_t size,
-                                bool own_initexit_lock, bool free_futures,
-                                bool exec_invalid,
-                                bool force_synchall _IF_DGCDIAG(app_pc written_pc))
+flush_fragments_in_region_start(
+    dcontext_t *dcontext, app_pc base, size_t size, bool own_initexit_lock,
+    bool free_futures, bool exec_invalid, bool force_synchall,
+    thread_synch_permission_t cur_state _IF_DGCDIAG(app_pc written_pc))
 {
     KSTART(flush_region);
     while (true) {
         if (flush_fragments_synch_unlink_priv(dcontext, base, size, own_initexit_lock,
-                                              exec_invalid,
-                                              force_synchall _IF_DGCDIAG(written_pc))) {
+                                              exec_invalid, force_synchall,
+                                              cur_state _IF_DGCDIAG(written_pc))) {
             break;
         } else {
             /* grab lock and then re-check overlap */
@@ -6818,9 +6821,10 @@ void
 flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size,
                                   bool own_initexit_lock, bool free_futures)
 {
+    ASSERT_OWN_NO_LOCKS();
     flush_fragments_in_region_start(dcontext, base, size, own_initexit_lock, free_futures,
-                                    true /*exec invalid*/,
-                                    false /*don't force synchall*/ _IF_DGCDIAG(NULL));
+                                    true /*exec invalid*/, false /*don't force synchall*/,
+                                    THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
     /* ok to call on non-exec region, so don't need to test return value
      * both flush routines will return quickly if nothing to flush/was flushed
      */
@@ -6838,7 +6842,7 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
  * XXX - add argument parameters (free futures etc.) as needed. */
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
-                            bool force_synchall,
+                            bool force_synchall, thread_synch_permission_t cur_state,
                             void (*flush_completion_callback)(void *user_data),
                             void *user_data)
 {
@@ -6850,7 +6854,7 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
      * both flush routines will return quickly if nothing to flush/was flushed */
     flush_fragments_in_region_start(dcontext, base, size, false /*don't own initexit*/,
                                     false /*don't free futures*/, false /*exec valid*/,
-                                    force_synchall _IF_DGCDIAG(NULL));
+                                    force_synchall, cur_state _IF_DGCDIAG(NULL));
     if (flush_completion_callback != NULL) {
         (*flush_completion_callback)(user_data);
     }
@@ -6869,11 +6873,10 @@ invalidate_code_cache()
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     LOG(GLOBAL, LOG_FRAGMENT, 2, "invalidate_code_cache()\n");
-    flush_fragments_in_region_start(dcontext, UNIVERSAL_REGION_BASE,
-                                    UNIVERSAL_REGION_SIZE, false,
-                                    true /* remove futures */, false /*exec valid*/,
-                                    false /*don't force synchall*/
-                                    _IF_DGCDIAG(NULL));
+    flush_fragments_in_region_start(
+        dcontext, UNIVERSAL_REGION_BASE, UNIVERSAL_REGION_SIZE, false,
+        true /* remove futures */, false /*exec valid*/, false /*don't force synchall*/,
+        THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
     flush_fragments_in_region_finish(dcontext, false);
 }
 
@@ -6906,7 +6909,8 @@ flush_vmvector_regions(dcontext_t *dcontext, vm_area_vector_t *toflush, bool fre
         ASSERT_OWN_NO_LOCKS();
         flush_fragments_in_region_start(dcontext, start, end - start, false /*no lock*/,
                                         free_futures, exec_invalid,
-                                        false /*don't force synchall*/ _IF_DGCDIAG(NULL));
+                                        false /*don't force synchall*/,
+                                        THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
         flush_fragments_in_region_finish(dcontext, false /*no lock*/);
         STATS_INC(num_flush_vmvector);
     }
