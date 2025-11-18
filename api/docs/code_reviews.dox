@@ -79,7 +79,7 @@ can select a particular reviewer if desired.
 
 \section sec_commit_messages Commit Messages
 
-A pull request's final commit message body upon merging comes from the pull request's
+When merging a pull request, the commit message comes from the pull request's
 description, which is the first comment box on the pull request's Conversation tab.
 The pull request title followed by a blank line is prefixed onto this body.  The pull
 request description is initially populated by the first commit message of the branch
@@ -92,16 +92,17 @@ subsequent commits should use messages that describe the changes or updates they
 making (typically based on review requests).
 
 Final to-merge commit messages should include an initial title line separated from
-the body of the message by a blank line.  See above for a description of how this is
-created from a pull request's title and description.
+the body of the message by a blank line, which is created automatically from the pull
+request's title.
 
-The title line should be a concise summary and should start with the issue number
-followed by a colon which is followed by the description of the issue fix.  If the
-issue is fixed by more than one commit, the title should instead start with the issue
-number followed by a space and a short issue description, then a colon, and then a
-description of this particular fix, with a reference to the issue at the bottom for
-automatic linking in Github.  In either case, the body of the message should
-elaborate on the contents of the commit using complete sentences.
+The title line (and thus the pull request title) should be a concise summary and
+should start with the issue number followed by a colon which is followed by the
+description of the issue fix.  If the issue is fixed by more than one commit, the
+title should instead start with the issue number followed by a space and a short
+issue description, then a colon, and then a description of this particular fix, with
+a reference to the issue at the bottom for automatic linking in Github.  In either
+case, the body of the message should elaborate on the contents of the commit using
+complete sentences.
 
 For a commit that fixes an Issue, be sure to resolve the Issue with a
 message indicating the commit revision number.  If you use the exact string
