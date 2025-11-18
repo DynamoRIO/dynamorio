@@ -76,7 +76,7 @@ extern named_pipe_t ipc_pipe;
     } while (0)
 
 /* Thread private data.  This is all set to 0 at thread init. */
-typedef struct {
+typedef struct _per_thread_t {
     byte *seg_base;
     byte *buf_base;
     uint64 num_refs;
