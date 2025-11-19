@@ -271,7 +271,7 @@ Further non-compatibility-affecting changes include:
    first.
  - Added a new #hashtable_t iterator hashtable_apply_to_all_key_payload_pairs_user_data()
    that exposes the key of every element in the table.
- - Added a new Dynamorio client "DrPoints" in clients/drpoints to compute the Basic Block
+ - Added a new DynamoRIO client "DrPoints" in clients/drpoints to compute the Basic Block
    Vectors of a program given a user-defined instruction interval.
 
 **************************************************

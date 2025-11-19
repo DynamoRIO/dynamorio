@@ -5570,11 +5570,15 @@ if (BUILD_CLIENTS)
   ###########################################################################
   # drpoints tests
 
+  # TODO i#7685: expand tests to more platforms, including 32 bit architectures.
   if (X86 OR AARCH64)
+    # XXX i#7685: enable drpoints on Windows.
     if (NOT WINDOWS)
+      # XXX i#7685: enable output of BBV file instead of printing the results to stdout.
+      # cmake should check for the existance of the output .bbv file and then remove it.
       torunonly_ci(tool.drpoints.simple ${ci_shared_app} drpoints
-        client-interface/${ci_shared_app} # for .expect
-        "-instr_interval 100 -no_out_bbv_file" "" "")
+        client-interface/drpoints_simple_app # for .expect
+        "-instr_interval 100 -print_to_stdout -no_out_bbv_file" "" "")
       set(tool.drpoints.simple_toolname "drpoints")
     endif ()
 
@@ -5593,6 +5597,7 @@ if (BUILD_CLIENTS)
           "${PROJECT_SOURCE_DIR}/clients/drpoints/tests")
       endmacro ()
 
+      # XXX i#7685: add more tests for different platforms (AARCH64).
       if (X86 AND X64)
         add_drpoints_asm_test(bb_12_instr_5_x86 10)
       endif ()

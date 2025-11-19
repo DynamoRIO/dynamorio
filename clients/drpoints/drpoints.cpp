@@ -33,7 +33,24 @@
 /* DrPoints: Basic Block Vector (BBV) Client.
  *
  * Given a user-defined instruction interval, computes the BBVs (histogram of BB
- * frequencies within the interval) of a program execution and outputs them in a .bb file.
+ * frequencies within the interval) of a program execution and outputs them in a .bbv
+ * file.
+ *
+ * The generated .bbv file look like:
+ *
+ * T:BB_id:count :BB_id:count ... :BB_id:count
+ * T:BB_id:count :BB_id:count ... :BB_id:count
+ * ...
+ *
+ * Where "T" is the BBV separator, BB_id is a sequential BB identifier that is an integer
+ * and starts from 1, and count = number_of_times_BB_was_executed * instructions_of_BB.
+ * This format follows what SimpointToolkit 3.2 expects:
+ * https://cseweb.ucsd.edu/~calder/simpoint/releases/SimPoint.3.2.tar.gz
+ *
+ * TODO i#7685: add proper documentation in a .dox file. Some of the things the doc should
+ * touch on: an example of how to run the drpoints tool, explanation of the .bbv output
+ * file, difference between compiler definition of BB vs DynamoRIO's definition,
+ * limitations about multi-threaded programs.
  */
 
 #include "dr_api.h"
@@ -45,12 +62,16 @@
 #include "drvector.h"
 #include "drx.h"
 #include "hashtable.h"
+#include "../common/utils.h"
+
+#include <string>
 
 namespace dynamorio {
 namespace drpoints {
 namespace {
 
 using ::dynamorio::droption::bytesize_t;
+using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
 using ::dynamorio::droption::droption_t;
 
@@ -60,7 +81,8 @@ using ::dynamorio::droption::droption_t;
         dr_abort();                      \
     } while (0)
 
-#define HASH_BITS 13
+#define HASH_BITS_PC_TO_ID 13
+#define HASH_BITS_BB_COUNT 13
 
 #define MINSERT instrlist_meta_preinsert
 
@@ -74,7 +96,7 @@ using ::dynamorio::droption::droption_t;
 static droption_t<bytesize_t> instr_interval(
     DROPTION_SCOPE_CLIENT, "instr_interval", 100000000 /*=100M instructions*/,
     "The instruction interval for which to generate BBVs",
-    "Divides the program execution in instruction intervals of the specified size and "
+    "Divides the program execution into instruction intervals of the specified size and "
     "generates BBVs as the BB execution frequency within the interval times the number "
     "of instructions in the BB. Default is 100M instructions.");
 
@@ -90,12 +112,18 @@ static droption_t<bool> no_out_bbv_file(
     "Disables the generation of the output .bbv file, but still runs the client. Useful "
     "for unit tests or paired with -print_to_stdout. Default is false.");
 
+static droption_t<std::string>
+    out_bbv_file(DROPTION_SCOPE_CLIENT, "out_bbv_file", "",
+                 "The path to the output .bbv file",
+                 "Specifies a different path to the .bbv file. Default is "
+                 "${PWD}/drpoints.BINARY_NAME.PID.UNIQUE_ID.bbv.");
+
 // Global hash table that maps the PC of a BB's first instruction to a unique,
 // increasing ID that comes from unique_bb_count.
 static hashtable_t pc_to_id_map;
 
 // Global hash table to keep track of the execution count of BBs.
-// Key: unique BB ID, value: execution count in terms of BB instruction size.
+// Key: unique BB ID, value: execution count times BB instruction size.
 static hashtable_t bb_count_table;
 
 // Global unique BB counter used as ID. It must start from 1.
@@ -106,67 +134,70 @@ static uint64_t unique_bb_count = 1;
 static uint64_t instr_count = 0;
 
 // List of Basic Block Vectors (BBVs).
-// This is a vector of vector pointers. Each element is a vector of pairs
-// <BB_ID, execution_count * BB_size> of type bb_id_count_pair_t.
+// This is a vector of vector pointers. Each vector pointer represents the BBV for an
+// instruction interval. They follow the target program execution order and containt
+// <BB_ID, execution_count * BB_size> pairs of type bb_id_count_pair_t.
 static drvector_t bbvs;
 
 // Keeps track of the number of threads of the application. We abort when we detect a
 // multi-threaded application as it's not supported yet.
+// TODO i#7685: add support for multi-threaded applications.
 static int thread_count = 0;
 
-typedef struct _bb_id_count_pair_t {
-    uint64_t id;    // Derived from unique_bb_count.
-    uint64_t count; // execution_count * BB_size.
-} bb_id_count_pair_t;
+struct bb_id_count_pair_t {
+    uint64_t id;             // Derived from unique_bb_count.
+    uint64_t weighted_count; // execution_count * BB_size.
+};
 
 static void
 free_id_count_pair(void *entry)
 {
-    dr_global_free(entry, sizeof(bb_id_count_pair_t));
+    bb_id_count_pair_t *pair = static_cast<bb_id_count_pair_t *>(entry);
+    dr_global_free(entry, sizeof(*pair));
 }
 
 static void
 free_bbv(void *entry)
 {
-    drvector_t *vector = (drvector_t *)entry;
+    drvector_t *vector = static_cast<drvector_t *>(entry);
     if (!drvector_delete(vector))
         FATAL("ERROR: BBV drvector not deleted");
-    dr_global_free(vector, sizeof(drvector_t));
+    dr_global_free(vector, sizeof(*vector));
 }
 
 static void
 free_hit_count(void *entry)
 {
-    uint64_t *hit_count = (uint64_t *)entry;
-    dr_global_free(hit_count, sizeof(uint64_t));
+    uint64_t *hit_count = static_cast<uint64_t *>(entry);
+    dr_global_free(hit_count, sizeof(*hit_count));
 }
 
 static void
 add_to_bbv(void *key, void *payload, void *user_data)
 {
-    uint64_t count = *((uint64_t *)payload);
+    uint64_t count = *(static_cast<uint64_t *>(payload));
     // Skip BBs that were not executed in the current instruction interval.
     if (count == 0)
         return;
-    uint64_t id = (uint64_t)(ptr_int_t)key;
+    uint64_t id = reinterpret_cast<uint64_t>(key);
 
     bb_id_count_pair_t *id_count_pair =
-        (bb_id_count_pair_t *)dr_global_alloc(sizeof(bb_id_count_pair_t));
+        static_cast<bb_id_count_pair_t *>(dr_global_alloc(sizeof(*id_count_pair)));
     id_count_pair->id = id;
-    id_count_pair->count = count;
+    id_count_pair->weighted_count = count;
 
     // Add BB frequency to BBV.
-    drvector_t *bbv = (drvector_t *)user_data;
+    drvector_t *bbv = static_cast<drvector_t *>(user_data);
     drvector_append(bbv, id_count_pair);
 }
 
 // We add execution counters to the table at instrumentation time. We cannot remove them
 // from the hit_count_map when we reach the instruction interval at execution time, or the
-// next interval won't have a execution counter. So, we set them to zero.
+// next interval won't have an execution counter. So, we set them to zero.
 static void
 set_count_to_zero(void *payload)
 {
-    uint64_t *count = ((uint64_t *)payload);
+    uint64_t *count = static_cast<uint64_t *>(payload);
     *count = 0;
 }
 
@@ -180,7 +211,7 @@ save_bbv()
 
     // Save current bb_count_table (i.e., the BBV for the current instruction
     //  interval).
-    drvector_t *bbv = (drvector_t *)dr_global_alloc(sizeof(drvector_t));
+    drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
     // We overshoot the initial size of the BBV vector to avoid resizing it.
     drvector_init(bbv, bb_count_table.entries, /*synch=*/false, free_id_count_pair);
     // Iterate over the non-zero elements of bb_count_table and add them to the BBV.
@@ -197,11 +228,11 @@ static void
 increment_counters_and_save_bbv(uint64_t bb_id, uint64_t bb_size)
 {
     // Increase execution count for the BB.
-    uint64_t *hit_count =
-        (uint64_t *)hashtable_lookup(&bb_count_table, (void *)(ptr_int_t)bb_id);
+    uint64_t *hit_count = static_cast<uint64_t *>(
+        hashtable_lookup(&bb_count_table, reinterpret_cast<void *>(bb_id)));
     (*hit_count) += bb_size;
 
-    // Incrase instruction count of the interval by the BB #instructions.
+    // Increase instruction count of the interval by the BB #instructions.
     instr_count += bb_size;
 
     // We reached the end of the instruction interval.
@@ -237,27 +268,27 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // TODO i#7685: don't rely on absolute PC values. Use drmodtrack library to compute
     // relative offset instead.
     app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
-    void *bb_id_ptr = hashtable_lookup(&pc_to_id_map, (void *)bb_pc);
-    uint64_t bb_id = (uint64_t)(ptr_int_t)bb_id_ptr;
-    if (bb_id_ptr == NULL) {
+    void *bb_id_ptr = hashtable_lookup(&pc_to_id_map, bb_pc);
+    uint64_t bb_id = reinterpret_cast<uint64_t>(bb_id_ptr);
+    if (bb_id_ptr == nullptr) {
         bb_id = unique_bb_count;
-        hashtable_add(&pc_to_id_map, (void *)bb_pc, (void *)(ptr_int_t)bb_id);
+        hashtable_add(&pc_to_id_map, bb_pc, reinterpret_cast<void *>(bb_id));
         ++unique_bb_count;
     }
 
-    uint64_t *bb_count_ptr =
-        (uint64_t *)hashtable_lookup(&bb_count_table, (void *)(ptr_int_t)bb_id);
-    if (bb_count_ptr == NULL) {
+    uint64_t *bb_count_ptr = static_cast<uint64_t *>(
+        hashtable_lookup(&bb_count_table, reinterpret_cast<void *>(bb_id)));
+    if (bb_count_ptr == nullptr) {
         // If execution count is not mapped to this BB, then add a new count to the table.
         // We cannot save the initial value of 0 directly in the (void *)payload because
         // NULL == 0 is used for lookup failure.
-        uint64_t *bb_count = (uint64_t *)dr_global_alloc(sizeof(uint64_t));
+        uint64_t *bb_count = static_cast<uint64_t *>(dr_global_alloc(sizeof(*bb_count)));
         *bb_count = 0;
-        hashtable_add(&bb_count_table, (void *)(ptr_int_t)bb_id, bb_count);
+        hashtable_add(&bb_count_table, reinterpret_cast<void *>(bb_id), bb_count);
         bb_count_ptr = bb_count;
     }
 
-    uint64_t bb_size = (uint64_t)drx_instrlist_app_size(bb);
+    uint64_t bb_size = static_cast<uint64_t>(drx_instrlist_app_size(bb));
 
 #ifdef INLINE_COUNTER_UPDATE
 #    ifdef X86_64
@@ -286,10 +317,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                     drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
                     OPND_CREATE_INT32(static_cast<int32_t>(instr_interval_value))));
     } else {
-        if (drreg_reserve_register(drcontext, bb, inst, NULL, &scratch) != DRREG_SUCCESS)
+        if (drreg_reserve_register(drcontext, bb, inst, nullptr, &scratch) !=
+            DRREG_SUCCESS)
             FATAL("ERROR: failed to reserve scratch register");
         instrlist_insert_mov_immed_ptrsz(drcontext, instr_interval_value,
-                                         opnd_create_reg(scratch), bb, inst, NULL, NULL);
+                                         opnd_create_reg(scratch), bb, inst, nullptr,
+                                         nullptr);
         MINSERT(bb, inst,
                 XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
                                  opnd_create_reg(scratch)));
@@ -297,10 +330,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // If the user defined instruction interval is reached, jump to a clean call of the
     // instrumentation function that saves the current BBV, otherwise jump to the rest of
     // the BB and continue.
-    MINSERT(bb, inst, INSTR_CREATE_jcc(drcontext, OP_jle, opnd_create_instr(skip_call)));
+    MINSERT(bb, inst, INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
     // Insert call to instrumentation function that saves the current BBV.
-    dr_insert_clean_call(drcontext, bb, inst, (void *)save_bbv, /*save_fpstate=*/false,
-                         0);
+    dr_insert_clean_call(drcontext, bb, inst, reinterpret_cast<void *>(save_bbv),
+                         /*save_fpstate=*/false, 0);
     MINSERT(bb, inst, skip_call);
     if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false);
@@ -315,7 +348,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // Default to a clean call to the instrumentation function that increments the
     // counter, checks if the user defined instruction interval is reached, and if so
     // saves the current BBV.
-    dr_insert_clean_call(drcontext, bb, inst, (void *)increment_counters_and_save_bbv,
+    dr_insert_clean_call(drcontext, bb, inst,
+                         reinterpret_cast<void *>(increment_counters_and_save_bbv),
                          /*save_fpstate=*/false, 2, OPND_CREATE_INTPTR(bb_id),
                          OPND_CREATE_INTPTR(bb_size));
 #endif
@@ -328,17 +362,23 @@ event_exit(void)
     bool generate_file = !no_out_bbv_file.get_value();
     file_t bbvs_file = INVALID_FILE;
     if (generate_file) {
-        // Get the current working directory where drrun is executing. We save the .bbv
-        // file there.
-        char cwd[MAXIMUM_PATH];
-        if (!dr_get_current_directory(cwd, sizeof(cwd)))
-            FATAL("ERROR: dr_get_current_directory() failed");
+        std::string path_to_bbv_file = out_bbv_file.get_value();
+        if (!path_to_bbv_file.empty()) {
+            bbvs_file = dr_open_file(path_to_bbv_file.c_str(), DR_FILE_WRITE_REQUIRE_NEW);
+        } else {
+            // Get the current working directory where drrun is executing. We save the
+            // .bbv file there.
+            char cwd[MAXIMUM_PATH];
+            if (!dr_get_current_directory(cwd, sizeof(cwd)))
+                FATAL("ERROR: dr_get_current_directory() failed");
 
-        // Create and open the drpoints.PROC_BIN_NAME.PID.UNIQUE_ID.bbv file.
-        char buf[MAXIMUM_PATH];
-        bbvs_file =
-            drx_open_unique_appid_file(cwd, dr_get_process_id(), "drpoints", "bbv",
-                                       DR_FILE_WRITE_REQUIRE_NEW, buf, sizeof(buf));
+            // Create and open the drpoints.PROC_BIN_NAME.PID.UNIQUE_ID.bbv file.
+            char buf[MAXIMUM_PATH];
+            bbvs_file =
+                drx_open_unique_appid_file(cwd, dr_get_process_id(), "drpoints", "bbv",
+                                           DR_FILE_WRITE_REQUIRE_NEW, buf, sizeof(buf));
+        }
+
         if (bbvs_file == INVALID_FILE)
             FATAL("ERROR: unable to create BBVs file");
     }
@@ -350,9 +390,10 @@ event_exit(void)
     const char *last_pair = ":%d:%d \n";
 
     for (uint i = 0; i < bbvs.entries; ++i) {
-        drvector_t *bbv = (drvector_t *)drvector_get_entry(&bbvs, i);
+        drvector_t *bbv = static_cast<drvector_t *>(drvector_get_entry(&bbvs, i));
         for (uint j = 0; j < bbv->entries; ++j) {
-            bb_id_count_pair_t *pair = (bb_id_count_pair_t *)drvector_get_entry(bbv, j);
+            bb_id_count_pair_t *pair =
+                static_cast<bb_id_count_pair_t *>(drvector_get_entry(bbv, j));
 
             const char *format_string;
             if (j == 0 && j == bbv->entries - 1) {
@@ -367,15 +408,16 @@ event_exit(void)
             }
 
             char msg[64];
-            int len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), format_string,
-                                  pair->id, pair->count);
+            int len = dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), format_string, pair->id,
+                                  pair->weighted_count);
+            NULL_TERMINATE_BUFFER(msg);
             DR_ASSERT(len > 0);
 
             if (print_to_stdout.get_value())
                 dr_fprintf(STDOUT, "%s", msg);
 
             if (generate_file)
-                dr_write_file(bbvs_file, msg, (size_t)len);
+                dr_write_file(bbvs_file, msg, static_cast<size_t>(len));
         }
     }
 
@@ -395,7 +437,7 @@ event_exit(void)
     drmgr_exit();
 
     // Avoid accumulation of option values on static-link re-attach.
-    droption::droption_parser_t::clear_values();
+    droption_parser_t::clear_values();
 }
 
 } // namespace
@@ -406,34 +448,40 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     // Parse command-line options.
+    std::string parse_err;
     if (!dynamorio::droption::droption_parser_t::parse_argv(
-            dynamorio::droption::DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
-        DR_ASSERT(false);
+            dynamorio::droption::DROPTION_SCOPE_CLIENT, argc, argv, &parse_err,
+            nullptr)) {
+        FATAL("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
+              dynamorio::droption::droption_parser_t::usage_short(
+                  dynamorio::droption::DROPTION_SCOPE_CLIENT)
+                  .c_str());
+    }
 
     dr_set_client_name("DrPoints", "http://dynamorio.org/issues");
 
     drreg_options_t ops = { sizeof(ops), 1 /*max slots needed: aflags*/, false };
-    if (!drmgr_init() || !drx_init() || drreg_init(&ops))
+    if (!drmgr_init() || !drx_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     // Register events.
     drmgr_register_exit_event(dynamorio::drpoints::event_exit);
     if (!drmgr_register_bb_instrumentation_event(
-            NULL, dynamorio::drpoints::event_app_instruction, NULL) ||
+            nullptr, dynamorio::drpoints::event_app_instruction, nullptr) ||
         (!drmgr_register_thread_init_event(dynamorio::drpoints::event_thread_init))) {
         DR_ASSERT(false);
     }
 
     // Currently we only support single-threaded applications, so we don't use any locking
     // mechanism for the following global data structures.
-    hashtable_init_ex(&dynamorio::drpoints::bb_count_table, HASH_BITS, HASH_INTPTR,
-                      /*str_dup=*/false, /*synch=*/false,
-                      dynamorio::drpoints::free_hit_count, NULL, NULL);
-    hashtable_init_ex(&dynamorio::drpoints::pc_to_id_map, HASH_BITS, HASH_INTPTR,
-                      /*str_dup=*/false, /*synch=*/false, NULL, NULL, NULL);
+    hashtable_init_ex(&dynamorio::drpoints::bb_count_table, HASH_BITS_BB_COUNT,
+                      HASH_INTPTR, /*str_dup=*/false, /*synch=*/false,
+                      dynamorio::drpoints::free_hit_count, nullptr, nullptr);
+    hashtable_init_ex(&dynamorio::drpoints::pc_to_id_map, HASH_BITS_PC_TO_ID, HASH_INTPTR,
+                      /*str_dup=*/false, /*synch=*/false, nullptr, nullptr, nullptr);
     drvector_init(&dynamorio::drpoints::bbvs, 0, /*synch=*/false,
                   dynamorio::drpoints::free_bbv);
 
     // Make it easy to tell, by looking at log file, which client executed.
-    dr_log(NULL, DR_LOG_ALL, 1, "DrPoints initializing\n");
+    dr_log(nullptr, DR_LOG_ALL, 1, "DrPoints initializing\n");
 }
