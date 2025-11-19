@@ -55,7 +55,7 @@ defaults:
 jobs:
   # 64-bit OSX build with clang and run tests:
   osx-x86-64:
-    runs-on: macos-13
+    runs-on: macos-14
 
     steps:
     - uses: actions/checkout@v4
