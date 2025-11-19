@@ -814,8 +814,8 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
             mod_table = (module_table_t *)MODULE_TABLE_IGNORE;
         else {
             if (op_pathmap.specified()) {
-                const auto t = op_pathmap.get_value();
-                const char *tofind = t.first.c_str();
+                const twostring_t two_string = op_pathmap.get_value();
+                const char *tofind = two_string.first.c_str();
                 const char *match = strstr(info.path, tofind);
                 if (match != NULL) {
                     if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst), "%.*s%s%s",
