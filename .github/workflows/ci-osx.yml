@@ -53,9 +53,11 @@ defaults:
     shell: bash
 
 jobs:
-  # 64-bit OSX build with clang and run tests:
+  # 64-bit OSX build with clang and run tests.
+  # TODO i#5383: Finish Mac AArch64 support and switch to "macos-14".
+  # For now we maintain x86 tests via "macos-14-large".
   osx-x86-64:
-    runs-on: macos-14
+    runs-on: macos-14-large
 
     steps:
     - uses: actions/checkout@v4
