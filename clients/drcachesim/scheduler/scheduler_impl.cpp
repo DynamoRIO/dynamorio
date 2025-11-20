@@ -906,8 +906,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 tid2input_[workload_tid_t(workload_idx, it.first)] = it.second;
             }
         }
-        int output_limit = 0;
-        workloads_.emplace_back(output_limit, std::move(inputs_in_workload));
+        workloads_.emplace_back(workload.output_limit, std::move(inputs_in_workload));
         if (!check_valid_input_limits(workload, reader_info))
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         if (!workload.times_of_interest.empty()) {

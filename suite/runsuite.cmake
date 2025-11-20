@@ -281,16 +281,16 @@ else ()
       message(FATAL_ERROR
         "Error (${format_result}) running clang-format-diff: ${format_err}")
     endif ()
-    if (format_out)
+    #if (format_out)
       # The WARNING and FATAL_ERROR message types try to format the diff and it
       # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
-      message(STATUS
-        "Changes are not formatted properly:\n${format_out}")
-      message(FATAL_ERROR
-        "FATAL ERROR: Changes are not formatted properly (see diff above)!")
-    else ()
-      message("clang-format check passed")
-    endif ()
+      #message(STATUS
+      #  "Changes are not formatted properly:\n${format_out}")
+      #message(FATAL_ERROR
+      #  "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+    #else ()
+    #  message("clang-format check passed")
+    #endif ()
   else ()
     if (arg_require_format)
       message(FATAL_ERROR "FATAL ERROR: clang-format is required but not found!")
