@@ -906,10 +906,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 tid2input_[workload_tid_t(workload_idx, it.first)] = it.second;
             }
         }
-        int output_limit = 0;
-        if (workload.struct_size > offsetof(workload_info_t, output_limit))
-            output_limit = workload.output_limit;
-        workloads_.emplace_back(output_limit, std::move(inputs_in_workload));
+        workloads_.emplace_back(workload.output_limit, std::move(inputs_in_workload));
         if (!check_valid_input_limits(workload, reader_info))
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         if (!workload.times_of_interest.empty()) {
@@ -1108,11 +1105,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     }
     if (options_.quantum_duration > 0) {
-        if (options_.struct_size > offsetof(scheduler_options_t, quantum_duration_us)) {
-            error_string_ = "quantum_duration is deprecated; use quantum_duration_us and "
-                            "time_units_per_us or quantum_duration_instrs";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
         if (options_.quantum_unit == sched_type_t::QUANTUM_INSTRUCTIONS) {
             options_.quantum_duration_instrs = options_.quantum_duration;
         } else {
@@ -1129,11 +1121,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     }
     if (options_.block_time_scale > 0) {
-        if (options_.struct_size > offsetof(scheduler_options_t, block_time_multiplier)) {
-            error_string_ = "quantum_duration is deprecated; use block_time_multiplier "
-                            "and time_units_per_us";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
         options_.block_time_multiplier =
             static_cast<double>(options_.block_time_scale) / options_.time_units_per_us;
         VPRINT(this, 2, "Legacy support: setting block_time_multiplier to %6.3f\n",
@@ -1144,11 +1131,6 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     }
     if (options_.block_time_max > 0) {
-        if (options_.struct_size > offsetof(scheduler_options_t, block_time_max_us)) {
-            error_string_ = "quantum_duration is deprecated; use block_time_max_us "
-                            "and time_units_per_us";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
         options_.block_time_max_us = static_cast<uint64_t>(
             static_cast<double>(options_.block_time_max) / options_.time_units_per_us);
         VPRINT(this, 2, "Legacy support: setting block_time_max_us to %" PRIu64 "\n",
