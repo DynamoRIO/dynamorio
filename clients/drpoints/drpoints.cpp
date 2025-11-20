@@ -64,6 +64,7 @@
 #include "hashtable.h"
 #include "../common/utils.h"
 
+#include <cinttypes>
 #include <string>
 
 namespace dynamorio {
@@ -166,10 +167,10 @@ free_bbv(void *entry)
 }
 
 static void
-free_hit_count(void *entry)
+free_count(void *entry)
 {
-    uint64_t *hit_count = static_cast<uint64_t *>(entry);
-    dr_global_free(hit_count, sizeof(*hit_count));
+    uint64_t *count = static_cast<uint64_t *>(entry);
+    dr_global_free(count, sizeof(*count));
 }
 
 static void
@@ -192,8 +193,8 @@ add_to_bbv(void *key, void *payload, void *user_data)
 }
 
 // We add execution counters to the table at instrumentation time. We cannot remove them
-// from the hit_count_map when we reach the instruction interval at execution time, or the
-// next interval won't have an execution counter. So, we set them to zero.
+// from the bb_count_table when we reach the instruction interval at execution time, or
+// the next interval won't have an execution counter. So, we set them to zero.
 static void
 set_count_to_zero(void *payload)
 {
@@ -225,20 +226,17 @@ save_bbv()
 
 #ifndef INLINE_COUNTER_UPDATE
 static void
-increment_counters_and_save_bbv(uint64_t bb_id, uint64_t bb_size)
+increment_counters_and_save_bbv(uint64_t *execution_count, size_t bb_size)
 {
     // Increase execution count for the BB.
-    uint64_t *hit_count = static_cast<uint64_t *>(
-        hashtable_lookup(&bb_count_table, reinterpret_cast<void *>(bb_id)));
-    (*hit_count) += bb_size;
+    (*execution_count) += bb_size;
 
     // Increase instruction count of the interval by the BB #instructions.
     instr_count += bb_size;
 
     // We reached the end of the instruction interval.
-    if (instr_count > instr_interval.get_value()) {
+    if (instr_count >= instr_interval.get_value())
         save_bbv();
-    }
 }
 #endif
 
@@ -288,7 +286,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         bb_count_ptr = bb_count;
     }
 
-    uint64_t bb_size = static_cast<uint64_t>(drx_instrlist_app_size(bb));
+    size_t bb_size = drx_instrlist_app_size(bb);
 
 #ifdef INLINE_COUNTER_UPDATE
 #    ifdef X86_64
@@ -350,7 +348,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // saves the current BBV.
     dr_insert_clean_call(drcontext, bb, inst,
                          reinterpret_cast<void *>(increment_counters_and_save_bbv),
-                         /*save_fpstate=*/false, 2, OPND_CREATE_INTPTR(bb_id),
+                         /*save_fpstate=*/false, 2, OPND_CREATE_INTPTR(bb_count_ptr),
                          OPND_CREATE_INTPTR(bb_size));
 #endif
     return DR_EMIT_DEFAULT;
@@ -383,11 +381,11 @@ event_exit(void)
             FATAL("ERROR: unable to create BBVs file");
     }
 
-    // Define the format strings we use to write the file.
-    const char *one_pair_only = "T:%d:%d \n";
-    const char *first_pair = "T:%d:%d ";
-    const char *middle_pair = ":%d:%d ";
-    const char *last_pair = ":%d:%d \n";
+    // Define the format strings to write the file.
+    const char *one_pair_only = "T:%" PRIu64 ":%" PRIu64 " \n";
+    const char *first_pair = "T:%" PRIu64 ":%" PRIu64 " ";
+    const char *middle_pair = ":%" PRIu64 ":%" PRIu64 " ";
+    const char *last_pair = ":%" PRIu64 ":%" PRIu64 " \n";
 
     for (uint i = 0; i < bbvs.entries; ++i) {
         drvector_t *bbv = static_cast<drvector_t *>(drvector_get_entry(&bbvs, i));
@@ -476,7 +474,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     // mechanism for the following global data structures.
     hashtable_init_ex(&dynamorio::drpoints::bb_count_table, HASH_BITS_BB_COUNT,
                       HASH_INTPTR, /*str_dup=*/false, /*synch=*/false,
-                      dynamorio::drpoints::free_hit_count, nullptr, nullptr);
+                      dynamorio::drpoints::free_count, nullptr, nullptr);
     hashtable_init_ex(&dynamorio::drpoints::pc_to_id_map, HASH_BITS_PC_TO_ID, HASH_INTPTR,
                       /*str_dup=*/false, /*synch=*/false, nullptr, nullptr, nullptr);
     drvector_init(&dynamorio::drpoints::bbvs, 0, /*synch=*/false,
