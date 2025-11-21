@@ -417,7 +417,9 @@ syscall_info_t syscall_info[] = {
      }
     },
     {{PACKNUM(63,109,109,SYS_uname),0},"uname", OK, RLONG, 1,
-      /* XXX: ***Missing prototype*** */
+     {
+         {0, sizeof(struct utsname), W},
+     }
     },
     {{PACKNUM(172,110,110,-1),0},"iopl", OK, RLONG, 1,},
     {{PACKNUM(153,111,111,SYS_vhangup),0},"vhangup", OK, RLONG, 0,},

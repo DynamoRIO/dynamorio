@@ -4,19 +4,29 @@
 #        define SYSCALL_WRITE 1
 #        define SYSCALL_READ 0
 #        define SYSCALL_CLOSE 3
+#        define SYSCALL_UNAME 63
 #    else
 #        define SYSCALL_OPENAT 295
 #        define SYSCALL_WRITE 4
 #        define SYSCALL_READ 3
 #        define SYSCALL_CLOSE 6
+#        define SYSCALL_UNAME 122
 #    endif
 #elif defined(AARCH64)
 #    define SYSCALL_OPENAT 56
 #    define SYSCALL_WRITE 64
 #    define SYSCALL_READ 63
 #    define SYSCALL_CLOSE 57
+#    define SYSCALL_UNAME 160
 #endif
 .*
+syscall: SYSCALL_UNAME, timestamp: [0-9]+
+pre-syscall ordinal 0, value 0x[0-9a-f]+
+post-syscall ordinal 0, value 0x[0-9a-f]+
+return value 0x0
+memory content address 0x[0-9a-f]+, size 0x[0-9a-f]+
+.*
+syscall end: SYSCALL_UNAME, timestamp: [0-9]+
 syscall: SYSCALL_OPENAT, timestamp: [0-9]+
 pre-syscall ordinal 0, value 0x[0-9a-f]+
 pre-syscall ordinal 1, value 0x[0-9a-f]+
