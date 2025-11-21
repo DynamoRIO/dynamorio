@@ -63,6 +63,7 @@ event_filter_syscall(void *drcontext, int sysnum)
     case SYS_close:
     case SYS_openat:
     case SYS_read:
+    case SYS_uname:
     case SYS_write: return true;
     default: return false;
     }
