@@ -131,8 +131,8 @@ static hashtable_t bb_count_table;
 static uint64_t unique_bb_count = 1;
 
 // Global instruction counter to keep track of when we reach the end of the user-defined
-// instruction interval.
-static uint64_t instr_count = 0;
+// instruction interval. Starts at instr_interval and is decremented until <= 0.
+static int64_t instr_count;
 
 // List of Basic Block Vectors (BBVs).
 // This is a vector of vector pointers. Each vector pointer represents the BBV for an
@@ -208,7 +208,7 @@ save_bbv()
     // Clear global instruction count.
     // Currently we only support single-threaded applications, so we don't use any locking
     // mechanism to set this global counter.
-    instr_count = 0;
+    instr_count = instr_interval.get_value();
 
     // Save current bb_count_table (i.e., the BBV for the current instruction
     //  interval).
@@ -232,10 +232,10 @@ increment_counters_and_save_bbv(uint64_t *execution_count, size_t bb_size)
     (*execution_count) += bb_size;
 
     // Increase instruction count of the interval by the BB #instructions.
-    instr_count += bb_size;
+    instr_count -= bb_size;
 
     // We reached the end of the instruction interval.
-    if (instr_count >= instr_interval.get_value())
+    if (instr_count <= 0)
         save_bbv();
 }
 #endif
@@ -290,8 +290,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
 #ifdef INLINE_COUNTER_UPDATE
 #    ifdef X86_64
-    reg_id_t scratch = DR_REG_NULL;
-    uint64_t instr_interval_value = instr_interval.get_value();
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
     // Increment the BB execution count by BB size in #instructions.
     drx_insert_counter_update(drcontext, bb, inst,
@@ -300,45 +298,29 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                               static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
                               bb_count_ptr, static_cast<int>(bb_size), DRX_COUNTER_64BIT);
 
-    // Increment the instruction count by BB size in #instructions.
+    // Decrement the instruction count by BB size in #instructions.
     drx_insert_counter_update(drcontext, bb, inst,
                               // We're using drmgr, so these slots
                               // here won't be used: drreg's slots will be.
                               static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              &instr_count, static_cast<int>(bb_size), DRX_COUNTER_64BIT);
+                              &instr_count, -(static_cast<int>(bb_size)),
+                              DRX_COUNTER_64BIT);
+
     if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
-        FATAL("ERROR: failed to reserve aflags");
-    if (instr_interval_value < INT_MAX) {
-        // The user defined instruction interval is small enough to be an immediate.
-        MINSERT(bb, inst,
-                XINST_CREATE_cmp(
-                    drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
-                    OPND_CREATE_INT32(static_cast<int32_t>(instr_interval_value))));
-    } else {
-        if (drreg_reserve_register(drcontext, bb, inst, nullptr, &scratch) !=
-            DRREG_SUCCESS)
-            FATAL("ERROR: failed to reserve scratch register");
-        instrlist_insert_mov_immed_ptrsz(drcontext, instr_interval_value,
-                                         opnd_create_reg(scratch), bb, inst, nullptr,
-                                         nullptr);
-        MINSERT(bb, inst,
-                XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
-                                 opnd_create_reg(scratch)));
-    }
+        DR_ASSERT(false);
+
     // If the user defined instruction interval is reached, jump to a clean call of the
     // instrumentation function that saves the current BBV, otherwise jump to the rest of
     // the BB and continue.
-    MINSERT(bb, inst, INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
+    MINSERT(bb, inst, INSTR_CREATE_jcc(drcontext, OP_jg, opnd_create_instr(skip_call)));
+
     // Insert call to instrumentation function that saves the current BBV.
     dr_insert_clean_call(drcontext, bb, inst, reinterpret_cast<void *>(save_bbv),
                          /*save_fpstate=*/false, 0);
     MINSERT(bb, inst, skip_call);
+
     if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false);
-    if (scratch != DR_REG_NULL) {
-        if (drreg_unreserve_register(drcontext, bb, inst, scratch) != DRREG_SUCCESS)
-            DR_ASSERT(false);
-    }
 #    else
 #        error NYI
 #    endif
@@ -482,4 +464,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     // Make it easy to tell, by looking at log file, which client executed.
     dr_log(nullptr, DR_LOG_ALL, 1, "DrPoints initializing\n");
+
+    // We count backward until 0, so we set the initial instr_count to be instr_interval.
+    dynamorio::drpoints::instr_count = dynamorio::drpoints::instr_interval.get_value();
 }
