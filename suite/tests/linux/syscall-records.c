@@ -43,8 +43,8 @@ main(int argc, char **argv)
 {
     struct utsname kernel_info;
     if (uname(&kernel_info) < 0) {
-      print("uname failed\n");
-      return 1;
+        print("uname failed\n");
+        return 1;
     }
     char filename[MAXIMUM_PATH];
     sprintf(filename, "syscall_file_io_test.%d.txt", getpid());
