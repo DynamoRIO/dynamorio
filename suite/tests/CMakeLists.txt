@@ -5567,6 +5567,43 @@ if (BUILD_CLIENTS)
     # b/c our tests have too-new instrs for older machines.
   endif (X86)
 
+  ###########################################################################
+  # drpoints tests
+
+  # TODO i#7685: expand tests to more platforms, including 32 bit architectures.
+  if (X86 OR AARCH64)
+    # XXX i#7685: enable drpoints on Windows.
+    if (NOT WINDOWS)
+      # XXX i#7685: enable output of BBV file instead of printing the results to stdout.
+      # cmake should check for the existance of the output .bbv file and then remove it.
+      torunonly_ci(tool.drpoints.simple ${ci_shared_app} drpoints
+        client-interface/drpoints_simple_app # for .expect
+        "-instr_interval 100 -print_to_stdout -no_out_bbv_file" "" "")
+      set(tool.drpoints.simple_toolname "drpoints")
+    endif ()
+
+    if (UNIX AND NOT APPLE AND NOT WINDOWS)
+      # For more targeted tests, we need whole-asm, which is much easier
+      # on Linux where we can make a static app that executes just a few insrs.
+      macro (add_drpoints_asm_test name instr_interval)
+        add_exe(tool.${name} ${PROJECT_SOURCE_DIR}/clients/drpoints/tests/${name}.asm)
+        set_target_properties(tool.${name} PROPERTIES LINKER_LANGUAGE C)
+        append_link_flags(tool.${name} "-nostartfiles -nodefaultlibs -static")
+        torunonly_ci(tool.drpoints.${name} tool.${name} drpoints
+          ${PROJECT_SOURCE_DIR}/clients/drpoints/tests/${name}.asm
+          "-instr_interval ${instr_interval} -print_to_stdout -no_out_bbv_file" "" "")
+        set(tool.drpoints.${name}_toolname "drpoints")
+        set(tool.drpoints.${name}_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drpoints/tests")
+      endmacro ()
+
+      # XXX i#7685: add more tests for different platforms (AARCH64).
+      if (X86 AND X64)
+        add_drpoints_asm_test(bb_12_instr_5_x86 10)
+      endif ()
+    endif ()
+  endif ()
+
 endif (BUILD_CLIENTS)
 
 # ##########################################################################
