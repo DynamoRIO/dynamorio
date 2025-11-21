@@ -524,8 +524,7 @@ look_for_syscall_trace(void *dr_context, std::string trace_dir)
                 // marker and the injected trace, so we preserve prev_syscall_num_marker.
                 prev_syscall_num_marker = prev_syscall_num_marker_saved;
                 break;
-            default:
-                break;
+            default: break;
             }
             continue;
         }
