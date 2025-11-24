@@ -124,6 +124,8 @@ typedef enum {
     // was recorded.
     RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY,
     RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
+    // Count of negative times that were corrected.
+    RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED,
     // We add a MAX member so that we can iterate over all stats in unit tests.
     RAW2TRACE_STAT_MAX,
 } raw2trace_statistic_t;
@@ -729,6 +731,7 @@ protected:
         uint64 syscall_traces_non_fatal_decoding_error_count = 0;
         uint64 syscall_traces_conversion_empty = 0;
         uint64 syscall_traces_injected = 0;
+        uint64 negative_times_corrected = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -1006,6 +1009,7 @@ protected:
     uint64 syscall_traces_non_fatal_decoding_error_count_ = 0;
     uint64 syscall_traces_conversion_empty_ = 0;
     uint64 syscall_traces_injected_ = 0;
+    uint64 negative_times_corrected_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 

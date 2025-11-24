@@ -3877,6 +3877,132 @@ test_syscall_injection(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
+bool
+test_negative_timestamps(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting negative timestamps\n";
+    {
+        // Test timestamp handling thresholds.
+        instrlist_t *ilist = instrlist_create(drcontext);
+        constexpr uint64_t TIME_A = 100;
+        constexpr uint64_t TIME_B = 110;
+        constexpr uint64_t TIME_C = 108; // Negative but beyond threshold.
+        constexpr uint64_t TIME_D = 111;
+        constexpr uint64_t TIME_E = 110; // Negative and under threshold.
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_timestamp(TIME_A));
+        raw.push_back(make_timestamp(TIME_B));
+        raw.push_back(make_timestamp(TIME_C));
+        raw.push_back(make_timestamp(TIME_D));
+        raw.push_back(make_timestamp(TIME_E));
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        return (
+            stats[RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED] == 1 &&
+            check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        TIME_A) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        TIME_B) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        // Remains negative.
+                        TIME_C) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        TIME_D) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        // Corrected.
+                        TIME_D) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+    }
+    {
+        // Test timestamp handling with blocks of instrs.
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *move =
+            XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        size_t offs_nop = 0;
+        size_t offs_move = offs_nop + instr_length(drcontext, nop);
+
+        constexpr uint64_t TIME_A = 100;
+        constexpr uint64_t TIME_B = 110;
+        constexpr uint64_t TIME_C = 109; // Negative, under threshold.
+        constexpr uint64_t TIME_D = 111;
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_timestamp(TIME_A));
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_move, /*instr_count=*/1));
+        raw.push_back(make_timestamp(TIME_B));
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_move, /*instr_count=*/1));
+        raw.push_back(make_timestamp(TIME_C));
+        raw.push_back(make_core());
+        raw.push_back(make_timestamp(TIME_D));
+        raw.push_back(make_core());
+        raw.push_back(make_exit());
+
+        std::vector<uint64_t> stats;
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+            return false;
+        int idx = 0;
+        return (
+            stats[RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED] == 1 &&
+            check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        TIME_A) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        TIME_B) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        // Ensure corrected from C to B:
+                        TIME_B) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                        TIME_C) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+    }
+}
 
 int
 test_main(int argc, const char *argv[])
@@ -3900,7 +4026,8 @@ test_main(int argc, const char *argv[])
         !test_branch_decoration(drcontext) ||
         !test_stats_timestamp_instr_count(drcontext) ||
         !test_is_maybe_blocking_syscall(drcontext) || !test_ifiltered(drcontext) ||
-        !test_asynchronous_signal(drcontext) || !test_syscall_injection(drcontext))
+        !test_asynchronous_signal(drcontext) || !test_syscall_injection(drcontext) ||
+        !test_negative_timestamps(drcontext))
         return 1;
     return 0;
 }
