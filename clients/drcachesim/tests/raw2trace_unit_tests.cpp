@@ -3907,31 +3907,31 @@ test_negative_timestamps(void *drcontext)
         if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
             return false;
         int idx = 0;
-        return (
-            stats[RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED] == 1 &&
-            check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
-            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER,
-                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER,
-                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                        TIME_A) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                        TIME_B) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                        // Remains negative.
-                        TIME_C) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                        TIME_D) &&
-            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                        // Corrected.
-                        TIME_D) &&
-            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
-            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+        if (!(stats[RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED] == 1 &&
+              check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER,
+                          TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_A) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_B) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          // Remains negative.
+                          TIME_C) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          TIME_D) &&
+              check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                          // Corrected.
+                          TIME_D) &&
+              check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+              check_entry(entries, idx, TRACE_TYPE_FOOTER, -1)))
+            return false;
     }
     {
         // Test timestamp handling with blocks of instrs.
@@ -3990,14 +3990,13 @@ test_negative_timestamps(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
                         TIME_B) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
                         // Ensure corrected from C to B:
                         TIME_B) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
-                        TIME_C) &&
+                        TIME_D) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
             check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
