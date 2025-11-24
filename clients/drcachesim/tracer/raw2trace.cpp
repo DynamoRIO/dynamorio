@@ -496,6 +496,25 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
         uint64 stamp = static_cast<uint64>(marker_val);
         VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                static_cast<uint>(tdata->tid), stamp);
+        if (stamp < tdata->last_timestamp_) {
+            // We see time values out of the Linux kernel go backward.
+            // If we see at most 1us difference we assume it's innocuous
+            // and we correct it, to avoid invariant problems later.
+            // If a subclass overrides process_marker() and acts before us, they'll
+            // see the old one, but the difference is minimal and if it really matters
+            // they'll have to arrange to run after our code.
+            constexpr int64 NEGATIVE_TIME_CORRECT_THREHSOLD_US = 1;
+            if (tdata->last_timestamp_ - stamp <= NEGATIVE_TIME_CORRECT_THREHSOLD_US) {
+                stamp = tdata->last_timestamp_;
+                marker_val = static_cast<uintptr_t>(stamp);
+                accumulate_to_statistic(tdata, RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED,
+                                        1);
+                VPRINT(2,
+                       "Thread %u negative time corrected: using timestamp "
+                       "0x" ZHEX64_FORMAT_STRING "\n",
+                       static_cast<uint>(tdata->tid), stamp);
+            }
+        }
         accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP, stamp);
         accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP, stamp);
         tdata->last_timestamp_ = stamp;
@@ -1297,6 +1316,7 @@ raw2trace_t::do_conversion()
             syscall_traces_conversion_empty_ +=
                 thread_data_[i]->syscall_traces_conversion_empty;
             syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
+            negative_times_corrected_ += thread_data_[i]->negative_times_corrected;
         }
     } else {
         // The files can be converted concurrently.
@@ -1329,6 +1349,7 @@ raw2trace_t::do_conversion()
                 tdata->syscall_traces_non_fatal_decoding_error_count;
             syscall_traces_conversion_empty_ += tdata->syscall_traces_conversion_empty;
             syscall_traces_injected_ += tdata->syscall_traces_injected;
+            negative_times_corrected_ += tdata->negative_times_corrected;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -3653,6 +3674,9 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED:
         tdata->syscall_traces_injected += value;
         break;
+    case RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED:
+        tdata->negative_times_corrected += value;
+        break;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
@@ -3679,6 +3703,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_SYSCALL_TRACES_CONVERSION_EMPTY:
         return syscall_traces_conversion_empty_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
+    case RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED: return negative_times_corrected_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }
