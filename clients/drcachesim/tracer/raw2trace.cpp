@@ -3367,7 +3367,6 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     prev_was_encoding = false;
             }
             if (it->type == TRACE_TYPE_MARKER) {
-                // NOCHECK 2ndary processing
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;
                 else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
