@@ -4674,8 +4674,8 @@ exception_frame_chain_depth(dcontext_t *dcontext)
 void
 dump_context_info(CONTEXT *context, file_t file, bool all)
 {
-#    define DUMP(r) LOG(file, LOG_ASYNCH, 2, #    r "=" PFX " ", context->r);
-#    define DUMPNM(r, nm) LOG(file, LOG_ASYNCH, 2, #    nm "=" PFX " ", context->r);
+#    define DUMP(r) LOG(file, LOG_ASYNCH, 2, #r "=" PFX " ", context->r);
+#    define DUMPNM(r, nm) LOG(file, LOG_ASYNCH, 2, #nm "=" PFX " ", context->r);
 #    define NEWLINE LOG(file, LOG_ASYNCH, 2, "\n  ");
     DUMP(ContextFlags);
     NEWLINE;
