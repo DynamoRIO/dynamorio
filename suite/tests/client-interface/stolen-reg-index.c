@@ -51,7 +51,6 @@ int
 main(int argc, char *argv[])
 {
     int value = 41;
-    print("&value is %p\n", &value); // NOCHECK
     indexed_mem_test(&value);
     if (value != 42)
         print("indexed_mem_test() failed with %d, expected 42.\n", value);
