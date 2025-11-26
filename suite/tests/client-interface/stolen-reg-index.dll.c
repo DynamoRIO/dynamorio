@@ -92,8 +92,7 @@ insert_get_addr(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t mref
     /* Look for the precise stolen register cases in the test app. */
     if (opnd_get_base(mref) == dr_get_stolen_reg() ||
         (opnd_get_base(mref) == DR_REG_X0 &&
-         (opnd_get_index(mref) == dr_get_stolen_reg() ||
-          opnd_get_index(mref) == DR_REG_W28 && opnd_get_base(mref) == DR_REG_X0))) {
+         reg_to_pointer_sized(opnd_get_index(mref)) == dr_get_stolen_reg())) {
         /* Call out to confirm we got the right address.
          * DR's clean call args only support pointer-sized so we
          * deconstruct the opnd_t.

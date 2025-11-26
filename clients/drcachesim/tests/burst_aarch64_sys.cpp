@@ -127,6 +127,8 @@ stolen_reg_load()
 {
     // Test the stolen register as a base reg of a load (test i#7729).
     assert(dr_get_stolen_reg() == DR_REG_X28);
+    // Use adrp for the page and the ":lo12:" pattern for the offset to
+    // get &global_var[1] into the x28 register.
     __asm__ __volatile__("adrp x28, %0\n\t"
                          "add x28, x28, #:lo12:%0\n\t"
                          "mov x0, #%1\n\n"  // Marker.
@@ -288,7 +290,7 @@ test_main(int argc, const char *argv[])
     int dc_zva_instr_count = 0;
     int dc_zva_memref_count = 0;
     addr_t last_dc_zva_pc = 0;
-    bool prev_instr_was_mov_123456 = false;
+    bool prev_instr_was_mov_sentinel = false;
     bool prev_instr_was_stolen_reg_load = false;
     bool found_stolen_reg_global_var = false;
     auto *stream = scheduler.get_stream(0);
@@ -314,14 +316,14 @@ test_main(int argc, const char *argv[])
         if (type_is_instr(memref.instr.type)) {
             int64_t immed = 0;
             if (is_mov_immed_instr(dr_context, memref, immed) && immed == SENTINEL_MOV) {
-                prev_instr_was_mov_123456 = true;
+                prev_instr_was_mov_sentinel = true;
             } else {
-                if (prev_instr_was_mov_123456 &&
+                if (prev_instr_was_mov_sentinel &&
                     is_stolen_reg_load_instr(dr_context, memref)) {
                     prev_instr_was_stolen_reg_load = true;
                 } else
                     prev_instr_was_stolen_reg_load = false;
-                prev_instr_was_mov_123456 = false;
+                prev_instr_was_mov_sentinel = false;
             }
         }
         // Look for _memref_data_t entries.
