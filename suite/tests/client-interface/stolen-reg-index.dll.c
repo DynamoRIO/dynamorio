@@ -95,7 +95,9 @@ insert_get_addr(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t mref
          reg_to_pointer_sized(opnd_get_index(mref)) == dr_get_stolen_reg())) {
         /* Call out to confirm we got the right address.
          * DR's clean call args only support pointer-sized so we
-         * deconstruct the opnd_t.
+         * deconstruct the opnd_t, which works if it fits in our 2 args
+         * as we pass it to ourselves so we know the layout is identical
+         * for the reading code.
          */
         DR_ASSERT(sizeof(mref) <= 2 * sizeof(ptr_uint_t));
         ptr_uint_t opnd_top = *(((ptr_uint_t *)&mref) + 1);
