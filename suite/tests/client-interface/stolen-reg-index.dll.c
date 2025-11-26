@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2022 Arm Limited   All rights reserved.
  * **********************************************************/
 
@@ -61,6 +62,7 @@ check_address(ptr_uint_t addr, ptr_uint_t opnd_top, ptr_uint_t opnd_bottom)
     *(((ptr_uint_t *)&opnd) + 1) = opnd_top;
     *(ptr_uint_t *)&opnd = opnd_bottom;
     ptr_uint_t emulated = (ptr_uint_t)opnd_compute_address(opnd, &mc);
+    dr_printf("%s: instru 0x%lx vs emul 0x%lx\n", __FUNCTION__, addr, emulated); // NOCHECK
     if (emulated != addr) {
         dr_printf("%s: instru 0x%lx vs emul 0x%lx\n", __FUNCTION__, addr, emulated);
         DR_ASSERT(false);
@@ -89,9 +91,10 @@ insert_get_addr(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t mref
     }
 
     /* Look for the precise stolen register cases in the test app. */
-    if (opnd_get_base(mref) == DR_REG_X0 &&
-        (opnd_get_index(mref) == dr_get_stolen_reg() ||
-         opnd_get_index(mref) == DR_REG_W28 && opnd_get_base(mref) == DR_REG_X0)) {
+    if (opnd_get_base(mref) == dr_get_stolen_reg() ||
+        (opnd_get_base(mref) == DR_REG_X0 &&
+         (opnd_get_index(mref) == dr_get_stolen_reg() ||
+          opnd_get_index(mref) == DR_REG_W28 && opnd_get_base(mref) == DR_REG_X0))) {
         /* Call out to confirm we got the right address.
          * DR's clean call args only support pointer-sized so we
          * deconstruct the opnd_t.
@@ -143,6 +146,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             if (opnd_get_index(opnd) == DR_REG_W28 && opnd_get_base(opnd) == DR_REG_X0 &&
                 prev_is_mov_0(inst, DR_REG_W28))
                 dr_printf("store memref with index reg W28\n");
+            if (insert_get_addr(drcontext, bb, inst, opnd))
+                return DR_EMIT_DEFAULT;
+            else
+                DR_ASSERT(false);
+        } else if (opnd_is_memory_reference(opnd) && opnd_is_base_disp(opnd) &&
+                   opnd_get_base(opnd) == dr_get_stolen_reg()) {
+            /* Go ahead and translate all all base-stolen addresses. */
             if (insert_get_addr(drcontext, bb, inst, instr_get_dst(inst, 0)))
                 return DR_EMIT_DEFAULT;
             else
@@ -162,7 +172,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             if (opnd_get_index(opnd) == DR_REG_W28 && opnd_get_base(opnd) == DR_REG_X0 &&
                 prev_is_mov_0(inst, DR_REG_W28))
                 dr_printf("load memref with index reg W28\n");
-            if (insert_get_addr(drcontext, bb, inst, instr_get_src(inst, 0)))
+            if (insert_get_addr(drcontext, bb, inst, opnd))
+                return DR_EMIT_DEFAULT;
+            else
+                DR_ASSERT(false);
+        } else if (opnd_is_memory_reference(opnd) && opnd_is_base_disp(opnd) &&
+                   opnd_get_base(opnd) == dr_get_stolen_reg()) {
+            /* Go ahead and translate all all base-stolen addresses. */
+            if (insert_get_addr(drcontext, bb, inst, opnd))
                 return DR_EMIT_DEFAULT;
             else
                 DR_ASSERT(false);

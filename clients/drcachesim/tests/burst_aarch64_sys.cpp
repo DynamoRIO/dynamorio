@@ -119,12 +119,30 @@ ic_unprivileged_flush()
     __asm__ __volatile__("ic ivau , %0" : : "r"(ic_unprivileged_flush));
 }
 
+static int64_t global_var[2];
+constexpr int SENTINEL_MOV = 12345;
+
+static void
+stolen_reg_load()
+{
+    // Test the stolen register as a base reg of a load (test i#7729).
+    assert(dr_get_stolen_reg() == DR_REG_X28);
+    __asm__ __volatile__("adrp x28, %0\n\t"
+                         "add x28, x28, #:lo12:%0\n\t"
+                         "mov x0, #%1\n\n"  // Marker.
+                         "ldr x0, [x28, 8]" // Test a non-zero offset.
+                         :
+                         : "S"(&global_var), "i"(SENTINEL_MOV)
+                         : "x0", "x28");
+}
+
 static void
 do_some_work()
 {
     dc_zva();
     dc_unprivileged_flush();
     ic_unprivileged_flush();
+    stolen_reg_load();
 
     // Testing privileged instructions requires handling SIGILL.
     // We use sigsetjmp/siglongjmp to resume execution after handling the
@@ -214,6 +232,39 @@ is_dc_zva_instr(void *dr_context, memref_t memref)
     return is_dc_zva;
 }
 
+bool
+is_mov_immed_instr(void *dr_context, memref_t memref, int64_t &immed)
+{
+    if (!type_is_instr(memref.instr.type))
+        return false;
+    app_pc pc = (app_pc)memref.instr.addr;
+    instr_t instr;
+    instr_init(dr_context, &instr);
+    auto *ret = decode(dr_context, pc, &instr);
+    assert(ret != NULL && instr_valid(&instr));
+    bool is_mov_immed = instr_is_mov_constant(&instr, &immed);
+    instr_free(dr_context, &instr);
+    return is_mov_immed;
+}
+
+bool
+is_stolen_reg_load_instr(void *dr_context, memref_t memref)
+{
+    if (!type_is_instr(memref.instr.type))
+        return false;
+    app_pc pc = (app_pc)memref.instr.addr;
+    instr_t instr;
+    instr_init(dr_context, &instr);
+    auto *ret = decode(dr_context, pc, &instr);
+    assert(ret != NULL && instr_valid(&instr));
+    bool res = instr_reads_memory(&instr) &&
+        opnd_is_base_disp(instr_get_src(&instr, 0)) &&
+        opnd_get_base(instr_get_src(&instr, 0)) == dr_get_stolen_reg() &&
+        opnd_get_index(instr_get_src(&instr, 0)) == DR_REG_NULL;
+    instr_free(dr_context, &instr);
+    return res;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -237,6 +288,9 @@ test_main(int argc, const char *argv[])
     int dc_zva_instr_count = 0;
     int dc_zva_memref_count = 0;
     addr_t last_dc_zva_pc = 0;
+    bool prev_instr_was_mov_123456 = false;
+    bool prev_instr_was_stolen_reg_load = false;
+    bool found_stolen_reg_global_var = false;
     auto *stream = scheduler.get_stream(0);
     memref_t memref;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
@@ -257,6 +311,19 @@ test_main(int argc, const char *argv[])
             last_dc_zva_pc = memref.instr.addr;
             continue;
         }
+        if (type_is_instr(memref.instr.type)) {
+            int64_t immed = 0;
+            if (is_mov_immed_instr(dr_context, memref, immed) && immed == SENTINEL_MOV) {
+                prev_instr_was_mov_123456 = true;
+            } else {
+                if (prev_instr_was_mov_123456 &&
+                    is_stolen_reg_load_instr(dr_context, memref)) {
+                    prev_instr_was_stolen_reg_load = true;
+                } else
+                    prev_instr_was_stolen_reg_load = false;
+                prev_instr_was_mov_123456 = false;
+            }
+        }
         // Look for _memref_data_t entries.
         if ((memref.data.type == TRACE_TYPE_READ ||
              memref.data.type == TRACE_TYPE_WRITE || type_is_prefetch(memref.data.type))
@@ -267,6 +334,14 @@ test_main(int argc, const char *argv[])
             assert(ALIGNED(memref.data.addr, proc_get_cache_line_size()));
             assert(memref.data.size == proc_get_cache_line_size());
         }
+        if (memref.data.type == TRACE_TYPE_READ && prev_instr_was_stolen_reg_load) {
+            if (memref.data.addr == reinterpret_cast<addr_t>(&global_var[1])) {
+                found_stolen_reg_global_var = true;
+            } else {
+                std::cerr << "Found stolen reg load of 0x" << std::hex << memref.data.addr
+                          << " vs expected " << &global_var[1] << std::dec << "\n";
+            }
+        }
     }
     std::cerr << "DC ZVA count: " << dc_zva_instr_count << "\n";
     std::cerr << "DC ZVA memref count: " << dc_zva_memref_count << "\n";
@@ -275,6 +350,7 @@ test_main(int argc, const char *argv[])
     assert(dc_zva_instr_count == dc_zva_memref_count);
     assert(found_cache_line_size_marker);
     assert(found_page_size_marker);
+    assert(found_stolen_reg_global_var);
     dr_standalone_exit();
 
     return 0;

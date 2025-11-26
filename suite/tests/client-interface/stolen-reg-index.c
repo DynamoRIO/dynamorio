@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2022 Arm Limited   All rights reserved.
  * **********************************************************/
 
@@ -44,11 +44,14 @@
 /* In asm code. */
 void
 indexed_mem_test(int *val);
+void
+base_mem_test(int *val);
 
 int
 main(int argc, char *argv[])
 {
     int value = 41;
+    print("&value is %p\n", &value); // NOCHECK
     indexed_mem_test(&value);
     if (value != 42)
         print("indexed_mem_test() failed with %d, expected 42.\n", value);
@@ -56,6 +59,14 @@ main(int argc, char *argv[])
         print("indexed_mem_test() passed.\n");
 
     print("Tested the use of stolen register as memory index register.\n");
+
+    base_mem_test(&value);
+    if (value != 43)
+        print("base_mem_test() failed with %d, expected 43.\n", value);
+    else
+        print("base_mem_test() passed.\n");
+    print("Tested the use of stolen register as memory base register.\n");
+
     return 0;
 }
 
@@ -77,6 +88,27 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Store incremented value using index register W28. */
         mov      w28, #0
         str      x1, [x0, w28, uxtw #0]
+
+        ldp      x0, x1, [sp], #16
+        ret
+
+        END_FUNC(FUNCNAME)
+#  undef FUNCNAME
+
+
+#define FUNCNAME base_mem_test
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+
+        stp      x0, x1, [sp, #-16]!
+
+        /* Load passed in value using index register X28, then increment. */
+        mov      x28, x0
+        ldr      x1, [x28]
+        add      x1, x1, #1
+
+        /* Store incremented value using index register W28. */
+        str      x1, [x28]
 
         ldp      x0, x1, [sp], #16
         ret
