@@ -62,7 +62,6 @@ check_address(ptr_uint_t addr, ptr_uint_t opnd_top, ptr_uint_t opnd_bottom)
     *(((ptr_uint_t *)&opnd) + 1) = opnd_top;
     *(ptr_uint_t *)&opnd = opnd_bottom;
     ptr_uint_t emulated = (ptr_uint_t)opnd_compute_address(opnd, &mc);
-    dr_printf("%s: instru 0x%lx vs emul 0x%lx\n", __FUNCTION__, addr, emulated); // NOCHECK
     if (emulated != addr) {
         dr_printf("%s: instru 0x%lx vs emul 0x%lx\n", __FUNCTION__, addr, emulated);
         DR_ASSERT(false);

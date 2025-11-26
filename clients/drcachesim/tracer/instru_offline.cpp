@@ -649,10 +649,6 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
             /* Here we do need a scratch reg, and raw2trace can't identify these cases:
              * so we set disp to 0 (since raw2trace will add it on) and use the
              * regular path below.
-             * XXX: We could get raw2trace to identify the stolen reg case by storing
-             * the stolen reg value in a header marker: worth it to avoid extra
-             * instrumentation on a fraction of loads probably ~1% (my estimate:
-             * we should measure)?
              */
             opnd_set_disp(&ref, 0);
         } else
