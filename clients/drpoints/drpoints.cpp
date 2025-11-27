@@ -122,7 +122,7 @@ static droption_t<std::string>
 
 // Global hash table that maps the PC of a BB's first instruction to a unique,
 // increasing ID that comes from unique_bb_count.
-static hashtable_t modidx_to_table;
+static hashtable_t bb_id_table;
 
 // Global hash table to keep track of the execution count of BBs.
 // Key: unique BB ID, value: execution count times BB instruction size.
@@ -151,6 +151,39 @@ struct bb_id_count_pair_t {
     uint64_t weighted_count; // execution_count * BB_size.
 };
 
+// We use this structure as key for bb_id_table to uniquely identify a BB.
+struct modidx_offset_t {
+    uint modidx; // Module index.
+    uint offset; // BB_PC - modbase_address.
+};
+
+// We use Szudzik elegant pairing as hash function (xref:
+// http://szudzik.com/ElegantPairing.pdf). This pairing function uniquely and
+// deterministically maps two dimensions (i.e., the pair <modidx,offset> that uniquely
+// identifies a BB) into one (i.e., a single scalar, the hash). This way we avoid a double
+// hashtable_t from modidx to offset and then to the BB id.
+uint
+bb_id_hash(void *val)
+{
+    modidx_offset_t *key = static_cast<modidx_offset_t *>(val);
+    uint modidx = key->modidx;
+    uint offset = key->offset;
+    // We don't care about wrapping behavior as collisions will be handled by bb_id_cmp()
+    // anyway.
+    return offset >= modidx ? offset * offset + offset + modidx
+                            : modidx * modidx + offset;
+}
+
+bool
+bb_id_cmp(void *val1, void *val2)
+{
+    modidx_offset_t *key1 = static_cast<modidx_offset_t *>(val1);
+    modidx_offset_t *key2 = static_cast<modidx_offset_t *>(val2);
+    if ((key1->modidx == key2->modidx) && (key1->offset == key2->offset))
+        return true;
+    return false;
+}
+
 static void
 free_id_count_pair(void *entry)
 {
@@ -165,14 +198,6 @@ free_bbv(void *entry)
     if (!drvector_delete(vector))
         FATAL("ERROR: BBV drvector not deleted");
     dr_global_free(vector, sizeof(*vector));
-}
-
-static void
-free_table(void *entry)
-{
-    hashtable_t *table = static_cast<hashtable_t *>(entry);
-    hashtable_delete(table);
-    dr_global_free(table, sizeof(*table));
 }
 
 static void
@@ -272,35 +297,29 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         return DR_EMIT_DEFAULT;
 
     // Get the BB ID.
-    // TODO i#7685: don't rely on absolute PC values. Use drmodtrack library to compute
-    // relative offset instead.
+    // We can't rely on absolute PC values, as a program can unload a library and then
+    // reload it at a different address, hence the PC of that code would be different.
+    // Instead we use the drmodtrack library to get the module index (which doesn't
+    // change) and compute the relative offset of the BB PC to the base address of its
+    // corresponding module. The <modidx,offset> pair uniquely identifies a BB and can be
+    // used as a key in bb_id_table to get the 1-indexed BB id.
     app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
     uint modidx;
     app_pc modbase;
     drcovlib_status_t res = drmodtrack_lookup(drcontext, bb_pc, &modidx, &modbase);
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
-    hashtable_t *table_ptr = static_cast<hashtable_t *>(
-        hashtable_lookup(&modidx_to_table, reinterpret_cast<void *>(modidx)));
-    if (table_ptr == nullptr) {
-        hashtable_t *offset_to_id_map =
-            static_cast<hashtable_t *>(dr_global_alloc(sizeof(*offset_to_id_map)));
-        hashtable_init_ex(offset_to_id_map, HASH_BITS_PC_TO_ID, HASH_INTPTR,
-                          /*str_dup=*/false, /*synch=*/false, nullptr, nullptr, nullptr);
-
-        hashtable_add(&modidx_to_table, reinterpret_cast<void *>(modidx),
-                      offset_to_id_map);
-        table_ptr = offset_to_id_map;
-    }
-    uint64_t offset = bb_pc - modbase;
-    void *bb_id_ptr = hashtable_lookup(table_ptr, reinterpret_cast<void *>(offset));
+    uint offset = bb_pc - modbase;
+    modidx_offset_t bb_id_key = { modidx, offset };
+    void *bb_id_ptr =
+        hashtable_lookup(&bb_id_table, reinterpret_cast<void *>(&bb_id_key));
     uint64_t bb_id = reinterpret_cast<uint64_t>(bb_id_ptr);
     if (bb_id_ptr == nullptr) {
         bb_id = unique_bb_count;
-        hashtable_add(table_ptr, reinterpret_cast<void *>(offset),
-                      reinterpret_cast<void *>(bb_id));
+        hashtable_add(&bb_id_table, &bb_id_key, reinterpret_cast<void *>(bb_id));
         ++unique_bb_count;
     }
 
+    // Get the BB execution counter.
     uint64_t *bb_count_ptr = static_cast<uint64_t *>(
         hashtable_lookup(&bb_count_table, reinterpret_cast<void *>(bb_id)));
     if (bb_count_ptr == nullptr) {
@@ -432,7 +451,7 @@ event_exit(void)
         dr_close_file(bbvs_file);
 
     // Free DR memory.
-    hashtable_delete(&modidx_to_table);
+    hashtable_delete(&bb_id_table);
     hashtable_delete(&bb_count_table);
     if (!drvector_delete(&bbvs))
         FATAL("ERROR: BBVs drvector not deleted");
@@ -490,10 +509,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     hashtable_init_ex(&dynamorio::drpoints::bb_count_table, HASH_BITS_BB_COUNT,
                       HASH_INTPTR, /*str_dup=*/false, /*synch=*/false,
                       dynamorio::drpoints::free_count, nullptr, nullptr);
-    hashtable_init_ex(&dynamorio::drpoints::modidx_to_table, HASH_BITS_PC_TO_ID,
-                      HASH_INTPTR,
-                      /*str_dup=*/false, /*synch=*/false, dynamorio::drpoints::free_table,
-                      nullptr, nullptr);
+    hashtable_init_ex(&dynamorio::drpoints::bb_id_table, HASH_BITS_PC_TO_ID, HASH_INTPTR,
+                      /*str_dup=*/false, /*synch=*/false, nullptr,
+                      dynamorio::drpoints::bb_id_hash, dynamorio::drpoints::bb_id_cmp);
     drvector_init(&dynamorio::drpoints::bbvs, 0, /*synch=*/false,
                   dynamorio::drpoints::free_bbv);
 
