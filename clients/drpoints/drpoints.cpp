@@ -56,6 +56,7 @@
 #include "dr_api.h"
 #include "dr_defines.h"
 #include "dr_events.h"
+#include "drcovlib.h"
 #include "drmgr.h"
 #include "droption.h"
 #include "drreg.h"
@@ -121,7 +122,7 @@ static droption_t<std::string>
 
 // Global hash table that maps the PC of a BB's first instruction to a unique,
 // increasing ID that comes from unique_bb_count.
-static hashtable_t pc_to_id_map;
+static hashtable_t modidx_to_table;
 
 // Global hash table to keep track of the execution count of BBs.
 // Key: unique BB ID, value: execution count times BB instruction size.
@@ -164,6 +165,14 @@ free_bbv(void *entry)
     if (!drvector_delete(vector))
         FATAL("ERROR: BBV drvector not deleted");
     dr_global_free(vector, sizeof(*vector));
+}
+
+static void
+free_table(void *entry)
+{
+    hashtable_t *table = static_cast<hashtable_t *>(entry);
+    hashtable_delete(table);
+    dr_global_free(table, sizeof(*table));
 }
 
 static void
@@ -266,11 +275,29 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // TODO i#7685: don't rely on absolute PC values. Use drmodtrack library to compute
     // relative offset instead.
     app_pc bb_pc = instr_get_app_pc(instrlist_first_app(bb));
-    void *bb_id_ptr = hashtable_lookup(&pc_to_id_map, bb_pc);
+    uint modidx;
+    app_pc modbase;
+    drcovlib_status_t res = drmodtrack_lookup(drcontext, bb_pc, &modidx, &modbase);
+    DR_ASSERT(res == DRCOVLIB_SUCCESS);
+    hashtable_t *table_ptr = static_cast<hashtable_t *>(
+        hashtable_lookup(&modidx_to_table, reinterpret_cast<void *>(modidx)));
+    if (table_ptr == nullptr) {
+        hashtable_t *offset_to_id_map =
+            static_cast<hashtable_t *>(dr_global_alloc(sizeof(*offset_to_id_map)));
+        hashtable_init_ex(offset_to_id_map, HASH_BITS_PC_TO_ID, HASH_INTPTR,
+                          /*str_dup=*/false, /*synch=*/false, nullptr, nullptr, nullptr);
+
+        hashtable_add(&modidx_to_table, reinterpret_cast<void *>(modidx),
+                      offset_to_id_map);
+        table_ptr = offset_to_id_map;
+    }
+    uint64_t offset = bb_pc - modbase;
+    void *bb_id_ptr = hashtable_lookup(table_ptr, reinterpret_cast<void *>(offset));
     uint64_t bb_id = reinterpret_cast<uint64_t>(bb_id_ptr);
     if (bb_id_ptr == nullptr) {
         bb_id = unique_bb_count;
-        hashtable_add(&pc_to_id_map, bb_pc, reinterpret_cast<void *>(bb_id));
+        hashtable_add(table_ptr, reinterpret_cast<void *>(offset),
+                      reinterpret_cast<void *>(bb_id));
         ++unique_bb_count;
     }
 
@@ -405,10 +432,13 @@ event_exit(void)
         dr_close_file(bbvs_file);
 
     // Free DR memory.
-    hashtable_delete(&pc_to_id_map);
+    hashtable_delete(&modidx_to_table);
     hashtable_delete(&bb_count_table);
     if (!drvector_delete(&bbvs))
         FATAL("ERROR: BBVs drvector not deleted");
+
+    bool res = drmodtrack_exit();
+    DR_ASSERT(res == DRCOVLIB_SUCCESS);
 
     drmgr_unregister_thread_init_event(event_thread_init);
     drmgr_unregister_exit_event(event_exit);
@@ -440,6 +470,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     dr_set_client_name("DrPoints", "http://dynamorio.org/issues");
 
+    drcovlib_status_t res = drmodtrack_init();
+    DR_ASSERT(res == DRCOVLIB_SUCCESS);
+
     drreg_options_t ops = { sizeof(ops), 1 /*max slots needed: aflags*/, false };
     if (!drmgr_init() || !drx_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
@@ -457,8 +490,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     hashtable_init_ex(&dynamorio::drpoints::bb_count_table, HASH_BITS_BB_COUNT,
                       HASH_INTPTR, /*str_dup=*/false, /*synch=*/false,
                       dynamorio::drpoints::free_count, nullptr, nullptr);
-    hashtable_init_ex(&dynamorio::drpoints::pc_to_id_map, HASH_BITS_PC_TO_ID, HASH_INTPTR,
-                      /*str_dup=*/false, /*synch=*/false, nullptr, nullptr, nullptr);
+    hashtable_init_ex(&dynamorio::drpoints::modidx_to_table, HASH_BITS_PC_TO_ID,
+                      HASH_INTPTR,
+                      /*str_dup=*/false, /*synch=*/false, dynamorio::drpoints::free_table,
+                      nullptr, nullptr);
     drvector_init(&dynamorio::drpoints::bbvs, 0, /*synch=*/false,
                   dynamorio::drpoints::free_bbv);
 
