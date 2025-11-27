@@ -308,7 +308,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     app_pc modbase;
     drcovlib_status_t res = drmodtrack_lookup(drcontext, bb_pc, &modidx, &modbase);
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
-    uint offset = bb_pc - modbase;
+    uint offset = static_cast<uint>(bb_pc - modbase);
     modidx_offset_t bb_id_key = { modidx, offset };
     void *bb_id_ptr =
         hashtable_lookup(&bb_id_table, reinterpret_cast<void *>(&bb_id_key));
