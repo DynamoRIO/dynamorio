@@ -507,7 +507,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     hashtable_init_ex(&dynamorio::drpoints::bb_count_table, HASH_BITS_BB_COUNT,
                       HASH_INTPTR, /*str_dup=*/false, /*synch=*/false,
                       dynamorio::drpoints::free_count, nullptr, nullptr);
-    hashtable_init_ex(&dynamorio::drpoints::bb_id_table, HASH_BB_ID, HASH_INTPTR,
+    hashtable_init_ex(&dynamorio::drpoints::bb_id_table, HASH_BITS_BB_ID, HASH_INTPTR,
                       /*str_dup=*/false, /*synch=*/false, nullptr,
                       dynamorio::drpoints::bb_id_hash, dynamorio::drpoints::bb_id_cmp);
     drvector_init(&dynamorio::drpoints::bbvs, 0, /*synch=*/false,
