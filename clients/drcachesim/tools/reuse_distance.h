@@ -193,18 +193,18 @@ struct line_ref_node_t {
 };
 
 // We use a splay to keep track of the cache line reuse distance.
-// The head of the list is the most recently accessed cache line.
-// The earlier a cache line was accessed last time, the deeper that cache line
-// is in the list.
+// The lefmost node of the splay tree is the most recently accessed cache line.
+// The earlier the cache line was last accessed, the more to the right this cache line
+// is in the splay tree.
 // If a cache line is accessed, its time stamp is set as current, and it is
-// added/moved to the front of the list.  The cache line reference
-// reuse distance is the cache line position in the list before moving.
+// added/moved to the left of the splay tree.  The cache line reference
+// reuse distance is the cache line position in the splay tree before moving.
 // We also keep a pointer (gate) pointing to the earliest cache
 // line referenced within the threshold.  Thus, we can quickly check
 // whether a cache line is recently accessed by comparing the time
 // stamp of the referenced cache line and the gate cache line.
-// The splay tree is a binary search tree taht using splay operatio for balancing, it
-// allow  to delete and insert an element at any position in O(log n) amortizated time.
+// The splay tree is a binary search tree that using splay operatio for balancing, it
+// allow to delete and insert an element at any position in O(log n) amortizated time.
 struct line_ref_splay_t {
     line_ref_node_t *root_; // root of the splay
     line_ref_node_t *gate_; // the earliest cache line refs within the threshold
@@ -268,7 +268,7 @@ struct line_ref_splay_t {
                   << (node->right == nullptr ? 0 : node->right->tag);
     }
 
-    // Print splay tree in list format
+    // Print splay tree in the order of traversal.
     void
     print_list()
     {
@@ -322,7 +322,7 @@ struct line_ref_splay_t {
         IF_DEBUG_VERBOSE(3, print_list());
     }
 
-    // Remove the last entry from the distance list.
+    // Remove the last entry from the distance tree.
     void
     prune_tail()
     {
@@ -496,7 +496,7 @@ struct line_ref_splay_t {
         return 0;
     }
 
-    // Recalculate size of subtree.
+    // Recalculate size of node.
     void
     recalc_size(line_ref_node_t *node)
     {
