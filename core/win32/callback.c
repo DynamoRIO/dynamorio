@@ -3897,6 +3897,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[0], 1 /* size */,
                         false /*don't force synchall*/,
+                        THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
@@ -3905,6 +3906,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[0], 1 /* size */,
                         false /*don't force synchall*/,
+                        THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[0] = NULL;
                 }
@@ -3915,6 +3917,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[1], 1 /* size */,
                         false /*don't force synchall*/,
+                        THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
@@ -3923,6 +3926,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[1], 1 /* size */,
                         false /*don't force synchall*/,
+                        THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[1] = NULL;
                 }
@@ -3933,6 +3937,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[2], 1 /* size */,
                         false /*don't force synchall*/,
+                        THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
@@ -3941,6 +3946,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[2], 1 /* size */,
                         false /*don't force synchall*/,
+                        THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[2] = NULL;
                 }
@@ -3951,6 +3957,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[3], 1 /* size */,
                         false /*don't force synchall*/,
+                        THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
@@ -3959,6 +3966,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     flush_fragments_from_region(
                         dcontext, d_r_debug_register[3], 1 /* size */,
                         false /*don't force synchall*/,
+                        THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                         NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[3] = NULL;
                 }
@@ -5834,7 +5842,7 @@ intercept_exception(app_state_at_intercept_t *state)
                          */
                         flush_fragments_from_region(
                             dcontext, dcontext->next_tag, 1 /* size */,
-                            false /*don't force synchall*/,
+                            false /*don't force synchall*/, THREAD_SYNCH_NO_LOCKS_NO_XFER,
                             NULL /*flush_completion_callback*/, NULL /*user_data*/);
                         /* Sets a field so that build_bb_ilist knows when to stop. */
                         dcontext->single_step_addr = dcontext->next_tag;
@@ -7306,12 +7314,11 @@ intercept_image_entry(app_state_at_intercept_t *state)
                  * again.
                  */
                 /* note we only flush, but not remove region, since we will not rewalk */
-                flush_fragments_in_region_start(existing_dcontext, image_entry_pc, 1,
-                                                false /* don't own initexit_lock */,
-                                                false /* keep futures */,
-                                                false /* exec still valid */,
-                                                false /* don't force sychall */
-                                                _IF_DGCDIAG(NULL));
+                flush_fragments_in_region_start(
+                    existing_dcontext, image_entry_pc, 1,
+                    false /* don't own initexit_lock */, false /* keep futures */,
+                    false /* exec still valid */, false /* don't force sychall */,
+                    THREAD_SYNCH_NO_LOCKS_NO_XFER _IF_DGCDIAG(NULL));
                 flush_fragments_in_region_finish(existing_dcontext, false);
 
                 ASSERT_NOT_TESTED();

@@ -43,7 +43,10 @@
 /*for synch */
 /* Given permissions */
 /* The order is in increasing permissiveness and the values are chosen to
- * match up with equivalent requested states below */
+ * match up with equivalent requested states below.
+ * XXX: THREAD_SYNCH_NO_LOCKS_NO_XFER has more restrictions than THREAD_SYNCH_NO_LOCKS
+ * so it appears to contradict this statement.
+ */
 typedef enum {
     THREAD_SYNCH_NONE = 0,
 

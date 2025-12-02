@@ -438,7 +438,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
     if (!native_translate) {
         /* check if waiting at a good spot */
         spinmutex_lock(tsd->synch_lock);
-        res = THREAD_SYNCH_SAFE(tsd->synch_perm, THREAD_SYNCH_VALID_MCONTEXT);
+        res = THREAD_SYNCH_SAFE(tsd->synch_perm, THREAD_SYNCH_VALID_MCONTEXT_NO_XFER);
         spinmutex_unlock(tsd->synch_lock);
         if (res) {
             LOG(THREAD_GET, LOG_SYNCH, 1,
@@ -695,7 +695,11 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     DEBUG_DECLARE(app_pc pc = get_mcontext(dcontext)->pc;)
     LOG(THREAD, LOG_SYNCH, 2, "waiting for synch with state %d (pc " PFX ")\n", cur_state,
         pc);
-    if (cur_state == THREAD_SYNCH_VALID_MCONTEXT) {
+
+    /* Both THREAD_SYNCH_VALID_MCONTEXT_NO_XFER and THREAD_SYNCH_VALID_MCONTEXT indicate
+     * a valid mcontext so check for at least THREAD_SYNCH_VALID_MCONTEXT_NO_XFER.
+     */
+    if (THREAD_SYNCH_SAFE(cur_state, THREAD_SYNCH_VALID_MCONTEXT_NO_XFER)) {
         ASSERT(!is_dynamo_address(pc));
         /* for detach must set this here and now */
         IF_WINDOWS(set_last_error(dcontext->app_errno));
