@@ -120,8 +120,9 @@ static droption_t<std::string>
                  "Specifies a different path to the .bbv file. Default is "
                  "${PWD}/drpoints.BINARY_NAME.PID.UNIQUE_ID.bbv.");
 
-// Global hash table that maps the PC of a BB's first instruction to a unique,
-// increasing ID that comes from unique_bb_count.
+// Global hash table that maps the pair module-index and PC-offset to the module's base
+// address (which uniquely identify a BB) to a unique, 1-indexed, increasing ID that comes
+// from unique_bb_count.
 static hashtable_t bb_id_table;
 
 // Global hash table to keep track of the execution count of BBs.
@@ -153,14 +154,14 @@ struct bb_id_count_pair_t {
 
 // We use this structure as key for bb_id_table to uniquely identify a BB.
 struct modidx_offset_t {
-    uint modidx; // Module index.
-    uint offset; // BB_PC - modbase_address.
+    uint modidx;     // Module index.
+    uint64_t offset; // BB_PC - modbase_address.
 };
 
 // We use Szudzik elegant pairing as hash function (xref:
 // http://szudzik.com/ElegantPairing.pdf). This pairing function uniquely and
 // deterministically maps two dimensions (i.e., the pair <modidx,offset> that uniquely
-// identifies a BB) into one (i.e., a single scalar, the hash). This way we avoid a double
+// identifies a BB) into one (i.e., a single scalar, the hash). This way we avoid a nested
 // hashtable_t from modidx to offset and then to the BB id.
 uint
 bb_id_hash(void *val)
@@ -170,8 +171,8 @@ bb_id_hash(void *val)
     uint offset = key->offset;
     // We don't care about wrapping behavior as collisions will be handled by bb_id_cmp()
     // anyway.
-    return offset >= modidx ? offset * offset + offset + modidx
-                            : modidx * modidx + offset;
+    return offset >= modidx ? static_cast<uint>(offset * offset + offset) + modidx
+                            : modidx * modidx + static_cast<uint>(offset);
 }
 
 bool
@@ -237,15 +238,15 @@ set_count_to_zero(void *payload)
 static void
 save_bbv()
 {
-    // Clear global instruction count.
+    // Clear global instruction count setting it to instr_interval, since we decrement it.
     // Currently we only support single-threaded applications, so we don't use any locking
     // mechanism to set this global counter.
     instr_count = instr_interval.get_value();
 
-    // Save current bb_count_table (i.e., the BBV for the current instruction
-    //  interval).
+    // Save current bb_count_table (i.e., the BBV for the current instruction interval).
     drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
-    // We overshoot the initial size of the BBV vector to avoid resizing it.
+    // We overshoot the initial size of the BBV vector to avoid resizing it
+    // (bb_count_table.entries also counts BB with count 0).
     drvector_init(bbv, bb_count_table.entries, /*synch=*/false, free_id_count_pair);
     // Iterate over the non-zero elements of bb_count_table and add them to the BBV.
     hashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv, bbv);
@@ -258,12 +259,12 @@ save_bbv()
 
 #ifndef INLINE_COUNTER_UPDATE
 static void
-increment_counters_and_save_bbv(uint64_t *execution_count, size_t bb_size)
+update_counters_and_save_bbv(uint64_t *execution_count, size_t bb_size)
 {
     // Increase execution count for the BB.
     (*execution_count) += bb_size;
 
-    // Increase instruction count of the interval by the BB #instructions.
+    // Decrease instruction count of the interval by the BB #instructions.
     instr_count -= bb_size;
 
     // We reached the end of the instruction interval.
@@ -306,10 +307,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     app_pc modbase;
     drcovlib_status_t res = drmodtrack_lookup(drcontext, bb_pc, &modidx, &modbase);
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
-    uint offset = static_cast<uint>(bb_pc - modbase);
+    uint64_t offset = static_cast<uint64_t>(bb_pc - modbase);
     modidx_offset_t bb_id_key = { modidx, offset };
-    void *bb_id_ptr =
-        hashtable_lookup(&bb_id_table, reinterpret_cast<void *>(&bb_id_key));
+    void *bb_id_ptr = hashtable_lookup(&bb_id_table, &bb_id_key);
     uint64_t bb_id = reinterpret_cast<uint64_t>(bb_id_ptr);
     if (bb_id_ptr == nullptr) {
         bb_id = unique_bb_count;
@@ -323,7 +323,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (bb_count_ptr == nullptr) {
         // If execution count is not mapped to this BB, then add a new count to the table.
         // We cannot save the initial value of 0 directly in the (void *)payload because
-        // NULL == 0 is used for lookup failure.
+        // NULL == 0 is used for lookup failure. Also, we need the counter address.
         uint64_t *bb_count = static_cast<uint64_t *>(dr_global_alloc(sizeof(*bb_count)));
         *bb_count = 0;
         hashtable_add(&bb_count_table, reinterpret_cast<void *>(bb_id), bb_count);
@@ -373,7 +373,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // counter, checks if the user defined instruction interval is reached, and if so
     // saves the current BBV.
     dr_insert_clean_call(drcontext, bb, inst,
-                         reinterpret_cast<void *>(increment_counters_and_save_bbv),
+                         reinterpret_cast<void *>(update_counters_and_save_bbv),
                          /*save_fpstate=*/false, 2, OPND_CREATE_INTPTR(bb_count_ptr),
                          OPND_CREATE_INTPTR(bb_size));
 #endif
