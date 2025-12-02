@@ -702,6 +702,10 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     DEBUG_DECLARE(app_pc pc = get_mcontext(dcontext)->pc;)
     LOG(THREAD, LOG_SYNCH, 2, "waiting for synch with state %d (pc " PFX ")\n", cur_state,
         pc);
+
+    /* Both THREAD_SYNCH_VALID_MCONTEXT_NO_XFER and THREAD_SYNCH_VALID_MCONTEXT indicate
+     * a valid mcontext so check for at least THREAD_SYNCH_VALID_MCONTEXT_NO_XFER.
+     */
     if (THREAD_SYNCH_SAFE(cur_state, THREAD_SYNCH_VALID_MCONTEXT_NO_XFER)) {
         ASSERT(!is_dynamo_address(pc));
         /* for detach must set this here and now */
