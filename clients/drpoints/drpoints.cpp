@@ -168,7 +168,7 @@ bb_id_hash(void *val)
 {
     modidx_offset_t *key = static_cast<modidx_offset_t *>(val);
     uint modidx = key->modidx;
-    uint offset = key->offset;
+    uint64_t offset = key->offset;
     // We don't care about wrapping behavior as collisions will be handled by bb_id_cmp()
     // anyway.
     return offset >= modidx ? static_cast<uint>(offset * offset + offset) + modidx
