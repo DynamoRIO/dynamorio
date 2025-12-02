@@ -1116,7 +1116,7 @@ get_sve_state(pid_t pid, struct user_sve_header **sve_state_out)
      * state.
      */
     const bool has_active_sve_state =
-        !ptrace_error && ((*sve_state_out)->flags & SVE_PT_REGS_MASK) == SVE_PT_REGS_SVE;
+        !ptrace_error && TEST((*sve_state_out)->flags, SVE_PT_REGS_SVE);
 
     if (!has_active_sve_state) {
         free(*sve_state_out);
