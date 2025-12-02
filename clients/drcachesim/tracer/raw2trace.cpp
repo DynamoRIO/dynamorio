@@ -503,7 +503,7 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
             // If a subclass overrides process_marker() and acts before us, they'll
             // see the old one, but the difference is minimal and if it really matters
             // they'll have to arrange to run after our code.
-            constexpr int64 NEGATIVE_TIME_CORRECT_THREHSOLD_US = 1;
+            constexpr int64 NEGATIVE_TIME_CORRECT_THREHSOLD_US = 2;
             if (tdata->last_timestamp_ - stamp <= NEGATIVE_TIME_CORRECT_THREHSOLD_US) {
                 stamp = tdata->last_timestamp_;
                 marker_val = static_cast<uintptr_t>(stamp);
