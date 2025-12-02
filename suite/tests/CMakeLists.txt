@@ -6085,6 +6085,7 @@ if (UNIX)
   if (AARCH64)
     # App to test register state before and after attaching.
     add_executable(linux.attach_state linux/attach_state.c linux/attach_state_aarch64.asm)
+    set_sve_flags(linux.attach_state)
   endif ()
   torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # XXX i#1551: add coarse-grain ARM support
