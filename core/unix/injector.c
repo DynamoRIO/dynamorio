@@ -1070,7 +1070,9 @@ our_ptrace_set_sve(pid_t pid, struct user_sve_header *sve_state)
  * On success sve_state_out will be set to a heap allocated user_sve_header containing
  * the SVE register state if the target process has SVE state active, or NULL if SVE
  * state is not active.
- * The caller is responsible for freeing the sve_state_out when it is no longer needed.
+ * sve_state_out is allocated using malloc which is safe because this code will never
+ * be run in DR managed mode. The caller is responsible for freeing it using free() when
+ * it is no longer needed.
  */
 static bool
 get_sve_state(pid_t pid, struct user_sve_header **sve_state_out)
@@ -1100,6 +1102,10 @@ get_sve_state(pid_t pid, struct user_sve_header **sve_state_out)
      */
     const size_t full_sve_state_size =
         SVE_PT_SIZE(sve_vq_from_vl(sve_header.vl), SVE_PT_REGS_SVE);
+
+    /* It is safe to use malloc here because this code will never be run in DR managed
+     * mode.
+     */
     *sve_state_out = malloc(full_sve_state_size);
 
     if (*sve_state_out == NULL)
