@@ -1087,11 +1087,9 @@ get_sve_state(pid_t pid, struct user_sve_header **sve_state_out)
         /* DynamoRIO supports a maximum of 64-byte (512-bit) vectors so we can't
          * attach to this process.
          */
-        if (verbose) {
-            fprintf(stderr,
-                    "Unable to attach to process. The target process has an SVE vector "
-                    "length larger than the maxumum supported by DynamoRIO\n");
-        }
+        fprintf(stderr,
+                "Unable to attach to process. The target process has an SVE vector "
+                "length larger than the maxumum supported by DynamoRIO\n");
         *sve_state_out = NULL;
         return false;
     }
