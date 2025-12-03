@@ -40,6 +40,7 @@ set(DynamoRIO_USE_LIBC OFF)
 # Add drpoints client.
 add_library(drpoints SHARED drpoints.cpp)
 configure_DynamoRIO_client(drpoints)
+use_DynamoRIO_extension(drpoints drcovlib)
 use_DynamoRIO_extension(drpoints drmgr)
 use_DynamoRIO_extension(drpoints drx)
 use_DynamoRIO_extension(drpoints drcontainers)
