@@ -1555,7 +1555,9 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
     case ELF_R_TLS_TPOFF:
         /* The offset is negative, forward from the thread pointer. */
         if (sym != NULL) {
-            *r_addr = sym->st_value + (is_rela ? addend : *r_addr) - pd->tls_offset;
+            *r_addr = sym->st_value +
+                /* Skipping tcb_head_t for AArchXX is built-in to the offset. */
+                (is_rela ? addend : *r_addr)IF_X86_ELSE(-, +) pd->tls_offset;
         }
         break;
     case ELF_R_TLS_DTPOFF:
@@ -1575,6 +1577,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
         struct tlsdesc_t *tlsdesc = (void *)r_addr;
         ASSERT(is_rela);
         tlsdesc->entry = tlsdesc_resolver;
+        /* Skipping tcb_head_t for AArchXX is built-in to the offset. */
         tlsdesc->arg = (void *)(sym->st_value + addend IF_X86_ELSE(-, +) pd->tls_offset);
         break;
     }
