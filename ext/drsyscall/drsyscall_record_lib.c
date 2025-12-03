@@ -92,7 +92,7 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
                 offset += sizeof(syscall_record_t);
                 remaining -= sizeof(syscall_record_t);
                 if (remaining == 0 && offset == MAX_BUFFER_SIZE) {
-                  offset = 0;
+                    offset = 0;
                 }
                 break;
             case DRSYS_MEMORY_CONTENT: {
