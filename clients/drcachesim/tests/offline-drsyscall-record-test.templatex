@@ -1,0 +1,29 @@
+#define FILE_NO 0x2
+#define SIZE 0x1f4c
+#if defined(X86) && defined(X64)
+#    define ADDRESS 0x402000
+#    define CONTENT_ADDRESS 0x0000000000402000
+#    define SYSCALL_WRITE 1
+#    define SYSCALL_EXIT_GROUP 231
+#elif defined(AARCH64)
+#    define ADDRESS 0x411000
+#    define CONTENT_ADDRESS 0x0000000000411000
+#    define SYSCALL_WRITE 64
+#    define SYSCALL_EXIT_GROUP 94
+#else
+#    error Unsupported architecture
+#endif
+.*
+syscall: SYSCALL_WRITE, timestamp: [0-9]+
+pre-syscall ordinal 0, value FILE_NO
+pre-syscall ordinal 1, value ADDRESS
+pre-syscall ordinal 2, value SIZE
+memory content address CONTENT_ADDRESS, size SIZE
+(\n|.)*30303030 30303030 3030300a( )
+post-syscall ordinal 0, value FILE_NO
+post-syscall ordinal 1, value ADDRESS
+post-syscall ordinal 2, value SIZE
+return value SIZE
+syscall end: SYSCALL_WRITE, timestamp: [0-9]+
+syscall: SYSCALL_EXIT_GROUP, timestamp: [0-9]+
+pre-syscall ordinal 0, value 0x0
