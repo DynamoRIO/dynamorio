@@ -234,4 +234,57 @@
          SIMD_UNIQUE_VAL_BYTE_ELEMENT(start, increment, n))
 #endif
 
+#ifndef ASM_CODE_ONLY
+
+/* Detach test functions */
+void
+thread_check_gprs_from_cache(void);
+void
+thread_check_gprs_from_DR1(void);
+void
+thread_check_gprs_from_DR2(void);
+void
+thread_check_status_reg_from_cache(void);
+void
+thread_check_status_reg_from_DR(void);
+void
+thread_check_xsp_from_cache(void);
+void
+thread_check_xsp_from_DR(void);
+#    ifdef UNIX
+void
+thread_check_sigstate_from_handler(void);
+void
+thread_check_sigstate(void);
+#    endif
+
+/* Initialize the global detach_state test state.
+ * This should be called once before any thread_check_* functions are executed.
+ */
+void
+detach_state_shared_init(void);
+
+/* Clean up the global detach_state test state.
+ * This should be called once after all thread_check_* functions are executed.
+ */
+void
+detach_state_shared_cleanup(void);
+
+/* Signal to the running test that it should exit its loop and perform the state check.
+ */
+void
+set_sideline_exit(void);
+
+/* Returns true if the running test is ready to detach. */
+bool
+get_sideline_ready_for_detach(void);
+
+/* Reset global sideline state.
+ * Test apps that call multiple thread_check_* functions should call this in between to
+ * reset state.
+ */
+void
+reset_sideline_state(void);
+
+#endif /* ASM_CODE_ONLY */
 #endif /* _DETACH_STATE_SHARED_H_ */
