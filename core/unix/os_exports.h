@@ -184,8 +184,10 @@ extern uint android_tls_base_offs;
  * When using the private loader, we control all the TLS allocation and
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
+ * The Thread Pointer (tpid* register) points at the base of tcb_head_t,
+ * so we need to skip the "dtv" field.
  */
-#        define DR_TLS_BASE_OFFSET IF_X64_ELSE(-8, -4)
+#        define DR_TLS_BASE_OFFSET IF_X64_ELSE(8, 4)
 #    endif
 /* opcode for reading usr mode TLS base (user-read-only-thread-ID-register)
  * mrc p15, 0, reg_app, c13, c0, 3

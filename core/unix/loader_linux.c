@@ -80,8 +80,8 @@
  *
  * For AArchXX and RISCV, struct pthread is separate and comes before
  * the TCB structure, at the start of the allocation.
- * The Thread Pointer (TP) points to the end of the TCB, with the app and
- * library TLS coming afterward.
+ * The Thread Pointer (TP) points to the start (AArchXX) or end (RISCV) of the TCB,
+ * with the app and library TLS coming afterward.
  */
 /* There are two possible TLS memory, static TLS and dynamic TLS.
  * Static TLS is the memory allocated in the TLS segment, and can be accessed
@@ -278,8 +278,8 @@ privload_mod_tls_init(privmod_t *mod)
     }
     tls_info.mods[tls_info.num_mods] = mod;
     opd->tls_modid = tls_info.num_mods;
-    offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
 #    ifdef X86
+    offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
     /* decide the offset of each module in the TLS segment from
      * thread pointer.
      * Because the tls memory is located before thread pointer, we use
@@ -298,6 +298,12 @@ privload_mod_tls_init(privmod_t *mod)
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
 #    else
+#        ifdef AARCHXX
+    /* We need to skip the TCB, which is after TP, on AArchXX. */
+    offset = (opd->tls_modid == 0) ? sizeof(tcb_head_t) : tls_info.offset;
+#        else
+    offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
+#        endif
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
     offset = ALIGN_FORWARD(offset + opd->tls_block_size, opd->tls_align);
@@ -496,12 +502,17 @@ privload_tls_init(void *app_tp)
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at " PFX "\n", __FUNCTION__,
         client_tls_alloc_size, dr_tp);
-#ifndef X86
+#ifdef AARCHXX
+    dr_tp += TLS_PRE_TCB_SIZE;
+    dr_tcb = (tcb_head_t *)dr_tp;
+#elif defined(RISCV64)
     dr_tp = dr_tp + TLS_PRE_TCB_SIZE + sizeof(tcb_head_t);
     dr_tcb = (tcb_head_t *)(dr_tp - sizeof(tcb_head_t));
-#else
+#elif defined(X86)
     dr_tp = dr_tp + client_tls_alloc_size - tcb_size_estimate;
     dr_tcb = (tcb_head_t *)dr_tp;
+#else
+#    error NYI
 #endif
     LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to " PFX "\n", __FUNCTION__,
         dr_tp);
@@ -514,7 +525,7 @@ privload_tls_init(void *app_tp)
     size_t size_to_copy = APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size_estimate;
 #else
     /* PAGE_SIZE could be 64K so don't go too far back. */
-    byte *app_start = (byte *)app_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
+    byte *app_start = (byte *)app_tp - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t));
     byte *app_page_start = (byte *)ALIGN_BACKWARD(app_tp, PAGE_SIZE);
     /* Our estimate is deliberately larger than the current, so make sure we didn't
      * go onto the previous page.
@@ -541,7 +552,8 @@ privload_tls_init(void *app_tp)
     LOG(GLOBAL, LOG_LOADER, 2, "%d copied %zu bytes from %p to %p (TP %p)\n",
         get_sys_thread_id(), tls_bytes_read, app_start, dr_start, dr_tp);
 #if defined(AARCHXX) || defined(RISCV64)
-    dr_pthread_t *dp = (dr_pthread_t *)(dr_tp - LIBC_PTHREAD_SIZE - sizeof(tcb_head_t));
+    dr_pthread_t *dp =
+        (dr_pthread_t *)(dr_tp - LIBC_PTHREAD_SIZE IF_RISCV64(-sizeof(tcb_head_t)));
     dp->pid = get_process_id();
     dp->tid = get_sys_thread_id();
 #endif
@@ -586,7 +598,7 @@ privload_tls_exit(void *dr_tp)
     if (dr_tp == NULL)
         return;
 #ifndef X86
-    dr_tp = dr_tp - TLS_PRE_TCB_SIZE - sizeof(tcb_head_t);
+    dr_tp = dr_tp - TLS_PRE_TCB_SIZE IF_RISCV64(-sizeof(tcb_head_t));
 #else
     dr_tp = dr_tp + tcb_size_estimate - client_tls_alloc_size;
 #endif
@@ -613,7 +625,8 @@ redirect___tls_get_addr(tls_index_t *ti)
     return (os_get_priv_tls_base(NULL, TLS_REG_LIB) - tls_info.offs[ti->ti_module] +
             ti->ti_offset);
 #elif defined(AARCHXX)
-    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) + tls_info.offs[ti->ti_module] +
+    /* Skipping tcb_head_t is built-in to the offset. */
+    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) + +tls_info.offs[ti->ti_module] +
             ti->ti_offset);
 #else
 #    define TLS_DTV_OFFSET 0x800
