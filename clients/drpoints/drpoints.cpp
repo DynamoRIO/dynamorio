@@ -369,7 +369,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // Increment the BB execution count by BB size in #instructions.
     if (!drx_insert_counter_update(
             drcontext, bb, inst, static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-            static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1), &bb_count_ptr,
+            static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1), bb_count_ptr,
             static_cast<int>(bb_size), DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ)) {
         DR_ASSERT(false);
     }
