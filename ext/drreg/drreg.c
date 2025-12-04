@@ -408,7 +408,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
         if (xfer)
             aflags_cur = EFLAGS_READ_ARITH; /* assume flags are read before written */
         else {
-            uint aflags_read, aflags_w2r;
+            ptr_uint_t aflags_read, aflags_w2r;
             if (index == 0)
                 aflags_cur = EFLAGS_READ_ARITH; /* assume flags are read before written */
             else {
