@@ -389,7 +389,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         FATAL("ERROR: failed to reserve scratch register 2");
 
     // Move the address of instr_count in a scratch register.
-    instrlist_insert_mov_immed_ptrsz(drcontext, static_cast<ptr_int_t>(&instr_count),
+    instrlist_insert_mov_immed_ptrsz(drcontext, reinterpret_cast<ptr_int_t>(&instr_count),
                                      opnd_create_reg(scratch1), bb, inst, NULL, NULL);
 
     // Load the value of instr_count into another scratch register.
