@@ -2745,6 +2745,27 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   if ((LINUX OR WIN32) AND NOT RISCV64)
     tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
+
+    if ((X86 OR AARCH64) AND UNIX)
+      add_exe(client.external_detach_state client-interface/external_detach_state.c)
+      target_link_libraries(client.external_detach_state detach_state_shared)
+      link_with_pthread(client.external_detach_state)
+
+      macro (add_external_detach_test test_part_name)
+        torunonly_ci("client.external_detach_state_${test_part_name}"
+          client.external_detach_state client.detach_test.dll
+          client-interface/external_detach_state.runall "" "" "${test_part_name}")
+      endmacro()
+      add_external_detach_test(gprs_from_cache)
+      add_external_detach_test(gprs_from_DR1)
+      add_external_detach_test(gprs_from_DR2)
+      add_external_detach_test(status_reg_from_cache)
+      add_external_detach_test(status_reg_from_DR)
+      add_external_detach_test(xsp_from_cache)
+      add_external_detach_test(xsp_from_DR)
+      add_external_detach_test(sigstate)
+      add_external_detach_test(sigstate_from_handler)
+    endif ()
   endif ()
   if (UNIX)
     # Test attaching during a blocking syscall.
