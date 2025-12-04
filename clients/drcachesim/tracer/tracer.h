@@ -76,7 +76,7 @@ extern named_pipe_t ipc_pipe;
     } while (0)
 
 /* Thread private data.  This is all set to 0 at thread init. */
-typedef struct {
+struct per_thread_t {
     byte *seg_base;
     byte *buf_base;
     uint64 num_refs;
@@ -126,7 +126,7 @@ typedef struct {
     ssize_t syscall_record_buffer_offset = 0;
     char syscall_record_buffer[SYSCALL_RECORD_BUFFER_SIZE];
 #endif
-} per_thread_t;
+};
 
 /* Allocated TLS slot offsets */
 enum {
