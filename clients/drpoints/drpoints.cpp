@@ -243,9 +243,9 @@ save_bbv()
     // mechanism to set this global counter.
     instr_count = instr_interval.get_value();
 #if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
-    // The counter inline optimization for AARCH64 uses OP_tbz (test bit and branch if 0)
-    // does not branch here (save_bbv()) when instr_count reaches 0, it brances only when
-    // instr_count < 0, so we decrement the initial count by 1 here to keep the same
+    // The counter inline optimization for AARCH64 uses OP_tbz (test bit and branch if 0),
+    // which does not branch here (save_bbv()) when instr_count reaches 0, it brances only
+    // when instr_count < 0, so we decrement the initial count by 1 here to keep the same
     // behavior.
     --instr_count;
 #endif
@@ -577,9 +577,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     // We count backward until 0, so we set the initial instr_count to be instr_interval.
     dynamorio::drpoints::instr_count = dynamorio::drpoints::instr_interval.get_value();
 #if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
-    // The counter inline optimization for AARCH64 uses OP_tbz (test bit and branch if 0)
-    // does not branch here (save_bbv()) when instr_count reaches 0, it brances only when
-    // instr_count < 0, so we decrement the initial count by 1 here to keep the same
+    // The counter inline optimization for AARCH64 uses OP_tbz (test bit and branch if 0),
+    // which does not branch to save_bbv() when instr_count reaches 0, it brances only
+    // when instr_count < 0, so we decrement the initial count by 1 here to keep the same
     // behavior.
     --dynamorio::drpoints::instr_count;
 #endif
