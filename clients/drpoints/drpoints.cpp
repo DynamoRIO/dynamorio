@@ -242,6 +242,9 @@ save_bbv()
     // Currently we only support single-threaded applications, so we don't use any locking
     // mechanism to set this global counter.
     instr_count = instr_interval.get_value();
+#if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
+    --instr_count;
+#endif
 
     // Save current bb_count_table (i.e., the BBV for the current instruction interval).
     drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
@@ -569,4 +572,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     // We count backward until 0, so we set the initial instr_count to be instr_interval.
     dynamorio::drpoints::instr_count = dynamorio::drpoints::instr_interval.get_value();
+#if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
+    --instr_count;
+#endif
 }
