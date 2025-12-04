@@ -94,7 +94,7 @@ block_11:
 program_exit:
     add x0, x0, #1      // Instruction 56. Final value in x0 will be 12.
     mov x5, #150        // Instruction 57
-    add x6, x0, x5      // Instruction 58
     // x8 is the syscall number for exit (93 on Linux AArch64)
+    mov x8, #93
     mov x0, #0          // Set exit status to 0
     svc #0              // Invoke the system call
