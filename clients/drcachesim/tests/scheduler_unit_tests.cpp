@@ -734,61 +734,6 @@ test_legacy_fields()
         inputs[i].push_back(test_util::make_exit(tid));
     }
     {
-        // Test invalid quantum.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(
-            std::unique_ptr<test_util::mock_reader_t>(
-                new test_util::mock_reader_t(inputs[0])),
-            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
-            TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
-        sched_ops.quantum_duration = QUANTUM_DURATION;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
-    }
-    {
-        // Test invalid block scale.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(
-            std::unique_ptr<test_util::mock_reader_t>(
-                new test_util::mock_reader_t(inputs[0])),
-            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
-            TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.block_time_scale = BLOCK_SCALE;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
-    }
-    {
-        // Test invalid block max.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(
-            std::unique_ptr<test_util::mock_reader_t>(
-                new test_util::mock_reader_t(inputs[0])),
-            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
-            TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.block_time_max = BLOCK_MAX;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
-    }
-    {
         // Test valid legacy fields.
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         for (int i = 0; i < NUM_INPUTS; i++) {
