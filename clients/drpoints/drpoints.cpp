@@ -337,19 +337,24 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
 #        if defined(X86_64)
     // Increment the BB execution count by BB size in #instructions.
-    drx_insert_counter_update(drcontext, bb, inst,
-                              // We're using drmgr, so these slots
-                              // here won't be used: drreg's slots will be.
-                              static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              bb_count_ptr, static_cast<int>(bb_size), DRX_COUNTER_64BIT);
+    if (!drx_insert_counter_update(drcontext, bb, inst,
+                                   // We're using drmgr, so these slots
+                                   // here won't be used: drreg's slots will be.
+                                   static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+                                   bb_count_ptr, static_cast<int>(bb_size),
+                                   DRX_COUNTER_64BIT)) {
+        DR_ASSERT(false);
+    }
 
     // Decrement the instruction count by BB size in #instructions.
-    drx_insert_counter_update(drcontext, bb, inst,
-                              // We're using drmgr, so these slots
-                              // here won't be used: drreg's slots will be.
-                              static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              &instr_count, -(static_cast<int>(bb_size)),
-                              DRX_COUNTER_64BIT);
+    if (!drx_insert_counter_update(drcontext, bb, inst,
+                                   // We're using drmgr, so these slots
+                                   // here won't be used: drreg's slots will be.
+                                   static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+                                   &instr_count, -(static_cast<int>(bb_size)),
+                                   DRX_COUNTER_64BIT)) {
+        DR_ASSERT(false);
+    }
 
     if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false);
@@ -358,47 +363,56 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // instrumentation function that saves the current BBV, otherwise jump to the rest of
     // the BB and continue.
     MINSERT(bb, inst, INSTR_CREATE_jcc(drcontext, OP_jg, opnd_create_instr(skip_call)));
-
 #        elif defined(AARCH64)
     reg_id_t scratch1, scratch2 = DR_REG_NULL;
 
-    drx_insert_counter_update(
-        drcontext, bb, inst, static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-        static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1), &bb_count_ptr,
-        static_cast<int>(bb_size), DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ);
+    // Increment the BB execution count by BB size in #instructions.
+    if (!drx_insert_counter_update(
+            drcontext, bb, inst, static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+            static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1), &bb_count_ptr,
+            static_cast<int>(bb_size), DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ)) {
+        DR_ASSERT(false);
+    }
 
-    drx_insert_counter_update(
-        drcontext, bb, inst, static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-        static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1), &instr_count,
-        -(static_cast<int>(bb_size)), DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ);
+    // Decrement the instruction count by BB size in #instructions.
+    if (!drx_insert_counter_update(
+            drcontext, bb, inst, static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+            static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1), &instr_count,
+            -(static_cast<int>(bb_size)), DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ)) {
+        DR_ASSERT(false);
+    }
 
+    // Reserve two scratch registers.
     if (drreg_reserve_register(drcontext, bb, inst, NULL, &scratch1) != DRREG_SUCCESS)
         FATAL("ERROR: failed to reserve scratch register 1");
     if (drreg_reserve_register(drcontext, bb, inst, NULL, &scratch2) != DRREG_SUCCESS)
         FATAL("ERROR: failed to reserve scratch register 2");
 
+    // Move the address of instr_count in a scratch register.
     instrlist_insert_mov_immed_ptrsz(drcontext, static_cast<ptr_int_t>(&instr_count),
                                      opnd_create_reg(scratch1), bb, inst, NULL, NULL);
+
+    // Load the value of instr_count into another scratch register.
     MINSERT(bb, inst,
             XINST_CREATE_load(drcontext, opnd_create_reg(scratch2),
                               OPND_CREATE_MEMPTR(scratch1, 0)));
+
+    // If the top bit is still zero, then we have not reached the instr_interval yet, so
+    // skip the save_bbv() call.
     MINSERT(bb, inst,
             INSTR_CREATE_tbz(drcontext, opnd_create_instr(skip_call),
-                             /* If the top bit is still zero, skip the call. */
                              opnd_create_reg(scratch2), OPND_CREATE_INTPTR(63)));
 #        endif
-    //  Insert call to instrumentation function that saves the current BBV.
+    // Insert call to the instrumentation function that saves the current BBV.
     dr_insert_clean_call(drcontext, bb, inst, reinterpret_cast<void *>(save_bbv),
                          /*save_fpstate=*/false, 0);
     MINSERT(bb, inst, skip_call);
-
 #        if defined(X86_64)
     if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false);
 #        elif defined(AARCH64)
     if (drreg_unreserve_register(drcontext, bb, inst, scratch1) != DRREG_SUCCESS ||
-        (scratch2 != DR_REG_NULL &&
-         drreg_unreserve_register(drcontext, bb, inst, scratch2) != DRREG_SUCCESS)) {
+        drreg_unreserve_register(drcontext, bb, inst, scratch2) != DRREG_SUCCESS) {
         DR_ASSERT(false);
     }
 #        endif
