@@ -573,6 +573,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     // We count backward until 0, so we set the initial instr_count to be instr_interval.
     dynamorio::drpoints::instr_count = dynamorio::drpoints::instr_interval.get_value();
 #if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
-    --instr_count;
+    --dynamorio::drpoints::instr_count;
 #endif
 }
