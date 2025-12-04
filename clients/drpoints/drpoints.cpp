@@ -88,7 +88,7 @@ using ::dynamorio::droption::droption_t;
 
 #define MINSERT instrlist_meta_preinsert
 
-#ifdef X86_64
+#if defined(X86_64) || defined(AARCH64)
 #    define INLINE_COUNTER_UPDATE 1
 #else
 // TODO i#7685: We don't have the inlining implementation yet for AARCH64 or 32-bit
