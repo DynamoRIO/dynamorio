@@ -141,7 +141,10 @@ write_syscall_write_records()
     arg1.valid = true;
     arg1.ordinal = 0;
     arg1.pre = true;
-    arg1.value64 = (uint64)write_buffer;
+    // Cast the write_buffer to uintptr_t to address cast from pointer to integer of
+    // different size compiler error for 32-bit systems.
+    const uintptr_t buffer_address = (uintptr_t)write_buffer;
+    arg1.value64 = (uint64)buffer_address;
     drsyscall_write_param_record(GLOBAL_DCONTEXT, write_syscall_record, &arg1);
 
     drsys_arg_t arg2;
