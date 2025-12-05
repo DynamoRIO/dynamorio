@@ -398,7 +398,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // XXX i#7685: drx_insert_counter_update() above already loads instr_count in a
     // register, so we could avoid the following two instructions, which are redundant.
     // We can achieve this using some extra flag in drx_insert_counter_update() or
-    // performing the sub instructions directly here instead of using
+    // performing the sub instruction directly here instead of using
     // drx_insert_counter_update().
     // Move the address of instr_count in a scratch register.
     instrlist_insert_mov_immed_ptrsz(drcontext, reinterpret_cast<ptr_int_t>(&instr_count),
