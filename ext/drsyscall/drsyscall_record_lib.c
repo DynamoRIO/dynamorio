@@ -38,8 +38,6 @@
 #include "drsyscall_record_lib.h"
 #include "utils.h"
 
-#define MAX_BUFFER_SIZE 8192
-
 typedef struct _drsyscall_record_writer_t {
     void *drcontext;
     drsyscall_record_write_t write_func;
@@ -53,7 +51,7 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
     if (read_func == NULL) {
         return false;
     }
-    const size_t buffer_size = MAX_BUFFER_SIZE;
+    const size_t buffer_size = DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE;
     char *buffer = (char *)global_alloc(buffer_size, HEAPSTAT_MISC);
     int offset = 0;
     size_t remaining = 0;
@@ -91,7 +89,7 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
                 }
                 offset += sizeof(syscall_record_t);
                 remaining -= sizeof(syscall_record_t);
-                if (remaining == 0 && offset == MAX_BUFFER_SIZE) {
+                if (remaining == 0 && offset == DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE) {
                     offset = 0;
                 }
                 break;

@@ -5477,21 +5477,6 @@ if (BUILD_CLIENTS)
     string(CONCAT tool.drcacheoff.collect-syscall-records_postcmd2
       "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
       "${dir_prefix}.*.dir/raw/syscall_record_file.*")
-
-    if (X86)
-      add_exe(write_block_asm common/write_block_x86_64.asm)
-    else ()
-      add_exe(write_block_asm common/write_block_aarch64.asm)
-    endif ()
-    set_target_properties(write_block_asm PROPERTIES LINKER_LANGUAGE C)
-    append_link_flags(write_block_asm "-nostartfiles -nodefaultlibs -static")
-
-    torunonly_drcacheoff(drsyscall-record-test write_block_asm "-collect_syscall_records"
-            "@-tool@syscall_mix" "")
-    unset(tool.drcacheoff.drsyscall-record-test_rawtemp) # use preprocessor
-    string(CONCAT tool.drcacheoff.drsyscall-record-test_postcmd2
-      "${PROJECT_BINARY_DIR}/${INSTALL_BIN}/drsyscall_record_viewer@"
-      "${dir_prefix}.*.dir/raw/syscall_record_file.*")
   endif ()
 
   ###########################################################################
@@ -6592,6 +6577,10 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     -client ${drsyscall_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(client.drsyscall-test.dll drmgr)
   use_DynamoRIO_extension(client.drsyscall-test.dll drsyscall)
+
+  tobuild_api(client.drsyscall-record-lib-test
+   client-interface/drsyscall-record-lib-test.c "" "" OFF ON OFF)
+  use_DynamoRIO_extension(client.drsyscall-record-lib-test drsyscall_record_lib_static)
 
   tobuild_ci(client.strace-test client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(strace_test_libpath client.strace-test.dll
