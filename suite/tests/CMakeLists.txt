@@ -5597,9 +5597,11 @@ if (BUILD_CLIENTS)
           "${PROJECT_SOURCE_DIR}/clients/drpoints/tests")
       endmacro ()
 
-      # XXX i#7685: add more tests for different platforms (AARCH64).
       if (X86 AND X64)
         add_drpoints_asm_test(bb_12_instr_5_x86 10)
+      endif ()
+      if (AARCH64)
+        add_drpoints_asm_test(bb_12_instr_5_a64 10)
       endif ()
     endif ()
   endif ()

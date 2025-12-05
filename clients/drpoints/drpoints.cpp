@@ -88,11 +88,10 @@ using ::dynamorio::droption::droption_t;
 
 #define MINSERT instrlist_meta_preinsert
 
-#ifdef X86_64
+#if defined(X86_64) || defined(AARCH64)
 #    define INLINE_COUNTER_UPDATE 1
 #else
-// TODO i#7685: We don't have the inlining implementation yet for AARCH64 or 32-bit
-// architectures.
+// TODO i#7685: We don't have the inlining implementation yet for 32-bit architectures.
 #endif
 
 static droption_t<bytesize_t> instr_interval(
@@ -242,6 +241,13 @@ save_bbv()
     // Currently we only support single-threaded applications, so we don't use any locking
     // mechanism to set this global counter.
     instr_count = instr_interval.get_value();
+#if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
+    // The counter inline optimization for AARCH64 uses OP_tbz (test bit and branch if 0),
+    // which in this case tests the sign bit and does not branch here (save_bbv()) when
+    // instr_count reaches 0, it branches only when instr_count < 0, so we decrement the
+    // initial count by 1 here to keep the same "branch when instr_count <= 0" behavior.
+    --instr_count;
+#endif
 
     // Save current bb_count_table (i.e., the BBV for the current instruction interval).
     drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
@@ -333,22 +339,28 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     size_t bb_size = drx_instrlist_app_size(bb);
 
 #ifdef INLINE_COUNTER_UPDATE
-#    ifdef X86_64
+#    if defined(X86_64) || defined(AARCH64)
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
+#        if defined(X86_64)
     // Increment the BB execution count by BB size in #instructions.
-    drx_insert_counter_update(drcontext, bb, inst,
-                              // We're using drmgr, so these slots
-                              // here won't be used: drreg's slots will be.
-                              static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              bb_count_ptr, static_cast<int>(bb_size), DRX_COUNTER_64BIT);
+    if (!drx_insert_counter_update(drcontext, bb, inst,
+                                   // We're using drmgr, so these slots
+                                   // here won't be used: drreg's slots will be.
+                                   static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+                                   bb_count_ptr, static_cast<int>(bb_size),
+                                   DRX_COUNTER_64BIT)) {
+        DR_ASSERT(false);
+    }
 
     // Decrement the instruction count by BB size in #instructions.
-    drx_insert_counter_update(drcontext, bb, inst,
-                              // We're using drmgr, so these slots
-                              // here won't be used: drreg's slots will be.
-                              static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
-                              &instr_count, -(static_cast<int>(bb_size)),
-                              DRX_COUNTER_64BIT);
+    if (!drx_insert_counter_update(drcontext, bb, inst,
+                                   // We're using drmgr, so these slots
+                                   // here won't be used: drreg's slots will be.
+                                   static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+                                   &instr_count, -(static_cast<int>(bb_size)),
+                                   DRX_COUNTER_64BIT)) {
+        DR_ASSERT(false);
+    }
 
     if (drreg_reserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false);
@@ -357,14 +369,64 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // instrumentation function that saves the current BBV, otherwise jump to the rest of
     // the BB and continue.
     MINSERT(bb, inst, INSTR_CREATE_jcc(drcontext, OP_jg, opnd_create_instr(skip_call)));
+#        elif defined(AARCH64)
+    reg_id_t scratch1, scratch2 = DR_REG_NULL;
 
-    // Insert call to instrumentation function that saves the current BBV.
+    // Increment the BB execution count by BB size in #instructions.
+    if (!drx_insert_counter_update(
+            drcontext, bb, inst, static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+            static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1), bb_count_ptr,
+            static_cast<int>(bb_size), DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ)) {
+        DR_ASSERT(false);
+    }
+
+    // Decrement the instruction count by BB size in #instructions.
+    if (!drx_insert_counter_update(
+            drcontext, bb, inst, static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1),
+            static_cast<dr_spill_slot_t>(SPILL_SLOT_MAX + 1), &instr_count,
+            -(static_cast<int>(bb_size)), DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ)) {
+        DR_ASSERT(false);
+    }
+
+    // Reserve two scratch registers.
+    if (drreg_reserve_register(drcontext, bb, inst, NULL, &scratch1) != DRREG_SUCCESS)
+        FATAL("ERROR: failed to reserve scratch register 1");
+    if (drreg_reserve_register(drcontext, bb, inst, NULL, &scratch2) != DRREG_SUCCESS)
+        FATAL("ERROR: failed to reserve scratch register 2");
+
+    // XXX i#7685: drx_insert_counter_update() above already loads instr_count in a
+    // register, so we could avoid the following two instructions, which are redundant.
+    // We can achieve this using some extra flag in drx_insert_counter_update() or
+    // performing the sub instruction directly here instead of using
+    // drx_insert_counter_update().
+    // Move the address of instr_count in a scratch register.
+    instrlist_insert_mov_immed_ptrsz(drcontext, reinterpret_cast<ptr_int_t>(&instr_count),
+                                     opnd_create_reg(scratch1), bb, inst, NULL, NULL);
+
+    // Load the value of instr_count into another scratch register.
+    MINSERT(bb, inst,
+            XINST_CREATE_load(drcontext, opnd_create_reg(scratch2),
+                              OPND_CREATE_MEMPTR(scratch1, 0)));
+
+    // If the top bit is still zero, then we have not reached the instr_interval yet, so
+    // skip the save_bbv() call.
+    MINSERT(bb, inst,
+            INSTR_CREATE_tbz(drcontext, opnd_create_instr(skip_call),
+                             opnd_create_reg(scratch2), OPND_CREATE_INTPTR(63)));
+#        endif
+    // Insert call to the instrumentation function that saves the current BBV.
     dr_insert_clean_call(drcontext, bb, inst, reinterpret_cast<void *>(save_bbv),
                          /*save_fpstate=*/false, 0);
     MINSERT(bb, inst, skip_call);
-
+#        if defined(X86_64)
     if (drreg_unreserve_aflags(drcontext, bb, inst) != DRREG_SUCCESS)
         DR_ASSERT(false);
+#        elif defined(AARCH64)
+    if (drreg_unreserve_register(drcontext, bb, inst, scratch1) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, inst, scratch2) != DRREG_SUCCESS) {
+        DR_ASSERT(false);
+    }
+#        endif
 #    else
 #        error NYI
 #    endif
@@ -518,4 +580,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     // We count backward until 0, so we set the initial instr_count to be instr_interval.
     dynamorio::drpoints::instr_count = dynamorio::drpoints::instr_interval.get_value();
+#if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
+    // The counter inline optimization for AARCH64 uses OP_tbz (test bit and branch if 0),
+    // which in this case tests the sign bit and does not branch to save_bbv() when
+    // instr_count reaches 0, it branches only when instr_count < 0, so we decrement the
+    // initial count by 1 here to keep the same "branch when instr_count <= 0" behavior.
+    --dynamorio::drpoints::instr_count;
+#endif
 }
