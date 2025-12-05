@@ -244,9 +244,9 @@ save_bbv()
     instr_count = instr_interval.get_value();
 #if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
     // The counter inline optimization for AARCH64 uses OP_tbz (test bit and branch if 0),
-    // which does not branch here (save_bbv()) when instr_count reaches 0, it brances only
-    // when instr_count < 0, so we decrement the initial count by 1 here to keep the same
-    // behavior.
+    // which in this case tests the sign bit and does not branch here (save_bbv()) when
+    // instr_count reaches 0, it branches only when instr_count < 0, so we decrement the
+    // initial count by 1 here to keep the same "branch when instr_count <= 0" behavior.
     --instr_count;
 #endif
 
@@ -395,6 +395,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (drreg_reserve_register(drcontext, bb, inst, NULL, &scratch2) != DRREG_SUCCESS)
         FATAL("ERROR: failed to reserve scratch register 2");
 
+    // XXX i#7685: drx_insert_counter_update() above already loads instr_count in a
+    // register, so we could avoid the following two instructions, which are redundant.
+    // We can achieve this using some extra flag in drx_insert_counter_update() or
+    // performing the sub instructions directly here instead of using
+    // drx_insert_counter_update().
     // Move the address of instr_count in a scratch register.
     instrlist_insert_mov_immed_ptrsz(drcontext, reinterpret_cast<ptr_int_t>(&instr_count),
                                      opnd_create_reg(scratch1), bb, inst, NULL, NULL);
@@ -578,9 +583,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dynamorio::drpoints::instr_count = dynamorio::drpoints::instr_interval.get_value();
 #if defined(INLINE_COUNTER_UPDATE) && defined(AARCH64)
     // The counter inline optimization for AARCH64 uses OP_tbz (test bit and branch if 0),
-    // which does not branch to save_bbv() when instr_count reaches 0, it brances only
-    // when instr_count < 0, so we decrement the initial count by 1 here to keep the same
-    // behavior.
+    // which in this case tests the sign bit and does not branch to save_bbv() when
+    // instr_count reaches 0, it branches only when instr_count < 0, so we decrement the
+    // initial count by 1 here to keep the same "branch when instr_count <= 0" behavior.
     --dynamorio::drpoints::instr_count;
 #endif
 }
