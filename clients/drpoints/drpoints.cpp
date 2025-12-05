@@ -91,8 +91,7 @@ using ::dynamorio::droption::droption_t;
 #if defined(X86_64) || defined(AARCH64)
 #    define INLINE_COUNTER_UPDATE 1
 #else
-// TODO i#7685: We don't have the inlining implementation yet for AARCH64 or 32-bit
-// architectures.
+// TODO i#7685: We don't have the inlining implementation yet for 32-bit architectures.
 #endif
 
 static droption_t<bytesize_t> instr_interval(
