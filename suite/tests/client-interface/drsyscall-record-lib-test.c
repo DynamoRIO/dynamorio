@@ -48,70 +48,80 @@
 // This test verifies the case when a syscall record ends exactly at the end of the
 // drsyscall_iterate_records() buffer.
 #define TOTAL_SYSCALL_RECORDS 10
-#define WRITE_BUFFER_SIZE                    \
-    (DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE - \
+#define DRSYS_RETURN_VALUE_ALIGNED_CONTENT_SIZE \
+    (DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE -    \
      (TOTAL_SYSCALL_RECORDS - 1) * sizeof(syscall_record_t))
-#define SYSCALL_RECORD_BUFFER_SIZE \
-    (DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE + sizeof(syscall_record_t))
+#define DRSYS_RETURN_VALUE_ALIGNED_BUFFER_SIZE          \
+    (TOTAL_SYSCALL_RECORDS * sizeof(syscall_record_t) + \
+     DRSYS_RETURN_VALUE_ALIGNED_CONTENT_SIZE)
 #define FILE_DESCRIPTOR 2
 #define BUFFER_CHAR '0'
 
-char syscall_record_read_buffer[SYSCALL_RECORD_BUFFER_SIZE];
-char syscall_record_write_buffer[SYSCALL_RECORD_BUFFER_SIZE];
+// To align the end of the content record with the end of the
+// drsyscall_iterate_records() buffer, we substract the size of
+// one DRSYS_SYSCALL_NUMBER_TIMESTAMP, three DRSYS_PRECALL_PARAM, and one
+// DRSYS_MEMORY_CONTENT record from DRSYS_CONTENT_ALIGNED_BUFFER_SIZE.
+#define DRSYS_CONTENT_ALIGNED_CONTENT_SIZE \
+    (DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE - 5 * sizeof(syscall_record_t))
+#define DRSYS_CONTENT_ALIGNED_BUFFER_SIZE               \
+    (TOTAL_SYSCALL_RECORDS * sizeof(syscall_record_t) + \
+     DRSYS_CONTENT_ALIGNED_CONTENT_SIZE)
 
+char syscall_record_read_buffer[DRSYS_RETURN_VALUE_ALIGNED_BUFFER_SIZE * 2];
+char syscall_record_write_buffer[DRSYS_RETURN_VALUE_ALIGNED_BUFFER_SIZE * 2];
+
+int expected_read_record_end = 0;
+int next_write_record_offset = 0;
 static size_t
 write_syscall_record(void *drcontext, char *buf, size_t size)
 {
-    static int next_record_offset = 0;
-    static int syscall_record_count = 0;
-    DR_ASSERT(next_record_offset + size <= SYSCALL_RECORD_BUFFER_SIZE);
-    memcpy(&syscall_record_write_buffer[next_record_offset], buf, size);
-    next_record_offset += size;
+    DR_ASSERT(next_write_record_offset + size <= expected_read_record_end);
+    memcpy(&syscall_record_write_buffer[next_write_record_offset], buf, size);
+    next_write_record_offset += size;
     return size;
 }
 
+int current_read_record_offset = 0;
 static size_t
 read_syscall_record(char *buffer, size_t size)
 {
-    static int current_offset = 0;
-    DR_ASSERT(current_offset <= SYSCALL_RECORD_BUFFER_SIZE);
-    if (current_offset == SYSCALL_RECORD_BUFFER_SIZE) {
+    DR_ASSERT(current_read_record_offset <= expected_read_record_end);
+    if (current_read_record_offset == expected_read_record_end) {
         return 0;
     }
-    memcpy(buffer, &syscall_record_write_buffer[current_offset], size);
-    current_offset += size;
+    memcpy(buffer, &syscall_record_write_buffer[current_read_record_offset], size);
+    current_read_record_offset += size;
     return size;
 }
 
+int next_read_record_offset = 0;
 static bool
 read_syscall_record_cb(syscall_record_t *record, char *buffer, size_t size)
 {
-    static int next_record_offset = 0;
     switch (record->type) {
     case DRSYS_SYSCALL_NUMBER_TIMESTAMP:
     case DRSYS_PRECALL_PARAM:
     case DRSYS_POSTCALL_PARAM:
     case DRSYS_RETURN_VALUE:
     case DRSYS_RECORD_END_TIMESTAMP:
-        DR_ASSERT(next_record_offset + sizeof(syscall_record_t) <=
-                  SYSCALL_RECORD_BUFFER_SIZE);
-        memcpy(&syscall_record_read_buffer[next_record_offset], (char *)record,
+        DR_ASSERT(next_read_record_offset + sizeof(syscall_record_t) <=
+                  expected_read_record_end);
+        memcpy(&syscall_record_read_buffer[next_read_record_offset], (char *)record,
                sizeof(syscall_record_t));
-        next_record_offset += sizeof(syscall_record_t);
+        next_read_record_offset += sizeof(syscall_record_t);
         break;
     case DRSYS_MEMORY_CONTENT:
-        DR_ASSERT(size == WRITE_BUFFER_SIZE);
         for (int index = 0; index < size; ++index) {
             DR_ASSERT(buffer[index] == BUFFER_CHAR);
         }
-        DR_ASSERT(next_record_offset + sizeof(syscall_record_t) <=
-                  SYSCALL_RECORD_BUFFER_SIZE);
-        memcpy(&syscall_record_read_buffer[next_record_offset], (char *)record,
+        DR_ASSERT(next_read_record_offset + sizeof(syscall_record_t) <=
+                  expected_read_record_end);
+        memcpy(&syscall_record_read_buffer[next_read_record_offset], (char *)record,
                sizeof(syscall_record_t));
-        next_record_offset += sizeof(syscall_record_t);
-        DR_ASSERT(next_record_offset + size <= SYSCALL_RECORD_BUFFER_SIZE);
-        memcpy(&syscall_record_read_buffer[next_record_offset], buffer, size);
-        next_record_offset += size;
+        next_read_record_offset += sizeof(syscall_record_t);
+        DR_ASSERT(next_read_record_offset + size <= expected_read_record_end);
+        memcpy(&syscall_record_read_buffer[next_read_record_offset], buffer, size);
+        next_read_record_offset += size;
         break;
     default: DR_ASSERT(true);
     }
@@ -119,7 +129,7 @@ read_syscall_record_cb(syscall_record_t *record, char *buffer, size_t size)
 }
 
 static void
-write_syscall_write_records()
+write_syscall_write_records(int content_size)
 {
     uint64_t timestamp = 0;
     drsys_sysnum_t sysnum_write;
@@ -134,8 +144,8 @@ write_syscall_write_records()
     arg0.value64 = FILE_DESCRIPTOR;
     drsyscall_write_param_record(GLOBAL_DCONTEXT, write_syscall_record, &arg0);
 
-    char write_buffer[WRITE_BUFFER_SIZE];
-    memset(write_buffer, BUFFER_CHAR, WRITE_BUFFER_SIZE);
+    char write_buffer[DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE];
+    memset(write_buffer, BUFFER_CHAR, content_size);
 
     drsys_arg_t arg1;
     arg1.valid = true;
@@ -151,7 +161,7 @@ write_syscall_write_records()
     arg2.valid = true;
     arg2.ordinal = 0;
     arg2.pre = true;
-    arg2.value64 = WRITE_BUFFER_SIZE;
+    arg2.value64 = content_size;
     drsyscall_write_param_record(GLOBAL_DCONTEXT, write_syscall_record, &arg2);
 
     drsys_arg_t mem_arg;
@@ -160,8 +170,11 @@ write_syscall_write_records()
     mem_arg.ordinal = 0;
     mem_arg.pre = true;
     mem_arg.start_addr = write_buffer;
-    mem_arg.size = WRITE_BUFFER_SIZE;
+    mem_arg.size = content_size;
     drsyscall_write_memarg_record(GLOBAL_DCONTEXT, write_syscall_record, &mem_arg);
+    if (expected_read_record_end == DRSYS_CONTENT_ALIGNED_CONTENT_SIZE) {
+        DR_ASSERT(next_write_record_offset == DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE);
+    }
 
     arg0.pre = false;
     drsyscall_write_param_record(GLOBAL_DCONTEXT, write_syscall_record, &arg0);
@@ -174,8 +187,11 @@ write_syscall_write_records()
     return_arg.valid = true;
     return_arg.ordinal = -1;
     return_arg.pre = false;
-    return_arg.value64 = WRITE_BUFFER_SIZE;
+    return_arg.value64 = content_size;
     drsyscall_write_param_record(GLOBAL_DCONTEXT, write_syscall_record, &return_arg);
+    if (expected_read_record_end == DRSYS_RETURN_VALUE_ALIGNED_CONTENT_SIZE) {
+        DR_ASSERT(next_write_record_offset == DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE);
+    }
 
     drsyscall_write_syscall_end_timestamp_record(GLOBAL_DCONTEXT, write_syscall_record,
                                                  sysnum_write, ++timestamp);
@@ -184,9 +200,24 @@ write_syscall_write_records()
 int
 main(int argc, char *argv[])
 {
-    write_syscall_write_records();
+    // Test the boundary condition when the return value record ends exactly at
+    // the end of the drsyscall_iterate_records() buffer.
+    expected_read_record_end = DRSYS_RETURN_VALUE_ALIGNED_BUFFER_SIZE;
+    write_syscall_write_records(DRSYS_RETURN_VALUE_ALIGNED_CONTENT_SIZE);
     drsyscall_iterate_records(read_syscall_record, read_syscall_record_cb);
     DR_ASSERT(memcmp(syscall_record_write_buffer, syscall_record_read_buffer,
-                     SYSCALL_RECORD_BUFFER_SIZE) == 0);
+                     DRSYS_RETURN_VALUE_ALIGNED_BUFFER_SIZE) == 0);
+
+    // Test the boundary condition when the content record ends exactly at
+    // the end of the drsyscall_iterate_records() buffer.
+    next_read_record_offset = 0;
+    current_read_record_offset = 0;
+    next_write_record_offset = 0;
+    expected_read_record_end = DRSYS_CONTENT_ALIGNED_BUFFER_SIZE;
+    write_syscall_write_records(DRSYS_CONTENT_ALIGNED_CONTENT_SIZE);
+    drsyscall_iterate_records(read_syscall_record, read_syscall_record_cb);
+    DR_ASSERT(memcmp(syscall_record_write_buffer, syscall_record_read_buffer,
+                     DRSYS_CONTENT_ALIGNED_BUFFER_SIZE) == 0);
+
     dr_printf("done");
 }

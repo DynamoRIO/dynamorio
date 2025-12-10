@@ -63,7 +63,8 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
             remaining += read_func(buffer + remaining, buffer_size - remaining);
             offset = 0;
         } else {
-            remaining = read_func(buffer + offset, buffer_size - offset);
+            offset = 0;
+            remaining = read_func(buffer, buffer_size);
             if (remaining == 0) {
                 global_free(buffer, buffer_size, HEAPSTAT_MISC);
                 return true;
@@ -89,9 +90,6 @@ drsyscall_iterate_records(drsyscall_record_read_t read_func,
                 }
                 offset += sizeof(syscall_record_t);
                 remaining -= sizeof(syscall_record_t);
-                if (remaining == 0 && offset == DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE) {
-                    offset = 0;
-                }
                 break;
             case DRSYS_MEMORY_CONTENT: {
                 const size_t content_size = record->content.size;
