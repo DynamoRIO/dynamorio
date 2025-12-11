@@ -43,7 +43,7 @@
 // DRSYS_POSTCALL_PARAM records, one DRSYS_RETURN_VALUE record, and one
 // DRSYS_RECORD_END_TIMESTAMP record.
 // To align the DRSYS_RETURN_VALUE record to end exactly at the end of
-// the drsyscall_iterate_records() buffer, we substract the size of nine
+// the drsyscall_iterate_records() buffer, we subtract the size of nine
 // syscall records from DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE.
 // This test verifies the case when a syscall record ends exactly at the end of the
 // drsyscall_iterate_records() buffer.
@@ -58,7 +58,7 @@
 #define BUFFER_CHAR '0'
 
 // To align the end of the content record with the end of the
-// drsyscall_iterate_records() buffer, we substract the size of
+// drsyscall_iterate_records() buffer, we subtract the size of
 // one DRSYS_SYSCALL_NUMBER_TIMESTAMP, three DRSYS_PRECALL_PARAM, and one
 // DRSYS_MEMORY_CONTENT record from DRSYS_CONTENT_ALIGNED_BUFFER_SIZE.
 #define DRSYS_CONTENT_ALIGNED_CONTENT_SIZE \
