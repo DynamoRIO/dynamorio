@@ -6580,6 +6580,10 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
   use_DynamoRIO_extension(client.drsyscall-test.dll drmgr)
   use_DynamoRIO_extension(client.drsyscall-test.dll drsyscall)
 
+  tobuild_api(client.drsyscall-record-lib-test
+   client-interface/drsyscall-record-lib-test.c "" "" OFF ON OFF)
+  use_DynamoRIO_extension(client.drsyscall-record-lib-test drsyscall_record_lib_static)
+
   tobuild_ci(client.strace-test client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(strace_test_libpath client.strace-test.dll
     "${location_suffix}")
