@@ -1227,7 +1227,6 @@ test_ld1_scalar_plus_vector()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             ld_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -1865,7 +1864,6 @@ test_ldff1_scalar_plus_vector()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             ld_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -2505,7 +2503,6 @@ test_st1_scalar_plus_vector()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             st_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -2959,7 +2956,6 @@ test_ld1_vector_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                         \
             NOP_x_4                                                     \
             ld_instruction "\n"                                         \
-            NOP_x_4                                                     \
             SAVE_Z_REGISTERS(z_save_base)                               \
             SAVE_P_REGISTERS(p_save_base)                               \
             SAVE_FFR(p_save_base) /* clang-format on */         \
@@ -3285,7 +3281,6 @@ test_ldff1_vector_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             ld_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -3578,7 +3573,6 @@ test_st1_vector_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                         \
             NOP_x_4                                                     \
             st_instruction "\n"                                         \
-            NOP_x_4                                                     \
             SAVE_Z_REGISTERS(z_save_base)                               \
             SAVE_P_REGISTERS(p_save_base)                               \
             SAVE_FFR(p_save_base) /* clang-format on */         \
@@ -3852,7 +3846,6 @@ test_ld1_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                         \
             NOP_x_4                                                     \
             ld_instruction "\n"                                         \
-            NOP_x_4                                                     \
             SAVE_Z_REGISTERS(z_save_base)                               \
             SAVE_P_REGISTERS(p_save_base)                               \
             SAVE_FFR(p_save_base) /* clang-format on */         \
@@ -4317,7 +4310,6 @@ test_ldff1_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                                  \
             NOP_x_4                                                              \
             ld_instruction "\n"                                                  \
-            NOP_x_4                                                              \
             SAVE_Z_REGISTERS(z_save_base)                                        \
             SAVE_P_REGISTERS(p_save_base)                                        \
             SAVE_FFR(p_save_base) /* clang-format on */                  \
@@ -4646,7 +4638,6 @@ test_ld2_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                         \
             NOP_x_4                                                     \
             ld_instruction "\n"                                         \
-            NOP_x_4                                                     \
             SAVE_Z_REGISTERS(z_save_base)                               \
             SAVE_P_REGISTERS(p_save_base)                               \
             SAVE_FFR(p_save_base) /* clang-format on */         \
@@ -4758,7 +4749,6 @@ test_ld3_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                         \
             NOP_x_4                                                     \
             ld_instruction "\n"                                         \
-            NOP_x_4                                                     \
             SAVE_Z_REGISTERS(z_save_base)                               \
             SAVE_P_REGISTERS(p_save_base)                               \
             SAVE_FFR(p_save_base) /* clang-format on */         \
@@ -4896,7 +4886,6 @@ test_ld4_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                         \
             NOP_x_4                                                     \
             ld_instruction "\n"                                         \
-            NOP_x_4                                                     \
             SAVE_Z_REGISTERS(z_save_base)                               \
             SAVE_P_REGISTERS(p_save_base)                               \
             SAVE_FFR(p_save_base) /* clang-format on */         \
@@ -5201,7 +5190,6 @@ test_st1_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                          \
             NOP_x_4                                                      \
             st_instruction "\n"                                          \
-            NOP_x_4                                                      \
             SAVE_Z_REGISTERS(z_save_base)                                \
             SAVE_P_REGISTERS(p_save_base)                                \
             SAVE_FFR(p_save_base) /* clang-format on */          \
@@ -5314,7 +5302,6 @@ test_st2_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                          \
             NOP_x_4                                                      \
             st_instruction "\n"                                          \
-            NOP_x_4                                                      \
             SAVE_Z_REGISTERS(z_save_base)                                \
             SAVE_P_REGISTERS(p_save_base)                                \
             SAVE_FFR(p_save_base) /* clang-format on */          \
@@ -5386,7 +5373,6 @@ test_st3_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                          \
             NOP_x_4                                                      \
             st_instruction "\n"                                          \
-            NOP_x_4                                                      \
             SAVE_Z_REGISTERS(z_save_base)                                \
             SAVE_P_REGISTERS(p_save_base)                                \
             SAVE_FFR(p_save_base) /* clang-format on */          \
@@ -5462,7 +5448,6 @@ test_st4_scalar_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                          \
             NOP_x_4                                                      \
             st_instruction "\n"                                          \
-            NOP_x_4                                                      \
             SAVE_Z_REGISTERS(z_save_base)                                \
             SAVE_P_REGISTERS(p_save_base)                                \
             SAVE_FFR(p_save_base) /* clang-format on */          \
@@ -5681,7 +5666,6 @@ test_ld1_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             ld_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -6382,7 +6366,6 @@ test_ld2_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             ld_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -6588,7 +6571,6 @@ test_ld3_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             ld_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -6836,7 +6818,6 @@ test_ld4_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             ld_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -7281,7 +7262,6 @@ test_ldnf1_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             ld_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -7855,7 +7835,6 @@ test_st1_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             st_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -8023,7 +8002,6 @@ test_st2_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             st_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -8114,7 +8092,6 @@ test_st3_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             st_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -8211,7 +8188,6 @@ test_st4_scalar_plus_immediate()
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             NOP_x_4                                                                 \
             st_instruction "\n"                                                     \
-            NOP_x_4                                                                 \
             SAVE_Z_REGISTERS(z_save_base)                                           \
             SAVE_P_REGISTERS(p_save_base)                                           \
             SAVE_FFR(p_save_base) /* clang-format on */                     \
@@ -8437,7 +8413,6 @@ test_ld1_vector_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                                \
             NOP_x_4                                                            \
             ld_instruction "\n"                                                \
-            NOP_x_4                                                            \
             SAVE_Z_REGISTERS(z_save_base)                                      \
             SAVE_P_REGISTERS(p_save_base)                                      \
             SAVE_FFR(p_save_base) /* clang-format on */                \
@@ -8676,7 +8651,6 @@ test_st1_vector_plus_scalar()
             RESTORE_P_REGISTERS(p_restore_base)                                \
             NOP_x_4                                                            \
             st_instruction "\n"                                                \
-            NOP_x_4                                                            \
             SAVE_Z_REGISTERS(z_save_base)                                      \
             SAVE_P_REGISTERS(p_save_base)                                      \
             SAVE_FFR(p_save_base) /* clang-format on */                \
