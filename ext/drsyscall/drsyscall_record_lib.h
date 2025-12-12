@@ -47,6 +47,8 @@
 extern "C" {
 #endif
 
+#define DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE 8192
+
 /**
  * A user provided function to read syscall records. Returns the number of bytes read.
  * Returns 0 if there are no more bytes.
