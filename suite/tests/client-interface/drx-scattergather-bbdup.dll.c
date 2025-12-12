@@ -115,6 +115,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     return DR_EMIT_DEFAULT; // NOCHECK STORE_TRANSLATIONS;
 }
 
+#if defined(AARCH64)
+/* OS libraries can contain scatter / gather instructions so the test instructions
+ * are guarded by NOPs
+ */
+#    define GUARD_NOPS_COUNT 4
+static uint nops_to_find = GUARD_NOPS_COUNT;
+#endif /* AARCH64 */
+
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, void **user_data)
@@ -129,7 +137,24 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
              */
             IF_X64(dr_fprintf(STDERR, "Unexpected scatter or gather instruction\n"));
         }
-        if (drmgr_is_emulation_start(instr)) {
+
+#if defined(AARCH64)
+        if (nops_to_find) {
+            if (instr_get_opcode(instr) == OP_nop)
+                nops_to_find--;
+            else
+                nops_to_find = GUARD_NOPS_COUNT;
+        }
+#endif
+
+        if (drmgr_is_emulation_start(instr)
+#if defined(AARCH64)
+            && nops_to_find == 0
+#endif
+        ) {
+#if defined(AARCH64)
+            nops_to_find = GUARD_NOPS_COUNT;
+#endif
             emulated_instr_t emulated_instr;
             emulated_instr.size = sizeof(emulated_instr);
             CHECK(drmgr_get_emulated_instr_data(instr, &emulated_instr),
