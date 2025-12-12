@@ -486,6 +486,10 @@ event_exit(void)
         !drmgr_unregister_post_attach_event_user_data(event_post_attach_user_data))
         CHECK(false, "drmgr unregister filter failed");
 
+    // Test re-init.
+    drmgr_exit();
+    drmgr_init();
+
     drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
 }
