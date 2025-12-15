@@ -3470,13 +3470,21 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
 endif (NOT RISCV64)
 if (LINUX AND X64 AND NOT RISCV64) # Will take extra work to port to 32-bit.
   # TODO i#3544: Port tests to RISC-V 64
+
+  set(detach_state_shared_c ${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.c)
+  add_split_asm_target("${detach_state_shared_c}" detach_state_shared_asm
+    generate_detach_state_shared_asm "_asm" "${asm_defs}" "${asm_deps}")
+  add_library(detach_state_shared STATIC
+    ${detach_state_shared_c} ${detach_state_shared_asm})
+  set_cflags("${detach_state_shared_c}")
+  set_sve_flags(detach_state_shared)
+  set_avx_flags(detach_state_shared)
+
   tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
   target_include_directories(api.detach_state PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
   link_with_pthread(api.detach_state)
-  set_source_files_properties(detach_state.c_asm.asm APPEND_LIST PROPERTIES
-    OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.h")
-  set_avx_flags(api.detach_state)
+  target_link_libraries(api.detach_state detach_state_shared)
 endif ()
 if (UNIX AND NOT RISCV64)
   if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
