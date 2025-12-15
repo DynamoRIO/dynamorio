@@ -8837,7 +8837,17 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
 
     if (unblocked_sigs) {
         /* re-block so our exit from main_signal_handler is not interrupted */
+        kernel_sigaddset(&prevmask, SUSPEND_SIGNAL);
         sigprocmask_syscall(SIG_SETMASK, &prevmask, NULL, sizeof(prevmask));
+    } else {
+        /* Prevent another SUSPEND_SIGNAL interrupting main_signal_handler before we
+         * exit.
+         */
+        kernel_sigset_t mask;
+        kernel_sigemptyset(&mask);
+        kernel_sigaddset(&mask, SUSPEND_SIGNAL);
+
+        sigprocmask_syscall(SIG_BLOCK, &mask, NULL, sizeof(mask));
     }
     ostd->suspended_sigcxt = NULL;
 
