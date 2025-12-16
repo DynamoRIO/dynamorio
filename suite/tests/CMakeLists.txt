@@ -2746,7 +2746,7 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
   if ((LINUX OR WIN32) AND NOT RISCV64)
     tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
 
-    if ((X86 OR AARCH64) AND UNIX)
+    if (LINUX AND X64)
       add_exe(client.external_detach_state client-interface/external_detach_state.c)
       target_link_libraries(client.external_detach_state detach_state_shared)
       link_with_pthread(client.external_detach_state)
