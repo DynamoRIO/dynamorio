@@ -3398,7 +3398,7 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
     ASSERT(DYNAMO_OPTION(emulate_brk));
     LOG(THREAD, LOG_HEAP, 2, "%s: cur=" PFX ", requested=" PFX "\n", __FUNCTION__,
         app_brk_cur, new_val);
-    byte * new_val_aligned = (byte *)ALIGN_FORWARD(new_val, PAGE_SIZE);
+    byte *new_val_aligned = (byte *)ALIGN_FORWARD(new_val, PAGE_SIZE);
     if (new_val == NULL || new_val == app_brk_cur ||
         /* Not allowed to shrink below original base */
         new_val < app_brk_map) {
@@ -3414,10 +3414,9 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
         app_brk_cur = new_val;
     } else {
         /* Expand */
-        byte *remap = (byte *)dynamorio_syscall(SYS_mremap, 4, app_brk_map,
-                                                app_brk_end - app_brk_map,
-                                                new_val_aligned - app_brk_map,
-                                                0 /*do not move*/);
+        byte *remap = (byte *)dynamorio_syscall(
+            SYS_mremap, 4, app_brk_map, app_brk_end - app_brk_map,
+            new_val_aligned - app_brk_map, 0 /*do not move*/);
         if (mmap_syscall_succeeded(remap)) {
             ASSERT(remap == app_brk_map);
             app_brk_cur = new_val;
