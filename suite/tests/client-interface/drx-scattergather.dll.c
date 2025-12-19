@@ -117,14 +117,9 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 nops_to_find = GUARD_NOPS_COUNT;
         }
 #endif
-        if (drmgr_is_emulation_start(instr)
-#if defined(AARCH64)
-            && nops_to_find == 0
-#endif
-        ) {
-#if defined(AARCH64)
-            nops_to_find = GUARD_NOPS_COUNT;
-#endif
+        if (drmgr_is_emulation_start(instr) IF_AARCH64(&&nops_to_find == 0)) {
+            IF_AARCH64(nops_to_find = GUARD_NOPS_COUNT;)
+
             emulated_instr_t emulated_instr;
             emulated_instr.size = sizeof(emulated_instr);
             CHECK(drmgr_get_emulated_instr_data(instr, &emulated_instr),

@@ -90,22 +90,29 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 }
 
 static void
+free_nodes()
+{
+    node_t *node = head;
+    while (node != NULL) {
+        node_t *temp = node;
+        node = node->next;
+        dr_global_free(temp, sizeof(node_t));
+    }
+
+    head = NULL;
+}
+
+static void
 low_on_memory_event()
 {
     if (!is_clear) {
         if (head == NULL)
             dr_fprintf(STDERR, "clear mismatch!\n");
 
-        node_t *node = head;
-        while (node != NULL) {
-            node_t *temp = node;
-            node = node->next;
-            dr_global_free(temp, sizeof(node_t));
-        }
+        free_nodes();
 
         dr_fprintf(STDERR, "low on memory event!\n");
         is_clear = true;
-        head = NULL;
 
         dr_fprintf(STDERR, "priority A\n");
     } else {
@@ -137,6 +144,8 @@ exit_event(void)
 
     if (!is_clear)
         dr_fprintf(STDERR, "was not cleared!\n");
+
+    free_nodes();
 
     if (!drmgr_unregister_low_on_memory_event(low_on_memory_event) ||
         !drmgr_unregister_low_on_memory_event_user_data(low_on_memory_event_user))
