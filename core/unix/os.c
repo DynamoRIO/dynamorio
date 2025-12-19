@@ -373,6 +373,7 @@ static int num_fd_add_pre_heap;
 static byte *app_brk_map;
 static byte *app_brk_cur;
 static byte *app_brk_end;
+static byte *app_brk_request;
 #endif
 
 #ifdef MACOS
@@ -3378,6 +3379,7 @@ init_emulated_brk(app_pc exe_end)
     ASSERT(mmap_syscall_succeeded(app_brk_map));
     app_brk_cur = app_brk_map;
     app_brk_end = app_brk_map + BRK_INITIAL_SIZE;
+    app_brk_request = app_brk_map;
     LOG(GLOBAL, LOG_HEAP, 1, "%s: initial brk is " PFX "-" PFX "\n", __FUNCTION__,
         app_brk_cur, app_brk_end);
 }
@@ -3389,20 +3391,26 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
     ASSERT(DYNAMO_OPTION(emulate_brk));
     LOG(THREAD, LOG_HEAP, 2, "%s: cur=" PFX ", requested=" PFX "\n", __FUNCTION__,
         app_brk_cur, new_val);
+    byte *request_val = new_val;
     new_val = (byte *)ALIGN_FORWARD(new_val, PAGE_SIZE);
     if (new_val == NULL || new_val == app_brk_cur ||
         /* Not allowed to shrink below original base */
         new_val < app_brk_map) {
         /* Just return cur val */
+        if (new_val == app_brk_cur) {
+            app_brk_request = request_val;
+        }
     } else if (new_val < app_brk_cur) {
         /* Shrink */
         if (munmap_syscall(new_val, app_brk_end - new_val) == 0) {
             app_brk_cur = new_val;
             app_brk_end = new_val;
+            app_brk_request = request_val;
         }
     } else if (new_val < app_brk_end) {
         /* We've already allocated the space */
         app_brk_cur = new_val;
+        app_brk_request = request_val;
     } else {
         /* Expand */
         byte *remap = (byte *)dynamorio_syscall(SYS_mremap, 4, app_brk_map,
@@ -3412,6 +3420,7 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
             ASSERT(remap == app_brk_map);
             app_brk_cur = new_val;
             app_brk_end = new_val;
+            app_brk_request = request_val;
         } else {
             LOG(THREAD, LOG_HEAP, 1, "%s: mremap to " PFX " failed\n", __FUNCTION__,
                 new_val);
@@ -3419,7 +3428,7 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
     }
     if (app_brk_cur != old_brk)
         handle_app_brk(dcontext, app_brk_map, old_brk, app_brk_cur);
-    return app_brk_cur;
+    return app_brk_request;
 }
 #endif /* LINUX */
 

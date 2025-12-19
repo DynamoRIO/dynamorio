@@ -42,13 +42,50 @@
  * BRK_INITIAL_SIZE is the initial heap size used by init_emulated_brk() (core/unix/os.c).
  */
 #define BRK_INITIAL_SIZE 4 * 1024 * 1024
+#define BRK_INCREMENT 0x10000
+#define BRK_NON_PAGE_ALIGNED_INCREMENT 0x1250
 
-const intptr_t program_break_increments[] = {
-    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, BRK_INITIAL_SIZE / 2,
-    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, BRK_INITIAL_SIZE / 2,
-    0x10000, 0x10000, 0x10000, -0x10000, -0x10000, -0x10000, 0x10000,
-    0x10000, 0x10000
-};
+const intptr_t program_break_increments[] = { BRK_INCREMENT,
+                                              BRK_INCREMENT,
+                                              BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_INITIAL_SIZE / 2,
+                                              BRK_INCREMENT,
+                                              BRK_INCREMENT,
+                                              BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_INITIAL_SIZE / 2,
+                                              BRK_INCREMENT,
+                                              BRK_INCREMENT,
+                                              BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              -BRK_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              -BRK_NON_PAGE_ALIGNED_INCREMENT,
+                                              BRK_INCREMENT,
+                                              BRK_INCREMENT,
+                                              BRK_INCREMENT };
 
 int
 main(int argc, const char *argv[])
