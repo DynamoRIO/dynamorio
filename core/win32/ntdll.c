@@ -2298,6 +2298,26 @@ query_virtual_memory(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbile
     return got;
 }
 
+/* Query image extension information for Windows 11 24H2+ CFG support (i#XXXX).
+ * Returns NTSTATUS from NtQueryVirtualMemory.
+ */
+NTSTATUS
+query_memory_image_extension(const byte *module_base,
+                              MEMORY_IMAGE_EXTENSION_INFORMATION *ext_info)
+{
+    NTSTATUS res;
+    SIZE_T got = 0;
+
+    ASSERT(ext_info != NULL);
+    memset(ext_info, 0, sizeof(MEMORY_IMAGE_EXTENSION_INFORMATION));
+
+    res = NT_SYSCALL(QueryVirtualMemory, NT_CURRENT_PROCESS, module_base,
+                     MemoryImageExtensionInformation, ext_info,
+                     sizeof(MEMORY_IMAGE_EXTENSION_INFORMATION), &got);
+
+    return res;
+}
+
 NTSTATUS
 get_mapped_file_name(const byte *pc, PWSTR buf, USHORT buf_bytes)
 {
