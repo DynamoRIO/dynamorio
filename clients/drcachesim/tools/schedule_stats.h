@@ -191,8 +191,6 @@ public:
         explicit counters_t(schedule_stats_t *analyzer)
             : analyzer(analyzer)
         {
-            static constexpr uint64_t kSwitchBinSize = 50000;
-            static constexpr uint64_t kCoresBinSize = 1;
             instrs_per_switch = analyzer->create_histogram(kSwitchBinSize);
             cores_per_thread = analyzer->create_histogram(kCoresBinSize);
         }
@@ -229,6 +227,11 @@ public:
                 threads.insert(tid);
             }
             instrs_per_switch->merge(rhs.instrs_per_switch.get());
+            for (const auto &it : rhs.tid2instrs_per_switch) {
+                histogram_interface_t *hist_ptr = analyzer->find_or_add_histogram(
+                    tid2instrs_per_switch, it.first, kSwitchBinSize);
+                hist_ptr->merge(it.second.get());
+            }
             // We do not track this incrementally but for completeness we include
             // aggregation code for it.
             cores_per_thread->merge(rhs.cores_per_thread.get());
@@ -284,6 +287,10 @@ public:
         uint64_t wait_microseconds = 0;
         std::unordered_set<workload_tid_t, workload_tid_hash_t> threads;
         std::unique_ptr<histogram_interface_t> instrs_per_switch;
+        // Per-thread instrs-per-switch.
+        std::unordered_map<workload_tid_t, std::unique_ptr<histogram_interface_t>,
+                           workload_tid_hash_t>
+            tid2instrs_per_switch;
         // CPU footprint of each thread. This is computable during aggregation from
         // the .threads field above so we don't bother to track this incrementally.
         // We still store it inside counters_t as this structure is assumed in
@@ -345,6 +352,8 @@ protected:
     static constexpr char WAIT_SYMBOL = '-';
     static constexpr char IDLE_SYMBOL = '_';
     static constexpr uint64_t kSysnumLatencyBinSize = 5;
+    static constexpr uint64_t kSwitchBinSize = 50000;
+    static constexpr uint64_t kCoresBinSize = 1;
     static constexpr int64_t INVALID_WORKLOAD_ID = -1;
 
     struct per_shard_t {
@@ -390,9 +399,10 @@ protected:
         return std::unique_ptr<histogram_interface_t>(new histogram_t(bin_size));
     }
 
+    template <typename T, typename H>
     histogram_interface_t *
     find_or_add_histogram(
-        std::unordered_map<int, std::unique_ptr<histogram_interface_t>> &map, int key,
+        std::unordered_map<T, std::unique_ptr<histogram_interface_t>, H> &map, T key,
         int bin_size = 1)
     {
         auto find_it = map.find(key);
