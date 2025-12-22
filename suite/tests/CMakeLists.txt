@@ -3204,6 +3204,7 @@ if (X86 OR AARCH64)
       # a stripped down version of memval_simple and gives the same output so we want the
       # templatex file to be processed the same way as it is for sample clients.
       set(client.drx-scattergather-instrumentation-fault_test_sample_client 1)
+      set(client.drx-scattergather-instrumentation-fault_timeout 240)
     endif ()
 
     if (UNIX AND ((X86 AND X64 AND proc_supports_avx) OR (AARCH64 AND proc_supports_sve)))
