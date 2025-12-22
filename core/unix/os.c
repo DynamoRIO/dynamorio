@@ -369,10 +369,16 @@ static int fd_add_pre_heap_flags[MAX_FD_ADD_PRE_HEAP];
 static int num_fd_add_pre_heap;
 
 #ifdef LINUX
+/* XXX: For self-protection where .data is read-only, these variables should be
+ * moved to a different data segment or we need to unprotect them every time we
+ * write to them.
+ */
 /* i#1004: brk emulation */
 static byte *app_brk_map;
 static byte *app_brk_cur;
+// app_brk_end is the page-aligned upper bound of app_brk_cur.
 static byte *app_brk_end;
+DECLARE_CXTSWPROT_VAR(static mutex_t app_brk_lock, INIT_LOCK_FREE(app_brk_lock));
 #endif
 
 #ifdef MACOS
@@ -1490,6 +1496,9 @@ os_slow_exit(void)
 
     DELETE_LOCK(set_thread_area_lock);
     DELETE_LOCK(client_tls_lock);
+#ifdef LINUX
+    DELETE_LOCK(app_brk_lock);
+#endif
     IF_NO_MEMQUERY(memcache_exit());
 }
 
@@ -3361,7 +3370,9 @@ void
 init_emulated_brk(app_pc exe_end)
 {
     ASSERT(DYNAMO_OPTION(emulate_brk));
+    d_r_mutex_lock(&app_brk_lock);
     if (app_brk_map != NULL) {
+        d_r_mutex_unlock(&app_brk_lock);
         return;
     }
     /* i#1004: emulate brk via a separate mmap.  The real brk starts out empty, but
@@ -3380,46 +3391,51 @@ init_emulated_brk(app_pc exe_end)
     app_brk_end = app_brk_map + BRK_INITIAL_SIZE;
     LOG(GLOBAL, LOG_HEAP, 1, "%s: initial brk is " PFX "-" PFX "\n", __FUNCTION__,
         app_brk_cur, app_brk_end);
+    d_r_mutex_unlock(&app_brk_lock);
 }
 
 static byte *
 emulate_app_brk(dcontext_t *dcontext, byte *new_val)
 {
-    byte *old_brk = app_brk_cur;
+    d_r_mutex_lock(&app_brk_lock);
+    byte *old_brk = app_brk_end;
     ASSERT(DYNAMO_OPTION(emulate_brk));
     LOG(THREAD, LOG_HEAP, 2, "%s: cur=" PFX ", requested=" PFX "\n", __FUNCTION__,
         app_brk_cur, new_val);
-    new_val = (byte *)ALIGN_FORWARD(new_val, PAGE_SIZE);
+    byte *new_val_aligned = (byte *)ALIGN_FORWARD(new_val, PAGE_SIZE);
     if (new_val == NULL || new_val == app_brk_cur ||
         /* Not allowed to shrink below original base */
         new_val < app_brk_map) {
         /* Just return cur val */
-    } else if (new_val < app_brk_cur) {
+    } else if (new_val_aligned < app_brk_end) {
         /* Shrink */
-        if (munmap_syscall(new_val, app_brk_end - new_val) == 0) {
+        if (munmap_syscall(new_val_aligned, app_brk_end - new_val_aligned) == 0) {
             app_brk_cur = new_val;
-            app_brk_end = new_val;
+            app_brk_end = new_val_aligned;
         }
     } else if (new_val < app_brk_end) {
         /* We've already allocated the space */
         app_brk_cur = new_val;
     } else {
         /* Expand */
-        byte *remap = (byte *)dynamorio_syscall(SYS_mremap, 4, app_brk_map,
-                                                app_brk_end - app_brk_map,
-                                                new_val - app_brk_map, 0 /*do not move*/);
+        byte *remap = (byte *)dynamorio_syscall(
+            SYS_mremap, 4, app_brk_map, app_brk_end - app_brk_map,
+            new_val_aligned - app_brk_map, 0 /*do not move*/);
         if (mmap_syscall_succeeded(remap)) {
             ASSERT(remap == app_brk_map);
             app_brk_cur = new_val;
-            app_brk_end = new_val;
+            app_brk_end = new_val_aligned;
         } else {
             LOG(THREAD, LOG_HEAP, 1, "%s: mremap to " PFX " failed\n", __FUNCTION__,
                 new_val);
         }
     }
-    if (app_brk_cur != old_brk)
-        handle_app_brk(dcontext, app_brk_map, old_brk, app_brk_cur);
-    return app_brk_cur;
+    if (app_brk_end != old_brk)
+        handle_app_brk(dcontext, app_brk_map, old_brk, app_brk_end);
+
+    byte *current_brk = app_brk_cur;
+    d_r_mutex_unlock(&app_brk_lock);
+    return current_brk;
 }
 #endif /* LINUX */
 

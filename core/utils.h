@@ -418,6 +418,9 @@ enum {
 
     LOCK_RANK(change_linking_lock), /* < shared_vm_areas, < all heap locks */
 
+#    ifdef LINUX
+    LOCK_RANK(app_brk_lock), /* < shared_vm_areas */
+#    endif
     LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
     LOCK_RANK(shared_cache_count_lock),
 
