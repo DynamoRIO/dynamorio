@@ -199,6 +199,13 @@ free_bbv(void *entry)
 }
 
 static void
+free_bb_id(void *key)
+{
+    modidx_offset_t *bb_id_key = static_cast<modidx_offset_t *>(key);
+    dr_global_free(bb_id_key, sizeof(*bb_id_key));
+}
+
+static void
 free_count(void *entry)
 {
     uint64_t *count = static_cast<uint64_t *>(entry);
@@ -319,7 +326,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     uint64_t bb_id = reinterpret_cast<uint64_t>(bb_id_ptr);
     if (bb_id_ptr == nullptr) {
         bb_id = unique_bb_count;
-        hashtable_add(&bb_id_table, &bb_id_key, reinterpret_cast<void *>(bb_id));
+        // Only allocate the key when adding to the table. Lookup key can stay on the
+        // stack.
+        modidx_offset_t *bb_id_key_to_add =
+            static_cast<modidx_offset_t *>(dr_global_alloc(sizeof(*bb_id_key_to_add)));
+        bb_id_key_to_add->modidx = modidx;
+        bb_id_key_to_add->offset = offset;
+        hashtable_add(&bb_id_table, bb_id_key_to_add, reinterpret_cast<void *>(bb_id));
         ++unique_bb_count;
     }
 
@@ -572,6 +585,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     hashtable_init_ex(&dynamorio::drpoints::bb_id_table, HASH_BITS_BB_ID, HASH_INTPTR,
                       /*str_dup=*/false, /*synch=*/false, nullptr,
                       dynamorio::drpoints::bb_id_hash, dynamorio::drpoints::bb_id_cmp);
+    // We need to configure the hashtable to add free_key_func, as keys are allocated with
+    // dr_global_alloc(). We leave the other config parameters with default values.
+    hashtable_config_t bb_id_table_config;
+    bb_id_table_config.size = sizeof(bb_id_table_config);
+    bb_id_table_config.resizable = true;
+    bb_id_table_config.resize_threshold = 75;
+    bb_id_table_config.free_key_func = dynamorio::drpoints::free_bb_id;
+    hashtable_configure(&dynamorio::drpoints::bb_id_table, &bb_id_table_config);
     drvector_init(&dynamorio::drpoints::bbvs, 0, /*synch=*/false,
                   dynamorio::drpoints::free_bbv);
 
