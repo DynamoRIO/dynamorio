@@ -52,8 +52,8 @@ main(int argc, char **argv)
 #ifdef WINDOWS
         int *my_integer = (int *)HeapAlloc(heap, HEAP_ZERO_MEMORY, sizeof(int));
 #else
-        /* use 'volatile' to stop the compiler optimizing away the calls to
-         * malloc()
+        /* Use 'volatile' to stop the compiler optimizing away the calls to
+         * malloc().
          */
         volatile int *my_integer = (int *)malloc(sizeof(int));
 #endif
