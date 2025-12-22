@@ -369,6 +369,10 @@ static int fd_add_pre_heap_flags[MAX_FD_ADD_PRE_HEAP];
 static int num_fd_add_pre_heap;
 
 #ifdef LINUX
+/* XXX: For self-protection where .data is read-only, these variables should be
+ * moved to a different data segment or we need to unprotect them every time we
+ * write to them.
+ */
 /* i#1004: brk emulation */
 static byte *app_brk_map;
 static byte *app_brk_cur;
@@ -3409,7 +3413,7 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
             app_brk_cur = new_val;
             app_brk_end = new_val_aligned;
         }
-    } else if (new_val < app_brk_cur) {
+    } else if (new_val < app_brk_end) {
         /* We've already allocated the space */
         app_brk_cur = new_val;
     } else {
