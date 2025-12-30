@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 /* ir_utils.h -- IR utility functions */
 
 #ifndef _IR_UTILS_H_
-#define _IR_UTILS_H_ 1
+#define _IR_UTILS_H_
 
 /* Public */
 void

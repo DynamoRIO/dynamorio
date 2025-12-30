@@ -1,5 +1,5 @@
 #ifndef _SYSCALL_TARGET_H_
-#define _SYSCALL_TARGET_H_ 1
+#define _SYSCALL_TARGET_H_
 
 /* Do not include this on MacOS as you'll get the wrong numbers! */
 #ifndef LINUX

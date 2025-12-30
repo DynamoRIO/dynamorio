@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -20,7 +20,7 @@
  */
 
 #ifndef _SYSCALL_DRIVER_H_
-#define _SYSCALL_DRIVER_H_ 1
+#define _SYSCALL_DRIVER_H_
 
 void
 driver_init(void);

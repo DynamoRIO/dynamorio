@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 #ifndef _NTEXAPI_H_
-#define _NTEXAPI_H_ 1
+#define _NTEXAPI_H_
 
 #include "ndk_iotypes.h"
 

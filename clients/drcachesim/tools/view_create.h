@@ -33,7 +33,7 @@
 /* view tool creation */
 
 #ifndef _VIEW_CREATE_H_
-#define _VIEW_CREATE_H_ 1
+#define _VIEW_CREATE_H_
 
 #include "analysis_tool.h"
 

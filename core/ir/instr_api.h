@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_IR_INSTR_H_
-#define _DR_IR_INSTR_H_ 1
+#define _DR_IR_INSTR_H_
 
 /****************************************************************************
  * INSTR ROUTINES

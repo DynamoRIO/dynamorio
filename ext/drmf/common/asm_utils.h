@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -21,7 +21,7 @@
  */
 
 #ifndef _ASM_UTILS_H_
-#define _ASM_UTILS_H_ 1
+#define _ASM_UTILS_H_
 
 /* Returns the current values of xsp and xbp */
 void

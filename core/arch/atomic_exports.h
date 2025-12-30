@@ -41,7 +41,7 @@
  */
 
 #ifndef _ATOMIC_EXPORTS_H_
-#define _ATOMIC_EXPORTS_H_ 1
+#define _ATOMIC_EXPORTS_H_
 
 /* We use this to ensure that linking and unlinking is atomic with respect
  * to a thread in the cache, this is needed for our current flushing

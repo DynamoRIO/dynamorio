@@ -36,7 +36,7 @@
  */
 
 #ifndef _READER_BASE_H_
-#define _READER_BASE_H_ 1
+#define _READER_BASE_H_
 
 #include <queue>
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  */
 
 #ifndef _FCACHE_H_
-#define _FCACHE_H_ 1
+#define _FCACHE_H_
 
 /* who's in the "trace" cache?
  * when we have private traces we put temp-private bbs there (to avoid

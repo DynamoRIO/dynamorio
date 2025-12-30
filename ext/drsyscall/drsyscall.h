@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -20,7 +20,7 @@
  */
 
 #ifndef _DR_SYSCALL_H_
-#define _DR_SYSCALL_H_ 1
+#define _DR_SYSCALL_H_
 
 /* Dr. Syscall: DynamoRIO System Call Extension */
 

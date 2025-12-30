@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* pt2ir: convert a PT raw trace to DynamoRIO's IR format. */
 
 #ifndef _PT2IR_H_
-#define _PT2IR_H_ 1
+#define _PT2IR_H_
 
 /**
  * @file pt2ir.h

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_IR_INSTRLIST_H_
-#define _DR_IR_INSTRLIST_H_ 1
+#define _DR_IR_INSTRLIST_H_
 
 /****************************************************************************
  * INSTRLIST ROUTINES

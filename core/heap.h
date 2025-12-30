@@ -40,7 +40,7 @@
  */
 
 #ifndef _HEAP_H_
-#define _HEAP_H_ 1
+#define _HEAP_H_
 
 #ifdef HEAP_ACCOUNTING
 typedef enum {

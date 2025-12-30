@@ -31,7 +31,7 @@
  */
 
 #ifndef _MEMREF_GEN_
-#define _MEMREF_GEN_ 1
+#define _MEMREF_GEN_
 
 #include "memref.h"
 #include "dr_api.h"

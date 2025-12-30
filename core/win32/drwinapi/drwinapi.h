@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _DRWINAPI_H_
-#define _DRWINAPI_H_ 1
+#define _DRWINAPI_H_
 
 #include "../../module_shared.h"
 

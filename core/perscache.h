@@ -38,7 +38,7 @@
  */
 
 #ifndef _PERSCACHE_H_
-#define _PERSCACHE_H_ 1
+#define _PERSCACHE_H_
 
 #include "module_shared.h" /* for module_digest_t */
 

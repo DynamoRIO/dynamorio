@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,7 +39,7 @@
  */
 
 #ifndef _TRANSLATE_H_
-#define _TRANSLATE_H_ 1
+#define _TRANSLATE_H_
 
 enum {
     /* Each translation entry represents a sequence of instructions.

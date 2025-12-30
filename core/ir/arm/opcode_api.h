@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DR_IR_OPCODES_ARM_H_
-#define _DR_IR_OPCODES_ARM_H_ 1
+#define _DR_IR_OPCODES_ARM_H_
 
 /****************************************************************************
  * OPCODES

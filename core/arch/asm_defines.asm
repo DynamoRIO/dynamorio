@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _ASM_DEFINES_ASM_
-#define _ASM_DEFINES_ASM_ 1
+#define _ASM_DEFINES_ASM_
 
 /* Preprocessor macro definitions shared among all .asm files.
  * Since cpp macros can't generate newlines and #s we have a later

@@ -39,7 +39,7 @@
  */
 
 #ifndef _EMIT_H_
-#define _EMIT_H_ 1
+#define _EMIT_H_
 
 /* Emits code for ilist into the fcache, returns the created
  * fragment.  Adds the fragment to the fragment hashtable and

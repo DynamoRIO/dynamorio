@@ -40,7 +40,7 @@
  */
 
 #ifndef _OS_EXPORTS_H_
-#define _OS_EXPORTS_H_ 1
+#define _OS_EXPORTS_H_
 
 #include "os_public.h"    // IWYU pragma: export
 #include "../os_shared.h" // IWYU pragma: export

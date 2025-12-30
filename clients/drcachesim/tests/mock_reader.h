@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* A mock reader that iterates over a vector of trace_entry_t, for tests. */
 
 #ifndef _MOCK_READER_H_
-#define _MOCK_READER_H_ 1
+#define _MOCK_READER_H_
 
 #include <vector>
 

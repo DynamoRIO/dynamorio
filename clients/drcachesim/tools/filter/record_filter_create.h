@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _RECORD_FILTER_CREATE_H_
-#define _RECORD_FILTER_CREATE_H_ 1
+#define _RECORD_FILTER_CREATE_H_
 
 #include "analysis_tool.h"
 

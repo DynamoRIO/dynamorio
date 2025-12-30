@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _DIRECTORY_ITERATOR_H_
-#define _DIRECTORY_ITERATOR_H_ 1
+#define _DIRECTORY_ITERATOR_H_
 
 #include <assert.h>
 

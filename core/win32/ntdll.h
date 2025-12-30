@@ -45,7 +45,7 @@
  */
 
 #ifndef _NTDLL_H_
-#define _NTDLL_H_ 1
+#define _NTDLL_H_
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

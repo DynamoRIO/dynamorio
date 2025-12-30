@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _INSTRU_H_
-#define _INSTRU_H_ 1
+#define _INSTRU_H_
 
 #include <stdint.h>
 #include <string.h>

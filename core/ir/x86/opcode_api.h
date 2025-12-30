@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,7 @@
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
 #ifndef _DR_IR_OPCODES_X86_H_
-#define _DR_IR_OPCODES_X86_H_ 1
+#define _DR_IR_OPCODES_X86_H_
 
 /****************************************************************************
  * OPCODES

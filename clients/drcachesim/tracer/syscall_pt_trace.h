@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _SYSCALL_PT_TRACE_
-#define _SYSCALL_PT_TRACE_ 1
+#define _SYSCALL_PT_TRACE_
 
 #include <cstddef>
 #include <string>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _NATIVE_EXEC_H_
-#define _NATIVE_EXEC_H_ 1
+#define _NATIVE_EXEC_H_
 
 #include "globals.h"
 #include "module_shared.h"

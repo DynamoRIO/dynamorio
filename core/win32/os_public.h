@@ -40,7 +40,7 @@
  */
 
 #ifndef _OS_PUBLIC_H_
-#define _OS_PUBLIC_H_ 1
+#define _OS_PUBLIC_H_
 
 /* CONTEXT field name changes: before including arch_exports.h, for cxt_seg_t! */
 #ifdef X64

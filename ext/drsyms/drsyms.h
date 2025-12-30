@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,7 +47,7 @@
  */
 
 #ifndef _DRSYMS_H_
-#define _DRSYMS_H_ 1
+#define _DRSYMS_H_
 
 /**
  * @file drsyms.h

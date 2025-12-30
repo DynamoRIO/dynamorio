@@ -31,7 +31,7 @@
  */
 
 #ifndef _OPCODE_MIX_H_
-#define _OPCODE_MIX_H_ 1
+#define _OPCODE_MIX_H_
 
 #include <stddef.h>
 #include <stdint.h>

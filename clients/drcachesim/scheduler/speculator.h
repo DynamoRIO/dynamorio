@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* Speculative execution path instruction and data access generation. */
 
 #ifndef _DRMEMTRACE_SPECULATOR_H_
-#define _DRMEMTRACE_SPECULATOR_H_ 1
+#define _DRMEMTRACE_SPECULATOR_H_
 
 /**
  * @file drmemtrace/speculator.h

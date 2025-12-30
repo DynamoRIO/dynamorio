@@ -40,7 +40,7 @@
  */
 
 #ifndef _PROC_H_
-#define _PROC_H_ 1
+#define _PROC_H_
 
 #include "proc_api.h"
 

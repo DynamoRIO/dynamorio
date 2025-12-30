@@ -43,7 +43,7 @@
  */
 
 #ifndef _MEMTRACE_STREAM_H_
-#define _MEMTRACE_STREAM_H_ 1
+#define _MEMTRACE_STREAM_H_
 
 #include <cstdint>
 #include <string>

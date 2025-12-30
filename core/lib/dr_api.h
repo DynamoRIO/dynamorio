@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_API_H_
-#define _DR_API_H_ 1
+#define _DR_API_H_
 
 /**
  * @file dr_api.h

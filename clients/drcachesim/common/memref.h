@@ -33,7 +33,7 @@
 /* This is the data format that the simulator and analysis tools take as input. */
 
 #ifndef _MEMREF_H_
-#define _MEMREF_H_ 1
+#define _MEMREF_H_
 
 #include <stdint.h>
 #include <stddef.h> // for size_t

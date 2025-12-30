@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _CACHING_DEVICE_H_
-#define _CACHING_DEVICE_H_ 1
+#define _CACHING_DEVICE_H_
 
 #include <algorithm>
 #include <cstddef>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* utils.h: utilities for cache simulator */
 
 #ifndef _UTILS_H_
-#define _UTILS_H_ 1
+#define _UTILS_H_
 
 #include <stdint.h>
 #include <stdio.h>

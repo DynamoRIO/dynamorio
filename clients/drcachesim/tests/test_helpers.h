@@ -35,7 +35,7 @@
  */
 
 #ifndef _TEST_HELPERS_H_
-#define _TEST_HELPERS_H_ 1
+#define _TEST_HELPERS_H_
 
 #ifdef NDEBUG
 #    error NDEBUG should not be set for tests.

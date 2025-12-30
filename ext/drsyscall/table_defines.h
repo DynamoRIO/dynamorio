@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -25,7 +25,7 @@
  */
 
 #ifndef _TABLE_DEFINES_H
-#define _TABLE_DEFINES_H 1
+#define _TABLE_DEFINES_H
 
 #define OK (SYSINFO_ALL_PARAMS_KNOWN)
 #define UNKNOWN 0

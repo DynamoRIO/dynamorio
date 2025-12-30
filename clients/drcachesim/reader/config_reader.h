@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _CONFIG_READER_H_
-#define _CONFIG_READER_H_ 1
+#define _CONFIG_READER_H_
 
 #include <stdint.h>
 

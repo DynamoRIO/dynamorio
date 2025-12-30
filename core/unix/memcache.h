@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+#define _MEMCACHE_H_
 
 void
 memcache_init(void);

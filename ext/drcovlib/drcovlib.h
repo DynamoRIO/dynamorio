@@ -33,7 +33,7 @@
 /* DynamoRIO Code Coverage Library */
 
 #ifndef _DRCOVLIB_H_
-#define _DRCOVLIB_H_ 1
+#define _DRCOVLIB_H_
 
 /**
  * @file drcovlib.h

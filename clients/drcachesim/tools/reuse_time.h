@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _REUSE_TIME_H_
-#define _REUSE_TIME_H_ 1
+#define _REUSE_TIME_H_
 
 #include <stdint.h>
 

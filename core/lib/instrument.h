@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  */
 
 #ifndef _INSTRUMENT_H_
-#define _INSTRUMENT_H_ 1
+#define _INSTRUMENT_H_
 
 #include "../globals.h"
 #include "../module_shared.h"

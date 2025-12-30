@@ -41,7 +41,7 @@
  */
 
 #ifndef _TRACE_ENTRY_H_
-#define _TRACE_ENTRY_H_ 1
+#define _TRACE_ENTRY_H_
 
 #include <memory>
 #include <stddef.h>

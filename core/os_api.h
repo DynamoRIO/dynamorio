@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_OS_UTILS_H_
-#define _DR_OS_UTILS_H_ 1
+#define _DR_OS_UTILS_H_
 
 /**
  * @file dr_os_utils.h

@@ -42,7 +42,7 @@
 /* file "instr.h" -- instr_t specific definitions and utilities */
 
 #ifndef _INSTR_H_
-#define _INSTR_H_ 1
+#define _INSTR_H_
 
 #include "opcode_api.h"
 #include "opnd.h"

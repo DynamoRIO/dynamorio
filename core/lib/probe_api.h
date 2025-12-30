@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_PROBE_H_
-#define _DR_PROBE_H_ 1
+#define _DR_PROBE_H_
 
 /****************************************************************************
  * Probe API

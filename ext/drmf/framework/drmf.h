@@ -20,7 +20,7 @@
  */
 
 #ifndef _DRMF_H_
-#define _DRMF_H_ 1
+#define _DRMF_H_
 
 /* Dr. Memory Framework: code shared across Extensions */
 

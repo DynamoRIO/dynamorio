@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _SYSCALL_MACH_H_
-#define _SYSCALL_MACH_H_ 1
+#define _SYSCALL_MACH_H_
 
 #define SYSCALL_NUM_MARKER_MACH 0x1000000
 #define SYSCALL_NUM_MARKER_BSD 0x2000000

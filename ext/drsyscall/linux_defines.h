@@ -21,7 +21,7 @@
  */
 
 #ifndef _LINUX_DEFINES_H
-#define _LINUX_DEFINES_H 1
+#define _LINUX_DEFINES_H
 
 /* for linux-specific types/defines for fcntl and ipc */
 #define __USE_GNU 1
@@ -73,7 +73,7 @@
 #include <linux/sysctl.h> /* struct __sysctl_args */
 
 /* block bits/stat.h which is included from fcntl.h on FC16 (glibc 2.14) */
-#define _BITS_STAT_H 1
+#define _BITS_STAT_H
 #include <fcntl.h> /* F_GETFD, etc. */
 
 #ifdef X86
