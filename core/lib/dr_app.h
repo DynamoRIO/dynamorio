@@ -38,7 +38,7 @@
  */
 
 #ifndef _DR_APP_H_
-#define _DR_APP_H_ 1
+#define _DR_APP_H_
 
 #ifdef WINDOWS
 #    ifdef DR_APP_EXPORTS

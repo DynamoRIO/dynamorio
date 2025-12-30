@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -34,7 +34,7 @@
 /* ntdll.dll redirection for custom private library loader */
 
 #ifndef _NTDLL_REDIR_H_
-#define _NTDLL_REDIR_H_ 1
+#define _NTDLL_REDIR_H_
 
 #include "../../globals.h"
 

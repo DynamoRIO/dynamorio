@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DRSYSCALL_RECORD_H_
-#define _DRSYSCALL_RECORD_H_ 1
+#define _DRSYSCALL_RECORD_H_
 
 #include <stdint.h>
 #include "dr_api.h"

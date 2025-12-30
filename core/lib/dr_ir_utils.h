@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_IR_UTILS_H_
-#define _DR_IR_UTILS_H_ 1
+#define _DR_IR_UTILS_H_
 
 /**************************************************
  * CODE TRANSFORMATION UTILITIES

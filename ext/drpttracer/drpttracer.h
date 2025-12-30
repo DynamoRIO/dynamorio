@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _DRPTTRACER_H_
-#define _DRPTTRACER_H_ 1
+#define _DRPTTRACER_H_
 
 /**
  * @file drpttracer.h

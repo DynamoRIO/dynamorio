@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2020-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DRMGR_PRIV_H_
-#define _DRMGR_PRIV_H_ 1
+#define _DRMGR_PRIV_H_
 
 /* An internal interface that acts as a beachhead for other extensions, e.g. drbbdup,
  * to integrate their functionalities with drmgr. The interface should only be used

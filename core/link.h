@@ -40,7 +40,7 @@
  */
 
 #ifndef _CORE_LINK_H_ /* using different define than /usr/include/link.h */
-#define _CORE_LINK_H_ 1
+#define _CORE_LINK_H_
 
 /* linkstub_t flags
  * WARNING: flags field is a ushort, so max flag is 0x8000!

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* drir: the type wraps instrlist_t. */
 
 #ifndef _DRIR_H_
-#define _DRIR_H_ 1
+#define _DRIR_H_
 
 #ifndef DR_FAST_IR
 #    define DR_FAST_IR 1

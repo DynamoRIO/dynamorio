@@ -33,7 +33,7 @@
 /* DynamoRio eXtension utilities */
 
 #ifndef _DRX_H_
-#define _DRX_H_ 1
+#define _DRX_H_
 
 /**
  * @file drx.h

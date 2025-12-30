@@ -40,7 +40,7 @@
  */
 
 #ifndef _GLOBALS_H_
-#define _GLOBALS_H_ 1
+#define _GLOBALS_H_
 
 #include "configure.h" // IWYU pragma: export
 

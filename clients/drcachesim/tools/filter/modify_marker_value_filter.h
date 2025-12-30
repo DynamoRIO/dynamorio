@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _MODIFY_MARKER_VALUE_FILTER_H_
-#define _MODIFY_MARKER_VALUE_FILTER_H_ 1
+#define _MODIFY_MARKER_VALUE_FILTER_H_
 
 #include "record_filter.h"
 #include "trace_entry.h"

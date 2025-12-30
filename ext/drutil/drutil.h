@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -23,7 +23,7 @@
 /* DynamoRIO Instrumentation Utilities Extension */
 
 #ifndef _DRUTIL_H_
-#define _DRUTIL_H_ 1
+#define _DRUTIL_H_
 
 /**
  * @file drutil.h

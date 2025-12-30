@@ -31,7 +31,7 @@
  */
 
 #ifndef CODEC_H
-#define CODEC_H 1
+#define CODEC_H
 
 #include "decode_private.h"
 

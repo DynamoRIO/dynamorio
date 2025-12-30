@@ -34,7 +34,7 @@
  */
 
 #ifndef _INVARIANT_CHECKER_H_
-#define _INVARIANT_CHECKER_H_ 1
+#define _INVARIANT_CHECKER_H_
 
 #include <stdint.h>
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
 // https://github.com/madler/zlib/blob/master/contrib/minizip/zip.h
 
 #ifndef _ZIPFILE_OSTREAM_H_
-#define _ZIPFILE_OSTREAM_H_ 1
+#define _ZIPFILE_OSTREAM_H_
 
 #include <iostream>
 #include <fstream>

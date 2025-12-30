@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 #ifndef _DRSYSCALL_RECORD_LIB_H_
-#define _DRSYSCALL_RECORD_LIB_H_ 1
+#define _DRSYSCALL_RECORD_LIB_H_
 #include <stdio.h>
 #include <unistd.h>
 

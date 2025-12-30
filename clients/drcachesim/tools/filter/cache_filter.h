@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _CACHE_FILTER_H_
-#define _CACHE_FILTER_H_ 1
+#define _CACHE_FILTER_H_
 
 #include "memtrace_stream.h"
 #include "record_filter.h"

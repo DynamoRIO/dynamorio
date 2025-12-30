@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* Containers DynamoRIO Extension: DrTable */
 
 #ifndef _DRTABLE_H_
-#define _DRTABLE_H_ 1
+#define _DRTABLE_H_
 
 /**
  * @file drtable.h

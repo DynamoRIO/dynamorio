@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* basic-counts tool creation */
 
 #ifndef _BASIC_COUNTS_CREATE_H_
-#define _BASIC_COUNTS_CREATE_H_ 1
+#define _BASIC_COUNTS_CREATE_H_
 
 #include "analysis_tool.h"
 

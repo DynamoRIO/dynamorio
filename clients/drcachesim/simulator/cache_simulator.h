@@ -34,7 +34,7 @@
  */
 
 #ifndef _CACHE_SIMULATOR_H_
-#define _CACHE_SIMULATOR_H_ 1
+#define _CACHE_SIMULATOR_H_
 
 #include <limits.h>
 #include <stdint.h>

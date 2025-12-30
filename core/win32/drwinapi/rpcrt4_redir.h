@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
  */
 
 #ifndef _RPCRT4_REDIR_H_
-#define _RPCRT4_REDIR_H_ 1
+#define _RPCRT4_REDIR_H_
 
 #include "../../globals.h"
 #include "../../module_shared.h"

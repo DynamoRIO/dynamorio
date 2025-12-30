@@ -40,7 +40,7 @@
  */
 
 #ifndef _FRAGMENT_H_
-#define _FRAGMENT_H_ 1
+#define _FRAGMENT_H_
 
 #include "hashtable.h"
 #include "translate.h"

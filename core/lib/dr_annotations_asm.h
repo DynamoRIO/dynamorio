@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DYNAMORIO_ANNOTATIONS_ASM_H_
-#define _DYNAMORIO_ANNOTATIONS_ASM_H_ 1
+#define _DYNAMORIO_ANNOTATIONS_ASM_H_
 
 /* This header defines the annotation functions and code sequences. For a high-level
  * overview, see https://dynamorio.org/page_annotations.html.

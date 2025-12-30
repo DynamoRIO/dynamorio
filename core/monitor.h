@@ -39,7 +39,7 @@
  */
 
 #ifndef _MONITOR_H_
-#define _MONITOR_H_ 1
+#define _MONITOR_H_
 
 #include "fragment.h" /* for trace_bb_info_t, and for custom traces
                        * the "fragment_t wrapper" struct */

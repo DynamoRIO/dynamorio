@@ -20,7 +20,7 @@
  */
 
 #ifndef _DRSYSCALL_WINDOWS_H_
-#define _DRSYSCALL_WINDOWS_H_ 1
+#define _DRSYSCALL_WINDOWS_H_
 
 /* drsyscall_windows.c */
 

@@ -31,7 +31,7 @@
  */
 
 #ifndef _SCHEDULE_STATS_H_
-#define _SCHEDULE_STATS_H_ 1
+#define _SCHEDULE_STATS_H_
 
 #include <stdint.h>
 

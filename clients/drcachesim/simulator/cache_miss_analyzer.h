@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,7 @@
  */
 
 #ifndef _CACHE_MISS_ANALYZER_H_
-#define _CACHE_MISS_ANALYZER_H_ 1
+#define _CACHE_MISS_ANALYZER_H_
 
 #include <cstdint>
 #include <string>

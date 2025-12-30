@@ -38,7 +38,7 @@
  */
 
 #ifndef _DIAGNOST_H_
-#define _DIAGNOST_H_ 1
+#define _DIAGNOST_H_
 
 /* XXX: The key for the log directory should be in a shared file! */
 #define DIAGNOSTICS_LOGDIR_KEY L"DYNAMORIO_LOGDIR"

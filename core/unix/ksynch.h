@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _KSYNCH_H_
-#define _KSYNCH_H_ 1
+#define _KSYNCH_H_
 
 /* These are simply kernel wait queue variables, suitable for use in
  * signal handlers where we can't use event_t.  They take the values 0

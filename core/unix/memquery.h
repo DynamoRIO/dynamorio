@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _MEMQUERY_H_
-#define _MEMQUERY_H_ 1
+#define _MEMQUERY_H_
 
 typedef struct _memquery_iter_t {
     /* --- EXTERNAL OUT PARAMS --- */

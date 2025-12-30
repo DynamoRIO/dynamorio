@@ -41,7 +41,7 @@
  */
 
 #ifndef _GLOBALS_SHARED_H_
-#define _GLOBALS_SHARED_H_ 1
+#define _GLOBALS_SHARED_H_
 
 /* if not Unix, we assume Windows */
 #ifndef UNIX

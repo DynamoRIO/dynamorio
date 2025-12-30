@@ -36,7 +36,7 @@
 /* Copyright (c) 2002 Hewlett-Packard Company */
 
 #ifndef _DR_DEFINES_H_
-#define _DR_DEFINES_H_ 1
+#define _DR_DEFINES_H_
 
 /****************************************************************************
  * GENERAL TYPEDEFS AND DEFINES

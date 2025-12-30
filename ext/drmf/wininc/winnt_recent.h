@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 #ifndef _WINNT_RECENT_
-#define _WINNT_RECENT_ 1
+#define _WINNT_RECENT_
 
 /* Data types added since VS2005, typically in SDK6.0a.
  * We assume that cl 14.00 is not being used in conjunction with SDK6.0a

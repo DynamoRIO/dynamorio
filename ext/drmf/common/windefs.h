@@ -11,7 +11,7 @@
  ****************************************************************************/
 
 #ifndef _WINDEFS_H_
-#define _WINDEFS_H_ 1
+#define _WINDEFS_H_
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

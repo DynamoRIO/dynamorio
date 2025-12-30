@@ -36,7 +36,7 @@
  */
 
 #ifndef _DROPTION_H_
-#define _DROPTION_H_ 1
+#define _DROPTION_H_
 
 #include <string>
 #include <vector>

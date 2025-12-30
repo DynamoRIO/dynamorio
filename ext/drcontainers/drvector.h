@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* Containers DynamoRIO Extension: DrVector */
 
 #ifndef _DRVECTOR_H_
-#define _DRVECTOR_H_ 1
+#define _DRVECTOR_H_
 
 /**
  * @file drvector.h

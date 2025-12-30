@@ -5,7 +5,7 @@
  */
 
 #ifndef SYSCALL_LINUX_RISCV64_H
-#define SYSCALL_LINUX_RISCV64_H 1
+#define SYSCALL_LINUX_RISCV64_H
 
 #ifndef LINUX
 #    error Only use this file on Linux

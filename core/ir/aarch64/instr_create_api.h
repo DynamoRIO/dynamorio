@@ -33,7 +33,7 @@
  */
 
 #ifndef DR_IR_MACROS_AARCH64_H
-#define DR_IR_MACROS_AARCH64_H 1
+#define DR_IR_MACROS_AARCH64_H
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes

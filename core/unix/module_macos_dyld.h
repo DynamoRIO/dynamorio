@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 #ifndef _MODULE_MACOS_DYLD_H_
-#define _MODULE_MACOS_DYLD_H_ 1
+#define _MODULE_MACOS_DYLD_H_
 
 struct dyld_cache_header {
     char magic[16];

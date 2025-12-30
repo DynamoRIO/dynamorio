@@ -37,7 +37,7 @@
 /* We disable formatting as it messes up the ${var} references: */
 /* clang-format off */
 #ifndef _CONFIGURE_H_
-#define _CONFIGURE_H_ 1
+#define _CONFIGURE_H_
 
 /* exposed options */
 #cmakedefine INTERNAL

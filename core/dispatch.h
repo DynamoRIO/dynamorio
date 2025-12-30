@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 /* file "dispatch.h" */
 
 #ifndef _DISPATCH_H_
-#define _DISPATCH_H_ 1
+#define _DISPATCH_H_
 
 /* returns true if pc is a point at which DynamoRIO should stop interpreting */
 bool

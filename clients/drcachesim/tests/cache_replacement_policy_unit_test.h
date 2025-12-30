@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _CACHE_REPLACEMENT_POLICY_UNIT_TEST_H_
-#define _CACHE_REPLACEMENT_POLICY_UNIT_TEST_H_ 1
+#define _CACHE_REPLACEMENT_POLICY_UNIT_TEST_H_
 
 namespace dynamorio {
 namespace drmemtrace {

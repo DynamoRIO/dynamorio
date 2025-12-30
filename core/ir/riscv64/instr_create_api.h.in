@@ -31,7 +31,7 @@
  */
 
 #ifndef _DR_IR_MACROS_RISCV64_H_
-#define _DR_IR_MACROS_RISCV64_H_ 1
+#define _DR_IR_MACROS_RISCV64_H_
 
 /****************************************************************************
  * Platform-independent INSTR_CREATE_* macros

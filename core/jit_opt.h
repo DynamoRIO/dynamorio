@@ -1,5 +1,5 @@
 #ifndef _JIT_OPT_H_
-#define _JIT_OPT_H_ 1
+#define _JIT_OPT_H_
 
 void
 jitopt_init();

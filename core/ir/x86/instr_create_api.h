@@ -35,7 +35,7 @@
 /* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
 
 #ifndef _DR_IR_MACROS_X86_H_
-#define _DR_IR_MACROS_X86_H_ 1
+#define _DR_IR_MACROS_X86_H_
 
 /**
  * @file dr_ir_macros_x86.h

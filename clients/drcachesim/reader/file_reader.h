@@ -36,7 +36,7 @@
  */
 
 #ifndef _FILE_READER_H_
-#define _FILE_READER_H_ 1
+#define _FILE_READER_H_
 
 #include <inttypes.h>
 #include <stdint.h>

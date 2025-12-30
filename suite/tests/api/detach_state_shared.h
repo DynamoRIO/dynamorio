@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DETACH_STATE_SHARED_H_
-#define _DETACH_STATE_SHARED_H_ 1
+#define _DETACH_STATE_SHARED_H_
 
 #define MAKE_HEX_ASM(n) HEX(n)
 #define MAKE_HEX(n) 0x##n

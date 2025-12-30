@@ -33,7 +33,7 @@
 /* Copyright (c) 2005-2007 Determina Corp. */
 
 #ifndef _HOTPATCH_INTERFACE_H_
-#define _HOTPATCH_INTERFACE_H_ 1
+#define _HOTPATCH_INTERFACE_H_
 
 /* This file defines the interface between the core and the hot patches.  Any
  * changes to this file will most likely require changes to both.

@@ -38,7 +38,7 @@
 /* file "instrlist.h" */
 
 #ifndef _INSTRLIST_H_
-#define _INSTRLIST_H_ 1
+#define _INSTRLIST_H_
 
 #include "instr.h"
 #include "instrlist_api.h"

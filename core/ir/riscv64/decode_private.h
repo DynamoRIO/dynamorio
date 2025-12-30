@@ -31,7 +31,7 @@
  */
 
 #ifndef DECODE_PRIVATE_H
-#define DECODE_PRIVATE_H 1
+#define DECODE_PRIVATE_H
 
 struct _decode_info_t {
     bool check_reachable; /* This is used by the encoder, not the decoder. */

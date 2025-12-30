@@ -39,7 +39,7 @@
  */
 
 #ifndef _VMAREAS_H_
-#define _VMAREAS_H_ 1
+#define _VMAREAS_H_
 
 /* case 9750: use these constants to specify empty and all-encompassing address
  * space regions for flushing, etc.

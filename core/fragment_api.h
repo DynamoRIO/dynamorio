@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,7 @@
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
 #ifndef _DR_TRACEDUMP_H_
-#define _DR_TRACEDUMP_H_ 1
+#define _DR_TRACEDUMP_H_
 
 /**
  * @file dr_tracedump.h

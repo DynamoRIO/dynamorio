@@ -34,7 +34,7 @@
  */
 
 #ifndef _SIMULATOR_H_
-#define _SIMULATOR_H_ 1
+#define _SIMULATOR_H_
 
 #include <assert.h>
 #include <stddef.h>

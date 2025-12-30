@@ -41,7 +41,7 @@
  */
 
 #ifndef _HASHTABLE_H_
-#define _HASHTABLE_H_ 1
+#define _HASHTABLE_H_
 
 /* Flags stored in the table_flags bitfield that are common to
  * all hashtables
