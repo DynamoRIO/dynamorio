@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -307,6 +307,7 @@ protected:
     static constexpr char WAIT_SYMBOL = '-';
     static constexpr char IDLE_SYMBOL = '_';
     static constexpr uint64_t kSysnumLatencyBinSize = 5;
+    static constexpr int64_t INVALID_WORKLOAD_ID = -1;
 
     struct per_shard_t {
         per_shard_t(schedule_stats_t *analyzer)
@@ -319,7 +320,7 @@ protected:
         memtrace_stream_t *stream = nullptr;
         int64_t core = 0; // We target core-sharded.
         counters_t counters;
-        int64_t prev_workload_id = -1;
+        int64_t prev_workload_id = INVALID_WORKLOAD_ID;
         int64_t prev_tid = INVALID_THREAD_ID;
         // These are cleared when an instruction is seen.
         bool saw_syscall = false;
