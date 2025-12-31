@@ -252,6 +252,21 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
                     THREAD_LETTER_SUBSEQUENT_START + static_cast<char>(input % 26);
                 cur_segment_instrs = 0;
             }
+        } else if (record.marker.type == dynamorio::drmemtrace::TRACE_TYPE_MARKER) {
+            if (record.marker.marker_type ==
+                dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID) {
+#ifdef HAS_ZIP
+                if (!op_cpu_schedule_file.get_value().empty()) {
+                    int cpu = (int)record.marker.marker_value;
+                    int output_cpuid = stream->get_output_cpuid();
+                    if (cpu != output_cpuid) {
+                        FATAL_ERROR(
+                            "CPU marker differs from output stream CPU ID: %d != %d\n",
+                            cpu, output_cpuid);
+                    }
+                }
+#endif
+            }
         }
 #ifdef HAS_ZIP
         else if (record.marker.type == dynamorio::drmemtrace::TRACE_TYPE_MARKER) {
