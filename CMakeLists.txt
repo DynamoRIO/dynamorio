@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -850,6 +850,7 @@ endmacro()
 set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
+CHECK_CXX_COMPILER_FLAG("-std=c++14" cxx14_available)
 CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
 if (UNIX)
   set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")

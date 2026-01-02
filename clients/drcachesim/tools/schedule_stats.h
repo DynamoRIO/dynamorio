@@ -298,8 +298,43 @@ public:
             sysnum_noswitch_latency;
     };
 
+    struct schedule_record_t {
+        // We do not define any constructors to make it easier to use
+        // aggregate initialization in tests.
+        // The member defaults below require C++14 for aggregate initialization.
+        bool
+        operator==(const schedule_record_t &rhs)
+        {
+            return workload == rhs.workload && tid == rhs.tid &&
+                instructions == rhs.instructions &&
+                syscall_number == rhs.syscall_number &&
+                syscall_latency == rhs.syscall_latency && voluntary == rhs.voluntary &&
+                direct == rhs.direct;
+        }
+        int64_t workload = INVALID_WORKLOAD_ID;
+        memref_tid_t tid = INVALID_THREAD_ID;
+        // How many instructions were run between the prior switch and this one.
+        int64_t instructions;
+        // If >-1, an immediately prior system call.
+        int64_t syscall_number = -1;
+        // If -1 and syscall_number >-1, that means a thread exit (syscall_number
+        // may be a thread exit system call, or a detach may have happened at that
+        // point); otherwise, if >-1, then syscall_number should also be >-1 and
+        // this should be a voluntary switch due to a high-latency system call.
+        int64_t syscall_latency = -1;
+        // Whether a voluntary switch, for which syscall_number should be >-1.
+        bool voluntary = false;
+        // Whether a direct switch request.
+        bool direct = false;
+    };
+
     counters_t
     get_total_counts();
+
+    // The "core" value should match the analyzer infrastructure's shard index for
+    // parallel mode or the cpuid for serial mode.
+    bool
+    get_switch_record(int core, std::vector<schedule_record_t> &record);
 
 protected:
     // We're in one of 3 states.
@@ -345,6 +380,8 @@ protected:
         intptr_t filetype = 0;
         uint64_t switch_start_instrs = 0;
         bool in_syscall_trace = false;
+        // A complete record of the switches.
+        std::vector<schedule_record_t> switch_record;
     };
 
     virtual std::unique_ptr<histogram_interface_t>
