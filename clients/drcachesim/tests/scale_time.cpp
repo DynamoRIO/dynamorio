@@ -148,6 +148,8 @@ static int
 do_some_work(void)
 {
     enable_timers();
+    // Do real work to trigger CPU time-based timers.
+    // Use rand() so that the compiler cannot optimise out some of the work.
     int total = 0;
 
     for (int i = 0; i < 100000; i++)
