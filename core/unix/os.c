@@ -118,6 +118,8 @@ typedef struct rlimit64 rlimit64_t;
 #endif
 
 #ifdef LINUX
+/* Definitions for PR_GET_AUXV */
+#    include <linux/prctl.h>
 /* For clone and its flags, the manpage says to include sched.h with _GNU_SOURCE
  * defined.  _GNU_SOURCE brings in unwanted extensions and causes name
  * conflicts.  Instead, we include unix/sched.h which comes from the Linux
@@ -184,6 +186,11 @@ char **our_environ;
 #include "instr.h" /* for get_app_segment_base() */
 
 #include "decode_fast.h" /* decode_cti: maybe os_handle_mov_seg should be ifdef X86? */
+
+/* For auxvector keys (AT_*) used by search_auxvector() */
+#ifdef MUSL
+#    include <elf.h>
+#endif
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -798,6 +805,106 @@ static init_fn_t
 #else
 /* If we're a normal shared object, then we override _init.
  */
+
+#    if defined(MUSL)
+/* We rely on PR_GET_AUXV to obtain a copy of auxvector and take one of the
+ * pointer entries as marker when searching through the address space.
+ *
+ * TODO: PR_GET_AUXV is relatively new (introduced in Linux 6.4), implement a
+ * fallback when it's unavailable.
+ * TODO i#7491: PR_GET_AUXV isn't correctly intercepted, thus executable-related
+ * auxvector entries cannot be used as target marker when searching, or
+ * applications linked to libdynamorio.so, like test client.gonative, will fail
+ * to execute when running under early injection. Switch to use a more-reliable
+ * address-related entry when the problem is resolved.
+ */
+static ELF_WORD
+get_auxv_value(ELF_WORD type)
+{
+    /* Currently no architecture defines more than 60 auxvector keys */
+    ELF_AUXV_TYPE auxv[64];
+
+    dynamorio_syscall(SYS_prctl, 5, PR_GET_AUXV, auxv, sizeof(auxv), 0, 0);
+
+    for (int i = 0; auxv[i].a_type != AT_NULL; i++) {
+        if (auxv[i].a_type == type)
+            return auxv[i].a_un.a_val;
+    }
+
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+/* When entering the entry point, the stack layout looks like
+ *
+ *   sp => argc
+ *         argv
+ *         NULL (end of argv)
+ *         envp
+ *         NULL (end of envp)
+ *         auxv
+ *
+ * But the stack pointer has gone much farther towards the low-end of address
+ * space, thus it's hard to reliably locate the address of auxvector.
+ *
+ * search_auxvector() walks towards the higher address and locates one of the
+ * auxvector entries, then walks backwards and finds the beginning of auxvector.
+ */
+static void *
+search_auxvector(void *sp)
+{
+    ELF_WORD uid = get_auxv_value(AT_UID);
+
+    for (size_t offset = 0; offset < PAGE_SIZE * 64; offset += sizeof(ulong)) {
+        ELF_AUXV_TYPE *p = sp + offset;
+        ELF_AUXV_TYPE entry;
+
+        if (!d_r_safe_read(p, sizeof(ELF_AUXV_TYPE), &entry))
+            return NULL;
+
+        if (p->a_type == AT_UID && p->a_un.a_val == uid) {
+            for (; (void *)p > sp; p--) {
+                /* The maximum key in auxvector is much smaller than 0x400.
+                 * This assumes envp contains much higher addresses. An auxvector
+                 * entry with zero as key indicates the end, thus the only case
+                 * that it's encountered when searching towards auxvector's
+                 * start is an empty envp. */
+                if ((p->a_type == 0 || p->a_type >= 0x400) && p->a_un.a_val == 0)
+                    return p + 1;
+            }
+            return NULL; /* shouldn't reach here */
+        }
+    }
+
+    return NULL;
+}
+
+static void
+search_kernel_args_on_stack(int *argc, char ***argv, char ***envp)
+{
+    ulong *sp;
+    GET_STACK_PTR(sp);
+
+    ulong *auxv = search_auxvector(sp);
+
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find auxv", auxv != NULL);
+
+    ulong *p = &auxv[-2];
+    for (; p[-1] != 0 && &p[-1] > sp; p--)
+        ;
+
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find envp", p != sp);
+
+    *envp = (char **)p;
+
+    /* XXX: It's hard to determine the start of argv b/c argc locates immediately
+     * before it. Luckily, our_init only makes use of envp. argc and argv are
+     * zeroed. */
+    *argc = 0;
+    *argv = NULL;
+}
+#    endif /* MUSL */
+
 INITIALIZER_ATTRIBUTES int
 _init(int argc, char **argv, char **envp)
 {
@@ -813,6 +920,11 @@ _init(int argc, char **argv, char **envp)
         envp = NULL;
     }
     ASSERT_MESSAGE(CHKLVL_ASSERTS, "failed to find envp", envp != NULL);
+#    endif
+#    ifdef MUSL
+    /* i#1973: musl passes nothing to library init routines. We scan the stack
+     * to find the arguments passed by kernel. */
+    search_kernel_args_on_stack(&argc, &argv, &envp);
 #    endif
     return our_init(argc, argv, envp);
 }
