@@ -172,16 +172,6 @@ schedule_stats_t::get_scheduler_stats(memtrace_stream_t *stream, counters_t &cou
     counters.syscall_sequence_injections =
         static_cast<int64_t>(stream->get_schedule_statistic(
             memtrace_stream_t::SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS));
-<<<<<<< HEAD
-
-    // XXX: Currently, schedule_stats is measuring swap-ins to a real input.  If we
-    // want to match what "perf" targeting this app would record, which is swap-outs,
-    // we should remove idle-to-input and add input-to-idle (though generally those
-    // two counts are pretty similar).  OTOH, if we want to match what "perf"
-    // systemwide would record, we would want to add input-to-idle on top of what we
-    // have today.
-=======
->>>>>>> 213c69b93 (i#7756 switch reason: Measure swap-outs in schedule_stats)
 }
 
 std::string
