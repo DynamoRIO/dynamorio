@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -2886,15 +2886,19 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
         return stream_status_t::STATUS_OK;
     } else if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL &&
                new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+        VPRINT(this, 2, "Switch on output %d input-to-input %d => %d\n", output,
+               prev_input, new_input);
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT];
     } else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL) {
         // XXX: For now, we do not inject a kernel context switch sequence on
         // input-to-idle transitions (note that we do so on idle-to-input though).
         // However, we may want to inject some other suitable sequence, but we're not
         // sure yet.
+        VPRINT(this, 2, "Switch on output %d input-to-idle %d", output, prev_input);
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
         return stream_status_t::STATUS_OK;
     } else {
+        VPRINT(this, 2, "Switch on output %d idle-to-input %d", output, new_input);
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
         // Reset the flag so we'll try to steal if we go idle again.
         outputs_[output].tried_to_steal_on_idle = false;

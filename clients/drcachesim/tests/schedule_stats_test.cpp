@@ -356,10 +356,11 @@ test_idle()
         {
             gen_instr(TID_B),
             gen_instr(TID_B),
+            // A switch to idle w/ no syscall is an involuntary switch.
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            // A switch from idle w/ no syscall is an involuntary switch.
+            // A switch from idle is not counted.
             gen_instr(TID_B),
             gen_instr(TID_B),
             gen_instr(TID_B),
@@ -369,22 +370,24 @@ test_idle()
             // This is a start-idle core.
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             // Switch to the first thread from the start-idle state.
+            // A switch from idle is not counted.
             gen_instr(TID_C),
             // Involuntary switch.
             gen_instr(TID_A),
             // Involuntary switch.
             gen_instr(TID_C),
+            // A switch to idle w/ no syscall is an involuntary switch.
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
-            // A switch from idle w/ no syscall is an involuntary switch.
+            // A switch from idle is not counted.
             gen_instr(TID_C),
             gen_instr(TID_C),
+            // Involuntary switch.
             // Wait.
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
-            // Involuntary switch.
             gen_instr(TID_A),
             gen_instr(TID_A),
             gen_instr(TID_A),
@@ -395,7 +398,7 @@ test_idle()
     };
     auto result = run_schedule_stats(memrefs);
     assert(result.instrs == 13);
-    assert(result.total_switches == 7);
+    assert(result.total_switches == 6);
     assert(result.voluntary_switches == 1);
     assert(result.direct_switches == 0);
     assert(result.syscalls == 0);

@@ -3,10 +3,10 @@ Total counts:
            4 cores
            9 threads: W0.T872.*
       650576 instructions
-          18 total context switches
-   0.0276678 CSPKI \(context switches per 1000 instructions\)
-       36143 instructions per context switch
-          18 voluntary context switches
+          21 total context switches
+   0.0322791 CSPKI \(context switches per 1000 instructions\)
+       30980 instructions per context switch
+          21 voluntary context switches
            0 direct context switches
            0 context switch sequence injections
            0 system call sequence injections
@@ -35,7 +35,7 @@ Total counts:
     [0-9\. ]*% cpu busy by time
     [0-9\. ]*% cpu busy by time, ignoring idle past last instr
   Instructions per context switch histogram:
-           0..   50000    13
+           0..   50000    16
        50000..  100000     5
   Cores per thread:
            1..       2     9
