@@ -144,24 +144,20 @@ disable_timers(void)
     assert(res == 0);
 }
 
-static void
+static int
 do_some_work(void)
 {
     enable_timers();
     // Do real work to trigger CPU time-based timers.
-    static const int ITERS = 5000;
-    double val = ITERS / 33.;
-    double **vals = (double **)calloc(ITERS, sizeof(double *));
-    for (int i = 0; i < ITERS; ++i) {
-        vals[i] = (double *)malloc(sizeof(double));
-        *vals[i] = sin(val);
-        val += *vals[i];
-        vals[i] = (double *)realloc(vals[i], 2 * sizeof(double));
-    }
-    for (int i = 0; i < ITERS; ++i)
-        free(vals[i]);
-    free(vals);
+    // Use rand() so that the compiler cannot optimise out some of the work.
+    int total = 0;
+
+    for (int i = 0; i < 100000; i++)
+        total += rand() % 100;
+
     disable_timers();
+
+    return total;
 }
 
 /****************************************************************************
@@ -272,6 +268,7 @@ int
 test_main(int argc, const char *argv[])
 {
     create_posix_timer();
+    srand(time(NULL)); // randomize seed
 
     std::cerr << "gathering no-scaling trace\n";
     std::string dir_default = gather_trace("", "default");
