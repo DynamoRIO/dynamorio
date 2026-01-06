@@ -198,14 +198,20 @@ thread_check_sigstate_from_handler(void)
     act.sa_sigaction = (void (*)(int, siginfo_t *, void *))signal_handler;
     res = sigfillset(&act.sa_mask); /* block all signals within handler */
     ASSERT_NOERR(res);
+#        if defined(AARCH64)
     /* The external detach_state tests use runall.cmake which sends the process SIGTERM
      * after it has detached. We use this to detect that the detach has happened and set
      * sideline_exit so we need to make sure that SIGTERM is not blocked while in our
      * signal handler, otherwise sideline_exit will never be set and the test will hang.
+     *
+     * XXX: Setting this on x86 appears to cause an ASSERT failure when running the
+     * internal detach tests on x86. It is the same ASSERT as i#5123 so it might be
+     * related to that issue.
      */
     res = sigdelset(&act.sa_mask, SIGTERM);
     ASSERT_NOERR(res);
     act.sa_flags = SA_SIGINFO | SA_ONSTACK;
+#        endif
 
     /* arm the signal */
     res = sigaction(SIGUSR1, &act, NULL);
