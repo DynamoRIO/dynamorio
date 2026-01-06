@@ -259,6 +259,9 @@ public:
         int64_t at_output_limit = 0;
         // Our own statistics.
         int64_t instrs = 0;
+        // XXX: We should provide our own breakdown of {input,idle}-to-{input,idle}
+        // as the scheduler-provided components are missing for core-sharded-on-disk
+        // traces.
         int64_t total_switches = 0;
         int64_t voluntary_switches = 0;
         int64_t direct_switches = 0; // Subset of voluntary_switches.

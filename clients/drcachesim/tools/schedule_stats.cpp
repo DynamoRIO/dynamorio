@@ -258,9 +258,8 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
                 shard->pre_syscall_timestamp = 0;
                 shard->post_syscall_timestamp = 0;
             }
-        }
-        if (add_to_counts)
             shard->counters.instrs_per_switch->add(instr_delta);
+        }
         if (knob_verbose_ >= 2) {
             std::cerr << "Core #" << std::setw(2) << shard->core
                       << (add_to_counts ? "" : " (uncounted)") << " switch W"
