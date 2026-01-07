@@ -239,10 +239,15 @@
 /* Detach test functions */
 void
 thread_check_gprs_from_cache(void);
+
+/* The two versions of thread_check_gprs_from_DR*() perform the same test but clobber
+ * different registers so between them we get coverage of all GPRs.
+ */
 void
 thread_check_gprs_from_DR1(void);
 void
 thread_check_gprs_from_DR2(void);
+
 void
 thread_check_status_reg_from_cache(void);
 void
