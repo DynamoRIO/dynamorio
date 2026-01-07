@@ -83,6 +83,15 @@ THREAD_FUNC_RETURN_TYPE
 run_func(void *arg)
 {
     void (*asm_func)(void) = (void (*)(void))arg;
+    /* asum_func should be one of the thread_check_*() functions
+     * from detach_state_shared. These functions set up some state and then loop until
+     * they are told to exit which we do by calling set_sideline_exit() in
+     * signal_handler() above.
+     * While the test function is looping runall.cmake detaches DR before signalling us
+     * to indicate the detach has happened. After the test function exits its loop it
+     * checks the state it set up remains unchanged so we can make sure there is no
+     * state corruption during detach.
+     */
     (*asm_func)();
     return THREAD_FUNC_RETURN_ZERO;
 }
