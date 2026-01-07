@@ -108,7 +108,6 @@ main(int argc, const char **argv)
     }
 
     print("Unrecognised test name \"%s\"\n", argv[1]);
-    detach_state_shared_cleanup();
 
     return 1;
 }
