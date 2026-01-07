@@ -210,6 +210,10 @@ main(void)
     sideline_ready_for_attach = create_cond_var();
     detach_state_shared_init();
 
+    /* XXX: The thread_check_* functions are defined in detach_state_shared.c and any new
+     * check functions added should also be added to the external detach tests in
+     * client-interface/external_detach_state.c.
+     */
     test_thread_func(thread_check_gprs_from_cache);
 #if defined(X86) || defined(AARCH64)
     test_thread_func(thread_check_gprs_from_DR1);
