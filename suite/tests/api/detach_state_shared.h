@@ -236,13 +236,22 @@
 
 #ifndef ASM_CODE_ONLY
 
-/* Detach test functions */
+/* Detach test functions
+ * Any new tests added should be added to both the internal and external detach tests:
+ * internal tests: api/detach_state.c
+ * external tests: client-interface/external_detach_state.c
+ */
 void
 thread_check_gprs_from_cache(void);
+
+/* The two versions of thread_check_gprs_from_DR*() perform the same test but clobber
+ * different registers so between them we get coverage of all GPRs.
+ */
 void
 thread_check_gprs_from_DR1(void);
 void
 thread_check_gprs_from_DR2(void);
+
 void
 thread_check_status_reg_from_cache(void);
 void
