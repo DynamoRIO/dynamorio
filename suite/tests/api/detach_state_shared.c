@@ -204,8 +204,8 @@ thread_check_sigstate_from_handler(void)
      * sideline_exit so we need to make sure that SIGTERM is not blocked while in our
      * signal handler, otherwise sideline_exit will never be set and the test will hang.
      *
-     * XXX: Setting this on x86 appears to cause an ASSERT failure when running the
-     * internal detach tests on x86. It is the same ASSERT as i#5123 so it might be
+     * XXX i#7765: Setting this on x86 appears to cause an ASSERT failure when running
+     * the internal detach tests on x86. It is the same ASSERT as i#5123 so it might be
      * related to that issue.
      */
     res = sigdelset(&act.sa_mask, SIGTERM);
