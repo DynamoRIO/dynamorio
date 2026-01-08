@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -850,8 +850,9 @@ endmacro()
 set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
-CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
 if (UNIX)
+  CHECK_CXX_COMPILER_FLAG("-std=c++14" cxx14_available)
+  CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
   set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
   # -std=c99 doesn't quite work
   # XXX case 191480: we used to pass -pedantic just to cpp;
@@ -1022,6 +1023,8 @@ if (UNIX)
   endif ()
   set(LINK_EXTRA_FLAGS "")
 else (UNIX)
+  CHECK_CXX_COMPILER_FLAG("/std:c++14" cxx14_available)
+  CHECK_CXX_COMPILER_FLAG("/std:c++17" cxx17_available)
   # XXX: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
   # build in parallel, always.

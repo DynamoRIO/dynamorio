@@ -7,3 +7,5 @@ Total counts:
 Core #0 schedule: [A-Za-z_]*
 Core #1 schedule: [A-Za-z_]*
 Core #2 schedule: [A-Za-z_]*
+Core #0 switch-outs:
+.*

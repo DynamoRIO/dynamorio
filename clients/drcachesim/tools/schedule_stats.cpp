@@ -226,12 +226,21 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
     } else {
         if (add_to_counts) {
             ++shard->counters.total_switches;
-            if (shard->saw_syscall || shard->saw_exit)
+            schedule_record_t record;
+            record.workload = prev_workload_id;
+            record.tid = prev_tid;
+            record.instructions = instr_delta;
+            if (shard->saw_syscall || shard->saw_exit) {
                 ++shard->counters.voluntary_switches;
+                record.voluntary = true;
+            }
             if (shard->direct_switch_target != INVALID_THREAD_ID &&
-                shard->direct_switch_target == tid)
+                shard->direct_switch_target == tid) {
                 ++shard->counters.direct_switches;
+                record.direct = true;
+            }
             if (shard->last_syscall_number >= 0) {
+                record.syscall_number = shard->last_syscall_number;
                 if (shard->stream->get_version() <
                     TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS) {
                     // Legacy versions do not have the timestamps to compute latencies.
@@ -252,12 +261,14 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
                                       << "\n";
                         }
                         hist_ptr->add(latency);
+                        record.syscall_latency = latency;
                     }
                 }
                 shard->last_syscall_number = -1;
                 shard->pre_syscall_timestamp = 0;
                 shard->post_syscall_timestamp = 0;
             }
+            shard->switch_record.push_back(record);
             shard->counters.instrs_per_switch->add(instr_delta);
         }
         if (knob_verbose_ >= 2) {
@@ -693,6 +704,33 @@ schedule_stats_t::print_results()
         std::cerr << "Core #" << shard.second->core
                   << " schedule: " << shard.second->thread_sequence << "\n";
     }
+    // For the switch-out list, limit entries at low verbosity to avoid spewing
+    // 100K entries to the screen.
+    size_t entries_per_shard = 4;
+    if (knob_verbose_ >= 1) {
+        entries_per_shard = 24;
+        if (knob_verbose_ >= 2) {
+            entries_per_shard = std::numeric_limits<size_t>::max();
+        }
+    }
+    for (const auto &shard : shard_map_) {
+        std::cerr << "Core #" << shard.second->core << " switch-outs:\n";
+        size_t i;
+        for (i = 0; i < std::min(entries_per_shard, shard.second->switch_record.size());
+             ++i) {
+            const schedule_record_t &record = shard.second->switch_record[i];
+            std::cerr << std::setw(5) << i << " W" << record.workload << ".T" << std::left
+                      << std::setw(6) << record.tid << std::right
+                      << " instrs=" << std::setw(9) << record.instructions
+                      << " sys#=" << std::setw(4) << record.syscall_number
+                      << " latency=" << std::setw(7) << record.syscall_latency
+                      << std::setw(6) << (record.voluntary ? "vol" : "invol")
+                      << std::setw(7) << (record.direct ? "direct" : "") << "\n";
+        }
+        if (i < shard.second->switch_record.size()) {
+            std::cerr << "    ... (increase -verbose to see more)\n";
+        }
+    }
     return true;
 }
 
@@ -702,6 +740,17 @@ schedule_stats_t::get_total_counts()
     counters_t total(this);
     aggregate_results(total);
     return total;
+}
+
+bool
+schedule_stats_t::get_switch_record(
+    int core, std::vector<schedule_stats_t::schedule_record_t> &record)
+{
+    const auto &lookup = shard_map_.find(core);
+    if (lookup == shard_map_.end())
+        return false;
+    record = lookup->second->switch_record;
+    return true;
 }
 
 } // namespace drmemtrace

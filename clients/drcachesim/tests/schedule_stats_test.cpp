@@ -63,6 +63,10 @@ using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_END;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_START;
+using schedule_record_t = ::dynamorio::drmemtrace::schedule_stats_t::schedule_record_t;
+
+static constexpr bool VOLUNTARY = true;
+static constexpr bool DIRECT = true;
 
 // Create a class for testing that has reliable timing.
 // It assumes it is only used with one thread and parallel operation
@@ -113,7 +117,9 @@ public:
 // Bypasses the analyzer and scheduler for a controlled test sequence.
 // Alternates the per-core memref vectors in lockstep.
 static schedule_stats_t::counters_t
-run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
+run_schedule_stats(
+    const std::vector<std::vector<memref_t>> &memrefs,
+    const std::vector<std::vector<schedule_record_t>> *expected_record = nullptr)
 {
     mock_schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
     struct per_core_t {
@@ -165,9 +171,20 @@ run_schedule_stats(const std::vector<std::vector<memref_t>> &memrefs)
             }
         }
     }
+    std::vector<std::vector<schedule_record_t>> record(memrefs.size());
     for (int cpu = 0; cpu < static_cast<int>(memrefs.size()); ++cpu) {
         tool.parallel_shard_exit(per_core[cpu].shard_data);
         tool.parallel_worker_exit(per_core[cpu].worker_data);
+        tool.get_switch_record(cpu, record[cpu]);
+    }
+    assert(record.size() == memrefs.size());
+    if (expected_record != nullptr) {
+        for (size_t i = 0; i < record.size(); ++i) {
+            assert(record[i].size() == (*expected_record)[i].size());
+            for (size_t j = 0; j < record[i].size(); ++j) {
+                assert(record[i][j] == (*expected_record)[i][j]);
+            }
+        }
     }
     return tool.get_total_counts();
 }
@@ -233,7 +250,20 @@ test_basic_stats()
             gen_exit(TID_B),
         },
     };
-    auto result = run_schedule_stats(memrefs);
+    const std::vector<std::vector<schedule_record_t>> expected_record = {
+        {
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/0, /*lat=*/500, VOLUNTARY },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+        },
+        {
+            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1 },
+        },
+    };
+    auto result = run_schedule_stats(memrefs, &expected_record);
     assert(result.instrs == 16);
     assert(result.total_switches == 7);
     assert(result.voluntary_switches == 3);
@@ -328,7 +358,20 @@ test_basic_stats_with_syscall_trace()
             gen_exit(TID_B),
         },
     };
-    auto result = run_schedule_stats(memrefs);
+    const std::vector<std::vector<schedule_record_t>> expected_record = {
+        {
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_B, /*ins=*/2, /*sys#=*/0, /*lat=*/500, VOLUNTARY },
+            { 0, TID_A, /*ins=*/4, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT },
+            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+        },
+        {
+            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1 },
+        },
+    };
+    auto result = run_schedule_stats(memrefs, &expected_record);
     assert(result.instrs == 21);
     // Following are the same as test_basic_stats.
     assert(result.total_switches == 7);
@@ -396,7 +439,19 @@ test_idle()
             gen_exit(TID_C),
         },
     };
-    auto result = run_schedule_stats(memrefs);
+    const std::vector<std::vector<schedule_record_t>> expected_record = {
+        {
+            { 0, TID_B, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1 },
+        },
+        {
+            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_C, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+        },
+    };
+    auto result = run_schedule_stats(memrefs, &expected_record);
     assert(result.instrs == 13);
     assert(result.total_switches == 6);
     assert(result.voluntary_switches == 1);
@@ -446,7 +501,19 @@ test_cpu_footprint()
             gen_instr(TID_C, INSTR_PC, INSTR_SIZE, PID_Y),
         },
     };
-    auto result = run_schedule_stats(memrefs);
+    const std::vector<std::vector<schedule_record_t>> expected_record = {
+        {
+            { 1234, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 1234, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+        },
+        {},
+        {
+            { 5678, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+        },
+        {},
+        {},
+    };
+    auto result = run_schedule_stats(memrefs, &expected_record);
     assert(result.instrs == 8);
     std::string hist = result.cores_per_thread->to_string();
     std::cerr << "Cores-per-thread histogram:\n" << hist << "\n";
@@ -532,7 +599,25 @@ test_syscall_latencies()
             gen_exit(TID_D),
         },
     };
-    auto result = run_schedule_stats(memrefs);
+    const std::vector<std::vector<schedule_record_t>> expected_record = {
+        {
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/12, /*lat=*/500, VOLUNTARY },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+        },
+        {
+            { 0, TID_C, /*ins=*/0, /*sys#=*/12, /*lat=*/1000, VOLUNTARY },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+        },
+        {
+            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+        },
+    };
+    auto result = run_schedule_stats(memrefs, &expected_record);
     auto it_x_switch = result.sysnum_switch_latency.find(SYSNUM_X);
     assert(it_x_switch != result.sysnum_switch_latency.end());
     std::string hist_x_switch = it_x_switch->second->to_string();
@@ -656,7 +741,25 @@ test_syscall_latencies_with_kernel_trace()
             gen_exit(TID_D),
         },
     };
-    auto result = run_schedule_stats(memrefs);
+    const std::vector<std::vector<schedule_record_t>> expected_record = {
+        {
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_B, /*ins=*/2, /*sys#=*/12, /*lat=*/500, VOLUNTARY },
+            { 0, TID_A, /*ins=*/4, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT },
+            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+        },
+        {
+            { 0, TID_C, /*ins=*/1, /*sys#=*/12, /*lat=*/1000, VOLUNTARY },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+        },
+        {
+            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+        },
+    };
+    auto result = run_schedule_stats(memrefs, &expected_record);
     // Following are the same as test_syscall_latencies.
     auto it_x_switch = result.sysnum_switch_latency.find(SYSNUM_X);
     assert(it_x_switch != result.sysnum_switch_latency.end());
