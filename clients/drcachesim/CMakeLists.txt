@@ -1076,9 +1076,10 @@ if (BUILD_TESTS)
       set_tests_properties(tool.drcachesim.schedule_stats_test PROPERTIES
         TIMEOUT ${test_seconds})
     else ()
-      # XXX i#6672: If none of our GA CI tests fail then let's upgrade everything
-      # to C++14?
-      message(FATAL_ERROR "C++14 not available") # TOREMOVE
+      # XXX i#6672: Since all our GA CI platforms support C++14, we
+      # should upgrade the main flags to use C++14 and then remove the
+      # conditionals here.
+      message(FATAL_ERROR "C++14 not available")
     endif ()
 
     add_executable(tool.drcacheoff.view_test tests/view_test.cpp reader/file_reader.cpp)
