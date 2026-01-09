@@ -283,8 +283,9 @@ test_basic_stats()
     // Right now they're all in the same 0-50K bin.  We're still able to check
     // the count though.
     std::string global_hist = result.instrs_per_switch->to_string();
-    std::cerr << "Gobal switches:\n" << global_hist;
+    std::cerr << "Global switches:\n" << global_hist;
     assert(global_hist == "           0..   50000     7\n");
+    assert(result.tid2instrs_per_switch.size() == 3);
     // XXX i#6672: Upgrade to C++17 for structured bindings.
     for (const auto &keyval : result.tid2instrs_per_switch) {
         std::string hist = keyval.second->to_string();
