@@ -706,7 +706,7 @@ macro(add_win32_flags target is_test)
   else ()
     # Work around configure_DynamoRIO_static() clobbering flags by re-adding
     # the important ones for our tests, so they can include our headers
-    # with C++-isms.
+    # with recent-C++-isms.
     get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
     if (NOT cur MATCHES "-std=")
       append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++14")

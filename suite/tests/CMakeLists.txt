@@ -450,7 +450,7 @@ function (set_cflags source)
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     # configure_DynamoRIO_global removes unfavorable options for clients,
-    # re-adding -std=c++.
+    # re-adding -std=c++14.
     string(REGEX REPLACE "-std=gnu99" "-std=c++14" cflags "${cflags}")
     if (WIN32)
       set(cflags "${cflags} /EHsc")
