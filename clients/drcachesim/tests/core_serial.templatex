@@ -37,6 +37,8 @@ Total counts:
   Instructions per context switch histogram:
            0..   50000    16
        50000..  100000     5
+  Thread W0.T.* instructions per context switch histogram:
+.*
   Cores per thread:
            1..       2     9
   Latencies for syscalls that incurred a switch:
