@@ -270,6 +270,10 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
             }
             shard->switch_record.push_back(record);
             shard->counters.instrs_per_switch->add(instr_delta);
+            histogram_interface_t *hist_ptr = find_or_add_histogram(
+                shard->counters.tid2instrs_per_switch,
+                workload_tid_t(prev_workload_id, prev_tid), kSwitchBinSize);
+            hist_ptr->add(instr_delta);
         }
         if (knob_verbose_ >= 2) {
             std::cerr << "Core #" << std::setw(2) << shard->core
@@ -618,6 +622,11 @@ schedule_stats_t::print_counters(const counters_t &counters)
                      "% cpu busy by time, ignoring idle past last instr\n");
     std::cerr << "  Instructions per context switch histogram:\n";
     counters.instrs_per_switch->print();
+    for (const auto &it : counters.tid2instrs_per_switch) {
+        std::cerr << "  Thread W" << it.first.workload_id << ".T" << it.first.tid
+                  << " instructions per context switch histogram:\n";
+        it.second->print();
+    }
     if (!counters.cores_per_thread->empty()) {
         std::cerr << "  Cores per thread:\n";
         counters.cores_per_thread->print();

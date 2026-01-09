@@ -277,6 +277,27 @@ test_basic_stats()
     assert(result.idle_microseconds == 0);
     assert(result.cpu_microseconds > 20);
     assert(result.wait_microseconds >= 3);
+
+    // Sanity check the histograms.
+    // XXX: Parameterize the bin size for more granular unit test results?
+    // Right now they're all in the same 0-50K bin.  We're still able to check
+    // the count though.
+    std::string global_hist = result.instrs_per_switch->to_string();
+    std::cerr << "Global switches:\n" << global_hist;
+    assert(global_hist == "           0..   50000     7\n");
+    assert(result.tid2instrs_per_switch.size() == 3);
+    // XXX i#6672: Upgrade to C++17 for structured bindings.
+    for (const auto &keyval : result.tid2instrs_per_switch) {
+        std::string hist = keyval.second->to_string();
+        assert(keyval.first.workload_id == 0);
+        std::cerr << "Tid " << keyval.first.tid << " switches:\n" << hist;
+        switch (keyval.first.tid) {
+        case TID_A: assert(hist == "           0..   50000     3\n"); break;
+        case TID_B: assert(hist == "           0..   50000     2\n"); break;
+        case TID_C: assert(hist == "           0..   50000     2\n"); break;
+        default: assert(false && "unexpected tid");
+        }
+    }
     return true;
 }
 
