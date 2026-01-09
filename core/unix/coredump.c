@@ -285,6 +285,7 @@ mcontext_to_user_regs(DR_PARAM_IN priv_mcontext_t *mcontext,
     regs->regs[30] = mcontext->r30;
     regs->sp = mcontext->sp;
     regs->pc = (uint64_t)mcontext->pc;
+    regs->pstate = mcontext->nzcv;
 #else
 #    error Unsupported architecture
 #endif
