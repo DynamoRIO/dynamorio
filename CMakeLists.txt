@@ -853,7 +853,15 @@ set(BASE_CXXONLY_FLAGS "")
 if (UNIX)
   CHECK_CXX_COMPILER_FLAG("-std=c++14" cxx14_available)
   CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
-  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
+else ()
+  CHECK_CXX_COMPILER_FLAG("/std:c++14" cxx14_available)
+  CHECK_CXX_COMPILER_FLAG("/std:c++17" cxx17_available)
+endif()
+if (NOT cxx14_available)
+  FATAL_ERROR("A C++14-capable toolchain is required to build")
+endif ()
+if (UNIX)
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++14")
   # -std=c99 doesn't quite work
   # XXX case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
@@ -1023,8 +1031,7 @@ if (UNIX)
   endif ()
   set(LINK_EXTRA_FLAGS "")
 else (UNIX)
-  CHECK_CXX_COMPILER_FLAG("/std:c++14" cxx14_available)
-  CHECK_CXX_COMPILER_FLAG("/std:c++17" cxx17_available)
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} /std:c++14")
   # XXX: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
   # build in parallel, always.
