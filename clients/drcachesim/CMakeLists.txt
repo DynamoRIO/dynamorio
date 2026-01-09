@@ -706,10 +706,10 @@ macro(add_win32_flags target is_test)
   else ()
     # Work around configure_DynamoRIO_static() clobbering flags by re-adding
     # the important ones for our tests, so they can include our headers
-    # with C++11-isms.
+    # with recent-C++-isms.
     get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
     if (NOT cur MATCHES "-std=")
-      append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++14")
     endif ()
     if (DEBUG AND NOT cur MATCHES "-g")
       # We can't use restore_nonclient_flags() for clients, so we manually re-add debug
@@ -1060,27 +1060,17 @@ if (BUILD_TESTS)
     set_tests_properties(tool.drcachesim.schedule_file_test PROPERTIES
       TIMEOUT ${test_seconds})
 
-    if (cxx14_available)
-      add_executable(tool.drcachesim.schedule_stats_test tests/schedule_stats_test.cpp)
-      configure_DynamoRIO_standalone(tool.drcachesim.schedule_stats_test)
-      # We want to use aggregate initialization for schedule_record_t, which has
-      # default member initializers.
-      # XXX i#6672: This can also be a step toward upgrading everything to C++14.
-      set_source_files_properties(tests/schedule_stats_test.cpp PROPERTIES
-        COMPILE_FLAGS "-std=c++14")
-      add_win32_flags(tool.drcachesim.schedule_stats_test ON)
-      target_link_libraries(tool.drcachesim.schedule_stats_test drmemtrace_schedule_stats
-          drmemtrace_static drmemtrace_analyzer test_helpers)
-      add_test(NAME tool.drcachesim.schedule_stats_test
-               COMMAND tool.drcachesim.schedule_stats_test)
-      set_tests_properties(tool.drcachesim.schedule_stats_test PROPERTIES
-        TIMEOUT ${test_seconds})
-    else ()
-      # XXX i#6672: Since all our GA CI platforms support C++14, we
-      # should upgrade the main flags to use C++14 and then remove the
-      # conditionals here.
-      message(FATAL_ERROR "C++14 not available")
-    endif ()
+    add_executable(tool.drcachesim.schedule_stats_test tests/schedule_stats_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcachesim.schedule_stats_test)
+    # We want to use aggregate initialization for schedule_record_t, which has
+    # default member initializers.
+    add_win32_flags(tool.drcachesim.schedule_stats_test ON)
+    target_link_libraries(tool.drcachesim.schedule_stats_test drmemtrace_schedule_stats
+      drmemtrace_static drmemtrace_analyzer test_helpers)
+    add_test(NAME tool.drcachesim.schedule_stats_test
+      COMMAND tool.drcachesim.schedule_stats_test)
+    set_tests_properties(tool.drcachesim.schedule_stats_test PROPERTIES
+      TIMEOUT ${test_seconds})
 
     add_executable(tool.drcacheoff.view_test tests/view_test.cpp reader/file_reader.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
