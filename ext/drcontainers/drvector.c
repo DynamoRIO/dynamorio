@@ -79,6 +79,7 @@ static void
 drvector_increase_size(drvector_t *vec, uint newcap)
 {
     void **newarray = dr_global_alloc(newcap * sizeof(void *));
+    memset(newarray, 0, newcap * sizeof(void *));
     if (vec->array != NULL) {
         memcpy(newarray, vec->array, vec->entries * sizeof(void *));
         dr_global_free(vec->array, vec->capacity * sizeof(void *));
