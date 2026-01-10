@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -119,6 +119,16 @@ static droption_t<std::string>
                  "Specifies a different path to the .bbv file. Default is "
                  "${PWD}/drpoints.BINARY_NAME.PID.UNIQUE_ID.bbv.");
 
+static droption_t<uint> save_bbv_every(
+    DROPTION_SCOPE_CLIENT, "save_bbv_every", 0,
+    "Writes the current list of BBVs number of instruction intervals specified by this "
+    "option is reached.",
+    "Normally BBVs are kept in memory the whole time DrPoints is attached to the target "
+    "program and written only at detach. This can cause out-of-memory issues for long "
+    "executions or programs with a large number of BBs. This option allows the user to "
+    "specify how many BBVs to keep in memory at any given time. Default is 0, hence "
+    "disabled.");
+
 // Global hash table that maps the pair module-index and PC-offset to the module's base
 // address (which uniquely identify a BB) to a unique, 1-indexed, increasing ID that comes
 // from unique_bb_count.
@@ -146,6 +156,12 @@ static drvector_t bbvs;
 // TODO i#7685: add support for multi-threaded applications.
 static int thread_count = 0;
 
+// The .bvv file handle.
+static file_t bbvs_file = INVALID_FILE;
+
+// The BBV index.
+static uint bbv_idx = 0;
+
 struct bb_id_count_pair_t {
     uint64_t id;             // Derived from unique_bb_count.
     uint64_t weighted_count; // execution_count * BB_size.
@@ -162,7 +178,7 @@ struct modidx_offset_t {
 // deterministically maps two dimensions (i.e., the pair <modidx,offset> that uniquely
 // identifies a BB) into one (i.e., a single scalar, the hash). This way we avoid a nested
 // hashtable_t from modidx to offset and then to the BB id.
-uint
+static uint
 bb_id_hash(void *val)
 {
     modidx_offset_t *key = static_cast<modidx_offset_t *>(val);
@@ -174,19 +190,12 @@ bb_id_hash(void *val)
                             : modidx * modidx + static_cast<uint>(offset);
 }
 
-bool
+static bool
 bb_id_cmp(void *val1, void *val2)
 {
     modidx_offset_t *key1 = static_cast<modidx_offset_t *>(val1);
     modidx_offset_t *key2 = static_cast<modidx_offset_t *>(val2);
     return (key1->modidx == key2->modidx) && (key1->offset == key2->offset);
-}
-
-static void
-free_id_count_pair(void *entry)
-{
-    bb_id_count_pair_t *pair = static_cast<bb_id_count_pair_t *>(entry);
-    dr_global_free(entry, sizeof(*pair));
 }
 
 static void
@@ -221,14 +230,9 @@ add_to_bbv(void *key, void *payload, void *user_data)
         return;
     uint64_t id = reinterpret_cast<uint64_t>(key);
 
-    bb_id_count_pair_t *id_count_pair =
-        static_cast<bb_id_count_pair_t *>(dr_global_alloc(sizeof(*id_count_pair)));
-    id_count_pair->id = id;
-    id_count_pair->weighted_count = count;
-
     // Add BB frequency to BBV.
     drvector_t *bbv = static_cast<drvector_t *>(user_data);
-    drvector_append(bbv, id_count_pair);
+    drvector_set_entry(bbv, static_cast<uint>(id - 1), reinterpret_cast<void *>(count));
 }
 
 // We add execution counters to the table at instrumentation time. We cannot remove them
@@ -239,6 +243,56 @@ set_count_to_zero(void *payload)
 {
     uint64_t *count = static_cast<uint64_t *>(payload);
     *count = 0;
+}
+
+static void
+bbvs_clear()
+{
+    for (uint i = 0; i < bbvs.entries; ++i) {
+        drvector_t *bbv = static_cast<drvector_t *>(drvector_get_entry(&bbvs, i));
+        drvector_clear(bbv);
+    }
+}
+
+static void
+write_bbvs()
+{
+    for (uint i = 0; i < bbvs.entries; ++i) {
+        drvector_t *bbv = static_cast<drvector_t *>(drvector_get_entry(&bbvs, i));
+        bool first_pair = true;
+        for (uint j = 0; j < bbv->entries; ++j) {
+            uint64_t count = reinterpret_cast<uint64_t>(drvector_get_entry(bbv, j));
+            if (count == 0)
+                continue;
+
+            if (first_pair) {
+                if (print_to_stdout.get_value())
+                    dr_fprintf(STDOUT, "T");
+                if (!no_out_bbv_file.get_value())
+                    dr_write_file(bbvs_file, "T", 1);
+                first_pair = false;
+            }
+
+            char msg[64];
+            int len = dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
+                                  ":%" PRIu64 ":%" PRIu64 " ", j + 1, count);
+            NULL_TERMINATE_BUFFER(msg);
+            DR_ASSERT(len > 0);
+
+            if (print_to_stdout.get_value())
+                dr_fprintf(STDOUT, "%s", msg);
+
+            if (!no_out_bbv_file.get_value())
+                dr_write_file(bbvs_file, msg, static_cast<size_t>(len));
+        }
+        if (!first_pair) {
+            if (print_to_stdout.get_value())
+                dr_fprintf(STDOUT, "\n");
+            if (!no_out_bbv_file.get_value())
+                dr_write_file(bbvs_file, "\n", 1);
+            first_pair = false;
+        }
+    }
 }
 
 static void
@@ -256,15 +310,31 @@ save_bbv()
     --instr_count;
 #endif
 
-    // Save current bb_count_table (i.e., the BBV for the current instruction interval).
-    drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
-    // We overshoot the initial size of the BBV vector to avoid resizing it
-    // (bb_count_table.entries also counts BB with count 0).
-    drvector_init(bbv, bb_count_table.entries, /*synch=*/false, free_id_count_pair);
-    // Iterate over the non-zero elements of bb_count_table and add them to the BBV.
-    hashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv, bbv);
-    // Add the newly formed BBV to the list of BBVs.
-    drvector_append(&bbvs, bbv);
+    uint save_bbv_every_value = save_bbv_every.get_value();
+    if (save_bbv_every_value > 0) {
+        drvector_t *bbv = static_cast<drvector_t *>(drvector_get_entry(&bbvs, bbv_idx));
+        hashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv,
+                                                           bbv);
+        ++bbv_idx;
+        if (bbv_idx == save_bbv_every_value) {
+            write_bbvs();
+            bbvs_clear();
+            bbv_idx = 0;
+        }
+    } else {
+        // Save current bb_count_table (i.e., the BBV for the current instruction
+        // interval).
+        drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
+        // We overshoot the initial size of the BBV vector to avoid resizing it
+        // (bb_count_table.entries also counts BB with count 0).
+        drvector_init(bbv, bb_count_table.entries, /*synch=*/false, nullptr);
+        drvector_clear(bbv);
+        // Iterate over the non-zero elements of bb_count_table and add them to the BBV.
+        hashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv,
+                                                           bbv);
+        // Add the newly formed BBV to the list of BBVs.
+        drvector_append(&bbvs, bbv);
+    }
 
     // Clear bb_count_table setting all the execution counts to zero.
     hashtable_apply_to_all_payloads(&bb_count_table, set_count_to_zero);
@@ -444,8 +514,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #        error NYI
 #    endif
 #else
-    // Default to a clean call to the instrumentation function that increments the
-    // counter, checks if the user defined instruction interval is reached, and if so
+    // Default to a clean call to the instrumentation function that updates the
+    // counters, checks if the user defined instruction interval is reached, and if so
     // saves the current BBV.
     dr_insert_clean_call(drcontext, bb, inst,
                          reinterpret_cast<void *>(update_counters_and_save_bbv),
@@ -456,11 +526,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 }
 
 static void
-event_exit(void)
+open_bbv_file()
 {
-    bool generate_file = !no_out_bbv_file.get_value();
-    file_t bbvs_file = INVALID_FILE;
-    if (generate_file) {
+    if (!no_out_bbv_file.get_value()) {
         std::string path_to_bbv_file = out_bbv_file.get_value();
         if (!path_to_bbv_file.empty()) {
             bbvs_file = dr_open_file(path_to_bbv_file.c_str(), DR_FILE_WRITE_REQUIRE_NEW);
@@ -481,46 +549,13 @@ event_exit(void)
         if (bbvs_file == INVALID_FILE)
             FATAL("ERROR: unable to create BBVs file");
     }
+}
 
-    // Define the format strings to write the file.
-    const char *one_pair_only = "T:%" PRIu64 ":%" PRIu64 " \n";
-    const char *first_pair = "T:%" PRIu64 ":%" PRIu64 " ";
-    const char *middle_pair = ":%" PRIu64 ":%" PRIu64 " ";
-    const char *last_pair = ":%" PRIu64 ":%" PRIu64 " \n";
-
-    for (uint i = 0; i < bbvs.entries; ++i) {
-        drvector_t *bbv = static_cast<drvector_t *>(drvector_get_entry(&bbvs, i));
-        for (uint j = 0; j < bbv->entries; ++j) {
-            bb_id_count_pair_t *pair =
-                static_cast<bb_id_count_pair_t *>(drvector_get_entry(bbv, j));
-
-            const char *format_string;
-            if (j == 0 && j == bbv->entries - 1) {
-                // Only one BB and related execution count for this BBV.
-                format_string = one_pair_only;
-            } else if (j == 0) {
-                format_string = first_pair;
-            } else if (j == bbv->entries - 1) {
-                format_string = last_pair;
-            } else {
-                format_string = middle_pair;
-            }
-
-            char msg[64];
-            int len = dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), format_string, pair->id,
-                                  pair->weighted_count);
-            NULL_TERMINATE_BUFFER(msg);
-            DR_ASSERT(len > 0);
-
-            if (print_to_stdout.get_value())
-                dr_fprintf(STDOUT, "%s", msg);
-
-            if (generate_file)
-                dr_write_file(bbvs_file, msg, static_cast<size_t>(len));
-        }
-    }
-
-    if (generate_file)
+static void
+event_exit(void)
+{
+    write_bbvs();
+    if (!no_out_bbv_file.get_value())
         dr_close_file(bbvs_file);
 
     // Free DR memory.
@@ -593,8 +628,17 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     bb_id_table_config.resize_threshold = 75;
     bb_id_table_config.free_key_func = dynamorio::drpoints::free_bb_id;
     hashtable_configure(&dynamorio::drpoints::bb_id_table, &bb_id_table_config);
-    drvector_init(&dynamorio::drpoints::bbvs, 0, /*synch=*/false,
+
+    uint bbvs_capacity = dynamorio::drpoints::save_bbv_every.get_value();
+    drvector_init(&dynamorio::drpoints::bbvs, bbvs_capacity, /*synch=*/false,
                   dynamorio::drpoints::free_bbv);
+    for (uint i = 0; i < bbvs_capacity; ++i) {
+        drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
+        drvector_init(bbv, 0, /*synch=*/false, nullptr);
+        drvector_set_entry(&dynamorio::drpoints::bbvs, i, bbv);
+    }
+
+    dynamorio::drpoints::open_bbv_file();
 
     // Make it easy to tell, by looking at log file, which client executed.
     dr_log(nullptr, DR_LOG_ALL, 1, "DrPoints initializing\n");

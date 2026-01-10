@@ -5610,6 +5610,10 @@ if (BUILD_CLIENTS)
         client-interface/drpoints_simple_app # for .expect
         "-instr_interval 100 -print_to_stdout -no_out_bbv_file" "" "")
       set(tool.drpoints.simple_toolname "drpoints")
+      torunonly_ci(tool.drpoints.simple_w_save_bbv ${ci_shared_app} drpoints
+        client-interface/drpoints_w_save_bbv_simple_app # for .expect
+        "-instr_interval 100 -print_to_stdout -no_out_bbv_file -save_bbv_every 1" "" "")
+      set(tool.drpoints.simple_w_save_bbv_toolname "drpoints")
     endif ()
 
     if (UNIX AND NOT APPLE AND NOT WINDOWS)

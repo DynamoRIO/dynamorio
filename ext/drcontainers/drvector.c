@@ -160,6 +160,36 @@ drvector_delete(drvector_t *vec)
     return true;
 }
 
+bool
+drvector_clear(drvector_t *vec)
+{
+    if (vec == NULL)
+        return false;
+
+    if (vec->synch)
+        dr_mutex_lock(vec->lock);
+
+    /* Since we lazily initialize the array, vec->array could be NULL if we
+     * called drvector_init with capacity 0 and never inserted an element into
+     * the vec. We check vec->array here and below before access.
+     * */
+    if (vec->free_data_func != NULL && vec->array != NULL) {
+        for (uint i = 0; i < vec->entries; i++) {
+            (vec->free_data_func)(vec->array[i]);
+        }
+    }
+
+    if (vec->array != NULL) {
+        memset(vec->array, 0, vec->capacity * sizeof(void *));
+        vec->entries = 0;
+    }
+
+    if (vec->synch)
+        dr_mutex_unlock(vec->lock);
+
+    return true;
+}
+
 void
 drvector_lock(drvector_t *vec)
 {
