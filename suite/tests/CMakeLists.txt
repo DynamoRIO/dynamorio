@@ -4924,6 +4924,8 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.scale_time_nodr ON)
         set(tool.drcacheoff.scale_time_nopost ON)
         torunonly_drcacheoff(scale_time tool.drcacheoff.scale_time "" "" "")
+        # This test can take more than 90s in 32-bit GA CI (i#7770).
+        set(tool.drcacheoff.scale_time_timeout 180)
 
         set(tool.drcacheoff.burst_sleep_nodr ON)
         set(tool.drcacheoff.burst_sleep_nopost ON)
