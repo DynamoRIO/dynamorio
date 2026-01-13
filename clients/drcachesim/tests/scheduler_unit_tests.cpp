@@ -8916,7 +8916,7 @@ class mock_noise_generator_t : public noise_generator_t {
 public:
     mock_noise_generator_t(noise_generator_info_t &info, const addr_t addr_to_generate)
         : noise_generator_t(info)
-        , addr_to_generate_(addr_to_generate) { };
+        , addr_to_generate_(addr_to_generate) {};
 
 protected:
     trace_entry_t
@@ -8951,7 +8951,7 @@ class mock_noise_generator_factory_t
     : public noise_generator_factory_t<memref_t, reader_t> {
 public:
     mock_noise_generator_factory_t(const addr_t addr_to_generate)
-        : addr_to_generate_(addr_to_generate) { };
+        : addr_to_generate_(addr_to_generate) {};
 
 protected:
     std::unique_ptr<reader_t>
