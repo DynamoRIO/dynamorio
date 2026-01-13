@@ -1219,15 +1219,16 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 if (!window_changed && !hit_window_end &&
                     get_current_trace_for_instrs_value() > 0) {
                     if (!op_count_fetched_instrs.get_value()) {
-                        hit_window_end =
-                            count_traced_instrs(drcontext, instru->get_instr_count(mem_ref),
-                                                get_current_trace_for_instrs_value());
+                        hit_window_end = count_traced_instrs(
+                            drcontext, instru->get_instr_count(mem_ref),
+                            get_current_trace_for_instrs_value());
                         // We have to finish this buffer so we'll go a little beyond the
                         // precise requested window length.
                         // XXX: For small windows this may be significant: we could go
-                        // ~5K beyond if we hit the threshold near the start of a full buffer.
-                        // Should we discard the rest of the entries in such a case, at
-                        // a block boundary, even though we already collected them?
+                        // ~5K beyond if we hit the threshold near the start of a full
+                        // buffer. Should we discard the rest of the entries in such a
+                        // case, at a block boundary, even though we already collected
+                        // them?
                     } else {
                         static thread_local addr_t prev_pc = 0;
                         uintptr_t toadd = 0;
@@ -1242,8 +1243,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                             }
                         }
 
-                        hit_window_end = count_traced_instrs(drcontext, toadd,
-                                                            op_trace_for_instrs.get_value());
+                        hit_window_end = count_traced_instrs(
+                            drcontext, toadd, op_trace_for_instrs.get_value());
                     }
                 }
             }
