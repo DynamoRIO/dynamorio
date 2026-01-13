@@ -1213,6 +1213,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 set_local_mode(data, BBDUP_MODE_TRACE);
             }
         } else if (get_current_trace_for_instrs_value() > 0) {
+            static thread_local addr_t prev_pc = 0;
             bool hit_window_end = false;
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
@@ -1230,7 +1231,6 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                         // case, at a block boundary, even though we already collected
                         // them?
                     } else {
-                        static thread_local addr_t prev_pc = 0;
                         uintptr_t toadd = 0;
                         trace_type_t type = instru->get_entry_type(mem_ref);
 
@@ -1249,6 +1249,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 }
             }
             if (hit_window_end) {
+                prev_pc = 0;
                 // Go to the next interval, if -trace_instr_intervals_file is set and
                 // num_irregular_windows > 0.
                 // Note: we assume no tracing interval comes first, then tracing interval,
