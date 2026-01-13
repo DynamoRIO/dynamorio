@@ -406,6 +406,12 @@ droption_t<bytesize_t> op_trace_for_instrs(
     "The actual trace period may vary slightly from this number due to optimizations "
     "that reduce the overhead of instruction counting.");
 
+droption_t<bool> op_count_fetched_instrs(
+    DROPTION_SCOPE_CLIENT, "count_fetched_instrs", false,
+    "Count fetched instructions for -trace_after_instrs/-trace_for_instrs",
+    "When enabled, -trace_after_instrs and -trace_for_instrs count only fetched "
+    "instructions (e.g., REP string emulation counts only the first fetch).");
+
 droption_t<bytesize_t> op_retrace_every_instrs(
     DROPTION_SCOPE_CLIENT, "retrace_every_instrs", 0,
     "Trace for -trace_for_instrs, execute this many, and repeat.",
