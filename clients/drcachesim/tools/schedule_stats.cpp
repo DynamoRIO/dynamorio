@@ -329,7 +329,8 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     int64_t input_id = shard->stream->get_input_id();
     assert(shard->stream->get_input_interface() != nullptr ||
            (memref.marker.type == TRACE_TYPE_MARKER &&
-            memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE));
+            (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE ||
+             memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT)));
     if (knob_verbose_ >= 4) {
         std::ostringstream line;
         memtrace_stream_t *input_stream = shard->stream->get_input_interface();
