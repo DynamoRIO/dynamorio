@@ -307,7 +307,7 @@ event_inscount_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
 
     if (!op_count_fetched_instrs.get_value()) {
         for (instr = instrlist_first_app(bb), num_instrs = 0; instr != NULL;
-            instr = instr_get_next_app(instr)) {
+             instr = instr_get_next_app(instr)) {
             num_instrs++;
         }
     } else {
@@ -316,24 +316,24 @@ event_inscount_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for
 
         for (instr = instrlist_first(bb), num_instrs = 0; instr != NULL;
              instr = instr_get_next(instr)) {
-    
+
             if (!in_emulation_region && drmgr_is_emulation_start(instr)) {
                 in_emulation_region = true;
-    
+
                 emulated_instr_t emulation_info;
                 drmgr_get_emulated_instr_data(instr, &emulation_info);
                 app_pc rep_first_pc = instr_get_app_pc(emulation_info.instr);
-    
+
                 if (rep_first_pc != prev_rep_first_pc) {
                     ++num_instrs;
                     prev_rep_first_pc = rep_first_pc;
                 }
                 continue;
             }
-    
+
             if (!in_emulation_region && instr_is_app(instr)) {
-                // Hooked native functions end up with an artificial jump whose translation
-                // is its target.  We do not want to count these.
+                // Hooked native functions end up with an artificial jump whose
+                // translation is its target.  We do not want to count these.
                 if (!(instr_is_ubr(instr) && opnd_is_pc(instr_get_target(instr)) &&
                       opnd_get_pc(instr_get_target(instr)) == instr_get_app_pc(instr)))
                     ++num_instrs;
