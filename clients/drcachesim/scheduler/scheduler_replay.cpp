@@ -368,7 +368,10 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
               // Don't wait if we're at the end and just need the end record.
               segment.type != schedule_record_t::SYNTHETIC_END))) {
             // If the input is at eof it's an error: maybe the inputs are not identical
-            // to the recording or something.
+            // to the recording or something (our documented design requires that the
+            // user pass in the same inputs; but we'd rather not hang).
+            // XXX: Though it's hard to detect that inputs are precisely the same,
+            // maybe recording and checking the tid is a good compromise sanity check?
             if (inputs_[index].at_eof) {
                 VPRINT(this, 1,
                        "next_record[%d]: want input %d instr #%" PRId64
