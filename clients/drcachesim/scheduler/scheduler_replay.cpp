@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -367,6 +367,18 @@ scheduler_replay_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
              (outputs_[output].record[record_index].type != schedule_record_t::SKIP &&
               // Don't wait if we're at the end and just need the end record.
               segment.type != schedule_record_t::SYNTHETIC_END))) {
+            // If the input is at eof it's an error: maybe the inputs are not identical
+            // to the recording or something (our documented design requires that the
+            // user pass in the same inputs; but we'd rather not hang).
+            // XXX: Though it's hard to detect that inputs are precisely the same,
+            // maybe recording and checking the tid is a good compromise sanity check?
+            if (inputs_[index].at_eof) {
+                VPRINT(this, 1,
+                       "next_record[%d]: want input %d instr #%" PRId64
+                       " but input is at EOF\n",
+                       output, index, segment.value.start_instruction);
+                return sched_type_t::STATUS_INVALID;
+            }
             // Some other output stream has not advanced far enough, and we do
             // not support multiple positions in one input stream: we wait.
             // XXX i#5843: We may want to provide a kernel-mediated wait

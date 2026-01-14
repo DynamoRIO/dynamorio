@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -5388,6 +5388,126 @@ Core #10: 872901 => 872905.*
 }
 
 static void
+test_replay_wrong_inputs()
+{
+#ifdef HAS_ZIP
+    std::cerr << "\n----------------\nTesting replay with the wrong inputs\n";
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int QUANTUM_INSTRS = 3;
+    static constexpr int NUM_INSTRS_A = 12;
+    static constexpr int NUM_INSTRS_B = 6;
+    static const char *const CORE0_SCHED_STRING = "AAABBBAAABBB.AAAAAA.";
+
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        for (int j = 0; j < (i == 0 ? NUM_INSTRS_A : NUM_INSTRS_B); j++)
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        inputs[i].push_back(test_util::make_exit(tid));
+    }
+    std::string record_fname = "tmp_test_replay_wrong.zip";
+
+    // Record.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; ++i) {
+            memref_tid_t tid = TID_BASE + i;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration_instrs = QUANTUM_INSTRS;
+        sched_ops.migration_threshold_us = 0;
+        zipfile_ostream_t outfile(record_fname);
+        sched_ops.schedule_record_ostream = &outfile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
+    }
+    // Now replay with the inputs reversed and make sure it doesn't hang.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = NUM_INPUTS - 1; i >= 0; --i) {
+            memref_tid_t tid = TID_BASE + i;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        zipfile_istream_t infile(record_fname);
+        sched_ops.schedule_replay_istream = &infile;
+
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+        std::vector<bool> eof(NUM_OUTPUTS, false);
+        for (int i = 0; i < NUM_OUTPUTS; i++)
+            outputs[i] = scheduler.get_stream(i);
+        int num_eof = 0;
+        bool hit_error = false;
+        while (num_eof < NUM_OUTPUTS && !hit_error) {
+            for (int i = 0; i < NUM_OUTPUTS; i++) {
+                if (eof[i])
+                    continue;
+                memref_t memref;
+                scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+                if (status == scheduler_t::STATUS_EOF) {
+                    ++num_eof;
+                    eof[i] = true;
+                    continue;
+                } else if (status == scheduler_t::STATUS_WAIT ||
+                           status == scheduler_t::STATUS_IDLE) {
+                    continue;
+                } else if (status != scheduler_t::STATUS_OK) {
+                    hit_error = true;
+                    break;
+                }
+            }
+        }
+        assert(hit_error);
+    }
+#endif
+}
+
+static void
 test_times_of_interest()
 {
 #ifdef HAS_ZIP
@@ -8991,6 +9111,7 @@ test_main(int argc, const char *argv[])
     test_replay_as_traced_i6107_workaround();
     test_replay_as_traced_dup_start();
     test_replay_as_traced_sort();
+    test_replay_wrong_inputs();
     test_times_of_interest();
     test_inactive();
     test_direct_switch();
