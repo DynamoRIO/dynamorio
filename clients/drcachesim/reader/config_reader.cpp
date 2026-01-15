@@ -93,7 +93,113 @@ convert_string_to_size(const std::string &s, uint64_t &size)
 }
 
 static bool
-configure_cache(const config_t &params, cache_params_t *cache);
+configure_cache(const config_t &params, cache_params_t *cache)
+{
+    for (const auto &p : params) {
+        if (p.first == "type") {
+            // Cache type: CACHE_TYPE_INSTRUCTION, CACHE_TYPE_DATA,
+            // or CACHE_TYPE_UNIFIED.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->type)) {
+                return false;
+            }
+            if (cache->type != CACHE_TYPE_INSTRUCTION && cache->type != CACHE_TYPE_DATA &&
+                cache->type != CACHE_TYPE_UNIFIED) {
+                ERRMSG("Unknown cache type %s at line %d column %d\n",
+                       cache->type.c_str(), p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "core") {
+            // CPU core this cache is associated with.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->core)) {
+                return false;
+            }
+        } else if (p.first == "size") {
+            // Cache size in bytes.
+            if (!convert_string_to_size(p.second.scalar, cache->size)) {
+                ERRMSG("Unusable cache size %s at line %d column %d\n",
+                       p.second.scalar.c_str(), p.second.val_line, p.second.val_column);
+                return false;
+            }
+            if (cache->size <= 0) {
+                ERRMSG("Cache size (%llu) must be positive at line %d column %d\n",
+                       (unsigned long long)cache->size, p.second.val_line,
+                       p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "assoc") {
+            // Cache associativity_.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->assoc)) {
+                return false;
+            }
+            if (cache->assoc <= 0) {
+                ERRMSG("Cache associativity (%u) must be positive at line %d column %d\n",
+                       cache->assoc, p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "inclusive") {
+            // Is the cache inclusive of its children.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->inclusive)) {
+                return false;
+            }
+        } else if (p.first == "exclusive") {
+            // Is the cache exclusive of its children.
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->exclusive)) {
+                return false;
+            }
+        } else if (p.first == "parent") {
+            // Name of the cache's parent. LLC's parent is main memory
+            // (CACHE_PARENT_MEMORY).
+            cache->parent = p.second.scalar;
+        } else if (p.first == "replace_policy") {
+            // Cache replacement policy: REPLACE_POLICY_LRU (default),
+            // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
+            cache->replace_policy = p.second.scalar;
+            if (cache->replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
+                cache->replace_policy != REPLACE_POLICY_LRU &&
+                cache->replace_policy != REPLACE_POLICY_LFU &&
+                cache->replace_policy != REPLACE_POLICY_FIFO &&
+                cache->replace_policy != REPLACE_POLICY_RRIP) {
+                ERRMSG("Unknown replacement policy %s at line %d column %d\n",
+                       cache->replace_policy.c_str(), p.second.val_line,
+                       p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "prefetcher") {
+            // Type of prefetcher: PREFETCH_POLICY_NEXTLINE
+            // or PREFETCH_POLICY_NONE.
+            cache->prefetcher = p.second.scalar;
+            if (cache->prefetcher != PREFETCH_POLICY_NEXTLINE &&
+                cache->prefetcher != PREFETCH_POLICY_NONE) {
+                ERRMSG("Unknown prefetcher type %s at line %d column %d\n",
+                       cache->prefetcher.c_str(), p.second.val_line, p.second.val_column);
+                return false;
+            }
+        } else if (p.first == "miss_file") {
+            // Name of the file to use to dump cache misses info.
+            cache->miss_file = p.second.scalar;
+        } else {
+            ERRMSG("Unknown cache configuration setting '%s' at line %d column %d\n",
+                   p.first.c_str(), p.second.name_line, p.second.name_column);
+            return false;
+        }
+    }
+    if (cache->inclusive && cache->exclusive) {
+        const auto &p_exclusive = params.find("exclusive");
+        const auto &p_inclusive = params.find("inclusive");
+        if (p_exclusive != params.end() && p_inclusive != params.end()) {
+            ERRMSG(
+                "Cache cannot be both inclusive AND exclusive. See line %d column %d and "
+                "line %d column %d\n",
+                p_inclusive->second.val_line, p_inclusive->second.val_column,
+                p_exclusive->second.val_line, p_exclusive->second.val_column);
+        } else {
+            // Cannot detect position
+            ERRMSG("Cache cannot be both inclusive AND exclusive\n");
+        }
+        return false;
+    }
+    return true;
+}
 
 static bool
 check_cache_config(int num_cores, std::map<std::string, cache_params_t> &caches_map)
@@ -271,115 +377,6 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
 
     // Check cache configuration.
     return check_cache_config(knobs.num_cores, caches);
-}
-
-static bool
-configure_cache(const config_t &params, cache_params_t *cache)
-{
-    for (const auto &p : params) {
-        if (p.first == "type") {
-            // Cache type: CACHE_TYPE_INSTRUCTION, CACHE_TYPE_DATA,
-            // or CACHE_TYPE_UNIFIED.
-            if (!parse_param_value_or_fail(p.first, p.second, &cache->type)) {
-                return false;
-            }
-            if (cache->type != CACHE_TYPE_INSTRUCTION && cache->type != CACHE_TYPE_DATA &&
-                cache->type != CACHE_TYPE_UNIFIED) {
-                ERRMSG("Unknown cache type %s at line %d column %d\n",
-                       cache->type.c_str(), p.second.val_line, p.second.val_column);
-                return false;
-            }
-        } else if (p.first == "core") {
-            // CPU core this cache is associated with.
-            if (!parse_param_value_or_fail(p.first, p.second, &cache->core)) {
-                return false;
-            }
-        } else if (p.first == "size") {
-            // Cache size in bytes.
-            if (!convert_string_to_size(p.second.scalar, cache->size)) {
-                ERRMSG("Unusable cache size %s at line %d column %d\n",
-                       p.second.scalar.c_str(), p.second.val_line, p.second.val_column);
-                return false;
-            }
-            if (cache->size <= 0) {
-                ERRMSG("Cache size (%llu) must be positive at line %d column %d\n",
-                       (unsigned long long)cache->size, p.second.val_line,
-                       p.second.val_column);
-                return false;
-            }
-        } else if (p.first == "assoc") {
-            // Cache associativity_.
-            if (!parse_param_value_or_fail(p.first, p.second, &cache->assoc)) {
-                return false;
-            }
-            if (cache->assoc <= 0) {
-                ERRMSG("Cache associativity (%u) must be positive at line %d column %d\n",
-                       cache->assoc, p.second.val_line, p.second.val_column);
-                return false;
-            }
-        } else if (p.first == "inclusive") {
-            // Is the cache inclusive of its children.
-            if (!parse_param_value_or_fail(p.first, p.second, &cache->inclusive)) {
-                return false;
-            }
-        } else if (p.first == "exclusive") {
-            // Is the cache exclusive of its children.
-            if (!parse_param_value_or_fail(p.first, p.second, &cache->exclusive)) {
-                return false;
-            }
-        } else if (p.first == "parent") {
-            // Name of the cache's parent. LLC's parent is main memory
-            // (CACHE_PARENT_MEMORY).
-            cache->parent = p.second.scalar;
-        } else if (p.first == "replace_policy") {
-            // Cache replacement policy: REPLACE_POLICY_LRU (default),
-            // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
-            cache->replace_policy = p.second.scalar;
-            if (cache->replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
-                cache->replace_policy != REPLACE_POLICY_LRU &&
-                cache->replace_policy != REPLACE_POLICY_LFU &&
-                cache->replace_policy != REPLACE_POLICY_FIFO &&
-                cache->replace_policy != REPLACE_POLICY_RRIP) {
-                ERRMSG("Unknown replacement policy %s at line %d column %d\n",
-                       cache->replace_policy.c_str(), p.second.val_line,
-                       p.second.val_column);
-                return false;
-            }
-        } else if (p.first == "prefetcher") {
-            // Type of prefetcher: PREFETCH_POLICY_NEXTLINE
-            // or PREFETCH_POLICY_NONE.
-            cache->prefetcher = p.second.scalar;
-            if (cache->prefetcher != PREFETCH_POLICY_NEXTLINE &&
-                cache->prefetcher != PREFETCH_POLICY_NONE) {
-                ERRMSG("Unknown prefetcher type %s at line %d column %d\n",
-                       cache->prefetcher.c_str(), p.second.val_line, p.second.val_column);
-                return false;
-            }
-        } else if (p.first == "miss_file") {
-            // Name of the file to use to dump cache misses info.
-            cache->miss_file = p.second.scalar;
-        } else {
-            ERRMSG("Unknown cache configuration setting '%s' at line %d column %d\n",
-                   p.first.c_str(), p.second.name_line, p.second.name_column);
-            return false;
-        }
-    }
-    if (cache->inclusive && cache->exclusive) {
-        const auto &p_exclusive = params.find("exclusive");
-        const auto &p_inclusive = params.find("inclusive");
-        if (p_exclusive != params.end() && p_inclusive != params.end()) {
-            ERRMSG(
-                "Cache cannot be both inclusive AND exclusive. See line %d column %d and "
-                "line %d column %d\n",
-                p_inclusive->second.val_line, p_inclusive->second.val_column,
-                p_exclusive->second.val_line, p_exclusive->second.val_column);
-        } else {
-            // Cannot detect position
-            ERRMSG("Cache cannot be both inclusive AND exclusive\n");
-        }
-        return false;
-    }
-    return true;
 }
 
 } // namespace drmemtrace
