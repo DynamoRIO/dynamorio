@@ -2695,6 +2695,15 @@ tobuild_appdll(client.noannotation-concurrency
   client-interface/annotation-concurrency.c)
 append_property_string(TARGET client.noannotation-concurrency.appdll COMPILE_FLAGS
   "-DANNOTATIONS_DISABLED")
+if (UNIX)
+  set(concurrent_test_args "libclient.noannotation-concurrency.appdll.so" "A" "4")
+  set(concurrent_test_args_shorter
+    "libclient.noannotation-concurrency.appdll.so" "A" "4" "64" "3")
+else (UNIX)
+  set(concurrent_test_args "client.noannotation-concurrency.appdll.dll" "A" "4")
+  set(concurrent_test_args_shorter
+    "client.noannotation-concurrency.appdll.dll" "A" "4" "64" "3")
+endif (UNIX)
 
 if (UNIX)
   # XXX i#1246: Make partial_module_map work for Windows as well.
@@ -3957,7 +3966,7 @@ if (BUILD_CLIENTS)
       set(tool.drcachesim.phys-threads_SUDO_sudo ON)
       set(tool.drcachesim.phys-threads_SUDO_expectbase "phys-threads")
       torunonly_drcachesim(phys-threads_SUDO ${concurrent_test_app} "-use_physical"
-        "${annotation_test_args_shorter}")
+        "${concurrent_test_args_shorter}")
     endif ()
 
     set(test_mode_flag "-test_mode")
@@ -3996,7 +4005,7 @@ if (BUILD_CLIENTS)
     # to not be flaky on any platform.
     torunonly_drcachesim(delay-global ${concurrent_test_app}
       "-tool basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
-      "${annotation_test_args_shorter}")
+      "${concurrent_test_args_shorter}")
 
     torunonly_drcachesim(windows-simple ${ci_shared_app}
       "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -tool basic_counts" "")
@@ -4022,21 +4031,21 @@ if (BUILD_CLIENTS)
     # We use a smaller test (_shorter) to avoid taking multiple minutes on our
     # CI (i#4059; xref i#2063).
     torunonly_drcachesim(threads ${concurrent_test_app} "-cpu_scheduling"
-      "${annotation_test_args_shorter}")
+      "${concurrent_test_args_shorter}")
 
     # Threads test that reads the cache configuration from a config file.
     torunonly_drcachesim(threads-with-config-file ${concurrent_test_app}
       "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
-      "${annotation_test_args_shorter}")
+      "${concurrent_test_args_shorter}")
     set(tool.drcachesim.threads_timeout 150) # This test is long.
 
     torunonly_drcachesim(coherence ${concurrent_test_app} "-coherence"
-      "${annotation_test_args_shorter}")
+      "${concurrent_test_args_shorter}")
     set(tool.drcachesim.coherence_timeout 150) # This test is long.
 
     # TLB simulator's multi-thread sanity check
     torunonly_drcachesim(TLB-threads ${concurrent_test_app}
-      "-tool TLB -cpu_scheduling" "${annotation_test_args_shorter}")
+      "-tool TLB -cpu_scheduling" "${concurrent_test_args_shorter}")
     # i#2063: this test can time out.
     set(tool.drcachesim.TLB-threads_timeout 150)
 
@@ -4503,7 +4512,7 @@ if (BUILD_CLIENTS)
       # Include function tracing to sanity test combining with delay and max.
       # We don't use '-record_heap' as it is slow on Windows (i#6342).
       "-trace_after_instrs 20K -max_global_trace_refs 10K -record_function malloc|1"
-      "@-tool@basic_counts" "${annotation_test_args_shorter}")
+      "@-tool@basic_counts" "${concurrent_test_args_shorter}")
     set(tool.drcacheoff.max-global_timeout 240) # Can take >120s.
 
     torunonly_drcacheoff(delay-func ${ci_shared_app}
