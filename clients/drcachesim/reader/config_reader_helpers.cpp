@@ -35,9 +35,9 @@
 #include "utils.h"
 
 #ifdef DEBUG
-#   define DBGMSG ERRMSG
+#    define DBGMSG ERRMSG
 #else
-#   define DBGMSG(...) /* nothing */
+#    define DBGMSG(...) /* nothing */
 #endif
 
 namespace dynamorio {
