@@ -138,7 +138,7 @@ unit_test_inclusion_policy()
                "L2{type unified}\n");
         config_reader_t config;
         if (!config.configure(&ss, knobs, caches)) {
-            std::cerr << "drcachesim inclusion_policy_test failed (default value)"
+            std::cerr << "drcachesim inclusion_policy_test failed (default NINE)"
                       << std::endl;
             exit(1);
         }
@@ -156,13 +156,14 @@ unit_test_inclusion_policy()
                "L2{type unified inclusive false exclusive false}\n");
         config_reader_t config;
         if (!config.configure(&ss, knobs, caches)) {
-            std::cerr << "drcachesim inclusion_policy_test failed (NINE)" << std::endl;
+            std::cerr << "drcachesim inclusion_policy_test failed (explicit NINE)"
+                      << std::endl;
             exit(1);
         }
     }
 
     {
-        // Correct: Inclusive
+        // Correct: inclusive
         cache_simulator_knobs_t knobs;
         std::map<std::string, cache_params_t> caches;
 
