@@ -37,6 +37,8 @@ Total counts:
   Instructions per context switch histogram:
            0..   50000    16
        50000..  100000     5
+  Thread W0.T.* instructions per context switch histogram:
+.*
   Cores per thread:
            1..       2     9
   Latencies for syscalls that incurred a switch:
@@ -46,10 +48,10 @@ Total counts:
 Core #0 counts:
            . threads: W0.T872.*
       *[0-9]* instructions
-           . total context switches
+      *[0-9]* total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
-           . voluntary context switches
+      *[0-9]* voluntary context switches
            0 direct context switches
            0 context switch sequence injections
            0 system call sequence injections
@@ -59,10 +61,10 @@ Core #0 counts:
 Core #1 counts:
            . threads: W0.T872.*
       *[0-9]* instructions
-           . total context switches
+      *[0-9]* total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
-           . voluntary context switches
+      *[0-9]* voluntary context switches
            0 direct context switches
            0 context switch sequence injections
            0 system call sequence injections
@@ -72,10 +74,10 @@ Core #1 counts:
 Core #2 counts:
            . threads: W0.T872.*
       *[0-9]* instructions
-           . total context switches
+      *[0-9]* total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
-           . voluntary context switches
+      *[0-9]* voluntary context switches
            0 direct context switches
            0 context switch sequence injections
            0 system call sequence injections
@@ -85,10 +87,10 @@ Core #2 counts:
 Core #3 counts:
            . threads: W0.T872.*
       *[0-9]* instructions
-           . total context switches
+      *[0-9]* total context switches
    0\.0[0-9\.]* CSPKI \(context switches per 1000 instructions\)
       *[0-9]* instructions per context switch
-           . voluntary context switches
+      *[0-9]* voluntary context switches
            0 direct context switches
            0 context switch sequence injections
            0 system call sequence injections
@@ -99,3 +101,12 @@ Core #0 schedule: [A-Ia-i_]*
 Core #1 schedule: [A-Ia-i_]*
 Core #2 schedule: [A-Ia-i_]*
 Core #3 schedule: [A-Ia-i_]*
+Core #0 switch-outs:
+    0 W0.T[0-9]* instrs= .*
+Core #1 switch-outs:
+    0 W0.T[0-9]* instrs= .*
+Core #2 switch-outs:
+    0 W0.T[0-9]* instrs= .*
+Core #3 switch-outs:
+    0 W0.T[0-9]* instrs= .*
+.*

@@ -37,6 +37,8 @@ Total counts:
   Instructions per context switch histogram:
            0..   50000    16
        50000..  100000     5
+  Thread W0.T.* instructions per context switch histogram:
+.*
   Cores per thread:
            1..       2     9
   Latencies for syscalls that incurred a switch:
@@ -55,6 +57,15 @@ Core #0 schedule: [A-I_]*
 Core #1 schedule: [A-I_]*
 Core #2 schedule: [A-I_]*
 Core #3 schedule: [A-I_]*
+Core #0 switch-outs:
+    0 W0.T[0-9]* instrs= .*
+Core #1 switch-outs:
+    0 W0.T[0-9]* instrs= .*
+Core #2 switch-outs:
+    0 W0.T[0-9]* instrs= .*
+Core #3 switch-outs:
+    0 W0.T[0-9]* instrs= .*
+.*
 
 ===========================================================================
 Basic counts tool results:

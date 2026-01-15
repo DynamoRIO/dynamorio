@@ -191,8 +191,6 @@ public:
         explicit counters_t(schedule_stats_t *analyzer)
             : analyzer(analyzer)
         {
-            static constexpr uint64_t kSwitchBinSize = 50000;
-            static constexpr uint64_t kCoresBinSize = 1;
             instrs_per_switch = analyzer->create_histogram(kSwitchBinSize);
             cores_per_thread = analyzer->create_histogram(kCoresBinSize);
         }
@@ -229,6 +227,11 @@ public:
                 threads.insert(tid);
             }
             instrs_per_switch->merge(rhs.instrs_per_switch.get());
+            for (const auto &it : rhs.tid2instrs_per_switch) {
+                histogram_interface_t *hist_ptr = analyzer->find_or_add_histogram(
+                    tid2instrs_per_switch, it.first, kSwitchBinSize);
+                hist_ptr->merge(it.second.get());
+            }
             // We do not track this incrementally but for completeness we include
             // aggregation code for it.
             cores_per_thread->merge(rhs.cores_per_thread.get());
@@ -284,6 +287,10 @@ public:
         uint64_t wait_microseconds = 0;
         std::unordered_set<workload_tid_t, workload_tid_hash_t> threads;
         std::unique_ptr<histogram_interface_t> instrs_per_switch;
+        // Per-thread instrs-per-switch.
+        std::unordered_map<workload_tid_t, std::unique_ptr<histogram_interface_t>,
+                           workload_tid_hash_t>
+            tid2instrs_per_switch;
         // CPU footprint of each thread. This is computable during aggregation from
         // the .threads field above so we don't bother to track this incrementally.
         // We still store it inside counters_t as this structure is assumed in
@@ -298,8 +305,43 @@ public:
             sysnum_noswitch_latency;
     };
 
+    struct schedule_record_t {
+        // We do not define any constructors to make it easier to use
+        // aggregate initialization in tests.
+        // The member defaults below require C++14 for aggregate initialization.
+        bool
+        operator==(const schedule_record_t &rhs)
+        {
+            return workload == rhs.workload && tid == rhs.tid &&
+                instructions == rhs.instructions &&
+                syscall_number == rhs.syscall_number &&
+                syscall_latency == rhs.syscall_latency && voluntary == rhs.voluntary &&
+                direct == rhs.direct;
+        }
+        int64_t workload = INVALID_WORKLOAD_ID;
+        memref_tid_t tid = INVALID_THREAD_ID;
+        // How many instructions were run between the prior switch and this one.
+        int64_t instructions;
+        // If >-1, an immediately prior system call.
+        int64_t syscall_number = -1;
+        // If -1 and syscall_number >-1, that means a thread exit (syscall_number
+        // may be a thread exit system call, or a detach may have happened at that
+        // point); otherwise, if >-1, then syscall_number should also be >-1 and
+        // this should be a voluntary switch due to a high-latency system call.
+        int64_t syscall_latency = -1;
+        // Whether a voluntary switch, for which syscall_number should be >-1.
+        bool voluntary = false;
+        // Whether a direct switch request.
+        bool direct = false;
+    };
+
     counters_t
     get_total_counts();
+
+    // The "core" value should match the analyzer infrastructure's shard index for
+    // parallel mode or the cpuid for serial mode.
+    bool
+    get_switch_record(int core, std::vector<schedule_record_t> &record);
 
 protected:
     // We're in one of 3 states.
@@ -310,6 +352,8 @@ protected:
     static constexpr char WAIT_SYMBOL = '-';
     static constexpr char IDLE_SYMBOL = '_';
     static constexpr uint64_t kSysnumLatencyBinSize = 5;
+    static constexpr uint64_t kSwitchBinSize = 50000;
+    static constexpr uint64_t kCoresBinSize = 1;
     static constexpr int64_t INVALID_WORKLOAD_ID = -1;
 
     struct per_shard_t {
@@ -345,6 +389,8 @@ protected:
         intptr_t filetype = 0;
         uint64_t switch_start_instrs = 0;
         bool in_syscall_trace = false;
+        // A complete record of the switches.
+        std::vector<schedule_record_t> switch_record;
     };
 
     virtual std::unique_ptr<histogram_interface_t>
@@ -353,9 +399,10 @@ protected:
         return std::unique_ptr<histogram_interface_t>(new histogram_t(bin_size));
     }
 
+    template <typename T, typename H>
     histogram_interface_t *
     find_or_add_histogram(
-        std::unordered_map<int, std::unique_ptr<histogram_interface_t>> &map, int key,
+        std::unordered_map<T, std::unique_ptr<histogram_interface_t>, H> &map, T key,
         int bin_size = 1)
     {
         auto find_it = map.find(key);

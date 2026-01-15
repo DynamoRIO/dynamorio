@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -450,8 +450,8 @@ function (set_cflags source)
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     # configure_DynamoRIO_global removes unfavorable options for clients,
-    # re-adding -std=c++11.
-    string(REGEX REPLACE "-std=gnu99" "-std=c++11" cflags "${cflags}")
+    # re-adding -std=c++14.
+    string(REGEX REPLACE "-std=gnu99" "-std=c++14" cflags "${cflags}")
     if (WIN32)
       set(cflags "${cflags} /EHsc")
     endif (WIN32)
@@ -2745,6 +2745,27 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   if ((LINUX OR WIN32) AND NOT RISCV64)
     tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
+
+    if (AARCH64) # TODO i#7765: Port external detach state tests to x86.
+      add_exe(client.external_detach_state client-interface/external_detach_state.c)
+      target_link_libraries(client.external_detach_state detach_state_shared)
+      link_with_pthread(client.external_detach_state)
+
+      macro (add_external_detach_test test_part_name)
+        torunonly_ci("client.external_detach_state_${test_part_name}"
+          client.external_detach_state client.detach_test.dll
+          client-interface/external_detach_state.runall "" "" "${test_part_name}")
+      endmacro()
+      add_external_detach_test(gprs_from_cache)
+      add_external_detach_test(gprs_from_DR1)
+      add_external_detach_test(gprs_from_DR2)
+      add_external_detach_test(status_reg_from_cache)
+      add_external_detach_test(status_reg_from_DR)
+      add_external_detach_test(xsp_from_cache)
+      add_external_detach_test(xsp_from_DR)
+      add_external_detach_test(sigstate)
+      add_external_detach_test(sigstate_from_handler)
+    endif ()
   endif ()
   if (UNIX)
     # Test attaching during a blocking syscall.
@@ -4903,6 +4924,8 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.scale_time_nodr ON)
         set(tool.drcacheoff.scale_time_nopost ON)
         torunonly_drcacheoff(scale_time tool.drcacheoff.scale_time "" "" "")
+        # This test can take more than 90s in 32-bit GA CI (i#7770).
+        set(tool.drcacheoff.scale_time_timeout 180)
 
         set(tool.drcacheoff.burst_sleep_nodr ON)
         set(tool.drcacheoff.burst_sleep_nopost ON)
