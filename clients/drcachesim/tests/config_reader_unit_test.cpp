@@ -239,6 +239,14 @@ unit_test_read_parameter_map_simple()
 
     // Invalid configuration
     {
+        // Not good stream
+        config_t config;
+        std::istringstream ss { "key1 1" };
+        ss.setstate(std::ios_base::failbit);
+        assert(!read_param_map(&ss, &config));
+    }
+
+    {
         // Missed value
         config_t config;
         std::istringstream ss { "key1 1\nkey2 // This is the comment key3 123" };
@@ -293,6 +301,13 @@ unit_test_read_parameter_map_nested()
         // Missed enclosing brace
         config_t config;
         std::istringstream ss { "key1 {key2 2" };
+        assert(!read_param_map(&ss, &config));
+    }
+
+    {
+        // Braces without parameter name
+        config_t config;
+        std::istringstream ss { "key1 1 {key2 2}" };
         assert(!read_param_map(&ss, &config));
     }
 }
