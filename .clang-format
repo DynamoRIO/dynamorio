@@ -21,4 +21,8 @@ PointerAlignment: Right
 CommentPragmas: '^ clang-format: '
 SortIncludes: false
 MaxEmptyLinesToKeep: 1
+SpaceInEmptyBlock: false
+# SpaceInEmptyBlock is now deprecated and in clang-format 22 replaced by this,
+# which we should enable when we move to that version:
+#SpaceInEmptyBraces: Never
 ---
