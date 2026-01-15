@@ -124,6 +124,139 @@ unit_test_config_reader(const std::string &testdir)
 }
 
 void
+unit_test_inclusion_policy()
+{
+    {
+        // Correct: Inclusion policy not specified
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent L2}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim inclusion_policy_test failed (default value)"
+                      << std::endl;
+            exit(1);
+        }
+    }
+
+    {
+        // Correct: inclusive=false exclusive=false (NINE)
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent L2}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified inclusive false exclusive false}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim inclusion_policy_test failed (NINE)" << std::endl;
+            exit(1);
+        }
+    }
+
+    {
+        // Correct: Inclusive
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent L2}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified inclusive true}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim inclusion_policy_test failed (inclusive)"
+                      << std::endl;
+            exit(1);
+        }
+    }
+
+    {
+        // Correct: inclusive=true exclusive=false
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent L2}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified inclusive true exclusive false}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr
+                << "drcachesim inclusion_policy_test failed (inclusive, not exclusive)"
+                << std::endl;
+            exit(1);
+        }
+    }
+
+    {
+        // Correct: exclusive
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent L2}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified exclusive true}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim inclusion_policy_test failed (exclusive)"
+                      << std::endl;
+            exit(1);
+        }
+    }
+
+    {
+        // Correct: exclusive=true inclusive=false
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent L2}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified exclusive true inclusive false}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr
+                << "drcachesim inclusion_policy_test failed (exclusive, not inclusive)"
+                << std::endl;
+            exit(1);
+        }
+    }
+
+    {
+        // Incorrect: Both inclusive and exclusive
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent L2}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified inclusive true exclusive true}\n");
+        config_reader_t config;
+        if (config.configure(&ss, knobs, caches)) {
+            // Check will fail: both inclusive and exclusive not allowed
+            std::cerr << "drcachesim inclusion_policy_test failed (conflicting exclusive "
+                         "and inclusive)"
+                      << std::endl;
+            exit(1);
+        }
+    }
+}
+
+void
 unit_test_get_type_name()
 {
     std::cerr << "Testing get_type_name" << std::endl;

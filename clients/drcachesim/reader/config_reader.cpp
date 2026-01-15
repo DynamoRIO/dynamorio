@@ -322,21 +322,9 @@ configure_cache(const config_t &params, cache_params_t *cache)
             if (!parse_param_value_or_fail(p.first, p.second, &cache->inclusive)) {
                 return false;
             }
-            if (cache->exclusive) {
-                ERRMSG("Cache cannot be both inclusive AND exclusive. See line %d column "
-                       "%d\n",
-                       p.second.val_line, p.second.val_column);
-                return false;
-            }
         } else if (p.first == "exclusive") {
             // Is the cache exclusive of its children.
             if (!parse_param_value_or_fail(p.first, p.second, &cache->exclusive)) {
-                return false;
-            }
-            if (cache->inclusive) {
-                ERRMSG("Cache cannot be both inclusive AND exclusive. See line %d column "
-                       "%d\n",
-                       p.second.val_line, p.second.val_column);
                 return false;
             }
         } else if (p.first == "parent") {
@@ -375,6 +363,21 @@ configure_cache(const config_t &params, cache_params_t *cache)
                    p.first.c_str(), p.second.name_line, p.second.name_column);
             return false;
         }
+    }
+    if (cache->inclusive && cache->exclusive) {
+        const auto &p_exclusive = params.find("exclusive");
+        const auto &p_inclusive = params.find("inclusive");
+        if (p_exclusive != params.end() && p_inclusive != params.end()) {
+            ERRMSG(
+                "Cache cannot be both inclusive AND exclusive. See line %d column %d and "
+                "line %d column %d\n",
+                p_inclusive->second.val_line, p_inclusive->second.val_column,
+                p_exclusive->second.val_line, p_exclusive->second.val_column);
+        } else {
+            // Cannot detect position
+            ERRMSG("Cache cannot be both inclusive AND exclusive\n");
+        }
+        return false;
     }
     return true;
 }
