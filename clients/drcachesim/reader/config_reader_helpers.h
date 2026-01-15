@@ -44,30 +44,32 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-// Configuration node. Can be scalar value (parameter) or map (nested parameters)
-struct config_node_t {
-    enum { UNKNOWN, SCALAR, MAP } type; // Type: scalar value or nested parameters
+// Configuration parameter node.
+// Can be scalar value (parameter) or map (nested parameters).
+struct config_param_node_t {
+    // Type: scalar value or nested parameters.
+    enum { UNKNOWN, SCALAR, MAP } type;
 
-    // Line and column where the parameter name is defined
-    int param_line;
-    int param_column;
-    // Line and column where the value is defined
+    // Line and column where the parameter name is defined.
+    int name_line;
+    int name_column;
+    // Line and column where the value is defined.
     int val_line;
     int val_column;
 
-    std::string scalar; // Value in string representation.
-                        // Will be converted to simple type later
-    // Nested parameters
-    typedef std::map<std::string, config_node_t> map_t;
-    map_t children;
+    // Value in string representation. Will be converted to simple type later.
+    std::string scalar;
+    // Nested parameters.
+    typedef std::map<std::string, config_param_node_t> config_param_map_t;
+    config_param_map_t children;
 };
-typedef config_node_t::map_t config_t;
+typedef config_param_node_t::config_param_map_t config_t;
 
 class config_tokenizer_t {
 public:
     config_tokenizer_t(std::istream *is);
 
-    // Read the next token from the stream
+    // Read the next token from the stream.
     // Return true if the token successfully read, false otherwise.
     // In case of EOF the function returns false and eof_ flag set.
     bool
@@ -79,14 +81,14 @@ public:
         return eof_;
     }
 
-    // Returns current line number
+    // Returns current line number.
     inline int
     getline() const
     {
         return line_;
     }
 
-    // Returns current column number in the line
+    // Returns current column number in the line.
     inline int
     getcolumn() const
     {
@@ -104,14 +106,14 @@ private:
 bool
 read_param_map_impl(config_tokenizer_t *, config_t *, int nest_level = 0);
 
-// Read configuration parameters from stream
+// Read configuration parameters from stream.
 // Supported scalar parameters:
 //      name0 val0 name1 val1
 // And parameter maps:
 //      name0 val0 name2 { name3 val3 name4 val4 }
 // Nested maps supported:
 //      name0 val0 name5 { name6 val6 name7 { name8 val8 name9 val9 } }
-// Tokens separated with spaces
+// Tokens separated with spaces.
 inline bool
 read_param_map(std::istream *is, config_t *params)
 {
@@ -120,24 +122,24 @@ read_param_map(std::istream *is, config_t *params)
 }
 
 #ifndef WINDOWS
-// Returns real name for the type
+// Returns real name for the type.
 template <typename T>
 const char *
 get_type_name()
 {
     int status = 0;
     const std::type_info &ti = typeid(T);
-    // De-mangle
+    // De-mangle.
     char *type_name = abi::__cxa_demangle(ti.name(), NULL, NULL, &status);
     if (type_name) {
         return type_name;
     } else {
-        // Fallback: use mangled name
+        // Fallback: use mangled name.
         return ti.name();
     }
 }
 #else
-// Returns real name for the type
+// Returns real name for the type.
 template <typename T>
 const char *
 get_type_name()
@@ -148,27 +150,27 @@ get_type_name()
 }
 #endif
 
-// Parse the value and return whether parse succeeded
+// Parse the value and return whether parse succeeded.
 template <typename T>
 bool
 parse_value(const std::string &val, T *dst)
 {
     if (std::is_unsigned<T>::value && val[0] == '-') {
-        // Unsigned value must not start with "minus" sign
+        // Unsigned value must not start with "minus" sign.
         return false;
     }
     T res;
     std::stringstream ss { val };
     ss >> res;
     if (ss.eof()) {
-        // EOF means the value has been extracted correctly
+        // EOF means the value has been extracted correctly.
         *dst = res;
         return true;
     }
     return false;
 }
 
-// Specialization for boolean: handle "True" and "False"
+// Specialization for boolean: handle "True" and "False".
 template <>
 inline bool
 parse_value(const std::string &val, bool *dst)

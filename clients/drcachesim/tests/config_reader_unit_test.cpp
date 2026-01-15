@@ -191,7 +191,7 @@ unit_test_read_parameter_map_simple()
         config_t config;
         std::istringstream ss { "key 1" };
         assert(read_param_map(&ss, &config));
-        assert(config["key"].type == config_node_t::SCALAR &&
+        assert(config["key"].type == config_param_node_t::SCALAR &&
                config["key"].scalar.compare("1") == 0);
     }
 
@@ -200,11 +200,11 @@ unit_test_read_parameter_map_simple()
         config_t config;
         std::istringstream ss { "key1 1 key2 2 key3 123" };
         assert(read_param_map(&ss, &config));
-        assert(config["key1"].type == config_node_t::SCALAR &&
+        assert(config["key1"].type == config_param_node_t::SCALAR &&
                config["key1"].scalar.compare("1") == 0 &&
-               config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].type == config_param_node_t::SCALAR &&
                config["key2"].scalar.compare("2") == 0 &&
-               config["key3"].type == config_node_t::SCALAR &&
+               config["key3"].type == config_param_node_t::SCALAR &&
                config["key3"].scalar.compare("123") == 0);
     }
 
@@ -213,11 +213,11 @@ unit_test_read_parameter_map_simple()
         config_t config;
         std::istringstream ss { "key1 1\nkey2 2\nkey3 123" };
         assert(read_param_map(&ss, &config));
-        assert(config["key1"].type == config_node_t::SCALAR &&
+        assert(config["key1"].type == config_param_node_t::SCALAR &&
                config["key1"].scalar.compare("1") == 0 &&
-               config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].type == config_param_node_t::SCALAR &&
                config["key2"].scalar.compare("2") == 0 &&
-               config["key3"].type == config_node_t::SCALAR &&
+               config["key3"].type == config_param_node_t::SCALAR &&
                config["key3"].scalar.compare("123") == 0);
     }
 
@@ -228,12 +228,12 @@ unit_test_read_parameter_map_simple()
             "key1 1\nkey2 2 // This is the comment key3 123\n   key4   4\t "
         };
         assert(read_param_map(&ss, &config));
-        assert(config["key1"].type == config_node_t::SCALAR &&
+        assert(config["key1"].type == config_param_node_t::SCALAR &&
                config["key1"].scalar.compare("1") == 0 &&
-               config["key2"].type == config_node_t::SCALAR &&
+               config["key2"].type == config_param_node_t::SCALAR &&
                config["key2"].scalar.compare("2") == 0 &&
                config.find("key3") == config.end() &&
-               config["key4"].type == config_node_t::SCALAR &&
+               config["key4"].type == config_param_node_t::SCALAR &&
                config["key4"].scalar.compare("4") == 0);
     }
 
@@ -254,13 +254,13 @@ unit_test_read_parameter_map_nested()
         config_t config;
         std::istringstream ss { "key0{key1 1 key2 2 key3 123}" };
         assert(read_param_map(&ss, &config));
-        assert(config["key0"].type == config_node_t::MAP);
+        assert(config["key0"].type == config_param_node_t::MAP);
         auto &key0 = config["key0"].children;
-        assert(key0["key1"].type == config_node_t::SCALAR &&
+        assert(key0["key1"].type == config_param_node_t::SCALAR &&
                key0["key1"].scalar.compare("1") == 0 &&
-               key0["key2"].type == config_node_t::SCALAR &&
+               key0["key2"].type == config_param_node_t::SCALAR &&
                key0["key2"].scalar.compare("2") == 0 &&
-               key0["key3"].type == config_node_t::SCALAR &&
+               key0["key3"].type == config_param_node_t::SCALAR &&
                key0["key3"].scalar.compare("123") == 0);
     }
 
@@ -269,15 +269,15 @@ unit_test_read_parameter_map_nested()
         config_t config;
         std::istringstream ss { "key0{key1 1 key2 {key3 123 key4 4}}" };
         assert(read_param_map(&ss, &config));
-        assert(config["key0"].type == config_node_t::MAP);
+        assert(config["key0"].type == config_param_node_t::MAP);
         auto &key0 = config["key0"].children;
-        assert(key0["key1"].type == config_node_t::SCALAR &&
+        assert(key0["key1"].type == config_param_node_t::SCALAR &&
                key0["key1"].scalar.compare("1") == 0);
-        assert(key0["key2"].type == config_node_t::MAP);
+        assert(key0["key2"].type == config_param_node_t::MAP);
         auto &key2 = key0["key2"].children;
-        assert(key2["key3"].type == config_node_t::SCALAR &&
+        assert(key2["key3"].type == config_param_node_t::SCALAR &&
                key2["key3"].scalar.compare("123") == 0 &&
-               key2["key4"].type == config_node_t::SCALAR &&
+               key2["key4"].type == config_param_node_t::SCALAR &&
                key2["key4"].scalar.compare("4") == 0);
     }
 

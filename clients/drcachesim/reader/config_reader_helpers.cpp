@@ -34,6 +34,12 @@
 
 #include "utils.h"
 
+#ifdef DEBUG
+#   define DBGMSG ERRMSG
+#else
+#   define DBGMSG(...) /* nothing */
+#endif
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -44,9 +50,7 @@ read_param_map_impl(config_tokenizer_t *tokenizer, config_t *params, int nest_le
         std::string token;
         if (!tokenizer->next(token)) {
             if (tokenizer->eof()) {
-#ifdef CONFIG_READER_DEBUG
-                std::cout << "\t\t\t\tEOF" << std::endl;
-#endif
+                DBGMSG("\t\t\t\tEOF\n");
                 if (nest_level > 0) {
                     // } missed
                     ERRMSG("Error: %d braces '}' missed at line %d\n", nest_level,
@@ -69,9 +73,7 @@ read_param_map_impl(config_tokenizer_t *tokenizer, config_t *params, int nest_le
                 p_line, p_column);
             return false;
         } else if (token == "}") {
-#ifdef CONFIG_READER_DEBUG
-            std::cout << "\t\t\t\tEnd nested map" << std::endl;
-#endif
+            DBGMSG("\t\t\t\tEnd nested map\n");
             // Parameter map ended. Just end processing
             return true;
         } else {
@@ -83,18 +85,13 @@ read_param_map_impl(config_tokenizer_t *tokenizer, config_t *params, int nest_le
             }
             int v_line = tokenizer->getline();
             int v_column = tokenizer->getcolumn();
-#ifdef CONFIG_READER_DEBUG
-            std::cout << "\t\t\t\tKeyValue: " << name << "=" << token << " position: ("
-                      << p_line << "," << p_column << ") (" << v_line << "," << v_column
-                      << ")" << std::endl;
-#endif
+            DBGMSG("\t\t\t\tKeyValue: '%s'='%s' position: (%d,%d) (%d,%d)\n",
+                   name.c_str(), token.c_str(), p_line, p_column, v_line, v_column);
             if (token == "{") {
-#ifdef CONFIG_READER_DEBUG
-                std::cout << "\t\t\t\tStart reading nested map" << std::endl;
-#endif
+                DBGMSG("\t\t\t\tStart nested map\n");
                 // This is nested parameter map
-                config_node_t val { config_node_t::MAP, p_line, p_column, v_line,
-                                    v_column };
+                config_param_node_t val { config_param_node_t::MAP, p_line, p_column,
+                                          v_line, v_column };
                 if (!read_param_map_impl(tokenizer, &(val.children), nest_level + 1)) {
                     ERRMSG("Error reading structure '%s' at line %d column %d\n",
                            name.c_str(), v_line, v_column);
@@ -109,8 +106,8 @@ read_param_map_impl(config_tokenizer_t *tokenizer, config_t *params, int nest_le
                 params->emplace(name, val);
             } else {
                 // Parameter value
-                config_node_t val { config_node_t::SCALAR, p_line, p_column, v_line,
-                                    v_column };
+                config_param_node_t val { config_param_node_t::SCALAR, p_line, p_column,
+                                          v_line, v_column };
                 val.scalar = token;
                 params->emplace(name, val);
             }
@@ -167,9 +164,7 @@ config_tokenizer_t::next(std::string &token)
             ss_.str(next_line);
             ss_.clear();
             ++line_;
-#ifdef CONFIG_READER_DEBUG
-            std::cout << "\tLine" << line_ << ": " << ss_.str() << std::endl;
-#endif
+            DBGMSG("\tLine %d: '%s'\n", line_, ss_.str().c_str());
             // Check if the stream ss_ empty again: the line next_line can be empty.
             continue;
         }
@@ -178,9 +173,7 @@ config_tokenizer_t::next(std::string &token)
             ERRMSG("Unable to extract token from line %d column %d\n", line_, column_);
             return false;
         }
-#ifdef CONFIG_READER_DEBUG
-        std::cout << "\tToken: " << tmp << std::endl;
-#endif
+        DBGMSG("\t\tToken: '%s'\n", tmp.c_str());
         if (tmp == "//") {
             // A comment. Skip it till the end of the line
             if (!std::getline(ss_, tmp) && !ss_.eof()) {

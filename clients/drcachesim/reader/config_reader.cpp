@@ -40,9 +40,9 @@ namespace drmemtrace {
 // Extract parameter value from string
 template <typename T>
 bool
-parse_param_value_or_fail(const std::string &pname, const config_node_t &p, T *dst)
+parse_param_value_or_fail(const std::string &pname, const config_param_node_t &p, T *dst)
 {
-    if (p.type == config_node_t::MAP) {
+    if (p.type == config_param_node_t::MAP) {
         ERRMSG(
             "Array for '%s' not supported, '%s' value expected at line %d column %d.\n",
             pname.c_str(), get_type_name<T>(), p.val_line, p.val_column);
@@ -61,7 +61,7 @@ parse_param_value_or_fail(const std::string &pname, const config_node_t &p, T *d
 // XXX: This function is a duplicate of
 //      droption_t<bytesize_t>::convert_from_string
 //      Consider sharing the function using a single copy.
-bool
+static bool
 convert_string_to_size(const std::string &s, uint64_t &size)
 {
     char suffix = *s.rbegin(); // s.back() only in C++11
@@ -92,10 +92,10 @@ convert_string_to_size(const std::string &s, uint64_t &size)
     return true;
 }
 
-bool
+static bool
 configure_cache(const config_t &params, cache_params_t *cache);
 
-bool
+static bool
 check_cache_config(int num_cores, std::map<std::string, cache_params_t> &caches_map)
 {
     std::vector<int> core_inst_caches(num_cores, 0);
@@ -197,8 +197,8 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
                        p.second.val_line, p.second.val_column);
                 return false;
             }
-            // XXX i#3047: Add support for page_size, which is needed to
-            // configure TLBs.
+        // XXX i#3047: Add support for page_size, which is needed to
+        // configure TLBs.
         } else if (p.first == "line_size") {
             // Cache line size in bytes.
             if (!parse_param_value_or_fail(p.first, p.second, &knobs.line_size)) {
@@ -254,7 +254,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
             if (!parse_param_value_or_fail(p.first, p.second, &knobs.use_physical)) {
                 return false;
             }
-        } else if (p.second.type == config_node_t::MAP) {
+        } else if (p.second.type == config_param_node_t::MAP) {
             // A cache unit.
             cache_params_t cache;
             cache.name = p.first;
@@ -264,7 +264,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
             caches[cache.name] = std::move(cache);
         } else {
             ERRMSG("Unknown parameter %s at line %d column %d\n", p.first.c_str(),
-                   p.second.param_line, p.second.param_column);
+                   p.second.name_line, p.second.name_column);
             return false;
         }
     }
@@ -273,7 +273,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
     return check_cache_config(knobs.num_cores, caches);
 }
 
-bool
+static bool
 configure_cache(const config_t &params, cache_params_t *cache)
 {
     for (const auto &p : params) {
@@ -372,7 +372,7 @@ configure_cache(const config_t &params, cache_params_t *cache)
             cache->miss_file = p.second.scalar;
         } else {
             ERRMSG("Unknown cache configuration setting '%s' at line %d column %d\n",
-                   p.first.c_str(), p.second.param_line, p.second.param_column);
+                   p.first.c_str(), p.second.name_line, p.second.name_column);
             return false;
         }
     }
