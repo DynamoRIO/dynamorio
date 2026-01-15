@@ -2680,19 +2680,21 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     client.annotation-detection-opt annotation-detection.native
     client-interface/annotation-detection.c "")
   set(DynamoRIO_USE_LIBC ON)
-else (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
-  # We build the client.annotation-concurrency app even if we have no annotation
-  # support, since it is used in drcachesim tests.
-  add_exe(client.annotation-concurrency
-    client-interface/annotation-concurrency.c)
-  append_property_string(TARGET client.annotation-concurrency COMPILE_FLAGS
-    "-DANNOTATIONS_DISABLED")
-  link_with_pthread(client.annotation-concurrency)
-  tobuild_appdll(client.annotation-concurrency
-    client-interface/annotation-concurrency.c)
-  append_property_string(TARGET client.annotation-concurrency.appdll COMPILE_FLAGS
-    "-DANNOTATIONS_DISABLED")
-endif (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
+endif ()
+# We build a version of the client.annotation-concurrency app that has no
+# annotations as a cross-platform multi-threaded test.
+# XXX i#4141: Once raw2trace supports annotations, and we have annotation
+# support in aarch64, we can remove this.
+set(concurrent_test_app client.noannotation-concurrency)
+add_exe(client.noannotation-concurrency
+  client-interface/annotation-concurrency.c)
+append_property_string(TARGET client.noannotation-concurrency COMPILE_FLAGS
+  "-DANNOTATIONS_DISABLED")
+link_with_pthread(client.noannotation-concurrency)
+tobuild_appdll(client.noannotation-concurrency
+  client-interface/annotation-concurrency.c)
+append_property_string(TARGET client.noannotation-concurrency.appdll COMPILE_FLAGS
+  "-DANNOTATIONS_DISABLED")
 
 if (UNIX)
   # XXX i#1246: Make partial_module_map work for Windows as well.
@@ -3954,7 +3956,7 @@ if (BUILD_CLIENTS)
       torunonly_drcachesim(phys_SUDO ${ci_shared_app} "-use_physical" "")
       set(tool.drcachesim.phys-threads_SUDO_sudo ON)
       set(tool.drcachesim.phys-threads_SUDO_expectbase "phys-threads")
-      torunonly_drcachesim(phys-threads_SUDO client.annotation-concurrency "-use_physical"
+      torunonly_drcachesim(phys-threads_SUDO ${concurrent_test_app} "-use_physical"
         "${annotation_test_args_shorter}")
     endif ()
 
@@ -3992,7 +3994,7 @@ if (BUILD_CLIENTS)
     # We use a many-threaded test with a small max and test that we only see
     # 1 thread, testing the thread ignore logic.  The max should be small enough
     # to not be flaky on any platform.
-    torunonly_drcachesim(delay-global client.annotation-concurrency
+    torunonly_drcachesim(delay-global ${concurrent_test_app}
       "-tool basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
       "${annotation_test_args_shorter}")
 
@@ -4019,21 +4021,21 @@ if (BUILD_CLIENTS)
     # We test -cpu_scheduling on several tests with many threads.
     # We use a smaller test (_shorter) to avoid taking multiple minutes on our
     # CI (i#4059; xref i#2063).
-    torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
+    torunonly_drcachesim(threads ${concurrent_test_app} "-cpu_scheduling"
       "${annotation_test_args_shorter}")
 
     # Threads test that reads the cache configuration from a config file.
-    torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
+    torunonly_drcachesim(threads-with-config-file ${concurrent_test_app}
       "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
       "${annotation_test_args_shorter}")
     set(tool.drcachesim.threads_timeout 150) # This test is long.
 
-    torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
+    torunonly_drcachesim(coherence ${concurrent_test_app} "-coherence"
       "${annotation_test_args_shorter}")
     set(tool.drcachesim.coherence_timeout 150) # This test is long.
 
     # TLB simulator's multi-thread sanity check
-    torunonly_drcachesim(TLB-threads client.annotation-concurrency
+    torunonly_drcachesim(TLB-threads ${concurrent_test_app}
       "-tool TLB -cpu_scheduling" "${annotation_test_args_shorter}")
     # i#2063: this test can time out.
     set(tool.drcachesim.TLB-threads_timeout 150)
@@ -4497,7 +4499,7 @@ if (BUILD_CLIENTS)
       "@-tool@opcode_mix@-interval_instr_count@10000" "")
 
     # As for the online test, we check that only 1 thread is in the final trace.
-    torunonly_drcacheoff(max-global client.annotation-concurrency
+    torunonly_drcacheoff(max-global ${concurrent_test_app}
       # Include function tracing to sanity test combining with delay and max.
       # We don't use '-record_heap' as it is slow on Windows (i#6342).
       "-trace_after_instrs 20K -max_global_trace_refs 10K -record_function malloc|1"
