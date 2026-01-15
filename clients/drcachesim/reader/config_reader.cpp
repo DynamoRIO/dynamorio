@@ -303,9 +303,10 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
                        p.second.val_line, p.second.val_column);
                 return false;
             }
+        }
         // XXX i#3047: Add support for page_size, which is needed to
         // configure TLBs.
-        } else if (p.first == "line_size") {
+        else if (p.first == "line_size") {
             // Cache line size in bytes.
             if (!parse_param_value_or_fail(p.first, p.second, &knobs.line_size)) {
                 return false;
