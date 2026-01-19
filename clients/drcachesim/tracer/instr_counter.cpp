@@ -302,12 +302,7 @@ dr_emit_flags_t
 event_inscount_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                            bool translating, void **user_data)
 {
-    instr_t *instr;
-    uint num_instrs;
-    for (instr = instrlist_first_app(bb), num_instrs = 0; instr != NULL;
-         instr = instr_get_next_app(instr)) {
-        num_instrs++;
-    }
+    uint num_instrs = instru->count_app_instrs(bb);
     *user_data = (void *)(ptr_uint_t)num_instrs;
     return DR_EMIT_DEFAULT;
 }
