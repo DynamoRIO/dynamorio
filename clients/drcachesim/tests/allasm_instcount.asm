@@ -41,25 +41,25 @@
 _start:
     // Align stack (instruction 1)
     and     rsp, -16
-    
+
     // Simple setup (instructions 2-5)
     xor     eax, eax         // instruction 2
     mov     ecx, 1           // instruction 3
     lea     rdi, dst_data    // instruction 4
-    
+
     // Dummy block 1 with jump
     push    rbx              // instruction 5
     mov     rbx, 0x1234      // instruction 6
     pop     rbx              // instruction 7
     jmp     dummy2           // instruction 8 - control flow!
-    
+
 dummy2:
     // Dummy block 2
     push    rcx              // instruction 9
     xor     rcx, rcx         // instruction 10
     pop     rcx              // instruction 11
     jmp     rep_section      // instruction 12 - control flow!
-    
+
 rep_section:
     // REP instruction
     rep     stosb            // instruction 13
@@ -67,7 +67,7 @@ rep_section:
     xor     ebx, ebx         // instruction 14
     xor     edx, edx         // instruction 15
     jmp     exit_block       // instruction 16 - control flow!
-    
+
 exit_block:
     // Exit
     mov     rdi, 0           // instruction 17
