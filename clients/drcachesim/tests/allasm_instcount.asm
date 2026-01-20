@@ -63,7 +63,7 @@ dummy2:
 rep_section:
     // REP instruction
     rep     stosb            // instruction 13
-    
+
     xor     ebx, ebx         // instruction 14
     xor     edx, edx         // instruction 15
     jmp     exit_block       // instruction 16 - control flow!
