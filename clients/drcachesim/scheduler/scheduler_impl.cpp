@@ -1442,6 +1442,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::remove_zero_instruction_segments(
         std::sort(
             input_sched[input_idx].begin(), input_sched[input_idx].end(),
             [](const schedule_input_tracker_t &l, const schedule_input_tracker_t &r) {
+                if (l.timestamp == r.timestamp) {
+                    return l.start_instruction < r.start_instruction;
+                }
                 return l.timestamp < r.timestamp;
             });
         uint64_t prev_start = 0;
@@ -1477,6 +1480,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_s
     // size.  Unfortunately we need to construct input_sched and sort it for each input
     // in order to even detect this issue; we could bump the trace version to let us
     // know it's not present if these steps become overhead concerns.
+    // We have since bumped the version for other features, so if this trace is
+    // beyond those increases we do know the bug isn't there (we assume a new trace
+    // is never processed with an old raw2trace).
+    if (inputs_[0].reader->get_version() >= TRACE_ENTRY_VERSION_BRANCH_INFO)
+        return sched_type_t::STATUS_SUCCESS;
 
     // We store the actual instruction count for each timestamp, for each input, keyed
     // by timestamp so we can look it up when iterating over the per-cpu schedule.  We
