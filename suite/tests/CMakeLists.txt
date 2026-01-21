@@ -3245,6 +3245,12 @@ if (X86 OR AARCH64)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
+
+      # i#7769: Test instruction counting excludes REP emulation overhead
+      add_exe(allasm_instcount
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_instcount.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_instcount)
     endif ()
   endif ()
 endif ()
@@ -5062,11 +5068,11 @@ if (BUILD_CLIENTS)
 
     if (UNIX AND X86 AND X64)
       torunonly_drcacheoff(allasm-repstr-basic-counts allasm_repstr
-        "-trace_after_instrs 53" "@-tool@view" "")
+        "" "@-tool@basic_counts" "")
       unset(tool.drcacheoff.allasm-repstr-basic-counts_rawtemp) # use preprocessor
       torunonly_drcachesim(allasm-repstr-basic-counts allasm_repstr
         # We test counting encodings for online.
-        "-trace_after_instrs 53 -tool view" "")
+        "-instr_encodings -tool basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
 
       # Test -record_syscall on SYS_write == #1 with 3 args.
@@ -5078,6 +5084,11 @@ if (BUILD_CLIENTS)
 
       torunonly_drcacheoff(allasm-dyn-inject-invariants allasm_repstr
         "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+
+      # i#7769: Test instruction counting excludes REP emulation overhead
+      torunonly_drcacheoff(allasm-instcount allasm_instcount
+        "-trace_after_instrs 53" "@-tool@view" "")
+      unset(tool.drcacheoff.allasm-instcount_rawtemp) # use preprocessor
 
       set(tool.drcacheoff.longblock_nodr ON)
       torunonly_drcacheoff(longblock tool.drcacheoff.longblock
