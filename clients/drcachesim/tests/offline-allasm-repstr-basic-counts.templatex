@@ -8,7 +8,6 @@ Adios world!
 Adios world!
 Adios world!
 Adios world!
----- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
          110 total \(fetched\) instructions
@@ -31,9 +30,9 @@ Total counts:
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
           14 total system call number markers
-           0 total blocking system call markers
-           4 total other markers
-         114 total encodings
+          12 total blocking system call markers
+           5 total other markers
+          38 total encodings
 Thread [0-9]* counts:
          110 \(fetched\) instructions
           38 unique \(fetched\) instructions
@@ -54,6 +53,6 @@ Thread [0-9]* counts:
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
           14 system call number markers
-           0 blocking system call markers
-           4 other markers
-         114 encodings
+          12 blocking system call markers
+           5 other markers
+          38 encodings
