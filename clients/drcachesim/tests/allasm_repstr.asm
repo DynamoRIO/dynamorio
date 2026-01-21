@@ -45,7 +45,7 @@ _start:
     // Single REP instruction with 50 iterations
     rep     stosb             // instruction 4
 
-    // Exit 
+    // Exit
     mov     rdi, 0            // instruction 5
     mov     eax, 231          // instruction 6: SYS_exit_group
     syscall                   // instruction 7
