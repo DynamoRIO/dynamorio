@@ -45,7 +45,7 @@ read_param_map_impl(config_tokenizer_t *tokenizer, config_t *params, int nest_le
         if (!tokenizer->next(token)) {
             if (tokenizer->eof()) {
                 if (nest_level > 0) {
-                    // } missed
+                    // } missed.
                     ERRMSG("Error: %d braces '}' missed at line %d\n", nest_level,
                            tokenizer->getline());
                 } else {
@@ -97,7 +97,7 @@ read_param_map_impl(config_tokenizer_t *tokenizer, config_t *params, int nest_le
                 // Parameter value
                 config_param_node_t val { config_param_node_t::SCALAR, p_line, p_column,
                                           v_line, v_column };
-                val.scalar = token;
+                val.value = token;
                 params->emplace(name, val);
             }
         }

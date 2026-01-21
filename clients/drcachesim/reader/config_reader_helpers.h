@@ -58,7 +58,7 @@ struct config_param_node_t {
     int val_column;
 
     // Value in string representation. Will be converted to simple type later.
-    std::string scalar;
+    std::string value;
     // Nested parameters.
     typedef std::map<std::string, config_param_node_t> config_param_map_t;
     config_param_map_t children;

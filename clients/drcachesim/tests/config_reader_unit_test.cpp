@@ -127,7 +127,7 @@ void
 unit_test_inclusion_policy()
 {
     {
-        // Correct: Inclusion policy not specified
+        // Correct: Inclusion policy not specified.
         cache_simulator_knobs_t knobs;
         std::map<std::string, cache_params_t> caches;
 
@@ -145,7 +145,7 @@ unit_test_inclusion_policy()
     }
 
     {
-        // Correct: inclusive=false exclusive=false (NINE)
+        // Correct: inclusive=false exclusive=false (Non-Inclusive Non-Exclusive).
         cache_simulator_knobs_t knobs;
         std::map<std::string, cache_params_t> caches;
 
@@ -163,7 +163,7 @@ unit_test_inclusion_policy()
     }
 
     {
-        // Correct: inclusive
+        // Correct: inclusive.
         cache_simulator_knobs_t knobs;
         std::map<std::string, cache_params_t> caches;
 
@@ -181,7 +181,7 @@ unit_test_inclusion_policy()
     }
 
     {
-        // Correct: inclusive=true exclusive=false
+        // Correct: inclusive=true exclusive=false.
         cache_simulator_knobs_t knobs;
         std::map<std::string, cache_params_t> caches;
 
@@ -200,7 +200,7 @@ unit_test_inclusion_policy()
     }
 
     {
-        // Correct: exclusive
+        // Correct: exclusive.
         cache_simulator_knobs_t knobs;
         std::map<std::string, cache_params_t> caches;
 
@@ -218,7 +218,7 @@ unit_test_inclusion_policy()
     }
 
     {
-        // Correct: exclusive=true inclusive=false
+        // Correct: exclusive=true inclusive=false.
         cache_simulator_knobs_t knobs;
         std::map<std::string, cache_params_t> caches;
 
@@ -237,7 +237,7 @@ unit_test_inclusion_policy()
     }
 
     {
-        // Incorrect: Both inclusive and exclusive
+        // Incorrect: Both inclusive and exclusive.
         cache_simulator_knobs_t knobs;
         std::map<std::string, cache_params_t> caches;
 
@@ -248,7 +248,7 @@ unit_test_inclusion_policy()
                "L2{type unified inclusive true exclusive true}\n");
         config_reader_t config;
         if (config.configure(&ss, knobs, caches)) {
-            // Check will fail: both inclusive and exclusive not allowed
+            // Check will fail: both inclusive and exclusive not allowed.
             std::cerr << "drcachesim inclusion_policy_test failed (conflicting exclusive "
                          "and inclusive)"
                       << std::endl;
@@ -326,7 +326,7 @@ unit_test_read_parameter_map_simple()
         std::istringstream ss { "key 1" };
         assert(read_param_map(&ss, &config));
         assert(config["key"].type == config_param_node_t::SCALAR &&
-               config["key"].scalar.compare("1") == 0);
+               config["key"].value.compare("1") == 0);
     }
 
     {
@@ -335,11 +335,11 @@ unit_test_read_parameter_map_simple()
         std::istringstream ss { "key1 1 key2 2 key3 123" };
         assert(read_param_map(&ss, &config));
         assert(config["key1"].type == config_param_node_t::SCALAR &&
-               config["key1"].scalar.compare("1") == 0 &&
+               config["key1"].value.compare("1") == 0 &&
                config["key2"].type == config_param_node_t::SCALAR &&
-               config["key2"].scalar.compare("2") == 0 &&
+               config["key2"].value.compare("2") == 0 &&
                config["key3"].type == config_param_node_t::SCALAR &&
-               config["key3"].scalar.compare("123") == 0);
+               config["key3"].value.compare("123") == 0);
     }
 
     {
@@ -348,11 +348,11 @@ unit_test_read_parameter_map_simple()
         std::istringstream ss { "key1 1\nkey2 2\nkey3 123" };
         assert(read_param_map(&ss, &config));
         assert(config["key1"].type == config_param_node_t::SCALAR &&
-               config["key1"].scalar.compare("1") == 0 &&
+               config["key1"].value.compare("1") == 0 &&
                config["key2"].type == config_param_node_t::SCALAR &&
-               config["key2"].scalar.compare("2") == 0 &&
+               config["key2"].value.compare("2") == 0 &&
                config["key3"].type == config_param_node_t::SCALAR &&
-               config["key3"].scalar.compare("123") == 0);
+               config["key3"].value.compare("123") == 0);
     }
 
     {
@@ -363,12 +363,12 @@ unit_test_read_parameter_map_simple()
         };
         assert(read_param_map(&ss, &config));
         assert(config["key1"].type == config_param_node_t::SCALAR &&
-               config["key1"].scalar.compare("1") == 0 &&
+               config["key1"].value.compare("1") == 0 &&
                config["key2"].type == config_param_node_t::SCALAR &&
-               config["key2"].scalar.compare("2") == 0 &&
+               config["key2"].value.compare("2") == 0 &&
                config.find("key3") == config.end() &&
                config["key4"].type == config_param_node_t::SCALAR &&
-               config["key4"].scalar.compare("4") == 0);
+               config["key4"].value.compare("4") == 0);
     }
 
     // Invalid configuration
@@ -399,11 +399,11 @@ unit_test_read_parameter_map_nested()
         assert(config["key0"].type == config_param_node_t::MAP);
         auto &key0 = config["key0"].children;
         assert(key0["key1"].type == config_param_node_t::SCALAR &&
-               key0["key1"].scalar.compare("1") == 0 &&
+               key0["key1"].value.compare("1") == 0 &&
                key0["key2"].type == config_param_node_t::SCALAR &&
-               key0["key2"].scalar.compare("2") == 0 &&
+               key0["key2"].value.compare("2") == 0 &&
                key0["key3"].type == config_param_node_t::SCALAR &&
-               key0["key3"].scalar.compare("123") == 0);
+               key0["key3"].value.compare("123") == 0);
     }
 
     {
@@ -414,13 +414,13 @@ unit_test_read_parameter_map_nested()
         assert(config["key0"].type == config_param_node_t::MAP);
         auto &key0 = config["key0"].children;
         assert(key0["key1"].type == config_param_node_t::SCALAR &&
-               key0["key1"].scalar.compare("1") == 0);
+               key0["key1"].value.compare("1") == 0);
         assert(key0["key2"].type == config_param_node_t::MAP);
         auto &key2 = key0["key2"].children;
         assert(key2["key3"].type == config_param_node_t::SCALAR &&
-               key2["key3"].scalar.compare("123") == 0 &&
+               key2["key3"].value.compare("123") == 0 &&
                key2["key4"].type == config_param_node_t::SCALAR &&
-               key2["key4"].scalar.compare("4") == 0);
+               key2["key4"].value.compare("4") == 0);
     }
 
     // Invalid configuration

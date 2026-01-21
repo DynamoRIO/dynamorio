@@ -48,11 +48,10 @@ parse_param_value_or_fail(const std::string &pname, const config_param_node_t &p
             pname.c_str(), get_type_name<T>(), p.val_line, p.val_column);
         return false;
     }
-    if (!parse_value(p.scalar, dst)) {
+    if (!parse_value(p.value, dst)) {
         ERRMSG(
             "Incorrect value '%s' for '%s', '%s' value expected at line %d column %d.\n",
-            p.scalar.c_str(), pname.c_str(), get_type_name<T>(), p.val_line,
-            p.val_column);
+            p.value.c_str(), pname.c_str(), get_type_name<T>(), p.val_line, p.val_column);
         return false;
     }
     return true;
@@ -115,9 +114,9 @@ configure_cache(const config_t &params, cache_params_t *cache)
             }
         } else if (p.first == "size") {
             // Cache size in bytes.
-            if (!convert_string_to_size(p.second.scalar, cache->size)) {
+            if (!convert_string_to_size(p.second.value, cache->size)) {
                 ERRMSG("Unusable cache size %s at line %d column %d\n",
-                       p.second.scalar.c_str(), p.second.val_line, p.second.val_column);
+                       p.second.value.c_str(), p.second.val_line, p.second.val_column);
                 return false;
             }
             if (cache->size <= 0) {
@@ -149,11 +148,11 @@ configure_cache(const config_t &params, cache_params_t *cache)
         } else if (p.first == "parent") {
             // Name of the cache's parent. LLC's parent is main memory
             // (CACHE_PARENT_MEMORY).
-            cache->parent = p.second.scalar;
+            cache->parent = p.second.value;
         } else if (p.first == "replace_policy") {
             // Cache replacement policy: REPLACE_POLICY_LRU (default),
             // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
-            cache->replace_policy = p.second.scalar;
+            cache->replace_policy = p.second.value;
             if (cache->replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
                 cache->replace_policy != REPLACE_POLICY_LRU &&
                 cache->replace_policy != REPLACE_POLICY_LFU &&
@@ -167,7 +166,7 @@ configure_cache(const config_t &params, cache_params_t *cache)
         } else if (p.first == "prefetcher") {
             // Type of prefetcher: PREFETCH_POLICY_NEXTLINE
             // or PREFETCH_POLICY_NONE.
-            cache->prefetcher = p.second.scalar;
+            cache->prefetcher = p.second.value;
             if (cache->prefetcher != PREFETCH_POLICY_NEXTLINE &&
                 cache->prefetcher != PREFETCH_POLICY_NONE) {
                 ERRMSG("Unknown prefetcher type %s at line %d column %d\n",
@@ -176,7 +175,7 @@ configure_cache(const config_t &params, cache_params_t *cache)
             }
         } else if (p.first == "miss_file") {
             // Name of the file to use to dump cache misses info.
-            cache->miss_file = p.second.scalar;
+            cache->miss_file = p.second.value;
         } else {
             ERRMSG("Unknown cache configuration setting '%s' at line %d column %d\n",
                    p.first.c_str(), p.second.name_line, p.second.name_column);
@@ -193,7 +192,7 @@ configure_cache(const config_t &params, cache_params_t *cache)
                 p_inclusive->second.val_line, p_inclusive->second.val_column,
                 p_exclusive->second.val_line, p_exclusive->second.val_column);
         } else {
-            // Cannot detect position
+            // Cannot detect position.
             ERRMSG("Cache cannot be both inclusive AND exclusive\n");
         }
         return false;
