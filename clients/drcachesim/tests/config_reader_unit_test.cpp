@@ -273,44 +273,44 @@ unit_test_parse_value()
 {
     std::cerr << "Testing parse_value" << std::endl;
 
-    // Parse boolean values
+    // Parse boolean values.
     bool dst_bool = false;
-    // Supported values are: true, True, TRUE, false, False, FALSE
+    // Supported values are: true, True, TRUE, false, False, FALSE.
     assert(parse_value("true", &dst_bool) && dst_bool);
     assert(parse_value("False", &dst_bool) && !dst_bool);
     assert(parse_value("True", &dst_bool) && dst_bool);
     assert(parse_value("false", &dst_bool) && !dst_bool);
     assert(parse_value("TRUE", &dst_bool) && dst_bool);
     assert(parse_value("FALSE", &dst_bool) && !dst_bool);
-    // Non-supported values. parse_value returns false
+    // Non-supported values. parse_value returns false.
     assert(!parse_value("0", &dst_bool));   // Numbers not supported
     assert(!parse_value("1", &dst_bool));   // Numbers not supported
     assert(!parse_value("abc", &dst_bool)); // Random strings not supported
 
-    // Parse signed integer values
+    // Parse signed integer values.
     int dst_int = -1;
-    // Supported values, both positive and negative
+    // Supported values, both positive and negative.
     assert(parse_value("0", &dst_int) && dst_int == 0);
     assert(parse_value("1", &dst_int) && dst_int == 1);
     assert(parse_value("-123", &dst_int) && dst_int == -123);
-    // Non-supported values. parse_value returns false
+    // Non-supported values. parse_value returns false.
     assert(!parse_value("abc", &dst_int));
     assert(!parse_value("123f", &dst_int));
     assert(!parse_value("a123", &dst_int));
 
-    // Parse unsigned integer values
+    // Parse unsigned integer values.
     unsigned int dst_uint = -1;
     assert(parse_value("0", &dst_uint) && dst_uint == 0);
     assert(parse_value("123", &dst_uint) && dst_uint == 123);
-    // Negative values not supported. parse_value returns false
+    // Negative values not supported. parse_value returns false.
     assert(!parse_value("-1", &dst_uint));
 
-    // Parse double values
+    // Parse double values.
     double dst_double = .0;
     assert(parse_value("123", &dst_double) && dst_double == 123);
     assert(parse_value("123.4", &dst_double) && dst_double == 123.4);
     assert(parse_value("-123.45", &dst_double) && dst_double == -123.45);
-    // Non supported strings. parse_value returns false
+    // Non supported strings. parse_value returns false.
     assert(!parse_value("abc", &dst_double));
     assert(!parse_value("1.abc", &dst_double));
     assert(!parse_value("a1.23", &dst_double));
@@ -319,9 +319,9 @@ unit_test_parse_value()
 void
 unit_test_read_parameter_map_simple()
 {
-    // Valid configurations
+    // Valid configurations.
     {
-        // Simple key-value pair
+        // Simple key-value pair.
         config_t config;
         std::istringstream ss { "key 1" };
         assert(read_param_map(&ss, &config));
@@ -330,7 +330,7 @@ unit_test_read_parameter_map_simple()
     }
 
     {
-        // Several key-value pairs
+        // Several key-value pairs.
         config_t config;
         std::istringstream ss { "key1 1 key2 2 key3 123" };
         assert(read_param_map(&ss, &config));
@@ -343,7 +343,7 @@ unit_test_read_parameter_map_simple()
     }
 
     {
-        // Multiline configuration
+        // Multiline configuration.
         config_t config;
         std::istringstream ss { "key1 1\nkey2 2\nkey3 123" };
         assert(read_param_map(&ss, &config));
@@ -356,7 +356,7 @@ unit_test_read_parameter_map_simple()
     }
 
     {
-        // Multiline configuration with comments and extra spaces
+        // Multiline configuration with comments and extra spaces.
         config_t config;
         std::istringstream ss {
             "key1 1\nkey2 2 // This is the comment key3 123\n   key4   4\t "
@@ -371,9 +371,9 @@ unit_test_read_parameter_map_simple()
                config["key4"].value.compare("4") == 0);
     }
 
-    // Invalid configuration
+    // Invalid configuration.
     {
-        // Not good stream
+        // Not good stream.
         config_t config;
         std::istringstream ss { "key1 1" };
         ss.setstate(std::ios_base::failbit);
@@ -381,7 +381,7 @@ unit_test_read_parameter_map_simple()
     }
 
     {
-        // Missed value
+        // Missed value.
         config_t config;
         std::istringstream ss { "key1 1\nkey2 // This is the comment key3 123" };
         assert(!read_param_map(&ss, &config));
@@ -392,7 +392,7 @@ void
 unit_test_read_parameter_map_nested()
 {
     {
-        // Simple nested configuration
+        // Simple nested configuration.
         config_t config;
         std::istringstream ss { "key0{key1 1 key2 2 key3 123}" };
         assert(read_param_map(&ss, &config));
@@ -407,7 +407,7 @@ unit_test_read_parameter_map_nested()
     }
 
     {
-        // Multi-level nested configuration
+        // Multi-level nested configuration.
         config_t config;
         std::istringstream ss { "key0{key1 1 key2 {key3 123 key4 4}}" };
         assert(read_param_map(&ss, &config));
@@ -423,23 +423,23 @@ unit_test_read_parameter_map_nested()
                key2["key4"].value.compare("4") == 0);
     }
 
-    // Invalid configuration
+    // Invalid configuration.
     {
-        // Empty map
+        // Empty map.
         config_t config;
         std::istringstream ss { "key1 {}" };
         assert(!read_param_map(&ss, &config));
     }
 
     {
-        // Missed enclosing brace
+        // Missed enclosing brace.
         config_t config;
         std::istringstream ss { "key1 {key2 2" };
         assert(!read_param_map(&ss, &config));
     }
 
     {
-        // Braces without parameter name
+        // Braces without parameter name.
         config_t config;
         std::istringstream ss { "key1 1 {key2 2}" };
         assert(!read_param_map(&ss, &config));
