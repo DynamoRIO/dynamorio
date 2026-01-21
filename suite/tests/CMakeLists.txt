@@ -6104,10 +6104,13 @@ if (UNIX)
   endif ()
   if (AARCH64 AND LINUX)
     if (proc_supports_sve OR proc_supports_sve2)
-      set(client.save-restore-sve_client_source "client-interface/redirect_execution.dll.c")
-      tobuild_ci(client.save-restore-sve common/aarch64_sve_set.asm "" "" "")
-      set_target_properties(client.save-restore-sve PROPERTIES LINKER_LANGUAGE C)
-      append_link_flags(client.save-restore-sve "-nostartfiles -nodefaultlibs -static")
+      set(client.save-restore-sve-registers_client_source
+        "client-interface/redirect_execution.dll.c")
+      tobuild_ci(client.save-restore-sve-registers common/aarch64_sve.asm "" "" "")
+      set_target_properties(
+        client.save-restore-sve-registers PROPERTIES LINKER_LANGUAGE C)
+      append_link_flags(client.save-restore-sve-registers
+        "-nostartfiles -nodefaultlibs -static")
     endif()
   endif()
   tobuild(pthreads.pthreads pthreads/pthreads.c)
