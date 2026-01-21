@@ -36,73 +36,21 @@
 .type _start, @function
         .align   8
 _start:
-        // Align stack pointer to cache line.
-        and      rsp, -16
+    // Align stack pointer to cache line.
+    and     rsp, -16          // instruction 1
 
-        // Test a zero-iter rep string loop.
-        mov      ecx, 0
-        lea      esi, bye_str
-        lea      edi, hello_str
-        cld
-        rep      movsd
+    mov     ecx, 50           // instruction 2
+    lea     rdi, dst_data     // instruction 3
 
-        // Test a rep string loop.
-        mov      ecx, 5
-        lea      esi, bye_str
-        lea      edi, hello_str
-        cld
-        rep      movsb
+    // Single REP instruction with 50 iterations
+    rep     stosb             // instruction 4
 
-        // Make a getpid syscall, which is a non-blocking one.
-        mov      eax, 39          // SYS_getpid
-        syscall
+    // Exit 
+    mov     rdi, 0            // instruction 5
+    mov     eax, 231          // instruction 6: SYS_exit_group
+    syscall                   // instruction 7
 
-        // Make a membarrier syscall, which is a blocking one.
-        mov      rdi, 0           // MEMBARRIER_CMD_QUERY
-        mov      rsi, 0           // flags
-        mov      rdx, 0           // cpuid
-        mov      eax, 324         // SYS_membarrier
-        syscall
-
-        // Test page-spanning accesses.
-        lea      rcx, page_str
-        // Somehow the GNU assembler 2.38 is adding the load size (4 here) to
-        // whatever displacement is listed (!!!), so these end up as -3 and -1.
-        mov      eax, DWORD [-7+rcx]
-        mov      eax, DWORD [-5+rcx]
-
-        // Print a message in a loop for testing tracing windows.
-        mov      ebx, 10          // Loop count.
-repeat:
-        mov      rdi, 2           // stderr
-        lea      rsi, hello_str
-        mov      rdx, 13          // sizeof(hello_str)
-        mov      eax, 1           // SYS_write
-        syscall
-        dec      ebx
-        cmp      ebx, 0
-        jnz      repeat
-
-        // Test a syscall failure.
-        mov      rdi, 42          // Invalid file descriptor.
-        lea      rsi, hello_str
-        mov      rdx, 13          // sizeof(hello_str)
-        mov      eax, 1           // SYS_write
-        syscall
-
-        // Exit.
-        mov      rdi, 0           // exit code
-        mov      eax, 231         // SYS_exit_group
-        syscall
-
-        .data
-        .align   8
-hello_str:
-        .string  "Hello world!\n"
-bye_str:
-        .string  "Adios\n"
-        // Push .data onto a 2nd page to test page-spanning accesses.
-        // We assume 4K pages here.
-        .align   4096
-page_str:
-        .word    0
+.data
+    .align  8
+dst_data:
+    .space  16
