@@ -124,6 +124,46 @@ unit_test_config_reader(const std::string &testdir)
 }
 
 void
+unit_test_config_reader_basic()
+{
+    {
+        // Incorrect: Parent specified as nested structure.
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent {name L2}}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified}\n");
+        config_reader_t config;
+        if (config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim config_reader_basic test failed (parent)"
+                      << std::endl;
+            exit(1);
+        }
+    }
+
+    {
+        // Incorrect: Miss file specified as nested structure.
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1I{type instruction core 0 parent L2}\n"
+               "L1D{type data core 0 parent L2}\n"
+               "L2{type unified miss_file {name 1.txt}}\n");
+        config_reader_t config;
+        if (config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim config_reader_basic test failed (parent)"
+                      << std::endl;
+            exit(1);
+        }
+    }
+}
+
+void
 unit_test_inclusion_policy()
 {
     {

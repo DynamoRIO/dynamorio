@@ -1365,6 +1365,7 @@ test_main(int argc, const char *argv[])
     unit_test_parse_value();
     unit_test_read_parameter_map();
     unit_test_config_reader(std::string(argv[1]));
+    unit_test_config_reader_basic();
     unit_test_inclusion_policy();
     unit_test_v2p_reader(std::string(argv[1]));
     unit_test_tlb_simulator(std::string(argv[1]));

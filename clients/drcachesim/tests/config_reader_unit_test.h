@@ -42,6 +42,9 @@ void
 unit_test_config_reader(const std::string &testdir);
 
 void
+unit_test_config_reader_basic();
+
+void
 unit_test_inclusion_policy();
 
 void
