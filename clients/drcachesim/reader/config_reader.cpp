@@ -113,10 +113,15 @@ configure_cache(const config_t &params, cache_params_t *cache)
                 return false;
             }
         } else if (p.first == "size") {
+            // Cache size with units.
+            std::string cache_size_str;
+            if (!parse_param_value_or_fail(p.first, p.second, &cache_size_str)) {
+                return false;
+            }
             // Cache size in bytes.
-            if (!convert_string_to_size(p.second.value, cache->size)) {
+            if (!convert_string_to_size(cache_size_str, cache->size)) {
                 ERRMSG("Unusable cache size %s at line %d column %d\n",
-                       p.second.value.c_str(), p.second.val_line, p.second.val_column);
+                       cache_size_str.c_str(), p.second.val_line, p.second.val_column);
                 return false;
             }
             if (cache->size <= 0) {
@@ -148,11 +153,15 @@ configure_cache(const config_t &params, cache_params_t *cache)
         } else if (p.first == "parent") {
             // Name of the cache's parent. LLC's parent is main memory
             // (CACHE_PARENT_MEMORY).
-            cache->parent = p.second.value;
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->parent)) {
+                return false;
+            }
         } else if (p.first == "replace_policy") {
             // Cache replacement policy: REPLACE_POLICY_LRU (default),
             // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
-            cache->replace_policy = p.second.value;
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->replace_policy)) {
+                return false;
+            }
             if (cache->replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
                 cache->replace_policy != REPLACE_POLICY_LRU &&
                 cache->replace_policy != REPLACE_POLICY_LFU &&
@@ -166,7 +175,9 @@ configure_cache(const config_t &params, cache_params_t *cache)
         } else if (p.first == "prefetcher") {
             // Type of prefetcher: PREFETCH_POLICY_NEXTLINE
             // or PREFETCH_POLICY_NONE.
-            cache->prefetcher = p.second.value;
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->prefetcher)) {
+                return false;
+            }
             if (cache->prefetcher != PREFETCH_POLICY_NEXTLINE &&
                 cache->prefetcher != PREFETCH_POLICY_NONE) {
                 ERRMSG("Unknown prefetcher type %s at line %d column %d\n",
@@ -175,7 +186,9 @@ configure_cache(const config_t &params, cache_params_t *cache)
             }
         } else if (p.first == "miss_file") {
             // Name of the file to use to dump cache misses info.
-            cache->miss_file = p.second.value;
+            if (!parse_param_value_or_fail(p.first, p.second, &cache->miss_file)) {
+                return false;
+            }
         } else {
             ERRMSG("Unknown cache configuration setting '%s' at line %d column %d\n",
                    p.first.c_str(), p.second.name_line, p.second.name_column);

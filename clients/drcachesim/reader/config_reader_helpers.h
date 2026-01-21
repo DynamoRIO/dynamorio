@@ -185,6 +185,15 @@ parse_value(const std::string &val, bool *dst)
     return false;
 }
 
+// Specialization for std::string: just return copy of the input string.
+template <>
+inline bool
+parse_value(const std::string &val, std::string *dst)
+{
+    *dst = val;
+    return true;
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio
 
