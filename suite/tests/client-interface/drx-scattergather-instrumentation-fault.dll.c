@@ -159,8 +159,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
     return DR_EMIT_DEFAULT;
 }
 
-/* OS libraries can contain scatter / gather instructions so we need to check that
- * the current module is the application.
+/* XXX : we need a way to only test the scatter/gather instructions in our
+ * test application, and ignore scatter/gather instructions from OS libraries.
+ * As AArch64 does not have annotations yet the best way to do this seems to be
+ * to use the module interface to check that the current module is the exe.
  */
 static app_pc exe_start;
 
@@ -173,7 +175,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
     bool from_exe = false;
     module_data_t *module = dr_lookup_module(dr_fragment_app_pc(tag));
-    if (module) {
+    if (module != NULL) {
         from_exe = (module->start == exe_start);
         dr_free_module_data(module);
     } else {
