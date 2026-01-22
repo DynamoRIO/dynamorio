@@ -159,7 +159,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
     return DR_EMIT_DEFAULT;
 }
 
-/* XXX : we need a way to only test the scatter/gather instructions in our
+/* i#1672: we need a way to only test the scatter/gather instructions in our
  * test application, and ignore scatter/gather instructions from OS libraries.
  * As AArch64 does not have annotations yet the best way to do this seems to be
  * to use the module interface to check that the current module is the exe.
