@@ -525,7 +525,8 @@ set(sve_tests
       client.drbbdup-drwrap-test client.drbbdup-emul-test client.process-id
       client.drreg-test client.low_on_memory client.tls client.drwrap-test
       client.drwrap-drreg-test drstatecmp-fuzz-app client.drutil-test client.stolen-reg
-      client.ldstex client.drsyms-test client.drwrap-test-detach api.dis-a64
+      client.ldstex client.drsyms-test client.drwrap-test-detach
+      client.save-restore-sve-registers api.dis-a64
       api.reenc-a64 api.opnd api.detach api.detach_state api.detach_signal
       api.detach_spawn api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit
       api.ibl-stress api.ibl-stress-aarch64-far-link_LONG api.static_startstop
@@ -6111,6 +6112,17 @@ if (UNIX)
     torunonly(linux.steal-switch linux.thread linux/thread.c
       "-enable_reset -reset_at_fragment_count 100 -steal_reg_at_reset ${new_reg}" "")
   endif ()
+  if (AARCH64 AND LINUX)
+    if (proc_supports_sve OR proc_supports_sve2)
+      set(client.save-restore-sve-registers_client_source
+        "client-interface/redirect_execution.dll.c")
+      tobuild_ci(client.save-restore-sve-registers common/aarch64_sve.asm "" "" "")
+      set_target_properties(
+        client.save-restore-sve-registers PROPERTIES LINKER_LANGUAGE C)
+      append_link_flags(client.save-restore-sve-registers
+        "-nostartfiles -nodefaultlibs -static")
+    endif()
+  endif()
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig pthreads/ptsig.c)
