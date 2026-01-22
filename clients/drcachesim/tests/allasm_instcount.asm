@@ -42,7 +42,7 @@ _start:
     mov     ecx, 50           // instruction 2
     lea     rdi, dst_data     // instruction 3
 
-    // Single REP instruction with 50 iterations
+    // Single REP instruction with 50 iterations.
     rep     stosb             // instruction 4
 
     // Exit
