@@ -42,26 +42,31 @@ bb_event(void *pc)
     dr_mcontext_t mcontext;
     mcontext.size = sizeof(mcontext);
     mcontext.flags = DR_MC_ALL;
-    dr_get_mcontext(drcontext, &mcontext);
+    ASSERT(dr_get_mcontext(drcontext, &mcontext) == true);
     mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), pc);
-    if (redirect_execution) {
-        redirect_execution = false;
-        dr_redirect_execution(&mcontext);
-    }
+    dr_redirect_execution(&mcontext);
 }
 
 static dr_emit_flags_t
 instrument_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
               bool translating)
 {
-    instr_t *instr = instrlist_first(bb);
-    if (!instr_is_app(instr))
-        return DR_EMIT_DEFAULT;
-
-    redirect_execution = true;
-    dr_insert_clean_call_ex(drcontext, bb, instr, (void *)bb_event,
-                            DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_MULTIPATH, 1,
-                            OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
+    instr_t *instr, *next_instr;
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next(instr);
+        if (next_instr == NULL) {
+            return DR_EMIT_DEFAULT;
+        }
+        // Insert a clean call after the two-consecutive NOP sentinel sequence.
+        // The clean call invokes dr_redirect_execution() to restore the saved application
+        // context and resume execution with the original register state.
+        if (instr_is_nop(instr) && instr_is_nop(next_instr)) {
+            dr_insert_clean_call_ex(
+                drcontext, bb, next_instr, (void *)bb_event,
+                DR_CLEANCALL_READS_APP_CONTEXT, 1,
+                OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(next_instr)));
+        }
+    }
     return DR_EMIT_DEFAULT;
 }
 
