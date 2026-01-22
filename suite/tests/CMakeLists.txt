@@ -3245,7 +3245,6 @@ if (X86 OR AARCH64)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
-
       # i#7769: Test instruction counting excludes REP emulation overhead.
       add_exe(allasm_instcount
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_instcount.asm
