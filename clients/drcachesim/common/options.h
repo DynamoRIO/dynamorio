@@ -191,7 +191,7 @@ extern dynamorio::droption::droption_t<bool> op_add_noise_generator;
 extern dynamorio::droption::droption_t<unsigned int> op_report_top;
 extern dynamorio::droption::droption_t<unsigned int> op_reuse_distance_threshold;
 extern dynamorio::droption::droption_t<bool> op_reuse_distance_histogram;
-extern dynamorio::droption::droption_t<unsigned int> op_reuse_skip_dist;
+extern dynamorio::droption::droption_t<unsigned int> op_reuse_skip_dist_deprecated;
 extern dynamorio::droption::droption_t<unsigned int> op_reuse_distance_limit;
 extern dynamorio::droption::droption_t<bool> op_reuse_verify_skip;
 extern dynamorio::droption::droption_t<double> op_reuse_histogram_bin_multiplier;
