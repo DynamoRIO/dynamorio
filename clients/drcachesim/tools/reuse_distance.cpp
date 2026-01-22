@@ -99,12 +99,12 @@ reuse_distance_t::initialize_shard_type(shard_type_t shard_type)
     return "";
 }
 
-reuse_distance_t::shard_data_t::shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist,
-                                             uint32_t distance_limit, bool verify)
+reuse_distance_t::shard_data_t::shard_data_t(uint64_t reuse_threshold,
+                                             uint32_t distance_limit)
     : distance_limit(distance_limit)
 {
     ref_list = std::unique_ptr<line_ref_splay_t>(
-        new line_ref_splay_t(reuse_threshold, skip_dist, verify));
+        new line_ref_splay_t(reuse_threshold));
 }
 
 bool
@@ -117,8 +117,7 @@ void *
 reuse_distance_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                              memtrace_stream_t *stream)
 {
-    auto shard = new shard_data_t(knobs_.distance_threshold, knobs_.skip_list_distance,
-                                  knobs_.distance_limit, knobs_.verify_skip);
+    auto shard = new shard_data_t(knobs_.distance_threshold, knobs_.distance_limit);
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard->core = stream->get_output_cpuid();
     shard->tid = stream->get_tid();
@@ -215,8 +214,7 @@ reuse_distance_t::process_memref(const memref_t &memref)
     int shard_index = serial_stream_->get_shard_index();
     const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
-        shard = new shard_data_t(knobs_.distance_threshold, knobs_.skip_list_distance,
-                                 knobs_.distance_limit, knobs_.verify_skip);
+        shard = new shard_data_t(knobs_.distance_threshold, knobs_.distance_limit);
         shard->core = serial_stream_->get_output_cpuid();
         shard->tid = serial_stream_->get_tid();
         shard_map_[shard_index] = shard;
@@ -452,8 +450,7 @@ reuse_distance_t::get_aggregated_results()
 
     // Otherwise, aggregate the per-shard data to get whole-trace data.
     aggregated_results_ = std::unique_ptr<shard_data_t>(
-        new shard_data_t(knobs_.distance_threshold, knobs_.skip_list_distance,
-                         knobs_.distance_limit, knobs_.verify_skip));
+        new shard_data_t(knobs_.distance_threshold, knobs_.distance_limit));
     for (auto &shard : shard_map_) {
         aggregated_results_->total_refs += shard.second->total_refs;
         aggregated_results_->data_refs += shard.second->data_refs;
