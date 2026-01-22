@@ -171,6 +171,7 @@ _start:
         // Two consecutive nop is used as a sentinel to insert a clean call.
         nop
         nop
+        // Verify the values of the SVE registers.
         adr      x1, sve_vector_register_values
         CHECK_Z_REG 1, x1
         CHECK_Z_REG 2, x1
@@ -224,7 +225,7 @@ _start:
         // Two consecutive nop is used as a sentinel to insert a clean call.
         nop
         nop
-        // Verify the values of the p0, 08, and p15 registers.
+        // Verify the values of the SVE predicate registers.
         CHECK_P_REG 0, P0_VALUE
         CHECK_P_REG 1, P1_VALUE
         CHECK_P_REG 2, P2_VALUE
