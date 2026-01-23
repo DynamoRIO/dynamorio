@@ -46,9 +46,12 @@
 
 #include "options.h"
 #include "cache_simulator_create.h"
+#include "create_cache_replacement_policy.h"
 
 namespace dynamorio {
 namespace drmemtrace {
+
+struct cache_replacement_policy_config_t;
 
 // Cache configuration settings.
 struct cache_params_t {
@@ -61,6 +64,7 @@ struct cache_params_t {
         , exclusive(false)
         , parent(CACHE_PARENT_MEMORY)
         , replace_policy(REPLACE_POLICY_LRU)
+        , replace_policy_config(nullptr)
         , prefetcher(PREFETCH_POLICY_NONE)
         , miss_file("")
     {
@@ -89,6 +93,8 @@ struct cache_params_t {
     // Cache replacement policy as described by the runtime option
     // op_replace_policy (see ../common/options.cpp).
     std::string replace_policy;
+    // Parameters of cache replacement policy
+    cache_replacement_policy_config_t *replace_policy_config;
     // Type of prefetcher as described by the runtime option
     // op_data_prefetcher (see ../common/options.cpp).
     std::string prefetcher;

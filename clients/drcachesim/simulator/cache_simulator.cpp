@@ -344,10 +344,10 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file,
                          (int)cache_config.size, parent_,
                          new cache_stats_t((int)knobs_.line_size, cache_config.miss_file,
                                            warmup_enabled_, is_coherent_),
-                         create_cache_replacement_policy(cache_config.replace_policy,
-                                                         (int)cache_config.size /
-                                                             (int)knobs_.line_size,
-                                                         (int)cache_config.assoc),
+                         create_cache_replacement_policy(
+                             cache_config.replace_policy,
+                             (int)cache_config.size / (int)knobs_.line_size,
+                             (int)cache_config.assoc, cache_config.replace_policy_config),
                          get_prefetcher(cache_config.prefetcher), inclusion_policy,
                          is_coherent_, is_snooped ? snoop_id : -1,
                          is_snooped ? snoop_filter_ : nullptr, children)) {

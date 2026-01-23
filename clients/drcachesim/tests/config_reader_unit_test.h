@@ -48,6 +48,9 @@ void
 unit_test_inclusion_policy();
 
 void
+unit_test_replacement_policy();
+
+void
 unit_test_get_type_name();
 
 void

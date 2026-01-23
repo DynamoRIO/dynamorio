@@ -41,10 +41,21 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+struct cache_replacement_policy_config_t {
+    virtual ~cache_replacement_policy_config_t() = default;
+};
+
+struct rrip_config_t : cache_replacement_policy_config_t {
+    size_t rrpv_bits;
+    size_t rrpv_period;
+    size_t rrpv_long_per_period;
+};
+
 /// Initializes and returns a specific replacement policy.
 std::unique_ptr<cache_replacement_policy_t>
 create_cache_replacement_policy(const std::string &policy, int num_sets,
-                                int associativity);
+                                int associativity,
+                                cache_replacement_policy_config_t *config = nullptr);
 
 } // namespace drmemtrace
 } // namespace dynamorio
