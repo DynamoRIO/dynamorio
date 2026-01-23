@@ -31,7 +31,6 @@
  */
 
 #include <iostream>
-#include <functional>
 #include <assert.h>
 
 #include "../tools/reuse_distance.h"
