@@ -491,21 +491,24 @@ is_bbdup_enabled();
  * INIT
  */
 
-/* We initialize to 1 to account for the extra call at the end of our exit event.
- * This ensures we do not clean up until both our exit event is finished and
- * every user has called drmgr_exit() (to support legacy clients using the DR
- * exit event).
- */
-static int drmgr_init_count = 1;
+static int drmgr_init_count = 0;
 
 DR_EXPORT
 bool
 drmgr_init(void)
 {
-    /* Handle multiple sets of init/exit calls. Remember it starts at 1. */
+    /* Handle multiple sets of init/exit calls. */
     int count = dr_atomic_add32_return_sum(&drmgr_init_count, 1);
-    if (count > 2)
+    if (count > 1)
         return true;
+    /* To ensure we do not clean up until both our exit event is finished and
+     * every user has called drmgr_exit() (to support legacy clients using the
+     * DR exit event), we have an extra drmgr_exit() at the end of our exit
+     * event, which is balanced out by a double increment the first time here
+     * (the alternative of starting at 1 is broken by a repeat drmgr_init()
+     * before the exit event).
+     */
+    dr_atomic_add32_return_sum(&drmgr_init_count, 1);
 
     note_lock = dr_mutex_create();
 
@@ -649,7 +652,7 @@ our_exit_event(void)
         bbdup_insert_encoding_cb = NULL;
         bbdup_extract_cb = NULL;
         bbdup_stitch_cb = NULL;
-        dr_atomic_store32(&drmgr_init_count, 1);
+        dr_atomic_store32(&drmgr_init_count, 0);
     }
 }
 
@@ -661,9 +664,10 @@ drmgr_exit(void)
     int count = dr_atomic_add32_return_sum(&drmgr_init_count, -1);
     if (count != 0)
         return;
-    /* Because we started at 1, we know we have now seen both the end
-     * of our exit event and every user finish calling drmgr_exit() (to
-     * handle legacy clients using the DR exit event).
+    /* Because we did an extra increment at init and a call to here at DR's exit
+     * event, we know we have now seen both the end of our exit event and every
+     * user finish calling drmgr_exit() (to handle legacy clients using the DR
+     * exit event).
      */
     our_exit_event();
 }

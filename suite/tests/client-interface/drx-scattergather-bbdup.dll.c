@@ -115,13 +115,29 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     return DR_EMIT_DEFAULT; // NOCHECK STORE_TRANSLATIONS;
 }
 
+/* XXX : we need a way to only test the scatter/gather instructions in our
+ * test application, and ignore scatter/gather instructions from OS libraries.
+ * As AArch64 does not have annotations yet the best way to do this seems to be
+ * to use the module interface to check that the current module is the exe.
+ */
+static app_pc exe_start;
+
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, void **user_data)
 {
     uint num_sg_instrs = 0;
     bool is_emulation = false;
-    for (instr_t *instr = instrlist_first(bb); instr != NULL;
+    bool from_exe = false;
+    module_data_t *module = dr_lookup_module(dr_fragment_app_pc(tag));
+    if (module != NULL) {
+        from_exe = (module->start == exe_start);
+        dr_free_module_data(module);
+    } else {
+        DR_ASSERT(false);
+    }
+
+    for (instr_t *instr = instrlist_first(bb); instr != NULL && from_exe;
          instr = instr_get_next(instr)) {
         if (instr_is_gather(instr) || instr_is_scatter(instr)) {
             /* XXX i#2985: some scatter/gather instructions will not get expanded in
@@ -129,6 +145,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
              */
             IF_X64(dr_fprintf(STDERR, "Unexpected scatter or gather instruction\n"));
         }
+
         if (drmgr_is_emulation_start(instr)) {
             emulated_instr_t emulated_instr;
             emulated_instr.size = sizeof(emulated_instr);
@@ -426,4 +443,10 @@ dr_init(client_id_t id)
                                        DRMGR_PRIORITY_APP2APP_DRBBDUP - 1 };
     ok = drmgr_register_bb_app2app_event(event_bb_app2app, &pri_pre_bbdup);
     CHECK(ok, "drmgr register app2app failed");
+
+    module_data_t *exe = dr_get_main_module();
+    if (exe != NULL) {
+        exe_start = exe->start;
+        dr_free_module_data(exe);
+    }
 }

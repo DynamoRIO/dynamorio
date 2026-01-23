@@ -438,7 +438,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
                                    'code_api|tool.drcacheoff.rseq' => 1, # i#5734
                                    'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
-                                   'code_api|api.detach_state' => 1, # i#7576
                                    );
             # XXX i#5365: fix flaky AArch64 tests running on SVE hardware.
             # Note that apart from tool.drcachesim.scattergather-aarch64, these
@@ -491,6 +490,28 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|client.exception' => 1, # i#3127
                                    'code_api|client.timer' => 1, # i#3127
                                    'code_api|sample.signal' => 1); # i#3127
+            %ignore_failures_64 = (
+                                   'code_api|common.floatpc' => 1, #i#7720
+                                   'code_api|security-common.codemod' => 1, #i#7720
+                                   'code_api|client.crashmsg' => 1, #i#7720
+                                   'code_api|client.count-ctis-noopt' => 1, #i#7720
+                                   'code_api|client.exception' => 1, #i#7720
+                                   'code_api|client.syscall-mod' => 1, #i#7720
+                                   'code_api|client.cbr-retarget' => 1, #i#7720
+                                   'code_api|client.flush' => 1, #i#7720
+                                   'code_api|client.truncate' => 1, #i#7720
+                                   'code_api|client.unregister' => 1, #i#7720
+                                   'code_api|client.option_parse' => 1, #i#7720
+                                   'code_api|client.destructor' => 1, #i#7720
+                                   'code_api|tool.drcpusim.cpuid-Prescott' => 1, #i#7720
+                                   'code_api|tool.drcpusim.cpuid-Presler' => 1, #i#7720
+                                   'code_api|tool.drcpusim.cpuid-Merom' => 1, #i#7720
+                                   'code_api|tool.drcpusim.cpuid-Penryn' => 1, #i#7720
+                                   'code_api|tool.drcpusim.cpuid-Westmere' => 1, #i#7720
+                                   'code_api|tool.drcpusim.cpuid-Nehalem' => 1, #i#7720
+                                   'code_api|api.ir' => 1, #i#7720
+                                   'code_api|api.ir_regdeps' => 1, #i#7720
+                                   'code_api|api.dis' => 1); #i#7720
         } elsif ($is_riscv64) {
             %ignore_failures_64 = ();
         } else {

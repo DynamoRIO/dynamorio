@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _TEST_ANNOTATION_ARGUMENTS_H_
-#define _TEST_ANNOTATION_ARGUMENTS_H_ 1
+#define _TEST_ANNOTATION_ARGUMENTS_H_
 
 #include "dr_annotations_asm.h"
 

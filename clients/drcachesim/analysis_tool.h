@@ -34,7 +34,7 @@
  */
 
 #ifndef _ANALYSIS_TOOL_H_
-#define _ANALYSIS_TOOL_H_ 1
+#define _ANALYSIS_TOOL_H_
 
 /**
  * @file drmemtrace/analysis_tool.h

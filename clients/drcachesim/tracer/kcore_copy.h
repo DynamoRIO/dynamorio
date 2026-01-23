@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _KCORE_COPY_H_
-#define _KCORE_COPY_H_ 1
+#define _KCORE_COPY_H_
 
 #include <elf.h>
 

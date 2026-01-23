@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 /* header for library of core utilites shared with non-core: "drlibc" */
 
 #ifndef _DR_LIBC_H_
-#define _DR_LIBC_H_ 1
+#define _DR_LIBC_H_
 
 #ifdef UNIX
 /* _LARGEFILE64_SOURCE should make libc struct match kernel. */

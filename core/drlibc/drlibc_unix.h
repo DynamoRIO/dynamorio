@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
  */
 
 #ifndef _DRLIBC_UNIX_H_
-#define _DRLIBC_UNIX_H_ 1
+#define _DRLIBC_UNIX_H_
 
 /* Cross arch syscall nums for use with struct stat64. */
 #ifdef MACOS64

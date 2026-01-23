@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _DR_ALLOCATOR_H_
-#define _DR_ALLOCATOR_H_ 1
+#define _DR_ALLOCATOR_H_
 
 #include "dr_api.h"
 #include <cstdlib>

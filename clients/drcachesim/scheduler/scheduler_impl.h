@@ -33,7 +33,7 @@
 /* Private implementation of drmemtrace scheduler. */
 
 #ifndef _DRMEMTRACE_SCHEDULER_IMPL_H_
-#define _DRMEMTRACE_SCHEDULER_IMPL_H_ 1
+#define _DRMEMTRACE_SCHEDULER_IMPL_H_
 
 #define NOMINMAX // Avoid windows.h messing up std::max.
 #include <assert.h>

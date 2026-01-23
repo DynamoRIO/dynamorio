@@ -3,3 +3,5 @@ Core #0 schedule: (WHL_L_H_L_L_L_L_W|DI_D_D__|EM_E_M_|GF_F_F_)
 Core #1 schedule: (WHL_L_H_L_L_L_L_W|DI_D_D__|EM_E_M_|GF_F_F_)
 Core #2 schedule: (WHL_L_H_L_L_L_L_W|DI_D_D__|EM_E_M_|GF_F_F_)
 Core #3 schedule: (WHL_L_H_L_L_L_L_W|DI_D_D__|EM_E_M_|GF_F_F_)
+Core #0 switch-outs:
+.*

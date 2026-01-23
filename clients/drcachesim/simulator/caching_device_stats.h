@@ -34,7 +34,7 @@
  */
 
 #ifndef _CACHING_DEVICE_STATS_H_
-#define _CACHING_DEVICE_STATS_H_ 1
+#define _CACHING_DEVICE_STATS_H_
 
 #define NOMINMAX // Avoid windows.h messing up std::max.
 

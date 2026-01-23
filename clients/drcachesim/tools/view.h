@@ -31,7 +31,7 @@
  */
 
 #ifndef _VIEW_H_
-#define _VIEW_H_ 1
+#define _VIEW_H_
 
 #include <stdint.h>
 

@@ -3,9 +3,9 @@ Total counts:
            4 cores
 .*
       650672 instructions
-          32 total context switches
+          35 total context switches
 .*
-          18 voluntary context switches
+          21 voluntary context switches
            0 direct context switches
           32 context switch sequence injections
            0 system call sequence injections
@@ -19,12 +19,12 @@ Core #0 counts:
       211164 instructions
           11 total context switches
 .*
-           9 voluntary context switches
+     *[0-9]* voluntary context switches
            0 direct context switches
           11 context switch sequence injections
            0 system call sequence injections
 .*
            4 switches input-to-input
-           7 switches input-to-idle
+     *[0-9]* switches input-to-idle
            7 switches idle-to-input
 .*

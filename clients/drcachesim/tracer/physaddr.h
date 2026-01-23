@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _PHYSADDR_H_
-#define _PHYSADDR_H_ 1
+#define _PHYSADDR_H_
 
 #include <stddef.h>
 #include <stdint.h>

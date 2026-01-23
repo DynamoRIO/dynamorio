@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2025 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,9 +35,9 @@
  */
 
 #ifndef _CONFIG_READER_H_
-#define _CONFIG_READER_H_ 1
+#define _CONFIG_READER_H_
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <fstream>
 #include <map>
@@ -45,7 +45,6 @@
 #include <vector>
 
 #include "options.h"
-#include "cache.h"
 #include "cache_simulator_create.h"
 
 namespace dynamorio {
@@ -103,24 +102,6 @@ public:
     bool
     configure(std::istream *config_file, cache_simulator_knobs_t &knobs,
               std::map<std::string, cache_params_t> &caches);
-
-private:
-    std::istream *fin_;
-
-    bool
-    configure_cache(cache_params_t &cache);
-    bool
-    check_cache_config(int num_cores, std::map<std::string, cache_params_t> &caches_map);
-    bool
-    convert_string_to_size(const std::string &s, uint64_t &size);
-    bool
-    is_true(std::string bool_val)
-    {
-        if (bool_val == "true" || bool_val == "True" || bool_val == "TRUE") {
-            return true;
-        }
-        return false;
-    }
 };
 
 } // namespace drmemtrace

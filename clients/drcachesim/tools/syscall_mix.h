@@ -31,7 +31,7 @@
  */
 
 #ifndef _SYSCALL_MIX_H_
-#define _SYSCALL_MIX_H_ 1
+#define _SYSCALL_MIX_H_
 
 #include <stdint.h>
 

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -850,9 +850,18 @@ endmacro()
 set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
-CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
 if (UNIX)
-  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
+  CHECK_CXX_COMPILER_FLAG("-std=c++14" cxx14_available)
+  CHECK_CXX_COMPILER_FLAG("-std=c++17" cxx17_available)
+else ()
+  CHECK_CXX_COMPILER_FLAG("/std:c++14" cxx14_available)
+  CHECK_CXX_COMPILER_FLAG("/std:c++17" cxx17_available)
+endif()
+if (NOT cxx14_available)
+  FATAL_ERROR("A C++14-capable toolchain is required to build")
+endif ()
+if (UNIX)
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++14")
   # -std=c99 doesn't quite work
   # XXX case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
@@ -1022,6 +1031,7 @@ if (UNIX)
   endif ()
   set(LINK_EXTRA_FLAGS "")
 else (UNIX)
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} /std:c++14")
   # XXX: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
   # build in parallel, always.

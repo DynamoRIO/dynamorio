@@ -34,7 +34,7 @@
 /* dr_stats.h: DR's shared memory interface */
 
 #ifndef _DR_STATS_H_
-#define _DR_STATS_H_ 1
+#define _DR_STATS_H_
 
 #include "globals_shared.h"
 

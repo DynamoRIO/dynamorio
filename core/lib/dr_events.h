@@ -36,7 +36,7 @@
 /* Copyright (c) 2002 Hewlett-Packard Company */
 
 #ifndef _DR_EVENTS_H_
-#define _DR_EVENTS_H_ 1
+#define _DR_EVENTS_H_
 
 #include "dr_config.h"
 

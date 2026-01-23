@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -450,8 +450,8 @@ function (set_cflags source)
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     # configure_DynamoRIO_global removes unfavorable options for clients,
-    # re-adding -std=c++11.
-    string(REGEX REPLACE "-std=gnu99" "-std=c++11" cflags "${cflags}")
+    # re-adding -std=c++14.
+    string(REGEX REPLACE "-std=gnu99" "-std=c++14" cflags "${cflags}")
     if (WIN32)
       set(cflags "${cflags} /EHsc")
     endif (WIN32)
@@ -525,7 +525,8 @@ set(sve_tests
       client.drbbdup-drwrap-test client.drbbdup-emul-test client.process-id
       client.drreg-test client.low_on_memory client.tls client.drwrap-test
       client.drwrap-drreg-test drstatecmp-fuzz-app client.drutil-test client.stolen-reg
-      client.ldstex client.drsyms-test client.drwrap-test-detach api.dis-a64
+      client.ldstex client.drsyms-test client.drwrap-test-detach
+      client.save-restore-sve-registers api.dis-a64
       api.reenc-a64 api.opnd api.detach api.detach_state api.detach_signal
       api.detach_spawn api.detach_spawn_stress_FLAKY api.detach_spawn_quick_exit
       api.ibl-stress api.ibl-stress-aarch64-far-link_LONG api.static_startstop
@@ -2680,19 +2681,30 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     client.annotation-detection-opt annotation-detection.native
     client-interface/annotation-detection.c "")
   set(DynamoRIO_USE_LIBC ON)
-else (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
-  # We build the client.annotation-concurrency app even if we have no annotation
-  # support, since it is used in drcachesim tests.
-  add_exe(client.annotation-concurrency
-    client-interface/annotation-concurrency.c)
-  append_property_string(TARGET client.annotation-concurrency COMPILE_FLAGS
-    "-DANNOTATIONS_DISABLED")
-  link_with_pthread(client.annotation-concurrency)
-  tobuild_appdll(client.annotation-concurrency
-    client-interface/annotation-concurrency.c)
-  append_property_string(TARGET client.annotation-concurrency.appdll COMPILE_FLAGS
-    "-DANNOTATIONS_DISABLED")
-endif (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
+endif ()
+# We build a version of the client.annotation-concurrency app that has no
+# annotations as a cross-platform multi-threaded test.
+# XXX i#4141: Once raw2trace supports annotations, and we have annotation
+# support in aarch64, we can remove this.
+set(concurrent_test_app client.noannotation-concurrency)
+add_exe(client.noannotation-concurrency
+  client-interface/annotation-concurrency.c)
+append_property_string(TARGET client.noannotation-concurrency COMPILE_FLAGS
+  "-DANNOTATIONS_DISABLED")
+link_with_pthread(client.noannotation-concurrency)
+tobuild_appdll(client.noannotation-concurrency
+  client-interface/annotation-concurrency.c)
+append_property_string(TARGET client.noannotation-concurrency.appdll COMPILE_FLAGS
+  "-DANNOTATIONS_DISABLED")
+if (UNIX)
+  set(concurrent_test_args "libclient.noannotation-concurrency.appdll.so" "A" "4")
+  set(concurrent_test_args_shorter
+    "libclient.noannotation-concurrency.appdll.so" "A" "4" "64" "3")
+else (UNIX)
+  set(concurrent_test_args "client.noannotation-concurrency.appdll.dll" "A" "4")
+  set(concurrent_test_args_shorter
+    "client.noannotation-concurrency.appdll.dll" "A" "4" "64" "3")
+endif (UNIX)
 
 if (UNIX)
   # XXX i#1246: Make partial_module_map work for Windows as well.
@@ -2745,6 +2757,27 @@ if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   if ((LINUX OR WIN32) AND NOT RISCV64)
     tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
+
+    if (AARCH64) # TODO i#7765: Port external detach state tests to x86.
+      add_exe(client.external_detach_state client-interface/external_detach_state.c)
+      target_link_libraries(client.external_detach_state detach_state_shared)
+      link_with_pthread(client.external_detach_state)
+
+      macro (add_external_detach_test test_part_name)
+        torunonly_ci("client.external_detach_state_${test_part_name}"
+          client.external_detach_state client.detach_test.dll
+          client-interface/external_detach_state.runall "" "" "${test_part_name}")
+      endmacro()
+      add_external_detach_test(gprs_from_cache)
+      add_external_detach_test(gprs_from_DR1)
+      add_external_detach_test(gprs_from_DR2)
+      add_external_detach_test(status_reg_from_cache)
+      add_external_detach_test(status_reg_from_DR)
+      add_external_detach_test(xsp_from_cache)
+      add_external_detach_test(xsp_from_DR)
+      add_external_detach_test(sigstate)
+      add_external_detach_test(sigstate_from_handler)
+    endif ()
   endif ()
   if (UNIX)
     # Test attaching during a blocking syscall.
@@ -3204,6 +3237,7 @@ if (X86 OR AARCH64)
       # a stripped down version of memval_simple and gives the same output so we want the
       # templatex file to be processed the same way as it is for sample clients.
       set(client.drx-scattergather-instrumentation-fault_test_sample_client 1)
+      set(client.drx-scattergather-instrumentation-fault_timeout 240)
     endif ()
 
     if (UNIX AND ((X86 AND X64 AND proc_supports_avx) OR (AARCH64 AND proc_supports_sve)))
@@ -3223,6 +3257,11 @@ if (X86 OR AARCH64)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
+      # i#7769: Test instruction counting excludes REP emulation overhead.
+      add_exe(allasm_instcount
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_instcount.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_instcount)
     endif ()
   endif ()
 endif ()
@@ -3470,13 +3509,21 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
 endif (NOT RISCV64)
 if (LINUX AND X64 AND NOT RISCV64) # Will take extra work to port to 32-bit.
   # TODO i#3544: Port tests to RISC-V 64
+
+  set(detach_state_shared_c ${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.c)
+  add_split_asm_target("${detach_state_shared_c}" detach_state_shared_asm
+    generate_detach_state_shared_asm "_asm" "${asm_defs}" "${asm_deps}")
+  add_library(detach_state_shared STATIC
+    ${detach_state_shared_c} ${detach_state_shared_asm})
+  set_cflags("${detach_state_shared_c}")
+  set_sve_flags(detach_state_shared)
+  set_avx_flags(detach_state_shared)
+
   tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
   target_include_directories(api.detach_state PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
   link_with_pthread(api.detach_state)
-  set_source_files_properties(detach_state.c_asm.asm APPEND_LIST PROPERTIES
-    OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.h")
-  set_avx_flags(api.detach_state)
+  target_link_libraries(api.detach_state detach_state_shared)
 endif ()
 if (UNIX AND NOT RISCV64)
   if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
@@ -3924,8 +3971,8 @@ if (BUILD_CLIENTS)
       torunonly_drcachesim(phys_SUDO ${ci_shared_app} "-use_physical" "")
       set(tool.drcachesim.phys-threads_SUDO_sudo ON)
       set(tool.drcachesim.phys-threads_SUDO_expectbase "phys-threads")
-      torunonly_drcachesim(phys-threads_SUDO client.annotation-concurrency "-use_physical"
-        "${annotation_test_args_shorter}")
+      torunonly_drcachesim(phys-threads_SUDO ${concurrent_test_app} "-use_physical"
+        "${concurrent_test_args_shorter}")
     endif ()
 
     set(test_mode_flag "-test_mode")
@@ -3962,9 +4009,9 @@ if (BUILD_CLIENTS)
     # We use a many-threaded test with a small max and test that we only see
     # 1 thread, testing the thread ignore logic.  The max should be small enough
     # to not be flaky on any platform.
-    torunonly_drcachesim(delay-global client.annotation-concurrency
+    torunonly_drcachesim(delay-global ${concurrent_test_app}
       "-tool basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
-      "${annotation_test_args_shorter}")
+      "${concurrent_test_args_shorter}")
 
     torunonly_drcachesim(windows-simple ${ci_shared_app}
       "-trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K -tool basic_counts" "")
@@ -3989,22 +4036,22 @@ if (BUILD_CLIENTS)
     # We test -cpu_scheduling on several tests with many threads.
     # We use a smaller test (_shorter) to avoid taking multiple minutes on our
     # CI (i#4059; xref i#2063).
-    torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
-      "${annotation_test_args_shorter}")
+    torunonly_drcachesim(threads ${concurrent_test_app} "-cpu_scheduling"
+      "${concurrent_test_args_shorter}")
 
     # Threads test that reads the cache configuration from a config file.
-    torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
+    torunonly_drcachesim(threads-with-config-file ${concurrent_test_app}
       "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
-      "${annotation_test_args_shorter}")
+      "${concurrent_test_args_shorter}")
     set(tool.drcachesim.threads_timeout 150) # This test is long.
 
-    torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
-      "${annotation_test_args_shorter}")
+    torunonly_drcachesim(coherence ${concurrent_test_app} "-coherence"
+      "${concurrent_test_args_shorter}")
     set(tool.drcachesim.coherence_timeout 150) # This test is long.
 
     # TLB simulator's multi-thread sanity check
-    torunonly_drcachesim(TLB-threads client.annotation-concurrency
-      "-tool TLB -cpu_scheduling" "${annotation_test_args_shorter}")
+    torunonly_drcachesim(TLB-threads ${concurrent_test_app}
+      "-tool TLB -cpu_scheduling" "${concurrent_test_args_shorter}")
     # i#2063: this test can time out.
     set(tool.drcachesim.TLB-threads_timeout 150)
 
@@ -4467,11 +4514,11 @@ if (BUILD_CLIENTS)
       "@-tool@opcode_mix@-interval_instr_count@10000" "")
 
     # As for the online test, we check that only 1 thread is in the final trace.
-    torunonly_drcacheoff(max-global client.annotation-concurrency
+    torunonly_drcacheoff(max-global ${concurrent_test_app}
       # Include function tracing to sanity test combining with delay and max.
       # We don't use '-record_heap' as it is slow on Windows (i#6342).
       "-trace_after_instrs 20K -max_global_trace_refs 10K -record_function malloc|1"
-      "@-tool@basic_counts" "${annotation_test_args_shorter}")
+      "@-tool@basic_counts" "${concurrent_test_args_shorter}")
     set(tool.drcacheoff.max-global_timeout 240) # Can take >120s.
 
     torunonly_drcacheoff(delay-func ${ci_shared_app}
@@ -4894,6 +4941,8 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.scale_time_nodr ON)
         set(tool.drcacheoff.scale_time_nopost ON)
         torunonly_drcacheoff(scale_time tool.drcacheoff.scale_time "" "" "")
+        # This test can take more than 90s in 32-bit GA CI (i#7770).
+        set(tool.drcacheoff.scale_time_timeout 180)
 
         set(tool.drcacheoff.burst_sleep_nodr ON)
         set(tool.drcacheoff.burst_sleep_nopost ON)
@@ -5046,6 +5095,11 @@ if (BUILD_CLIENTS)
 
       torunonly_drcacheoff(allasm-dyn-inject-invariants allasm_repstr
         "-record_syscall 1|3" "@-sched_syscall_file@${syscall_file}@-tool@invariant_checker" "")
+
+      # i#7769: Test instruction counting excludes REP emulation overhead.
+      torunonly_drcacheoff(allasm-instcount allasm_instcount
+        "-trace_after_instrs 53" "@-tool@view" "")
+      unset(tool.drcacheoff.allasm-instcount_rawtemp) # use preprocessor
 
       set(tool.drcacheoff.longblock_nodr ON)
       torunonly_drcacheoff(longblock tool.drcacheoff.longblock
@@ -5597,9 +5651,11 @@ if (BUILD_CLIENTS)
           "${PROJECT_SOURCE_DIR}/clients/drpoints/tests")
       endmacro ()
 
-      # XXX i#7685: add more tests for different platforms (AARCH64).
       if (X86 AND X64)
         add_drpoints_asm_test(bb_12_instr_5_x86 10)
+      endif ()
+      if (AARCH64)
+        add_drpoints_asm_test(bb_12_instr_5_a64 10)
       endif ()
     endif ()
   endif ()
@@ -6056,6 +6112,17 @@ if (UNIX)
     torunonly(linux.steal-switch linux.thread linux/thread.c
       "-enable_reset -reset_at_fragment_count 100 -steal_reg_at_reset ${new_reg}" "")
   endif ()
+  if (AARCH64 AND LINUX)
+    if (proc_supports_sve OR proc_supports_sve2)
+      set(client.save-restore-sve-registers_client_source
+        "client-interface/redirect_execution.dll.c")
+      tobuild_ci(client.save-restore-sve-registers common/aarch64_sve.asm "" "" "")
+      set_target_properties(
+        client.save-restore-sve-registers PROPERTIES LINKER_LANGUAGE C)
+      append_link_flags(client.save-restore-sve-registers
+        "-nostartfiles -nodefaultlibs -static")
+    endif()
+  endif()
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig pthreads/ptsig.c)
@@ -6085,6 +6152,7 @@ if (UNIX)
   if (AARCH64)
     # App to test register state before and after attaching.
     add_executable(linux.attach_state linux/attach_state.c linux/attach_state_aarch64.asm)
+    set_sve_flags(linux.attach_state)
   endif ()
   torunonly(linux.reset linux.infloop linux/reset.runall "-enable_reset" "-v")
   if (NOT X64 AND NOT ARM) # XXX i#1551: add coarse-grain ARM support
@@ -6576,6 +6644,10 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     -client ${drsyscall_libpath} 0 "" ${dr_test_ops} -- ${app_path})
   use_DynamoRIO_extension(client.drsyscall-test.dll drmgr)
   use_DynamoRIO_extension(client.drsyscall-test.dll drsyscall)
+
+  tobuild_api(client.drsyscall-record-lib-test
+   client-interface/drsyscall-record-lib-test.c "" "" OFF ON OFF)
+  use_DynamoRIO_extension(client.drsyscall-record-lib-test drsyscall_record_lib_static)
 
   tobuild_ci(client.strace-test client-interface/drsyscall-test.c "" "" "")
   get_target_path_for_execution(strace_test_libpath client.strace-test.dll

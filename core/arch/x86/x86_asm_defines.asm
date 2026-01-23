@@ -40,7 +40,7 @@
  */
 
 #ifndef _X86_ASM_DEFINES_ASM_
-#define _X86_ASM_DEFINES_ASM_ 1
+#define _X86_ASM_DEFINES_ASM_
 
 /* We should give asm_defines.asm all unique names and then include globals.h
  * and avoid all this duplication!

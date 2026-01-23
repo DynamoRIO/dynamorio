@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,7 @@
  */
 
 #ifndef _OS_PRIVATE_H_
-#define _OS_PRIVATE_H_ 1
+#define _OS_PRIVATE_H_
 
 #include <signal.h> /* for stack_t */
 #include "include/siginfo.h"

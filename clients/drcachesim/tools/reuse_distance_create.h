@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* reuse-distance tool creation */
 
 #ifndef _REUSE_DISTANCE_CREATE_H_
-#define _REUSE_DISTANCE_CREATE_H_ 1
+#define _REUSE_DISTANCE_CREATE_H_
 
 #include "analysis_tool.h"
 

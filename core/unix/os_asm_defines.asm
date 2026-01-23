@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _OS_ASM_DEFINES_ASM_
-#define _OS_ASM_DEFINES_ASM_ 1
+#define _OS_ASM_DEFINES_ASM_
 
 /* XXX: keep in sync with TLS_MAGIC_OFFSET, etc. in os.c.
  * We have checks in os_tls_init() and privload_mod_tls_init().

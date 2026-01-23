@@ -25,3 +25,5 @@ Core #0 schedule: [A-I][A-Ia-i_]*
 Core #1 schedule: [A-Z][A-Ia-i_]*
 Core #2 schedule: _[A-Ia-i_]*
 Core #3 schedule: _[A-Ia-i_]*
+Core #0 switch-outs:
+.*

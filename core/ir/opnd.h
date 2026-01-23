@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,7 +38,7 @@
 /* file "opnd.h" -- opnd_t definitions and utilities */
 
 #ifndef _OPND_H_
-#define _OPND_H_ 1
+#define _OPND_H_
 
 #ifdef WINDOWS
 /* disabled warning for

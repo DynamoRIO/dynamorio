@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,7 +36,7 @@
  */
 
 #ifndef _ADVAPI32_REDIR_H_
-#define _ADVAPI32_REDIR_H_ 1
+#define _ADVAPI32_REDIR_H_
 
 #include "../../globals.h"
 #include "../../module_shared.h"

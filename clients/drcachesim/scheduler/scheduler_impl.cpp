@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -906,10 +906,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
                 tid2input_[workload_tid_t(workload_idx, it.first)] = it.second;
             }
         }
-        int output_limit = 0;
-        if (workload.struct_size > offsetof(workload_info_t, output_limit))
-            output_limit = workload.output_limit;
-        workloads_.emplace_back(output_limit, std::move(inputs_in_workload));
+        workloads_.emplace_back(workload.output_limit, std::move(inputs_in_workload));
         if (!check_valid_input_limits(workload, reader_info))
             return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
         if (!workload.times_of_interest.empty()) {
@@ -1108,11 +1105,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     }
     if (options_.quantum_duration > 0) {
-        if (options_.struct_size > offsetof(scheduler_options_t, quantum_duration_us)) {
-            error_string_ = "quantum_duration is deprecated; use quantum_duration_us and "
-                            "time_units_per_us or quantum_duration_instrs";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
+        VPRINT(this, 1,
+               "quantum_duration is deprecated; use quantum_duration_us and "
+               "time_units_per_us or quantum_duration_instrs");
         if (options_.quantum_unit == sched_type_t::QUANTUM_INSTRUCTIONS) {
             options_.quantum_duration_instrs = options_.quantum_duration;
         } else {
@@ -1129,11 +1124,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     }
     if (options_.block_time_scale > 0) {
-        if (options_.struct_size > offsetof(scheduler_options_t, block_time_multiplier)) {
-            error_string_ = "quantum_duration is deprecated; use block_time_multiplier "
-                            "and time_units_per_us";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
+        VPRINT(this, 1,
+               "block_time_scale is deprecated; use block_time_multiplier "
+               "and time_units_per_us");
         options_.block_time_multiplier =
             static_cast<double>(options_.block_time_scale) / options_.time_units_per_us;
         VPRINT(this, 2, "Legacy support: setting block_time_multiplier to %6.3f\n",
@@ -1144,11 +1137,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::legacy_field_support()
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     }
     if (options_.block_time_max > 0) {
-        if (options_.struct_size > offsetof(scheduler_options_t, block_time_max_us)) {
-            error_string_ = "quantum_duration is deprecated; use block_time_max_us "
-                            "and time_units_per_us";
-            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
-        }
+        VPRINT(this, 1,
+               "block_time_max is deprecated; use block_time_max_us "
+               "and time_units_per_us");
         options_.block_time_max_us = static_cast<uint64_t>(
             static_cast<double>(options_.block_time_max) / options_.time_units_per_us);
         VPRINT(this, 2, "Legacy support: setting block_time_max_us to %" PRIu64 "\n",
@@ -1451,6 +1442,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::remove_zero_instruction_segments(
         std::sort(
             input_sched[input_idx].begin(), input_sched[input_idx].end(),
             [](const schedule_input_tracker_t &l, const schedule_input_tracker_t &r) {
+                if (l.timestamp == r.timestamp) {
+                    return l.start_instruction < r.start_instruction;
+                }
                 return l.timestamp < r.timestamp;
             });
         uint64_t prev_start = 0;
@@ -1486,6 +1480,11 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_s
     // size.  Unfortunately we need to construct input_sched and sort it for each input
     // in order to even detect this issue; we could bump the trace version to let us
     // know it's not present if these steps become overhead concerns.
+    // We have since bumped the version for other features, so if this trace is
+    // beyond those increases we do know the bug isn't there (we assume a new trace
+    // is never processed with an old raw2trace).
+    if (inputs_[0].reader->get_version() >= TRACE_ENTRY_VERSION_BRANCH_INFO)
+        return sched_type_t::STATUS_SUCCESS;
 
     // We store the actual instruction count for each timestamp, for each input, keyed
     // by timestamp so we can look it up when iterating over the per-cpu schedule.  We
@@ -2895,15 +2894,19 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
         return stream_status_t::STATUS_OK;
     } else if (prev_input != sched_type_t::INVALID_INPUT_ORDINAL &&
                new_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+        VPRINT(this, 2, "Switch on output %d input-to-input %d => %d\n", output,
+               prev_input, new_input);
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT];
     } else if (new_input == sched_type_t::INVALID_INPUT_ORDINAL) {
         // XXX: For now, we do not inject a kernel context switch sequence on
         // input-to-idle transitions (note that we do so on idle-to-input though).
         // However, we may want to inject some other suitable sequence, but we're not
         // sure yet.
+        VPRINT(this, 2, "Switch on output %d input-to-idle %d", output, prev_input);
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE];
         return stream_status_t::STATUS_OK;
     } else {
+        VPRINT(this, 2, "Switch on output %d idle-to-input %d", output, new_input);
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
         // Reset the flag so we'll try to steal if we go idle again.
         outputs_[output].tried_to_steal_on_idle = false;

@@ -36,7 +36,7 @@
  */
 
 #ifndef _ANALYZER_H_
-#define _ANALYZER_H_ 1
+#define _ANALYZER_H_
 
 /**
  * @file drmemtrace/analyzer.h

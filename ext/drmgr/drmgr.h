@@ -35,7 +35,7 @@
  */
 
 #ifndef _DRMGR_H_
-#define _DRMGR_H_ 1
+#define _DRMGR_H_
 
 /**
  * @file drmgr.h

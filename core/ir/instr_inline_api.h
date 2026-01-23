@@ -31,7 +31,7 @@
  */
 
 #ifndef _DR_IR_INSTR_INLINE_H_
-#define _DR_IR_INSTR_INLINE_H_ 1
+#define _DR_IR_INSTR_INLINE_H_
 
 /**************************************************
  * INSTRUCTION ROUTINE INLINING SUPPORT

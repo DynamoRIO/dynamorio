@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* compressed_file_reader: reads compressed files containing memory traces. */
 
 #ifndef _COMPRESSED_FILE_READER_H_
-#define _COMPRESSED_FILE_READER_H_ 1
+#define _COMPRESSED_FILE_READER_H_
 
 #include <zlib.h>
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* zipfile_file_reader: reads zipfile files containing memory traces. */
 
 #ifndef _ZIPFILE_FILE_READER_H_
-#define _ZIPFILE_FILE_READER_H_ 1
+#define _ZIPFILE_FILE_READER_H_
 
 #include <zlib.h>
 #include "minizip/unzip.h"

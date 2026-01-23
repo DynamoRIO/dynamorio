@@ -32,7 +32,7 @@
  */
 
 #ifndef _DR_TOOLS_H_
-#define _DR_TOOLS_H_ 1
+#define _DR_TOOLS_H_
 
 /**************************************************
  * TOP-LEVEL ROUTINES

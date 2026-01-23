@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,7 +53,7 @@
  */
 
 #ifndef _SNAPPY_FILE_WRITER_H_
-#define _SNAPPY_FILE_WRITER_H_ 1
+#define _SNAPPY_FILE_WRITER_H_
 
 #include <snappy.h>
 #include "snappy_consts.h"

@@ -99,11 +99,17 @@ create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, reg_type_t 
         break;
     case SVE_ZREG_TYPE:
         opsz = opnd_size_from_bytes(proc_get_vector_length_bytes());
-        offset = num_saved * proc_get_vector_length_bytes();
+        // SVE registers (Z0-Z31) are mapped to a contiguous array of dr_simd_t.
+        // Each Z-register occupies a distinct element in the array, indexed by its
+        // architectural register number.
+        offset = num_saved * sizeof(dr_simd_t);
         break;
     case SVE_PREG_TYPE:
         opsz = opnd_size_from_bytes(proc_get_vector_length_bytes() / 8);
-        offset = num_saved * (proc_get_vector_length_bytes() / 8);
+        // SVE predicate registers (P0-P15) are mapped to a contiguous array of dr_svep_t.
+        // Each P-register occupies a distinct element in the array, indexed by its
+        // architectural register number.
+        offset = num_saved * sizeof(dr_svep_t);
         break;
     default: ASSERT_NOT_REACHED();
     }

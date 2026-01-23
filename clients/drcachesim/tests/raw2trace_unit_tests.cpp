@@ -3886,9 +3886,9 @@ test_negative_timestamps(void *drcontext)
         instrlist_t *ilist = instrlist_create(drcontext);
         constexpr uint64_t TIME_A = 100;
         constexpr uint64_t TIME_B = 110;
-        constexpr uint64_t TIME_C = 108; // Negative but beyond threshold.
+        constexpr uint64_t TIME_C = 107; // Negative but beyond threshold.
         constexpr uint64_t TIME_D = 111;
-        constexpr uint64_t TIME_E = 110; // Negative and under threshold.
+        constexpr uint64_t TIME_E = 109; // Negative and under threshold.
 
         std::vector<offline_entry_t> raw;
         raw.push_back(make_header());

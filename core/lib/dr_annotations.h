@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DYNAMORIO_ANNOTATIONS_H_
-#define _DYNAMORIO_ANNOTATIONS_H_ 1
+#define _DYNAMORIO_ANNOTATIONS_H_
 
 #include "dr_annotations_asm.h"
 

@@ -33,7 +33,7 @@
 /* Scheduler of traced software threads onto simulated cpus. */
 
 #ifndef _DRMEMTRACE_SCHEDULER_H_
-#define _DRMEMTRACE_SCHEDULER_H_ 1
+#define _DRMEMTRACE_SCHEDULER_H_
 
 /**
  * @file drmemtrace/scheduler.h

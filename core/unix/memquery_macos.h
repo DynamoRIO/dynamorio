@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _MEMQUERY_MACOS_H_
-#define _MEMQUERY_MACOS_H_ 1
+#define _MEMQUERY_MACOS_H_
 
 /* Translate mach flags to memprot flags.  They happen to equal the mmap
  * flags, but best to not rely on that.

@@ -37,7 +37,7 @@
  */
 
 #ifndef _HOTPATCH_H_
-#define _HOTPATCH_H_ 1
+#define _HOTPATCH_H_
 
 #ifdef HOT_PATCHING_INTERFACE /* Around the whole file */
 

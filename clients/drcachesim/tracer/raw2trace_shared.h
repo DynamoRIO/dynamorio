@@ -34,7 +34,7 @@
  */
 
 #ifndef _RAW2TRACE_SHARED_H_
-#define _RAW2TRACE_SHARED_H_ 1
+#define _RAW2TRACE_SHARED_H_
 
 /**
  * @file drmemtrace/raw2trace_shared.h

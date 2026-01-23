@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  */
 
 #ifndef _HISTOGRAM_H_
-#define _HISTOGRAM_H_ 1
+#define _HISTOGRAM_H_
 
 #include <stddef.h>
 #include <stdint.h>

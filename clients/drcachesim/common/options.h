@@ -33,7 +33,7 @@
 /* shared options for the frontend, the client, and the documentation */
 
 #ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+#define _OPTIONS_H_
 
 // Tool names (for -tool option).
 #define CPU_CACHE_LEGACY "cache"

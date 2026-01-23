@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DBGHELP_IMPORTS_H_
-#define _DBGHELP_IMPORTS_H_ 1
+#define _DBGHELP_IMPORTS_H_
 
 #if _MSC_VER <= 1400 /* VS2005- */
 /* Not present in VS2005 DbgHelp.h.  Our own dbghelp_imports.lib lets us link.

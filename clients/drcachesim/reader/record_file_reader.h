@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _RECORD_FILE_READER_H_
-#define _RECORD_FILE_READER_H_ 1
+#define _RECORD_FILE_READER_H_
 
 #include <assert.h>
 #include <iterator>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
  */
 
 #ifndef _EXTERNAL_TOOL_CREATOR_H_
-#define _EXTERNAL_TOOL_CREATOR_H_ 1
+#define _EXTERNAL_TOOL_CREATOR_H_
 
 #include "analysis_tool.h"
 #include "dynamic_lib.h"

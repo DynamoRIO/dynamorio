@@ -52,14 +52,17 @@ main(int argc, char **argv)
 #ifdef WINDOWS
         int *my_integer = (int *)HeapAlloc(heap, HEAP_ZERO_MEMORY, sizeof(int));
 #else
-        int *my_integer = (int *)malloc(sizeof(int));
+        /* Use 'volatile' to stop the compiler optimizing away the calls to
+         * malloc().
+         */
+        volatile int *my_integer = (int *)malloc(sizeof(int));
 #endif
         *my_integer = 9;
         total += *my_integer;
 #ifdef WINDOWS
         HeapFree(heap, 0, my_integer);
 #else
-        free(my_integer);
+        free((void *)my_integer);
 #endif
     }
 

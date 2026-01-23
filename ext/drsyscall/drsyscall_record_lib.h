@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 #ifndef _DRSYSCALL_RECORD_LIB_H_
-#define _DRSYSCALL_RECORD_LIB_H_ 1
+#define _DRSYSCALL_RECORD_LIB_H_
 #include <stdio.h>
 #include <unistd.h>
 
@@ -46,6 +46,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define DRSYSCALL_ITERATE_RECORDS_BUFFER_SIZE 8192
 
 /**
  * A user provided function to read syscall records. Returns the number of bytes read.

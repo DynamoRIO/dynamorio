@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  */
 
 #ifndef _OS_PUBLIC_H_
-#define _OS_PUBLIC_H_ 1
+#define _OS_PUBLIC_H_
 
 #ifdef LINUX
 #    include "include/sigcontext.h"

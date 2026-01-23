@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -645,9 +645,10 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
          * store the base reg directly and add the disp during post-processing.
          */
         reg_addr = opnd_get_base(ref);
-        if (opnd_get_base(ref) == reg_ptr) {
-            /* Here we do need a scratch reg, and raw2trace can't identify this case:
-             * so we set disp to 0 and use the regular path below.
+        if (opnd_get_base(ref) == reg_ptr || opnd_get_base(ref) == dr_get_stolen_reg()) {
+            /* Here we do need a scratch reg, and raw2trace can't identify these cases:
+             * so we set disp to 0 (since raw2trace will add it on) and use the
+             * regular path below.
              */
             opnd_set_disp(&ref, 0);
         } else

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -732,61 +732,6 @@ test_legacy_fields()
             }
         }
         inputs[i].push_back(test_util::make_exit(tid));
-    }
-    {
-        // Test invalid quantum.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(
-            std::unique_ptr<test_util::mock_reader_t>(
-                new test_util::mock_reader_t(inputs[0])),
-            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
-            TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
-        sched_ops.quantum_duration = QUANTUM_DURATION;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
-    }
-    {
-        // Test invalid block scale.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(
-            std::unique_ptr<test_util::mock_reader_t>(
-                new test_util::mock_reader_t(inputs[0])),
-            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
-            TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.block_time_scale = BLOCK_SCALE;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
-    }
-    {
-        // Test invalid block max.
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(
-            std::unique_ptr<test_util::mock_reader_t>(
-                new test_util::mock_reader_t(inputs[0])),
-            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
-            TID_BASE);
-        sched_inputs.emplace_back(std::move(readers));
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS);
-        sched_ops.block_time_max = BLOCK_MAX;
-        scheduler_t scheduler;
-        assert(scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) ==
-               scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
     }
     {
         // Test valid legacy fields.
@@ -5080,73 +5025,150 @@ test_replay_as_traced_i6107_workaround()
     static constexpr uint64_t TIMESTAMP_BASE = 100;
     static constexpr int CPU = 6;
 
-    std::vector<trace_entry_t> inputs[NUM_INPUTS];
-    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
-        memref_tid_t tid = TID_BASE + input_idx;
-        inputs[input_idx].push_back(test_util::make_thread(tid));
-        inputs[input_idx].push_back(test_util::make_pid(1));
-        for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
-             ++step_idx) {
-            inputs[input_idx].push_back(test_util::make_timestamp(101 + step_idx));
-            for (int instr_idx = 0; instr_idx < SCHED_STEP_INSTRS; ++instr_idx) {
-                inputs[input_idx].push_back(test_util::make_instr(42 + instr_idx));
-            }
-        }
-        inputs[input_idx].push_back(test_util::make_exit(tid));
-    }
-
-    // Synthesize a cpu-schedule file with the i#6107 bug.
-    // Interleave the two inputs to test handling that.
-    std::string cpu_fname = "tmp_test_cpu_i6107.zip";
     {
-        std::vector<schedule_entry_t> sched;
-        for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
-             ++step_idx) {
-            for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
-                sched.emplace_back(TID_BASE + input_idx, TIMESTAMP_BASE + step_idx, CPU,
-                                   // The bug has modulo chunk count as the count.
-                                   step_idx * SCHED_STEP_INSTRS % CHUNK_NUM_INSTRS);
+        std::vector<trace_entry_t> inputs[NUM_INPUTS];
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            memref_tid_t tid = TID_BASE + input_idx;
+            inputs[input_idx].push_back(test_util::make_thread(tid));
+            inputs[input_idx].push_back(test_util::make_pid(1));
+            // Deliberately not inserting a version.
+            for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+                 ++step_idx) {
+                inputs[input_idx].push_back(test_util::make_timestamp(101 + step_idx));
+                for (int instr_idx = 0; instr_idx < SCHED_STEP_INSTRS; ++instr_idx) {
+                    inputs[input_idx].push_back(test_util::make_instr(42 + instr_idx));
+                }
             }
+            inputs[input_idx].push_back(test_util::make_exit(tid));
         }
-        std::ostringstream cpu_string;
-        cpu_string << CPU;
-        zipfile_ostream_t outfile(cpu_fname);
-        std::string err = outfile.open_new_component(cpu_string.str());
-        assert(err.empty());
-        if (!outfile.write(reinterpret_cast<char *>(sched.data()),
-                           sched.size() * sizeof(sched[0])))
-            assert(false);
-    }
+        // Synthesize a cpu-schedule file with the i#6107 bug.
+        // Interleave the two inputs to test handling that.
+        std::string cpu_fname = "tmp_test_cpu_i6107.zip";
+        {
+            std::vector<schedule_entry_t> sched;
+            for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+                 ++step_idx) {
+                for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+                    sched.emplace_back(TID_BASE + input_idx, TIMESTAMP_BASE + step_idx,
+                                       CPU,
+                                       // The bug has modulo chunk count as the count.
+                                       step_idx * SCHED_STEP_INSTRS % CHUNK_NUM_INSTRS);
+                }
+            }
+            std::ostringstream cpu_string;
+            cpu_string << CPU;
+            zipfile_ostream_t outfile(cpu_fname);
+            std::string err = outfile.open_new_component(cpu_string.str());
+            assert(err.empty());
+            if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+                assert(false);
+        }
 
-    // Replay the recorded schedule.
-    std::vector<scheduler_t::input_workload_t> sched_inputs;
-    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
-        memref_tid_t tid = TID_BASE + input_idx;
-        std::vector<scheduler_t::input_reader_t> readers;
-        readers.emplace_back(
-            std::unique_ptr<test_util::mock_reader_t>(
-                new test_util::mock_reader_t(inputs[input_idx])),
-            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
-            tid);
-        sched_inputs.emplace_back(std::move(readers));
+        // Replay the recorded schedule.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            memref_tid_t tid = TID_BASE + input_idx;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[input_idx])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        zipfile_istream_t infile(cpu_fname);
+        sched_ops.replay_as_traced_istream = &infile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        // Since it initialized we didn't get an invalid schedule order.
+        // Make sure the stream works too.
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+        }
     }
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
-                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
-                                               scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/2);
-    zipfile_istream_t infile(cpu_fname);
-    sched_ops.replay_as_traced_istream = &infile;
-    scheduler_t scheduler;
-    if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
-    // Since it initialized we didn't get an invalid schedule order.
-    // Make sure the stream works too.
-    auto *stream = scheduler.get_stream(0);
-    memref_t memref;
-    for (scheduler_t::stream_status_t status = stream->next_record(memref);
-         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
-        assert(status == scheduler_t::STATUS_OK);
+    {
+        // Now test identical timestamps, where the workaround would fail,
+        // except set a newer version number known to not have the bug.
+        std::vector<trace_entry_t> inputs[NUM_INPUTS];
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            memref_tid_t tid = TID_BASE + input_idx;
+            inputs[input_idx].push_back(test_util::make_thread(tid));
+            inputs[input_idx].push_back(test_util::make_pid(1));
+            inputs[input_idx].push_back(
+                test_util::make_version(TRACE_ENTRY_VERSION_BRANCH_INFO));
+            for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+                 ++step_idx) {
+                inputs[input_idx].push_back(test_util::make_timestamp(101 + step_idx));
+                for (int instr_idx = 0; instr_idx < SCHED_STEP_INSTRS; ++instr_idx) {
+                    inputs[input_idx].push_back(test_util::make_instr(42 + instr_idx));
+                }
+            }
+            inputs[input_idx].push_back(test_util::make_exit(tid));
+        }
+        std::string cpu_fname = "tmp_test_cpu_i6107_duptimes.zip";
+        {
+            std::vector<schedule_entry_t> sched;
+            for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+                 ++step_idx) {
+                for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+                    uint64_t timestamp = TIMESTAMP_BASE + step_idx;
+                    if (step_idx == 1 && input_idx == NUM_INPUTS - 1)
+                        --timestamp; // Duplicate the prior timstamp.
+                    sched.emplace_back(TID_BASE + input_idx, timestamp, CPU,
+                                       // There's no modulo bug.
+                                       step_idx * SCHED_STEP_INSTRS);
+                }
+            }
+            std::ostringstream cpu_string;
+            cpu_string << CPU;
+            zipfile_ostream_t outfile(cpu_fname);
+            std::string err = outfile.open_new_component(cpu_string.str());
+            assert(err.empty());
+            if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+                assert(false);
+        }
+
+        // Replay the recorded schedule.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+            memref_tid_t tid = TID_BASE + input_idx;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[input_idx])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        zipfile_istream_t infile(cpu_fname);
+        sched_ops.replay_as_traced_istream = &infile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        // Since it initialized we didn't get an invalid schedule order.
+        // Make sure the stream works too.
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+        }
     }
 #endif
 }
@@ -5439,6 +5461,126 @@ test_replay_as_traced_from_file(const char *testdir)
 (.|\n)*
 Core #10: 872901 => 872905.*
 )DELIM")));
+#endif
+}
+
+static void
+test_replay_wrong_inputs()
+{
+#ifdef HAS_ZIP
+    std::cerr << "\n----------------\nTesting replay with the wrong inputs\n";
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int QUANTUM_INSTRS = 3;
+    static constexpr int NUM_INSTRS_A = 12;
+    static constexpr int NUM_INSTRS_B = 6;
+    static const char *const CORE0_SCHED_STRING = "AAABBBAAABBB.AAAAAA.";
+
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        for (int j = 0; j < (i == 0 ? NUM_INSTRS_A : NUM_INSTRS_B); j++)
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        inputs[i].push_back(test_util::make_exit(tid));
+    }
+    std::string record_fname = "tmp_test_replay_wrong.zip";
+
+    // Record.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; ++i) {
+            memref_tid_t tid = TID_BASE + i;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration_instrs = QUANTUM_INSTRS;
+        sched_ops.migration_threshold_us = 0;
+        zipfile_ostream_t outfile(record_fname);
+        sched_ops.schedule_record_ostream = &outfile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+    }
+    {
+        replay_file_checker_t checker;
+        zipfile_istream_t infile(record_fname);
+        std::string res = checker.check(&infile);
+        if (!res.empty())
+            std::cerr << "replay file checker failed: " << res;
+        assert(res.empty());
+    }
+    // Now replay with the inputs reversed and make sure it doesn't hang.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = NUM_INPUTS - 1; i >= 0; --i) {
+            memref_tid_t tid = TID_BASE + i;
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                tid);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        zipfile_istream_t infile(record_fname);
+        sched_ops.schedule_replay_istream = &infile;
+
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+        std::vector<bool> eof(NUM_OUTPUTS, false);
+        for (int i = 0; i < NUM_OUTPUTS; i++)
+            outputs[i] = scheduler.get_stream(i);
+        int num_eof = 0;
+        bool hit_error = false;
+        while (num_eof < NUM_OUTPUTS && !hit_error) {
+            for (int i = 0; i < NUM_OUTPUTS; i++) {
+                if (eof[i])
+                    continue;
+                memref_t memref;
+                scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+                if (status == scheduler_t::STATUS_EOF) {
+                    ++num_eof;
+                    eof[i] = true;
+                    continue;
+                } else if (status == scheduler_t::STATUS_WAIT ||
+                           status == scheduler_t::STATUS_IDLE) {
+                    continue;
+                } else if (status != scheduler_t::STATUS_OK) {
+                    hit_error = true;
+                    break;
+                }
+            }
+        }
+        assert(hit_error);
+    }
 #endif
 }
 
@@ -9046,6 +9188,7 @@ test_main(int argc, const char *argv[])
     test_replay_as_traced_i6107_workaround();
     test_replay_as_traced_dup_start();
     test_replay_as_traced_sort();
+    test_replay_wrong_inputs();
     test_times_of_interest();
     test_inactive();
     test_direct_switch();

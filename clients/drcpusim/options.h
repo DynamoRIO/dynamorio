@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* shared options for both the client and the documentation */
 
 #ifndef _OPTIONS_H_
-#define _OPTIONS_H_ 1
+#define _OPTIONS_H_
 
 #include <string>
 #include "droption.h"

@@ -42,7 +42,7 @@
  */
 
 #ifndef _OS_TLS_H_
-#define _OS_TLS_H_ 1
+#define _OS_TLS_H_
 
 #include "os_private.h" /* ASM_XAX */
 #if defined(ARM) && defined(LINUX)

@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #ifndef _DYNAMORIO_ANNOTATIONS_ASM_H_
-#define _DYNAMORIO_ANNOTATIONS_ASM_H_ 1
+#define _DYNAMORIO_ANNOTATIONS_ASM_H_
 
 /* This header defines the annotation functions and code sequences. For a high-level
  * overview, see https://dynamorio.org/page_annotations.html.
@@ -81,7 +81,8 @@
 #    endif
 #endif
 
-#if !defined(DYNAMORIO_ANNOTATIONS_X86) || defined(__clang__)
+#if !defined(DYNAMORIO_ANNOTATIONS_X86) || defined(__clang__) || \
+    defined(ANNOTATIONS_DISABLED)
 /* TODO i#1672: Add annotation support to AArchXX.
  * For now, we provide a fallback so we can build the annotation-concurrency
  * app for use with drcachesim tests.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,7 @@
  */
 
 #ifndef _DECODE_CACHE_H_
-#define _DECODE_CACHE_H_ 1
+#define _DECODE_CACHE_H_
 
 #include "memref.h"
 #include "raw2trace_shared.h"

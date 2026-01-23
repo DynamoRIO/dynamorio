@@ -37,7 +37,7 @@
  */
 
 #ifndef _SIGNAL_PRIVATE_H_
-#define _SIGNAL_PRIVATE_H_ 1
+#define _SIGNAL_PRIVATE_H_
 
 /* We have an ordering issue so we split out LINUX from globals.h */
 #include "configure.h"

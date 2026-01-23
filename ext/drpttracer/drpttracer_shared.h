@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* DynamoRIO Intel PT Tracing Extension. */
 
 #ifndef _DRPTTRACER_SHARED_H_
-#define _DRPTTRACER_SHARED_H_ 1
+#define _DRPTTRACER_SHARED_H_
 
 /**
  * @file drpttracer_shared.h

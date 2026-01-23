@@ -35,7 +35,7 @@
  */
 
 #ifndef _ANALYZER_MULTI_H_
-#define _ANALYZER_MULTI_H_ 1
+#define _ANALYZER_MULTI_H_
 
 #include "analyzer.h"
 #include "archive_ostream.h"
