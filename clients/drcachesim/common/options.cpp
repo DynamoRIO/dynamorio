@@ -803,8 +803,6 @@ droption_t<bool> op_reuse_distance_histogram(
 droption_t<unsigned int> op_reuse_skip_dist_deprecated(
     DROPTION_SCOPE_FRONTEND, "reuse_skip_dist", 500,
     "For performance tuning: distance between skip nodes.",
-    "Specifies the distance between nodes in the skip list.  For optimal performance, "
-    "set this to a value close to the estimated average reuse distance of the dataset."
     "DEPRECATED: skip lists are no longer used.");
 droption_t<unsigned int> op_reuse_distance_limit(
     DROPTION_SCOPE_FRONTEND, "reuse_distance_limit", 0,
@@ -812,12 +810,10 @@ droption_t<unsigned int> op_reuse_distance_limit(
     "Specifies the maximum length of the access history list used for distance "
     "calculation.  Setting this limit can significantly improve performance "
     "and reduce memory consumption for very long traces.");
-droption_t<bool> op_reuse_verify_skip(
+droption_t<bool> op_reuse_verify_skip_deprecated(
     DROPTION_SCOPE_FRONTEND, "reuse_verify_skip", false,
     "Use full list walks to verify the skip list results.",
-    "Verifies every skip list-calculated reuse distance with a full list walk. "
-    "This incurs significant additional overhead.  This option is only available "
-    "in debug builds."
+    "Verifies every skip list-calculated reuse distance with a full list walk. ",
     "DEPRECATED: skip lists are no longer used.");
 droption_t<double> op_reuse_histogram_bin_multiplier(
     DROPTION_SCOPE_FRONTEND, "reuse_histogram_bin_multiplier", 1.00,

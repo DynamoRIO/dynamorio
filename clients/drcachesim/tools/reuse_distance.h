@@ -468,7 +468,7 @@ struct line_ref_splay_t {
             return nullptr;
         // the last visited node
         line_ref_node_t *last = nullptr;
-        // Walk up by tree wihle did not found a node to the left of the current
+        // Walk up by tree while did not found a node to the left of the current
         while ((ref->left == nullptr || ref->left == last) && ref->parent != nullptr &&
                ref->parent->left == ref) {
             last = ref;
