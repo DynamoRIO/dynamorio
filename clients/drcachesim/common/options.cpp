@@ -800,10 +800,10 @@ droption_t<bool> op_reuse_distance_histogram(
     "Print the entire reuse distance histogram.",
     "By default only the mean, median, and standard deviation of the reuse distances "
     "are reported.  This option prints out the full histogram of reuse distances.");
-droption_t<unsigned int> op_reuse_skip_dist_deprecated(
-    DROPTION_SCOPE_FRONTEND, "reuse_skip_dist", 500,
-    "For performance tuning: distance between skip nodes.",
-    "DEPRECATED: skip lists are no longer used.");
+droption_t<unsigned int>
+    op_reuse_skip_dist_deprecated(DROPTION_SCOPE_FRONTEND, "reuse_skip_dist", 500,
+                                  "For performance tuning: distance between skip nodes.",
+                                  "DEPRECATED: skip lists are no longer used.");
 droption_t<unsigned int> op_reuse_distance_limit(
     DROPTION_SCOPE_FRONTEND, "reuse_distance_limit", 0,
     "If nonzero, restricts distance tracking to the specified maximum distance.",
