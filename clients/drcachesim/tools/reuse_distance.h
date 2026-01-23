@@ -191,8 +191,8 @@ struct line_ref_node_t {
     }
 };
 
-// We use a splay to keep track of the cache line reuse distance.
-// The lefmost node of the splay tree is the most recently accessed cache line.
+// We use a splay tree to keep track of the cache line reuse distance.
+// The leftmost node of the splay tree is the most recently accessed cache line.
 // The earlier the cache line was last accessed, the more to the right this cache line
 // is in the splay tree.
 // If a cache line is accessed, its time stamp is set as current, and it is
