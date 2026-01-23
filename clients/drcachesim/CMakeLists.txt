@@ -294,6 +294,7 @@ set(drcachesim_srcs
   reader/reader.cpp
   reader/reader_base.cpp
   reader/config_reader.cpp
+  reader/config_reader_helpers.cpp
   reader/v2p_reader.cpp
   reader/file_reader.cpp
   reader/record_file_reader.cpp
@@ -361,6 +362,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/reader.cpp
   reader/reader_base.cpp
   reader/config_reader.cpp
+  reader/config_reader_helpers.cpp
   reader/v2p_reader.cpp
   reader/file_reader.cpp
   reader/record_file_reader.cpp
