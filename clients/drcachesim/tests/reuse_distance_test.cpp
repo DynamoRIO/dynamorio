@@ -508,9 +508,10 @@ data_histogram_test()
     }
 }
 
-
 // Helper to verify all node sizes in the tree are consistent.
-uint64_t verify_sizes(line_ref_node_t *node) {
+uint64_t
+verify_sizes(line_ref_node_t *node)
+{
     if (node == nullptr)
         return 0;
     auto expected = verify_sizes(node->left) + verify_sizes(node->right) + 1;
@@ -612,7 +613,6 @@ splay_tree_test()
         std::cerr << "Unique lines: " << tree.unique_lines_ << "\n";
     }
 }
-
 
 int
 test_main(int argc, const char *argv[])

@@ -114,8 +114,7 @@ protected:
     // the shards we're given.  This is for simplicity and to give the user a method
     // for computing over different units if for some reason that was desired.
     struct shard_data_t {
-        shard_data_t(uint64_t reuse_threshold,
-                     unsigned int distance_limit);
+        shard_data_t(uint64_t reuse_threshold, unsigned int distance_limit);
         std::unordered_map<addr_t, line_ref_node_t *> cache_map;
         std::unordered_set<addr_t> pruned_addresses;
         // These are our reuse distance histograms: one for all accesses and one
@@ -203,8 +202,9 @@ struct line_ref_node_t {
 // line referenced within the threshold.  Thus, we can quickly check
 // whether a cache line is recently accessed by comparing the time
 // stamp of the referenced cache line and the gate cache line.
-// The splay tree is a binary search tree that using splay operatio for balancing, it
-// allow to delete and insert an element at any position in O(log n) amortizated time.
+// The splay tree is a binary search tree that uses the splay operation for balancing,
+// which allows deleting and inserting an element at any position in O(log n) amortized
+// time.
 struct line_ref_splay_t {
     line_ref_node_t *root_; // root of the splay
     line_ref_node_t *gate_; // the earliest cache line refs within the threshold

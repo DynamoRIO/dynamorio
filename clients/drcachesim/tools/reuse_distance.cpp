@@ -103,8 +103,7 @@ reuse_distance_t::shard_data_t::shard_data_t(uint64_t reuse_threshold,
                                              uint32_t distance_limit)
     : distance_limit(distance_limit)
 {
-    ref_list = std::unique_ptr<line_ref_splay_t>(
-        new line_ref_splay_t(reuse_threshold));
+    ref_list = std::unique_ptr<line_ref_splay_t>(new line_ref_splay_t(reuse_threshold));
 }
 
 bool
