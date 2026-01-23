@@ -459,8 +459,8 @@ struct line_ref_splay_t {
         return root;
     }
 
-    // Find previos element of ref in the splay tree.
-    // Returns a pointer to the previos node.
+    // Find previous element of ref in the splay tree.
+    // Returns a pointer to the previous node.
     line_ref_node_t *
     get_prev(line_ref_node_t *ref)
     {
@@ -475,12 +475,12 @@ struct line_ref_splay_t {
             ref = ref->parent;
         }
 
-        // previos node is the far right node in left subtree
+        // previous node is the far right node in left subtree
         if (ref->left != nullptr && ref->left != last) {
             return get_tail(ref->left);
         }
 
-        // if the node is right child of another, the parent is the previos node
+        // if the node is right child of another, the parent is the previous node
         if (ref->parent != nullptr && ref->parent->right == ref)
             return ref->parent;
         return nullptr;
