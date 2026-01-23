@@ -544,7 +544,6 @@ splay_tree_insert_test()
     }
     verify_sizes(tree.root_);
 
-
     for (auto *node : nodes) {
         delete node;
     }
@@ -584,7 +583,6 @@ splay_tree_move_to_front_test()
     dist = tree.move_to_front(nodes[0]);
     assert(dist == 0);
     assert(nodes[0]->total_refs == 3);
-
 
     for (auto *node : nodes) {
         delete node;
@@ -653,7 +651,6 @@ splay_tree_rotation_test()
     assert(tree.root_ == nodes[7]);
     verify_sizes(tree.root_);
 
-
     for (auto *node : nodes) {
         delete node;
     }
@@ -689,7 +686,6 @@ splay_tree_traversal_test()
     assert(count == NUM_NODES);
     assert(tree.get_prev(nullptr) == nullptr);
 
-
     for (auto *node : nodes) {
         delete node;
     }
@@ -722,7 +718,6 @@ splay_tree_remove_test()
     delete to_remove;
     nodes[4] = nullptr;
     verify_sizes(tree.root_);
-
 
     for (auto *node : nodes) {
         delete node;
@@ -761,7 +756,6 @@ splay_tree_prune_test()
         std::cerr << "Final tree size: " << tree.root_->size << "\n";
         std::cerr << "Unique lines: " << tree.unique_lines_ << "\n";
     }
-
 
     for (auto *node : nodes) {
         delete node;
