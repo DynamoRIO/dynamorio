@@ -31,6 +31,7 @@
  */
 
 #include <iostream>
+#include <functional>
 #include <assert.h>
 
 #include "../tools/reuse_distance.h"
@@ -507,6 +508,112 @@ data_histogram_test()
     }
 }
 
+
+// Helper to verify all node sizes in the tree are consistent.
+uint64_t verify_sizes(line_ref_node_t *node) {
+    if (node == nullptr)
+        return 0;
+    auto expected = verify_sizes(node->left) + verify_sizes(node->right) + 1;
+    assert(node->size == expected);
+    return expected;
+}
+
+// Test for splay tree.
+void
+splay_tree_test()
+{
+    std::cerr << "splay_tree_test()\n";
+    constexpr uint64_t THRESHOLD = 4;
+    constexpr int NUM_NODES = 10;
+    constexpr uint64_t TEST_ADDRESS = 0x1000;
+    constexpr uint64_t TEST_DISTANCE_INCREMENT = 64;
+
+    line_ref_splay_t tree(THRESHOLD);
+    address_generator_t agen(TEST_ADDRESS, TEST_DISTANCE_INCREMENT);
+
+    // Test insertion and basic structure.
+    std::vector<line_ref_node_t *> nodes;
+    for (int i = 0; i < NUM_NODES; ++i) {
+        nodes.push_back(new line_ref_node_t(agen.next_address()));
+        tree.add_to_front(nodes.back());
+        assert(tree.root_ == nodes.back());
+        assert(tree.head_ == nodes.back());
+        assert(tree.tail_ == nodes[0]);
+        assert(tree.unique_lines_ == i + 1);
+        assert(tree.root_->size == i + 1);
+    }
+    verify_sizes(tree.root_);
+
+    // Test move_to_front and reuse distance calculation.
+    auto dist = tree.move_to_front(nodes[5]);
+    assert(dist == 4);
+    assert(tree.head_ == nodes[5]);
+    assert(nodes[5]->total_refs == 2);
+    verify_sizes(tree.root_);
+
+    dist = tree.move_to_front(nodes[0]);
+    assert(dist == NUM_NODES - 1);
+    assert(tree.head_ == nodes[0]);
+    verify_sizes(tree.root_);
+
+    dist = tree.move_to_front(nodes[0]);
+    assert(dist == 0);
+    assert(nodes[0]->total_refs == 3);
+
+    // Test gate mechanism and distant reference tracking.
+    assert(tree.gate_ != nullptr);
+    auto *distant_node = nodes[1]; // Should be beyond gate.
+    assert(tree.ref_is_distant(distant_node));
+    auto old_distant_refs = distant_node->distant_refs;
+    tree.move_to_front(distant_node);
+    assert(distant_node->distant_refs == old_distant_refs + 1);
+
+    auto *recent_node = tree.head_;
+    assert(!tree.ref_is_distant(recent_node));
+
+    // Test splay rotations maintain invariants.
+    tree.splay(nodes[3]);
+    assert(tree.root_ == nodes[3]);
+    verify_sizes(tree.root_);
+    tree.splay(nodes[7]);
+    assert(tree.root_ == nodes[7]);
+    verify_sizes(tree.root_);
+
+    // Test get_prev traversal.
+    auto *current = tree.head_;
+    int count = 0;
+    while (current != nullptr) {
+        current = tree.get_prev(current);
+        ++count;
+        assert(count <= NUM_NODES);
+    }
+    assert(count == NUM_NODES);
+    assert(tree.get_prev(nullptr) == nullptr);
+
+    // Test removal.
+    auto *to_remove = nodes[4];
+    tree.remove(to_remove);
+    assert(tree.root_->size == NUM_NODES - 1);
+    assert(to_remove->parent == nullptr && to_remove->left == nullptr);
+    delete to_remove;
+    nodes[4] = nullptr;
+    verify_sizes(tree.root_);
+
+    // Test prune_tail.
+    auto *old_tail = tree.tail_;
+    tree.prune_tail();
+    assert(tree.tail_ != old_tail);
+    assert(tree.root_->size == NUM_NODES - 2);
+    delete old_tail;
+    verify_sizes(tree.root_);
+
+    if (TEST_VERBOSE(1)) {
+        std::cerr << "Final tree size: " << tree.root_->size << "\n";
+        std::cerr << "Unique lines: " << tree.unique_lines_ << "\n";
+    }
+}
+
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -516,6 +623,8 @@ test_main(int argc, const char *argv[])
     simple_reuse_distance_test();
     reuse_distance_limit_test();
     data_histogram_test();
+    splay_tree_test();
+
     return 0;
 }
 
