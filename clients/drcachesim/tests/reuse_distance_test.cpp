@@ -581,7 +581,7 @@ splay_tree_test()
     verify_sizes(tree.root_);
 
     // Test get_prev traversal.
-    auto *current = tree.head_;
+    auto *current = tree.tail_;
     int count = 0;
     while (current != nullptr) {
         current = tree.get_prev(current);
