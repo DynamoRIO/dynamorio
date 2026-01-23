@@ -543,10 +543,6 @@ splay_tree_insert_test()
         assert(tree.root_->size == i + 1);
     }
     verify_sizes(tree.root_);
-
-    for (auto *node : nodes) {
-        delete node;
-    }
 }
 
 // Test for splay tree move_to_front and reuse distance.
@@ -583,10 +579,6 @@ splay_tree_move_to_front_test()
     dist = tree.move_to_front(nodes[0]);
     assert(dist == 0);
     assert(nodes[0]->total_refs == 3);
-
-    for (auto *node : nodes) {
-        delete node;
-    }
 }
 
 // Test for splay tree gate mechanism and distant reference tracking.
@@ -618,10 +610,6 @@ splay_tree_gate_test()
 
     auto *recent_node = tree.head_;
     assert(!tree.ref_is_distant(recent_node));
-
-    for (auto *node : nodes) {
-        delete node;
-    }
 }
 
 // Test for splay tree rotations.
@@ -650,10 +638,6 @@ splay_tree_rotation_test()
     tree.splay(nodes[7]);
     assert(tree.root_ == nodes[7]);
     verify_sizes(tree.root_);
-
-    for (auto *node : nodes) {
-        delete node;
-    }
 }
 
 // Test for splay tree get_prev traversal.
@@ -685,10 +669,6 @@ splay_tree_traversal_test()
     }
     assert(count == NUM_NODES);
     assert(tree.get_prev(nullptr) == nullptr);
-
-    for (auto *node : nodes) {
-        delete node;
-    }
 }
 
 // Test for splay tree removal.
@@ -716,12 +696,8 @@ splay_tree_remove_test()
     assert(tree.root_->size == NUM_NODES - 1);
     assert(to_remove->parent == nullptr && to_remove->left == nullptr);
     delete to_remove;
-    nodes[4] = nullptr;
     verify_sizes(tree.root_);
 
-    for (auto *node : nodes) {
-        delete node;
-    }
 }
 
 // Test for splay tree prune_tail.
@@ -749,7 +725,6 @@ splay_tree_prune_test()
     assert(tree.tail_ != old_tail);
     assert(tree.root_->size == NUM_NODES - 1);
     delete old_tail;
-    nodes[0] = nullptr;
     verify_sizes(tree.root_);
 
     if (TEST_VERBOSE(1)) {
@@ -757,9 +732,6 @@ splay_tree_prune_test()
         std::cerr << "Unique lines: " << tree.unique_lines_ << "\n";
     }
 
-    for (auto *node : nodes) {
-        delete node;
-    }
 }
 
 int
