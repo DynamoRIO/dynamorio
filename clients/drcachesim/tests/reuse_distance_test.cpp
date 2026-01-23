@@ -697,7 +697,6 @@ splay_tree_remove_test()
     assert(to_remove->parent == nullptr && to_remove->left == nullptr);
     delete to_remove;
     verify_sizes(tree.root_);
-
 }
 
 // Test for splay tree prune_tail.
@@ -731,7 +730,6 @@ splay_tree_prune_test()
         std::cerr << "Final tree size: " << tree.root_->size << "\n";
         std::cerr << "Unique lines: " << tree.unique_lines_ << "\n";
     }
-
 }
 
 int
