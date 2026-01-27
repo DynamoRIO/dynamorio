@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -433,6 +433,7 @@ protected:
     uint64_t skip_instrs_ = 0;
     uint64_t skip_records_ = 0;
     uint64_t skip_to_timestamp_ = 0;
+    uint64_t exit_after_instrs_ = 0;
     uint64_t exit_after_records_ = 0;
     uint64_t interval_microseconds_ = 0;
     uint64_t interval_instr_count_ = 0;

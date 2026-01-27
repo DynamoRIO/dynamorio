@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -184,6 +184,8 @@ extern dynamorio::droption::droption_t<uint64_t> op_skip_to_timestamp;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_warmup_refs;
 extern dynamorio::droption::droption_t<double> op_warmup_fraction;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_sim_refs;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
+    op_exit_after_instrs;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_exit_after_records;
 extern dynamorio::droption::droption_t<std::string> op_config_file;

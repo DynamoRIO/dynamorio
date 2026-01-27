@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -741,9 +741,20 @@ droption_t<bytesize_t> op_sim_refs(
     "('ref') records) and then exit. "
     "If -skip_refs is specified, the analyzed records start after the skipped ones end; "
     "similarly, if -warmup_refs or -warmup_fraction is specified, the warmup records "
-    "come prior to the -sim_refs records.  Use -exit_after_records for a similar feature "
+    "come prior to the -sim_refs records.  Use -exit_after_records or -exit_after_instrs "
+    "for a similar feature "
     "that works on all tools (but does not work with -warmup_*, -sim_refs, or "
     "-skip_refs).");
+
+droption_t<bytesize_t> op_exit_after_instrs(
+    DROPTION_SCOPE_FRONTEND, "exit_after_instrs", bytesize_t(1ULL << 63),
+    "Limits analyzers to this many instructions",
+    "Causes trace analyzers to only analyze this many instructions (and any number of "
+    "associated non-instruction records) and then exit.  If instructions are skipped "
+    "(-skip_instrs), that happens first before instruction counting starts here.  This "
+    "option is not compatible with -sim_refs, -skip_refs, -warmup_refs, or "
+    "-warmup_fraction.  For traces with multiple shards, each shard separately stops "
+    "when it reaches this count within the shard.");
 
 droption_t<bytesize_t> op_exit_after_records(
     DROPTION_SCOPE_FRONTEND, "exit_after_records", bytesize_t(1ULL << 63),

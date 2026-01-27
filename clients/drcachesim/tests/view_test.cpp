@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2025 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2026 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -207,7 +207,8 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
 class mock_analyzer_t : public analyzer_t {
 public:
     mock_analyzer_t(std::vector<scheduler_t::input_workload_t> &sched_inputs,
-                    analysis_tool_t **tools, int num_tools, int skip, int limit)
+                    analysis_tool_t **tools, int num_tools, int skip_records,
+                    int limit_records, int skip_instrs, int limit_instrs)
         : analyzer_t()
     {
         num_tools_ = num_tools;
@@ -215,8 +216,10 @@ public:
         parallel_ = false;
         verbosity_ = 0;
         worker_count_ = 1;
-        skip_records_ = skip;
-        exit_after_records_ = limit;
+        skip_records_ = skip_records;
+        exit_after_records_ = limit_records;
+        skip_instrs_ = skip_instrs;
+        exit_after_instrs_ = limit_instrs;
         scheduler_t::scheduler_options_t sched_ops =
             scheduler_t::make_scheduler_serial_options(verbosity_);
         sched_mapping_ = sched_ops.mapping;
@@ -234,7 +237,8 @@ public:
 static std::string
 run_with_analyzer(void *drcontext, instrlist_t &ilist,
                   const std::vector<trace_entry_t> &records, int skip_records = 0,
-                  int num_records = 0, bool no_modules = false)
+                  int num_records = 0, bool no_modules = false, int skip_instrs = 0,
+                  int num_instrs = 0)
 {
     memref_tid_t tid = 42;
     std::vector<scheduler_t::input_reader_t> readers;
@@ -242,7 +246,13 @@ run_with_analyzer(void *drcontext, instrlist_t &ilist,
         std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(records)),
         std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), tid);
     std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(std::move(readers));
+    // Our mock analyzer bypasses the regular analyzer_t::init_scheduler() so we have
+    // to fill in the regions ourselves.
+    std::vector<scheduler_t::range_t> regions;
+    if (skip_instrs > 0 || num_instrs > 0) {
+        regions.emplace_back(skip_instrs + 1, skip_instrs + num_instrs);
+    }
+    sched_inputs.emplace_back(std::move(readers), regions);
     std::vector<analysis_tool_t *> tools;
     auto test_tool = std::unique_ptr<view_test_t>(
         no_modules
@@ -250,7 +260,7 @@ run_with_analyzer(void *drcontext, instrlist_t &ilist,
             : reinterpret_cast<view_test_t *>(new view_test_t(drcontext, ilist)));
     tools.push_back(test_tool.get());
     mock_analyzer_t analyzer(sched_inputs, &tools[0], (int)tools.size(), skip_records,
-                             num_records);
+                             num_records, skip_instrs, num_instrs);
     assert(!!analyzer);
     std::stringstream capture;
     std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
@@ -272,6 +282,20 @@ get_memref_count(const std::vector<trace_entry_t> &records)
         ++memref_count;
     }
     return memref_count;
+}
+
+static int
+get_instr_count(const std::vector<trace_entry_t> &records)
+{
+    test_util::mock_reader_t reader = test_util::mock_reader_t(records);
+    test_util::mock_reader_t reader_end = test_util::mock_reader_t();
+    int instr_count = 0;
+    for (reader.init(); reader != reader_end; ++reader) {
+        memref_t memref = *reader;
+        if (type_is_instr(memref.instr.type))
+            ++instr_count;
+    }
+    return instr_count;
 }
 
 bool
@@ -326,6 +350,35 @@ test_num_memrefs(void *drcontext, instrlist_t &ilist,
     return true;
 }
 
+int
+count_substrings(const std::string &container, const std::string &tofind)
+{
+    int found = 0;
+    size_t pos = 0;
+    while ((pos = container.find(tofind, pos)) != std::string::npos) {
+        ++found;
+        pos += tofind.length();
+    }
+    return found;
+}
+
+bool
+test_num_instrs(void *drcontext, instrlist_t &ilist,
+                const std::vector<trace_entry_t> &records, int num_instrs)
+{
+    int instr_count = get_instr_count(records);
+    ASSERT(num_instrs < instr_count, "need more instrs to limit");
+    std::string res = run_with_analyzer(drcontext, ilist, records, /*skip_records=*/0,
+                                        /*num_records=*/0, /*no_modules=*/false,
+                                        /*skip_instrs=*/0, /*num_instrs=*/num_instrs);
+    if (count_substrings(res, "ifetch") != num_instrs) {
+        std::cerr << "Incorrect num_instrs count: expect " << num_instrs << " but got \n"
+                  << res << "\n";
+        return false;
+    }
+    return true;
+}
+
 bool
 test_skip_memrefs(void *drcontext, instrlist_t &ilist,
                   const std::vector<trace_entry_t> &records, int skip_records,
@@ -356,16 +409,7 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
                   << res << "\n";
         return false;
     }
-    int found_markers = 0;
-    size_t pos = 0;
-    while (pos != std::string::npos) {
-        pos = res.find("marker", pos);
-        if (pos != std::string::npos) {
-            ++found_markers;
-            ++pos;
-        }
-    }
-    if (found_markers != marker_count) {
+    if (count_substrings(res, "marker") != marker_count) {
         std::cerr << "Failed to skip proper number of markers\n";
         return false;
     }
@@ -377,6 +421,61 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     if (prefix != 1 + skip_records) {
         std::cerr << "Expect to start after skip count " << skip_records << " but found "
                   << prefix << "\n"
+                  << res << "\n";
+        return false;
+    }
+    return true;
+}
+
+bool
+test_skip_instrs(void *drcontext, instrlist_t &ilist,
+                 const std::vector<trace_entry_t> &records, int skip_instrs,
+                 int num_instrs)
+{
+    // Like test_skip_memrefs, we use the marker count as a sanity check.
+    int instr_count = 0, marker_count = 0;
+    test_util::mock_reader_t reader = test_util::mock_reader_t(records);
+    test_util::mock_reader_t reader_end = test_util::mock_reader_t();
+    for (reader.init(); reader != reader_end; ++reader) {
+        memref_t memref = *reader;
+        if (type_is_instr(memref.instr.type))
+            ++instr_count;
+        if (instr_count - 1 < skip_instrs)
+            continue;
+        if (instr_count - skip_instrs > num_instrs)
+            break;
+        if (memref.marker.type == TRACE_TYPE_MARKER)
+            ++marker_count;
+    }
+    ASSERT(num_instrs + skip_instrs <= get_instr_count(records),
+           "need more instrs to skip");
+    std::string res = run_with_analyzer(drcontext, ilist, records, /*skip_records=*/0,
+                                        /*num_records=*/0, /*no_modules=*/false,
+                                        skip_instrs, num_instrs);
+    if (count_substrings(res, "ifetch") != num_instrs) {
+        std::cerr << "Incorrect instr count for skip " << skip_instrs << " limit "
+                  << num_instrs << ":\n"
+                  << res << "\n";
+        return false;
+    }
+    // We expect timestamp;cpuid inserted.
+    constexpr int ADDED_HEADERS = 2;
+    if (count_substrings(res, "marker") != marker_count + ADDED_HEADERS) {
+        std::cerr << "Failed to skip proper number " << marker_count
+                  << " of markers for skip " << skip_instrs << " limit " << num_instrs
+                  << ":\n"
+                  << res << "\n";
+        return false;
+    }
+    std::stringstream ss(res);
+    int ordinal;
+    ss >> ordinal; // Read record ordinal.
+    ss >> ordinal; // Read instr ordinal.
+    // We expect a timestmap marker with the exact skip ordinal; the first instr
+    // will have the skip+1.
+    if (ordinal != skip_instrs) {
+        std::cerr << "Expect to start at skip " << skip_instrs << " but found " << ordinal
+                  << "\n"
                   << res << "\n";
         return false;
     }
@@ -416,16 +515,32 @@ run_limit_tests(void *drcontext)
         test_util::make_instr(offs_jcc, TRACE_TYPE_INSTR_UNTAKEN_JUMP),
         test_util::make_instr(offs_nop2, TRACE_TYPE_INSTR),
         test_util::make_memref(0x42, TRACE_TYPE_READ, 4),
+        // Repeat a few times for more instrs for limit tests.
+        test_util::make_instr(offs_jcc, TRACE_TYPE_INSTR_UNTAKEN_JUMP),
+        test_util::make_instr(offs_nop2, TRACE_TYPE_INSTR),
+        test_util::make_memref(0x42, TRACE_TYPE_READ, 4),
+        test_util::make_instr(offs_jcc, TRACE_TYPE_INSTR_UNTAKEN_JUMP),
+        test_util::make_instr(offs_nop2, TRACE_TYPE_INSTR),
+        test_util::make_memref(0x42, TRACE_TYPE_READ, 4),
     };
     int memref_count = get_memref_count(records);
+    int instr_count = get_instr_count(records);
 
     res = test_no_limit(drcontext, *ilist, records) && res;
     for (int i = 1; i < memref_count; ++i) {
         res = test_num_memrefs(drcontext, *ilist, records, i) && res;
     }
+    for (int i = 1; i < instr_count; ++i) {
+        res = test_num_instrs(drcontext, *ilist, records, i) && res;
+    }
     constexpr int num_refs = 2;
     for (int i = 1; i < memref_count - num_refs; ++i) {
         res = test_skip_memrefs(drcontext, *ilist, records, i, num_refs) && res;
+    }
+    for (int num_instrs = 1; num_instrs < 4; ++num_instrs) {
+        for (int i = 1; i < instr_count - num_instrs; ++i) {
+            res = test_skip_instrs(drcontext, *ilist, records, i, num_instrs) && res;
+        }
     }
 
     // Ensure missing modules are fine.
