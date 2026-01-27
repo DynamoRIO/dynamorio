@@ -753,8 +753,8 @@ droption_t<bytesize_t> op_exit_after_instrs(
     "associated non-instruction records) and then exit.  A 0 value disables.  If "
     "instructions are skipped (-skip_instrs), that happens first before instruction "
     "counting starts here.  This option is not compatible with -sim_refs, -skip_refs, "
-    "-warmup_refs, or -warmup_fraction.  For traces with multiple shards, each shard "
-    "separately stops when it reaches this count within the shard.");
+    "-warmup_refs, or -warmup_fraction.  For traces with multiple shards, each input "
+    "shard separately stops when it reaches this count within the shard.");
 
 droption_t<bytesize_t> op_exit_after_records(
     DROPTION_SCOPE_FRONTEND, "exit_after_records", 0,
@@ -764,8 +764,8 @@ droption_t<bytesize_t> op_exit_after_records(
     "first before record counting starts here.  This is similar to -sim_refs, though "
     "it is implemented in the framework and so applies to all tools.  This option is not "
     "compatible with -sim_refs, -skip_refs, -warmup_refs, or -warmup_fraction. "
-    "For traces with multiple shards, each shard separately stops when it reaches this "
-    "count within the shard.");
+    "For traces with multiple shards, each output shard separately stops when it reaches "
+    "this count within the shard.");
 
 droption_t<std::string>
     op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr/riscv",
