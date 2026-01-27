@@ -246,7 +246,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
         // right thing: this is skipping in every input stream, while the documented
         // behavior is supposed to be an output stream skip.  Once we have that
         // capability in the scheduler we should switch to that.
-        regions.emplace_back(skip_instrs_ + 1, skip_instrs_ + exit_after_instrs_);
+        regions.emplace_back(skip_instrs_ + 1,
+                             exit_after_instrs_ == 0 ? 0
+                                                     : skip_instrs_ + exit_after_instrs_);
     }
     std::vector<typename sched_type_t::input_workload_t> workloads;
     for (const std::string &path : trace_paths) {
