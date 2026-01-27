@@ -333,6 +333,8 @@ public:
         bool voluntary = false;
         // Whether a direct switch request.
         bool direct = false;
+        // To understanding the interleavings among cores we need a timestamp.
+        int64_t timestamp = 0;
     };
 
     counters_t

@@ -230,6 +230,7 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
             record.workload = prev_workload_id;
             record.tid = prev_tid;
             record.instructions = instr_delta;
+            record.timestamp = shard->stream->get_last_timestamp();
             if (shard->saw_syscall || shard->saw_exit) {
                 ++shard->counters.voluntary_switches;
                 record.voluntary = true;
@@ -730,12 +731,13 @@ schedule_stats_t::print_results()
              ++i) {
             const schedule_record_t &record = shard.second->switch_record[i];
             std::cerr << std::setw(5) << i << " W" << record.workload << ".T" << std::left
-                      << std::setw(6) << record.tid << std::right
-                      << " instrs=" << std::setw(9) << record.instructions
-                      << " sys#=" << std::setw(4) << record.syscall_number
-                      << " latency=" << std::setw(7) << record.syscall_latency
-                      << std::setw(6) << (record.voluntary ? "vol" : "invol")
-                      << std::setw(7) << (record.direct ? "direct" : "") << "\n";
+                      << std::setw(6) << record.tid << std::right << " @ "
+                      << std::setw(12) << record.timestamp << " instrs=" << std::setw(9)
+                      << record.instructions << " sys#=" << std::setw(4)
+                      << record.syscall_number << " latency=" << std::setw(7)
+                      << record.syscall_latency << std::setw(6)
+                      << (record.voluntary ? "vol" : "invol") << std::setw(7)
+                      << (record.direct ? "direct" : "") << "\n";
         }
         if (i < shard.second->switch_record.size()) {
             std::cerr << "    ... (increase -verbose to see more)\n";
