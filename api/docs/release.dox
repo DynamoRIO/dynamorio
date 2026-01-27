@@ -274,6 +274,8 @@ Further non-compatibility-affecting changes include:
    that exposes the key of every element in the table.
  - Added a new DynamoRIO client "DrPoints" in clients/drpoints to compute the Basic Block
    Vectors of a program given a user-defined instruction interval.
+ - Added a new drmemtrace option -exit_after_instrs which applies to all
+   tools and exits after N instructions.
 
 **************************************************
 <hr>

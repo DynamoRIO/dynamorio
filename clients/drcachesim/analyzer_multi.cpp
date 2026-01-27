@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -180,7 +180,8 @@ analyzer_multi_t::create_invariant_checker()
         op_offline.get_value(), op_verbose.get_value(), op_test_mode_name.get_value(),
         serial_schedule_file_.get(), cpu_schedule_file_.get(),
         op_abort_on_invariant_error.get_value(), op_sched_syscall_file.get_value() != "",
-        op_skip_records.specified() || op_exit_after_records.specified());
+        op_skip_records.specified() || op_exit_after_records.specified() ||
+            op_skip_instrs.specified() || op_exit_after_instrs.specified());
 }
 
 template <>
@@ -413,12 +414,14 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
         this->success_ = false;
         return;
     }
+    this->exit_after_instrs_ = op_exit_after_instrs.get_value();
     this->exit_after_records_ = op_exit_after_records.get_value();
-    if (op_exit_after_records.specified() &&
+    if ((op_exit_after_records.specified() || op_exit_after_instrs.specified()) &&
         (op_sim_refs.specified() || op_skip_refs.get_value() > 0 ||
          op_warmup_refs.get_value() > 0 || op_warmup_fraction.get_value() > 0.)) {
-        this->error_string_ = "Usage error: -exit_after_records is not compatible with "
-                              "-sim_refs, -skip_refs, -warmup_refs, or -warmup_fraction";
+        this->error_string_ =
+            "Usage error: -exit_after_{instrs,records} is not compatible with -sim_refs, "
+            "-skip_refs, -warmup_refs, or -warmup_fraction";
         this->success_ = false;
         return;
     }
