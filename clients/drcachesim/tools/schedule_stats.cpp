@@ -317,7 +317,6 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
         shard->cur_segment_instrs = 0;
     }
     if (knob_verbose_ >= 2) {
-        memtrace_stream_t *istream = shard->stream->get_input_interface();
         std::ostringstream line;
         line << "Core #" << std::setw(2) << shard->core << " @" << std::setw(9)
              << shard->stream->get_record_ordinal() << " refs, " << std::setw(9)
