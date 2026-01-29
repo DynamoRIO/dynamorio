@@ -92,13 +92,9 @@ static app_pc code_cache;
 static void *mutex;            /* for multithread support */
 static uint64 global_num_refs; /* keep a global memory reference count */
 static int tls_index;
-static drmgr_priority_t rep_expand_priority = {
-    sizeof(rep_expand_priority),
-    "instrace_rep_expand",
-    NULL,
-    NULL,
-    DRMGR_PRIORITY_APP2APP_DRX + 1
-};
+static drmgr_priority_t rep_expand_priority = { sizeof(rep_expand_priority),
+                                                "instrace_rep_expand", NULL, NULL,
+                                                DRMGR_PRIORITY_APP2APP_DRX + 1 };
 
 static void
 event_exit(void);
