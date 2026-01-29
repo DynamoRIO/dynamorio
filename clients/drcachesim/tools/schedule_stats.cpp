@@ -219,6 +219,7 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
         !(prev_workload_id == INVALID_WORKLOAD_ID && prev_tid == IDLE_THREAD_ID &&
           workload_id != INVALID_WORKLOAD_ID && tid != INVALID_THREAD_ID);
     uint64_t instr_delta = shard->counters.instrs - shard->switch_start_instrs;
+    memtrace_stream_t *istream = shard->stream->get_input_interface();
 
     if (shard->thread_sequence.empty()) {
         std::lock_guard<std::mutex> lock(prev_core_mutex_);
@@ -230,7 +231,7 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
             record.workload = prev_workload_id;
             record.tid = prev_tid;
             record.instructions = instr_delta;
-            record.timestamp = shard->stream->get_last_timestamp();
+            record.input_instr_start_ordinal = shard->switch_start_input_instr_ordinal;
             if (shard->saw_syscall || shard->saw_exit) {
                 ++shard->counters.voluntary_switches;
                 record.voluntary = true;
@@ -275,6 +276,12 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
                 shard->counters.tid2instrs_per_switch,
                 workload_tid_t(prev_workload_id, prev_tid), kSwitchBinSize);
             hist_ptr->add(instr_delta);
+        } else {
+            // Update the start ordinal on a swap-in after idle.
+            if (shard->switch_start_input_instr_ordinal == 0 && istream != nullptr)
+                shard->switch_start_input_instr_ordinal = std::max(
+                    // Normalize to 1 regardless of whether the input was pre-read or not.
+                    istream->get_instruction_ordinal(), static_cast<uint64_t>(1));
         }
         if (knob_verbose_ >= 2) {
             std::cerr << "Core #" << std::setw(2) << shard->core
@@ -294,6 +301,12 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
             prev_core_[workload_tid] = shard->core;
         }
         shard->switch_start_instrs = shard->counters.instrs;
+        // Set the start ordinal if we're switching to an input; if idle or wait
+        // will be in between we'll set on a the next input in the !add_to_counts above.
+        shard->switch_start_input_instr_ordinal = (istream == nullptr)
+            ? 0
+            // Normalize to 1 regardless of whether the input was pre-read or not.
+            : std::max(istream->get_instruction_ordinal(), static_cast<uint64_t>(1));
     }
     // The idle and wait strings are handled by the caller.
     if (tid != INVALID_THREAD_ID && tid != IDLE_THREAD_ID) {
@@ -732,12 +745,12 @@ schedule_stats_t::print_results()
             const schedule_record_t &record = shard.second->switch_record[i];
             std::cerr << std::setw(5) << i << " W" << record.workload << ".T" << std::left
                       << std::setw(6) << record.tid << std::right << " @ "
-                      << std::setw(12) << record.timestamp << " instrs=" << std::setw(9)
-                      << record.instructions << " sys#=" << std::setw(4)
-                      << record.syscall_number << " latency=" << std::setw(7)
-                      << record.syscall_latency << std::setw(6)
-                      << (record.voluntary ? "vol" : "invol") << std::setw(7)
-                      << (record.direct ? "direct" : "") << "\n";
+                      << std::setw(11) << record.input_instr_start_ordinal
+                      << " instrs=" << std::setw(9) << record.instructions
+                      << " sys#=" << std::setw(4) << record.syscall_number
+                      << " latency=" << std::setw(7) << record.syscall_latency
+                      << std::setw(6) << (record.voluntary ? "vol" : "invol")
+                      << std::setw(7) << (record.direct ? "direct" : "") << "\n";
         }
         if (i < shard.second->switch_record.size()) {
             std::cerr << "    ... (increase -verbose to see more)\n";

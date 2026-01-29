@@ -64,6 +64,7 @@ using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_END;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_START;
 using schedule_record_t = ::dynamorio::drmemtrace::schedule_stats_t::schedule_record_t;
+using workload_tid_t = ::dynamorio::drmemtrace::schedule_stats_t::workload_tid_t;
 
 static constexpr bool VOLUNTARY = true;
 static constexpr bool INVOLUNTARY = false;
@@ -101,6 +102,26 @@ private:
     uint64_t global_time_ = 1;
 };
 
+class mock_input_stream_t : public default_memtrace_stream_t {
+public:
+    uint64_t
+    get_instruction_ordinal() const override
+    {
+        // We add 1 to emulate the real scheduler waiting until the next instruction
+        // boundary before doing any context switch, resulting in the input interface
+        // ordinal always being 1 higher.
+        return count + 1;
+    }
+    void
+    add_instruction()
+    {
+        ++count;
+    }
+
+private:
+    int64_t count;
+};
+
 class mock_stream_t : public default_memtrace_stream_t {
 public:
     uint64_t
@@ -112,8 +133,17 @@ public:
     memtrace_stream_t *
     get_input_interface() const override
     {
-        return const_cast<mock_stream_t *>(this);
+        return cur_input;
     }
+
+    void
+    set_input_interface(memtrace_stream_t *stream)
+    {
+        cur_input = stream;
+    }
+
+private:
+    memtrace_stream_t *cur_input = nullptr;
 };
 
 // Bypasses the analyzer and scheduler for a controlled test sequence.
@@ -138,6 +168,9 @@ run_schedule_stats(
         per_core[cpu].shard_data = tool.parallel_shard_init_stream(
             cpu, per_core[cpu].worker_data, &per_core[cpu].stream);
     }
+    std::unordered_map<workload_tid_t, mock_input_stream_t,
+                       schedule_stats_t::workload_tid_hash_t>
+        input2stream;
     // Walk in lockstep until all are empty.
     int num_finished = 0;
     while (num_finished < static_cast<int>(memrefs.size())) {
@@ -148,6 +181,11 @@ run_schedule_stats(
             per_core[cpu].stream.set_tid(memref.instr.tid);
             per_core[cpu].stream.set_workload_id(memref.instr.pid);
             per_core[cpu].stream.set_output_cpuid(cpu);
+
+            mock_input_stream_t &input =
+                input2stream[workload_tid_t(memref.instr.pid, memref.instr.tid)];
+            per_core[cpu].stream.set_input_interface(&input);
+
             if (memref.marker.type == TRACE_TYPE_MARKER) {
                 switch (memref.marker.marker_type) {
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
@@ -160,6 +198,7 @@ run_schedule_stats(
                     break;
                 case TRACE_MARKER_TYPE_TIMESTAMP:
                     per_core[cpu].stream.set_last_timestamp(memref.marker.marker_value);
+                    input.set_last_timestamp(memref.marker.marker_value);
                     break;
                 default:;
                 }
@@ -171,6 +210,10 @@ run_schedule_stats(
                 per_core[cpu].finished = true;
                 ++num_finished;
             }
+            // Since our mock input stream adds 1 to emulate switching on the next
+            // instr boundary, we increment its count *after* invoking the tool.
+            if (type_is_instr(memref.instr.type))
+                input.add_instruction();
         }
     }
     std::vector<std::vector<schedule_record_t>> record(memrefs.size());
@@ -184,6 +227,9 @@ run_schedule_stats(
         for (size_t i = 0; i < record.size(); ++i) {
             assert(record[i].size() == (*expected_record)[i].size());
             for (size_t j = 0; j < record[i].size(); ++j) {
+                if (!(record[i][j] == (*expected_record)[i][j])) {
+                    std::cerr << "Record " << i << ", " << j << " mismatch\n";
+                }
                 assert(record[i][j] == (*expected_record)[i][j]);
             }
         }
@@ -199,7 +245,6 @@ test_basic_stats()
     static constexpr int64_t TID_C = 242;
     std::vector<std::vector<memref_t>> memrefs = {
         {
-            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 1000),
             gen_instr(TID_A),
             // Involuntary switch.
             gen_instr(TID_B),
@@ -235,16 +280,13 @@ test_basic_stats()
             gen_exit(TID_A),
         },
         {
-            gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 900),
             gen_instr(TID_B),
             // Involuntary switch.
             gen_instr(TID_A),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 990),
             // Involuntary switch.
             gen_instr(TID_C),
             gen_instr(TID_C),
             gen_instr(TID_C),
-            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2200),
             // Wait.
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
@@ -258,15 +300,15 @@ test_basic_stats()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 10000 },
-            { 0, TID_B, /*ins=*/1, /*sys#=*/0, /*lat=*/500, VOLUNTARY, DEFAULT, 1600 },
-            { 0, TID_A, /*ins=*/3, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT, 2300 },
-            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 3300 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/0, /*lat=*/500, VOLUNTARY, DEFAULT, 2 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT, 3 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 4 },
         },
         {
-            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 900 },
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 990 },
-            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 2200 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 2 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
@@ -315,7 +357,6 @@ test_basic_stats_with_syscall_trace()
     static constexpr int64_t TID_C = 242;
     std::vector<std::vector<memref_t>> memrefs = {
         {
-            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 1000),
             gen_instr(TID_A),
             // Involuntary switch.
             gen_instr(TID_B),
@@ -368,16 +409,13 @@ test_basic_stats_with_syscall_trace()
             gen_exit(TID_A),
         },
         {
-            gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 770),
             gen_instr(TID_B),
             // Involuntary switch.
             gen_instr(TID_A),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 1770),
             // Involuntary switch.
             gen_instr(TID_C),
             gen_instr(TID_C),
             gen_instr(TID_C),
-            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2770),
             // Wait.
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
@@ -391,15 +429,15 @@ test_basic_stats_with_syscall_trace()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1000 },
-            { 0, TID_B, /*ins=*/2, /*sys#=*/0, /*lat=*/500, VOLUNTARY, DEFAULT, 1600 },
-            { 0, TID_A, /*ins=*/4, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT, 2300 },
-            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 3300 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_B, /*ins=*/2, /*sys#=*/0, /*lat=*/500, VOLUNTARY, DEFAULT, 2 },
+            { 0, TID_A, /*ins=*/4, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT, 3 },
+            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 4 },
         },
         {
-            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 770 },
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1770 },
-            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 2770 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 2 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
@@ -428,7 +466,6 @@ test_idle()
     static constexpr int64_t TID_C = 242;
     std::vector<std::vector<memref_t>> memrefs = {
         {
-            gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1234),
             gen_instr(TID_B),
             gen_instr(TID_B),
             // A switch to idle w/ no syscall is an involuntary switch.
@@ -447,13 +484,10 @@ test_idle()
             // Switch to the first thread from the start-idle state.
             // A switch from idle is not counted.
             gen_instr(TID_C),
-            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 4321),
             // Involuntary switch.
             gen_instr(TID_A),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 5678),
             // Involuntary switch.
             gen_instr(TID_C),
-            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 6789),
             // A switch to idle w/ no syscall is an involuntary switch.
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
             gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 0),
@@ -461,7 +495,6 @@ test_idle()
             // A switch from idle is not counted.
             gen_instr(TID_C),
             gen_instr(TID_C),
-            gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 7890),
             // Involuntary switch.
             // Wait.
             gen_marker(TID_C, TRACE_MARKER_TYPE_CORE_WAIT, 0),
@@ -470,7 +503,6 @@ test_idle()
             gen_instr(TID_A),
             gen_instr(TID_A),
             gen_instr(TID_A),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 8900),
             gen_exit(TID_A),
             // An exit is a voluntary switch.
             gen_exit(TID_C),
@@ -478,14 +510,14 @@ test_idle()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_B, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1234 },
+            { 0, TID_B, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
         {
-            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 4321 },
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 5678 },
-            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 6789 },
-            { 0, TID_C, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 7890 },
-            { 0, TID_A, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 8900 },
+            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 2 },
+            { 0, TID_C, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 3 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
@@ -638,20 +670,20 @@ test_syscall_latencies()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 0 },
-            { 0, TID_B, /*ins=*/1, /*sys#=*/12, /*lat=*/500, VOLUNTARY, DEFAULT, 1600 },
-            { 0, TID_A, /*ins=*/3, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT, 2300 },
-            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 3300 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/12, /*lat=*/500, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT, 2 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 1 },
         },
         {
-            { 0, TID_C, /*ins=*/0, /*sys#=*/12, /*lat=*/1000, VOLUNTARY, DEFAULT, 4400 },
-            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 5200 },
-            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 5200 },
-            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 5200 },
+            { 0, TID_C, /*ins=*/0, /*sys#=*/12, /*lat=*/1000, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
         },
         {
-            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 3200 },
-            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 3200 },
+            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
@@ -780,20 +812,20 @@ test_syscall_latencies_with_kernel_trace()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 0 },
-            { 0, TID_B, /*ins=*/2, /*sys#=*/12, /*lat=*/500, VOLUNTARY, DEFAULT, 1600 },
-            { 0, TID_A, /*ins=*/4, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT, 2300 },
-            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 3300 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_B, /*ins=*/2, /*sys#=*/12, /*lat=*/500, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/4, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT, 2 },
+            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
         },
         {
-            { 0, TID_C, /*ins=*/1, /*sys#=*/12, /*lat=*/1000, VOLUNTARY, DEFAULT, 4400 },
-            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 5200 },
-            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 5200 },
-            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 5200 },
+            { 0, TID_C, /*ins=*/1, /*sys#=*/12, /*lat=*/1000, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
+            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
         },
         {
-            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 3200 },
-            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 3200 },
+            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
