@@ -210,6 +210,8 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
 static dr_emit_flags_t
 event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
+    if (!drmgr_is_first_instr_app(bb))
+        return DR_EMIT_DEFAULT;
     drutil_expand_rep_string(drcontext, bb);
     return DR_EMIT_DEFAULT;
 }
