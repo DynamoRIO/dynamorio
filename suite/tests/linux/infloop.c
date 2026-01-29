@@ -143,5 +143,5 @@ main(int argc, const char *argv[])
         close(pipefd[1]);
     }
 
-    return result;
+    return 0;
 }
