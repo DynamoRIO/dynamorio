@@ -83,9 +83,23 @@ typedef struct {
 static client_id_t client_id;
 static void *mutex;     /* for multithread support */
 static uint64 num_refs; /* keep a global instruction reference count */
-static drmgr_priority_t rep_expand_priority = { sizeof(rep_expand_priority),
-                                                "instrace_rep_expand", NULL, NULL,
-                                                DRMGR_PRIORITY_APP2APP_DRX + 1 };
+#if defined(DRMGR_PRIORITY_APP2APP_DRX)
+static drmgr_priority_t rep_expand_priority = {
+    sizeof(rep_expand_priority),
+    "instrace_rep_expand",
+    NULL,
+    NULL,
+    DRMGR_PRIORITY_APP2APP_DRX + 1
+};
+#else
+static drmgr_priority_t rep_expand_priority = {
+    sizeof(rep_expand_priority),
+    "instrace_rep_expand",
+    NULL,
+    NULL,
+    DRMGR_PRIORITY_APP2APP + 1
+};
+#endif
 
 /* Allocated TLS slot offsets */
 enum {
