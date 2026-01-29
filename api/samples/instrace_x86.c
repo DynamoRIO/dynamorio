@@ -101,8 +101,7 @@ static void
 event_thread_exit(void *drcontext);
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating);
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating);
 
 static dr_emit_flags_t
 event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
@@ -142,8 +141,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_bb_app2app_event(event_bb, &priority) ||
-        !drmgr_register_bb_instrumentation_event(NULL, event_bb_insert,
-                                                 &priority)) {
+        !drmgr_register_bb_instrumentation_event(NULL, event_bb_insert, &priority)) {
         /* something is wrong: can't continue */
         DR_ASSERT(false);
         return;
@@ -250,8 +248,7 @@ event_thread_exit(void *drcontext)
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     drutil_expand_rep_string(drcontext, bb);
     return DR_EMIT_DEFAULT;
