@@ -258,7 +258,8 @@ event_thread_exit(void *drcontext)
 static dr_emit_flags_t
 event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
-    if (!drmgr_is_first_instr_app(bb))
+    instr_t *first_app = instrlist_first_app(bb);
+    if (first_app == NULL || !drmgr_is_first_instr(drcontext, first_app))
         return DR_EMIT_DEFAULT;
     drutil_expand_rep_string(drcontext, bb);
     return DR_EMIT_DEFAULT;
