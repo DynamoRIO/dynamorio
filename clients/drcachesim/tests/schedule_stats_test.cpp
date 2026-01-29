@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2025 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2026 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,9 +64,12 @@ using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_END;
 using ::dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_TRACE_START;
 using schedule_record_t = ::dynamorio::drmemtrace::schedule_stats_t::schedule_record_t;
+using workload_tid_t = ::dynamorio::drmemtrace::schedule_stats_t::workload_tid_t;
 
 static constexpr bool VOLUNTARY = true;
+static constexpr bool INVOLUNTARY = false;
 static constexpr bool DIRECT = true;
+static constexpr bool DEFAULT = false;
 
 // Create a class for testing that has reliable timing.
 // It assumes it is only used with one thread and parallel operation
@@ -99,6 +102,26 @@ private:
     uint64_t global_time_ = 1;
 };
 
+class mock_input_stream_t : public default_memtrace_stream_t {
+public:
+    uint64_t
+    get_instruction_ordinal() const override
+    {
+        // We add 1 to emulate the real scheduler waiting until the next instruction
+        // boundary before doing any context switch, resulting in the input interface
+        // ordinal always being 1 higher.
+        return count + 1;
+    }
+    void
+    add_instruction()
+    {
+        ++count;
+    }
+
+private:
+    int64_t count;
+};
+
 class mock_stream_t : public default_memtrace_stream_t {
 public:
     uint64_t
@@ -110,8 +133,17 @@ public:
     memtrace_stream_t *
     get_input_interface() const override
     {
-        return const_cast<mock_stream_t *>(this);
+        return cur_input;
     }
+
+    void
+    set_input_interface(memtrace_stream_t *stream)
+    {
+        cur_input = stream;
+    }
+
+private:
+    memtrace_stream_t *cur_input = nullptr;
 };
 
 // Bypasses the analyzer and scheduler for a controlled test sequence.
@@ -136,6 +168,9 @@ run_schedule_stats(
         per_core[cpu].shard_data = tool.parallel_shard_init_stream(
             cpu, per_core[cpu].worker_data, &per_core[cpu].stream);
     }
+    std::unordered_map<workload_tid_t, mock_input_stream_t,
+                       schedule_stats_t::workload_tid_hash_t>
+        input2stream;
     // Walk in lockstep until all are empty.
     int num_finished = 0;
     while (num_finished < static_cast<int>(memrefs.size())) {
@@ -146,6 +181,11 @@ run_schedule_stats(
             per_core[cpu].stream.set_tid(memref.instr.tid);
             per_core[cpu].stream.set_workload_id(memref.instr.pid);
             per_core[cpu].stream.set_output_cpuid(cpu);
+
+            mock_input_stream_t &input =
+                input2stream[workload_tid_t(memref.instr.pid, memref.instr.tid)];
+            per_core[cpu].stream.set_input_interface(&input);
+
             if (memref.marker.type == TRACE_TYPE_MARKER) {
                 switch (memref.marker.marker_type) {
                 case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
@@ -158,6 +198,7 @@ run_schedule_stats(
                     break;
                 case TRACE_MARKER_TYPE_TIMESTAMP:
                     per_core[cpu].stream.set_last_timestamp(memref.marker.marker_value);
+                    input.set_last_timestamp(memref.marker.marker_value);
                     break;
                 default:;
                 }
@@ -169,6 +210,10 @@ run_schedule_stats(
                 per_core[cpu].finished = true;
                 ++num_finished;
             }
+            // Since our mock input stream adds 1 to emulate switching on the next
+            // instr boundary, we increment its count *after* invoking the tool.
+            if (type_is_instr(memref.instr.type))
+                input.add_instruction();
         }
     }
     std::vector<std::vector<schedule_record_t>> record(memrefs.size());
@@ -182,6 +227,9 @@ run_schedule_stats(
         for (size_t i = 0; i < record.size(); ++i) {
             assert(record[i].size() == (*expected_record)[i].size());
             for (size_t j = 0; j < record[i].size(); ++j) {
+                if (!(record[i][j] == (*expected_record)[i][j])) {
+                    std::cerr << "Record " << i << ", " << j << " mismatch\n";
+                }
                 assert(record[i][j] == (*expected_record)[i][j]);
             }
         }
@@ -252,15 +300,15 @@ test_basic_stats()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_B, /*ins=*/1, /*sys#=*/0, /*lat=*/500, VOLUNTARY },
-            { 0, TID_A, /*ins=*/3, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT },
-            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/0, /*lat=*/500, VOLUNTARY, DEFAULT, 2 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT, 3 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 4 },
         },
         {
-            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 2 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
@@ -381,15 +429,15 @@ test_basic_stats_with_syscall_trace()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_B, /*ins=*/2, /*sys#=*/0, /*lat=*/500, VOLUNTARY },
-            { 0, TID_A, /*ins=*/4, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT },
-            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_B, /*ins=*/2, /*sys#=*/0, /*lat=*/500, VOLUNTARY, DEFAULT, 2 },
+            { 0, TID_A, /*ins=*/4, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT, 3 },
+            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 4 },
         },
         {
-            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 2 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
@@ -462,14 +510,14 @@ test_idle()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_B, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_B, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
         {
-            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_C, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_A, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_C, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 2 },
+            { 0, TID_C, /*ins=*/2, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 3 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
@@ -622,20 +670,20 @@ test_syscall_latencies()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_B, /*ins=*/1, /*sys#=*/12, /*lat=*/500, VOLUNTARY },
-            { 0, TID_A, /*ins=*/3, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT },
-            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/12, /*lat=*/500, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT, 2 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 1 },
         },
         {
-            { 0, TID_C, /*ins=*/0, /*sys#=*/12, /*lat=*/1000, VOLUNTARY },
-            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
-            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_C, /*ins=*/0, /*sys#=*/12, /*lat=*/1000, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
         },
         {
-            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);
@@ -764,20 +812,20 @@ test_syscall_latencies_with_kernel_trace()
     };
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
-            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_B, /*ins=*/2, /*sys#=*/12, /*lat=*/500, VOLUNTARY },
-            { 0, TID_A, /*ins=*/4, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT },
-            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_B, /*ins=*/2, /*sys#=*/12, /*lat=*/500, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/4, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT, 2 },
+            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
         },
         {
-            { 0, TID_C, /*ins=*/1, /*sys#=*/12, /*lat=*/1000, VOLUNTARY },
-            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
-            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY },
+            { 0, TID_C, /*ins=*/1, /*sys#=*/12, /*lat=*/1000, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
+            { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
         },
         {
-            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1 },
-            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1 },
+            { 0, TID_D, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
+            { 0, TID_E, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
         },
     };
     auto result = run_schedule_stats(memrefs, &expected_record);

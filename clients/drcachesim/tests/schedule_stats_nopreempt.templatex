@@ -102,11 +102,11 @@ Core #1 schedule: [A-Ia-i_]*
 Core #2 schedule: [A-Ia-i_]*
 Core #3 schedule: [A-Ia-i_]*
 Core #0 switch-outs:
-    0 W0.T[0-9]* instrs= .*
+    0 W0.T[0-9]* @.*
 Core #1 switch-outs:
-    0 W0.T[0-9]* instrs= .*
+    0 W0.T[0-9]* @.*
 Core #2 switch-outs:
-    0 W0.T[0-9]* instrs= .*
+    0 W0.T[0-9]* @.*
 Core #3 switch-outs:
-    0 W0.T[0-9]* instrs= .*
+    0 W0.T[0-9]* @.*
 .*

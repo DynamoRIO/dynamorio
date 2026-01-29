@@ -316,7 +316,8 @@ public:
                 instructions == rhs.instructions &&
                 syscall_number == rhs.syscall_number &&
                 syscall_latency == rhs.syscall_latency && voluntary == rhs.voluntary &&
-                direct == rhs.direct;
+                direct == rhs.direct &&
+                input_instr_start_ordinal == rhs.input_instr_start_ordinal;
         }
         int64_t workload = INVALID_WORKLOAD_ID;
         memref_tid_t tid = INVALID_THREAD_ID;
@@ -333,6 +334,14 @@ public:
         bool voluntary = false;
         // Whether a direct switch request.
         bool direct = false;
+        // The input's absolute ordinal at the start of this segment.
+        // This is inclusive of the segment's first instruction: so it starts at 1,
+        // and this value minus 1 should be used when skipping to this point.
+        // (This aligns with the values in schedule_record_t.)
+        // (Switches are currently always at instruction boundaries.)
+        // Providing this enables viewing by input across cores.
+        // (The timestamp does not help as it is not synchronized across cores.)
+        uint64_t input_instr_start_ordinal = 1;
     };
 
     counters_t
@@ -388,6 +397,7 @@ protected:
         uint64_t segment_start_microseconds = 0;
         intptr_t filetype = 0;
         uint64_t switch_start_instrs = 0;
+        uint64_t switch_start_input_instr_ordinal = 1; // Inclusive, so start at 1.
         bool in_syscall_trace = false;
         // A complete record of the switches.
         std::vector<schedule_record_t> switch_record;
