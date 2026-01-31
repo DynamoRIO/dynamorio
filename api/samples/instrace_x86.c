@@ -92,14 +92,6 @@ static app_pc code_cache;
 static void *mutex;            /* for multithread support */
 static uint64 global_num_refs; /* keep a global memory reference count */
 static int tls_index;
-#if defined(DRMGR_PRIORITY_APP2APP_DRX)
-static drmgr_priority_t rep_expand_priority = { sizeof(rep_expand_priority),
-                                                "instrace_rep_expand", NULL, NULL,
-                                                DRMGR_PRIORITY_APP2APP_DRX + 1 };
-#    define REP_EXPAND_PRIORITY (&rep_expand_priority)
-#else
-#    define REP_EXPAND_PRIORITY NULL
-#endif
 
 static void
 event_exit(void);
@@ -148,8 +140,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_register_exit_event(event_exit);
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
-        !drmgr_register_bb_app2app_event(event_bb, REP_EXPAND_PRIORITY) ||
-        !drmgr_register_bb_instrumentation_event(NULL, event_bb_insert, &priority)) {
+        !drmgr_register_bb_app2app_event(event_bb, NULL) ||
+        !drmgr_register_bb_instrumentation_event(NULL /*analysis func*/, event_bb_insert,
+                                                 &priority)) {
         /* something is wrong: can't continue */
         DR_ASSERT(false);
         return;
@@ -261,7 +254,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     instr_t *first_app = instrlist_first_app(bb);
     if (first_app == NULL || !drmgr_is_first_instr(drcontext, first_app))
         return DR_EMIT_DEFAULT;
-    drutil_expand_rep_string(drcontext, bb);
+    DR_ASSERT(drutil_expand_rep_string(drcontext, bb));
     return DR_EMIT_DEFAULT;
 }
 
