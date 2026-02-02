@@ -105,14 +105,14 @@ if (UNIX)
   set(detach_cmd drconfig)
 else ()
   set(detach_cmd drconfig.exe)
-endif()
+endif ()
 
 if (UNIX)
   set(MAX_ITERS 50000)
 else ()
   # Sleeping in longer units.
   set(MAX_ITERS 1000)
-endif()
+endif ()
 
 function (do_sleep ms)
   if (UNIX)

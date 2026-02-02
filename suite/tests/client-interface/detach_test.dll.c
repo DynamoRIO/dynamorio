@@ -46,11 +46,7 @@ dr_exit(void)
 {
     if (!saw_attach_event)
         dr_fprintf(STDERR, "Error: never saw attach event!\n");
-#ifdef WINDOWS
     dr_fprintf(STDERR, "done\n");
-#else
-        /* The app prints 'done' for us. */
-#endif
 }
 
 static void

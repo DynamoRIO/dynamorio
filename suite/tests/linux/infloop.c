@@ -45,10 +45,12 @@
 #include <fcntl.h>
 #include <sys/select.h>
 
+bool for_attach = false, for_detach = false, block = false;
+
 static void
 signal_handler(int sig)
 {
-    if (sig == SIGTERM) {
+    if (sig == SIGTERM && !for_detach) {
         print("done\n");
     }
     exit(1);
@@ -60,7 +62,6 @@ main(int argc, const char *argv[])
     int arg_offs = 1;
     int result = 0;
     long long counter = 0;
-    bool for_attach = false, block = false;
     while (arg_offs < argc && argv[arg_offs][0] == '-') {
         if (strcmp(argv[arg_offs], "-v") == 0) {
             /* enough verbosity to satisfy runall.cmake: needs an initial and a
@@ -71,6 +72,9 @@ main(int argc, const char *argv[])
             arg_offs++;
         } else if (strcmp(argv[arg_offs], "-attach") == 0) {
             for_attach = true;
+            arg_offs++;
+        } else if (strcmp(argv[arg_offs], "-detach") == 0) {
+            for_detach = true;
             arg_offs++;
         } else if (strcmp(argv[arg_offs], "-block") == 0) {
             block = true;
