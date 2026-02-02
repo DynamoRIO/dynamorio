@@ -1293,6 +1293,12 @@ droption_t<uint64_t> op_trim_after_instr(
     "Removes all records from the first TRACE_MARKER_TYPE_TIMESTAMP marker in the trace "
     "that comes after the specified instruction ordinal.");
 
+droption_t<bool> op_filter_kernel(
+    DROPTION_SCOPE_FRONTEND, "filter_kernel", false,
+    "Removes the kernel system call and context switch content from the trace.",
+    "This option is for -tool " RECORD_FILTER ". When present, it removes the kernel "
+    "system call and context switch content from the trace.");
+
 droption_t<bool> op_abort_on_invariant_error(
     DROPTION_SCOPE_ALL, "abort_on_invariant_error", true,
     "Abort invariant checker when a trace invariant error is found.",
