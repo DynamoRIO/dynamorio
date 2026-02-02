@@ -795,37 +795,6 @@ if (NOT PERL_FOUND)
   message(FATAL_ERROR "perl is required to build")
 endif (NOT PERL_FOUND)
 
-if (UNIX) # unlikely to be an issue on Windows
-  # Check for uint, etc. typedef conflicts like on rhel3 (i#18)
-  # and set DR_DO_NOT_DEFINE_*
-  # Note that for later gcc uint and ushort seem to be "soft typedefs":
-  # defined, but overridable: ?!?
-  include(CheckTypeSize)
-  CHECK_TYPE_SIZE(uint DR_DO_NOT_DEFINE_uint)
-  CHECK_TYPE_SIZE(ushort DR_DO_NOT_DEFINE_ushort)
-  CHECK_TYPE_SIZE(bool DR_DO_NOT_DEFINE_bool)
-  CHECK_TYPE_SIZE(byte DR_DO_NOT_DEFINE_byte)
-  CHECK_TYPE_SIZE(sbyte DR_DO_NOT_DEFINE_sbyte)
-  CHECK_TYPE_SIZE(uint32 DR_DO_NOT_DEFINE_uint32)
-  CHECK_TYPE_SIZE(uint64 DR_DO_NOT_DEFINE_uint64)
-  CHECK_TYPE_SIZE(int32 DR_DO_NOT_DEFINE_int32)
-  CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int64)
-  # we could do CHECK_SYMBOL_EXISTS for MAX and MIN but they're not
-  # in standard headers so up to user to define if an issue
-  if (DR_DO_NOT_DEFINE_bool)
-    # i#488: ensure bool compatibility with C++
-    if (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
-      message(FATAL_ERROR "incompatible pre-defined \"bool\" type is larger than 1 byte")
-    endif (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
-  endif (DR_DO_NOT_DEFINE_bool)
-  CHECK_TYPE_SIZE(_Bool DR__Bool_EXISTS)
-  if (DR__Bool_EXISTS)
-    if (NOT ${DR__Bool_EXISTS} EQUAL 1)
-      message(FATAL_ERROR "incompatible \"_Bool\" type is larger than 1 byte")
-    endif (NOT ${DR__Bool_EXISTS} EQUAL 1)
-  endif (DR__Bool_EXISTS)
-endif (UNIX)
-
 ###########################################################################
 # basic build rules and flags
 
@@ -1309,6 +1278,39 @@ if (NOT DISABLE_WARNINGS)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARN}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARN}")
 endif (NOT DISABLE_WARNINGS)
+
+# Now that the compilation flags are decided, we verify type sizes. Particularly,
+# the availability of bool on C depends on -std=gnu99 set above.
+if (UNIX) # unlikely to be an issue on Windows
+  # Check for uint, etc. typedef conflicts like on rhel3 (i#18)
+  # and set DR_DO_NOT_DEFINE_*
+  # Note that for later gcc uint and ushort seem to be "soft typedefs":
+  # defined, but overridable: ?!?
+  include(CheckTypeSize)
+  CHECK_TYPE_SIZE(uint DR_DO_NOT_DEFINE_uint)
+  CHECK_TYPE_SIZE(ushort DR_DO_NOT_DEFINE_ushort)
+  CHECK_TYPE_SIZE(bool DR_DO_NOT_DEFINE_bool)
+  CHECK_TYPE_SIZE(byte DR_DO_NOT_DEFINE_byte)
+  CHECK_TYPE_SIZE(sbyte DR_DO_NOT_DEFINE_sbyte)
+  CHECK_TYPE_SIZE(uint32 DR_DO_NOT_DEFINE_uint32)
+  CHECK_TYPE_SIZE(uint64 DR_DO_NOT_DEFINE_uint64)
+  CHECK_TYPE_SIZE(int32 DR_DO_NOT_DEFINE_int32)
+  CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int64)
+  # we could do CHECK_SYMBOL_EXISTS for MAX and MIN but they're not
+  # in standard headers so up to user to define if an issue
+  if (DR_DO_NOT_DEFINE_bool)
+    # i#488: ensure bool compatibility with C++
+    if (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
+      message(FATAL_ERROR "incompatible pre-defined \"bool\" type is larger than 1 byte")
+    endif (NOT ${DR_DO_NOT_DEFINE_bool} EQUAL 1)
+  endif (DR_DO_NOT_DEFINE_bool)
+  CHECK_TYPE_SIZE(_Bool DR__Bool_EXISTS)
+  if (DR__Bool_EXISTS)
+    if (NOT ${DR__Bool_EXISTS} EQUAL 1)
+      message(FATAL_ERROR "incompatible \"_Bool\" type is larger than 1 byte")
+    endif (NOT ${DR__Bool_EXISTS} EQUAL 1)
+  endif (DR__Bool_EXISTS)
+endif (UNIX)
 
 if (LINUX)
   CHECK_INCLUDE_FILE("linux/rseq.h" HAVE_RSEQ)
