@@ -53,17 +53,15 @@ public:
     {
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
-                case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
-                    in_kernel_ = true;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_ = true;
             }
         }
         bool to_return = !in_kernel_;
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
-                case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-                case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
-                    in_kernel_ = false;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: in_kernel_ = false;
             }
         }
         return to_return;
@@ -73,6 +71,7 @@ public:
     {
         return true;
     }
+
 private:
     bool in_kernel_ = false;
 };
