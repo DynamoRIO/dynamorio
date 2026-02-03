@@ -276,6 +276,7 @@ Further non-compatibility-affecting changes include:
    Vectors of a program given a user-defined instruction interval.
  - Added a new drmemtrace option -exit_after_instrs which applies to all
    tools and exits after N instructions.
+ - Added drvector_clear() API that clears a drvector storage without decallocating it.
 
 **************************************************
 <hr>
