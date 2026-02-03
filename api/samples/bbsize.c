@@ -118,7 +118,8 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     byte fp_raw[DR_FPSTATE_BUF_SIZE + DR_FPSTATE_ALIGN];
     byte *fp_align = (byte *)ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
 
-    if (translating)
+    /* Skip trace-building blocks: they are not standalone app basic blocks. */
+    if (translating || for_trace)
         return DR_EMIT_DEFAULT;
 
     proc_save_fpstate(fp_align);
