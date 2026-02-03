@@ -364,9 +364,7 @@ configure_DynamoRIO_global(OFF ON)
 # configure_DynamoRIO_global() cleared the absolute flags for us.
 # We now use PROPERTIES to set for each test.
 # We do want the bitwidth flags for gcc on everything though:
-# We want test builds to also use -std=gnu99 to avoid issues due to
-# incompatible treatment of bools on C.
-set(CMAKE_C_FLAGS "${ARCH_CFLAGS} -std=gnu99")
+set(CMAKE_C_FLAGS "${ARCH_CFLAGS} ${BASE_CONLY_FLAGS}")
 # DynamoRIOConfig.cmake no longer sets global CMAKE_SHARED_LINKER_FLAGS
 # so we no longer need to clear this and we can just add arch:
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
