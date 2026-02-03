@@ -277,6 +277,8 @@ Further non-compatibility-affecting changes include:
  - Added a new drmemtrace option -exit_after_instrs which applies to all
    tools and exits after N instructions.
  - Added drvector_clear() API that clears a drvector storage without decallocating it.
+ - Added zero_alloc field in #drvector_t that when set to true sets every entry pointer
+   of drvector's storage to 0 using memset().
 
 **************************************************
 <hr>
