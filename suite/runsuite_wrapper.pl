@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright () 2016-2025 Google, Inc.  All rights reserved.
+# Copyright () 2016-2026 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -552,6 +552,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'prof_pcs,thread_private|common.nativeexec_exe_opt' => 1, # i#2052
                 'prof_pcs,thread_private|common.nativeexec_retakeover_opt' => 1, # i#2052
                 'prof_pcs,thread_private|common.nativeexec_bindnow_opt' => 1, # i#2052
+                'code_api|tool.drcachesim.irregular-windows-simple' => 1, # i#3320
                 );
             if ($is_long) {
                 # These are important tests so we only ignore in the long suite,

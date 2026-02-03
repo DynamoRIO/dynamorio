@@ -4591,6 +4591,16 @@ if (BUILD_CLIENTS)
       "${READELF_EXECUTABLE}@-a@${PROJECT_BINARY_DIR}/suite/tests/${dir_prefix}.*.dir/raw/window.000?/*.elf")
     endif ()
 
+    # Offline version of this test.
+    torunonly_drcacheoff(irregular-windows-simple ${ci_shared_app}
+      "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv"
+      "@-tool@basic_counts" "")
+    # The first postcmd did window #0.  There should be 2 more windows.
+    set(tool.drcacheoff.irregular-windows-simple_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+    set(tool.drcacheoff.irregular-windows-simple_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
+
     # Test L0_filter_until_instrs
     torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
         "-trace_after_instrs 10K -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
