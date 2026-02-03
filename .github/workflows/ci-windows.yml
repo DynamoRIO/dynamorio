@@ -76,6 +76,9 @@ jobs:
 
     # Install Doxygen.
     - uses: ssciwr/doxygen-install@v1
+      with:
+        # TODO i#7796: Fix failures seen on Doxygen 1.16.1.
+        version: "1.14.0"
 
     - name: Download Packages
       shell: powershell
@@ -124,6 +127,9 @@ jobs:
 
     # Install Doxygen.
     - uses: ssciwr/doxygen-install@v1
+      with:
+        # TODO i#7796: Fix failures seen on Doxygen 1.16.1.
+        version: "1.14.0"
 
     - name: Download Packages
       shell: powershell
@@ -172,6 +178,9 @@ jobs:
 
     # Install Doxygen.
     - uses: ssciwr/doxygen-install@v1
+      with:
+        # TODO i#7796: Fix failures seen on Doxygen 1.16.1.
+        version: "1.14.0"
 
     - name: Download Packages
       shell: powershell
