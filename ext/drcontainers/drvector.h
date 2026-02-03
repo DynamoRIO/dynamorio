@@ -61,6 +61,7 @@ typedef struct _drvector_t {
     bool synch;    /**< Whether to automatically synchronize each operation. */
     void *lock;    /**< The lock used for synchronization. */
     void (*free_data_func)(void *); /**< The routine called when freeing each entry. */
+    bool zero_alloc; /**< Set the vector storage to 0 when resizing, or clearing it. */
 } drvector_t;
 
 /**
@@ -111,6 +112,16 @@ drvector_append(drvector_t *vec, void *data);
  */
 bool
 drvector_delete(drvector_t *vec);
+
+/**
+ * Clears the internal storage of the vector setting every element to 0 without freeing
+ * its storage memory. If free_payload_func was specified, calls it for each payload
+ * first, then sets every element to 0. If free_payload_func was not specified but the
+ * vector elements are pointers to heap objects, clearing the vector can cause memory
+ * leaks.
+ */
+bool
+drvector_clear(drvector_t *vec);
 
 /** Acquires the vector lock. */
 void

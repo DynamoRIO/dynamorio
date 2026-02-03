@@ -57,6 +57,7 @@ drvector_init(drvector_t *vec, uint initial_capacity, bool synch,
     vec->synch = synch;
     vec->lock = dr_mutex_create();
     vec->free_data_func = free_data_func;
+    vec->zero_alloc = false;
     return true;
 }
 
@@ -79,6 +80,8 @@ static void
 drvector_increase_size(drvector_t *vec, uint newcap)
 {
     void **newarray = dr_global_alloc(newcap * sizeof(void *));
+    if (vec->zero_alloc)
+        memset(newarray, 0, newcap * sizeof(void *));
     if (vec->array != NULL) {
         memcpy(newarray, vec->array, vec->entries * sizeof(void *));
         dr_global_free(vec->array, vec->capacity * sizeof(void *));
@@ -157,6 +160,34 @@ drvector_delete(drvector_t *vec)
     if (vec->synch)
         dr_mutex_unlock(vec->lock);
     dr_mutex_destroy(vec->lock);
+    return true;
+}
+
+bool
+drvector_clear(drvector_t *vec)
+{
+    if (vec == NULL)
+        return false;
+
+    if (vec->synch)
+        dr_mutex_lock(vec->lock);
+
+    /* Since we lazily initialize the array, vec->array could be NULL if we
+     * called drvector_init with capacity 0 and never inserted an element into
+     * the vec. We check vec->array here and below before access.
+     * */
+    if (vec->free_data_func != NULL && vec->array != NULL) {
+        for (uint i = 0; i < vec->entries; i++) {
+            (vec->free_data_func)(vec->array[i]);
+        }
+    }
+
+    if (vec->array != NULL && vec->zero_alloc)
+        memset(vec->array, 0, vec->capacity * sizeof(void *));
+
+    if (vec->synch)
+        dr_mutex_unlock(vec->lock);
+
     return true;
 }
 
