@@ -74,8 +74,11 @@ namespace drmemtrace {
  * @param[in] modify_marker_value A list of comma-separated pairs of integers representing
  *   <TRACE_MARKER_TYPE_, new_value> to modify the value of all listed TRACE_MARKER_TYPE_
  *   in the trace with their corresponding new_value.
- * @param[in] filter_kernel A bool denoting whether kernel system call and context switch
- *   trace content should be filtered out.
+ * @param[in] filter_kernel A bool denoting whether to filter out kernel system call trace
+ *  content between TRACE_MARKER_TYPE_SYSCALL_TRACE_START and
+ *  TRACE_MARKER_TYPE_SYSCALL_TRACE_END, the kernel context switch trace content between
+ *  TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, and
+ *  also update the trace file type to remove the OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.
  * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *
