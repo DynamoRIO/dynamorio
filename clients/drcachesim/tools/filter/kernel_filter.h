@@ -53,6 +53,12 @@ public:
     {
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
+            case TRACE_MARKER_TYPE_FILETYPE: {
+                uint64_t filetype = static_cast<uint64_t>(entry.addr);
+                filetype &= ~OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
+                entry.addr = static_cast<addr_t>(filetype);
+                break;
+            }
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
             case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_ = true;
             }
