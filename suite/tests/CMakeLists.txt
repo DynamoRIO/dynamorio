@@ -364,9 +364,7 @@ configure_DynamoRIO_global(OFF ON)
 # configure_DynamoRIO_global() cleared the absolute flags for us.
 # We now use PROPERTIES to set for each test.
 # We do want the bitwidth flags for gcc on everything though:
-# We want test builds to also use -std=gnu99 to avoid issues due to
-# incompatible treatment of bools on C.
-set(CMAKE_C_FLAGS "${ARCH_CFLAGS} -std=gnu99")
+set(CMAKE_C_FLAGS "${ARCH_CFLAGS} ${BASE_CONLY_FLAGS}")
 # DynamoRIOConfig.cmake no longer sets global CMAKE_SHARED_LINKER_FLAGS
 # so we no longer need to clear this and we can just add arch:
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
@@ -4592,6 +4590,16 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.windows-memdump_postcmd4
       "${READELF_EXECUTABLE}@-a@${PROJECT_BINARY_DIR}/suite/tests/${dir_prefix}.*.dir/raw/window.000?/*.elf")
     endif ()
+
+    # Offline version of this test.
+    torunonly_drcacheoff(irregular-windows-simple ${ci_shared_app}
+      "-trace_instr_intervals_file ${config_files_dir}/instr_intervals_example.csv"
+      "@-tool@basic_counts" "")
+    # The first postcmd did window #0.  There should be 2 more windows.
+    set(tool.drcacheoff.irregular-windows-simple_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-tool@basic_counts")
+    set(tool.drcacheoff.irregular-windows-simple_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-tool@basic_counts")
 
     # Test L0_filter_until_instrs
     torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
