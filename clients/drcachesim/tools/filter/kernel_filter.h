@@ -53,21 +53,17 @@ public:
     {
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
-            case TRACE_MARKER_TYPE_FILETYPE: {
-                uint64_t filetype = static_cast<uint64_t>(entry.addr);
-                filetype &= ~OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
-                entry.addr = static_cast<addr_t>(filetype);
-                break;
-            }
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_ = true;
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_ = true; break;
+            default: break;
             }
         }
         bool to_return = !in_kernel_;
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: in_kernel_ = false;
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: in_kernel_ = false; break;
+            default: break;
             }
         }
         return to_return;
@@ -76,6 +72,12 @@ public:
     parallel_shard_exit(void *shard_data) override
     {
         return true;
+    }
+    uint64_t
+    update_filetype(uint64_t filetype) override
+    {
+        filetype &= ~OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
+        return filetype;
     }
 
 private:
