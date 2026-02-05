@@ -679,6 +679,10 @@ DR_API
  * and restore the x87 floating-point/MMX state.
  * If the client needs to do so inside the code cache the client should implement
  * that itself.
+ * \note Floating-point state handling applies only to managed DynamoRIO modes.
+ * In standalone decoder mode, this routine is stubbed out and does not save
+ * any state; standalone decoding does not execute application code and does not
+ * manage x87/SSE state.
  * Returns number of bytes written.
  */
 size_t
@@ -698,6 +702,9 @@ DR_API
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
  * of the ISA mode of the current thread (see dr_get_isa_mode()).
+ * \note Floating-point state handling applies only to managed DynamoRIO modes.
+ * In standalone decoder mode, this routine is stubbed out and does not restore
+ * any state.
  */
 void
 proc_restore_fpstate(byte *buf);
