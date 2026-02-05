@@ -56,7 +56,6 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
-#include "drutil.h"
 #include "utils.h"
 
 /* Each ins_ref_t describes an executed instruction. */
@@ -101,9 +100,6 @@ static void
 event_thread_exit(void *drcontext);
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating);
-
-static dr_emit_flags_t
 event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 bool for_trace, bool translating, void *user_data);
 
@@ -134,13 +130,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     page_size = dr_page_size();
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
         DR_ASSERT(false);
-    drutil_init();
     client_id = id;
     mutex = dr_mutex_create();
     drmgr_register_exit_event(event_exit);
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
-        !drmgr_register_bb_app2app_event(event_bb, NULL) ||
         !drmgr_register_bb_instrumentation_event(NULL /*analysis func*/, event_bb_insert,
                                                  &priority)) {
         /* something is wrong: can't continue */
@@ -182,13 +176,11 @@ event_exit()
     if (!drmgr_unregister_tls_field(tls_index) ||
         !drmgr_unregister_thread_init_event(event_thread_init) ||
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
-        !drmgr_unregister_bb_app2app_event(event_bb) ||
         !drmgr_unregister_bb_insertion_event(event_bb_insert) ||
         drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     dr_mutex_destroy(mutex);
-    drutil_exit();
     drmgr_exit();
 }
 
@@ -248,16 +240,6 @@ event_thread_exit(void *drcontext)
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
 
-static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
-{
-    instr_t *first_app = instrlist_first_app(bb);
-    if (first_app == NULL || !drmgr_is_first_instr(drcontext, first_app))
-        return DR_EMIT_DEFAULT;
-    DR_ASSERT(drutil_expand_rep_string(drcontext, bb));
-    return DR_EMIT_DEFAULT;
-}
-
 /* event_bb_insert calls instrument_instr to instrument every
  * application memory reference.
  */
@@ -267,6 +249,13 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
 {
     if (instr_get_app_pc(instr) == NULL || !instr_is_app(instr))
         return DR_EMIT_DEFAULT;
+
+    /* We intentionally do not expand REP-prefixed string instructions: instrace is a
+     * simple, non-emulation-aware sample, and drutil_expand_rep_string requires
+     * consuming emulation metadata via drmgr_orig_app_instr_for_fetch /
+     * drmgr_orig_app_instr_for_operands. instrace does not do that, so expanding
+     * REP would be incorrect; emulation-aware handling is left to memtrace.
+     */
     instrument_instr(drcontext, bb, instr);
     return DR_EMIT_DEFAULT;
 }
