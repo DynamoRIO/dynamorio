@@ -61,7 +61,98 @@ flexible usage.  See hashtable_init_ex() and related functions.
 
 \section sec_drcontainers_vector DrVector
 
-The DrVector is a simple resizable array.
+The \p drvector DynamoRIO Extension provides a simple resizable array (a vector).
+
+\subsection sec_drvector_init Initialization
+
+Initialize a vector with drvector_init():
+\code
+drvector_t vec;
+drvector_init(&vec, 10, true, free_callback);
+\endcode
+
+The \p initial_capacity can be 0, in which case the internal array is lazily allocated
+upon the first insertion (using an internal default initial size).
+
+\subsection sec_drvector_ops Operations
+
+Entries can be added to the end of the vector using drvector_append():
+\code
+drvector_append(&vec, data);
+\endcode
+
+Entries can be retrieved or set by index:
+\code
+void *data = drvector_get_entry(&vec, 5);
+drvector_set_entry(&vec, 3, new_data);
+\endcode
+
+drvector_get_entry() returns \p NULL if the index is out of bounds.
+
+For an unsynchronized vector, the caller is free to directly access the \p array
+field of the \p drvector_t structure for better performance.
+
+drvector_set_entry() will automatically resize the vector if the index is beyond
+the current capacity. It also updates the number of entries to be \p idx + 1 if the
+index is greater than or equal to the current number of entries.
+
+\subsection sec_drcontainers_vector_synch Synchronization
+
+The vector can be initialized to automatically synchronize each operation by
+passing \p true for the \p synch parameter to drvector_init().
+
+Even when \p synch is \p false, the vector's lock is initialized and can be
+manually acquired and released:
+\code
+drvector_lock(&vec);
+/* perform multiple operations or access vec->array directly */
+drvector_unlock(&vec);
+\endcode
+
+\subsection sec_drcontainers_vector_mem Memory Management
+
+A callback for freeing each data item can be provided to drvector_init().
+This callback is called for each entry when drvector_delete() or drvector_clear()
+is called.
+
+The #drvector_t.zero_alloc field can be set to \p true to ensure that any new memory
+allocated during resizing is zeroed. When \p zero_alloc is \p true, drvector_clear()
+also zeros the entire array after calling the free callback.
+
+To completely free the vector's storage:
+\code
+drvector_delete(&vec);
+\endcode
+
+To clear the vector without freeing its internal storage:
+\code
+drvector_clear(&vec);
+\endcode
+
+\subsection sec_drvector_example Example
+
+\code
+void free_data(void *ptr) {
+    dr_global_free(ptr, sizeof(int));
+}
+
+drvector_t vec;
+drvector_init(&vec, 0, false, free_data);
+vec.zero_alloc = true;
+
+int *data = dr_global_alloc(sizeof(int));
+*data = 42;
+drvector_append(&vec, data);
+
+/* Accessing by index */
+int *val = (int *)drvector_get_entry(&vec, 0);
+
+/* Direct access (unsynchronized) */
+if (vec.entries > 0)
+    val = (int *)vec.array[0];
+
+drvector_delete(&vec);
+\endcode
 
 \section sec_drcontainers_table DrTable
 
