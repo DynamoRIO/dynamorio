@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -160,6 +160,16 @@ droption_t<std::string> op_modify_marker_value(
     "sets all TRACE_MARKER_TYPE_CPU_ID == 3 in the trace to core 24 and "
     "TRACE_MARKER_TYPE_PAGE_SIZE == 18 to 2k.");
 
+droption_t<bool> op_filter_kernel(
+    DROPTION_SCOPE_FRONTEND, "filter_kernel", false,
+    "Removes the kernel system call and context switch content from the trace.",
+    "This option is for -tool record_filter. When present, it removes the kernel "
+    "system call trace content between TRACE_MARKER_TYPE_SYSCALL_TRACE_START and "
+    "TRACE_MARKER_TYPE_SYSCALL_TRACE_END, the kernel context switch trace content "
+    "between TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, and also updates the trace file type to "
+    "remove the OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.");
+
 } // namespace
 
 int
@@ -192,7 +202,7 @@ _tmain(int argc, const TCHAR *targv[])
             op_trim_after_timestamp.get_value(), op_trim_before_instr.get_value(),
             op_trim_after_instr.get_value(), op_encodings2regdeps.get_value(),
             op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
-            op_verbose.get_value()));
+            op_filter_kernel.get_value(), op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());
 

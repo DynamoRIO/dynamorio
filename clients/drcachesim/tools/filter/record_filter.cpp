@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,6 +58,7 @@
 #include "utils.h"
 #include "null_filter.h"
 #include "cache_filter.h"
+#include "kernel_filter.h"
 #include "trim_filter.h"
 #include "type_filter.h"
 #include "encodings2regdeps_filter.h"
@@ -123,7 +124,8 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           uint64_t trim_before_timestamp, uint64_t trim_after_timestamp,
                           uint64_t trim_before_instr, uint64_t trim_after_instr,
                           bool encodings2regdeps, const std::string &keep_func_ids,
-                          const std::string &modify_marker_value, unsigned int verbose)
+                          const std::string &modify_marker_value, bool filter_kernel,
+                          unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -174,7 +176,11 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::modify_marker_value_filter_t(
                     modify_marker_value_pairs_list)));
     }
-
+    if (filter_kernel) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::kernel_filter_t()));
+    }
     // TODO i#5675: Add other filters.
 
     return new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
