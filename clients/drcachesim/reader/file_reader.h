@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -147,7 +147,10 @@ protected:
             else if (entry->type == TRACE_TYPE_MARKER)
                 readahead_deque.push_back(*entry);
             else {
-                ERRMSG("Unexpected trace sequence\n");
+                ERRMSG("Unexpected trace sequence in %s: found type %d after pid.type=%d "
+                       "tid.type=%d #queued=%zu\n",
+                       input_path_.c_str(), entry->type, pid.type, tid.type,
+                       readahead_deque.size());
                 return false;
             }
         }
