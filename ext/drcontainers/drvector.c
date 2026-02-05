@@ -182,8 +182,10 @@ drvector_clear(drvector_t *vec)
         }
     }
 
-    if (vec->array != NULL && vec->zero_alloc)
+    if (vec->array != NULL && vec->zero_alloc) {
         memset(vec->array, 0, vec->capacity * sizeof(void *));
+        vec->entries = 0;
+    }
 
     if (vec->synch)
         dr_mutex_unlock(vec->lock);

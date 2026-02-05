@@ -117,8 +117,8 @@ drvector_delete(drvector_t *vec);
  * Clears the internal storage of the vector without freeing its storage memory. If
  * free_payload_func was specified, calls it for each payload first, then, if zero_alloc
  * is true, sets every entry pointer to 0. If free_payload_func was not specified but the
- * vector entries are pointers to heap objects, clearing the vector can cause memory leaks
- * if zero_alloc is true.
+ * vector entries are pointers to heap objects, clearing the vector can cause memory
+ * leaks.
  */
 bool
 drvector_clear(drvector_t *vec);
