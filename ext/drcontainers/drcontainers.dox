@@ -94,7 +94,11 @@ field of the \p drvector_t structure for better performance.
 
 drvector_set_entry() will automatically resize the vector if the index is beyond
 the current capacity. It also updates the number of entries to be \p idx + 1 if the
-index is greater than or equal to the current number of entries.
+index is greater than or equal to the current number of entries. Note that entries in
+between the last set index and the current index are left uninitialized, hence clearing
+or deleting a vector that has a \p free_callback set can be problematic, as the
+\p free_callback function will be called on uninitialized entries. It's the user
+responsibility to set all entries.
 
 \subsection sec_drcontainers_vector_synch Synchronization
 
