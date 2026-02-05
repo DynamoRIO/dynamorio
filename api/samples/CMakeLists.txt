@@ -239,7 +239,7 @@ add_sample_client(div         "div.c"           "drmgr")
 add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
 add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx")
-add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
+add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx")
 add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
 if (X86 OR RISCV64) # TODO i#1551, #1569: Port to AArchXX.
 add_sample_client(cbr "cbr.c" "drmgr")
@@ -253,9 +253,9 @@ if (X86) # XXX i#1551, i#1569, i#3544: port to ARM/AArch64/RISCV64
     "drcontainers;drmgr;drreg;drutil;drx")
   _DR_append_property_list(TARGET memtrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
   add_sample_client(instrace_x86_binary "instrace_x86.c;utils.c"
-    "drcontainers;drmgr;drreg;drutil;drx")
+    "drcontainers;drmgr;drreg;drx")
   add_sample_client(instrace_x86_text   "instrace_x86.c;utils.c"
-    "drcontainers;drmgr;drreg;drutil;drx")
+    "drcontainers;drmgr;drreg;drx")
   _DR_append_property_list(TARGET instrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
   add_sample_client(prefetch    "prefetch.c"      "drmgr")
   if (NOT WIN32)
