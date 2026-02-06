@@ -1777,7 +1777,7 @@ function(set_properties name test myprefix)
     endforeach ()
   endif ()
   if (DEFINED ${test}_env)
-    set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${myprefix}${${test}_env}")
+    set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT "${${test}_env}")
   endif ()
 endfunction ()
 
@@ -1824,6 +1824,8 @@ function(torun_api name test ops)
   strings2lists(${test} ops)
   torun("${name}" ${test} ${${test}_source} ON ${${test}_standalone_dr}
     "${${test}_dr_ops};${ops}" "${${test}_exe_ops}" added ${${test}_pass_opts_via_env})
+  ops2testprefix(myprefix "${ops}")
+  set_properties(${name} ${test} ${myprefix})
 endfunction(torun_api)
 
 function(torunonly_native name realexe expect source exe_ops)
@@ -2059,6 +2061,12 @@ macro (set_up_test_lists)
     endif (enabled)
   endforeach(run)
 endmacro ()
+
+# Stop glibc registering its own rseq structure as this interferes with
+# the rseq tests.
+function(disable_glibc_rseq test_name)
+  set("${test_name}_env" "GLIBC_TUNABLES=glibc.pthread.rseq=0" PARENT_SCOPE)
+endfunction(disable_glibc_rseq)
 
 ###########################################################################
 # tests
@@ -4835,15 +4843,18 @@ if (BUILD_CLIENTS)
         "-trace_after_instrs 5K"
         # Run thread-sharded for the invariant checker.
         "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
+      disable_glibc_rseq(tool.drcacheoff.rseq)
       # Test filtering.
       torunonly_drcacheoff(rseq-filter linux.rseq
         "-trace_after_instrs 5K -L0_filter"
         "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
       set(tool.drcacheoff.rseq-filter_expectbase "offline-rseq")
+      disable_glibc_rseq(tool.drcacheoff.rseq-filter)
       torunonly_drcacheoff(rseq-dfilter linux.rseq
         "-trace_after_instrs 5K -L0D_filter"
         "@${test_mode_flag}@-test_mode_name@rseq_app@-no_core_sharded" "")
       set(tool.drcacheoff.rseq-dfilter_expectbase "offline-rseq")
+      disable_glibc_rseq(tool.drcacheoff.rseq-dfilter)
     endif ()
 
     if (AARCH64)
@@ -6201,13 +6212,16 @@ if (UNIX)
     # TODO i#1874: Build drmemtrace on Android (RSEQ_TEST_ATTACH depends on drmemtrace).
     set(linux.rseq_no_reg_compat)
     tobuild(linux.rseq linux/rseq.cpp)
+    disable_glibc_rseq(linux.rseq)
     # Test the other sections.  Unfortunately we need a separate binary for each.
     tobuild(linux.rseq_table linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_table
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_OLD_SECTION_NAME")
+    disable_glibc_rseq(linux.rseq_table)
     tobuild(linux.rseq_noarray linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_noarray
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_NO_ARRAY")
+    disable_glibc_rseq(linux.rseq_noarray)
     # Test attaching, which has a separate lazy rseq check.
     # We build with static DR to also test client interactions.
     tobuild_api(api.rseq linux/rseq.cpp "" "" OFF ON OFF)
@@ -6216,8 +6230,10 @@ if (UNIX)
     use_DynamoRIO_static_client(api.rseq drmemtrace_nomain)
     use_DynamoRIO_drmemtrace_tracer(api.rseq)
     set(api.rseq_expectbase rseq_client)
+    disable_glibc_rseq(api.rseq)
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")
+    disable_glibc_rseq(api.rseq_disable)
   endif ()
   # Test Linux brk emulation.
   if (LINUX)
