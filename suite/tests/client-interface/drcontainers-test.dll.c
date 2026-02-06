@@ -91,6 +91,47 @@ test_vector(void)
 
     ok = drvector_delete(&vec);
     CHECK(ok, "drvector_delete failed");
+
+    /* Test zero_alloc and drvector_clear() features. */
+    drvector_config_t config;
+    config.size = sizeof(config);
+    config.zero_alloc = true;
+    ok = drvector_init_ex(&vec, 1, false /*!synch*/, NULL, &config);
+    CHECK(ok, "drvector_init failed");
+    drvector_set_entry(&vec, 4, (void *)&vec);
+    /* Entries 0 to 3 should be zero even if they were not explicitly set because
+     * zero_alloc is true.
+     */
+    CHECK(drvector_get_entry(&vec, 0) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 1) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 2) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 3) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 4) == (void *)&vec, "entries not equal");
+    /* Set all entries and the clear the vector. */
+    drvector_set_entry(&vec, 0, (void *)&vec);
+    drvector_set_entry(&vec, 1, (void *)&vec);
+    drvector_set_entry(&vec, 2, (void *)&vec);
+    drvector_set_entry(&vec, 3, (void *)&vec);
+    CHECK(drvector_get_entry(&vec, 0) == (void *)&vec, "entries not equal");
+    CHECK(drvector_get_entry(&vec, 1) == (void *)&vec, "entries not equal");
+    CHECK(drvector_get_entry(&vec, 2) == (void *)&vec, "entries not equal");
+    CHECK(drvector_get_entry(&vec, 3) == (void *)&vec, "entries not equal");
+    /* drvector_clear() should set every element to zero. */
+    drvector_clear(&vec);
+    /* Set entry 4 so that vec.entries increases to 4 as well and we can check entries
+     * 0 to 4.
+     */
+    drvector_set_entry(&vec, 4, (void *)&vec);
+    /* Entries 0 to 3 should be zero even if they were not explicitly set because
+     * we cleared the vector with zero_alloc set to true.
+     */
+    CHECK(drvector_get_entry(&vec, 0) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 1) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 2) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 3) == (void *)0, "entry not zeroed");
+    CHECK(drvector_get_entry(&vec, 4) == (void *)&vec, "entries not equal");
+    ok = drvector_delete(&vec);
+    CHECK(ok, "drvector_delete failed");
 }
 
 unsigned int c;
