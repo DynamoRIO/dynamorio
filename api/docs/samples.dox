@@ -81,17 +81,18 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \li Comparing compiler output across binaries
 
 \subsection sec_sample_callstack callstack.cpp
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/callstack.cpp">callstack.cpp</a> wraps a configurable function (default: malloc) and prints a symbolized call stack on each call using drwrap, drcallstack, and drsyms.
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/callstack.cpp">callstack.cpp</a> wraps a configurable function (default: malloc) and prints a symbolized call stack on each call using \ref page_drwrap, \ref page_drcallstack, and \ref page_drsyms.
 \par DynamoRIO concepts demonstrated
 \li Function wrapping with \ref page_drwrap
-\li Call stack walking via the drcallstack extension
-\li Symbol lookup with drsyms and options via \ref page_droption
+\li Call stack walking via the \ref page_drcallstack extension
+\li Symbol lookup with \ref page_drsyms
+\li Runtime options via \ref page_droption
 \par Typical use cases
 \li Debugging unexpected call paths
 \li Capturing stack traces at selected points
 
 \subsection sec_sample_cbr cbr.c
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/cbr.c">cbr.c</a> instruments conditional branches with separate taken/not-taken clean calls, records which edges execute, and flushes and redirects execution to remove instrumentation once each edge has been seen.
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/cbr.c">cbr.c</a> instruments conditional branches with separate taken/not-taken clean calls, records which edges execute, and flushes and redirects execution to remove instrumentation during execution once each edge has been seen.
 \par DynamoRIO concepts demonstrated
 \li Conditional branch instrumentation with clean calls
 \li Fragment flushing and execution redirection
@@ -104,7 +105,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/cbrtrace.c">cbrtrace.c</a> logs each conditional branch’s address, fall-through, target, and taken direction to per-thread log files using dr_insert_cbr_instrumentation_ex().
 \par DynamoRIO concepts demonstrated
 \li Conditional branch instrumentation
-\li Thread-local storage via drmgr TLS fields
+\li Thread-local storage via drmgr TLS fields (\ref page_drmgr)
 \li Per-thread log file output
 \par Typical use cases
 \li Debugging branch behavior
@@ -113,7 +114,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \subsection sec_sample_countcalls countcalls.c
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/countcalls.c">countcalls.c</a> counts dynamic direct calls, indirect calls, and returns using per-thread TLS data and inline counter updates with flag preservation.
 \par DynamoRIO concepts demonstrated
-\li TLS-based per-thread data via drmgr
+\li TLS-based per-thread data via drmgr (\ref page_drmgr)
 \li Instruction classification for calls and returns
 \li Inline counter updates with \ref page_drreg
 \par Typical use cases
@@ -174,7 +175,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par DynamoRIO concepts demonstrated
 \li Clean calls optimized by DynamoRIO
 \li Runtime options via \ref page_droption
-\li Emulation-aware instruction counting with drmgr
+\li Emulation-aware instruction counting with drmgr (\ref page_drmgr)
 \par Typical use cases
 \li Instruction count profiling
 \li Validating instrumentation overhead
@@ -188,6 +189,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par Typical use cases
 \li Building simple instruction traces
 \li Validating instrumentation correctness
+\li For a full-featured instruction and data address tracing tool, see drmemtrace.
 
 \subsection sec_sample_instrace_x86 instrace_x86.c
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrace_x86.c">instrace_x86.c</a> captures a per-thread instruction trace on x86 using inline buffer filling and a local code cache for lean clean calls when the buffer fills.
@@ -198,9 +200,10 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par Typical use cases
 \li High-performance instruction tracing
 \li Producing binary traces for offline analysis
+\li For a full-featured instruction and data address tracing tool, see drmemtrace.
 
 \subsection sec_sample_instrcalls instrcalls.c
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrcalls.c">instrcalls.c</a> logs each direct call, indirect call, and return with target information to per-thread files, with optional symbolization via drsyms.
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrcalls.c">instrcalls.c</a> logs each direct call, indirect call, and return with target information to per-thread files, with optional symbolization via drsyms (\ref page_drsyms).
 \par DynamoRIO concepts demonstrated
 \li Call and return instrumentation
 \li Per-thread logging
@@ -218,6 +221,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par Typical use cases
 \li Studying memory access patterns
 \li Validating memory reference instrumentation
+\li For a full-featured instruction and data address tracing tool, see drmemtrace.
 
 \subsection sec_sample_memtrace_x86 memtrace_x86.c
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memtrace_x86.c">memtrace_x86.c</a> captures memory references on x86 with inline buffer filling and a local code cache for lean clean calls, writing binary or text traces per thread.
@@ -228,6 +232,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par Typical use cases
 \li High-performance memory tracing
 \li Generating binary traces for offline analysis
+\li For a full-featured instruction and data address tracing tool, see drmemtrace.
 
 \subsection sec_sample_memval_simple memval_simple.c
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memval_simple.c">memval_simple.c</a> records memory write addresses and the written bytes using drx_buf trace and circular buffers, flushing via a trace-buffer fault handler to per-thread log files.
@@ -350,10 +355,10 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \li Validating STL usage in DynamoRIO clients
 
 \subsection sec_sample_syscall syscall.c
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/syscall.c">syscall.c</a> monitors system calls, counts them, and modifies write syscalls (SYS_write/NtWriteFile) using drmgr’s pre/post syscall events and thread-context-local storage.
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/syscall.c">syscall.c</a> monitors system calls, counts them, and modifies write syscalls (SYS_write/NtWriteFile) using drmgr’s pre/post syscall events and thread-context-local storage (\ref page_drmgr).
 \par DynamoRIO concepts demonstrated
 \li Syscall interception events
-\li Thread-context-local storage via drmgr CLS
+\li Thread-context-local storage via drmgr CLS (\ref page_drmgr)
 \li Platform-specific syscall handling and parameter modification
 \par Typical use cases
 \li Auditing syscall activity
