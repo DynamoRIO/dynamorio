@@ -363,7 +363,7 @@ DR_API
  * parameters, make a call to \p callee, clean up the parameters, and
  * then restore the saved state.
  * If \p where is NULL, the clean call is inserted at the default pre-insertion
- * point for the instruction list.
+ * point for the instruction list, which currently appends to the list.
  *
  * The callee must use the standard C calling convention that matches the
  * underlying 32-bit or 64-bit binary interface convention ("cdecl"). Other
