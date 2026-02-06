@@ -53,6 +53,12 @@ extern "C" {
  */
 /**@{*/ /* begin doxygen group */
 
+/** Configuration parameters for a vector. */
+typedef struct _drvector_config_t {
+    size_t size;     /**< The size of the drvector_config_t struct used */
+    bool zero_alloc; /**< Set the vector storage to 0 whenever allocated. */
+} drvector_config_t;
+
 /** The storage for a vector. */
 typedef struct _drvector_t {
     uint entries;  /**< The index at which drvector_append() will write. */
@@ -61,8 +67,27 @@ typedef struct _drvector_t {
     bool synch;    /**< Whether to automatically synchronize each operation. */
     void *lock;    /**< The lock used for synchronization. */
     void (*free_data_func)(void *); /**< The routine called when freeing each entry. */
-    bool zero_alloc; /**< Set the vector storage to 0 when resizing, or clearing it. */
+    drvector_config_t config;       /**< Additional config params for the vector. */
 } drvector_t;
+
+/**
+ * Initializes a drvector with the given parameters
+ *
+ * @param[out] vec     The vector to be initialized.
+ * @param[in]  initial_capacity  The initial number of entries allocated
+     for the vector.
+ * @param[in]  synch     Whether to synchronize each operation.
+ *   Even when \p synch is false, the vector's lock is initialized and can
+ *   be used via vector_lock() and vector_unlock(), allowing the caller
+ *   to extend synchronization beyond just the operation in question, to
+ *   include accessing a looked-up payload, e.g.
+ * @param[in]  free_data_func   A callback for freeing each data item.
+ *   Leave it NULL if no callback is needed.
+ * @param[in]  config   Additional config parameters for the vector.
+ */
+bool
+drvector_init_ex(drvector_t *vec, uint initial_capacity, bool synch,
+                 void (*free_data_func)(void *), drvector_config_t *config);
 
 /**
  * Initializes a drvector with the given parameters

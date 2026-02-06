@@ -93,8 +93,10 @@ test_vector(void)
     CHECK(ok, "drvector_delete failed");
 
     /* Test zero_alloc and drvector_clear() features. */
-    ok = drvector_init(&vec, 1, false /*!synch*/, NULL);
-    vec.zero_alloc = true;
+    drvector_config_t config;
+    config.size = sizeof(config);
+    config.zero_alloc = true;
+    ok = drvector_init_ex(&vec, 1, false /*!synch*/, NULL, &config);
     CHECK(ok, "drvector_init failed");
     drvector_set_entry(&vec, 4, (void *)&vec);
     /* Entries 0 to 3 should be zero even if they were not explicitly set because

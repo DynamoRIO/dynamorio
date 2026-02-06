@@ -153,8 +153,9 @@ changes:
    the online or offline mode.
  - Moved the switch type enum from scheduler.h to trace_entry.h, now referenced as
    #dynamorio::drmemtrace::switch_type_t.
- - Added #drvector_t.zero_alloc that when set to true sets every entry pointer of
-   drvector's storage to 0 using memset().
+ - Added #drvector_t.config field which contains additional configuration parameters for
+   a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
+   true sets every entry pointer of the drvector's storage to 0 using memset().
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
@@ -278,7 +279,10 @@ Further non-compatibility-affecting changes include:
    Vectors of a program given a user-defined instruction interval.
  - Added a new drmemtrace option -exit_after_instrs which applies to all
    tools and exits after N instructions.
- - Added drvector_clear() API that clears a drvector storage without decallocating it.
+ - Added drvector_clear() API that clears a #drvector_t storage without deleting it.
+ - Added #drvector_config_t that contains additional config parameters for a #drvector_t.
+ - Added drvector_init_ex() API that initializes a #drvector_t with extra parameters
+   defined in #drvector_config_t.
 
 **************************************************
 <hr>

@@ -35,6 +35,7 @@
 #include "dr_api.h"
 #include "drvector.h"
 #include <string.h> /* memcpy */
+#include <stddef.h> /* offsetof */
 
 /* Arbitrary value for first allocation, if user asks for 0.  We
  * lazily allocate it, assuming that a request for 0 means the user
@@ -43,22 +44,39 @@
 #define INITIAL_CAPACITY_IF_ZERO_REQUESTED 8
 
 bool
-drvector_init(drvector_t *vec, uint initial_capacity, bool synch,
-              void (*free_data_func)(void *))
+drvector_init_ex(drvector_t *vec, uint initial_capacity, bool synch,
+                 void (*free_data_func)(void *), drvector_config_t *config)
 {
     if (vec == NULL)
         return false;
-    if (initial_capacity > 0)
-        vec->array = dr_global_alloc(initial_capacity * sizeof(void *));
-    else
-        vec->array = NULL;
     vec->entries = 0;
     vec->capacity = initial_capacity;
     vec->synch = synch;
     vec->lock = dr_mutex_create();
     vec->free_data_func = free_data_func;
-    vec->zero_alloc = false;
+    vec->config.size = sizeof(vec->config);
+    if (config != NULL) {
+        if (config->size > offsetof(drvector_config_t, zero_alloc))
+            vec->config.zero_alloc = config->zero_alloc;
+    } else {
+        /* Set default values for drvector_config_t. */
+        vec->config.zero_alloc = false;
+    }
+    if (initial_capacity > 0) {
+        vec->array = dr_global_alloc(initial_capacity * sizeof(void *));
+        if (vec->config.zero_alloc)
+            memset(vec->array, 0, initial_capacity * sizeof(void *));
+    } else {
+        vec->array = NULL;
+    }
     return true;
+}
+
+bool
+drvector_init(drvector_t *vec, uint initial_capacity, bool synch,
+              void (*free_data_func)(void *))
+{
+    return drvector_init_ex(vec, initial_capacity, synch, free_data_func, NULL);
 }
 
 void *
@@ -80,7 +98,7 @@ static void
 drvector_increase_size(drvector_t *vec, uint newcap)
 {
     void **newarray = dr_global_alloc(newcap * sizeof(void *));
-    if (vec->zero_alloc)
+    if (vec->config.zero_alloc)
         memset(newarray, 0, newcap * sizeof(void *));
     if (vec->array != NULL) {
         memcpy(newarray, vec->array, vec->entries * sizeof(void *));
@@ -182,7 +200,7 @@ drvector_clear(drvector_t *vec)
         }
     }
 
-    if (vec->array != NULL && vec->zero_alloc) {
+    if (vec->array != NULL && vec->config.zero_alloc) {
         memset(vec->array, 0, vec->capacity * sizeof(void *));
         vec->entries = 0;
     }

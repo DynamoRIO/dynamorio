@@ -71,6 +71,13 @@ drvector_t vec;
 drvector_init(&vec, 10, true, free_callback);
 \endcode
 
+To provide additional configuration parameters, use drvector_init_ex():
+\code
+drvector_t vec;
+drvector_config_t config = {sizeof(config), true};
+drvector_init_ex(&vec, 10, true, free_callback, &config);
+\endcode
+
 The \p initial_capacity can be 0, in which case the internal array is lazily allocated
 upon the first insertion (using an internal default initial size).
 
@@ -103,7 +110,7 @@ responsibility to set all entries.
 \subsection sec_drcontainers_vector_synch Synchronization
 
 The vector can be initialized to automatically synchronize each operation by
-passing \p true for the \p synch parameter to drvector_init().
+passing \p true for the \p synch parameter to drvector_init() or drvector_init_ex().
 
 Even when \p synch is \p false, the vector's lock is initialized and can be
 manually acquired and released:
@@ -115,13 +122,15 @@ drvector_unlock(&vec);
 
 \subsection sec_drcontainers_vector_mem Memory Management
 
-A callback for freeing each data item can be provided to drvector_init().
+A callback for freeing each data item can be provided to drvector_init() or
+drvector_init_ex().
 This callback is called for each entry when drvector_delete() or drvector_clear()
 is called.
 
-The #drvector_t.zero_alloc field can be set to \p true to ensure that any new memory
-allocated during resizing is zeroed. When \p zero_alloc is \p true, drvector_clear()
-also zeros the entire array after calling the free callback.
+The #drvector_config_t.zero_alloc field can be set to \p true to ensure that the memory
+allocated for the vector's internal storage is zeroed. This is typically set via
+drvector_init_ex(). When \p zero_alloc is \p true, drvector_clear() also zeros
+the entire storage after calling \p free_callback.
 
 To completely free the vector's storage:
 \code
@@ -141,8 +150,8 @@ void free_data(void *ptr) {
 }
 
 drvector_t vec;
-drvector_init(&vec, 0, false, free_data);
-vec.zero_alloc = true;
+drvector_config_t config = {sizeof(config), true};
+drvector_init_ex(&vec, 0, false, free_data, &config);
 
 int *data = dr_global_alloc(sizeof(int));
 *data = 42;
