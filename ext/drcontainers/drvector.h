@@ -55,7 +55,7 @@ extern "C" {
 
 /** Configuration parameters for a vector. */
 typedef struct _drvector_config_t {
-    size_t size;     /**< The size of the drvector_config_t struct used */
+    size_t size;     /**< The size of the drvector_config_t struct used. */
     bool zero_alloc; /**< Set the vector storage to 0 whenever allocated. */
 } drvector_config_t;
 
@@ -71,7 +71,7 @@ typedef struct _drvector_t {
 } drvector_t;
 
 /**
- * Initializes a drvector with the given parameters
+ * Initializes a drvector with the given parameters.
  *
  * @param[out] vec     The vector to be initialized.
  * @param[in]  initial_capacity  The initial number of entries allocated
@@ -90,7 +90,7 @@ drvector_init_ex(drvector_t *vec, uint initial_capacity, bool synch,
                  void (*free_data_func)(void *), drvector_config_t *config);
 
 /**
- * Initializes a drvector with the given parameters
+ * Initializes a drvector with the given parameters.
  *
  * @param[out] vec     The vector to be initialized.
  * @param[in]  initial_capacity  The initial number of entries allocated

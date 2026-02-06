@@ -68,14 +68,14 @@ The \p drvector DynamoRIO Extension provides a simple resizable array (a vector)
 Initialize a vector with drvector_init():
 \code
 drvector_t vec;
-drvector_init(&vec, 10, true, free_callback);
+drvector_init(&vec, /*initial_capacity=*/10, /*synch=*/true, free_callback);
 \endcode
 
 To provide additional configuration parameters, use drvector_init_ex():
 \code
 drvector_t vec;
-drvector_config_t config = {sizeof(config), true};
-drvector_init_ex(&vec, 10, true, free_callback, &config);
+drvector_config_t config = {/*size=*/sizeof(config), /*zero_alloc=*/true};
+drvector_init_ex(&vec, /*initial_capacity=*/10, /*synch=*/true, free_callback, &config);
 \endcode
 
 The \p initial_capacity can be 0, in which case the internal array is lazily allocated
@@ -102,10 +102,11 @@ field of the \p drvector_t structure for better performance.
 drvector_set_entry() will automatically resize the vector if the index is beyond
 the current capacity. It also updates the number of entries to be \p idx + 1 if the
 index is greater than or equal to the current number of entries. Note that entries in
-between the last set index and the current index are left uninitialized, hence clearing
-or deleting a vector that has a \p free_callback set can be problematic, as the
-\p free_callback function will be called on uninitialized entries. It's the user
-responsibility to set all entries.
+between the last set index and the current index are left uninitialized (unless
+#drvector_config_t.zero_alloc is set), hence clearing or deleting a vector that has a
+\p free_callback set can be problematic, as the \p free_callback function will be called
+on uninitialized entries. It's the user's responsibility to set all entries prior to the
+\p free_callback being called.
 
 \subsection sec_drcontainers_vector_synch Synchronization
 
@@ -150,8 +151,8 @@ void free_data(void *ptr) {
 }
 
 drvector_t vec;
-drvector_config_t config = {sizeof(config), true};
-drvector_init_ex(&vec, 0, false, free_data, &config);
+drvector_config_t config = {/*size=*/sizeof(config), /*zero_alloc=*/true};
+drvector_init_ex(&vec, /*initial_capacity=*/0, /*synch=*/false, free_data, &config);
 
 int *data = dr_global_alloc(sizeof(int));
 *data = 42;
