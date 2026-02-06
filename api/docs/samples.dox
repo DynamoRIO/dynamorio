@@ -189,7 +189,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par Typical use cases
 \li Building simple instruction traces
 \li Validating instrumentation correctness
-\li For a full-featured instruction and data address tracing tool, see drmemtrace.
+\li For a full-featured instruction and data address tracing tool, see \ref page_drcachesim.
 
 \subsection sec_sample_instrace_x86 instrace_x86.c
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrace_x86.c">instrace_x86.c</a> captures a per-thread instruction trace on x86 using inline buffer filling and a local code cache for lean clean calls when the buffer fills.
@@ -200,7 +200,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par Typical use cases
 \li High-performance instruction tracing
 \li Producing binary traces for offline analysis
-\li For a full-featured instruction and data address tracing tool, see drmemtrace.
+\li For a full-featured instruction and data address tracing tool, see \ref page_drcachesim.
 
 \subsection sec_sample_instrcalls instrcalls.c
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrcalls.c">instrcalls.c</a> logs each direct call, indirect call, and return with target information to per-thread files, with optional symbolization via drsyms (\ref page_drsyms).
@@ -221,7 +221,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par Typical use cases
 \li Studying memory access patterns
 \li Validating memory reference instrumentation
-\li For a full-featured instruction and data address tracing tool, see drmemtrace.
+\li For a full-featured instruction and data address tracing tool, see \ref page_drcachesim.
 
 \subsection sec_sample_memtrace_x86 memtrace_x86.c
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memtrace_x86.c">memtrace_x86.c</a> captures memory references on x86 with inline buffer filling and a local code cache for lean clean calls, writing binary or text traces per thread.
@@ -232,7 +232,7 @@ The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/sampl
 \par Typical use cases
 \li High-performance memory tracing
 \li Generating binary traces for offline analysis
-\li For a full-featured instruction and data address tracing tool, see drmemtrace.
+\li For a full-featured instruction and data address tracing tool, see \ref page_drcachesim.
 
 \subsection sec_sample_memval_simple memval_simple.c
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memval_simple.c">memval_simple.c</a> records memory write addresses and the written bytes using drx_buf trace and circular buffers, flushing via a trace-buffer fault handler to per-thread log files.
