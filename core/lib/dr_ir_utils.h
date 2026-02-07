@@ -567,6 +567,9 @@ DR_API
  * \warning On x86, this routine does NOT save the x87 floating-point or MMX state: to do
  * that the instrumentation routine should call proc_save_fpstate() to save and then
  * proc_restore_fpstate() to restore (or use dr_insert_clean_call()).
+ * \note Floating-point state handling applies only to managed DynamoRIO modes.
+ * In standalone decoder mode, proc_save_fpstate()/proc_restore_fpstate() are
+ * no-ops and no x87/FPU state is preserved.
  *
  * \note The preparation modifies the DR_REG_XSP and DR_REG_XAX registers
  * (after saving them).  Use dr_insert_clean_call() instead if an

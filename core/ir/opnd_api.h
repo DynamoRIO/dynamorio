@@ -2526,6 +2526,11 @@ DR_API
  * Returns an immediate float operand with value \p f.
  * The caller's code should use proc_save_fpstate() or be inside a
  * clean call that has requested to preserve the floating-point state.
+ * \note Floating-point state preservation applies only to managed
+ * DynamoRIO modes.  In standalone decoder mode, floating-point state
+ * is not preserved or managed and proc_save_fpstate()/proc_restore_fpstate()
+ * are no-ops, so callers must not rely on x87/FPU state being saved or
+ * restored when disassembling.
  */
 opnd_t
 opnd_create_immed_float(float f);
@@ -2540,6 +2545,11 @@ DR_API
  * Returns an immediate double operand with value \p d.
  * The caller's code should use proc_save_fpstate() or be inside a
  * clean call that has requested to preserve the floating-point state.
+ * \note Floating-point state preservation applies only to managed
+ * DynamoRIO modes.  In standalone decoder mode, floating-point state
+ * is not preserved or managed and proc_save_fpstate()/proc_restore_fpstate()
+ * are no-ops, so callers must not rely on x87/FPU state being saved or
+ * restored when disassembling.
  */
 opnd_t
 opnd_create_immed_double(double d);
