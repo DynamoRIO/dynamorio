@@ -244,8 +244,8 @@ bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
 \endcode
 
 Alternatively, you can first run \c notepad.exe, and then use \c drrun
-to attach to it.  Attaching is an experimental feature and is not yet as
-well-supported as launching a new process:
+to attach to it, but please note that attaching is an experimental
+feature and is not yet as well-supported as launching a new process:
 \code
 bin32/drrun.exe -attach <notepad_pid> -c samples/bin32/bbsize.dll
 \endcode
@@ -351,8 +351,8 @@ under DynamoRIO with the bbsize sample client:
 \endcode
 
 Alternatively, you can first run the target, and then use \c drrun
-to attach to it.  Attaching is an experimental feature and is not yet as
-well-supported as launching a new process.
+to attach to it, but please note that attaching is an experimental
+feature and is not yet as well-supported as launching a new process.
 In particular, if the application is in the middle of a blocking syscall,
 DynamoRIO will wait for that to finish.  To instead force interruption of
 the syscall, additionally pass -skip_syscall.
