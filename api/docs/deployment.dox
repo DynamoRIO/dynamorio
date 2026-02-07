@@ -173,6 +173,32 @@ When using DynamoRIO as a third-party disassembly library (see \ref
 page_standalone), no deployment is needed, as DynamoRIO does not control a
 target application when used as a regular library.
 
+\section deploy_drrun Where drrun Comes From
+
+The \c drrun tool is available from a build tree, an install tree created
+via \ref build_install, or an official release package.  Its location differs
+because each layout places helper binaries under different root directories
+(build output vs. install prefix vs. packaged root).  For build steps and
+install layout details, see \ref page_building, \ref build_install, and
+\ref build_layout.
+
+\section deploy_launch_models Choosing a Launch Method
+
+\c drrun launches a new process with a one-time configuration in a single step.
+
+\c drconfig writes a persistent configuration for a named application, which
+can be reused across launches.
+
+\c drinject injects into an existing process or launches using an existing
+configuration, enabling two-step workflows.
+
+\subsection deploy_first_run First Successful Run
+
+For a first successful run, ensure you have a build, install tree, or release
+package available, choose a launch method, and select a target application.
+Success means the target runs under DynamoRIO control with the expected client
+or default configuration active.
+
 \section win_deploy Windows Deployment
 
 There are two methods for running a process under DynamoRIO: the one-time
@@ -218,8 +244,8 @@ bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
 \endcode
 
 Alternatively, you can first run \c notepad.exe, and then use \c drrun
-to attach to it, but please note that attaching is an experimental
-feature and is not yet as well-supported as launching a new process:
+to attach to it.  Attaching is an experimental feature and is not yet as
+well-supported as launching a new process:
 \code
 bin32/drrun.exe -attach <notepad_pid> -c samples/bin32/bbsize.dll
 \endcode
@@ -325,8 +351,8 @@ under DynamoRIO with the bbsize sample client:
 \endcode
 
 Alternatively, you can first run the target, and then use \c drrun
-to attach to it, but please note that attaching is an experimental
-feature and is not yet as well-supported as launching a new process.
+to attach to it.  Attaching is an experimental feature and is not yet as
+well-supported as launching a new process.
 In particular, if the application is in the middle of a blocking syscall,
 DynamoRIO will wait for that to finish.  To instead force interruption of
 the syscall, additionally pass -skip_syscall.
@@ -334,8 +360,8 @@ the syscall, additionally pass -skip_syscall.
 % bin64/drrun -attach <target_pid> -c samples/bin64/libbbsize.so
 \endcode
 
-This attach feature requires ptrace capabilities, which can be enabled
-with this command:
+This attach feature requires ptrace capabilities on Linux, which can be
+enabled with this command:
 \code
 % echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 \endcode
@@ -407,7 +433,9 @@ sec_startstop "app_start()/app_stop()" interface, which requires modifying
 application source code.
 
 
-\section android_deploy Android Deployment
+\section deploy_advanced Advanced / Platform-Specific Deployment
+
+\subsection android_deploy Android Deployment
 
 Android deployment is generally the same as \ref lin_deploy except for the
 following differences.
@@ -453,7 +481,7 @@ everything to work without this step, but we are not able to test on all
 versions or configurations of Android.
 
 
-\section qemu_deploy Running Under QEMU
+\subsection qemu_deploy Running Under QEMU
 
 To run DynamoRIO under QEMU, use the \ref op_xarch_root "-xarch_root"
 option to point at the base directory of the guest system libraries.

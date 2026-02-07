@@ -52,9 +52,13 @@ operating system (Windows, Linux, or Android) and commodity IA-32, AMD64,
 ARM, and AArch64 hardware.  See \ref sec_limit_platforms for details of
 which platform combinations are fully supported.
 
+***************************************************************************
 This document describes the DynamoRIO system and the various APIs that it
-exports for building custom tools.  It is divided into the following
-sections:
+exports for building custom tools.  The DynamoRIO documentation follows an
+end-to-end workflow from obtaining DynamoRIO to validating deployment; for
+the complete build, run, and deploy flow, see the User Journey on the home
+page (\ref user_journey).  This page focuses on client APIs and concepts; it
+is divided into the following sections:
 
 - \subpage page_tutorials
   <br>Gives a few short tutorials on using DynamoRIO and includes slides
