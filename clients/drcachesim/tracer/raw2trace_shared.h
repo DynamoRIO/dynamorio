@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -516,6 +516,9 @@ private:
     static const int MAX_DECODE_SIZE = 1024;
     byte decode_buf_[MAX_DECODE_SIZE];
 };
+
+unsigned short
+instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
 
 } // namespace drmemtrace
 } // namespace dynamorio

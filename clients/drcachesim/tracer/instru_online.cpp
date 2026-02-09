@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,7 @@
 #include "drreg.h"
 #include "drutil.h"
 #include "drvector.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "instru.h"
 
