@@ -273,7 +273,7 @@ other words, the first registered callback receives event notification
 last.  This scheme gives priority to a callback registered earlier,
 since it can override or modify the actions of clients registered
 later.  Note that DynamoRIO calls each client's dr_client_main() routine
-according to the client's priority (see \ref multi_client and
+according to the client's priority (see \ref sec_multi_client and
 dr_register_client() in the deployment API).
 
 Systems registering multiple callbacks for a single event should be

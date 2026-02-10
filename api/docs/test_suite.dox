@@ -267,7 +267,7 @@ We also have support for running tests under QEMU emulation.  This is automatica
 $ sudo apt-get install qemu-user qemu-user-binfmt
 ```
 
-For instructions on how to manually run under QEMU, see \ref qemu_deploy.
+For instructions on how to manually run under QEMU, see \ref sec_qemu_deploy.
 
 ## Test Output
 

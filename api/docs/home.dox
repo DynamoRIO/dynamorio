@@ -65,9 +65,9 @@ to validating deployment.
 - <b>Get and Build DynamoRIO</b>: Obtain the source or release package and
   produce your first DynamoRIO build by following \ref page_building.
 - <b>Install (Optional)</b>: Create a local install tree and understand build
-  versus install outputs using \ref build_install.
+  versus install outputs using \ref sec_build_install.
 - <b>Run</b>: Choose how to launch a target under DynamoRIO using
-  \ref deploy_launch_models.
+  \ref sec_deploy_launch_models.
 - <b>Deploy</b>: Follow OS-specific deployment steps in \ref page_deploy.
 - <b>Troubleshoot</b>: Diagnose issues using runtime options and diagnostics in
   \ref sec_options.
