@@ -283,6 +283,8 @@ Further non-compatibility-affecting changes include:
  - Added #drvector_config_t that contains additional config parameters for a #drvector_t.
  - Added drvector_init_ex() API that initializes a #drvector_t with extra parameters
    defined in #drvector_config_t.
+ - Added .github/workflows/version.txt file to have single point of control across cmake,
+   ci-docs, and ci-package when changing major and minor version numbers.
 
 **************************************************
 <hr>
