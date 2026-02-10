@@ -617,7 +617,9 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: When updating this, update all the default versions in ci-package.yml
 # and ci-docs.yml.  We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "11.91.${VERSION_NUMBER_PATCHLEVEL}")
+file(READ ${PROJECT_SOURCE_DIR}/.github/workflows/version.txt major_dot_minor_version_number)
+string(STRIP "${major_dot_minor_version_number}" major_dot_minor_version_number)
+set(VERSION_NUMBER_DEFAULT "${major_dot_minor_version_number}.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
