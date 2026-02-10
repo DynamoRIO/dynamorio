@@ -250,11 +250,19 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     if (instr_get_app_pc(instr) == NULL || !instr_is_app(instr))
         return DR_EMIT_DEFAULT;
 
-    /* We intentionally do not expand REP-prefixed string instructions: instrace is a
-     * simple, non-emulation-aware sample, and drutil_expand_rep_string requires
-     * consuming emulation metadata via drmgr_orig_app_instr_for_fetch /
-     * drmgr_orig_app_instr_for_operands. instrace does not do that, so expanding
-     * REP would be incorrect; emulation-aware handling is left to memtrace.
+    /* We intentionally do not expand REP-prefixed string instructions here.
+     * instrace is a simple instruction tracer: it is concerned only with
+     * instruction fetches, not with per-iteration memory accesses.
+     *
+     * Expanding REP would emit multiple consecutive instances of the same
+     * instruction (one per iteration), which is often confusing in instrace
+     * output and differs from tools like perf that also count only a single
+     * instance.
+     *
+     * Users who want to observe per-iteration behavior of REP instructions
+     * should use emulation-aware samples such as memtrace, which consume the
+     * emulation metadata via drmgr_orig_app_instr_for_fetch() /
+     * drmgr_orig_app_instr_for_operands().
      */
     instrument_instr(drcontext, bb, instr);
     return DR_EMIT_DEFAULT;
