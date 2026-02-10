@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -291,8 +291,6 @@ public:
 #endif
     static unsigned short
     instr_to_prefetch_type(instr_t *instr);
-    static unsigned short
-    instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
     static bool
     instr_is_flush(instr_t *instr);
     static unsigned short

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,7 @@
 #include "drreg.h"
 #include "drutil.h"
 #include "drvector.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "instru.h"
 
@@ -414,7 +415,7 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    ushort type = instr_to_instr_type(app, repstr_expanded);
+    ushort type = ir_utils_t::instr_to_instr_type(app, repstr_expanded);
     ushort size = (ushort)instr_length(drcontext, app);
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
                               adjust);

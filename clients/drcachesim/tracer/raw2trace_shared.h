@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,9 @@
  * DAMAGE.
  */
 
-/* Functions and structs extracted from raw2trace.h for sharing with the tracer.
+/* Functions and structs extracted from raw2trace for sharing with the tracer
+ * or other libraries, or from the tracer for sharing with raw2trace and other
+ * libraries.
  */
 
 #ifndef _RAW2TRACE_SHARED_H_
@@ -515,6 +517,14 @@ protected:
 private:
     static const int MAX_DECODE_SIZE = 1024;
     byte decode_buf_[MAX_DECODE_SIZE];
+};
+
+// TODO i#6412: Some other functions in instru.h may be moved here as needed
+// for easier sharing.
+class ir_utils_t {
+public:
+    static unsigned short
+    instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
 };
 
 } // namespace drmemtrace
