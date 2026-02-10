@@ -42,7 +42,7 @@ After releasing an official release, we leave the major.minor unchanged.  Even i
 
 Users must perform dependence checks only versus either an official release or the very latest development version.  This allows us to release a bugfix version X.Y.1 and not have users who depend on that bugfix be confused by a development version X.Y.NNNN that does not have the fix yet has a higher version number.
 
-When incrementing the major and minor versions, changes may need to be made to the the version checks in make/DynamoRIOConfigVersion.cmake.in, OLDEST_COMPATIBLE_VERSION variable in the top-level CMakeLists.txt, and the version checks when loading client libraries.
+When incrementing the major and minor versions, changes may need to be made to the version checks in make/DynamoRIOConfigVersion.cmake.in, OLDEST_COMPATIBLE_VERSION variable in the top-level CMakeLists.txt, and the version checks when loading client libraries.
 
 # Steps for Publishing a New Release
 
@@ -54,7 +54,7 @@ It is a good idea to perform some sanity tests on all platforms beyond what our 
 
 Update the following in the code and commit the change:
 
-+ Update the "major.minor" version numbers in `.github/workflows/version.txt`.
++ Update the "major.minor" version numbers in `make/version.txt` (note: there is no validation or sanitization of this file in our building process, so do not add anything extra).
 + Update `OLDEST_COMPATIBLE_VERSION_DEFAULT` if necessary.
 
 Don't add a new changelist section for the next release after this one: that is best done after finishing this release.

@@ -616,7 +616,7 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # Read version.txt to get the current major.minor version of DynamoRIO.
-file(READ ${PROJECT_SOURCE_DIR}/.github/workflows/version.txt major_dot_minor_version_number)
+file(READ ${PROJECT_SOURCE_DIR}/make/version.txt major_dot_minor_version_number)
 # Remove trailing '\n'.
 string(STRIP "${major_dot_minor_version_number}" major_dot_minor_version_number)
 # Set the version.
