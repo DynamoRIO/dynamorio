@@ -52,8 +52,7 @@ on:
         default: '0'
 
 env:
-  MAJOR_VERSION_NUMBER: "11"
-  MINOR_VERSION_NUMBER: "91"
+  PATH_TO_VERSION_FILE: "./.github/workflows/version.txt"
 
 defaults:
   run:
@@ -105,13 +104,16 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: For now we duplicate this version number here with CMakeLists.txt.
-      # We should find a way to share (xref i#1565).
       # We support setting the version and build for manual builds.
       # We only use a non-zero build # when making multiple manual builds in one day.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line and remove any trailing '\n', but otherwise there is no other
+        # input validation or sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE} | tr -d '\n')"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$MAJOR_VERSION_NUMBER.$MINOR_VERSION_NUMBER.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -177,10 +179,14 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line and remove any trailing '\n', but otherwise there is no other
+        # input validation or sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE} | tr -d '\n')"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$MAJOR_VERSION_NUMBER.$MINOR_VERSION_NUMBER.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -242,10 +248,14 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line and remove any trailing '\n', but otherwise there is no other
+        # input validation or sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE} | tr -d '\n')"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$MAJOR_VERSION_NUMBER.$MINOR_VERSION_NUMBER.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -307,10 +317,14 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line and remove any trailing '\n', but otherwise there is no other
+        # input validation or sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE} | tr -d '\n')"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$MAJOR_VERSION_NUMBER.$MINOR_VERSION_NUMBER.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -367,10 +381,14 @@ jobs:
 
     - name: Get Version
       id: version
-      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
+        # Read the version from version.txt file.
+        # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
+        # the first line and remove any trailing '\n', but otherwise there is no other
+        # input validation or sanitization.
+        major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE} | tr -d '\n')"
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER="$MAJOR_VERSION_NUMBER.$MINOR_VERSION_NUMBER.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+          export VERSION_NUMBER="$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))"
           export PREFIX="cronbuild-"
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
