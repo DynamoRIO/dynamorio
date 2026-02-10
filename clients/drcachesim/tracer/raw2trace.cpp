@@ -2832,7 +2832,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
     if (instr_is_scatter(instr) || instr_is_gather(instr))
         desc->packed_ |= kIsScatterOrGatherMask;
 #endif
-    desc->type_ = instr_to_instr_type(instr);
+    desc->type_ = ir_utils_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
     desc->flush_type_ = is_flush ? instru_t::instr_to_flush_type(instr) : 0;
 

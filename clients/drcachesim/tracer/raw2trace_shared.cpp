@@ -604,7 +604,7 @@ print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
 }
 
 unsigned short
-instr_to_instr_type(instr_t *instr, bool repstr_expanded)
+ir_utils_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
 {
     if (instr_is_call_direct(instr))
         return TRACE_TYPE_INSTR_DIRECT_CALL;
