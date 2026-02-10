@@ -52,7 +52,7 @@ on:
         default: '0'
 
 env:
-  PATH_TO_VERSION_FILE: "./.github/workflows/version.txt"
+  PATH_TO_VERSION_FILE: "./make/version.txt"
 
 defaults:
   run:
