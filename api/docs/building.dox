@@ -538,38 +538,6 @@ Cygwin's as there are conflicts: both have `mc.exe` and `link.exe`.
 
 \subsection sec_cmake Details of Building with CMake
 
-\subsubsection sec_cmake_debug Debug Build
-
-If you plan to make changes to the source code, or for debugging
-problems in clients, you may wish to configure DynamoRIO in debug
-mode.  Turn on the DEBUG flag when configuring, like this on Linux:
-
-```
-$ cmake -DDEBUG=ON ..
-$ make -j
-```
-
-or on Windows:
-```
-$ cmake -G"Visual Studio 17 2022" -A x64 .. -DDEBUG=ON
-$ cmake --build . --config Debug
-```
-
-Passing -DCMAKE_BUILD_TYPE=Debug to cmake does **not**
-produce a debug build currently.
-
-For 64-bit build on Windows:
-```
-$ cmake -G"Visual Studio 17 2022" -A x64 .. -DDEBUG=ON
-$ cmake --build . --config Debug
-```
-
-For 32-bit build on 64-bit Linux
-```
-$ CFLAGS=-m32 CXXFLAGS=-m32 cmake -DDEBUG=ON ..
-$ make -j
-```
-
 ## Components
 
 DynamoRIO contains several distinct components:
@@ -634,6 +602,38 @@ you cannot selected `BUILD_DOCS`):
  - DEBUG = whether to enable asserts and logging
  - INTERNAL = for DynamoRIO developer use
  - DISABLE_WARNINGS = useful if your version of gcc produces warnings we have not seen (we compile with warnings-are-errors)
+
+\subsubsection sec_cmake_debug Debug Build
+
+If you plan to make changes to the source code, or for debugging
+problems in clients, you may wish to configure DynamoRIO in debug
+mode.  Turn on the DEBUG flag when configuring, like this on Linux:
+
+```
+$ cmake -DDEBUG=ON ..
+$ make -j
+```
+
+or on Windows:
+```
+$ cmake -G"Visual Studio 17 2022" -A x64 .. -DDEBUG=ON
+$ cmake --build . --config Debug
+```
+
+Passing -DCMAKE_BUILD_TYPE=Debug to cmake does **not**
+produce a debug build currently.
+
+For 64-bit build on Windows:
+```
+$ cmake -G"Visual Studio 17 2022" -A x64 .. -DDEBUG=ON
+$ cmake --build . --config Debug
+```
+
+For 32-bit build on 64-bit Linux
+```
+$ CFLAGS=-m32 CXXFLAGS=-m32 cmake -DDEBUG=ON ..
+$ make -j
+```
 
 Press Configure and then OK (or `c` and then `g`) to complete the
 configuration step and generate the Makefiles.  It is normal to see
