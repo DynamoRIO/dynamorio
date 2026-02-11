@@ -803,6 +803,41 @@ run_chunk_tests(void *drcontext)
     return run_single_thread_chunk_test(drcontext) && run_serial_chunk_test(drcontext);
 }
 
+#ifdef X86
+bool
+run_unfetched_rep_string_test(void *drcontext)
+{
+    static constexpr addr_t BASE_ADDR = 0x123450;
+    const memref_tid_t tid = 1;
+    const uint64_t filetype = OFFLINE_FILE_TYPE_ENCODINGS;
+
+    instrlist_t *ilist = instrlist_create(drcontext);
+    instr_t *rep_movs = INSTR_CREATE_rep_movs_1(drcontext);
+    instrlist_append(ilist, rep_movs);
+
+    std::vector<memref_with_IR_t> memref_setup = {
+        { gen_marker(tid, TRACE_MARKER_TYPE_FILETYPE,
+                     static_cast<uintptr_t>(filetype)),
+          nullptr },
+        { gen_instr_type(TRACE_TYPE_INSTR, tid), rep_movs },
+        { gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, tid), nullptr },
+    };
+    std::vector<memref_t> memrefs = add_encodings_to_memrefs(ilist, memref_setup,
+                                                             BASE_ADDR);
+
+    view_test_t view(drcontext, *ilist);
+    std::string res = run_test_helper(view, memrefs);
+    instrlist_clear_and_destroy(drcontext, ilist);
+
+    if (res.find("non-fetched") == std::string::npos) {
+        std::cerr << "Missing non-fetched label for rep string unfetched record\n";
+        std::cerr << "Output was: " << res << "\n";
+        return false;
+    }
+    return true;
+}
+#endif
+
 /* Test view tool on a OFFLINE_FILE_TYPE_ARCH_REGDEPS trace.
  * The trace hardcoded in entries is X64, so we only test on X64 architectures here.
  */
@@ -883,6 +918,9 @@ test_main(int argc, const char *argv[])
 {
     void *drcontext = dr_standalone_init();
     if (run_limit_tests(drcontext) && run_chunk_tests(drcontext) &&
+#ifdef X86
+        run_unfetched_rep_string_test(drcontext) &&
+#endif
         run_regdeps_test(drcontext)) {
         std::cerr << "view_test passed\n";
         return 0;
