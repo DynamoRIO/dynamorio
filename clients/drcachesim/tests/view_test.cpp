@@ -816,14 +816,13 @@ run_unfetched_rep_string_test(void *drcontext)
     instrlist_append(ilist, rep_movs);
 
     std::vector<memref_with_IR_t> memref_setup = {
-        { gen_marker(tid, TRACE_MARKER_TYPE_FILETYPE,
-                     static_cast<uintptr_t>(filetype)),
+        { gen_marker(tid, TRACE_MARKER_TYPE_FILETYPE, static_cast<uintptr_t>(filetype)),
           nullptr },
         { gen_instr_type(TRACE_TYPE_INSTR, tid), rep_movs },
         { gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, tid), nullptr },
     };
-    std::vector<memref_t> memrefs = add_encodings_to_memrefs(ilist, memref_setup,
-                                                             BASE_ADDR);
+    std::vector<memref_t> memrefs =
+        add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
 
     view_test_t view(drcontext, *ilist);
     std::string res = run_test_helper(view, memrefs);
