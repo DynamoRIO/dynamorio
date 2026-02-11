@@ -451,7 +451,10 @@ opnd_create_immed_float(float i)
     opnd.kind = IMMED_FLOAT_kind;
     /* Note that manipulating floats and doubles by copying in this way can
      * result in using FP load/store instructions which can trigger any pending
-     * FP exception (i#386).
+     * FP exception (i#386). This concern applies only to managed DynamoRIO
+     * modes where FP state is preserved.
+     * In standalone decoder mode, floating-point state is not managed and
+     * proc_save_fpstate()/proc_restore_fpstate() are no-ops.
      */
     opnd.value.immed_float = i;
     /* currently only used for implicit constants that have no size */
@@ -472,7 +475,10 @@ opnd_create_immed_double(double i)
     opnd.kind = IMMED_DOUBLE_kind;
     /* Note that manipulating floats and doubles by copying in this way can
      * result in using FP load/store instructions which can trigger any pending
-     * FP exception (i#386).
+     * FP exception (i#386). This concern applies only to managed DynamoRIO
+     * modes where FP state is preserved.
+     * In standalone decoder mode, floating-point state is not managed and
+     * proc_save_fpstate()/proc_restore_fpstate() are no-ops.
      */
     opnd.value.immed_double = i;
     /* currently only used for implicit constants that have no size */
