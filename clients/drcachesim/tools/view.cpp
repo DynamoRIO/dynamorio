@@ -527,7 +527,9 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     if (trace_version_ == -1) {
         trace_version_ = static_cast<int>(serial_stream_->get_version());
     }
-    std::cerr << std::left << std::setw(name_width) << "ifetch" << std::right
+    const char *instr_name =
+        (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ? "non-fetched" : "ifetch");
+    std::cerr << std::left << std::setw(name_width) << instr_name << std::right
               << std::setw(2) << memref.instr.size << " byte(s) @ 0x" << std::hex
               << std::setfill('0') << std::setw(sizeof(void *) * 2) << memref.instr.addr
               << std::dec << std::setfill(' ');
