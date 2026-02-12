@@ -395,10 +395,26 @@ endmacro (check_sve2_processor_and_compiler_support)
 macro (check_pauth_processor_and_compiler_support out)
   check_feature_processor_and_compiler_support(pauth
     ${CFLAGS_PAUTH}
-    "int main() {
+    # Use the paciza instruction to verify that the compiler and CPU support
+    # the PAuth feature and then read the Instruction Set Attribute Registers
+    # to verify that the OS supports it. This emulates the way DynamoRIO checks
+    # for feature support.
+    "int main()
+    {
         void *addr = 0;
         asm(\"paciza %[ptr]\" : [ptr] \"+r\" (addr) : :);
-        return 0;
+        long long id_aa64isar1_el1 = 0;
+        long long id_aa64isar2_el1 = 0;
+        asm(\"mrs %0, ID_AA64ISAR1_EL1\" : \"=r\"(id_aa64isar1_el1));
+        /* ID_AA64ISAR2_EL1 register not recognized by gcc 11.5 */
+        asm(\".inst 0xd5380640\\\\n\" \"mov %0, x0\" : \"=r\"(id_aa64isar2_el1) : : \"x0\");
+        char apa = (id_aa64isar1_el1 >> 4) & 0xFULL;
+        char api = (id_aa64isar1_el1 >> 8) & 0xFULL;
+        char gpa = (id_aa64isar1_el1 >> 24) & 0xFULL;
+        char gpi = (id_aa64isar1_el1 >> 28) & 0xFULL;
+        char gpa3 = (id_aa64isar2_el1 >> 8) & 0xFULL;
+        char apa3 = (id_aa64isar2_el1 >> 12) & 0xFULL;
+        return !(apa || api || gpa || gpi || gpa3 || apa3);
     }"
     ${out}
   )
