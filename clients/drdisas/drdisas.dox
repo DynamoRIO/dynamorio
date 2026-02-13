@@ -47,7 +47,7 @@ vpmullq {%k7} %zmm17 0x00000dc0(%ecx)[64byte] -> %zmm16
 
 Cross-architecture decoding in the same binary is not yet supported.
 An AArch64 version can be built to run on x86 following
-[instructions here](@ref sec_aarch_on_x86):
+[instructions here](@ref sec_build_aarch_on_x86):
 \code
 $ uname -m
 x86_64

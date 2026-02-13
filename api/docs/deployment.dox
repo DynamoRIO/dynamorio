@@ -159,9 +159,15 @@ to compile the client with optimizations, \p -O2 for gcc or \p /O2 for cl.
 ***************************************************************************
 \page page_deploy How to Run
 
-Once the DynamoRIO distribution contents are unpacked (see \ref
-sec_package), configuration and execution of applications under DynamoRIO
-is handled by a set of libraries and tools.  On Windows, the
+DynamoRIO can be run from a build tree, an install tree created via
+\ref sec_build_install, or a release package (see \ref sec_package).  See
+\ref page_building for build steps.  Once
+one of these layouts is available, configuration and execution of
+applications under DynamoRIO is handled by a set of libraries and tools.
+Helper tools such as \c drrun reside under architecture-specific
+subdirectories like \c bin32/ or \c bin64/ in each layout.  The relative
+subdirectory is consistent, while the absolute path depends on whether
+DynamoRIO is used from a build tree, install tree, or release package.  On Windows, the
 tools are \c drconfig.exe, \c drrun.exe, and \c drinject.exe.  The
 corresponding libraries (whose APIs are exposed by the tools) are \c
 drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
@@ -173,7 +179,22 @@ When using DynamoRIO as a third-party disassembly library (see \ref
 page_standalone), no deployment is needed, as DynamoRIO does not control a
 target application when used as a regular library.
 
-\section win_deploy Windows Deployment
+\section sec_deploy_launch_models Choosing a Launch Method
+
+\c drrun launches a new process with a one-time configuration in a single step.
+
+\c drconfig writes a persistent configuration for a named application, which
+can be reused across launches.
+
+\c drinject injects into an existing process or launches using an existing
+configuration, enabling two-step workflows.
+
+Before selecting an OS-specific workflow, ensure you have a build tree, an
+install tree, or a release package available.  A first successful run simply
+means launching a target application under DynamoRIO control with the expected
+client or default configuration active.
+
+\section sec_win_deploy Windows Deployment
 
 There are two methods for running a process under DynamoRIO: the one-time
 configure-and-run, and the two-step separate configuration and execution.
@@ -309,7 +330,7 @@ An alternative method to run an application under DynamoRIO is the \ref
 sec_startstop "app_start()/app_stop()" interface, which requires modifying
 application source code.
 
-\section lin_deploy Linux Deployment
+\section sec_lin_deploy Linux Deployment
 
 Once DynamoRIO has been unpacked, the same set of helper binaries as on
 Windows provide flexibility in configuring and executing applications.
@@ -334,8 +355,8 @@ the syscall, additionally pass -skip_syscall.
 % bin64/drrun -attach <target_pid> -c samples/bin64/libbbsize.so
 \endcode
 
-This attach feature requires ptrace capabilities, which can be enabled
-with this command:
+This attach feature requires ptrace capabilities on Linux, which can be
+enabled with this command:
 \code
 % echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 \endcode
@@ -407,9 +428,11 @@ sec_startstop "app_start()/app_stop()" interface, which requires modifying
 application source code.
 
 
-\section android_deploy Android Deployment
+\section sec_deploy_advanced Advanced / Platform-Specific Deployment
 
-Android deployment is generally the same as \ref lin_deploy except for the
+\subsection sec_android_deploy Android Deployment
+
+Android deployment is generally the same as \ref sec_lin_deploy except for the
 following differences.
 
 For pure native applications, the default configuration file location (if
@@ -453,7 +476,7 @@ everything to work without this step, but we are not able to test on all
 versions or configurations of Android.
 
 
-\section qemu_deploy Running Under QEMU
+\subsection sec_qemu_deploy Running Under QEMU
 
 To run DynamoRIO under QEMU, use the \ref op_xarch_root "-xarch_root"
 option to point at the base directory of the guest system libraries.
@@ -491,7 +514,7 @@ $ sudo systemctl restart systemd-binfmt.service
 ```
 
 
-\section client_ops Passing Options to Clients
+\section sec_client_ops Passing Options to Clients
 
 All of the earlier examples did not need to pass any arguments to the client.
 When using the -c argument to set the client, all arguments between the client
@@ -540,7 +563,7 @@ bin32/drrun -c32 samples/bin32/bbsize.dll -- -c64 samples/bin64/bbsize.dll -- no
 
 The order matters: \c -c32 must come first.
 
-\section multi_client Multiple Clients
+\section sec_multi_client Multiple Clients
 
 DynamoRIO does support multiple clients.  It is each client's
 responsibility, however, to ensure compatibility with other clients.
@@ -563,7 +586,7 @@ opportunity to modify the instruction stream or influence DynamoRIO's
 operation.
 
 
-\section tool_frontend End-User Tools
+\section sec_tool_frontend End-User Tools
 
 A client can be packaged up with DynamoRIO to create an end-user tool.  For
 many tools, a separate front-end executable is not necessary, and \p drrun

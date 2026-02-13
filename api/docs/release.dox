@@ -2493,7 +2493,7 @@ I/O and nudges.
     injection is desired, one method of running these binaries
     is to place both libdrpreload.so and libdynamorio's full paths in
     /etc/ld.so.preload.
-    You'll need to use a \ref lin_deploy "separate configure step approach".
+    You'll need to use a \ref sec_lin_deploy "separate configure step approach".
     Don't forget to run drconfig to create a configuration for the
     application first; otherwise, libdrpreload.so will refuse to take
     control.  This method of injection takes control part-way through
