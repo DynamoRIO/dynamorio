@@ -920,6 +920,16 @@ public:
          * frequency.
          */
         bool ignore_low_latency_unsched = false;
+        /**
+         * If true and if #honor_direct_switches is true, when the recorded target of
+         * a #TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH system call marker is not available,
+         * an alternate target (from a pool of prior direct targets) will be attempted.
+         * This is meant for applications where these direct switches are not used for
+         * actual data dependencies but instead for general user mode scheduling, where
+         * the as-traced target may have already run due to slight variations in timing
+         * and scheduling.
+         */
+        bool direct_switch_fallbacks = false;
         // When adding new options, also add to print_configuration().
     };
 
