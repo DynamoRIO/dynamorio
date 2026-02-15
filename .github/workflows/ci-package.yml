@@ -109,8 +109,9 @@ jobs:
       run: |
         # Read the version from version.txt file.
         # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
-        # the first line and remove any trailing '\n', but otherwise there is no other
-        # input validation or sanitization.
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
         major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
           export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
@@ -182,8 +183,9 @@ jobs:
       run: |
         # Read the version from version.txt file.
         # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
-        # the first line and remove any trailing '\n', but otherwise there is no other
-        # input validation or sanitization.
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
         major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
           export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
@@ -251,8 +253,9 @@ jobs:
       run: |
         # Read the version from version.txt file.
         # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
-        # the first line and remove any trailing '\n', but otherwise there is no other
-        # input validation or sanitization.
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
         major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
           export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
@@ -320,8 +323,9 @@ jobs:
       run: |
         # Read the version from version.txt file.
         # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
-        # the first line and remove any trailing '\n', but otherwise there is no other
-        # input validation or sanitization.
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
         major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
           export VERSION_NUMBER=$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))
@@ -384,8 +388,9 @@ jobs:
       run: |
         # Read the version from version.txt file.
         # The file is supposed to only contain MAJOR.MINOR version numbers. We read only
-        # the first line and remove any trailing '\n', but otherwise there is no other
-        # input validation or sanitization.
+        # the first line (bash removes the trailing '\n' through command substitution
+        # with $(command)), but otherwise there is no other input validation or
+        # sanitization.
         major_dot_minor_version_number="$(head -n 1 ${PATH_TO_VERSION_FILE})"
         if test -z "${{ github.event.inputs.version }}"; then
           export VERSION_NUMBER="$major_dot_minor_version_number.$((`git log -n 1 --format=%ct` / (60*60*24)))"
