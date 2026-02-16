@@ -652,17 +652,6 @@ Application %1!s! (%2!s!). Failed to find DynamoRIO library bounds.
 .
 ;#endif
 
-;#ifdef UNIX
-MessageId =
-Severity = Error
-Facility = DRCore
-SymbolicName = MSG_PROC_NOT_MOUNTED
-Language=English
-/proc must be mounted.
-Run: mount -t proc proc /proc
-.
-;#endif
-
 MessageId =
 Severity = Error
 Facility = DRCore
