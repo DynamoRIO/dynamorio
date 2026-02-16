@@ -88,6 +88,9 @@
 
 #ifdef LINUX
 #    include <sys/vfs.h> /* for statfs */
+#    ifndef PROC_SUPER_MAGIC
+#        define PROC_SUPER_MAGIC 0x9fa0
+#    endif
 #elif defined(MACOS)
 #    include <sys/mount.h> /* for statfs */
 #    include <mach/mach.h>
@@ -895,6 +898,17 @@ get_uname(void)
 }
 
 #if defined(LINUX)
+/* i#1840: Provide a clear error when /proc is not mounted. */
+static void
+check_proc_mounted(void)
+{
+    struct statfs stat;
+    ptr_int_t res = dynamorio_syscall(SYS_statfs, 2, "/proc", &stat);
+    if (res != 0 || stat.f_type != PROC_SUPER_MAGIC) {
+        FATAL_USAGE_ERROR(PROC_NOT_MOUNTED, 0, "");
+    }
+}
+
 /* For some syscalls, detects whether they are unsupported by the system
  * we're running on. Particularly, we are interested in detecting missing
  * support early-on for syscalls that require complex pre-syscall handling
@@ -946,6 +960,10 @@ d_r_os_init(void)
     ksynch_init();
 
     get_uname();
+
+#ifdef LINUX
+    check_proc_mounted();
+#endif
 
     /* Populate global data caches. */
     get_application_name();
