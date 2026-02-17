@@ -406,7 +406,7 @@ macro (check_pauth_processor_and_compiler_support out)
     {
         void *addr = 0;
         asm(\"paciza %[ptr]\" : [ptr] \"+r\" (addr) : :);
-        
+
         if (pauth_indicated_by_isa_registers())
             return 0;
         else
