@@ -66,6 +66,8 @@ read_hw_features(char *feat_str)
     return 1;
 }
 
+#include "check_for_pauth.c"
+
 /*
  * FEATURE_PAUTH is identified by six different nibbles across two registers. We initially
  * check the API nibble but on Neoverse V1 hardware this is 0. Testing that the
@@ -75,31 +77,7 @@ read_hw_features(char *feat_str)
 static void
 check_for_pauth()
 {
-    uint64 id_aa64isar1_el1 = 0, id_aa64isar2_el1 = 0;
-
-    asm("mrs %0, ID_AA64ISAR1_EL1" : "=r"(id_aa64isar1_el1));
-
-    asm(".inst 0xd5380640\n" /* mrs x0, ID_AA64ISAR2_EL1 */
-        "mov %0, x0"
-        : "=r"(id_aa64isar2_el1)
-        :
-        : "x0");
-
-    ushort gpi = (id_aa64isar1_el1 >> 28) &
-        0xF; /* IMPLEMENTATION DEFINED algorithm for generic code authentication */
-    ushort gpa = (id_aa64isar1_el1 >> 24) &
-        0xF; /* QARMA5 algorithm for generic code authentication */
-    ushort api = (id_aa64isar1_el1 >> 8) &
-        0xF; /* IMPLEMENTATION DEFINED algorithm for address authentication */
-    ushort apa =
-        (id_aa64isar1_el1 >> 4) & 0xF; /* QARMA5 algorithm for address authentication */
-    ushort apa3 =
-        (id_aa64isar2_el1 >> 12) & 0xF; /* QARMA3 algorithm for address authentication */
-    ushort gpa3 = (id_aa64isar2_el1 >> 8) &
-        0xF; /* QARMA3 algorithm for generic code authentication */
-
-    /* If one of these conditions is met then FEATURE_PAUTH is implemented */
-    if (apa >= 1 || api >= 1 || gpa == 1 || gpa == 1 || gpa3 == 1 || apa3 >= 1) {
+    if (pauth_indicated_by_isa_registers()) {
         ASSERT(proc_has_feature(FEATURE_PAUTH));
     }
 }
