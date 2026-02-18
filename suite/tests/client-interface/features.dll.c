@@ -77,9 +77,8 @@ read_hw_features(char *feat_str)
 static void
 check_for_pauth()
 {
-    if (pauth_indicated_by_isa_registers()) {
+    if (pauth_indicated_by_isa_registers())
         ASSERT(proc_has_feature(FEATURE_PAUTH));
-    }
 }
 
 struct feature_strings {
