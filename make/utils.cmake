@@ -393,12 +393,24 @@ macro (check_sve2_processor_and_compiler_support out)
 endmacro (check_sve2_processor_and_compiler_support)
 
 macro (check_pauth_processor_and_compiler_support out)
+  set(CMAKE_REQUIRED_INCLUDES "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+
   check_feature_processor_and_compiler_support(pauth
     ${CFLAGS_PAUTH}
-    "int main() {
+    # Use the paciza instruction to verify that the compiler and CPU support
+    # the PAuth feature. (The code will SIGILL if the CPU does not support it.)
+    # Then read the Instruction Set Attribute Registers to verify that the OS
+    # supports PAuth. This emulates the way DynamoRIO checks for feature support.
+    "#include \"check_for_pauth.c\"
+    int main()
+    {
         void *addr = 0;
         asm(\"paciza %[ptr]\" : [ptr] \"+r\" (addr) : :);
-        return 0;
+
+        if (pauth_indicated_by_isa_registers())
+            return 0;
+        else
+            return 1;
     }"
     ${out}
   )
