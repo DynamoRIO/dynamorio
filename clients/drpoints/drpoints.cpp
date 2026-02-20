@@ -120,7 +120,8 @@ static droption_t<std::string>
                  "${PWD}/drpoints.BINARY_NAME.PID.UNIQUE_ID.bbv.");
 
 static droption_t<uint> save_bbv_every(
-    DROPTION_SCOPE_CLIENT, "save_bbv_every", 0, "Frequency at which to save BBVs to disk",
+    DROPTION_SCOPE_CLIENT, "save_bbv_every", 0,
+    "Frequency (in number of instruction intervals) at which to save BBVs",
     "Specifies the number of instruction intervals after which the accumulated BBVs are "
     "written to the output file and cleared from memory. This is useful for long-running "
     "programs, or programs that execute a high number of BBs to avoid out-of-memory "
@@ -144,9 +145,9 @@ static uint64_t unique_bb_count = 1;
 static int64_t instr_count;
 
 // List of Basic Block Vectors (BBVs).
-// This is a vector of vector pointers. Each vector pointer represents the BBV for an
-// instruction interval. They follow the target program execution order and containt
-// <BB_ID, execution_count * BB_size> pairs of type bb_id_count_pair_t.
+// This is a vector of vector pointers. Each vector element represents the BBV for an
+// instruction interval, where the index is the BB id and the value is
+// execution_count*BB_instruction_size.
 static drvector_t bbvs;
 
 // Keeps track of the number of threads of the application. We abort when we detect a
@@ -159,11 +160,6 @@ static file_t bbvs_file = INVALID_FILE;
 
 // The BBV index to count the number of processed instruction intervals.
 static uint bbv_idx = 0;
-
-struct bb_id_count_pair_t {
-    uint64_t id;             // Derived from unique_bb_count.
-    uint64_t weighted_count; // execution_count * BB_size.
-};
 
 // We use this structure as key for bb_id_table to uniquely identify a BB.
 struct modidx_offset_t {
