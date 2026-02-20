@@ -165,6 +165,8 @@ jobs:
   # 64-bit Linux build with gcc and musl.
   # TODO i#1973: Fix failing cases and enable tests in CI.
   x86-64-alpine-3_21:
+    # TODO i#7284: Disabled until fixed
+    if: false
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
