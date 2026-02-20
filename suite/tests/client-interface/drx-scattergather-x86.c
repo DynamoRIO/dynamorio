@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -173,10 +173,9 @@ test_avx512_restore_scatter_mask_fault(uint32_t *xmm_ymm_zmm, uint32_t *test_idx
                                        uint32_t *output_sparse_test_buf DR_PARAM_OUT);
 /* See comment above. */
 void
-test_avx512_restore_scatter_scratch_xmm_fault(uint32_t *xmm_ymm_zmm,
-                                              uint32_t *test_idx32_vec,
-                                              uint32_t *output_sparse_test_buf DR_PARAM_OUT,
-                                              uint32_t *scratch_xmm_fault);
+test_avx512_restore_scatter_scratch_xmm_fault(
+    uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
+    uint32_t *output_sparse_test_buf DR_PARAM_OUT, uint32_t *scratch_xmm_fault);
 /* See comment above. */
 void
 test_avx512_restore_scatter_mask_clobber(uint32_t *xmm_ymm_zmm, uint32_t *test_idx32_vec,
@@ -727,7 +726,7 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
         sub        REG_XSP, FRAME_PADDING                 @N@\
         END_PROLOG                                        @N@\
         vmovdqu32  zmm1, [REG_XDX]                        @N@\
-        movw       dx, 0xffff                             @N@\
+        mov        dx, 0xffff                             @N@\
         kmovw      k1, edx                                @N@\
         opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
         vmovdqu32  [REG_XCX], xmm0                        @N@\
@@ -758,7 +757,7 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
         sub        REG_XSP, FRAME_PADDING                 @N@\
         END_PROLOG                                        @N@\
         vmovdqu32  zmm1, [REG_XDX]                        @N@\
-        movw       dx, 0xffff                             @N@\
+        mov        dx, 0xffff                             @N@\
         kmovw      k1, edx                                @N@\
         opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
         vmovdqu32  [REG_XCX], xmm0                        @N@\
@@ -789,7 +788,7 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
         sub        REG_XSP, FRAME_PADDING                 @N@\
         END_PROLOG                                        @N@\
         vmovdqu32  zmm1, [REG_XDX]                        @N@\
-        movw       dx, 0xffff                             @N@\
+        mov        dx, 0xffff                             @N@\
         kmovw      k1, edx                                @N@\
         /* For the first variant below, with the xmm1
          * index, only the first half of the xmm0 dest
@@ -826,7 +825,7 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
         sub        REG_XSP, FRAME_PADDING                 @N@\
         END_PROLOG                                        @N@\
         vmovdqu32  zmm1, [REG_XDX]                        @N@\
-        movw       dx, 0xffff                             @N@\
+        mov        dx, 0xffff                             @N@\
         kmovw      k1, edx                                @N@\
         opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
         vmovdqu32  [REG_XCX], xmm0                        @N@\
@@ -857,7 +856,7 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
         sub        REG_XSP, FRAME_PADDING                  @N@\
         END_PROLOG                                         @N@\
         vmovdqu32  zmm1, [REG_XDX]                         @N@\
-        movw       dx, 0xffff                              @N@\
+        mov        dx, 0xffff                              @N@\
         kmovw      k1, edx                                 @N@\
         vmovdqu32  xmm0, [REG_XAX]                         @N@\
         opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0         @N@\
@@ -889,7 +888,7 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
         sub        REG_XSP, FRAME_PADDING                  @N@\
         END_PROLOG                                         @N@\
         vmovdqu32  zmm1, [REG_XDX]                         @N@\
-        movw       dx, 0xffff                              @N@\
+        mov        dx, 0xffff                              @N@\
         kmovw      k1, edx                                 @N@\
         vmovdqu32  xmm0, [REG_XAX]                         @N@\
         opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0         @N@\
@@ -921,7 +920,7 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
         sub        REG_XSP, FRAME_PADDING                  @N@\
         END_PROLOG                                         @N@\
         vmovdqu32  zmm1, [REG_XDX]                         @N@\
-        movw       dx, 0xffff                              @N@\
+        mov        dx, 0xffff                              @N@\
         kmovw      k1, edx                                 @N@\
         vmovdqu32  xmm0, [REG_XAX]                         @N@\
         opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0         @N@\
@@ -953,7 +952,7 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                         @N@\
         sub        REG_XSP, FRAME_PADDING                  @N@\
         END_PROLOG                                         @N@\
         vmovdqu32  zmm1, [REG_XDX]                         @N@\
-        movw       dx, 0xffff                              @N@\
+        mov        dx, 0xffff                              @N@\
         kmovw      k1, edx                                 @N@\
         vmovdqu32  xmm0, [REG_XAX]                         @N@\
         opcode     [REG_XCX + xmm1 * 4] {k1}, xmm0         @N@\
@@ -985,7 +984,7 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                            @N@\
         mov        REG_XCX, marker                          @N@\
         mov        REG_XCX, marker                          @N@\
         vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                               @N@\
+        mov        dx, 0xffff                               @N@\
         kmovw      k0, edx                                  @N@\
         kmovw      k1, edx                                  @N@\
         vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]          @N@\
@@ -1010,7 +1009,7 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
         mov         REG_XAX, marker                          @N@\
         mov         REG_XAX, marker                          @N@\
         vmovdqu32   zmm1, [REG_XDX]                          @N@\
-        movw        dx, 0xffff                               @N@\
+        mov         dx, 0xffff                               @N@\
         kmovw       k0, edx                                  @N@\
         kmovw       k1, edx                                  @N@\
         vpscatterdd [REG_XCX + zmm1 * 4] {k1}, zmm0          @N@\
@@ -1046,7 +1045,7 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                            @N@\
         END_PROLOG                                          @N@\
         vmovdqu32  xmm2, [REG_XCX]                          @N@\
         vmovdqu32  zmm1, [REG_XDX]                          @N@\
-        movw       dx, 0xffff                               @N@\
+        mov        dx, 0xffff                               @N@\
         kmovw      k1, edx                                  @N@\
         vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]          @N@\
         add        REG_XSP, FRAME_PADDING                   @N@\
@@ -1071,7 +1070,7 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
         vmovdqu32   xmm2, [REG_XDI]                          @N@\
         vmovdqu32   zmm0, [REG_XAX + 48]                     @N@\
         vmovdqu32   zmm1, [REG_XDX]                          @N@\
-        movw        dx, 0xffff                               @N@\
+        mov         dx, 0xffff                               @N@\
         kmovw       k1, edx                                  @N@\
         vpscatterdd [REG_XCX + zmm1 * 4] {k1}, zmm0          @N@\
         add         REG_XSP, FRAME_PADDING                   @N@\
