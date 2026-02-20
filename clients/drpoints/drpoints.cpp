@@ -120,14 +120,12 @@ static droption_t<std::string>
                  "${PWD}/drpoints.BINARY_NAME.PID.UNIQUE_ID.bbv.");
 
 static droption_t<uint> save_bbv_every(
-    DROPTION_SCOPE_CLIENT, "save_bbv_every", 0,
-    "Writes the current list of BBVs number of instruction intervals specified by this "
-    "option is reached.",
-    "Normally BBVs are kept in memory the whole time DrPoints is attached to the target "
-    "program and written only at detach. This can cause out-of-memory issues for long "
-    "executions or programs with a large number of BBs. This option allows the user to "
-    "specify how many BBVs to keep in memory at any given time. Default is 0, hence "
-    "disabled.");
+    DROPTION_SCOPE_CLIENT, "save_bbv_every", 0, "Frequency at which to save BBVs to disk",
+    "Specifies the number of instruction intervals after which the accumulated BBVs are "
+    "written to the output file and cleared from memory. This is useful for long-running "
+    "programs, or programs that execute a high number of BBs to avoid out-of-memory "
+    "issues. Default is 0, which means BBVs are kept in memory and only written at "
+    "program exit.");
 
 // Global hash table that maps the pair module-index and PC-offset to the module's base
 // address (which uniquely identify a BB) to a unique, 1-indexed, increasing ID that comes
@@ -257,18 +255,21 @@ bbvs_clear()
 static void
 write_bbvs()
 {
+    bool print_to_stdout_enabled = print_to_stdout.get_value();
+    bool out_bbv_file_enabled = !no_out_bbv_file.get_value();
     for (uint i = 0; i < bbvs.entries; ++i) {
         drvector_t *bbv = static_cast<drvector_t *>(drvector_get_entry(&bbvs, i));
         bool first_pair = true;
         for (uint j = 0; j < bbv->entries; ++j) {
             uint64_t count = reinterpret_cast<uint64_t>(drvector_get_entry(bbv, j));
+            // Skip BBs that were not executed in the instruction interval.
             if (count == 0)
                 continue;
 
             if (first_pair) {
-                if (print_to_stdout.get_value())
+                if (print_to_stdout_enabled)
                     dr_fprintf(STDOUT, "T");
-                if (!no_out_bbv_file.get_value())
+                if (out_bbv_file_enabled)
                     dr_write_file(bbvs_file, "T", 1);
                 first_pair = false;
             }
@@ -279,16 +280,16 @@ write_bbvs()
             NULL_TERMINATE_BUFFER(msg);
             DR_ASSERT(len > 0);
 
-            if (print_to_stdout.get_value())
+            if (print_to_stdout_enabled)
                 dr_fprintf(STDOUT, "%s", msg);
 
-            if (!no_out_bbv_file.get_value())
+            if (out_bbv_file_enabled)
                 dr_write_file(bbvs_file, msg, static_cast<size_t>(len));
         }
         if (!first_pair) {
-            if (print_to_stdout.get_value())
+            if (print_to_stdout_enabled)
                 dr_fprintf(STDOUT, "\n");
-            if (!no_out_bbv_file.get_value())
+            if (out_bbv_file_enabled)
                 dr_write_file(bbvs_file, "\n", 1);
             first_pair = false;
         }
@@ -325,12 +326,14 @@ save_bbv()
         // Save current bb_count_table (i.e., the BBV for the current instruction
         // interval).
         drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
-        // Configure the vector to memset its storage to zero whenever allocated
-        // (at init, but also resize).
+        // Configure the vector to memset its storage (i.e., the BB frequency counts) to
+        // zero whenever allocated (at init, but also resize).
         drvector_config_t config = { /*size=*/sizeof(config), /*zero_alloc=*/true };
-        // We overshoot the initial size of the BBV vector to avoid resizing it
-        // (bb_count_table.entries also counts BB with count 0).
-        drvector_init_ex(bbv, bb_count_table.entries, /*synch=*/false, nullptr, &config);
+        // The index of the vector is the BB id, so we need the initial size to be able
+        // to contain all possible BB frequency counts, which is at most the number of
+        // entries in bb_count_table.
+        drvector_init_ex(bbv, bb_count_table.entries, /*synch=*/false,
+                         /*free_data_func=*/nullptr, &config);
         // Iterate over the non-zero elements of bb_count_table and add them to the BBV.
         hashtable_apply_to_all_key_payload_pairs_user_data(&bb_count_table, add_to_bbv,
                                                            bbv);
@@ -556,6 +559,7 @@ open_bbv_file()
 static void
 event_exit(void)
 {
+    // Write remaining BBVs if in -save_bbv_every mode, or all BBVs otherwise.
     write_bbvs();
     if (!no_out_bbv_file.get_value())
         dr_close_file(bbvs_file);
@@ -636,8 +640,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                   dynamorio::drpoints::free_bbv);
     for (uint i = 0; i < bbvs_capacity; ++i) {
         drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
+        // Configure the vector to memset its storage (i.e., the BB frequency counts) to
+        // zero whenever allocated (at init, but also resize).
         drvector_config_t config = { /*size=*/sizeof(config), /*zero_alloc=*/true };
-        drvector_init_ex(bbv, 0, /*synch=*/false, nullptr, &config);
+        drvector_init_ex(bbv, 0, /*synch=*/false, /*free_data_func=*/nullptr, &config);
         drvector_set_entry(&dynamorio::drpoints::bbvs, i, bbv);
     }
 
