@@ -239,7 +239,7 @@ if (WIN32)
         # we assume this error always means that it's that symlink:
         cmd_result MATCHES "Access is denied")
       set(GCC_IS_CYGWIN ON)
-    endif()
+    endif ()
   endif (NOT GCC)
 else (WIN32)
   # i#215: if SELinux is enabled we'll use chcon to mark tests w/ text relocations
@@ -560,8 +560,8 @@ function(add_sve_flags target)
         # string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
         # line above.
         -O3)
-    endif()
-  endif()
+    endif ()
+  endif ()
 endfunction(add_sve_flags)
 
 if (ANDROID)
@@ -755,7 +755,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
       string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
     endif ()
     set(${test}_client_source ${client_source})
-  endif()
+  endif ()
 
   if (NOT "${source}" MATCHES "\\.runall$")
     # Many client tests don't care about the app that's run.  To save time
@@ -1484,7 +1484,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         set(wait_arg "wait")
       endif ()
       if ("${runall}" MATCHES "<detach>")
-        set(exe_ops "${exe_ops};-v;")
+        set(exe_ops "${exe_ops};-v;-detach")
       endif ()
       if ("${runall}" MATCHES "<block>")
         set(exe_ops "${exe_ops};-block")
