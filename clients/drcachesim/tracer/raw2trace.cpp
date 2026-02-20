@@ -1919,6 +1919,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // instruction fetch.
             if (interrupted) {
                 const offline_entry_t *next_entry = get_next_entry(tdata);
+                // i#7464: We won't get here for a faulting prefetch (as they don't
+                // fault). However, if the prefetch was interrupted by an async signal,
+                // there may or may not be a memref depending on whether the signal was
+                // received after or before the memref was output to the raw trace. Since
+                // we cannot assume there must be a memref, we cannot handle malformed
+                // memrefs here. This case is highly unlikely because we do not expect
+                // async signals mid-block (i#7081).
                 while (next_entry != nullptr &&
                        (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
                         next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH)) {
@@ -2000,8 +2007,18 @@ raw2trace_t::handle_rseq_abort_marker(raw2trace_thread_data_t *tdata,
         // if present to get to the type.  There is support for unreading
         // both.
         uintptr_t marker_val = 0;
-        if (!get_marker_value(tdata, &in_entry, &marker_val))
-            return false;
+        bool split_error = false;
+        if (!get_marker_value(tdata, &in_entry, &marker_val, &split_error)) {
+            if (split_error) {
+                // i#7464: The split_value marker may have been a malformed memref, which
+                // can simply be ignored here.
+                tdata->error = "";
+                unread_last_entry(tdata);
+                continue;
+            } else {
+                return false;
+            }
+        }
         // An abort always ends a block.
         if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
             // A signal/exception marker in the next entry could be at any point
@@ -2166,7 +2183,8 @@ raw2trace_t::is_marker_type(const offline_entry_t *entry, trace_marker_type_t ma
 bool
 raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
                               DR_PARAM_INOUT const offline_entry_t **entry,
-                              DR_PARAM_OUT uintptr_t *value)
+                              DR_PARAM_OUT uintptr_t *value,
+                              DR_PARAM_OUT bool *split_error)
 {
     uintptr_t marker_val = static_cast<uintptr_t>((*entry)->extended.valueA);
     if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_SPLIT_VALUE) {
@@ -2175,6 +2193,8 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
         const offline_entry_t *next = get_next_entry_keep_prior(tdata);
         if (next == nullptr || next->extended.ext != OFFLINE_EXT_TYPE_MARKER) {
             tdata->error = "SPLIT_VALUE marker is not adjacent to 2nd entry";
+            if (split_error != nullptr)
+                *split_error = true;
             return false;
         }
         marker_val = (marker_val << 32) | static_cast<uintptr_t>(next->extended.valueA);
@@ -2251,7 +2271,10 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         }
         in_entry = get_next_entry(tdata);
     }
-    if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                    OFFLINE_FILE_TYPE_DFILTERED,
+                get_file_type(tdata)) &&
+        in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
         in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
         // For -L0_filter we have to store the type for multi-memref instrs where
         // we can't tell which memref it is (we'll still come here for the subsequent
@@ -2267,9 +2290,36 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             return false;
         }
     }
+    // i#7464: Prefetch instructions may access an invalid address and yet not fault,
+    // so the application may take the liberty of not ensuring it's a valid address.
+    // Particularly, the accessed address may not be a canonical one as required by
+    // the hardware (either all 0s or all 1s in the top bits). Generally we assume all
+    // memref entries (OFFLINE_TYPE_MEMREF and OFFLINE_TYPE_MEMREF_HIGH) have canonical
+    // top 3 bits because we need the 3 bits for offline_entry_t.addr.type. But we do
+    // not have any online tracer check that ensures that this is true. So it's possible
+    // that the raw trace may have a malformed entry that is supposed to denote a memref
+    // but looks like some other type.
+    // It is reasonable to modify the following check just for prefetches where we do
+    // expect to always see a following memref, therefore can force later logic to
+    // process it like a memref even if it doesn't look like one, unlike predicated
+    // instructions where such a memref is not guaranteed. We assume that prefetches
+    // cannot be predicated on x86-64 and AArch64.
+    // TODO i#7364: This does not handle the following cases:
+    // - the application issues a non-prefetch load/store with such an invalid address,
+    //   expecting to handle the fault.
+    // - non-prefetch addresses with tags in the higher bits for use with features like
+    //   the ARM Memory Tagging Extension.
+    // - a malformed memref that appears like a kernel_event marker that interrupted
+    //   the prefetch instruction, which would avoid entering append_memref altogether.
+    bool may_have_malformed_memref = instr->is_prefetch() &&
+        // XXX: We don't handle PC-with-memref configs for now though this may
+        // be simpler to handle.
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                     OFFLINE_FILE_TYPE_DFILTERED,
+                 get_file_type(tdata));
     if (!have_addr &&
         (in_entry == nullptr ||
-         (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
+         (!may_have_malformed_memref && in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
           in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH))) {
         // This happens when there are predicated memrefs in the bb, or for a
         // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
@@ -2309,7 +2359,10 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
     }
     if (!have_addr) {
         DR_ASSERT(in_entry != nullptr);
-        // We take the full value, to handle low or high.
+        // We take the full value, to handle low (where the top 3 bits are 0) or
+        // high (where the top 3 bits are 1), or even the malformed-memref case
+        // (where the top bits may be something else entirely) which may happen
+        // when may_have_malformed_memref is true.
         buf->addr = (addr_t)in_entry->combined_value;
     }
     if (memref.remember_base &&
