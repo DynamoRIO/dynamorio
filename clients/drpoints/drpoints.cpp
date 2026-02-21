@@ -77,6 +77,8 @@ using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
 using ::dynamorio::droption::droption_t;
 
+#define CHECK_TRUNCATE_TYPE_uint(val) ((val) >= 0 && (val) <= UINT_MAX)
+
 #define FATAL(...)                       \
     do {                                 \
         dr_fprintf(STDERR, __VA_ARGS__); \
@@ -120,13 +122,14 @@ static droption_t<std::string>
                  "${PWD}/drpoints.BINARY_NAME.PID.UNIQUE_ID.bbv.");
 
 static droption_t<uint> save_bbv_every(
-    DROPTION_SCOPE_CLIENT, "save_bbv_every", 0,
+    DROPTION_SCOPE_CLIENT, "save_bbv_every", 100,
     "Frequency (in number of instruction intervals) at which to save BBVs",
-    "Specifies the number of instruction intervals after which the accumulated BBVs are "
-    "written to the output file and cleared from memory. This is useful for long-running "
-    "programs, or programs that execute a high number of BBs to avoid out-of-memory "
-    "issues. Default is 0, which means BBVs are kept in memory and only written at "
-    "program exit.");
+    "Specifies the number of instruction intervals (see -instr_intervals) after which "
+    "the accumulated BBVs are written to the output file or stdout and cleared from "
+    "memory. This is useful for long-running programs, or programs that execute a high "
+    "number of BBs within an instruction interval to avoid out-of-memory issues. A value "
+    "of 0 means that all BBVs are kept in memory and only written at program exit. "
+    "Default is 100.");
 
 // Global hash table that maps the pair module-index and PC-offset to the module's base
 // address (which uniquely identify a BB) to a unique, 1-indexed, increasing ID that comes
@@ -223,6 +226,10 @@ add_to_bbv(void *key, void *payload, void *user_data)
     if (count == 0)
         return;
     uint64_t id = reinterpret_cast<uint64_t>(key);
+    // We want to fail if id does not fit in a 32 bit integer, otherwise we will have an
+    // incorrect BBV.
+    if (!CHECK_TRUNCATE_TYPE_uint(id))
+        FATAL("ERROR: BB ID is too large");
 
     // Add BB frequency to BBV.
     drvector_t *bbv = static_cast<drvector_t *>(user_data);
@@ -251,6 +258,8 @@ bbvs_clear()
 static void
 write_bbvs()
 {
+    const char *first_pair_fmt_str = "T:%" PRIu64 ":%" PRIu64 " ";
+    const char *middle_pair_fmt_str = ":%" PRIu64 ":%" PRIu64 " ";
     bool print_to_stdout_enabled = print_to_stdout.get_value();
     bool out_bbv_file_enabled = !no_out_bbv_file.get_value();
     for (uint i = 0; i < bbvs.entries; ++i) {
@@ -262,17 +271,17 @@ write_bbvs()
             if (count == 0)
                 continue;
 
+            const char *format_string;
             if (first_pair) {
-                if (print_to_stdout_enabled)
-                    dr_fprintf(STDOUT, "T");
-                if (out_bbv_file_enabled)
-                    dr_write_file(bbvs_file, "T", 1);
+                format_string = first_pair_fmt_str;
                 first_pair = false;
+            } else {
+                format_string = middle_pair_fmt_str;
             }
 
             char msg[64];
-            int len = dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-                                  ":%" PRIu64 ":%" PRIu64 " ", j + 1, count);
+            int len =
+                dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), format_string, j + 1, count);
             NULL_TERMINATE_BUFFER(msg);
             DR_ASSERT(len > 0);
 
@@ -287,7 +296,6 @@ write_bbvs()
                 dr_fprintf(STDOUT, "\n");
             if (out_bbv_file_enabled)
                 dr_write_file(bbvs_file, "\n", 1);
-            first_pair = false;
         }
     }
 }
@@ -634,12 +642,16 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     uint bbvs_capacity = dynamorio::drpoints::save_bbv_every.get_value();
     drvector_init(&dynamorio::drpoints::bbvs, bbvs_capacity, /*synch=*/false,
                   dynamorio::drpoints::free_bbv);
+    // Avoid frequent resizing of the bbv vectors at the beginning by setting a reasonable
+    // large number as initial capacity.
+    uint bbv_initial_capacity = 512;
     for (uint i = 0; i < bbvs_capacity; ++i) {
         drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
         // Configure the vector to memset its storage (i.e., the BB frequency counts) to
         // zero whenever allocated (at init, but also resize).
         drvector_config_t config = { /*size=*/sizeof(config), /*zero_alloc=*/true };
-        drvector_init_ex(bbv, 0, /*synch=*/false, /*free_data_func=*/nullptr, &config);
+        drvector_init_ex(bbv, bbv_initial_capacity, /*synch=*/false,
+                         /*free_data_func=*/nullptr, &config);
         drvector_set_entry(&dynamorio::drpoints::bbvs, i, bbv);
     }
 
