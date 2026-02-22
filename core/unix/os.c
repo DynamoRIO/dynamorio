@@ -88,6 +88,9 @@
 
 #ifdef LINUX
 #    include <sys/vfs.h> /* for statfs */
+#    ifndef PROC_SUPER_MAGIC
+#        define PROC_SUPER_MAGIC 0x9fa0
+#    endif
 #elif defined(MACOS)
 #    include <sys/mount.h> /* for statfs */
 #    include <mach/mach.h>
@@ -931,7 +934,17 @@ detect_unsupported_syscalls()
         is_sigqueueinfo_enosys = true;
     }
 }
-#endif
+
+static void
+check_proc_mounted(void)
+{
+    struct statfs stat;
+    ptr_int_t res = dynamorio_syscall(SYS_statfs, 2, "/proc", &stat);
+    if (res != 0 || stat.f_type != PROC_SUPER_MAGIC) {
+        FATAL_USAGE_ERROR(PROC_NOT_MOUNTED, 0, "");
+    }
+}
+#endif /* LINUX */
 
 bool
 is_sigqueue_supported(void)
@@ -983,6 +996,8 @@ d_r_os_init(void)
 #endif
 
 #if defined(LINUX)
+    if (!standalone_library)
+        check_proc_mounted();
     detect_unsupported_syscalls();
 #endif
 

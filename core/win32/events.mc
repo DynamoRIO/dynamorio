@@ -504,6 +504,17 @@ Application %1!s! (%2!s!). Unsupported processor: LAHF/SAHF instructions require
 .
 ;#endif
 
+;#ifdef UNIX
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_PROC_NOT_MOUNTED
+Language=English
+/proc must be mounted.
+Run: mount -t proc proc /proc
+.
+;#endif
+
 MessageId =
 Severity = Error
 Facility = DRCore
