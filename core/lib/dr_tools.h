@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1939,7 +1939,7 @@ DR_API
  * continues (including across whitespace) until the matching end
  * quote is found.  Characters considered whitespace are ' ', '\\t',
  * '\\r', and '\\n'; characters considered quotes are '\\'', '\\"', and
- * '`'.
+ * '\`'.
  *
  * @param[in]  str     The start of the string containing the next token.
  * @param[out] buf     A buffer to store a null-terminated copy of the next token.

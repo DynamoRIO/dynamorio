@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -114,7 +114,7 @@ DR_EXPORT
  *                             this process.
  * \param[out]  app_name       Pointer to the name of the target process.
  *                             Only valid until dr_inject_process_exit.
- * \return  Returns 0 on success.  On failure, returns a system error code.`
+ * \return  Returns 0 on success.  On failure, returns a system error code.
  */
 int
 dr_inject_process_attach(process_id_t pid, void **data, char **app_name);

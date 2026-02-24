@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -188,7 +188,7 @@ typedef struct _dr_config_client_t {
      * A NULL-terminated string specifying the full path to a valid client library.
      * The string length cannot exceed #MAXIMUM_PATH.  The client path may not
      * include any semicolons and when combined with \p client_options may not
-     * include all three quote characters (', ", `) simultaneously.
+     * include all three quote characters (\', \", \`) simultaneously.
      *
      * When querying via dr_get_client_info_ex() or dr_client_iterator_next_ex(), the
      * caller must either set this to NULL if that data is not needed or point at a
@@ -200,7 +200,7 @@ typedef struct _dr_config_client_t {
      * as arguments of dr_client_main() or via dr_get_option_array().  The string
      * length cannot exceed #DR_MAX_OPTIONS_LENGTH.  The client options may not
      * include any semicolons and when combined with \p client_path may not include
-     * all three quote characters (', ", `) simultaneously.
+     * all three quote characters (\', \", \`) simultaneously.
      *
      * When querying via dr_get_client_info_ex() or dr_client_iterator_next_ex(), the
      * caller must either set this to NULL if that data is not needed or point at a
