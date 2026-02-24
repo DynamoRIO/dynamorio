@@ -287,8 +287,12 @@ public:
         uint64_t wait_microseconds = 0;
         std::unordered_set<workload_tid_t, workload_tid_hash_t> threads;
         // Distribution of user-mode instructions between context switches.
+        // XXX i#7819: Once we have accurate kernel content in our traces,
+        // we'll want to add kernel here, either separately or combined.
         std::unique_ptr<histogram_interface_t> instrs_per_switch;
         // Per-thread distribution of user-mode instructions between context switches.
+        // XXX i#7819: Once we have accurate kernel content in our traces,
+        // we'll want to add kernel here, either separately or combined.
         std::unordered_map<workload_tid_t, std::unique_ptr<histogram_interface_t>,
                            workload_tid_hash_t>
             tid2instrs_per_switch;
@@ -331,6 +335,8 @@ public:
         int64_t workload = INVALID_WORKLOAD_ID;
         memref_tid_t tid = INVALID_THREAD_ID;
         // How many user-mode instructions were run between the prior switch and this one.
+        // XXX i#7819: Once we have accurate kernel content in our traces,
+        // we'll want to add kernel here, either separately or combined.
         int64_t instructions;
         // If >-1, an immediately prior system call.
         int64_t syscall_number = -1;
