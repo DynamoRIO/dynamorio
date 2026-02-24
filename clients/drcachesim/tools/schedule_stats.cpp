@@ -218,7 +218,7 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
         // to match "perf".
         !(prev_workload_id == INVALID_WORKLOAD_ID && prev_tid == IDLE_THREAD_ID &&
           workload_id != INVALID_WORKLOAD_ID && tid != INVALID_THREAD_ID);
-    uint64_t instr_delta = shard->counters.instrs - shard->switch_start_instrs;
+    uint64_t instr_delta = shard->switch_user_instrs;
     memtrace_stream_t *istream = shard->stream->get_input_interface();
 
     if (shard->thread_sequence.empty()) {
@@ -300,7 +300,7 @@ schedule_stats_t::record_context_switch(per_shard_t *shard, int64_t prev_workloa
             }
             prev_core_[workload_tid] = shard->core;
         }
-        shard->switch_start_instrs = shard->counters.instrs;
+        shard->switch_user_instrs = 0;
         // Set the start ordinal if we're switching to an input; if idle or wait
         // will be in between we'll set on a the next input in the !add_to_counts above.
         shard->switch_start_input_instr_ordinal = (istream == nullptr)
@@ -488,6 +488,7 @@ schedule_stats_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             shard->post_syscall_timestamp = 0;
         }
         if (!shard->stream->is_record_kernel()) {
+            ++shard->switch_user_instrs;
             // We wait until the next user-space instruction after the syscall trace
             // so that we've seen all syscall related trace entries (like the post-
             // syscall timestamp).

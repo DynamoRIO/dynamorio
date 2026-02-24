@@ -40,6 +40,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <unordered_map>
 #include <vector>
 
@@ -95,6 +96,16 @@ public:
         // serial turn, but that's fine: so long as it's deterministic.
         ++global_time_;
         return schedule_stats_t::parallel_shard_memref(shard_data, memref);
+    }
+
+    std::unique_ptr<histogram_interface_t>
+    create_histogram(uint64_t bin_size) override
+    {
+        if (bin_size == kSwitchBinSize) {
+            // Always use 1 for granular results with our tiny test cases.
+            bin_size = 1;
+        }
+        return std::unique_ptr<histogram_interface_t>(new histogram_t(bin_size));
     }
 
 private:
@@ -229,6 +240,8 @@ run_schedule_stats(
             for (size_t j = 0; j < record[i].size(); ++j) {
                 if (!(record[i][j] == (*expected_record)[i][j])) {
                     std::cerr << "Record " << i << ", " << j << " mismatch\n";
+                    record[i][j].print_to_stderr();
+                    (*expected_record)[i][j].print_to_stderr();
                 }
                 assert(record[i][j] == (*expected_record)[i][j]);
             }
@@ -327,12 +340,10 @@ test_basic_stats()
     assert(result.wait_microseconds >= 3);
 
     // Sanity check the histograms.
-    // XXX: Parameterize the bin size for more granular unit test results?
-    // Right now they're all in the same 0-50K bin.  We're still able to check
-    // the count though.
     std::string global_hist = result.instrs_per_switch->to_string();
     std::cerr << "Global switches:\n" << global_hist;
-    assert(global_hist == "           0..   50000     7\n");
+    assert(std::regex_search(global_hist,
+                             std::regex(R"DELIM(1.. *2 *4\n *3.. *4 *3\n)DELIM")));
     assert(result.tid2instrs_per_switch.size() == 3);
     // XXX i#6672: Upgrade to C++17 for structured bindings.
     for (const auto &keyval : result.tid2instrs_per_switch) {
@@ -340,9 +351,16 @@ test_basic_stats()
         assert(keyval.first.workload_id == 0);
         std::cerr << "Tid " << keyval.first.tid << " switches:\n" << hist;
         switch (keyval.first.tid) {
-        case TID_A: assert(hist == "           0..   50000     3\n"); break;
-        case TID_B: assert(hist == "           0..   50000     2\n"); break;
-        case TID_C: assert(hist == "           0..   50000     2\n"); break;
+        case TID_A:
+            assert(std::regex_search(
+                hist, std::regex(R"DELIM(1.. *2 *2\n *3.. *4 *1\n)DELIM")));
+            break;
+        case TID_B:
+            assert(std::regex_search(hist, std::regex(R"DELIM(1.. *2 *2\n)DELIM")));
+            break;
+        case TID_C:
+            assert(std::regex_search(hist, std::regex(R"DELIM( *3.. *4 *2\n)DELIM")));
+            break;
         default: assert(false && "unexpected tid");
         }
     }
@@ -430,9 +448,9 @@ test_basic_stats_with_syscall_trace()
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
             { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
-            { 0, TID_B, /*ins=*/2, /*sys#=*/0, /*lat=*/500, VOLUNTARY, DEFAULT, 2 },
-            { 0, TID_A, /*ins=*/4, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT, 3 },
-            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 4 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/0, /*lat=*/500, VOLUNTARY, DEFAULT, 2 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/0, /*lat=*/200, VOLUNTARY, DIRECT, 3 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 4 },
         },
         {
             { 0, TID_B, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
@@ -734,6 +752,10 @@ test_syscall_latencies_with_kernel_trace()
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM_X),
             gen_instr(TID_B),
+            gen_instr(TID_B),
+            gen_instr(TID_B),
+            gen_instr(TID_B),
+            gen_instr(TID_B),
             gen_marker(TID_B, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_X),
             gen_marker(TID_B, TRACE_MARKER_TYPE_TIMESTAMP, 1600),
             // Voluntary switch: latency 500.
@@ -746,11 +768,19 @@ test_syscall_latencies_with_kernel_trace()
             gen_marker(TID_A, TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM_Y),
             gen_instr(TID_A),
+            gen_instr(TID_A),
+            gen_instr(TID_A),
+            gen_instr(TID_A),
+            gen_instr(TID_A),
+            gen_instr(TID_A),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_Y),
             gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 2300),
             // Direct switch: latency 200.
             gen_marker(TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
                        switch_type_t::SWITCH_THREAD),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
             gen_instr(TID_C),
             gen_marker(TID_C, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END,
                        switch_type_t::SWITCH_THREAD),
@@ -758,6 +788,11 @@ test_syscall_latencies_with_kernel_trace()
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2500),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM_X),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
             gen_instr(TID_C),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_X),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 2599),
@@ -768,6 +803,11 @@ test_syscall_latencies_with_kernel_trace()
             gen_marker(TID_C, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
             gen_marker(TID_C, TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM_Y),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
             gen_instr(TID_C),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_Y),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3300),
@@ -780,6 +820,12 @@ test_syscall_latencies_with_kernel_trace()
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 3400),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL, SYSNUM_X),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM_X),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
+            gen_instr(TID_C),
             gen_instr(TID_C),
             gen_marker(TID_C, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM_X),
             gen_marker(TID_C, TRACE_MARKER_TYPE_TIMESTAMP, 4400),
@@ -810,15 +856,16 @@ test_syscall_latencies_with_kernel_trace()
             gen_exit(TID_D),
         },
     };
+    // Ensure the schedule record only includes user-mode instructions.
     const std::vector<std::vector<schedule_record_t>> expected_record = {
         {
             { 0, TID_A, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
-            { 0, TID_B, /*ins=*/2, /*sys#=*/12, /*lat=*/500, VOLUNTARY, DEFAULT, 1 },
-            { 0, TID_A, /*ins=*/4, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT, 2 },
-            { 0, TID_C, /*ins=*/6, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
+            { 0, TID_B, /*ins=*/1, /*sys#=*/12, /*lat=*/500, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_A, /*ins=*/3, /*sys#=*/167, /*lat=*/200, VOLUNTARY, DIRECT, 2 },
+            { 0, TID_C, /*ins=*/3, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 8 },
         },
         {
-            { 0, TID_C, /*ins=*/1, /*sys#=*/12, /*lat=*/1000, VOLUNTARY, DEFAULT, 1 },
+            { 0, TID_C, /*ins=*/0, /*sys#=*/12, /*lat=*/1000, VOLUNTARY, DEFAULT, 1 },
             { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
             { 0, TID_D, /*ins=*/1, /*sys#=*/-1, /*lat=*/-1, INVOLUNTARY, DEFAULT, 1 },
             { 0, TID_E, /*ins=*/0, /*sys#=*/-1, /*lat=*/-1, VOLUNTARY, DEFAULT, 2 },
@@ -843,6 +890,16 @@ test_syscall_latencies_with_kernel_trace()
     auto it_y_noswitch = result.sysnum_noswitch_latency.find(SYSNUM_Y);
     assert(it_y_noswitch != result.sysnum_noswitch_latency.end());
     assert(it_y_noswitch->second->to_string() == "         200..     205     1\n");
+
+    // Ensure the switch rate histograms do not count kernel templates.
+    // The kernel templates above have more instructions than the user
+    // sequences, and if counted produce segments from 6 to 20 instructions,
+    // so we ensure we see at most 4 instructions in a segment.
+    std::string global_hist = result.instrs_per_switch->to_string();
+    std::cerr << "Global switches:\n" << global_hist;
+    assert(std::regex_search(
+        global_hist, std::regex(R"DELIM(0.. *1 *4\n *1.. *2 *4\n *3.. *4 *2\n)DELIM")));
+
     return true;
 }
 
