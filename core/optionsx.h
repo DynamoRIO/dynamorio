@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -66,6 +66,11 @@
 /* The liststring_t type is assumed to contain ;-separated values that are
  * appended to if multiple option instances are specified
  */
+
+#ifdef bool
+/* Avoid problems with bool macros on Mac. */
+#    undef bool
+#endif
 
 /* Shortcuts for the common cases */
 #define OPTION_DEFAULT(type, name, value, description) \
