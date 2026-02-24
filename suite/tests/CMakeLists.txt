@@ -5663,8 +5663,12 @@ if (BUILD_CLIENTS)
       # cmake should check for the existance of the output .bbv file and then remove it.
       torunonly_ci(tool.drpoints.simple ${ci_shared_app} drpoints
         client-interface/drpoints_simple_app # for .expect
-        "-instr_interval 100 -print_to_stdout -no_out_bbv_file" "" "")
+        "-instr_interval 100 -print_to_stdout -no_out_bbv_file -save_bbv_every 0" "" "")
       set(tool.drpoints.simple_toolname "drpoints")
+      torunonly_ci(tool.drpoints.simple_w_save_bbv ${ci_shared_app} drpoints
+        client-interface/drpoints_w_save_bbv_simple_app # for .expect
+        "-instr_interval 100 -print_to_stdout -no_out_bbv_file -save_bbv_every 1" "" "")
+      set(tool.drpoints.simple_w_save_bbv_toolname "drpoints")
     endif ()
 
     if (UNIX AND NOT APPLE AND NOT WINDOWS)
