@@ -644,13 +644,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                   dynamorio::drpoints::free_bbv);
     // Avoid frequent resizing of the bbv vectors at the beginning by setting a reasonable
     // large number as initial capacity.
-    uint bbv_initial_capacity = 512;
+    constexpr uint BBV_INITIAL_CAPACITY = 512;
     for (uint i = 0; i < bbvs_capacity; ++i) {
         drvector_t *bbv = static_cast<drvector_t *>(dr_global_alloc(sizeof(*bbv)));
         // Configure the vector to memset its storage (i.e., the BB frequency counts) to
         // zero whenever allocated (at init, but also resize).
         drvector_config_t config = { /*size=*/sizeof(config), /*zero_alloc=*/true };
-        drvector_init_ex(bbv, bbv_initial_capacity, /*synch=*/false,
+        drvector_init_ex(bbv, BBV_INITIAL_CAPACITY, /*synch=*/false,
                          /*free_data_func=*/nullptr, &config);
         drvector_set_entry(&dynamorio::drpoints::bbvs, i, bbv);
     }
