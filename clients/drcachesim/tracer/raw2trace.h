@@ -1213,7 +1213,8 @@ private:
     bool
     get_marker_value(raw2trace_thread_data_t *tdata,
                      DR_PARAM_INOUT const offline_entry_t **entry,
-                     DR_PARAM_OUT uintptr_t *value);
+                     DR_PARAM_OUT uintptr_t *value,
+                     DR_PARAM_OUT bool *split_error = nullptr);
 
     bool
     append_memref(raw2trace_thread_data_t *tdata, DR_PARAM_INOUT trace_entry_t **buf_in,
