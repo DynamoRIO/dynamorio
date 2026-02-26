@@ -10300,7 +10300,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                     found_exec = (strcmp(iter_basename, exec_match) == 0);
                 }
 #    endif
-                if (found_exec) {
+                if (found_exec && TEST(MEMPROT_EXEC, iter->prot)) {
                     if (executable_start == NULL)
                         executable_start = iter->vm_start;
                     else
