@@ -54,12 +54,6 @@
 
 #ifdef LINUX
 #    include <sys/syscall.h>
-#    if defined(DRRUN) || defined(DRINJECT)
-#        include <sys/vfs.h>
-#        ifndef PROC_SUPER_MAGIC
-#            define PROC_SUPER_MAGIC 0x9fa0
-#        endif
-#    endif
 #endif
 
 #include <string.h>
@@ -1271,17 +1265,6 @@ _tmain(int argc, TCHAR *targv[])
     sc = drfront_convert_args((const TCHAR **)targv, &argv, argc);
     if (sc != DRFRONT_SUCCESS)
         fatal("failed to process args: %d", sc);
-#endif
-
-#if defined(LINUX) && (defined(DRRUN) || defined(DRINJECT))
-    /* i#1840: Provide a clear error when /proc is not mounted. */
-    struct statfs stat;
-    if (statfs("/proc", &stat) != 0 || stat.f_type != PROC_SUPER_MAGIC) {
-        fprintf(stderr,
-                "/proc must be mounted.\n"
-                "Run: mount -t proc proc /proc\n");
-        exit(1);
-    }
 #endif
 
     memset(client_paths, 0, sizeof(client_paths));
