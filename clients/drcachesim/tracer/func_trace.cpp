@@ -190,6 +190,7 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
     } else if (mod->full_path == nullptr) {
         NOTIFY(2, "Missing module path for base pc=%p; cannot look up symbols\n",
                mod->start);
+        return nullptr;
     } else {
         // If failed to find the symbol in the dynamic symbol table, then we try to find
         // it in the module loaded by reading the module file in mod->full_path.
