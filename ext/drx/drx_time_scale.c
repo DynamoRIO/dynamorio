@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -725,7 +725,8 @@ event_pre_syscall(void *drcontext, int sysnum)
         struct timespec *spec = (struct timespec *)dr_syscall_get_param(drcontext, 3);
         data->app_set_timer_param = spec;
         NOTIFY(2, "T" TIDFMT " epoll_pwait2 time=%p %" SSZFC ".%.12" SSZFC "\n",
-               dr_get_thread_id(drcontext), spec, spec->tv_sec, spec->tv_nsec);
+               dr_get_thread_id(drcontext), spec, spec == NULL ? 0 : spec->tv_sec,
+               spec == NULL ? 0 : spec->tv_nsec);
         if (spec == NULL) /* Infinite. */
             break;
         size_t wrote;
@@ -746,7 +747,8 @@ event_pre_syscall(void *drcontext, int sysnum)
         NOTIFY(2,
                "T" TIDFMT " epoll_pwait2 time=%p %" INT64_FORMAT_CODE
                ".%.12" INT64_FORMAT_CODE "\n",
-               dr_get_thread_id(drcontext), spec, spec->tv_sec, spec->tv_nsec);
+               dr_get_thread_id(drcontext), spec, spec == NULL ? 0 : spec->tv_sec,
+               spec == NULL ? 0 : spec->tv_nsec);
         if (spec == NULL) /* Infinite. */
             break;
         size_t wrote;

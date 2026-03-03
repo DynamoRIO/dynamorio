@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -238,6 +238,10 @@ perform_epolls()
                            /*sigmask=*/nullptr);
         assert(res == 0);
         ++epoll_count;
+        // Test a null timeout to ensure we don't fall over.
+        res = epoll_pwait2(/*fd=*/-1, &events, EPOLL_MAX_EVENTS, /*timeout=*/nullptr,
+                           /*sigmask=*/nullptr);
+        assert(res != 0);
 #endif
     }
     return epoll_count;
