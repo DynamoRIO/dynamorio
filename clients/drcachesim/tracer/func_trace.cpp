@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -187,6 +187,9 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
     } else if (op_record_dynsym_only.get_value()) {
         NOTIFY(2, "Failed to find symbol %s in .dynsym; not recording it\n", symbol);
         return NULL;
+    } else if (mod->full_path == nullptr) {
+        NOTIFY(2, "Missing module path for base pc=%p; cannot look up symbols\n",
+               mod->start);
     } else {
         // If failed to find the symbol in the dynamic symbol table, then we try to find
         // it in the module loaded by reading the module file in mod->full_path.
@@ -216,7 +219,7 @@ static inline const char *
 get_module_basename(const module_data_t *mod)
 {
     const char *mod_name = dr_module_preferred_name(mod);
-    if (mod_name == nullptr) {
+    if (mod_name == nullptr && mod->full_path != nullptr) {
         const char *slash = strrchr(mod->full_path, '/');
 #ifdef WINDOWS
         const char *bslash = strrchr(mod->full_path, '\\');
