@@ -444,7 +444,6 @@ In order to build the documentation, you will additionally need:
   - doxygen
 
 These can be either Cygwin packages or native Windows.
-TH`.
 
 \subsection sec_build_windows_cygwin Using Cygwin
 
