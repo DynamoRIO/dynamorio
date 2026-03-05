@@ -356,7 +356,7 @@ typedef enum {
      * This marker is also used to record parameter values for certain system calls such
      * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS or -record_syscall.  These use
      * large identifiers equal to
-     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
+     * #dynamorio::drmemtrace::func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
      * call number (for 32-bit marker values just the bottom 16 bits of the system call
      * number are added to the base).  These identifiers are not stored in the function
      * list file (drmemtrace_get_funclist_path()).  The system call number used is the
@@ -1053,9 +1053,9 @@ typedef enum {
      * return values for kernel locks (SYS_futex on Linux) using the function tracing
      * markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
      * #TRACE_MARKER_TYPE_FUNC_RETVAL with an identifier equal to
-     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its
-     * bottom 16 bits for 32-bit marker values).  These identifiers are not stored in the
-     * function list file (drmemtrace_get_funclist_path()).
+     * #dynamorio::drmemtrace::func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
+     * call number (or its bottom 16 bits for 32-bit marker values).  These identifiers
+     * are not stored in the function list file (drmemtrace_get_funclist_path()).
      *
      * The #TRACE_MARKER_TYPE_FUNC_RETVAL for system calls is
      * either 0 (failure) or 1 (success).
