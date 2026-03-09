@@ -1271,6 +1271,122 @@ test_false_syscalls(void *drcontext)
 }
 
 bool
+test_syscall_with_interleaving_markers(void *drcontext)
+{
+#if defined(WINDOWS) && !defined(X64)
+    // should_omit_syscall() skips WOW64 today
+    return true;
+#else
+    std::cerr << "\n===============\nTesting syscalls with interleaving markers\n";
+    // Our synthetic test first constructs a list of instructions to be encoded into
+    // a buffer for decoding by raw2trace.
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
+    // complexities (xref create_syscall_instr()).
+#    ifdef X86
+    instr_t *sys = INSTR_CREATE_syscall(drcontext);
+#    elif defined(AARCHXX)
+    instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+#    elif defined(RISCV64)
+    instr_t *sys = INSTR_CREATE_ecall(drcontext);
+#    else
+#    error Unsupported architecture.
+#    endif
+#    ifdef X86_32
+    unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR_SYSENTER;
+#    else
+    unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR;
+#    endif
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, sys);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_sys = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_sys + instr_length(drcontext, sys);
+
+#    ifdef X64
+    // If the system supports 64 bit syscall number, we use a large syscall number
+    // so that there will also be a split_value marker before the syscall marker.
+    static constexpr uint64_t SYSCALL_NUM = 0xabc12345678;
+#    else
+    static constexpr uint32_t SYSCALL_NUM = 0x12345678;
+#    endif
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp(1));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move1, 1));
+    // Add the syscall with a window_id marker before the syscall marker
+    raw.push_back(make_timestamp(2));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_sys, 1));
+    raw.push_back(make_timestamp(3));
+    raw.push_back(make_core());
+    raw.push_back(make_timestamp(4));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_WINDOW_ID, 4));
+    raw.push_back(make_core());
+#    ifdef X64
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SPLIT_VALUE, (SYSCALL_NUM >> 32)));
+#    endif
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, (SYSCALL_NUM & 0xffffffff)));
+    raw.push_back(make_timestamp(5));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move1 instr
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 2) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The syscall instr should not be removed
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, expected_syscall_instr_type, -1) &&
+        // The markers should be preserved
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 3) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 4) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 5) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move2 instr
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+#endif
+}
+
+bool
 test_rseq_fallthrough(void *drcontext)
 {
     std::cerr << "\n===============\nTesting rseq fallthrough\n";
@@ -4010,8 +4126,10 @@ test_main(int argc, const char *argv[])
     if (!test_branch_delays(drcontext) || !test_marker_placement(drcontext) ||
         !test_marker_delays(drcontext) || !test_chunk_boundaries(drcontext) ||
         !test_chunk_encodings(drcontext) || !test_duplicate_syscalls(drcontext) ||
-        !test_false_syscalls(drcontext) || !test_rseq_fallthrough(drcontext) ||
-        !test_rseq_rollback_legacy(drcontext) || !test_rseq_rollback(drcontext) ||
+        !test_false_syscalls(drcontext) ||
+        !test_syscall_with_interleaving_markers(drcontext) ||
+        !test_rseq_fallthrough(drcontext) || !test_rseq_rollback_legacy(drcontext) ||
+        !test_rseq_rollback(drcontext) ||
         !test_rseq_rollback_with_timestamps(drcontext) ||
         !test_rseq_rollback_with_signal(drcontext) ||
         !test_rseq_rollback_with_signal_after_branch(drcontext) ||
