@@ -1294,7 +1294,7 @@ test_syscall_with_interleaving_markers(void *drcontext)
 #    elif defined(RISCV64)
     instr_t *sys = INSTR_CREATE_ecall(drcontext);
 #    else
-#    error Unsupported architecture.
+#        error Unsupported architecture.
 #    endif
 #    ifdef X86_32
     unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR_SYSENTER;
