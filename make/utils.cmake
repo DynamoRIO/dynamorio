@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2026 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -273,8 +273,9 @@ if (UNIX)
       set_directory_properties(PROPERTIES
         ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
       set(ldflags "-Wl,${ld_script_option},\"${ld_script}\"")
-      add_custom_command(TARGET ${target}
-        PRE_LINK
+      add_custom_target(${target}_ldscript DEPENDS ${ld_script})
+      add_dependencies(${target} ${target}_ldscript)
+      add_custom_command(OUTPUT ${ld_script}
         COMMAND ${CMAKE_COMMAND}
         # script does not inherit any vars so we must pass them all in
         # to work around i#84 be sure to put a space after -D for 1st arg at least
