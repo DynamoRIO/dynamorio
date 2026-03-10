@@ -9151,6 +9151,133 @@ test_noise_generator()
     assert(found_at_least_one_noise_generator_read);
 }
 
+void
+test_random_layout()
+{
+    std::cerr << "\n----------------\nTesting random layout\n";
+    static constexpr int NUM_INPUTS = 8;
+    static constexpr int NUM_OUTPUTS = 3;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr int QUANTUM_DURATION = 3;
+    static constexpr int NUM_ITERS = 12;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(test_util::make_thread(tid));
+        inputs[i].push_back(test_util::make_pid(1));
+        inputs[i].push_back(test_util::make_version(TRACE_ENTRY_VERSION));
+        inputs[i].push_back(test_util::make_timestamp(10)); // All the same time priority.
+        for (int j = 0; j < NUM_INSTRS; j++) {
+            inputs[i].push_back(test_util::make_instr(42 + j * 4));
+        }
+        inputs[i].push_back(test_util::make_exit(tid));
+    }
+    std::vector<std::vector<std::string>> sched_string(NUM_ITERS);
+    for (int iter = 0; iter < NUM_ITERS; ++iter) {
+        sched_string[iter].reserve(NUM_OUTPUTS);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<test_util::mock_reader_t>(
+                    new test_util::mock_reader_t(inputs[i])),
+                std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+                TID_BASE + i);
+            sched_inputs.emplace_back(std::move(readers));
+        }
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        // The first 3rd have no randomness; the next 3rd enable random layout
+        // with a constant seed; the final 3rd use a different seed each time.
+        if (iter >= NUM_ITERS * 2 / 3) {
+            sched_ops.random_initial_layout = iter;
+        } else if (iter >= NUM_ITERS / 3) {
+            sched_ops.random_initial_layout = 1;
+        }
+        sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        sched_string[iter] = run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "iter " << iter << " cpu #" << i
+                      << " schedule: " << sched_string[iter][i] << "\n";
+        }
+    }
+    // An actual output to illustrate the 1/3 shifts:
+    // Round robin:
+    //   iter 0 cpu #0 schedule: ..AAA..DDD..GGGAAADDDGGGAAA.DDD.GGG._
+    //   iter 0 cpu #1 schedule: ..BBB..EEE..HHHBBBEEEHHHBBB.EEE.HHH.
+    //   iter 0 cpu #2 schedule: ..CCC..FFFCCCFFFCCC.FFF.____________
+    //   iter 1 cpu #0 schedule: ..AAA..DDD..GGGAAADDDGGGAAA.DDD.GGG._
+    //   iter 1 cpu #1 schedule: ..BBB..EEE..HHHBBBEEEHHHBBB.EEE.HHH.
+    //   iter 1 cpu #2 schedule: ..CCC..FFFCCCFFFCCC.FFF.____________
+    //   iter 2 cpu #0 schedule: ..AAA..DDD..GGGAAADDDGGGAAA.DDD.GGG._
+    //   iter 2 cpu #1 schedule: ..BBB..EEE..HHHBBBEEEHHHBBB.EEE.HHH.
+    //   iter 2 cpu #2 schedule: ..CCC..FFFCCCFFFCCC.FFF.____________
+    //   iter 3 cpu #0 schedule: ..AAA..DDD..GGGAAADDDGGGAAA.DDD.GGG._
+    //   iter 3 cpu #1 schedule: ..BBB..EEE..HHHBBBEEEHHHBBB.EEE.HHH.
+    //   iter 3 cpu #2 schedule: ..CCC..FFFCCCFFFCCC.FFF.____________
+    // Random with the same seed:
+    //   iter 4 cpu #0 schedule: ..BBB..CCCBBBCCCBBB.CCC._____________
+    //   iter 4 cpu #1 schedule: ..AAA..DDD..EEEAAADDDEEEAAA.DDD.EEE._
+    //   iter 4 cpu #2 schedule: ..FFF..GGG..HHHFFFGGGHHHFFF.GGG.HHH.
+    //   iter 5 cpu #0 schedule: ..BBB..CCCBBBCCCBBB.CCC._____________
+    //   iter 5 cpu #1 schedule: ..AAA..DDD..EEEAAADDDEEEAAA.DDD.EEE._
+    //   iter 5 cpu #2 schedule: ..FFF..GGG..HHHFFFGGGHHHFFF.GGG.HHH.
+    //   iter 6 cpu #0 schedule: ..BBB..CCCBBBCCCBBB.CCC._____________
+    //   iter 6 cpu #1 schedule: ..AAA..DDD..EEEAAADDDEEEAAA.DDD.EEE._
+    //   iter 6 cpu #2 schedule: ..FFF..GGG..HHHFFFGGGHHHFFF.GGG.HHH.
+    //   iter 7 cpu #0 schedule: ..BBB..CCCBBBCCCBBB.CCC._____________
+    //   iter 7 cpu #1 schedule: ..AAA..DDD..EEEAAADDDEEEAAA.DDD.EEE._
+    //   iter 7 cpu #2 schedule: ..FFF..GGG..HHHFFFGGGHHHFFF.GGG.HHH.
+    // Random with a different seed each time:
+    //   iter 8 cpu #0 schedule: ..BBB..FFF..GGGBBBFFFGGGBBB.FFF.GGG._
+    //   iter 8 cpu #1 schedule: ..DDD..EEE..HHHDDDEEEHHHDDD.EEE.HHH.
+    //   iter 8 cpu #2 schedule: ..AAA..CCCAAACCCAAA.CCC.____________
+    //   iter 9 cpu #0 schedule: ..AAA..BBB..HHHAAABBBHHHAAA.BBB.HHH._
+    //   iter 9 cpu #1 schedule: ..CCC..DDD..EEECCCDDDEEECCC.DDD.EEE.
+    //   iter 9 cpu #2 schedule: ..FFF..GGGFFFGGGFFF.GGG.____________
+    //   iter 10 cpu #0 schedule: ..BBB..CCC..GGGBBBCCCGGGBBB.CCC.GGG._
+    //   iter 10 cpu #1 schedule: ..AAA..EEE..FFFAAAEEEFFFAAA.EEE.FFF.
+    //   iter 10 cpu #2 schedule: ..DDD..HHHDDDHHHDDD.HHH.____________
+    //   iter 11 cpu #0 schedule: ..BBB..CCC..HHHBBBCCCHHHBBB.CCC.HHH._
+    //   iter 11 cpu #1 schedule: ..EEE..GGGEEEGGGEEE.GGG._____________
+    //   iter 11 cpu #2 schedule: ..AAA..DDD..FFFAAADDDFFFAAA.DDD.FFF.
+    int random_match_count = 0;
+    for (int iter = 0; iter < NUM_ITERS; ++iter) {
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            // The first 3rd have no randomness; the next 3rd enable random layout
+            // with a constant seed; the final 3rd use a different seed each time.
+            if (iter >= NUM_ITERS * 2 / 3) {
+                // A different seed should produce a different layout most of
+                // the time.
+                if (sched_string[iter][i] == sched_string[iter - 1][i])
+                    ++random_match_count;
+            } else if (iter > NUM_ITERS / 3) {
+                // The same seed should produce the same layout.
+                assert(sched_string[iter][i] == sched_string[iter - 1][i]);
+            } else if (iter == NUM_ITERS / 3) {
+                // The random shouldn't match the round robin, but there is
+                // a chance it might so we can't really assert.
+                // This was tested manually and it did differ.
+            } else if (iter > 0) {
+                assert(sched_string[iter][i] == sched_string[iter - 1][i]);
+            }
+        }
+    }
+    // We want some kind of check; it seems pretty unlikely more than one of the
+    // random schedules will match another.
+    // In a test with ctest --repeat_until_failure this passed 1000x in a row
+    // so this seems a good balance of avoiding flakiness while still checking
+    // something in an automated fashion.
+    assert(random_match_count <= NUM_OUTPUTS);
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -9204,6 +9331,7 @@ test_main(int argc, const char *argv[])
     test_marker_updates();
     test_options_match();
     test_noise_generator();
+    test_random_layout();
 
     dr_standalone_exit();
     return 0;
