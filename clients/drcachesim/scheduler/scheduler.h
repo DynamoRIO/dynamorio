@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -903,6 +903,13 @@ public:
         std::unique_ptr<ReaderType> kernel_syscall_reader;
         /** The end reader for #kernel_syscall_reader. */
         std::unique_ptr<ReaderType> kernel_syscall_reader_end;
+        /**
+         * If <0, the initial assignment of inputs to outputs is done in a round-robin
+         * fashion.  If >=0, each input is assigned to a random output, using a seed
+         * equal to this field's value (unless it is 0 in which case the current time is
+         * used).  A rebalance is always run after the initial layout.
+         */
+        int random_initial_layout = -1;
         // When adding new options, also add to print_configuration().
     };
 

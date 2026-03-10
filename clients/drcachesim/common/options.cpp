@@ -1187,6 +1187,14 @@ droption_t<double> op_sched_exit_if_fraction_inputs_left(
     "count is not considered (as it is not available), use discretion when raising "
     "this value on uneven inputs.");
 
+droption_t<int> op_sched_random_initial_layout(
+    DROPTION_SCOPE_FRONTEND, "sched_random_initial_layout", -1,
+    "Randomize initial mapping of inputs to outputs, using this seed",
+    "If <0, the initial assignment of inputs to outputs is done in a round-robin "
+    "fashion.  If >=0, each input is assigned to a random output, using a seed equal to "
+    "this field's value (unless it is 0 in which case the current time is used).  A "
+    "rebalance is always run after the initial layout.");
+
 droption_t<int> op_sched_max_cores(
     DROPTION_SCOPE_ALL, "sched_max_cores", 0,
     "Limit scheduling to this many peak live cores",

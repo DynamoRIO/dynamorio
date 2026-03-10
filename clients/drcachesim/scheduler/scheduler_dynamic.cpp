@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,7 @@
 #include <cstdint>
 #include <limits>
 #include <mutex>
+#include <random>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -111,20 +112,38 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::set_initial_schedule()
         inputs_[i].queue_counter = i;
         allq.push(&inputs_[i]);
     }
-    // Now assign round-robin to the outputs.  We have to obey bindings here: we
-    // just take the first.  This isn't guaranteed to be perfect if there are
-    // many bindings (or output limits), but we run a rebalancing afterward
-    // (to construct it up front would take similar code to the rebalance so we
-    // leverage that code).
+    // Now assign inputs to outputs, either random or round-robin.  We have to obey
+    // bindings here: we just take the first.  This isn't guaranteed to be perfect if
+    // there are many bindings (or output limits), but we run a rebalancing afterward (to
+    // construct it up front would take similar code to the rebalance so we leverage that
+    // code).
+    if (options_.random_initial_layout >= 0) {
+        int rand_seed = options_.random_initial_layout;
+        if (rand_seed == 0) {
+            rand_seed = static_cast<int>(
+                scheduler_impl_tmpl_t<RecordType, ReaderType>::get_time_micros());
+        }
+        rand_gen_.seed(rand_seed);
+    }
     output_ordinal_t output = 0;
     while (!allq.empty()) {
         input_info_t *input = allq.top();
         allq.pop();
         output_ordinal_t target = output;
-        if (!input->binding.empty())
-            target = *input->binding.begin();
-        else
-            output = (output + 1) % outputs_.size();
+        if (options_.random_initial_layout >= 0) {
+            if (!input->binding.empty()) {
+                std::vector<output_ordinal_t> bind_vec(input->binding.begin(),
+                                                       input->binding.end());
+                size_t index = rand_gen_() % bind_vec.size();
+                target = bind_vec[index];
+            } else
+                target = rand_gen_() % outputs_.size();
+        } else {
+            if (!input->binding.empty())
+                target = *input->binding.begin();
+            else
+                output = (output + 1) % outputs_.size();
+        }
         add_to_ready_queue(target, input);
     }
     stream_status_t status = rebalance_queues(0, {});

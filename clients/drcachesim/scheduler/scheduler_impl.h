@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <random>
 #include <set>
 #include <stack>
 #include <string>
@@ -1260,6 +1261,7 @@ protected:
     mutex_dbg_owned unsched_lock_;
     // Inputs that are unscheduled indefinitely until directly targeted.
     input_queue_t unscheduled_priority_;
+    std::minstd_rand rand_gen_;
 };
 
 // Specialized code for replaying schedules: either a recorded dynamic schedule
