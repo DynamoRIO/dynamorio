@@ -2134,7 +2134,7 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
     //    syscall is handled.
     // In both cases, we want to just remove the syscall instr: so we remove
     // if we find no subsequent marker either immediately following or after
-    // potentially multiple timestamp+cpuid markers.
+    // potentially multiple timestamps or non-syscall markers.
     // (For the window case there are alternatives where we try to emit
     // the marker by passing info to the pre-syscall event handler or by moving
     // the marker to the block instrumentation but these all incur more complexity
@@ -2142,7 +2142,9 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
     const offline_entry_t *in_entry = get_next_entry(tdata);
     std::vector<offline_entry_t> saved;
     while (in_entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP ||
-           is_marker_type(in_entry, TRACE_MARKER_TYPE_CPU_ID)) {
+           (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            in_entry->extended.valueB != TRACE_MARKER_TYPE_SYSCALL)) {
         saved.push_back(*in_entry);
         in_entry = get_next_entry(tdata);
     }
