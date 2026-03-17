@@ -46,11 +46,6 @@
  * and starts from 1, and count = number_of_times_BB_was_executed * instructions_of_BB.
  * This format follows what SimpointToolkit 3.2 expects:
  * https://cseweb.ucsd.edu/~calder/simpoint/releases/SimPoint.3.2.tar.gz
- *
- * TODO i#7685: add proper documentation in a .dox file. Some of the things the doc should
- * touch on: an example of how to run the drpoints tool, explanation of the .bbv output
- * file, difference between compiler definition of BB vs DynamoRIO's definition,
- * limitations about multi-threaded programs.
  */
 
 #include "dr_api.h"

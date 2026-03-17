@@ -1,0 +1,117 @@
+/* **********************************************************
+ * Copyright (c) 2025-2026 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drpoints DrPoints
+
+\p DrPoints is a DynamoRIO client that computes Basic Block Vectors (BBV)
+for a program execution. These vectors represent the execution frequency of
+basic blocks within fixed-size instruction intervals, which are commonly used
+for phase analysis and as input for tools like SimPoint Toolkit
+(https://cseweb.ucsd.edu/~calder/simpoint/releases/SimPoint.3.2.tar.gz).
+
+\section sec_drpoints_usage Usage
+
+To run \p DrPoints, use the \p -t \p drpoints option with \p drrun. For example:
+
+\code
+drrun -t drpoints -- myapp
+\endcode
+
+The tool will generate a \p .bbv file in the current directory. You can
+customize the behavior using several options:
+
+ - \b -instr_interval &lt;size&gt;:
+    Specifies the instruction interval size (default is 100M instructions).
+    This value divides the program execution into instruction intervals of
+    the specified size.
+    Example: \p -instr_interval \p 10M
+ - \b -out_bbv_file &lt;path&gt;:
+    Specifies the output path for the \p .bbv file. By default, the file is
+    named \p drpoints.BINARY_NAME.PID.UNIQUE_ID.bbv and saved in the current
+    directory.
+    Example: \p -out_bbv_file \p myapp.bbv
+ - \b -no_out_bbv_file:
+    Disables the generation of the output \p .bbv file, but still runs the client.
+    This is useful for testing or when only stdout output is desired.
+    Default is false.
+ - \b -print_to_stdout:
+    Prints the BBVs to standard output in addition to the file. Default is false.
+ - \b -save_bbv_every &lt;intervals&gt;:
+    Frequency (in number of instruction intervals) at which to write BBVs to
+    the output and clear them from memory (default is 100). This is useful for
+    long-running programs to avoid high memory consumption. A value of 0 keeps
+    all BBVs in memory until the program exits.
+    Example: \p -save_bbv_every \p 50
+
+\section sec_drpoints_bbv_format BBV Output Format
+
+The output file follows the format expected by SimPoint Toolkit 3.2. Each line
+represents an instruction interval and starts with a "T" separator, followed
+by pairs of basic block IDs and their weighted frequencies:
+
+\code
+T:BB_id:count :BB_id:count ... :BB_id:count
+\endcode
+
+- \b BB_id: A unique, 1-indexed identifier for each basic block.
+- \b count: The number of times the basic block was executed in the interval
+  multiplied by the number of instructions in that basic block.
+
+\section sec_drpoints_bb_definition Basic Block Definition
+
+It is important to note that DynamoRIO's definition of a basic block differs
+from a traditional, static compiler definition. DynamoRIO constructs
+\e dynamic \e basic \e blocks as it encounters code during execution.
+A traditional compiler's basic block is a sequence of instructions with a
+single entry point and a single exit point. In contrast, DynamoRIO does not
+know all entry points ahead of time. This can lead to tail duplication if a
+later entry point is discovered that targets the middle of an existing basic block,
+or if straight-line code falls through into code already present in a block,
+DynamoRIO will create a new basic block that duplicates the tail of the original block.
+Consequently, a single static basic block in the original binary might be represented
+by multiple dynamic basic blocks in \p drpoints, and some instructions may appear in
+multiple dynamic blocks due to tail duplication.
+
+\section sec_drpoints_limitations Limitations
+
+Currently, \p drpoints has the following limitations:
+
+- \b Multi-threading: The tool does not support multi-threaded applications.
+  It will abort when it detects more than one thread.
+- \b Architectures: Efficient inlined counter updates are currently
+  implemented for x86_64 and AArch64. Other architectures default to a
+  slower clean call implementation.
+
+*/
