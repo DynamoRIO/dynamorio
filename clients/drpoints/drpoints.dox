@@ -38,8 +38,8 @@
 \p DrPoints is a DynamoRIO client that computes Basic Block Vectors (BBV)
 for a program execution. These vectors represent the execution frequency of
 basic blocks within fixed-size instruction intervals, which are commonly used
-for phase analysis and as input for tools like SimPoint Toolkit
-(https://cseweb.ucsd.edu/~calder/simpoint/releases/SimPoint.3.2.tar.gz).
+for phase analysis and as input for tools like
+[SimPoint Toolkit](https://cseweb.ucsd.edu/~calder/simpoint/releases/SimPoint.3.2.tar.gz).
 
 \section sec_drpoints_usage Usage
 
@@ -53,10 +53,10 @@ The tool will generate a \p .bbv file in the current directory. You can
 customize the behavior using several options:
 
  - \b -instr_interval &lt;size&gt;:
-    Specifies the instruction interval size (default is 100M instructions).
+    Specifies the instruction interval size (default is 100,000,000 instructions).
     This value divides the program execution into instruction intervals of
     the specified size.
-    Example: \p -instr_interval \p 10M
+    Example: \p -instr_interval \p 50000000
  - \b -out_bbv_file &lt;path&gt;:
     Specifies the output path for the \p .bbv file. By default, the file is
     named \p drpoints.BINARY_NAME.PID.UNIQUE_ID.bbv and saved in the current
@@ -98,15 +98,15 @@ A traditional compiler's basic block is a sequence of instructions with a
 single entry point and a single exit point. In contrast, DynamoRIO does not
 know all entry points ahead of time. This can lead to tail duplication if a
 later entry point is discovered that targets the middle of an existing basic block,
-or if straight-line code falls through into code already present in a block,
-DynamoRIO will create a new basic block that duplicates the tail of the original block.
-Consequently, a single static basic block in the original binary might be represented
-by multiple dynamic basic blocks in \p drpoints, and some instructions may appear in
-multiple dynamic blocks due to tail duplication.
+or if straight-line code falls through into code already present in a block; in such
+cases, DynamoRIO will create a new basic block that duplicates the tail of the original
+block. Consequently, a single static basic block in the original binary might be
+represented by multiple dynamic basic blocks in DrPoints, and some instructions may
+appear in multiple dynamic blocks due to tail duplication.
 
 \section sec_drpoints_limitations Limitations
 
-Currently, \p drpoints has the following limitations:
+Currently, DrPoints has the following limitations:
 
 - \b Multi-threading: The tool does not support multi-threaded applications.
   It will abort when it detects more than one thread.
