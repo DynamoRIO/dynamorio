@@ -774,6 +774,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.kernel_syscall_reader.get());
     VPRINT(this, 1, "  %-25s : %p\n", "kernel_syscall_reader_end",
            options_.kernel_syscall_reader_end.get());
+    VPRINT(this, 1, "  %-25s : %d\n", "ignore_low_latency_unsched",
+           options_.ignore_low_latency_unsched);
 }
 
 template <typename RecordType, typename ReaderType>
