@@ -95,3 +95,10 @@ write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRPOINTS_CONFIG})
 register_tool_file("drpoints")
+
+##################################################
+# Documentation
+
+get_property(dox_extras GLOBAL PROPERTY DynamoRIO_dox_extras)
+set_property(GLOBAL PROPERTY DynamoRIO_dox_extras ${dox_extras}
+  ${CMAKE_CURRENT_SOURCE_DIR}/drpoints.dox)
