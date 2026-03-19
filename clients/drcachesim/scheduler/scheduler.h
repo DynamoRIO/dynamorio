@@ -910,6 +910,16 @@ public:
          * used).  A rebalance is always run after the initial layout.
          */
         int random_initial_layout = -1;
+        /**
+         * If #honor_direct_switches is true, unschedule requests coming from
+         * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE markers ignore syscall latency and
+         * always block and switch.  If this #ignore_low_latency_unsched option is
+         * true, unschedule requests only block and switch if their latency is above
+         * the #blocking_switch_threshold, just like other maybe-blocking syscalls.
+         * This can help deflate these requests if tracing overhead has inflated their
+         * frequency.
+         */
+        bool ignore_low_latency_unsched = false;
         // When adding new options, also add to print_configuration().
     };
 

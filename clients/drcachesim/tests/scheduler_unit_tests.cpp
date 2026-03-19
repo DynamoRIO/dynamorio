@@ -7164,6 +7164,99 @@ test_unscheduled_no_alternative()
 }
 
 static void
+test_unscheduled_latency()
+{
+    // Test the ignore_low_latency_unsched option.
+    std::cerr << "\n----------------\nTesting ignore_low_latency_unsched\n";
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int UNSCHEDULE_TIMEOUT = 8;
+    static constexpr double BLOCK_SCALE = 1.;
+    static constexpr uint64_t BLOCK_THRESHOLD = 500;
+    static constexpr memref_tid_t TID_A = 100;
+    std::vector<trace_entry_t> refs_A = {
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, UNSCHEDULE_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(1002 + BLOCK_THRESHOLD - 1),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_exit(TID_A),
+    };
+    {
+        // Test defaults.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        // The unschedule request should result in UNSCHEDULE_TIMEOUT==8
+        // underscores as it blocks.
+        static const char *const CORE0_SCHED_STRING = "...A.......________A.";
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_A, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+    {
+        // Test ignore_low_latency_unsched.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        // The unschedule request should be ignored, so no underscores.
+        static const char *const CORE0_SCHED_STRING = "...A.......A.";
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.ignore_low_latency_unsched = true;
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_A, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    }
+}
+
+static void
 test_unscheduled()
 {
     test_unscheduled_base();
@@ -7173,6 +7266,7 @@ test_unscheduled()
     test_unscheduled_initially_rebalance();
     test_unscheduled_small_timeout();
     test_unscheduled_no_alternative();
+    test_unscheduled_latency();
 }
 
 static std::vector<std::string>

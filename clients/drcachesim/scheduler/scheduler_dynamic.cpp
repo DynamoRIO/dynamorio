@@ -489,6 +489,24 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
                        "syscall in "
                        "input %d\n",
                        output, input->index);
+            } else if (input->unscheduled) {
+                bool do_switch = true;
+                if (options_.ignore_low_latency_unsched) {
+                    uint64_t ignored;
+                    if (!syscall_incurs_switch(input, ignored)) {
+                        // Ignore unschedule requests with very short latencies to
+                        // try to undo their inflation under tracing.
+                        do_switch = false;
+                        input->unscheduled = false;
+                        input->blocked_time = 0;
+                        input->blocked_start_time = 0;
+                    }
+                }
+                if (do_switch) {
+                    need_new_input = true;
+                    VPRINT(this, 3, "next_record[%d]: input %d going unscheduled\n",
+                           output, input->index);
+                }
             } else if (input->blocked_time > 0) {
                 // If we've found out another way that this input should
                 // block, use that time and do a switch.
@@ -496,10 +514,6 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::check_for_input_switch(
                 blocked_time = input->blocked_time;
                 VPRINT(this, 3, "next_record[%d]: blocked time set for input %d\n",
                        output, input->index);
-            } else if (input->unscheduled) {
-                need_new_input = true;
-                VPRINT(this, 3, "next_record[%d]: input %d going unscheduled\n", output,
-                       input->index);
             } else if (syscall_incurs_switch(input, blocked_time)) {
                 // Model as blocking and should switch to a different input.
                 need_new_input = true;
