@@ -310,6 +310,9 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
     // We want to ensure we find someone with our random picks.
     // Queues can change between each pick as well so re-trying the same
     // pick is not necessarily a bad thing.
+    // Experiments on large applications showed that using between half the queue
+    // size and the queue size works fairly well, and using double the size works
+    // even better: so we make that our default.
     const size_t max_fallback_attempts = local_direct_targets.size() * 2;
     while (prev_index != sched_type_t::INVALID_INPUT_ORDINAL &&
            inputs_[prev_index].switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
