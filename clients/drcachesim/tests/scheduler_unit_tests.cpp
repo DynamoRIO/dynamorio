@@ -9672,8 +9672,6 @@ test_random_layout()
 int
 test_main(int argc, const char *argv[])
 {
-    test_direct_switch_fallback(); // NOCHECK
-    return 0;
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
     // Avoid races with lazy drdecode init (b/279350357).
