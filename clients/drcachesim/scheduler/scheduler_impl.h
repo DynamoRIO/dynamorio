@@ -703,6 +703,13 @@ protected:
     virtual stream_status_t
     eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) = 0;
 
+    // Called for bookkeeping when an input hits eof.
+    virtual stream_status_t
+    mark_input_eof_for_mode(input_info_t &input)
+    {
+        return sched_type_t::STATUS_OK;
+    }
+
     ///
     ///////////////////////////////////////////////////////////////////////////
 
@@ -1195,6 +1202,9 @@ protected:
 
     stream_status_t
     eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) override;
+
+    stream_status_t
+    mark_input_eof_for_mode(input_info_t &input) override;
 
     stream_status_t
     set_output_active(output_ordinal_t output, bool active) override;

@@ -927,7 +927,8 @@ public:
          * This is meant for applications where these direct switches are not used for
          * actual data dependencies but instead for general user mode scheduling, where
          * the as-traced target may have already run due to slight variations in timing
-         * and scheduling.
+         * and scheduling. Exercise caution when enabling and first ensure the
+         * application is not using direct switches for dependencies.
          */
         bool direct_switch_fallbacks = false;
         // When adding new options, also add to print_configuration().

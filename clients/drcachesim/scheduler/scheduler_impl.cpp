@@ -3466,6 +3466,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &inpu
     if (input.at_eof)
         return sched_type_t::STATUS_OK;
     input.at_eof = true;
+    stream_status_t status = mark_input_eof_for_mode(input);
+    if (status != sched_type_t::STATUS_OK)
+        return status;
 #ifndef NDEBUG
     int old_count =
 #endif
