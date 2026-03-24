@@ -221,12 +221,14 @@ protected:
         // fetch record size, but removing one byte doesn't change the struct size.
         unsigned char size = 0;
         // We could try to shrink further by having a union of the 1st 8 bytes of the
-        // encoding with a pointer to heap-allocated storage for >8-byte encodings:
-        // but we would then actually need a size field (or some field indicating
-        // which union field to use) so we can clean up the heap-allocated memory:
-        // and that keeps this at 16 bytes, unless we want to pack it down to 9 which
-        // probably won't save memory if the container heap-allocates into a 16-byte
-        // heap bucket anyway.
+        // encoding with a pointer to heap-allocated storage for >8-byte encodings: but
+        // we would then actually need a size field (or some field indicating which
+        // union field to use) so we can clean up the heap-allocated memory (and a pool
+        // for cleaning all at the end is not enough as we need to replace/update
+        // individual encodings): and that keeps encoding_info_t at 16 bytes with
+        // standard alignment, unless we want to pack it down to 9 which probably won't
+        // save memory if the container heap-allocates into a 16-byte heap bucket
+        // anyway; and we don't want the complexity of a custom allocator.
         unsigned char bits[MAX_ENCODING_LENGTH];
     };
 
