@@ -155,8 +155,9 @@ reader_t::process_input_entry()
         // The encoding_info_t size field is unsigned char so ensure it doesn't
         // overflow.  We avoid std::numeric_limits::max to avoid conflicts with
         // Windows headers.
-        assert(last_encoding_.size + input_entry_->size <= 256);
-        last_encoding_.size += input_entry_->size;
+        assert(static_cast<unsigned int>(last_encoding_.size) + input_entry_->size <=
+               256);
+        last_encoding_.size += static_cast<unsigned char>(input_entry_->size);
         break;
     case TRACE_TYPE_INSTR_MAYBE_FETCH:
         // While offline traces can convert rep string per-iter instrs into
