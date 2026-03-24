@@ -6119,7 +6119,7 @@ test_direct_switch_fallback()
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int QUANTUM_DURATION = 100; // Never reached.
     static constexpr int BLOCK_LATENCY = 100;
-    static constexpr int SWITCH_TIMEOUT = 2000;
+    static constexpr int SWITCH_TIMEOUT = 200;
     static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
     static constexpr memref_tid_t TID_BASE = 100;
     static constexpr memref_tid_t TID_A = TID_BASE + 0;
@@ -6132,7 +6132,9 @@ test_direct_switch_fallback()
     // A will then do a regular local switch to C.
     // C then direct-switches back to A who direct-switches to C who direct-switches
     // once again back to A.
-    // B direct-switches to D who exits and so B runs again.
+    // B does an infinite wait, which should be skipped as we skip the next wait
+    // for a missed target.
+    // B then direct-switches to D who exits and so B runs again.
     // Now A, B, C, and D are all in the target set.
     // Now A tries to switch to B again which is running, so it should fall back
     // to C (it's random but B is running and D has exited).
@@ -6189,12 +6191,21 @@ test_direct_switch_fallback()
         test_util::make_instr(/*pc=*/207),
         test_util::make_instr(/*pc=*/208),
         test_util::make_instr(/*pc=*/201),
-        test_util::make_timestamp(1002),
+        test_util::make_timestamp(2002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        // A wait with no timeout, which should be skipped.
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(2004),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_timestamp(2004),
         test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
         test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
         test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_D),
+        test_util::make_timestamp(2004),
         test_util::make_instr(/*pc=*/202),
         test_util::make_instr(/*pc=*/203),
         test_util::make_instr(/*pc=*/204),
@@ -6207,26 +6218,13 @@ test_direct_switch_fallback()
         test_util::make_instr(/*pc=*/203),
         test_util::make_instr(/*pc=*/204),
         test_util::make_instr(/*pc=*/205),
-        test_util::make_instr(/*pc=*/201),
-        test_util::make_instr(/*pc=*/206),
-        test_util::make_instr(/*pc=*/207),
-        test_util::make_instr(/*pc=*/208),
-        test_util::make_instr(/*pc=*/201),
-        test_util::make_instr(/*pc=*/202),
-        test_util::make_instr(/*pc=*/203),
-        test_util::make_instr(/*pc=*/204),
-        test_util::make_instr(/*pc=*/205),
-        test_util::make_instr(/*pc=*/206),
-        test_util::make_instr(/*pc=*/207),
-        test_util::make_instr(/*pc=*/208),
-        test_util::make_instr(/*pc=*/201),
-        test_util::make_instr(/*pc=*/202),
-        test_util::make_timestamp(2002),
+        test_util::make_timestamp(2004),
         test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
         test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
         test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
+        test_util::make_timestamp(2004),
         test_util::make_exit(TID_B),
     };
     std::vector<trace_entry_t> refs_C = {
@@ -6319,19 +6317,19 @@ test_direct_switch_fallback()
         }
         // See the sequence description at the top of this function.
         static const char *const CORE0_SCHED_STRING =
-            "...AA...........C.......A.......C.......A.......CCCCCCCCC.__";
+            "...AA...........C.......A.......C.......A.......CCCCCCCCC.";
         static const char *const CORE1_SCHED_STRING =
-            "...BBBBBBBBB.........D.BBBBBBBBBBBBBBBBBBBBBBBBBB.......AA.";
+            "...BBBBBBBBB......B..........D._BBBBBBBBBBBB........AA.___";
         assert(sched_as_string[0] == CORE0_SCHED_STRING);
         assert(sched_as_string[1] == CORE1_SCHED_STRING);
         // Ensure we see 5 direct attempts and 4 successes and 0 migrations on core0.
         verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/5,
-                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/5,
                                /*direct_successes=*/4, /*migrations=*/0);
         // Ensure we see 2/2 direct attempt and 1 migration on core1.
-        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/3,
-                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/2,
+                               /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/1,
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/2,
                                /*direct_successes=*/2, /*migrations=*/1);
     }
@@ -6384,21 +6382,21 @@ test_direct_switch_fallback()
         // to a regular local switch and with nothing to run the core goes idle
         // until D is ready. Furthermore, B's switch to C ends up working.
         static const char *const CORE0_SCHED_STRING =
-            "...AA...........C.......A.......C.......A.......___________________AA.";
+            "...AA...........C.......A.......C.......A......._CCCCCCCCC.AA.";
         static const char *const CORE1_SCHED_STRING =
-            "...BBBBBBBBB.........D.BBBBBBBBBBBBBBBBBBBBBBBBBB.......CCCCCCCCC.____";
+            "...BBBBBBBBB......B..........D._BBBBBBBBBBBB........__________";
         assert(sched_as_string[0] == CORE0_SCHED_STRING);
         assert(sched_as_string[1] == CORE1_SCHED_STRING);
-        // Ensure we see 5 direct attempts and 3 successes and 1 migration on core0.
-        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/4,
+        // Ensure we see 5 direct attempts and 3 successes and 0 migrations on core0.
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/5,
                                /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/5,
                                /*direct_successes=*/3, /*migrations=*/0);
-        // Ensure we see 1/1 direct attempt and 1 migration on core1.
-        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/3,
-                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/0,
+        // Ensure we see 1/2 direct attempt and 0 migrations on core1.
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/1,
+                               /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/1,
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/2,
-                               /*direct_successes=*/2, /*migrations=*/1);
+                               /*direct_successes=*/1, /*migrations=*/0);
     }
 }
 
