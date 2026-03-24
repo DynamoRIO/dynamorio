@@ -703,6 +703,13 @@ protected:
     virtual stream_status_t
     eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) = 0;
 
+    // Called for bookkeeping when an input hits eof.
+    virtual stream_status_t
+    mark_input_eof_for_mode(input_info_t &input)
+    {
+        return sched_type_t::STATUS_OK;
+    }
+
     ///
     ///////////////////////////////////////////////////////////////////////////
 
@@ -1197,6 +1204,9 @@ protected:
     eof_or_idle_for_mode(output_ordinal_t output, input_ordinal_t prev_input) override;
 
     stream_status_t
+    mark_input_eof_for_mode(input_info_t &input) override;
+
+    stream_status_t
     set_output_active(output_ordinal_t output, bool active) override;
 
     // The input's lock must be held by the caller.
@@ -1262,6 +1272,10 @@ protected:
     // Inputs that are unscheduled indefinitely until directly targeted.
     input_queue_t unscheduled_priority_;
     std::minstd_rand rand_gen_;
+    // This lock protects direct_targets_.
+    // It should be acquired *after* both output or input locks.
+    mutex_dbg_owned direct_target_lock_;
+    flexible_queue_t<input_ordinal_t> direct_targets_;
 };
 
 // Specialized code for replaying schedules: either a recorded dynamic schedule
