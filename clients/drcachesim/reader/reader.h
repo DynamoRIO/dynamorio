@@ -214,7 +214,19 @@ protected:
     uint64_t page_size_ = 0;
 
     struct encoding_info_t {
-        size_t size = 0;
+        // We use a char type to save space, as this can eat up memory when we have a
+        // copy in each of thousands of input traces for large multi-threaded
+        // applications. This struct is 16 bytes, vs 24 bytes if we use size_t. We
+        // don't actually need a size field at all as we could rely on the instr
+        // fetch record size, but removing one byte doesn't change the struct size.
+        unsigned char size = 0;
+        // We could try to shrink further by having a union of the 1st 8 bytes of the
+        // encoding with a pointer to heap-allocated storage for >8-byte encodings:
+        // but we would then actually need a size field (or some field indicating
+        // which union field to use) so we can clean up the heap-allocated memory:
+        // and that keeps this at 16 bytes, unless we want to pack it down to 9 which
+        // probably won't save memory if the container heap-allocates into a 16-byte
+        // heap bucket anyway.
         unsigned char bits[MAX_ENCODING_LENGTH];
     };
 
