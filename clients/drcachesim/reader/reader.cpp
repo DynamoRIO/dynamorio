@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -144,7 +144,7 @@ reader_t::process_input_entry()
         break;
     case TRACE_TYPE_ENCODING:
         if (last_encoding_.size + input_entry_->size > MAX_ENCODING_LENGTH) {
-            ERRMSG("Invalid too-large encoding size %zu + %d\n", last_encoding_.size,
+            ERRMSG("Invalid too-large encoding size %u + %d\n", last_encoding_.size,
                    input_entry_->size);
             assert(false);
             at_eof_ = true;
@@ -152,7 +152,12 @@ reader_t::process_input_entry()
         }
         memcpy(last_encoding_.bits + last_encoding_.size, input_entry_->encoding,
                input_entry_->size);
-        last_encoding_.size += input_entry_->size;
+        // The encoding_info_t size field is unsigned char so ensure it doesn't
+        // overflow.  We avoid std::numeric_limits::max to avoid conflicts with
+        // Windows headers.
+        assert(static_cast<unsigned int>(last_encoding_.size) + input_entry_->size <=
+               256);
+        last_encoding_.size += static_cast<unsigned char>(input_entry_->size);
         break;
     case TRACE_TYPE_INSTR_MAYBE_FETCH:
         // While offline traces can convert rep string per-iter instrs into
@@ -210,7 +215,7 @@ reader_t::process_input_entry()
                      */
                     !TESTANY(OFFLINE_FILE_TYPE_ARCH_REGDEPS, filetype_)) {
                     ERRMSG(
-                        "Encoding size %zu != instr size %zu for PC 0x%zx at ord %" PRIu64
+                        "Encoding size %u != instr size %zu for PC 0x%zx at ord %" PRIu64
                         " instr %" PRIu64 " last_timestamp=0x%" PRIx64
                         " enc: %x %x inst type: %d\n",
                         last_encoding_.size, cur_ref_.instr.size, cur_ref_.instr.addr,
