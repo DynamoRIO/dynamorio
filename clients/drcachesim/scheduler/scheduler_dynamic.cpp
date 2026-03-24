@@ -301,8 +301,22 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
             inputs_[prev_index].blocked_start_time = get_output_time(output);
         }
     }
-    if (prev_index != sched_type_t::INVALID_INPUT_ORDINAL &&
-        inputs_[prev_index].switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+    flexible_queue_t<input_ordinal_t> local_direct_targets;
+    if (options_.direct_switch_fallbacks) {
+        std::unique_lock<mutex_dbg_owned> target_set_lock(direct_target_lock_);
+        local_direct_targets = direct_targets_;
+    }
+    size_t fallback_attempts = 0;
+    // We want to ensure we find someone with our random picks.
+    // The attempt count includes randomly picking the source and re-picking.
+    // Queues can change between each pick as well so re-trying the same
+    // pick is not necessarily a bad thing.
+    // Experiments on large applications showed that using between half the queue
+    // size and the queue size works fairly well, and using double the size works
+    // even better: so we make that our default.
+    const size_t max_fallback_attempts = local_direct_targets.size() * 2;
+    while (prev_index != sched_type_t::INVALID_INPUT_ORDINAL &&
+           inputs_[prev_index].switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
         input_info_t *target = &inputs_[inputs_[prev_index].switch_to_input];
         inputs_[prev_index].switch_to_input = sched_type_t::INVALID_INPUT_ORDINAL;
         std::unique_lock<mutex_dbg_owned> target_input_lock(*target->lock);
@@ -375,15 +389,47 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
             // dynamic switch to whoever happens to be available (and
             // different timing between tracing and analysis has caused this
             // miss).
-            VPRINT(this, 2,
-                   "Direct switch (from %d) target input #%d is running "
-                   "elsewhere; picking a different target @%" PRIu64 "\n",
-                   prev_index, target->index,
-                   inputs_[prev_index].reader->get_last_timestamp());
-            // We do ensure the missed target doesn't wait indefinitely.
-            // XXX i#6822: It's not clear this is always the right thing to
-            // do.
-            target->skip_next_unscheduled = true;
+            if (fallback_attempts == 0) {
+                // We do ensure the original missed target doesn't wait indefinitely.
+                // XXX i#6822: It's not clear this is always the right thing to
+                // do.
+                target->skip_next_unscheduled = true;
+            }
+            if (options_.direct_switch_fallbacks &&
+                fallback_attempts < max_fallback_attempts) {
+                // Try a different target. If this is enabled, it means these
+                // targets do not have data dependencies and instead are just a
+                // user-mode scheduler picking someone free to run next.
+                do {
+                    inputs_[prev_index].switch_to_input =
+                        local_direct_targets.get_random_entry();
+                    ++fallback_attempts;
+                    // Skip ourselves. Do not skip the original target: maybe it
+                    // will be available after the time searching others.
+                } while (inputs_[prev_index].switch_to_input == prev_index &&
+                         fallback_attempts < max_fallback_attempts);
+                if (fallback_attempts >= max_fallback_attempts) {
+                    inputs_[prev_index].switch_to_input =
+                        sched_type_t::INVALID_INPUT_ORDINAL;
+                }
+                VPRINT(this, 2,
+                       "Direct switch (from %d) target input #%d is running elsewhere; "
+                       "looking for a different direct switch target from %zd candidates "
+                       "@%" PRIu64 " => picked #%d (attempt %zd/%zd)\n",
+                       prev_index, target->index, local_direct_targets.size(),
+                       inputs_[prev_index].reader->get_last_timestamp(),
+                       inputs_[prev_index].switch_to_input, fallback_attempts,
+                       max_fallback_attempts);
+            } else {
+                VPRINT(this, 2,
+                       "Direct switch (from %d) target input #%d is running elsewhere; "
+                       "falling back to a regular non-direct local switch @%" PRIu64 "\n",
+                       prev_index, target->index,
+                       inputs_[prev_index].reader->get_last_timestamp());
+                break;
+            }
+        } else {
+            break;
         }
     }
     if (index != sched_type_t::INVALID_INPUT_ORDINAL) {
@@ -649,6 +695,14 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::process_marker(
                    target_tid);
         } else {
             input.switch_to_input = it->second;
+            if (options_.direct_switch_fallbacks) {
+                std::unique_lock<mutex_dbg_owned> target_set_lock(direct_target_lock_);
+                if (!direct_targets_.find(input.switch_to_input)) {
+                    VPRINT(this, 2, "Adding input #%d to direct target set\n",
+                           input.switch_to_input);
+                    direct_targets_.push(input.switch_to_input);
+                }
+            }
         }
         // Trigger a switch either indefinitely or until timeout.
         if (input.skip_next_unscheduled) {
@@ -1340,6 +1394,19 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::print_queue_stats()
             outputs_[i].ready_queue.queue.push(add);
     }
     VPRINT(this, 0, "%s\n", ostr.str().c_str());
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_dynamic_tmpl_t<RecordType, ReaderType>::mark_input_eof_for_mode(
+    input_info_t &input)
+{
+    if (options_.direct_switch_fallbacks) {
+        VPRINT(this, 2, "Removing input #%dn from direct target set\n", input.index);
+        std::unique_lock<mutex_dbg_owned> target_set_lock(direct_target_lock_);
+        direct_targets_.erase(input.index);
+    }
+    return sched_type_t::STATUS_OK;
 }
 
 template class scheduler_dynamic_tmpl_t<memref_t, reader_t>;

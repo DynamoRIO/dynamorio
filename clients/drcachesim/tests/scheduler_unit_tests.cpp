@@ -5933,7 +5933,7 @@ test_inactive()
 }
 
 static void
-test_direct_switch()
+test_direct_switch_base()
 {
     std::cerr << "\n----------------\nTesting direct switches\n";
     // This tests just direct switches with no unscheduled inputs or related
@@ -6110,6 +6110,301 @@ test_direct_switch()
                                /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/0,
                                /*direct_successes=*/0, /*migrations=*/0);
     }
+}
+
+static void
+test_direct_switch_fallback()
+{
+    std::cerr << "\n----------------\nTesting direct switch fallback\n";
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int QUANTUM_DURATION = 100; // Never reached.
+    static constexpr int BLOCK_LATENCY = 100;
+    static constexpr int SWITCH_TIMEOUT = 200;
+    static constexpr double BLOCK_SCALE = 1. / (BLOCK_LATENCY);
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    static constexpr memref_tid_t TID_C = TID_BASE + 2;
+    static constexpr memref_tid_t TID_D = TID_BASE + 3;
+    // The test scheme:
+    // A is on cpu0 and B is on cpu1.
+    // A tries to switch to B which should fail as B is running on cpu1;
+    // A will then do a regular local switch to C.
+    // C then direct-switches back to A who direct-switches to C who direct-switches
+    // once again back to A.
+    // B does an infinite wait, which should be skipped as we skip the next wait
+    // for a missed target.
+    // B then direct-switches to D who exits and so B runs again.
+    // Now A, B, C, and D are all in the target set.
+    // Now A tries to switch to B again which is running, so it should fall back
+    // to C (it's random but B is running and D has exited).
+    // Then B switches to C which is running so it should fall back to A.
+    std::vector<trace_entry_t> refs_A = {
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        // A has the earliest timestamp and starts.
+        test_util::make_timestamp(1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/101),
+        test_util::make_instr(/*pc=*/102),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_timestamp(4001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
+        test_util::make_timestamp(8001),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_timestamp(8001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_B),
+        test_util::make_timestamp(8001),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_instr(/*pc=*/401),
+        test_util::make_exit(TID_A),
+    };
+    std::vector<trace_entry_t> refs_B = {
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        // B would go next by timestamp, so this is a good test of direct switches.
+        test_util::make_timestamp(2001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_instr(/*pc=*/206),
+        test_util::make_instr(/*pc=*/207),
+        test_util::make_instr(/*pc=*/208),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_timestamp(2002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        // A wait with no timeout, which should be skipped.
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE, 0),
+        test_util::make_timestamp(2004),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_timestamp(2004),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_D),
+        test_util::make_timestamp(2004),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_instr(/*pc=*/206),
+        test_util::make_instr(/*pc=*/207),
+        test_util::make_instr(/*pc=*/208),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_timestamp(2004),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
+        test_util::make_timestamp(2004),
+        test_util::make_exit(TID_B),
+    };
+    std::vector<trace_entry_t> refs_C = {
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(3001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/201),
+        test_util::make_timestamp(1002),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_ARG_TIMEOUT, SWITCH_TIMEOUT),
+        test_util::make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
+        test_util::make_timestamp(4001),
+        test_util::make_instr(/*pc=*/202),
+        test_util::make_instr(/*pc=*/203),
+        test_util::make_instr(/*pc=*/204),
+        test_util::make_instr(/*pc=*/205),
+        test_util::make_instr(/*pc=*/206),
+        test_util::make_instr(/*pc=*/207),
+        test_util::make_instr(/*pc=*/208),
+        test_util::make_instr(/*pc=*/209),
+        test_util::make_instr(/*pc=*/210),
+        test_util::make_exit(TID_C),
+    };
+    std::vector<trace_entry_t> refs_D = {
+        test_util::make_thread(TID_D),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(5001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(/*pc=*/301),
+        test_util::make_exit(TID_D),
+    };
+    {
+        // Test with fallback enabled.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_D)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_D);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration_us = QUANTUM_DURATION;
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        sched_ops.direct_switch_fallbacks = true;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // See the sequence description at the top of this function.
+        static const char *const CORE0_SCHED_STRING =
+            "...AA...........C.......A.......C.......A.......CCCCCCCCC.";
+        static const char *const CORE1_SCHED_STRING =
+            "...BBBBBBBBB......B..........D._BBBBBBBBBBBB........AA.___";
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+        // Ensure we see 5 direct attempts and 4 successes and 0 migrations on core0.
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/5,
+                               /*switch_input_to_idle=*/0, /*switch_idle_to_input=*/0,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/5,
+                               /*direct_successes=*/4, /*migrations=*/0);
+        // Ensure we see 2/2 direct attempt and 1 migration on core1.
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/2,
+                               /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/1,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/2,
+                               /*direct_successes=*/2, /*migrations=*/1);
+    }
+    {
+        // Test the defaults.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_B)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_B);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_C)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_C);
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_D)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_D);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.quantum_duration_us = QUANTUM_DURATION;
+        // We use our mock's time==instruction count for a deterministic result.
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+        sched_ops.time_units_per_us = 1.;
+        sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
+        sched_ops.block_time_multiplier = BLOCK_SCALE;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // See the fallback-enabled sequence described above.
+        // With defaults, the 2nd A on core0's switch attempt to B falls back
+        // to a regular local switch and with nothing to run the core goes idle
+        // until D is ready. Furthermore, B's switch to C ends up working.
+        static const char *const CORE0_SCHED_STRING =
+            "...AA...........C.......A.......C.......A......._CCCCCCCCC.AA.";
+        static const char *const CORE1_SCHED_STRING =
+            "...BBBBBBBBB......B..........D._BBBBBBBBBBBB........__________";
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+        // Ensure we see 5 direct attempts and 3 successes and 0 migrations on core0.
+        verify_scheduler_stats(scheduler.get_stream(0), /*switch_input_to_input=*/5,
+                               /*switch_input_to_idle=*/1, /*switch_idle_to_input=*/1,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/5,
+                               /*direct_successes=*/3, /*migrations=*/0);
+        // Ensure we see 1/2 direct attempt and 0 migrations on core1.
+        verify_scheduler_stats(scheduler.get_stream(1), /*switch_input_to_input=*/1,
+                               /*switch_input_to_idle=*/2, /*switch_idle_to_input=*/1,
+                               /*switch_nop=*/0, /*preempts=*/0, /*direct_attempts=*/2,
+                               /*direct_successes=*/1, /*migrations=*/0);
+    }
+}
+
+static void
+test_direct_switch()
+{
+    test_direct_switch_base();
+    test_direct_switch_fallback();
 }
 
 static void

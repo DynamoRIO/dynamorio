@@ -774,8 +774,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.kernel_syscall_reader.get());
     VPRINT(this, 1, "  %-25s : %p\n", "kernel_syscall_reader_end",
            options_.kernel_syscall_reader_end.get());
+    VPRINT(this, 1, "  %-25s : %d\n", "random_initial_layout",
+           options_.random_initial_layout);
     VPRINT(this, 1, "  %-25s : %d\n", "ignore_low_latency_unsched",
            options_.ignore_low_latency_unsched);
+    VPRINT(this, 1, "  %-25s : %d\n", "direct_switch_fallbacks",
+           options_.direct_switch_fallbacks);
 }
 
 template <typename RecordType, typename ReaderType>
@@ -3462,6 +3466,9 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::mark_input_eof(input_info_t &inpu
     if (input.at_eof)
         return sched_type_t::STATUS_OK;
     input.at_eof = true;
+    stream_status_t status = mark_input_eof_for_mode(input);
+    if (status != sched_type_t::STATUS_OK)
+        return status;
 #ifndef NDEBUG
     int old_count =
 #endif
