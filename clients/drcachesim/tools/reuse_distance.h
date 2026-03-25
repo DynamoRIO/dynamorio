@@ -421,6 +421,7 @@ protected:
             ref->left->parent = nullptr;
             if (ref->right != nullptr) {
                 line_ref_node_t *left_tail = get_tail(ref->left);
+                assert(left_tail->right == nullptr);
                 ref->right->parent = left_tail;
                 left_tail->right = ref->right;
                 // Update sizes of the left child's subtrees
