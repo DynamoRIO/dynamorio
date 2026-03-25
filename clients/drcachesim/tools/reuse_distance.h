@@ -501,12 +501,12 @@ protected:
     left_rotate(line_ref_node_t *node)
     {
         line_ref_node_t *new_parent = node->right;
-        if (new_parent != nullptr) {
-            node->right = new_parent->left;
-            if (new_parent->left != nullptr)
-                new_parent->left->parent = node;
-            new_parent->parent = node->parent;
-        }
+        assert(new_parent != nullptr);
+
+        node->right = new_parent->left;
+        if (new_parent->left != nullptr)
+            new_parent->left->parent = node;
+        new_parent->parent = node->parent;
 
         if (node->parent == nullptr)
             root_ = new_parent;
@@ -514,8 +514,8 @@ protected:
             node->parent->left = new_parent;
         else
             node->parent->right = new_parent;
-        if (new_parent != nullptr)
-            new_parent->left = node;
+
+        new_parent->left = node;
         node->parent = new_parent;
         recalc_size(node);
         recalc_size(new_parent);
@@ -526,20 +526,21 @@ protected:
     right_rotate(line_ref_node_t *node)
     {
         line_ref_node_t *new_parent = node->left;
-        if (new_parent != nullptr) {
-            node->left = new_parent->right;
-            if (new_parent->right != nullptr)
-                new_parent->right->parent = node;
-            new_parent->parent = node->parent;
-        }
+        assert(new_parent != nullptr);
+
+        node->left = new_parent->right;
+        if (new_parent->right != nullptr)
+            new_parent->right->parent = node;
+        new_parent->parent = node->parent;
+
         if (node->parent == nullptr)
             root_ = new_parent;
         else if (node == node->parent->left)
             node->parent->left = new_parent;
         else
             node->parent->right = new_parent;
-        if (new_parent != nullptr)
-            new_parent->right = node;
+
+        new_parent->right = node;
         node->parent = new_parent;
         recalc_size(node);
         recalc_size(new_parent);
@@ -573,6 +574,7 @@ protected:
             }
         }
     }
+
     line_ref_node_t *root_; // root of the splay
 };
 
