@@ -518,6 +518,25 @@ verify_sizes(line_ref_node_t *node)
     return expected;
 }
 
+// Test helper for using line_ref_splay_t internals.
+class line_ref_splay_test_t : public line_ref_splay_t {
+public:
+    explicit line_ref_splay_test_t(uint64_t reuse_threshold)
+        : line_ref_splay_t(reuse_threshold)
+    {
+    }
+
+    using line_ref_splay_t::get_prev;
+    using line_ref_splay_t::remove;
+    using line_ref_splay_t::splay;
+
+    line_ref_node_t *
+    root()
+    {
+        return root_;
+    }
+};
+
 // Test for splay tree insertion.
 void
 splay_tree_insert_test()
@@ -528,7 +547,7 @@ splay_tree_insert_test()
     constexpr uint64_t TEST_ADDRESS = 0x1000;
     constexpr uint64_t TEST_DISTANCE_INCREMENT = 64;
 
-    line_ref_splay_t tree(THRESHOLD);
+    line_ref_splay_test_t tree(THRESHOLD);
     address_generator_t agen(TEST_ADDRESS, TEST_DISTANCE_INCREMENT);
 
     // Test insertion and basic structure.
@@ -536,13 +555,13 @@ splay_tree_insert_test()
     for (int i = 0; i < NUM_NODES; ++i) {
         nodes.push_back(new line_ref_node_t(agen.next_address()));
         tree.add_to_front(nodes.back());
-        assert(tree.root_ == nodes.back());
+        assert(tree.root() == nodes.back());
         assert(tree.head_ == nodes.back());
         assert(tree.tail_ == nodes[0]);
         assert(tree.unique_lines_ == i + 1);
-        assert(tree.root_->size == i + 1);
+        assert(tree.root()->size == i + 1);
     }
-    verify_sizes(tree.root_);
+    verify_sizes(tree.root());
 }
 
 // Test for splay tree move_to_front and reuse distance.
@@ -555,7 +574,7 @@ splay_tree_move_to_front_test()
     constexpr uint64_t TEST_ADDRESS = 0x1000;
     constexpr uint64_t TEST_DISTANCE_INCREMENT = 64;
 
-    line_ref_splay_t tree(THRESHOLD);
+    line_ref_splay_test_t tree(THRESHOLD);
     address_generator_t agen(TEST_ADDRESS, TEST_DISTANCE_INCREMENT);
 
     std::vector<line_ref_node_t *> nodes;
@@ -569,12 +588,12 @@ splay_tree_move_to_front_test()
     assert(dist == 4);
     assert(tree.head_ == nodes[5]);
     assert(nodes[5]->total_refs == 2);
-    verify_sizes(tree.root_);
+    verify_sizes(tree.root());
 
     dist = tree.move_to_front(nodes[0]);
     assert(dist == NUM_NODES - 1);
     assert(tree.head_ == nodes[0]);
-    verify_sizes(tree.root_);
+    verify_sizes(tree.root());
 
     dist = tree.move_to_front(nodes[0]);
     assert(dist == 0);
@@ -591,7 +610,7 @@ splay_tree_gate_test()
     constexpr uint64_t TEST_ADDRESS = 0x1000;
     constexpr uint64_t TEST_DISTANCE_INCREMENT = 64;
 
-    line_ref_splay_t tree(THRESHOLD);
+    line_ref_splay_test_t tree(THRESHOLD);
     address_generator_t agen(TEST_ADDRESS, TEST_DISTANCE_INCREMENT);
 
     std::vector<line_ref_node_t *> nodes;
@@ -622,7 +641,7 @@ splay_tree_rotation_test()
     constexpr uint64_t TEST_ADDRESS = 0x1000;
     constexpr uint64_t TEST_DISTANCE_INCREMENT = 64;
 
-    line_ref_splay_t tree(THRESHOLD);
+    line_ref_splay_test_t tree(THRESHOLD);
     address_generator_t agen(TEST_ADDRESS, TEST_DISTANCE_INCREMENT);
 
     std::vector<line_ref_node_t *> nodes;
@@ -633,11 +652,11 @@ splay_tree_rotation_test()
 
     // Test splay rotations maintain invariants.
     tree.splay(nodes[3]);
-    assert(tree.root_ == nodes[3]);
-    verify_sizes(tree.root_);
+    assert(tree.root() == nodes[3]);
+    verify_sizes(tree.root());
     tree.splay(nodes[7]);
-    assert(tree.root_ == nodes[7]);
-    verify_sizes(tree.root_);
+    assert(tree.root() == nodes[7]);
+    verify_sizes(tree.root());
 }
 
 // Test for splay tree get_prev traversal.
@@ -650,7 +669,7 @@ splay_tree_traversal_test()
     constexpr uint64_t TEST_ADDRESS = 0x1000;
     constexpr uint64_t TEST_DISTANCE_INCREMENT = 64;
 
-    line_ref_splay_t tree(THRESHOLD);
+    line_ref_splay_test_t tree(THRESHOLD);
     address_generator_t agen(TEST_ADDRESS, TEST_DISTANCE_INCREMENT);
 
     std::vector<line_ref_node_t *> nodes;
@@ -681,7 +700,7 @@ splay_tree_remove_test()
     constexpr uint64_t TEST_ADDRESS = 0x1000;
     constexpr uint64_t TEST_DISTANCE_INCREMENT = 64;
 
-    line_ref_splay_t tree(THRESHOLD);
+    line_ref_splay_test_t tree(THRESHOLD);
     address_generator_t agen(TEST_ADDRESS, TEST_DISTANCE_INCREMENT);
 
     std::vector<line_ref_node_t *> nodes;
@@ -693,10 +712,10 @@ splay_tree_remove_test()
     // Test removal.
     auto *to_remove = nodes[4];
     tree.remove(to_remove);
-    assert(tree.root_->size == NUM_NODES - 1);
+    assert(tree.root()->size == NUM_NODES - 1);
     assert(to_remove->parent == nullptr && to_remove->left == nullptr);
     delete to_remove;
-    verify_sizes(tree.root_);
+    verify_sizes(tree.root());
 }
 
 // Test for splay tree prune_tail.
@@ -709,7 +728,7 @@ splay_tree_prune_test()
     constexpr uint64_t TEST_ADDRESS = 0x1000;
     constexpr uint64_t TEST_DISTANCE_INCREMENT = 64;
 
-    line_ref_splay_t tree(THRESHOLD);
+    line_ref_splay_test_t tree(THRESHOLD);
     address_generator_t agen(TEST_ADDRESS, TEST_DISTANCE_INCREMENT);
 
     std::vector<line_ref_node_t *> nodes;
@@ -722,12 +741,12 @@ splay_tree_prune_test()
     auto *old_tail = tree.tail_;
     tree.prune_tail();
     assert(tree.tail_ != old_tail);
-    assert(tree.root_->size == NUM_NODES - 1);
+    assert(tree.root()->size == NUM_NODES - 1);
     delete old_tail;
-    verify_sizes(tree.root_);
+    verify_sizes(tree.root());
 
     if (TEST_VERBOSE(1)) {
-        std::cerr << "Final tree size: " << tree.root_->size << "\n";
+        std::cerr << "Final tree size: " << tree.root()->size << "\n";
         std::cerr << "Unique lines: " << tree.unique_lines_ << "\n";
     }
 }

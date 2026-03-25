@@ -205,8 +205,8 @@ struct line_ref_node_t {
 // The splay tree is a binary search tree that uses the splay operation for balancing,
 // which allows deleting and inserting an element at any position in O(log n) amortized
 // time.
-struct line_ref_splay_t {
-    line_ref_node_t *root_; // root of the splay
+class line_ref_splay_t {
+public:
     line_ref_node_t *gate_; // the earliest cache line refs within the threshold
     line_ref_node_t *head_; // the most recently accessed cache line
     line_ref_node_t *tail_; // the least recently accessed cache line
@@ -385,7 +385,7 @@ struct line_ref_splay_t {
         IF_DEBUG_VERBOSE(3, print_list());
         return dist;
     }
-
+protected:
     // Push node to the front of the splay tree.
     void
     push_front(line_ref_node_t *ref)
@@ -580,6 +580,7 @@ struct line_ref_splay_t {
             }
         }
     }
+    line_ref_node_t *root_; // root of the splay
 };
 
 } // namespace drmemtrace
