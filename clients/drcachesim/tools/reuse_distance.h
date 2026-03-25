@@ -414,7 +414,7 @@ protected:
         splay(ref);
         // Replace ref with left child and link right child to the tail of left child
         if (ref->left != nullptr) {
-            ref->left->parent = ref->parent;
+            ref->left->parent = nullptr;
             if (ref->right != nullptr) {
                 line_ref_node_t *left_tail = get_tail(ref->left);
                 ref->right->parent = left_tail;
@@ -423,23 +423,13 @@ protected:
                 do {
                     left_tail->size += ref->right->size;
                     left_tail = left_tail->parent;
-                } while (left_tail != ref->left->parent);
+                } while (left_tail != nullptr);
             }
-            if (root_ == ref) {
-                root_ = ref->left;
-            }
+            root_ = ref->left;
         } else {
-            if (root_ == ref)
-                root_ = ref->right;
-            ref->right->parent = ref->parent;
+            root_ = ref->right;
+            ref->right->parent = nullptr;
         }
-        // Update sizes of the ref's parents
-        line_ref_node_t *parent = ref->parent;
-        while (parent != nullptr) {
-            parent->size--;
-            parent = parent->parent;
-        }
-        // Clear ref
         ref->parent = ref->right = ref->left = nullptr;
         ref->size = 1;
     }
