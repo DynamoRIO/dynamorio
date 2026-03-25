@@ -73,7 +73,7 @@ namespace drmemtrace {
 #endif
 
 struct line_ref_node_t;
-struct line_ref_splay_t;
+class line_ref_splay_t;
 
 class reuse_distance_t : public analysis_tool_t {
 public:
