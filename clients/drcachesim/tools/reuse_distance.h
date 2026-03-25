@@ -367,6 +367,7 @@ public:
         ref->total_refs++;
         if (ref == head_)
             return 0;
+        // After the splay operation, index of ref is the size of its left child.
         splay(ref);
         // Get the reuse distance of ref.
         int64_t dist = get_size(ref->left);
