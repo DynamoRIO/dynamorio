@@ -281,7 +281,7 @@ public:
             assert(node->parent != nullptr || node == root_);
             assert(get_size(node->left) + get_size(node->right) + 1 == node->size);
 
-            if (node->left != nullptr && last != nullptr) {
+            if (node->left != nullptr && last != node->left && last != node->right) {
                 node = node->left;
                 last = nullptr;
             } else if (node->right != nullptr && last == node->left) {
