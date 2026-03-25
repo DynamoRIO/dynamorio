@@ -215,13 +215,13 @@ public:
     uint64_t threshold_;    // the reuse distance threshold
 
     line_ref_splay_t(uint64_t reuse_threshold_)
-        : root_(nullptr)
-        , gate_(nullptr)
+        : gate_(nullptr)
         , head_(nullptr)
         , tail_(nullptr)
         , cur_time_(0)
         , unique_lines_(0)
         , threshold_(reuse_threshold_)
+        , root_(nullptr)
     {
     }
 
