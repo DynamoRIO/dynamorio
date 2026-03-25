@@ -336,6 +336,7 @@ public:
 
         // Link the child of tail with the parent
         if (tail_->parent != nullptr) {
+            assert(tail_->parent->right == tail_);
             tail_->parent->right = tail_->left;
             if (tail_->left != nullptr) {
                 tail_->left->parent = tail_->parent;
