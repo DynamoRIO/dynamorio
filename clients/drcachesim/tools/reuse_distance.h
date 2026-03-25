@@ -329,6 +329,7 @@ public:
         // Make sure the tail pointers are legal.
         assert(tail_ != nullptr);
         assert(tail_ != head_);
+        assert(tail_->right == nullptr);
 
         // Get new tail.
         line_ref_node_t *new_tail = get_prev(tail_);
