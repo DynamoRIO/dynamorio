@@ -427,7 +427,7 @@ protected:
                 left_tail->right = ref->right;
                 // Update sizes of the left child's subtrees
                 do {
-                    left_tail->size += ref->right->size;
+                    left_tail->size += get_size(ref->right);
                     left_tail = left_tail->parent;
                 } while (left_tail != nullptr);
             }
