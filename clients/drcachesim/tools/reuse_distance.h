@@ -393,12 +393,13 @@ protected:
     void
     push_front(line_ref_node_t *ref)
     {
-        assert(head_->left == nullptr);
         // Link ref to the front of the head.
-        if (head_)
+        if (head_ != nullptr) {
+            assert(head_->left == nullptr);
             head_->left = ref;
-        else
+        } else {
             root_ = ref;
+        }
         ref->parent = head_;
         line_ref_node_t *parent = ref->parent;
         // Update sizes of parents
