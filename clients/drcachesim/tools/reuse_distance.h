@@ -392,6 +392,7 @@ protected:
     void
     push_front(line_ref_node_t *ref)
     {
+        assert(head_->left == nullptr);
         // Link ref to the front of the head.
         if (head_)
             head_->left = ref;
