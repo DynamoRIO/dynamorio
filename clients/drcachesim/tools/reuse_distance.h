@@ -336,7 +336,7 @@ public:
 
         // Link the child of tail with the parent
         if (tail_->parent != nullptr) {
-            assert(tail_->parent->right == tail_);
+            assert(is_right_child(tail_));
             tail_->parent->right = tail_->left;
             if (tail_->left != nullptr) {
                 tail_->left->parent = tail_->parent;
@@ -387,6 +387,7 @@ public:
         IF_DEBUG_VERBOSE(3, print_list());
         return dist;
     }
+
 protected:
     // Push node to the front of the splay tree.
     void
@@ -463,7 +464,7 @@ protected:
         line_ref_node_t *last = nullptr;
         // Walk up by tree while did not found a node to the left of the current
         while ((ref->left == nullptr || ref->left == last) && ref->parent != nullptr &&
-               ref->parent->left == ref) {
+               is_left_child(ref)) {
             last = ref;
             ref = ref->parent;
         }
@@ -474,7 +475,7 @@ protected:
         }
 
         // if the node is right child of another, the parent is the previous node
-        if (ref->parent != nullptr && ref->parent->right == ref)
+        if (ref->parent != nullptr && is_right_child(ref))
             return ref->parent;
         return nullptr;
     }
@@ -496,6 +497,20 @@ protected:
         node->size = get_size(node->left) + get_size(node->right) + 1;
     }
 
+    // Check if node is the left child.
+    bool
+    is_left_child(line_ref_node_t *node)
+    {
+        return node->parent != nullptr && node->parent->left == node;
+    }
+
+    // Check if node is the right child.
+    bool
+    is_right_child(line_ref_node_t *node)
+    {
+        return node->parent != nullptr && node->parent->right == node;
+    }
+
     // Make left rotate of the subtree.
     void
     left_rotate(line_ref_node_t *node)
@@ -510,7 +525,7 @@ protected:
 
         if (node->parent == nullptr)
             root_ = new_parent;
-        else if (node == node->parent->left)
+        else if (is_left_child(node))
             node->parent->left = new_parent;
         else
             node->parent->right = new_parent;
@@ -535,7 +550,7 @@ protected:
 
         if (node->parent == nullptr)
             root_ = new_parent;
-        else if (node == node->parent->left)
+        else if (is_left_child(node))
             node->parent->left = new_parent;
         else
             node->parent->right = new_parent;
@@ -552,20 +567,17 @@ protected:
     {
         while (node->parent != nullptr) {
             if (node->parent->parent == nullptr) {
-                if (node->parent->left == node)
+                if (is_left_child(node))
                     right_rotate(node->parent);
                 else
                     left_rotate(node->parent);
-            } else if (node->parent->left == node &&
-                       node->parent->parent->left == node->parent) {
+            } else if (is_left_child(node) && is_left_child(node->parent)) {
                 right_rotate(node->parent->parent);
                 right_rotate(node->parent);
-            } else if (node->parent->right == node &&
-                       node->parent->parent->right == node->parent) {
+            } else if (is_right_child(node) && is_right_child(node->parent)) {
                 left_rotate(node->parent->parent);
                 left_rotate(node->parent);
-            } else if (node->parent->left == node &&
-                       node->parent->parent->right == node->parent) {
+            } else if (is_left_child(node) && is_right_child(node->parent)) {
                 right_rotate(node->parent);
                 left_rotate(node->parent);
             } else {
