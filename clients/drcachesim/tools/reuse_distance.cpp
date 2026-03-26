@@ -182,7 +182,7 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
         std::unordered_map<addr_t, line_ref_entry_t *>::iterator it =
             shard->cache_map.find(tag);
         if (it == shard->cache_map.end()) {
-            line_ref_entry_t *ref = new line_ref_node_t(tag);
+            line_ref_entry_t *ref = build_entry(tag);
             // insert into the map
             shard->cache_map.insert(std::pair<addr_t, line_ref_entry_t *>(tag, ref));
             // insert into the list
@@ -510,7 +510,7 @@ reuse_distance_t::get_aggregated_results()
             const auto &existing = aggregated_results_->cache_map.find(entry.first);
             line_ref_entry_t *ref;
             if (existing == aggregated_results_->cache_map.end()) {
-                ref = new line_ref_node_t(entry.first);
+                ref = build_entry(entry.first);
                 aggregated_results_->cache_map.insert(
                     std::pair<addr_t, line_ref_entry_t *>(entry.first, ref));
                 ref->total_refs = 0;
@@ -531,7 +531,7 @@ reuse_distance_t::print_results()
     std::cerr << TOOL_NAME << " aggregated results:\n";
     print_shard_results(get_aggregated_results());
 
-    // For regular shards the line_ref_node_t's are deleted in ~line_ref_splay_t.
+    // For regular shards the line_ref_entry_t's are deleted in ~line_ref_entry_t.
     for (auto &iter : get_aggregated_results()->cache_map) {
         delete iter.second;
     }
