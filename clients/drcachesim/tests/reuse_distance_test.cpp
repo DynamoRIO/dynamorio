@@ -169,7 +169,7 @@ find_strings_in_stream(const std::vector<std::string> &expected_strings, std::is
 
 // Test basic reuse-distance.
 void
-simple_reuse_distance_test()
+simple_reuse_distance_test(bool use_splay_tree)
 {
     std::cerr << "simple_reuse_distance_test()\n";
 
@@ -185,6 +185,7 @@ simple_reuse_distance_test()
     knobs.line_size = LINE_SIZE;
     knobs.report_histogram = true;
     knobs.verbose = 0;
+    knobs.use_splay_tree = use_splay_tree;
     reuse_distance_test_t reuse_distance(knobs);
 
     // Create address generator with a predictable access pattern.
@@ -230,7 +231,7 @@ simple_reuse_distance_test()
 
 // Test distance_limit on reuse-distance.
 void
-reuse_distance_limit_test()
+reuse_distance_limit_test(bool use_splay_tree)
 {
     std::cerr << "reuse_distance_limit_test()\n";
     constexpr uint32_t LINE_SIZE = 32;
@@ -248,6 +249,7 @@ reuse_distance_limit_test()
     knobs.report_histogram = true;
     knobs.skip_list_distance = SKIP_LIST_DISTANCE;
     knobs.distance_limit = DISTANCE_LIMIT;
+    knobs.use_splay_tree = use_splay_tree;
     reuse_distance_test_t reuse_distance(knobs);
 
     // Generate a simple stream of references with a predictable reuse pattern.
@@ -427,7 +429,7 @@ print_histogram_mult_1p2_test()
 
 // Test the split of "everything" and "data" reuse-distance histogram.
 void
-data_histogram_test()
+data_histogram_test(bool use_splay_tree)
 {
     std::cerr << "data_histogram_test()\n";
 
@@ -443,6 +445,7 @@ data_histogram_test()
     knobs.line_size = LINE_SIZE;
     knobs.report_histogram = true;
     knobs.verbose = 0;
+    knobs.use_splay_tree = use_splay_tree;
     reuse_distance_test_t reuse_distance(knobs);
 
     // Create address generator with a predictable access pattern.
@@ -757,9 +760,12 @@ test_main(int argc, const char *argv[])
     print_histogram_empty_test();
     print_histogram_mult_1p0_test();
     print_histogram_mult_1p2_test();
-    simple_reuse_distance_test();
-    reuse_distance_limit_test();
-    data_histogram_test();
+    simple_reuse_distance_test(false);
+    simple_reuse_distance_test(true);
+    reuse_distance_limit_test(false);
+    reuse_distance_limit_test(true);
+    data_histogram_test(false);
+    data_histogram_test(true);
     splay_tree_insert_test();
     splay_tree_move_to_front_test();
     splay_tree_gate_test();
