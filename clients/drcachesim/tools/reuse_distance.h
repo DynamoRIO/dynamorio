@@ -72,8 +72,8 @@ namespace drmemtrace {
 #    define IF_DEBUG_VERBOSE(level, action)
 #endif
 
-struct line_ref_node_t;
-class line_ref_splay_t;
+struct line_ref_entry_t;
+class line_ref_container_t;
 
 class reuse_distance_t : public analysis_tool_t {
 public:
@@ -114,8 +114,9 @@ protected:
     // the shards we're given.  This is for simplicity and to give the user a method
     // for computing over different units if for some reason that was desired.
     struct shard_data_t {
-        shard_data_t(uint64_t reuse_threshold, unsigned int distance_limit);
-        std::unordered_map<addr_t, line_ref_node_t *> cache_map;
+        shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist,
+                     uint32_t distance_limit, bool verify, bool use_splay_tree);
+        std::unordered_map<addr_t, line_ref_entry_t *> cache_map;
         std::unordered_set<addr_t> pruned_addresses;
         // These are our reuse distance histograms: one for all accesses and one
         // only for data references.  An instruction histogram can be computed by
@@ -130,7 +131,7 @@ protected:
         distance_histogram_t dist_map;
         distance_histogram_t dist_map_data;
         bool dist_map_is_instr_only = true;
-        std::unique_ptr<line_ref_splay_t> ref_list;
+        std::unique_ptr<line_ref_container_t> ref_list;
         int64_t total_refs = 0;
         int64_t data_refs = 0; // Non-instruction reference count.
         memref_tid_t tid = 0;  // For SHARD_BY_THREAD.
@@ -152,6 +153,9 @@ protected:
     void
     print_shard_results(const shard_data_t *shard);
 
+    line_ref_entry_t *
+    build_entry(addr_t val);
+
     // Return a pointer to aggregate results, building them if needed.
     virtual const shard_data_t *
     get_aggregated_results();
@@ -168,25 +172,340 @@ protected:
     memtrace_stream_t *serial_stream_ = nullptr;
 };
 
+struct line_ref_entry_t {
+    uint64_t time_stamp;   // the most recent reference time stamp on this line
+    uint64_t total_refs;   // the total number of references on this line
+    uint64_t distant_refs; // the total number of distant references on this line
+    addr_t tag;
+
+    line_ref_entry_t(addr_t tag)
+        : total_refs(1)
+        , distant_refs(0)
+        , tag(tag)
+    {
+    }
+
+    virtual ~line_ref_entry_t() = default;
+};
+
+/* A doubly linked list node for the cache line reference info */
+struct line_ref_t : line_ref_entry_t {
+    struct line_ref_t *prev; // the prev line_ref in the list
+    struct line_ref_t *next; // the next line_ref in the list
+
+    // We have a one-layer skip list for more efficient depth computation.
+    // We inline the fields in every node for simplicity and to reduce allocs.
+    struct line_ref_t *prev_skip; // the prev line_ref in the skip list
+    struct line_ref_t *next_skip; // the next line_ref in the skip list
+    int64_t depth;                // only valid for skip list nodes; -1 for others
+
+    line_ref_t(addr_t val)
+        : line_ref_entry_t(val)
+        , prev(NULL)
+        , next(NULL)
+        , prev_skip(NULL)
+        , next_skip(NULL)
+        , depth(-1)
+    {
+    }
+};
+
+class line_ref_container_t {
+public:
+    uint64_t cur_time_;     // current time stamp
+    uint64_t unique_lines_; // the total number of unique cache lines accessed
+    uint64_t threshold_;    // the reuse distance threshold
+
+    line_ref_container_t(uint64_t reuse_threshold)
+        : cur_time_(0)
+        , unique_lines_(0)
+        , threshold_(reuse_threshold)
+    {
+    }
+    virtual ~line_ref_container_t() = default;
+    virtual void
+    add_to_front(line_ref_entry_t *ref) = 0;
+    virtual int64_t
+    move_to_front(line_ref_entry_t *ref) = 0;
+    virtual void
+    prune_tail() = 0;
+    virtual line_ref_entry_t *
+    get_tail() = 0;
+};
+
+// We use a doubly linked list to keep track of the cache line reuse distance.
+// The head of the list is the most recently accessed cache line.
+// The earlier a cache line was accessed last time, the deeper that cache line
+// is in the list.
+// If a cache line is accessed, its time stamp is set as current, and it is
+// added/moved to the front of the list.  The cache line reference
+// reuse distance is the cache line position in the list before moving.
+// We also keep a pointer (gate) pointing to the earliest cache
+// line referenced within the threshold.  Thus, we can quickly check
+// whether a cache line is recently accessed by comparing the time
+// stamp of the referenced cache line and the gate cache line.
+//
+// We have a second doubly-linked list, a one-layer skip list, for
+// more efficient computation of the depth.  Each node in the skip
+// list stores its depth from the front.
+struct line_ref_list_t : public line_ref_container_t {
+    line_ref_t *head_;       // the most recently accessed cache line
+    line_ref_t *gate_;       // the earliest cache line refs within the threshold
+    line_ref_t *tail_;       // the least recently accessed cache line
+    uint64_t skip_distance_; // distance between skip list nodes
+    bool verify_skip_;       // check results using brute-force walks
+
+    line_ref_list_t(uint64_t reuse_threshold_, uint64_t skip_dist, bool verify)
+        : line_ref_container_t(reuse_threshold_)
+        , head_(NULL)
+        , gate_(NULL)
+        , tail_(NULL)
+        , skip_distance_(skip_dist)
+        , verify_skip_(verify)
+    {
+    }
+
+    line_ref_entry_t *
+    get_tail() override
+    {
+        return tail_;
+    }
+
+    virtual ~line_ref_list_t() override
+    {
+        line_ref_t *ref;
+        line_ref_t *next;
+        if (head_ == NULL)
+            return;
+        for (ref = head_; ref != NULL; ref = next) {
+            next = ref->next;
+            delete ref;
+        }
+    }
+
+    bool
+    ref_is_distant(line_ref_t *ref)
+    {
+        if (gate_ == NULL || ref->time_stamp >= gate_->time_stamp)
+            return false;
+        return true;
+    }
+
+    void
+    print_list()
+    {
+        std::cerr << "Reuse tag list:\n";
+        for (line_ref_t *node = head_; node != NULL; node = node->next) {
+            std::cerr << "\tTag 0x" << std::hex << node->tag;
+            if (node->depth != -1) {
+                std::cerr << " depth=" << std::dec << node->depth << " prev=" << std::hex
+                          << (node->prev_skip == NULL ? 0 : node->prev_skip->tag)
+                          << " next=" << std::hex
+                          << (node->next_skip == NULL ? 0 : node->next_skip->tag);
+                assert(node->next_skip == NULL || node->next_skip->prev_skip == node);
+            } else
+                assert(node->next_skip == NULL && node->prev_skip == NULL);
+            std::cerr << "\n";
+        }
+    }
+
+    void
+    move_skip_fields(line_ref_t *src, line_ref_t *dst)
+    {
+        dst->prev_skip = src->prev_skip;
+        dst->next_skip = src->next_skip;
+        dst->depth = src->depth;
+        if (src->prev_skip != NULL)
+            src->prev_skip->next_skip = dst;
+        if (src->next_skip != NULL)
+            src->next_skip->prev_skip = dst;
+        src->prev_skip = NULL;
+        src->next_skip = NULL;
+        src->depth = -1;
+    }
+
+    // Add a new cache line to the front of the list.
+    // We may need to move gate_ forward if there are more cache lines
+    // than the threshold so that the gate points to the earliest
+    // referenced cache line within the threshold.
+    void
+    add_to_front(line_ref_entry_t *ref_entry) override
+    {
+        line_ref_t *ref = dynamic_cast<line_ref_t *>(ref_entry);
+        assert(ref != nullptr);
+        IF_DEBUG_VERBOSE(3, std::cerr << "Add tag 0x" << std::hex << ref->tag << "\n");
+        // update head_
+        ref->next = head_;
+        if (head_ != NULL)
+            head_->prev = ref;
+        head_ = ref;
+        if (gate_ == NULL)
+            gate_ = head_;
+        // move gate_ forward if necessary
+        if (unique_lines_ > threshold_)
+            gate_ = gate_->prev;
+        if (tail_ == NULL)
+            tail_ = ref;
+        unique_lines_++;
+        head_->time_stamp = cur_time_++;
+
+        // Add a new skip node if necessary.
+        // We don't bother keeping one right at the front: too much overhead_.
+        uint64_t count = 0;
+        line_ref_t *node, *skip = NULL;
+        for (node = head_; node != NULL && node->depth == -1; node = node->next) {
+            ++count;
+            if (count == skip_distance_)
+                skip = node;
+        }
+        if (count >= 2 * skip_distance_ - 1) {
+            assert(skip != NULL);
+            IF_DEBUG_VERBOSE(3,
+                             std::cerr << "New skip node for tag 0x" << std::hex
+                                       << skip->tag << "\n");
+            skip->depth = skip_distance_ - 1;
+            if (node != NULL) {
+                assert(node->prev_skip == NULL);
+                node->prev_skip = skip;
+            }
+            skip->next_skip = node;
+            assert(skip->prev_skip == NULL);
+        }
+        // Update skip list depths.
+        for (; node != NULL; node = node->next_skip)
+            ++node->depth;
+        IF_DEBUG_VERBOSE(3, print_list());
+    }
+
+    // Remove the last entry from the distance list.
+    void
+    prune_tail() override
+    {
+        // Make sure the tail pointers are legal.
+        assert(tail_ != NULL);
+        assert(tail_ != head_);
+        assert(tail_->next == NULL);
+        assert(tail_->prev != NULL);
+
+        IF_DEBUG_VERBOSE(3,
+                         std::cerr << "Prune tag 0x" << std::hex << tail_->tag << "\n");
+
+        line_ref_t *new_tail = tail_->prev;
+        new_tail->next = NULL;
+
+        // If there's a prior skip, remove its ptr to tail.
+        if (tail_->depth != -1 && tail_->prev_skip != NULL) {
+            tail_->prev_skip->next_skip = NULL;
+        }
+
+        if (tail_ == gate_) {
+            // move gate_ if tail_ was the gate_.
+            gate_ = gate_->prev;
+        }
+
+        // And finally, update tail_.
+        tail_ = new_tail;
+    }
+
+    // Move a referenced cache line to the front of the list.
+    // We need to move the gate_ pointer forward if the referenced cache
+    // line is the gate_ cache line or any cache line after.
+    // Returns the reuse distance of ref.
+    int64_t
+    move_to_front(line_ref_entry_t *ref_entry) override
+    {
+        line_ref_t *ref = dynamic_cast<line_ref_t *>(ref_entry);
+        assert(ref != nullptr);
+        IF_DEBUG_VERBOSE(
+            3, std::cerr << "Move tag 0x" << std::hex << ref->tag << " to front\n");
+        line_ref_t *prev;
+        line_ref_t *next;
+
+        ref->total_refs++;
+        if (ref == head_)
+            return 0;
+        if (ref_is_distant(ref)) {
+            ref->distant_refs++;
+            gate_ = gate_->prev;
+        } else if (ref == gate_) {
+            // move gate_ if ref is the gate_.
+            gate_ = gate_->prev;
+        }
+        if (ref == tail_) {
+            tail_ = tail_->prev;
+        }
+
+        // Compute reuse distance.
+        int64_t dist = 0;
+        line_ref_t *skip;
+        for (skip = ref; skip != NULL && skip->depth == -1; skip = skip->prev)
+            ++dist;
+        if (skip != NULL)
+            dist += skip->depth;
+        else
+            --dist; // Don't count self.
+
+        IF_DEBUG_VERBOSE(
+            0, if (verify_skip_) {
+                // Compute reuse distance with a full list walk as a sanity check.
+                // This is a debug-only option, so we guard with IF_DEBUG_VERBOSE(0).
+                // Yes, the option check branch shows noticeable overhead without it.
+                int64_t brute_dist = 0;
+                for (prev = head_; prev != ref; prev = prev->next)
+                    ++brute_dist;
+                if (brute_dist != dist) {
+                    std::cerr << "Mismatch!  Brute=" << std::dec << brute_dist
+                              << " vs skip=" << dist << "\n";
+                    print_list();
+                    assert(false);
+                }
+            });
+
+        // Shift skip nodes between where ref was and head one earlier to
+        // maintain spacing.  This means their depths remain the same.
+        if (skip != NULL) {
+            for (; skip != NULL; skip = next) {
+                next = skip->prev_skip;
+                assert(skip->prev != NULL);
+                move_skip_fields(skip, skip->prev);
+            }
+        } else
+            assert(ref->depth == -1);
+
+        // remove ref from the list
+        prev = ref->prev;
+        next = ref->next;
+        prev->next = next;
+        // ref could be the last
+        if (next != NULL)
+            next->prev = prev;
+        // move ref to the front
+        ref->prev = NULL;
+        ref->next = head_;
+        head_->prev = ref;
+        head_ = ref;
+        head_->time_stamp = cur_time_++;
+
+        IF_DEBUG_VERBOSE(3, print_list());
+        // XXX: we should keep a running mean of the distance, and adjust
+        // knob_reuse_skip_dist to stay close to the mean, for best performance.
+        return dist;
+    }
+};
+
 /* A splay tree node for the cache line reference info */
-struct line_ref_node_t {
+struct line_ref_node_t : line_ref_entry_t {
     struct line_ref_node_t *left;   // the left child of the node
     struct line_ref_node_t *right;  // the right child of the node
     struct line_ref_node_t *parent; // the parent of the node
     uint64_t size;                  // Size of the subtree
-    uint64_t time_stamp;            // the most recent reference time stamp on this line
-    uint64_t total_refs;            // the total number of references on this line
-    uint64_t distant_refs;          // the total number of distant references on this line
-    addr_t tag;
 
     line_ref_node_t(addr_t val)
-        : left(nullptr)
+        : line_ref_entry_t(val)
+        , left(nullptr)
         , right(nullptr)
         , parent(nullptr)
         , size(1)
-        , total_refs(1)
-        , distant_refs(0)
-        , tag(val)
     {
     }
 };
@@ -205,22 +524,17 @@ struct line_ref_node_t {
 // The splay tree is a binary search tree that uses the splay operation for balancing,
 // which allows deleting and inserting an element at any position in O(log n) amortized
 // time.
-class line_ref_splay_t {
+class line_ref_splay_t : public line_ref_container_t {
 public:
     line_ref_node_t *gate_; // the earliest cache line refs within the threshold
     line_ref_node_t *head_; // the most recently accessed cache line
     line_ref_node_t *tail_; // the least recently accessed cache line
-    uint64_t cur_time_;     // current time stamp
-    uint64_t unique_lines_; // the total number of unique cache lines accessed
-    uint64_t threshold_;    // the reuse distance threshold
 
     line_ref_splay_t(uint64_t reuse_threshold_)
-        : gate_(nullptr)
+        : line_ref_container_t(reuse_threshold_)
+        , gate_(nullptr)
         , head_(nullptr)
         , tail_(nullptr)
-        , cur_time_(0)
-        , unique_lines_(0)
-        , threshold_(reuse_threshold_)
         , root_(nullptr)
     {
     }
@@ -246,6 +560,12 @@ public:
                 current = parent;
             }
         }
+    }
+
+    line_ref_entry_t *
+    get_tail() override
+    {
+        return tail_;
     }
 
     bool
@@ -303,8 +623,11 @@ public:
     // than the threshold so that the gate points to the earliest
     // referenced cache line within the threshold.
     void
-    add_to_front(line_ref_node_t *ref)
+    add_to_front(line_ref_entry_t *ref_entry) override
     {
+        line_ref_node_t *ref = dynamic_cast<line_ref_node_t *>(ref_entry);
+        assert(ref != nullptr);
+
         push_front(ref);
         if (gate_ == nullptr) {
             gate_ = ref;
@@ -324,7 +647,7 @@ public:
 
     // Remove the last entry from the distance tree.
     void
-    prune_tail()
+    prune_tail() override
     {
         // Make sure the tail pointers are legal.
         assert(tail_ != nullptr);
@@ -362,8 +685,11 @@ public:
     // line is the gate_ cache line or any cache line after.
     // Returns the reuse distance of ref.
     int64_t
-    move_to_front(line_ref_node_t *ref)
+    move_to_front(line_ref_entry_t *ref_entry) override
     {
+        line_ref_node_t *ref = dynamic_cast<line_ref_node_t *>(ref_entry);
+        assert(ref != nullptr);
+
         ref->total_refs++;
         if (ref == head_)
             return 0;

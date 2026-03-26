@@ -99,11 +99,24 @@ reuse_distance_t::initialize_shard_type(shard_type_t shard_type)
     return "";
 }
 
-reuse_distance_t::shard_data_t::shard_data_t(uint64_t reuse_threshold,
-                                             uint32_t distance_limit)
+static line_ref_container_t *
+build_list_container(uint64_t reuse_threshold, uint64_t skip_dist, bool verify,
+                     bool use_splay_tree)
+{
+    if (use_splay_tree) {
+        return new line_ref_splay_t(reuse_threshold);
+    } else {
+        return new line_ref_list_t(reuse_threshold, skip_dist, verify);
+    }
+}
+
+reuse_distance_t::shard_data_t::shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist,
+                                             unsigned int distance_limit, bool verify,
+                                             bool use_splay_tree)
     : distance_limit(distance_limit)
 {
-    ref_list = std::unique_ptr<line_ref_splay_t>(new line_ref_splay_t(reuse_threshold));
+    ref_list = std::unique_ptr<line_ref_container_t>(
+        build_list_container(reuse_threshold, skip_dist, verify, use_splay_tree));
 }
 
 bool
@@ -116,7 +129,9 @@ void *
 reuse_distance_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                              memtrace_stream_t *stream)
 {
-    auto shard = new shard_data_t(knobs_.distance_threshold, knobs_.distance_limit);
+    auto shard = new shard_data_t(knobs_.distance_threshold, knobs_.skip_list_distance,
+                                  knobs_.distance_limit, knobs_.verify_skip,
+                                  knobs_.use_splay_tree);
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard->core = stream->get_output_cpuid();
     shard->tid = stream->get_tid();
@@ -164,12 +179,12 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             ++shard->data_refs;
         }
         addr_t tag = memref.data.addr >> line_size_bits_;
-        std::unordered_map<addr_t, line_ref_node_t *>::iterator it =
+        std::unordered_map<addr_t, line_ref_entry_t *>::iterator it =
             shard->cache_map.find(tag);
         if (it == shard->cache_map.end()) {
-            line_ref_node_t *ref = new line_ref_node_t(tag);
+            line_ref_entry_t *ref = new line_ref_node_t(tag);
             // insert into the map
-            shard->cache_map.insert(std::pair<addr_t, line_ref_node_t *>(tag, ref));
+            shard->cache_map.insert(std::pair<addr_t, line_ref_entry_t *>(tag, ref));
             // insert into the list
             shard->ref_list->add_to_front(ref);
             // See if the line we're adding was previously removed.
@@ -180,7 +195,7 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             if (shard->distance_limit > 0 &&
                 shard->distance_limit < shard->cache_map.size()) {
                 // Distance list is too long, so prune most-distant entry.
-                ref = shard->ref_list->tail_; // Get a pointer to the line.
+                ref = shard->ref_list->get_tail(); // Get a pointer to the line.
                 assert(ref != NULL);
                 addr_t tag_to_remove = ref->tag;
                 // Move this line from the cache_map to the pruned set.
@@ -206,6 +221,16 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
     return true;
 }
 
+line_ref_entry_t *
+reuse_distance_t::build_entry(addr_t val)
+{
+    if (knobs_.use_splay_tree) {
+        return new line_ref_node_t(val);
+    } else {
+        return new line_ref_t(val);
+    }
+}
+
 bool
 reuse_distance_t::process_memref(const memref_t &memref)
 {
@@ -213,7 +238,9 @@ reuse_distance_t::process_memref(const memref_t &memref)
     int shard_index = serial_stream_->get_shard_index();
     const auto &lookup = shard_map_.find(shard_index);
     if (lookup == shard_map_.end()) {
-        shard = new shard_data_t(knobs_.distance_threshold, knobs_.distance_limit);
+        shard = new shard_data_t(knobs_.distance_threshold, knobs_.skip_list_distance,
+                                 knobs_.distance_limit, knobs_.verify_skip,
+                                 knobs_.use_splay_tree);
         shard->core = serial_stream_->get_output_cpuid();
         shard->tid = serial_stream_->get_tid();
         shard_map_[shard_index] = shard;
@@ -234,8 +261,8 @@ cmp_dist_key(const reuse_distance_t::distance_map_pair_t &l,
 }
 
 static bool
-cmp_total_refs(const std::pair<addr_t, line_ref_node_t *> &l,
-               const std::pair<addr_t, line_ref_node_t *> &r)
+cmp_total_refs(const std::pair<addr_t, line_ref_entry_t *> &l,
+               const std::pair<addr_t, line_ref_entry_t *> &r)
 {
     if (l.second->total_refs > r.second->total_refs)
         return true;
@@ -249,8 +276,8 @@ cmp_total_refs(const std::pair<addr_t, line_ref_node_t *> &l,
 }
 
 static bool
-cmp_distant_refs(const std::pair<addr_t, line_ref_node_t *> &l,
-                 const std::pair<addr_t, line_ref_node_t *> &r)
+cmp_distant_refs(const std::pair<addr_t, line_ref_entry_t *> &l,
+                 const std::pair<addr_t, line_ref_entry_t *> &r)
 {
     if (l.second->distant_refs > r.second->distant_refs)
         return true;
@@ -321,7 +348,7 @@ reuse_distance_t::print_shard_results(const shard_data_t *shard)
     std::cerr << "\n";
     std::cerr << "Reuse distance threshold = " << knobs_.distance_threshold
               << " cache lines\n";
-    std::vector<std::pair<addr_t, line_ref_node_t *>> top(knobs_.report_top);
+    std::vector<std::pair<addr_t, line_ref_entry_t *>> top(knobs_.report_top);
     std::partial_sort_copy(shard->cache_map.begin(), shard->cache_map.end(), top.begin(),
                            top.end(), cmp_total_refs);
     std::cerr << "Top " << top.size() << " frequently referenced cache lines\n";
@@ -329,7 +356,7 @@ reuse_distance_t::print_shard_results(const shard_data_t *shard)
               << ": " << std::setw(17) << "#references  " << std::setw(14)
               << "#distant refs"
               << "\n";
-    for (std::vector<std::pair<addr_t, line_ref_node_t *>>::iterator it = top.begin();
+    for (std::vector<std::pair<addr_t, line_ref_entry_t *>>::iterator it = top.begin();
          it != top.end(); ++it) {
         if (it->second == NULL) // Very small app.
             break;
@@ -347,7 +374,7 @@ reuse_distance_t::print_shard_results(const shard_data_t *shard)
               << ": " << std::setw(17) << "#references  " << std::setw(14)
               << "#distant refs"
               << "\n";
-    for (std::vector<std::pair<addr_t, line_ref_node_t *>>::iterator it = top.begin();
+    for (std::vector<std::pair<addr_t, line_ref_entry_t *>>::iterator it = top.begin();
          it != top.end(); ++it) {
         if (it->second == NULL) // Very small app.
             break;
@@ -448,8 +475,9 @@ reuse_distance_t::get_aggregated_results()
         return aggregated_results_.get();
 
     // Otherwise, aggregate the per-shard data to get whole-trace data.
-    aggregated_results_ = std::unique_ptr<shard_data_t>(
-        new shard_data_t(knobs_.distance_threshold, knobs_.distance_limit));
+    aggregated_results_ = std::unique_ptr<shard_data_t>(new shard_data_t(
+        knobs_.distance_threshold, knobs_.skip_list_distance, knobs_.distance_limit,
+        knobs_.verify_skip, knobs_.use_splay_tree));
     for (auto &shard : shard_map_) {
         aggregated_results_->total_refs += shard.second->total_refs;
         aggregated_results_->data_refs += shard.second->data_refs;
@@ -480,11 +508,11 @@ reuse_distance_t::get_aggregated_results()
         }
         for (const auto &entry : shard.second->cache_map) {
             const auto &existing = aggregated_results_->cache_map.find(entry.first);
-            line_ref_node_t *ref;
+            line_ref_entry_t *ref;
             if (existing == aggregated_results_->cache_map.end()) {
                 ref = new line_ref_node_t(entry.first);
                 aggregated_results_->cache_map.insert(
-                    std::pair<addr_t, line_ref_node_t *>(entry.first, ref));
+                    std::pair<addr_t, line_ref_entry_t *>(entry.first, ref));
                 ref->total_refs = 0;
             } else {
                 ref = existing->second;
