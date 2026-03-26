@@ -59,6 +59,7 @@ struct reuse_distance_knobs_t {
         , skip_list_distance(500)
         , distance_limit(0)
         , verify_skip(false)
+        , use_splay_tree(false)
         , verbose(0)
         , histogram_bin_multiplier(1.00)
     {
@@ -70,6 +71,7 @@ struct reuse_distance_knobs_t {
     unsigned int skip_list_distance;
     unsigned int distance_limit;
     bool verify_skip;
+    bool use_splay_tree;
     unsigned int verbose;
     double histogram_bin_multiplier;
 };

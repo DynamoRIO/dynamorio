@@ -800,21 +800,29 @@ droption_t<bool> op_reuse_distance_histogram(
     "Print the entire reuse distance histogram.",
     "By default only the mean, median, and standard deviation of the reuse distances "
     "are reported.  This option prints out the full histogram of reuse distances.");
-droption_t<unsigned int>
-    op_reuse_skip_dist_deprecated(DROPTION_SCOPE_FRONTEND, "reuse_skip_dist", 500,
-                                  "For performance tuning: distance between skip nodes.",
-                                  "DEPRECATED: skip lists are no longer used.");
+droption_t<unsigned int> op_reuse_skip_dist(
+    DROPTION_SCOPE_FRONTEND, "reuse_skip_dist", 500,
+    "For performance tuning: distance between skip nodes.",
+    "Specifies the distance between nodes in the skip list.  For optimal performance, "
+    "set this to a value close to the estimated average reuse distance of the dataset.");
 droption_t<unsigned int> op_reuse_distance_limit(
     DROPTION_SCOPE_FRONTEND, "reuse_distance_limit", 0,
     "If nonzero, restricts distance tracking to the specified maximum distance.",
     "Specifies the maximum length of the access history list used for distance "
     "calculation.  Setting this limit can significantly improve performance "
     "and reduce memory consumption for very long traces.");
-droption_t<bool> op_reuse_verify_skip_deprecated(
+droption_t<bool> op_reuse_verify_skip(
     DROPTION_SCOPE_FRONTEND, "reuse_verify_skip", false,
     "Use full list walks to verify the skip list results.",
-    "Verifies every skip list-calculated reuse distance with a full list walk. ",
-    "DEPRECATED: skip lists are no longer used.");
+    "Verifies every skip list-calculated reuse distance with a full list walk. "
+    "This incurs significant additional overhead.  This option is only available "
+    "in debug builds.");
+droption_t<bool> op_use_reuse_splay_tree(
+    DROPTION_SCOPE_FRONTEND, "reuse_splay_tree", false,
+    "Use splay tree for reuse distance calculation.",
+    "Uses a splay tree data structure instead of a skip list for tracking reuse "
+    "distances. Splay tree provide better complexety and consume less memory "
+    "per entry.");
 droption_t<double> op_reuse_histogram_bin_multiplier(
     DROPTION_SCOPE_FRONTEND, "reuse_histogram_bin_multiplier", 1.00,
     "When reporting histograms, grow bins geometrically by this multiplier.",
