@@ -555,8 +555,7 @@ privload_tls_init(void *app_tp, bool use_query_os)
                 memcpy(dr_start, app_start, size_to_copy);
                 tls_bytes_read = size_to_copy;
             } else {
-                LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS is not readable\n",
-                    __FUNCTION__);
+                LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS is not readable\n", __FUNCTION__);
             }
         } else {
             if (!safe_read_ex(app_start, size_to_copy, dr_start, &tls_bytes_read)) {

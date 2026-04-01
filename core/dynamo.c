@@ -2986,7 +2986,8 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
         bool are_all_unmasked = os_unmask_suspend_signal_via_ptrace(d_r_get_thread_id());
         if (!are_all_unmasked) {
             LOG(GLOBAL, LOG_THREADS, 1,
-                "ERROR: attach_unmask_suspend_signal: failed to unmask 1 or more threads.\n");
+                "ERROR: attach_unmask_suspend_signal: failed to unmask 1 or more "
+                "threads.\n");
         }
     }
 #endif

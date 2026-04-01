@@ -2369,9 +2369,9 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
             use_query_os = true;
         }
 #endif
-        os_tls->os_seg_info.priv_lib_tls_base = IF_UNIT_TEST_ELSE(
-            os_tls->app_lib_tls_base,
-            privload_tls_init(os_tls->app_lib_tls_base, use_query_os));
+        os_tls->os_seg_info.priv_lib_tls_base =
+            IF_UNIT_TEST_ELSE(os_tls->app_lib_tls_base,
+                              privload_tls_init(os_tls->app_lib_tls_base, use_query_os));
     }
 #if defined(X86) && !defined(MACOSX64)
     LOG(THREAD_GET, LOG_THREADS, 1,
@@ -4352,9 +4352,9 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
 }
 
 #if defined(LINUX) && defined(AARCH64)
-     /* For older Linux versions these constants may not be defined in
-      * libc headers even though a kernel supports them.
-      */
+/* For older Linux versions these constants may not be defined in
+ * libc headers even though a kernel supports them.
+ */
 #    ifndef PTRACE_GETSIGMASK
 #        define PTRACE_GETSIGMASK 0x420a
 #        define PTRACE_SETSIGMASK 0x420b
@@ -4412,7 +4412,8 @@ typedef struct _ptrace_takeover_state_t {
 } ptrace_takeover_state_t;
 
 static void
-destroy_events(ptrace_thread_events_t *events) {
+destroy_events(ptrace_thread_events_t *events)
+{
     destroy_event(events->ready);
     destroy_event(events->go);
     destroy_event(events->done);
@@ -4491,26 +4492,19 @@ thread_in_sigtimedwait(thread_id_t tid, int suspend_sig, bool *is_in_set)
         return false;
     buf[len] = '\0';
 
-    if (sscanf(buf, "%ld %lx %lx %lx %lx %lx %lx", &syscall_num, &sigset,
-               &siginfo, &timespec, &sigset_size, &unused0, &unused1) < 1)
+    if (sscanf(buf, "%ld %lx %lx %lx %lx %lx %lx", &syscall_num, &sigset, &siginfo,
+               &timespec, &sigset_size, &unused0, &unused1) < 1)
         return false;
 
     switch (syscall_num) {
-        case SYS_rt_sigtimedwait:
-            is_wait = true;
-            break;
+    case SYS_rt_sigtimedwait: is_wait = true; break;
 #    ifdef SYS_rt_sigwaitinfo
-        case SYS_rt_sigwaitinfo:
-            is_wait = true;
-            break;
+    case SYS_rt_sigwaitinfo: is_wait = true; break;
 #    endif
 #    ifdef SYS_rt_sigtimedwait_time64
-        case SYS_rt_sigtimedwait_time64:
-            is_wait = true;
-            break;
+    case SYS_rt_sigtimedwait_time64: is_wait = true; break;
 #    endif
-        default:
-            return false;
+    default: return false;
     }
 
     if (sigset != 0 && sigset_size != 0) {
@@ -4519,11 +4513,11 @@ thread_in_sigtimedwait(thread_id_t tid, int suspend_sig, bool *is_in_set)
         if (to_read) {
             if (d_r_safe_read((void *)(ptr_uint_t)sigset, to_read, &kset)) {
                 in_set = kernel_sigset_has(&kset, suspend_sig);
-            }
-            else {
+            } else {
                 SYSLOG_INTERNAL_WARNING_ONCE("thread_in_sigtimedwait: failed to read "
                                              "sigset (tid=%d, ptr=%p, sigset_size=%zu)",
-                                             tid, (void *)(ptr_uint_t)sigset, sigset_size);
+                                             tid, (void *)(ptr_uint_t)sigset,
+                                             sigset_size);
             }
         }
         if (is_in_set != NULL)
@@ -4532,8 +4526,8 @@ thread_in_sigtimedwait(thread_id_t tid, int suspend_sig, bool *is_in_set)
         DOLOG(4, LOG_ASYNCH, {
             LOG(GLOBAL, LOG_ASYNCH, 4,
                 "thread_in_sigtimedwait: no sigset (tid=%d, nr=%ld, ptr=%p, "
-                "sigset_size=%lu)\n", tid, syscall_num, (void *)(ptr_uint_t)sigset,
-                (ulong)sigset_size);
+                "sigset_size=%lu)\n",
+                tid, syscall_num, (void *)(ptr_uint_t)sigset, (ulong)sigset_size);
         });
     }
     return true;
@@ -4554,8 +4548,7 @@ ptrace_wait_for_stop(thread_id_t tid)
 {
     int status = 0;
     while (true) {
-        ptr_int_t res =
-            dynamorio_syscall(SYS_wait4, 4, tid, &status, __WALL, NULL);
+        ptr_int_t res = dynamorio_syscall(SYS_wait4, 4, tid, &status, __WALL, NULL);
         if (res == -EINTR)
             continue;
         if (res < 0)
@@ -4646,8 +4639,8 @@ ptrace_set_sigmask_cached(thread_id_t tid, kernel_sigset_t *mask)
     memset(buf, 0, sz);
     to_copy = sz < sizeof(*mask) ? sz : sizeof(*mask);
     memcpy(buf, mask, to_copy);
-    return (dynamorio_syscall(SYS_ptrace, 4, PTRACE_SETSIGMASK, tid, (void *)sz,
-                              buf) == 0);
+    return (dynamorio_syscall(SYS_ptrace, 4, PTRACE_SETSIGMASK, tid, (void *)sz, buf) ==
+            0);
 }
 
 static bool
@@ -4718,13 +4711,13 @@ ptrace_get_regs(thread_id_t tid, struct user_pt_regs *regs,
                 struct user_fpsimd_struct *vregs)
 {
     struct iovec iov = { regs, sizeof(*regs) };
-    if (dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid,
-                          (void *)NT_PRSTATUS, &iov) != 0)
+    if (dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid, (void *)NT_PRSTATUS,
+                          &iov) != 0)
         return false;
     iov.iov_base = vregs;
     iov.iov_len = sizeof(*vregs);
-    if (dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid,
-                          (void *)NT_FPREGSET, &iov) != 0)
+    if (dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid, (void *)NT_FPREGSET,
+                          &iov) != 0)
         return false;
     return true;
 }
@@ -4733,8 +4726,8 @@ static bool
 ptrace_set_regs(thread_id_t tid, struct user_pt_regs *regs)
 {
     struct iovec iov = { regs, sizeof(*regs) };
-    return (dynamorio_syscall(SYS_ptrace, 4, PTRACE_SETREGSET, tid,
-                              (void *)NT_PRSTATUS, &iov) == 0);
+    return (dynamorio_syscall(SYS_ptrace, 4, PTRACE_SETREGSET, tid, (void *)NT_PRSTATUS,
+                              &iov) == 0);
 }
 
 /* XXX: There is code in this function similar to that in injector.c. We may
@@ -4761,8 +4754,8 @@ ptrace_get_sve_state(thread_id_t tid, struct user_sve_header **sve_state_out,
      * needed to check the VL is not bigger than that supported by DR and is
      * used later to allocate register memory correctly for the current VL.
      */
-    res = dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid, (void *)NT_ARM_SVE,
-                            &iov);
+    res =
+        dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid, (void *)NT_ARM_SVE, &iov);
     if (res != 0)
         return true; /* No SVE support or no active SVE state. */
 
@@ -4782,8 +4775,8 @@ ptrace_get_sve_state(thread_id_t tid, struct user_sve_header **sve_state_out,
     /* Fetch the full set of register data. */
     iov.iov_base = sve_state;
     iov.iov_len = full_sve_state_size;
-    res = dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid, (void *)NT_ARM_SVE,
-                            &iov);
+    res =
+        dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid, (void *)NT_ARM_SVE, &iov);
     if (res != 0) {
         global_heap_free(sve_state, full_sve_state_size HEAPACCT(ACCT_THREAD_MGT));
         return false;
@@ -4847,13 +4840,11 @@ user_regs_to_mc_aarch64(priv_mcontext_t *mc, struct user_pt_regs *regs,
         ASSERT(sve_state->vl <= sizeof(dr_simd_t));
         const size_t vq = sve_vq_from_vl(sve_state->vl);
         for (size_t i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
-            memcpy(&mc->simd[i].u64[0],
-                   (byte *)sve_state + SVE_PT_SVE_ZREG_OFFSET(vq, i),
+            memcpy(&mc->simd[i].u64[0], (byte *)sve_state + SVE_PT_SVE_ZREG_OFFSET(vq, i),
                    SVE_PT_SVE_ZREG_SIZE(vq));
         }
         for (size_t i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
-            memcpy(&mc->svep[i].u16[0],
-                   (byte *)sve_state + SVE_PT_SVE_PREG_OFFSET(vq, i),
+            memcpy(&mc->svep[i].u16[0], (byte *)sve_state + SVE_PT_SVE_PREG_OFFSET(vq, i),
                    SVE_PT_SVE_PREG_SIZE(vq));
         }
         memcpy(&mc->ffr.u16[0], (byte *)sve_state + SVE_PT_SVE_FFR_OFFSET(vq),
@@ -4892,7 +4883,8 @@ ptrace_takeover_thread(thread_id_t tid)
         return false;
     }
 
-    alloc_size = sizeof(ptrace_takeover_param_t) + PTRACE_TAKEOVER_STACK_SIZE + ABI_STACK_ALIGNMENT;
+    alloc_size = sizeof(ptrace_takeover_param_t) + PTRACE_TAKEOVER_STACK_SIZE +
+        ABI_STACK_ALIGNMENT;
     alloc_base = global_heap_alloc(alloc_size HEAPACCT(ACCT_THREAD_MGT));
     if (alloc_base == NULL) {
         dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL);
@@ -4982,7 +4974,7 @@ os_ptrace_takeover_threads(dcontext_t *dcontext, thread_id_t *tids, uint count)
     if (count == 0)
         return true;
     state = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, ptrace_takeover_state_t, ACCT_THREAD_MGT,
-                         PROTECTED);
+                            PROTECTED);
     memset(state, 0, sizeof(*state));
     state->events.ready = create_event();
     state->events.go = create_event();
@@ -5026,7 +5018,7 @@ os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
     bool ok = false;
 
     state = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, ptrace_unmask_state_t, ACCT_THREAD_MGT,
-                         PROTECTED);
+                            PROTECTED);
     memset(state, 0, sizeof(*state));
 
     /* ptrace_unmask_worker thread synchronisation events and state data. */
@@ -11909,13 +11901,13 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                     use_ptrace = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal,
                                                   ACCT_THREAD_MGT, PROTECTED);
                     memset(use_ptrace, 0, threads_to_signal);
-                    ptrace_tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t,
-                                                   threads_to_signal, ACCT_THREAD_MGT,
-                                                   PROTECTED);
+                    ptrace_tids =
+                        HEAP_ARRAY_ALLOC(dcontext, thread_id_t, threads_to_signal,
+                                         ACCT_THREAD_MGT, PROTECTED);
                 }
                 bool in_set = false;
-                if (thread_in_sigtimedwait(records[i].tid, suspend_signum,
-                                           &in_set) && in_set) {
+                if (thread_in_sigtimedwait(records[i].tid, suspend_signum, &in_set) &&
+                    in_set) {
                     use_ptrace[i] = 1;
                     ptrace_tids[ptrace_count++] = records[i].tid;
                 }
