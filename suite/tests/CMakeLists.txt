@@ -3543,6 +3543,7 @@ if (NOT WIN32 AND NOT RISCV64) # XXX i#2611: fix for Windows
   # TODO i#3544: Port tests to RISC-V 64
   if (X64)
     set(detach_spawn_name api.detach_spawn)
+    set(sigill_blocked_name api.sigill_blocked)
   else ()
     # XXX i#2694: failing sometimes on 32-bit Linux.
     set(detach_spawn_name api.detach_spawn_FLAKY)
@@ -3556,6 +3557,8 @@ if (NOT WIN32 AND NOT RISCV64) # XXX i#2611: fix for Windows
   tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" ""
     OFF OFF OFF)
   link_with_pthread(${detach_spawn_quick_exit_name})
+  tobuild_api(${sigill_blocked_name} api/sigill_blocked.c "-attach_unmask_suspend_signal" "" OFF OFF OFF)
+  link_with_pthread(${sigill_blocked_name})
 endif ()
 if (X86)
   if (X64)

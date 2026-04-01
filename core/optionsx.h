@@ -3256,6 +3256,11 @@ OPTION_DEFAULT(liststring_t, ignore_assert_list, EMPTY_STRING,
 /* XXX i#7598: Remove this option once it is proven to work on large apps. */
 OPTION_DEFAULT(bool, synchronous_attach, true,
                "pause all threads until every thread is taken over at attach time")
+#if defined(LINUX) && defined(AARCH64)
+OPTION_DEFAULT(bool, attach_unmask_suspend_signal, false,
+               "use ptrace to assist internal attach takeover on Linux (unmask "
+               "suspend signal and redirect threads blocked in sigwaitinfo)")
+#endif
 /* Needed primarily for clients but technically all configurations
  * can have racy crashes at exit time (xref PR 470957).
  */

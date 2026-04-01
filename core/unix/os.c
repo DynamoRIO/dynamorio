@@ -73,6 +73,15 @@
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
 
+/* For ptrace takeover when option -attach_unmask_suspend_signal enabled. */
+#if defined(LINUX) && defined(AARCH64)
+#    include <sys/ptrace.h>
+#    include <sys/prctl.h>
+#    include <sys/uio.h>
+#    include <sys/wait.h>
+#    include <linux/ptrace.h> /* struct user_pt_regs */
+#endif
+
 #ifdef MACOS
 #    include <sys/sysctl.h> /* for sysctl */
 #    include <mach/mach.h>  /* for sysctl */
@@ -273,6 +282,17 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_
 /* forward decl */
 static void
 handle_execve_post(dcontext_t *dcontext);
+
+/* Helper used by os_list_threads() and os_list_threads_by_pid(). */
+static thread_id_t *
+os_list_threads_from_task_dir(dcontext_t *dcontext, const char *task_path,
+                              uint *num_threads_out);
+
+#if defined(LINUX) && defined(AARCH64)
+/* Used to check if a thread is for takeover by ptrace. */
+static bool
+ptrace_takeover_record_present(thread_id_t tid);
+#endif
 static bool
 os_switch_lib_tls(dcontext_t *dcontext, bool to_app);
 static bool
@@ -1012,6 +1032,9 @@ d_r_os_init(void)
      * Unfortunately, QEMU crashes when we send SIGILL or SIGFPE to its thread trying
      * to take it over, so we are forced to dynamically vary the number and we switch
      * to SIGSTKFLT for QEMU where we live with the lack of gdb support.
+     * In cases where applications block SIGSTKFLT, the
+     * -attach_unmask_suspend_signal option can be invoked which uses ptrace to
+     *  enable attach, see os_unmask_suspend_signal_via_ptrace() etc.
      */
     suspend_signum = IF_MACOS_ELSE(SIGFPE, NUDGESIG_SIGNUM);
 #ifdef LINUX
@@ -2339,8 +2362,16 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 
     /* now allocate the tls segment for client libraries */
     if (INTERNAL_OPTION(private_loader)) {
+        bool use_query_os = false;
+#if defined(LINUX) && defined(AARCH64)
+        if (DYNAMO_OPTION(attach_unmask_suspend_signal) &&
+            ptrace_takeover_record_present(get_sys_thread_id())) {
+            use_query_os = true;
+        }
+#endif
         os_tls->os_seg_info.priv_lib_tls_base = IF_UNIT_TEST_ELSE(
-            os_tls->app_lib_tls_base, privload_tls_init(os_tls->app_lib_tls_base));
+            os_tls->app_lib_tls_base,
+            privload_tls_init(os_tls->app_lib_tls_base, use_query_os));
     }
 #if defined(X86) && !defined(MACOSX64)
     LOG(THREAD_GET, LOG_THREADS, 1,
@@ -4283,7 +4314,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
          * code is better, in some cases it is a big advantage to be able to run
          * some limited app code in a static-DR setup).
          */
-        void *child_tls = privload_tls_init(our_tls);
+        void *child_tls = privload_tls_init(our_tls, false);
         write_thread_register(child_tls);
         byte **dr_tls_base_addr = (byte **)get_dr_tls_base_addr();
         ASSERT(dr_tls_base_addr != NULL);
@@ -4319,6 +4350,717 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     }
     return true;
 }
+
+#if defined(LINUX) && defined(AARCH64)
+     /* For older Linux versions these constants may not be defined in
+      * libc headers even though a kernel supports them.
+      */
+#    ifndef PTRACE_GETSIGMASK
+#        define PTRACE_GETSIGMASK 0x420a
+#        define PTRACE_SETSIGMASK 0x420b
+#    endif
+#    ifndef PR_SET_PTRACER
+#        define PR_SET_PTRACER 0x59616d61
+#    endif
+
+#    define PTRACE_TAKEOVER_STACK_SIZE (DYNAMORIO_STACK_SIZE)
+
+/* Data structures required by ptrace takeover functions. */
+
+/* Synchronisation events for ptrace tracer threads. */
+typedef struct _ptrace_thread_events_t {
+    event_t ready;
+    event_t go;
+    event_t done;
+} ptrace_thread_events_t;
+
+/* Used by the ptrace_unmask_worker thread to scan all threads and clear
+ * SUSPEND_SIGNAL from their sigmasks, before the normal signal based takeover
+ * begins.
+ */
+typedef struct _ptrace_unmask_state_t {
+    ptrace_thread_events_t events;
+    process_id_t target_pid;
+    thread_id_t skip_tid; /* ptrace_unmask_worker must not ptrace itself. */
+    thread_id_t tracer_tid;
+    int suspend_sig;
+    bool success;
+} ptrace_unmask_state_t;
+
+/* Passed to ptrace_takeover_entry() so the thread can enter DR with the exact
+ * register state and signal mask it had when ptrace stopped it. Also includes
+ * memory allocation data for cleanup.
+ */
+typedef struct _ptrace_takeover_param_t {
+    priv_mcontext_t mc;
+    kernel_sigset_t sigset;
+    void *alloc_base;
+    size_t alloc_size;
+    dcontext_t *dcontext;
+} ptrace_takeover_param_t;
+
+/* Used by ptrace_takeover_worker thread created in
+ * os_ptrace_takeover_threads() to coordinate ptrace takeover of multiple
+ * threads, one worker thread handling all selected TIDs.
+ */
+typedef struct _ptrace_takeover_state_t {
+    ptrace_thread_events_t events;
+    thread_id_t tracer_tid;
+    thread_id_t *tids;
+    uint count;
+    bool success;
+} ptrace_takeover_state_t;
+
+static void
+destroy_events(ptrace_thread_events_t *events) {
+    destroy_event(events->ready);
+    destroy_event(events->go);
+    destroy_event(events->done);
+}
+
+/* The PTRACE_{GET,SET}SIGMASK API requires a size argument but the size varies
+ * by kernel and userspace ABI. ptrace_get_sigmask_with_size() and
+ * ptrace_set_sigmask_cached() use 128 bytes (a safe upper bound for most Linux
+ * ABIs) to probe several candidate sizes until one works. The size which works
+ * is cached in ptrace_sigmask_size.
+ */
+#    define PTRACE_SIGMASK_MAX_SIZE 128
+static size_t ptrace_sigmask_size;
+
+static void
+ptrace_takeover_record_set(thread_id_t tid, ptrace_takeover_param_t *param);
+
+/* sigset helpers to check and clear signal mask bits. See os_exports.h for
+ * sizing of _NSIG_BPW and _NSIG_WORDS.
+ */
+static inline bool
+kernel_sigset_has(kernel_sigset_t *set, int _sig)
+{
+    int sig = _sig - 1;
+    if (_NSIG_WORDS == 1)
+        return CAST_TO_bool(1 & (set->sig[0] >> sig));
+    else
+        return CAST_TO_bool(1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW)));
+}
+
+static inline void
+kernel_sigset_del(kernel_sigset_t *set, int _sig)
+{
+    uint sig = _sig - 1;
+    if (_NSIG_WORDS == 1)
+        set->sig[0] &= ~(1UL << sig);
+    else
+        set->sig[sig / _NSIG_BPW] &= ~(1UL << (sig % _NSIG_BPW));
+}
+
+/* Determine whether a given thread is blocked inside one of the signal waiting
+ * syscalls: rt_sigwaitinfo, rt_sigtimedwait or rt_sigtimedwait_time64. If it
+ * is, whether the syscall's signal set includes SUSPEND_SIGNAL. This is used
+ * to decide whether to switch to ptrace takeover for the given thread.
+ */
+static bool
+thread_in_sigtimedwait(thread_id_t tid, int suspend_sig, bool *is_in_set)
+{
+    char path[MAXIMUM_PATH];
+    char buf[256];
+    file_t file;
+    int len;
+    bool is_wait = false;
+    bool in_set = false;
+    /* syscall arguments */
+    long syscall_num = -1;
+    unsigned long sigset = 0;      /* Pointer to sigset_t (wait set). */
+    unsigned long siginfo = 0;     /* Pointer to siginfo_t result.    */
+    unsigned long timespec = 0;    /* timespec for rt_sigtimedwait.   */
+    unsigned long sigset_size = 0; /* Size in bytes of sigset_t.      */
+    unsigned long unused0 = 0;     /* Unused.                         */
+    unsigned long unused1 = 0;     /* Unused.                         */
+
+    ASSERT(suspend_sig > 0 && suspend_sig <= MAX_SIGNUM);
+    ASSERT(is_in_set != NULL);
+    *is_in_set = false;
+
+    snprintf(path, BUFFER_SIZE_ELEMENTS(path), "/proc/self/task/%d/syscall", tid);
+    NULL_TERMINATE_BUFFER(path);
+    file = os_open(path, OS_OPEN_READ);
+    if (file == INVALID_FILE)
+        return false;
+    len = os_read(file, buf, sizeof(buf) - 1);
+    os_close(file);
+    if (len <= 0)
+        return false;
+    buf[len] = '\0';
+
+    if (sscanf(buf, "%ld %lx %lx %lx %lx %lx %lx", &syscall_num, &sigset,
+               &siginfo, &timespec, &sigset_size, &unused0, &unused1) < 1)
+        return false;
+
+    switch (syscall_num) {
+        case SYS_rt_sigtimedwait:
+            is_wait = true;
+            break;
+#    ifdef SYS_rt_sigwaitinfo
+        case SYS_rt_sigwaitinfo:
+            is_wait = true;
+            break;
+#    endif
+#    ifdef SYS_rt_sigtimedwait_time64
+        case SYS_rt_sigtimedwait_time64:
+            is_wait = true;
+            break;
+#    endif
+        default:
+            return false;
+    }
+
+    if (sigset != 0 && sigset_size != 0) {
+        kernel_sigset_t kset = { 0 };
+        size_t to_read = sigset_size;
+        if (to_read) {
+            if (d_r_safe_read((void *)(ptr_uint_t)sigset, to_read, &kset)) {
+                in_set = kernel_sigset_has(&kset, suspend_sig);
+            }
+            else {
+                SYSLOG_INTERNAL_WARNING_ONCE("thread_in_sigtimedwait: failed to read "
+                                             "sigset (tid=%d, ptr=%p, sigset_size=%zu)",
+                                             tid, (void *)(ptr_uint_t)sigset, sigset_size);
+            }
+        }
+        if (is_in_set != NULL)
+            *is_in_set = in_set;
+    } else {
+        DOLOG(4, LOG_ASYNCH, {
+            LOG(GLOBAL, LOG_ASYNCH, 4,
+                "thread_in_sigtimedwait: no sigset (tid=%d, nr=%ld, ptr=%p, "
+                "sigset_size=%lu)\n", tid, syscall_num, (void *)(ptr_uint_t)sigset,
+                (ulong)sigset_size);
+        });
+    }
+    return true;
+}
+
+static thread_id_t *
+os_list_threads_by_pid(dcontext_t *dcontext, process_id_t pid, uint *num_threads_out)
+{
+    char task_path[MAXIMUM_PATH];
+
+    snprintf(task_path, BUFFER_SIZE_ELEMENTS(task_path), "/proc/%d/task", pid);
+    NULL_TERMINATE_BUFFER(task_path);
+    return os_list_threads_from_task_dir(dcontext, task_path, num_threads_out);
+}
+
+static bool
+ptrace_wait_for_stop(thread_id_t tid)
+{
+    int status = 0;
+    while (true) {
+        ptr_int_t res =
+            dynamorio_syscall(SYS_wait4, 4, tid, &status, __WALL, NULL);
+        if (res == -EINTR)
+            continue;
+        if (res < 0)
+            return false;
+        return WIFSTOPPED(status);
+    }
+}
+
+static bool
+ptrace_attach_and_stop(thread_id_t tid, bool *used_attach)
+{
+    ptr_int_t res = dynamorio_syscall(SYS_ptrace, 4, PTRACE_SEIZE, tid, NULL, NULL);
+    if (res == 0) {
+        if (used_attach != NULL)
+            *used_attach = false;
+        res = dynamorio_syscall(SYS_ptrace, 4, PTRACE_INTERRUPT, tid, NULL, NULL);
+        if (res != 0)
+            return false;
+        return ptrace_wait_for_stop(tid);
+    }
+    if (res == -EINVAL || res == -ENOSYS) {
+        res = dynamorio_syscall(SYS_ptrace, 4, PTRACE_ATTACH, tid, NULL, NULL);
+        if (res != 0)
+            return false;
+        if (used_attach != NULL)
+            *used_attach = true;
+        return ptrace_wait_for_stop(tid);
+    }
+    return false;
+}
+
+static bool
+ptrace_get_sigmask_with_size(thread_id_t tid, size_t sz, kernel_sigset_t *mask)
+{
+    byte buf[PTRACE_SIGMASK_MAX_SIZE];
+    size_t to_copy;
+    if (sz == 0 || sz > sizeof(buf))
+        return false;
+    memset(buf, 0, sz);
+    ptr_int_t res =
+        dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETSIGMASK, tid, (void *)sz, buf);
+    if (res != 0)
+        return false;
+    memset(mask, 0, sizeof(*mask));
+    to_copy = sz < sizeof(*mask) ? sz : sizeof(*mask);
+    memcpy(mask, buf, to_copy);
+    return true;
+}
+
+static bool
+ptrace_get_sigmask_cached(thread_id_t tid, kernel_sigset_t *mask)
+{
+    /* The PTRACE_{GET,SET}SIGMASK API requires a size argument but the size
+     * varies by kernel and userspace ABI, see #define PTRACE_SIGMASK_MAX_SIZE
+     * and its comment above. Probe with these candidate sizes in order to
+     * determine the correct sigsetsize to pass to PTRACE_{GET,SET}SIGMASK.
+     */
+    static const size_t sizes[] = { sizeof(kernel_sigset_t), 8, 16, 32, 64, 128 };
+    if (ptrace_sigmask_size != 0) {
+        return ptrace_get_sigmask_with_size(tid, ptrace_sigmask_size, mask);
+    }
+    for (uint i = 0; i < BUFFER_SIZE_ELEMENTS(sizes); i++) {
+        size_t sz = sizes[i];
+        if (ptrace_get_sigmask_with_size(tid, sz, mask)) {
+            ptrace_sigmask_size = sz;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool
+ptrace_set_sigmask_cached(thread_id_t tid, kernel_sigset_t *mask)
+{
+    byte buf[PTRACE_SIGMASK_MAX_SIZE];
+    size_t sz = ptrace_sigmask_size;
+    size_t to_copy;
+    if (sz == 0) {
+        kernel_sigset_t unused;
+        if (!ptrace_get_sigmask_cached(tid, &unused))
+            return false;
+        sz = ptrace_sigmask_size;
+        if (sz == 0)
+            return false;
+    }
+    if (sz == 0 || sz > sizeof(buf))
+        return false;
+    memset(buf, 0, sz);
+    to_copy = sz < sizeof(*mask) ? sz : sizeof(*mask);
+    memcpy(buf, mask, to_copy);
+    return (dynamorio_syscall(SYS_ptrace, 4, PTRACE_SETSIGMASK, tid, (void *)sz,
+                              buf) == 0);
+}
+
+static bool
+ptrace_unmask_thread_sig(ptrace_unmask_state_t *state, thread_id_t tid)
+{
+    kernel_sigset_t mask;
+    if (state->suspend_sig <= 0 || state->suspend_sig > MAX_SIGNUM)
+        return false;
+    if (!ptrace_get_sigmask_cached(tid, &mask)) {
+        return false;
+    }
+    if (kernel_sigset_has(&mask, state->suspend_sig)) {
+        kernel_sigset_del(&mask, state->suspend_sig);
+        if (!ptrace_set_sigmask_cached(tid, &mask)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void
+ptrace_unmask_worker(void *param)
+{
+    ptrace_unmask_state_t *state = (ptrace_unmask_state_t *)param;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    uint num_threads = 0;
+    thread_id_t *tids = NULL;
+    bool unmasked_thread_sig = false;
+
+    state->tracer_tid = d_r_get_thread_id();
+    signal_event(state->events.ready);
+    wait_for_event(state->events.go, 0);
+
+    tids = os_list_threads_by_pid(dcontext, state->target_pid, &num_threads);
+    if (tids != NULL) {
+        for (uint i = 0; i < num_threads; i++) {
+            thread_id_t tid = tids[i];
+            if (tid == state->skip_tid)
+                continue;
+            if (!ptrace_attach_and_stop(tid, NULL)) {
+                continue;
+            }
+            unmasked_thread_sig = ptrace_unmask_thread_sig(state, tid);
+            dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL);
+        }
+        HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT,
+                        PROTECTED);
+    }
+
+    if (unmasked_thread_sig)
+        state->success = true;
+    else
+        state->success = false;
+    signal_event(state->events.done);
+}
+
+static NOINLINE void
+ptrace_takeover_entry(void *param)
+{
+    ptrace_takeover_param_t *p = (ptrace_takeover_param_t *)param;
+    ASSERT(p != NULL);
+    os_thread_take_over(&p->mc, &p->sigset); /* This should not return. */
+    ASSERT_NOT_REACHED();
+}
+
+static bool
+ptrace_get_regs(thread_id_t tid, struct user_pt_regs *regs,
+                struct user_fpsimd_struct *vregs)
+{
+    struct iovec iov = { regs, sizeof(*regs) };
+    if (dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid,
+                          (void *)NT_PRSTATUS, &iov) != 0)
+        return false;
+    iov.iov_base = vregs;
+    iov.iov_len = sizeof(*vregs);
+    if (dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid,
+                          (void *)NT_FPREGSET, &iov) != 0)
+        return false;
+    return true;
+}
+
+static bool
+ptrace_set_regs(thread_id_t tid, struct user_pt_regs *regs)
+{
+    struct iovec iov = { regs, sizeof(*regs) };
+    return (dynamorio_syscall(SYS_ptrace, 4, PTRACE_SETREGSET, tid,
+                              (void *)NT_PRSTATUS, &iov) == 0);
+}
+
+/* XXX: There is code in this function similar to that in injector.c. We may
+ * want to put as much of this as possible into common helpers.
+ */
+static bool
+ptrace_get_sve_state(thread_id_t tid, struct user_sve_header **sve_state_out,
+                     size_t *sve_state_size_out)
+{
+    struct user_sve_header sve_header = { 0 };
+    struct iovec iov = { &sve_header, sizeof(sve_header) };
+    ptr_int_t res;
+
+    ASSERT(sve_state_out != NULL);
+    ASSERT(sve_state_size_out != NULL);
+    *sve_state_out = NULL;
+    *sve_state_size_out = 0;
+
+    /* Is the thread running on SVE hardware? */
+    if (!proc_has_feature(FEATURE_SVE))
+        return true;
+
+    /* Establish if the kernel supports SVE and the current VL. The latter is
+     * needed to check the VL is not bigger than that supported by DR and is
+     * used later to allocate register memory correctly for the current VL.
+     */
+    res = dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid, (void *)NT_ARM_SVE,
+                            &iov);
+    if (res != 0)
+        return true; /* No SVE support or no active SVE state. */
+
+    if (sve_header.vl > sizeof(dr_simd_t))
+        return false;
+
+    /* Allocate memory for register data based on VL established by
+     * PTRACE_GETREGSET call above.
+     */
+    const size_t full_sve_state_size =
+        SVE_PT_SIZE(sve_vq_from_vl(sve_header.vl), SVE_PT_REGS_SVE);
+    struct user_sve_header *sve_state = (struct user_sve_header *)global_heap_alloc(
+        full_sve_state_size HEAPACCT(ACCT_THREAD_MGT));
+    if (sve_state == NULL)
+        return false;
+
+    /* Fetch the full set of register data. */
+    iov.iov_base = sve_state;
+    iov.iov_len = full_sve_state_size;
+    res = dynamorio_syscall(SYS_ptrace, 4, PTRACE_GETREGSET, tid, (void *)NT_ARM_SVE,
+                            &iov);
+    if (res != 0) {
+        global_heap_free(sve_state, full_sve_state_size HEAPACCT(ACCT_THREAD_MGT));
+        return false;
+    }
+
+    if (!TEST(SVE_PT_REGS_SVE, sve_state->flags)) {
+        global_heap_free(sve_state, full_sve_state_size HEAPACCT(ACCT_THREAD_MGT));
+        return true;
+    }
+
+    *sve_state_out = sve_state;
+    *sve_state_size_out = full_sve_state_size;
+    return true;
+}
+
+/* XXX: There is code in this function similar to that in injector.c. We may
+ * want to put as much of this as possible into common helpers.
+ */
+static void
+user_regs_to_mc_aarch64(priv_mcontext_t *mc, struct user_pt_regs *regs,
+                        struct user_fpsimd_struct *vregs,
+                        struct user_sve_header *sve_state)
+{
+    mc->r0 = regs->regs[0];
+    mc->r1 = regs->regs[1];
+    mc->r2 = regs->regs[2];
+    mc->r3 = regs->regs[3];
+    mc->r4 = regs->regs[4];
+    mc->r5 = regs->regs[5];
+    mc->r6 = regs->regs[6];
+    mc->r7 = regs->regs[7];
+    mc->r8 = regs->regs[8];
+    mc->r9 = regs->regs[9];
+    mc->r10 = regs->regs[10];
+    mc->r11 = regs->regs[11];
+    mc->r12 = regs->regs[12];
+    mc->r13 = regs->regs[13];
+    mc->r14 = regs->regs[14];
+    mc->r15 = regs->regs[15];
+    mc->r16 = regs->regs[16];
+    mc->r17 = regs->regs[17];
+    mc->r18 = regs->regs[18];
+    mc->r19 = regs->regs[19];
+    mc->r20 = regs->regs[20];
+    mc->r21 = regs->regs[21];
+    mc->r22 = regs->regs[22];
+    mc->r23 = regs->regs[23];
+    mc->r24 = regs->regs[24];
+    mc->r25 = regs->regs[25];
+    mc->r26 = regs->regs[26];
+    mc->r27 = regs->regs[27];
+    mc->r28 = regs->regs[28];
+    mc->r29 = regs->regs[29];
+    mc->r30 = regs->regs[30];
+    mc->sp = regs->sp;
+    mc->pc = (app_pc)regs->pc;
+    mc->nzcv = regs->pstate & 0xF0000000;
+
+    if (sve_state != NULL) {
+        ASSERT(TEST(SVE_PT_REGS_SVE, sve_state->flags));
+        ASSERT(sve_state->vl <= sizeof(dr_simd_t));
+        const size_t vq = sve_vq_from_vl(sve_state->vl);
+        for (size_t i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
+            memcpy(&mc->simd[i].u64[0],
+                   (byte *)sve_state + SVE_PT_SVE_ZREG_OFFSET(vq, i),
+                   SVE_PT_SVE_ZREG_SIZE(vq));
+        }
+        for (size_t i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
+            memcpy(&mc->svep[i].u16[0],
+                   (byte *)sve_state + SVE_PT_SVE_PREG_OFFSET(vq, i),
+                   SVE_PT_SVE_PREG_SIZE(vq));
+        }
+        memcpy(&mc->ffr.u16[0], (byte *)sve_state + SVE_PT_SVE_FFR_OFFSET(vq),
+               SVE_PT_SVE_FFR_SIZE(vq));
+    } else {
+        for (int i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
+            memcpy(&mc->simd[i].q, &vregs->vregs[i], sizeof(mc->simd->q));
+        }
+    }
+    mc->fpsr = vregs->fpsr;
+    mc->fpcr = vregs->fpcr;
+}
+
+static bool
+ptrace_takeover_thread(thread_id_t tid)
+{
+    struct user_pt_regs regs;
+    struct user_fpsimd_struct vregs;
+    struct user_sve_header *sve_state = NULL;
+    size_t sve_state_size = 0;
+    ptrace_takeover_param_t *param;
+    byte *alloc_base;
+    size_t alloc_size;
+    byte *stack;
+    byte *stack_top;
+
+    if (!ptrace_attach_and_stop(tid, NULL)) {
+        return false;
+    }
+    if (!ptrace_get_regs(tid, &regs, &vregs)) {
+        dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL);
+        return false;
+    }
+    if (!ptrace_get_sve_state(tid, &sve_state, &sve_state_size)) {
+        dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL);
+        return false;
+    }
+
+    alloc_size = sizeof(ptrace_takeover_param_t) + PTRACE_TAKEOVER_STACK_SIZE + ABI_STACK_ALIGNMENT;
+    alloc_base = global_heap_alloc(alloc_size HEAPACCT(ACCT_THREAD_MGT));
+    if (alloc_base == NULL) {
+        dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL);
+        return false;
+    }
+    param = (ptrace_takeover_param_t *)alloc_base;
+    memset(param, 0, sizeof(*param));
+    param->alloc_base = alloc_base;
+    param->alloc_size = alloc_size;
+    user_regs_to_mc_aarch64(&param->mc, &regs, &vregs, sve_state);
+    if (sve_state != NULL) {
+        global_heap_free(sve_state, sve_state_size HEAPACCT(ACCT_THREAD_MGT));
+        sve_state = NULL;
+        sve_state_size = 0;
+    }
+    if (!ptrace_get_sigmask_cached(tid, &param->sigset)) {
+        /* Best effort: leave sigset empty. */
+        memset(&param->sigset, 0, sizeof(param->sigset));
+    }
+
+    stack = alloc_base + sizeof(ptrace_takeover_param_t);
+    stack_top = stack + PTRACE_TAKEOVER_STACK_SIZE;
+    stack_top = (byte *)ALIGN_BACKWARD(stack_top, ABI_STACK_ALIGNMENT);
+
+    regs.sp = (uint64)stack_top;
+    regs.pc = (uint64)(ptr_uint_t)ptrace_takeover_entry;
+    regs.regs[0] = (uint64)(ptr_uint_t)param;
+
+    if (!ptrace_set_regs(tid, &regs)) {
+        dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL);
+        global_heap_free(alloc_base, alloc_size HEAPACCT(ACCT_THREAD_MGT));
+        return false;
+    }
+
+    ptrace_takeover_record_set(tid, param);
+    if (dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL) != 0) {
+        ptrace_takeover_record_set(tid, NULL);
+        global_heap_free(alloc_base, alloc_size HEAPACCT(ACCT_THREAD_MGT));
+        return false;
+    }
+    return true;
+}
+
+static void
+ptrace_takeover_worker(void *param)
+{
+    ptrace_takeover_state_t *state = (ptrace_takeover_state_t *)param;
+    state->tracer_tid = d_r_get_thread_id();
+    signal_event(state->events.ready);
+    wait_for_event(state->events.go, 0);
+
+    state->success = true;
+    for (uint i = 0; i < state->count; i++) {
+        if (!ptrace_takeover_thread(state->tids[i]))
+            state->success = false;
+    }
+    signal_event(state->events.done);
+}
+
+static void
+ptrace_takeover_dispatch(void *arg)
+{
+    ptrace_takeover_param_t *param = (ptrace_takeover_param_t *)arg;
+    dcontext_t *dcontext = NULL;
+    void *base = NULL;
+    size_t size = 0;
+
+    if (param != NULL) {
+        dcontext = param->dcontext;
+        base = param->alloc_base;
+        size = param->alloc_size;
+    }
+    if (base != NULL && size != 0)
+        global_heap_free(base, size HEAPACCT(ACCT_THREAD_MGT));
+    if (dcontext != NULL)
+        d_r_dispatch(dcontext);
+    ASSERT_NOT_REACHED();
+}
+
+static bool
+os_ptrace_takeover_threads(dcontext_t *dcontext, thread_id_t *tids, uint count)
+{
+    ptrace_takeover_state_t *state;
+    bool ok = false;
+
+    (void)dcontext;
+    if (count == 0)
+        return true;
+    state = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, ptrace_takeover_state_t, ACCT_THREAD_MGT,
+                         PROTECTED);
+    memset(state, 0, sizeof(*state));
+    state->events.ready = create_event();
+    state->events.go = create_event();
+    state->events.done = create_event();
+    state->tids = tids;
+    state->count = count;
+
+    if (!dr_create_client_thread(ptrace_takeover_worker, state)) {
+        destroy_events(&state->events);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, state, ptrace_takeover_state_t, ACCT_THREAD_MGT,
+                       PROTECTED);
+        return false;
+    }
+
+    wait_for_event(state->events.ready, 0);
+    if (state->tracer_tid != INVALID_THREAD_ID) {
+        /* Enable the tracer thread to PTRACE_{SEIZE,INTERRUPT,ATTACH} other
+         * threads in the process.
+         */
+        dynamorio_syscall(SYS_prctl, 5, PR_SET_PTRACER, state->tracer_tid, 0, 0, 0);
+    }
+    signal_event(state->events.go);
+    wait_for_event(state->events.done, 0);
+    ok = state->success;
+
+    destroy_events(&state->events);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, state, ptrace_takeover_state_t, ACCT_THREAD_MGT,
+                   PROTECTED);
+    return ok;
+}
+
+/* This function creates a thread, ptrace_unmask_worker, which uses
+ * /proc/<pid>/task to list threads by PID, attaching and stopping each thread
+ * with ptrace. PTRACE_{GETSIGMASK,SETSIGMASK} are used to clear SUSPEND_SIGNAL
+ * from each thread’s blocked mask before detaching with ptrace.
+ */
+bool
+os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
+{
+    ptrace_unmask_state_t *state;
+    bool ok = false;
+
+    state = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, ptrace_unmask_state_t, ACCT_THREAD_MGT,
+                         PROTECTED);
+    memset(state, 0, sizeof(*state));
+
+    /* ptrace_unmask_worker thread synchronisation events and state data. */
+    state->events.ready = create_event();
+    state->events.go = create_event();
+    state->events.done = create_event();
+    state->target_pid = get_process_id();
+    state->skip_tid = skip_tid;
+    state->suspend_sig = suspend_signum;
+
+    if (!dr_create_client_thread(ptrace_unmask_worker, state)) {
+        destroy_events(&state->events);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, state, ptrace_unmask_state_t, ACCT_THREAD_MGT,
+                       PROTECTED);
+        return false;
+    }
+
+    wait_for_event(state->events.ready, 0);
+    if (state->tracer_tid != INVALID_THREAD_ID) {
+        /* Enable the tracer thread to PTRACE_{SEIZE,INTERRUPT,ATTACH} other
+         * threads in the process.
+         */
+        dynamorio_syscall(SYS_prctl, 5, PR_SET_PTRACER, state->tracer_tid, 0, 0, 0);
+    }
+    signal_event(state->events.go);
+    wait_for_event(state->events.done, 0);
+    ok = state->success;
+
+    destroy_events(&state->events);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, state, ptrace_unmask_state_t, ACCT_THREAD_MGT,
+                   PROTECTED);
+    return ok;
+}
+#endif /* LINUX and AARCH64 */
 
 int
 get_num_processors(void)
@@ -10931,6 +11673,9 @@ os_dir_iterator_next(dir_iterator_t *iter)
 typedef struct _takeover_record_t {
     thread_id_t tid;
     event_t event;
+#if defined(LINUX) && defined(AARCH64)
+    void *ptrace_cleanup;
+#endif
 } takeover_record_t;
 
 /* When attempting thread takeover, we store an array of thread id and event
@@ -10950,12 +11695,53 @@ static uint num_thread_takeover_records;
  */
 static dcontext_t *takeover_dcontext;
 
-/* Lists active threads in the process.
- * XXX: The /proc man page says /proc/pid/task is only available if the main
- * thread is still alive, but experiments on 2.6.38 show otherwise.
- */
+#if defined(LINUX) && defined(AARCH64)
+static void
+ptrace_takeover_record_set(thread_id_t tid, ptrace_takeover_param_t *param)
+{
+    if (thread_takeover_records == NULL)
+        return;
+    for (uint i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == tid) {
+            thread_takeover_records[i].ptrace_cleanup = param;
+            return;
+        }
+    }
+}
+
+static ptrace_takeover_param_t *
+ptrace_takeover_record_get(thread_id_t tid)
+{
+    if (thread_takeover_records == NULL)
+        return NULL;
+    for (uint i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == tid) {
+            ptrace_takeover_param_t *param =
+                (ptrace_takeover_param_t *)thread_takeover_records[i].ptrace_cleanup;
+            thread_takeover_records[i].ptrace_cleanup = NULL;
+            return param;
+        }
+    }
+    return NULL;
+}
+
+static bool
+ptrace_takeover_record_present(thread_id_t tid)
+{
+    if (thread_takeover_records == NULL)
+        return false;
+    for (uint i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == tid) {
+            return thread_takeover_records[i].ptrace_cleanup != NULL;
+        }
+    }
+    return false;
+}
+#endif /* LINUX and AARCH64 */
+
 static thread_id_t *
-os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
+os_list_threads_from_task_dir(dcontext_t *dcontext, const char *task_path,
+                              uint *num_threads_out)
 {
     dir_iterator_t iter;
     file_t task_dir;
@@ -10965,21 +11751,13 @@ os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
     thread_id_t *tids;
 
     ASSERT(num_threads_out != NULL);
-
-#ifdef MACOS
-    /* XXX i#58: NYI.
-     * We may want SYS_proc_info with PROC_INFO_PID_INFO and PROC_PIDLISTTHREADS,
-     * or is that just BSD threads and instead we want process_set_tasks()
-     * and task_info() as in 7.3.1.3 in Singh's OSX book?
-     */
     *num_threads_out = 0;
-    return NULL;
-#endif
+
+    task_dir = os_open_directory(task_path, OS_OPEN_READ);
+    ASSERT(task_dir != INVALID_FILE);
 
     tids =
         HEAP_ARRAY_ALLOC(dcontext, thread_id_t, tids_alloced, ACCT_THREAD_MGT, PROTECTED);
-    task_dir = os_open_directory("/proc/self/task", OS_OPEN_READ);
-    ASSERT(task_dir != INVALID_FILE);
     os_dir_iterator_start(&iter, task_dir);
     while (os_dir_iterator_next(&iter)) {
         thread_id_t tid;
@@ -11015,6 +11793,26 @@ os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
     tids = new_tids;
     *num_threads_out = num_threads;
     return tids;
+}
+
+/* Lists active threads in the current process.
+ * XXX: The /proc man page says /proc/pid/task is only available if the main
+ * thread is still alive, but experiments on 2.6.38 show otherwise.
+ */
+static thread_id_t *
+os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
+{
+#ifdef MACOS
+    /* XXX i#58: NYI.
+     * We may want SYS_proc_info with PROC_INFO_PID_INFO and PROC_PIDLISTTHREADS,
+     * or is that just BSD threads and instead we want process_set_tasks()
+     * and task_info() as in 7.3.1.3 in Singh's OSX book?
+     */
+    *num_threads_out = 0;
+    return NULL;
+#endif
+
+    return os_list_threads_from_task_dir(dcontext, "/proc/self/task", num_threads_out);
 }
 
 /* List the /proc/self/task directory and add all unknown thread ids to the
@@ -11086,6 +11884,11 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: %d threads to take over\n", threads_to_signal);
     if (threads_to_signal > 0) {
         takeover_record_t *records;
+#if defined(LINUX) && defined(AARCH64)
+        thread_id_t *ptrace_tids = NULL;
+        byte *use_ptrace = NULL;
+        uint ptrace_count = 0;
+#endif
 
         /* Assuming pthreads, prepare signal_field for sharing. */
         handle_clone(dcontext, PTHREAD_CLONE_FLAGS);
@@ -11099,6 +11902,25 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 tids[i]);
             records[i].tid = tids[i];
             records[i].event = create_event();
+#if defined(LINUX) && defined(AARCH64)
+            records[i].ptrace_cleanup = NULL;
+            if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
+                if (use_ptrace == NULL) {
+                    use_ptrace = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal,
+                                                  ACCT_THREAD_MGT, PROTECTED);
+                    memset(use_ptrace, 0, threads_to_signal);
+                    ptrace_tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t,
+                                                   threads_to_signal, ACCT_THREAD_MGT,
+                                                   PROTECTED);
+                }
+                bool in_set = false;
+                if (thread_in_sigtimedwait(records[i].tid, suspend_signum,
+                                           &in_set) && in_set) {
+                    use_ptrace[i] = 1;
+                    ptrace_tids[ptrace_count++] = records[i].tid;
+                }
+            }
+#endif
         }
 
         /* Publish the records and the initial take over dcontext. */
@@ -11106,11 +11928,35 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         num_thread_takeover_records = threads_to_signal;
         takeover_dcontext = dcontext;
 
-        /* Signal the other threads. */
+        /* Signal the other threads if they are not marked for ptrace takeover. */
         for (i = 0; i < threads_to_signal; i++) {
-            send_suspend_signal(NULL, get_process_id(), records[i].tid);
+#if defined(LINUX) && defined(AARCH64)
+            if (use_ptrace != NULL && use_ptrace[i] != 0) {
+                continue;
+            }
+#endif
+            bool sent = send_suspend_signal(NULL, get_process_id(), records[i].tid);
+            (void)sent;
         }
         d_r_mutex_unlock(&thread_initexit_lock);
+
+#if defined(LINUX) && defined(AARCH64)
+        if (ptrace_count > 0) {
+            if (!os_ptrace_takeover_threads(dcontext, ptrace_tids, ptrace_count)) {
+                for (i = 0; i < ptrace_count; i++) {
+                    (void)send_suspend_signal(NULL, get_process_id(), ptrace_tids[i]);
+                }
+            }
+        }
+        if (use_ptrace != NULL) {
+            HEAP_ARRAY_FREE(dcontext, use_ptrace, byte, threads_to_signal,
+                            ACCT_THREAD_MGT, PROTECTED);
+        }
+        if (ptrace_tids != NULL) {
+            HEAP_ARRAY_FREE(dcontext, ptrace_tids, thread_id_t, threads_to_signal,
+                            ACCT_THREAD_MGT, PROTECTED);
+        }
+#endif
 
         /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
@@ -11243,6 +12089,9 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
 {
     dcontext_t *dcontext;
     priv_mcontext_t *dc_mc;
+#if defined(LINUX) && defined(AARCH64)
+    ptrace_takeover_param_t *pt_param = NULL;
+#endif
 
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: received signal in thread " TIDFMT "\n",
         get_sys_thread_id());
@@ -11273,6 +12122,12 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     dcontext->whereami = DR_WHERE_APP;
     dcontext->next_tag = mc->pc;
 
+#if defined(LINUX) && defined(AARCH64)
+    pt_param = ptrace_takeover_record_get(get_sys_thread_id());
+    if (pt_param != NULL) {
+        pt_param->dcontext = dcontext;
+    }
+#endif
     os_thread_signal_taken_over();
 
     DOLOG(2, LOG_TOP, {
@@ -11301,6 +12156,14 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     }
 
     /* Start interpreting from the signal context. */
+#if defined(LINUX) && defined(AARCH64)
+    if (pt_param != NULL) {
+        call_switch_stack(pt_param, dcontext->dstack,
+                          (void (*)(void *))ptrace_takeover_dispatch,
+                          NULL /* Not on d_r_initstack */, false /* Should not return */);
+        ASSERT_NOT_REACHED();
+    }
+#endif
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();

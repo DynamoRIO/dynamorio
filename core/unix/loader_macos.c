@@ -97,7 +97,7 @@ privload_mod_tls_init(privmod_t *mod)
 }
 
 void *
-privload_tls_init(void *app_tls)
+privload_tls_init(void *app_tls, bool use_query_os)
 {
 #if defined(AARCH64)
     void **cur_tls = (void **)read_thread_register(TLS_REG_LIB);
