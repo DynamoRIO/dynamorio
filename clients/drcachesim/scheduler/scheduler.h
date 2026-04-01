@@ -704,7 +704,7 @@ public:
          * a #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL marker) will be treated as
          * blocking and trigger a context switch.
          */
-        uint64_t blocking_switch_threshold = 500;
+        uint64_t blocking_switch_threshold = 600;
         /**
          * Deprecated: use #block_time_multiplier instead.  It is an error to set
          * this to a non-zero value when #struct_size includes #block_time_multiplier.

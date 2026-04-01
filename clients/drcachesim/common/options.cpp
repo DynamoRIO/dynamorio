@@ -1065,7 +1065,7 @@ droption_t<uint64_t> op_sched_syscall_switch_us(
     "syscalls).  Applies to -core_sharded and -core_serial. ");
 
 droption_t<uint64_t> op_sched_blocking_switch_us(
-    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 500,
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 600,
     "Minimum latency to consider a maybe-blocking syscall as incurring a context switch.",
     "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
