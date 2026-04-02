@@ -1129,6 +1129,10 @@ function(template2expect outexpect template runops key)
   string(REGEX REPLACE
     "([^ ])-"
     "\\1_" rundefs "${rundefs}")
+  # Turn "-foo -1" into "-foo _1" to avoid negative number values from
+  # being treated as option names, resulting in invalid defines.
+  string(REGEX REPLACE
+    "-([0-9])" "_\\1" rundefs "${rundefs}")
   string(REGEX REPLACE
     "(^| +)-([^ ]+)"
     " -D\\2" rundefs "${rundefs}")
@@ -4179,7 +4183,8 @@ if (BUILD_CLIENTS)
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
 
         torunonly_simtool(schedule_stats_maxcores ${ci_shared_app}
-          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_max_cores 2"
+          # Use round-robin layout for an even layout so every core hits the limit.
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_max_cores 2 -sched_random_initial_layout -1"
           "")
         set(tool.schedule_stats_nopreempt_rawtemp ON) # no preprocessor
 
@@ -4203,8 +4208,9 @@ if (BUILD_CLIENTS)
 
         set(switch_file
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/mock_switch_sequences.x64.zip")
+        # Use round-robin layout for a simpler output template.
         torunonly_simtool(switch_insertion ${ci_shared_app}
-          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file}"
+          "-indir ${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -core_sharded -sched_quantum 1000 -sched_switch_file ${switch_file} -sched_random_initial_layout -1"
           "")
         set(tool.switch_insertion_rawtemp ON) # no preprocessor
 
