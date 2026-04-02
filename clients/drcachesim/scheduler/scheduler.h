@@ -909,7 +909,7 @@ public:
          * equal to this field's value (unless it is 0 in which case the current time is
          * used).  A rebalance is always run after the initial layout.
          */
-        int random_initial_layout = -1;
+        int random_initial_layout = 1;
         /**
          * If #honor_direct_switches is true, unschedule requests coming from
          * #TRACE_MARKER_TYPE_SYSCALL_UNSCHEDULE markers ignore syscall latency and

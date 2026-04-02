@@ -749,6 +749,8 @@ test_legacy_fields()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         // Simulate binary compatibility with a legacy struct.
         sched_ops.struct_size =
             offsetof(scheduler_t::scheduler_options_t, time_units_per_us);
@@ -1648,6 +1650,8 @@ test_synthetic()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
         // changes from affecting our output.
@@ -1725,6 +1729,8 @@ test_synthetic()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
@@ -1862,6 +1868,8 @@ test_synthetic_with_syscall_seq()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
         // changes from affecting our output.
@@ -1978,6 +1986,8 @@ test_synthetic_with_syscall_seq()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         // This was tuned with a 100us threshold: so avoid scheduler.h defaults
@@ -2050,6 +2060,8 @@ test_synthetic_time_quanta()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
         sched_ops.quantum_duration_us = 3;
@@ -2264,6 +2276,8 @@ test_synthetic_time_quanta_with_kernel()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         // Uses same values as test_synthetic_time_quanta().
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
         sched_ops.time_units_per_us = 1.;
@@ -2619,6 +2633,8 @@ test_synthetic_with_timestamps()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
     // Test dropping a final "_" from core0.
     sched_ops.exit_if_fraction_inputs_left = 0.1;
@@ -2724,6 +2740,8 @@ test_synthetic_with_priorities()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
     // Test dropping a final "_" from core0.
     sched_ops.exit_if_fraction_inputs_left = 0.1;
@@ -2813,6 +2831,8 @@ test_synthetic_with_bindings_time(bool time_deps)
         time_deps ? scheduler_t::DEPENDENCY_TIMESTAMPS : scheduler_t::DEPENDENCY_IGNORE,
         scheduler_t::SCHEDULER_DEFAULTS,
         /*verbosity=*/3);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
     // Migration is measured in wall-clock-time for instr quanta
     // so avoid non-determinism by having no threshold.
@@ -2954,6 +2974,8 @@ test_synthetic_with_bindings_weighted()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_instrs = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
@@ -3203,6 +3225,8 @@ test_synthetic_with_syscalls_multiple()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_duration_us = 3;
     // We use our mock's time==instruction count for a deterministic result.
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -3792,6 +3816,8 @@ test_synthetic_with_output_limit()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/2);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     // Run everything.
     sched_ops.exit_if_fraction_inputs_left = 0.;
     scheduler_t scheduler;
@@ -4042,6 +4068,8 @@ test_replay()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = QUANTUM_INSTRS;
         // Migration is measured in wall-clock-time for instr quanta
         // so avoid non-determinism by having no threshold.
@@ -5799,6 +5827,8 @@ test_inactive()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = 2;
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
@@ -6299,6 +6329,8 @@ test_direct_switch_fallback()
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -6362,6 +6394,8 @@ test_direct_switch_fallback()
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_us = QUANTUM_DURATION;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
@@ -7272,6 +7306,8 @@ test_unscheduled_initially_rebalance()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
     sched_ops.time_units_per_us = 1.;
     sched_ops.blocking_switch_threshold = BLOCK_LATENCY;
@@ -7818,6 +7854,8 @@ test_kernel_switch_sequences()
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
         sched_ops.kernel_switch_reader = std::move(switch_reader);
         sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
@@ -7912,6 +7950,8 @@ test_kernel_switch_sequences()
             record_scheduler_t::DEPENDENCY_TIMESTAMPS,
             record_scheduler_t::SCHEDULER_DEFAULTS,
             /*verbosity=*/3);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
         sched_ops.kernel_switch_reader = std::move(switch_reader);
         sched_ops.kernel_switch_reader_end = std::move(switch_reader_end);
@@ -8235,6 +8275,8 @@ test_kernel_syscall_sequences()
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/3);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         sched_ops.quantum_duration_instrs = INSTR_QUANTUM;
         sched_ops.kernel_syscall_reader = std::move(syscall_reader);
         sched_ops.kernel_syscall_reader_end = std::move(syscall_reader_end);
@@ -9019,6 +9061,8 @@ test_initial_migrate()
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/3);
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
         scheduler_t::STATUS_SUCCESS)
@@ -9086,6 +9130,8 @@ test_exit_early()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/2);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.time_units_per_us = 1.;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
@@ -9126,6 +9172,8 @@ test_exit_early()
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/2);
+        // Use a round-robin layout for simpler deterministic testing.
+        sched_ops.random_initial_layout = -1;
         // We use our mock's time==instruction count for a deterministic result.
         sched_ops.time_units_per_us = 1.;
         sched_ops.quantum_duration_instrs = QUANTUM_DURATION;
