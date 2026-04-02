@@ -58,7 +58,17 @@ set(AARCH64_CODEC_GEN_SRCS
   ${PROJECT_BINARY_DIR}/encode_gen_v87.h
   ${PROJECT_BINARY_DIR}/encode_gen_sve.h
   ${PROJECT_BINARY_DIR}/encode_gen_sve2.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_v80.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_v81.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_v82.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_v83.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_v84.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_v85.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_v87.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_sve.h
+  ${PROJECT_BINARY_DIR}/isa_feature_gen_sve2.h
   ${PROJECT_BINARY_DIR}/opcode_names.h
+  ${PROJECT_BINARY_DIR}/isa_feature.h
 )
 set_source_files_properties(${AARCH64_CODEC_GEN_SRCS} PROPERTIES GENERATED true)
 

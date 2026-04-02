@@ -36,9 +36,11 @@
 # opnd_encode_funcs.h
 # encode_gen_<version>.h
 # decode_gen_<version>.h
+# isa_feature_gen_<version>.h
 # opcode_names.h
 # opcode_api.h
 # opcode_opnd_pairs.h
+# isa_feature.h
 # It is automatically run by cmake when opnd_defs.txt or codec_<version>.txt
 # change.
 
@@ -395,6 +397,43 @@ def generate_encoder(patterns, opndsettab, opndtab, opc_props, curr_isa, next_is
     c += ['}']
     return '\n'.join(c) + '\n'
 
+def generate_get_isa_feature(patterns, curr_isa, next_isa):
+    c = []
+    case = dict()
+    for pattern in patterns:
+        try:
+            case[pattern.opcode].append(pattern)
+        except KeyError:
+            case[pattern.opcode] = [pattern]
+
+    c += ['static uint',
+          'isa_feature_' + curr_isa + '(byte *pc, instr_t *instr)',
+          '{',
+          '    uint enc;',
+          '    (void)enc;',
+          '    decode_info_t di;'
+          '    switch (instr->opcode) {']
+
+    def pattern_sort_key(p):
+        return (p.opcode, p.generated_name, p.opcode_bits, p.opnd_bits)
+
+    for opcode in sorted(case):
+        c.append('    case OP_%s:' % opcode)
+        patterns = sorted(case[opcode], key=pattern_sort_key)
+        for pattern in patterns:
+            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, &di);' % (
+                opnd_stem(pattern.generated_name), pattern.set_bits()))
+            c.append('        if (enc != ENCFAIL)')
+            c.append('            return ISA_FEAT_%s;' % pattern.feat)
+    c += ['    }']
+    # Call the next version of the encoder if defined.
+    if next_isa:
+        c += ['    return isa_feature_' + next_isa + '(pc, instr);']
+    else:
+        c += ['    return ISA_FEAT_INVALID;']
+    c += ['}']
+    return '\n'.join(c) + '\n'
+
 def generate_opcodes(patterns):
     c = ['#ifndef _DR_IR_OPCODES_AARCH64_H_',
          '#define _DR_IR_OPCODES_AARCH64_H_ 1',
@@ -503,6 +542,43 @@ def generate_opcode_opnd_pairs(patterns):
     c.append('#define DR_FUZZ_INST_CNT %d' % cnt)
     c += ['',
           '#endif /* DR_OPCODE_OPND_PAIRS_H */']
+    return '\n'.join(c) + '\n'
+
+def generate_isa_feature(patterns):
+    c = ['#ifndef _DR_IR_ISA_FEATURE_AARCH64_H_',
+         '#define _DR_IR_ISA_FEATURE_AARCH64_H_ 1',
+         '',
+         '/****************************************************************************',
+         ' * ISA_FEATURE',
+         ' */',
+         '/**',
+         ' * @file dr_ir_isa_feature_aarch64.h',
+         ' * @brief ISA features (e.g., sve, sve2) constants for AArch64.',
+         ' */',
+         '/** ISA feature constants returned by instr_get_isa_feature(). */',
+         'enum {',
+         '    ISA_FEAT_INVALID = 0, /**< Invalid ISA feature. Reserved value. */',
+         '    ISA_FEAT_UNKNOWN = 1, /**< Unknown ISA feature. Reserved value. */',
+         '']
+    # Enum values 0 and 1 are reserved, so we start from 2.
+    isa_feature_enum_value = 2
+    # Create a set to remove duplicates and sort the values to keep the order of features
+    # deterministic. Note that sorted() returns an ordered list.
+    isa_feature_list = sorted(set([pattern.feat for pattern in patterns]))
+    for isa_feature in isa_feature_list:
+        try:
+            c.append('ISA_FEAT_{feat} = {i}, /**< AArch64 ISA_FEAT_{feat} feature. */'.format(
+                i=isa_feature_enum_value, feat=isa_feature))
+            isa_feature_enum_value += 1
+        except KeyError:
+            pass
+    c += ['',
+          '};',
+          '',
+          '/******************************'
+          '**********************************************/',
+          '',
+          '#endif /* _DR_IR_ISA_FEATURE_AARCH64_H */']
     return '\n'.join(c) + '\n'
 
 def write_if_changed(file, data):
@@ -703,6 +779,8 @@ def main():
                          codec_header(isa_version) + generate_decoder(patterns, opndsettab, opndtab, opc_props, isa_version, isa_versions[idx + 1]))
         write_if_changed(os.path.join(output_dir, 'encode_gen_' + isa_version +'.h'),
                          codec_header(isa_version) + generate_encoder(patterns, opndsettab, opndtab, opc_props, isa_version, isa_versions[idx + 1]))
+        write_if_changed(os.path.join(output_dir, 'isa_feature_gen_' + isa_version +'.h'),
+                         codec_header(isa_version) + generate_get_isa_feature(patterns, isa_version, isa_versions[idx + 1]))
         if isa_versions[idx + 1] == '':
             break
 
@@ -711,11 +789,13 @@ def main():
     opcode_api_patterns = []
     opcode_names_patterns = []
     opcode_opnd_pairs_patterns = []
+    isa_feature_patterns = []
     for isa_version in isa_versions[:-1]:
         (patterns, opc_props) = read_codec_file(os.path.join(input_dir, 'codec_' + isa_version + '.txt'))
         opcode_api_patterns += patterns
         opcode_names_patterns += patterns
         opcode_opnd_pairs_patterns += patterns
+        isa_feature_patterns += patterns
     write_if_changed(os.path.join(output_dir, 'opcode_api.h'),
                      opcode_header + generate_opcodes(opcode_api_patterns))
     write_if_changed(os.path.join(output_dir, 'opcode_names.h'),
@@ -723,6 +803,8 @@ def main():
     opcode_opnd_pairs_patterns.sort(key=lambda pat: pat.opcode)
     write_if_changed(os.path.join(output_dir, 'opcode_opnd_pairs.h'),
                      opcode_header + generate_opcode_opnd_pairs(opcode_opnd_pairs_patterns))
+    write_if_changed(os.path.join(output_dir, 'isa_feature.h'),
+                     opcode_header + generate_isa_feature(isa_feature_patterns))
 
 
 if __name__ == '__main__':
