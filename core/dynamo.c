@@ -2977,7 +2977,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     /* Similarly, with our signal handler back in place, we remove the TLS limit. */
     detacher_tid = INVALID_THREAD_ID;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
     /* Use ptrace() to remove blocked SUSPEND_SIGNAL (SIGILL on Linux) from the
      * mask of every thread (except the caller), so that the standard
      * signal‑based takeover can work on such threads.

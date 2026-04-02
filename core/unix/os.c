@@ -74,7 +74,7 @@
 #include <limits.h>
 
 /* For ptrace takeover when option -attach_unmask_suspend_signal enabled. */
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
 #    include <sys/ptrace.h>
 #    include <sys/prctl.h>
 #    include <sys/uio.h>
@@ -288,7 +288,7 @@ static thread_id_t *
 os_list_threads_from_task_dir(dcontext_t *dcontext, const char *task_path,
                               uint *num_threads_out);
 
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
 /* Used to check if a thread is for takeover by ptrace. */
 static bool
 ptrace_takeover_record_present(thread_id_t tid);
@@ -2363,7 +2363,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     /* now allocate the tls segment for client libraries */
     if (INTERNAL_OPTION(private_loader)) {
         bool use_query_os = false;
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
         if (DYNAMO_OPTION(attach_unmask_suspend_signal) &&
             ptrace_takeover_record_present(get_sys_thread_id())) {
             use_query_os = true;
@@ -4351,7 +4351,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     return true;
 }
 
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
 /* For older Linux versions these constants may not be defined in
  * libc headers even though a kernel supports them.
  */
@@ -4705,7 +4705,15 @@ ptrace_takeover_entry(void *param)
     os_thread_take_over(&p->mc, &p->sigset); /* This should not return. */
     ASSERT_NOT_REACHED();
 }
-
+/*
+static void
+#    if defined(DR_HOST_AARCH64)
+user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs,
+                struct USER_VREGS_TYPE *vregs, struct user_sve_header *sve_header)
+#    else
+user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
+#    endif
+*/
 static bool
 ptrace_get_regs(thread_id_t tid, struct user_pt_regs *regs,
                 struct user_fpsimd_struct *vregs)
@@ -5052,7 +5060,7 @@ os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
                    PROTECTED);
     return ok;
 }
-#endif /* LINUX and AARCH64 */
+#endif /* LINUX and DR_HOST_AARCH64 */
 
 int
 get_num_processors(void)
@@ -11665,7 +11673,7 @@ os_dir_iterator_next(dir_iterator_t *iter)
 typedef struct _takeover_record_t {
     thread_id_t tid;
     event_t event;
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
     void *ptrace_cleanup;
 #endif
 } takeover_record_t;
@@ -11687,7 +11695,7 @@ static uint num_thread_takeover_records;
  */
 static dcontext_t *takeover_dcontext;
 
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
 static void
 ptrace_takeover_record_set(thread_id_t tid, ptrace_takeover_param_t *param)
 {
@@ -11876,7 +11884,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: %d threads to take over\n", threads_to_signal);
     if (threads_to_signal > 0) {
         takeover_record_t *records;
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
         thread_id_t *ptrace_tids = NULL;
         byte *use_ptrace = NULL;
         uint ptrace_count = 0;
@@ -11894,7 +11902,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 tids[i]);
             records[i].tid = tids[i];
             records[i].event = create_event();
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
             records[i].ptrace_cleanup = NULL;
             if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
                 if (use_ptrace == NULL) {
@@ -11922,7 +11930,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 
         /* Signal the other threads if they are not marked for ptrace takeover. */
         for (i = 0; i < threads_to_signal; i++) {
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
             if (use_ptrace != NULL && use_ptrace[i] != 0) {
                 continue;
             }
@@ -11932,7 +11940,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         }
         d_r_mutex_unlock(&thread_initexit_lock);
 
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
         if (ptrace_count > 0) {
             if (!os_ptrace_takeover_threads(dcontext, ptrace_tids, ptrace_count)) {
                 for (i = 0; i < ptrace_count; i++) {
@@ -12081,7 +12089,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
 {
     dcontext_t *dcontext;
     priv_mcontext_t *dc_mc;
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
     ptrace_takeover_param_t *pt_param = NULL;
 #endif
 
@@ -12114,7 +12122,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     dcontext->whereami = DR_WHERE_APP;
     dcontext->next_tag = mc->pc;
 
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
     pt_param = ptrace_takeover_record_get(get_sys_thread_id());
     if (pt_param != NULL) {
         pt_param->dcontext = dcontext;
@@ -12148,7 +12156,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     }
 
     /* Start interpreting from the signal context. */
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
     if (pt_param != NULL) {
         call_switch_stack(pt_param, dcontext->dstack,
                           (void (*)(void *))ptrace_takeover_dispatch,
