@@ -2366,12 +2366,12 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         os_tls->os_seg_info.priv_lib_tls_base = os_tls->app_lib_tls_base;
 #else
         bool use_query_os = false;
-#if defined(LINUX) && defined(DR_HOST_AARCH64)
+#    if defined(LINUX) && defined(DR_HOST_AARCH64)
         if (DYNAMO_OPTION(attach_unmask_suspend_signal) &&
             ptrace_takeover_record_present(get_sys_thread_id())) {
             use_query_os = true;
         }
-#endif
+#    endif
         os_tls->os_seg_info.priv_lib_tls_base =
             privload_tls_init(os_tls->app_lib_tls_base, use_query_os);
 #endif /* STANDALONE_UNIT_TEST */
