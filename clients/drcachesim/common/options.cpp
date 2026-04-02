@@ -1188,7 +1188,7 @@ droption_t<double> op_sched_exit_if_fraction_inputs_left(
     "this value on uneven inputs.");
 
 droption_t<int> op_sched_random_initial_layout(
-    DROPTION_SCOPE_FRONTEND, "sched_random_initial_layout", -1,
+    DROPTION_SCOPE_FRONTEND, "sched_random_initial_layout", 1,
     "Randomize initial mapping of inputs to outputs, using this seed",
     "If <0, the initial assignment of inputs to outputs is done in a round-robin "
     "fashion.  If >=0, each input is assigned to a random output, using a seed equal to "
