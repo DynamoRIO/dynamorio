@@ -288,7 +288,7 @@ static thread_id_t *
 os_list_threads_from_task_dir(dcontext_t *dcontext, const char *task_path,
                               uint *num_threads_out);
 
-#if defined(LINUX) && defined(DR_HOST_AARCH64)
+#if defined(LINUX) && defined(DR_HOST_AARCH64) && !defined(STANDALONE_UNIT_TEST)
 /* Used to check if a thread is for takeover by ptrace. */
 static bool
 ptrace_takeover_record_present(thread_id_t tid);
@@ -2362,6 +2362,9 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 
     /* now allocate the tls segment for client libraries */
     if (INTERNAL_OPTION(private_loader)) {
+#ifdef STANDALONE_UNIT_TEST
+        os_tls->os_seg_info.priv_lib_tls_base = os_tls->app_lib_tls_base;
+#else
         bool use_query_os = false;
 #if defined(LINUX) && defined(DR_HOST_AARCH64)
         if (DYNAMO_OPTION(attach_unmask_suspend_signal) &&
@@ -2370,8 +2373,8 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         }
 #endif
         os_tls->os_seg_info.priv_lib_tls_base =
-            IF_UNIT_TEST_ELSE(os_tls->app_lib_tls_base,
-                              privload_tls_init(os_tls->app_lib_tls_base, use_query_os));
+            privload_tls_init(os_tls->app_lib_tls_base, use_query_os);
+#endif /* STANDALONE_UNIT_TEST */
     }
 #if defined(X86) && !defined(MACOSX64)
     LOG(THREAD_GET, LOG_THREADS, 1,
@@ -11725,6 +11728,7 @@ ptrace_takeover_record_get(thread_id_t tid)
     return NULL;
 }
 
+#    if !defined(STANDALONE_UNIT_TEST)
 static bool
 ptrace_takeover_record_present(thread_id_t tid)
 {
@@ -11737,7 +11741,8 @@ ptrace_takeover_record_present(thread_id_t tid)
     }
     return false;
 }
-#endif /* LINUX and AARCH64 */
+#    endif /* STANDALONE_UNIT_TEST      */
+#endif     /* LINUX and DR_HOST_AARCH64 */
 
 static thread_id_t *
 os_list_threads_from_task_dir(dcontext_t *dcontext, const char *task_path,
