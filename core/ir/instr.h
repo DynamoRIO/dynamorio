@@ -707,6 +707,9 @@ instr_is_mbr_arch(instr_t *instr);
 bool
 instr_is_ubr_arch(instr_t *instr);
 
+uint
+instr_get_isa_feature(byte *pc, instr_t *instr);
+
 /* private routines for spill code */
 instr_t *
 instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);

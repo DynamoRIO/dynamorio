@@ -425,6 +425,7 @@ def generate_get_isa_feature(patterns, curr_isa, next_isa):
                 opnd_stem(pattern.generated_name), pattern.set_bits()))
             c.append('        if (enc != ENCFAIL)')
             c.append('            return ISA_FEAT_%s;' % pattern.feat)
+            c.append('        break;')
     c += ['    }']
     # Call the next version of the encoder if defined.
     if next_isa:
@@ -567,7 +568,7 @@ def generate_isa_feature(patterns):
     isa_feature_list = sorted(set([pattern.feat for pattern in patterns]))
     for isa_feature in isa_feature_list:
         try:
-            c.append('ISA_FEAT_{feat} = {i}, /**< AArch64 ISA_FEAT_{feat} feature. */'.format(
+            c.append('    ISA_FEAT_{feat} = {i}, /**< AArch64 ISA_FEAT_{feat} feature. */'.format(
                 i=isa_feature_enum_value, feat=isa_feature))
             isa_feature_enum_value += 1
         except KeyError:
