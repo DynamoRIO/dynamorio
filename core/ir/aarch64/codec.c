@@ -9784,7 +9784,7 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di)
 }
 
 uint
-isa_feature_common(byte *pc, instr_t *i)
+isa_feature_common(byte *pc, instr_t *i, decode_info_t *di)
 {
-    return isa_feature_v80(pc, i);
+    return isa_feature_v80(pc, i, di);
 }

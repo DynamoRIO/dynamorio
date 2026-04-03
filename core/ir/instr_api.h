@@ -1865,6 +1865,15 @@ instr_get_category_name(dr_instr_category_t category);
 
 DR_API
 /**
+ * Assumes \p category is a DR_INSTR_CATEGORY_ constant.
+ * See #dr_instr_category_t.
+ * Returns \p category name in string format.
+ */
+const char *
+instr_get_isa_feature(byte *pc, instr_t *instr);
+
+DR_API
+/**
  * Returns true iff \p instr is a floating point instruction.
  * @param[in] instr  The instruction to query
  * @param[out] type  If the return value is true and \p type is
