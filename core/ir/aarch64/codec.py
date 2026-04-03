@@ -428,7 +428,7 @@ def generate_get_isa_feature(patterns, curr_isa, next_isa):
     c += ['    }']
     # Call the next version of the encoder if defined.
     if next_isa:
-        c += ['    return isa_feature_' + next_isa + '(pc, instr);']
+        c += ['    return isa_feature_' + next_isa + '(pc, instr, di);']
     else:
         c += ['    return ISA_FEAT_INVALID;']
     c += ['}']
