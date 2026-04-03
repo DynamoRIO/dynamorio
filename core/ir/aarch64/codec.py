@@ -407,11 +407,10 @@ def generate_get_isa_feature(patterns, curr_isa, next_isa):
             case[pattern.opcode] = [pattern]
 
     c += ['static uint',
-          'isa_feature_' + curr_isa + '(byte *pc, instr_t *instr)',
+          'isa_feature_' + curr_isa + '(byte *pc, instr_t *instr, decode_info_t *di)',
           '{',
           '    uint enc;',
           '    (void)enc;',
-          '    decode_info_t di;'
           '    switch (instr->opcode) {']
 
     def pattern_sort_key(p):
@@ -421,7 +420,7 @@ def generate_get_isa_feature(patterns, curr_isa, next_isa):
         c.append('    case OP_%s:' % opcode)
         patterns = sorted(case[opcode], key=pattern_sort_key)
         for pattern in patterns:
-            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, &di);' % (
+            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, di);' % (
                 opnd_stem(pattern.generated_name), pattern.set_bits()))
             c.append('        if (enc != ENCFAIL)')
             c.append('            return ISA_FEAT_%s;' % pattern.feat)
