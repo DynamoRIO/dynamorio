@@ -1037,8 +1037,8 @@ droption_t<bool> op_core_serial(
     "-core_serial is automatically turned on for offline analysis.");
 
 droption_t<int64_t>
-    // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
-    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 10 * 1000 * 1000,
+    // We pick 20 million to match 4 instructions per nanosecond with a 5ms quantum.
+    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 20 * 1000 * 1000,
                      "Scheduling quantum",
                      "Applies to -core_sharded and -core_serial.  Scheduling quantum in "
                      "instructions, unless -sched_time is set in which case this value "
