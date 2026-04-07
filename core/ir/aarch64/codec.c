@@ -3652,7 +3652,10 @@ encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     value = opnd_get_immed_int(opnd);
 
     opnd = opnd_create_immed_uint(value, OPSZ_2);
-    return encode_opnd_int(0, 16, false, false, 0, opnd, enc_out);
+    uint enc_value;
+    encode_opnd_int(0, 16, false, false, 0, opnd, &enc_value);
+    *enc_out = enc_value;
+    return true;
 }
 
 /* imm1_ew_16: 1 bit symbolised imm, representing 90 or 270 */
@@ -9647,6 +9650,7 @@ decode_category(uint encoding, instr_t *instr)
 #include "encode_gen_v82.h"
 #include "encode_gen_v81.h"
 #include "encode_gen_v80.h"
+/*
 #include "isa_feature_gen_sve2.h"
 #include "isa_feature_gen_sve.h"
 #include "isa_feature_gen_v87.h"
@@ -9656,6 +9660,7 @@ decode_category(uint encoding, instr_t *instr)
 #include "isa_feature_gen_v82.h"
 #include "isa_feature_gen_v81.h"
 #include "isa_feature_gen_v80.h"
+*/
 
 /******************************************************************************/
 
@@ -9783,5 +9788,6 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di)
 uint
 isa_feature_common(byte *pc, instr_t *i, decode_info_t *di)
 {
-    return isa_feature_v80(pc, i, di);
+    // return isa_feature_v80(pc, i, di);
+    return 0;
 }
