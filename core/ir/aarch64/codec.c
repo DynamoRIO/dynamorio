@@ -3641,7 +3641,7 @@ decode_opnd_imm16_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     return true;
 }
 
-static inline bool
+static inline __attribute__((always_inline)) bool
 encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     uint value;
