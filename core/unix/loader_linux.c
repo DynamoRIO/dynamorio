@@ -479,7 +479,7 @@ privload_mod_tls_primary_thread_init(privmod_t *mod)
 #endif
 
 void *
-privload_tls_init(void *app_tp, bool use_query_os)
+privload_tls_init(void *app_tp, bool use_safe_read)
 {
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     app_pc dr_tp;
@@ -545,11 +545,11 @@ privload_tls_init(void *app_tp, bool use_query_os)
     }
 #endif
     if (app_tp != NULL) {
-        if (use_query_os) {
+        if (!use_safe_read) {
             /* Check page protections for readability before safely
              * memcpy()ing, i.e. not risking a SIGSEGV. This avoids
              * safe_read_ex() during thread takeover because TLS fault handling
-             * is not yet fully established.
+             * is not yet fully established. Warning: this is a race condition.
              */
             if (is_readable_without_exception_query_os(app_start, size_to_copy)) {
                 memcpy(dr_start, app_start, size_to_copy);

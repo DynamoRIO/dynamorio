@@ -3557,6 +3557,7 @@ if (NOT WIN32 AND NOT RISCV64) # XXX i#2611: fix for Windows
   tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" ""
     OFF OFF OFF)
   link_with_pthread(${detach_spawn_quick_exit_name})
+  # TODO i#7805: Add support for all Linux platforms. */
   if (AARCH64 AND LINUX)
     tobuild_api(${sigill_blocked_name} api/sigill_blocked.c
       "-attach_unmask_suspend_signal" "" OFF OFF OFF)

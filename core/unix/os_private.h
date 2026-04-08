@@ -463,7 +463,7 @@ os_request_live_coredump(const char *msg);
 
 /* in loader.c */
 void *
-privload_tls_init(void *app_tp, bool use_query_os);
+privload_tls_init(void *app_tp, bool use_safe_read);
 void
 privload_tls_exit(void *dr_tp);
 #ifdef ANDROID

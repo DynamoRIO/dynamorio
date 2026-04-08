@@ -130,7 +130,7 @@ privload_mod_tls_primary_thread_init(privmod_t *mod)
 }
 
 void *
-privload_tls_init(void *app_tls, bool use_query_os)
+privload_tls_init(void *app_tls, bool use_safe_read)
 {
     void *res;
     if (!dynamo_initialized) {

@@ -1020,6 +1020,11 @@ they want to shrink memory usage
    usual attach-via-signal mechanism can be used. This option also enables
    attaching when such signals are blocked and the thread is waiting in one of
    the sigwait syscalls.
+   Note that this feature is currently available on AArch64 Linux only and
+   requires ptrace privileges, which can be enabled with this command:
+\code
+% echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+\endcode
 
 \if profiling
 XXX PR 225255: profiling options

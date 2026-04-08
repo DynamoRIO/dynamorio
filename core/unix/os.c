@@ -2365,15 +2365,15 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 #ifdef STANDALONE_UNIT_TEST
         os_tls->os_seg_info.priv_lib_tls_base = os_tls->app_lib_tls_base;
 #else
-        bool use_query_os = false;
+        bool use_safe_read = true;
 #    if defined(LINUX) && defined(DR_HOST_AARCH64)
         if (DYNAMO_OPTION(attach_unmask_suspend_signal) &&
             ptrace_takeover_record_present(get_sys_thread_id())) {
-            use_query_os = true;
+            use_safe_read = false;
         }
 #    endif
         os_tls->os_seg_info.priv_lib_tls_base =
-            privload_tls_init(os_tls->app_lib_tls_base, use_query_os);
+            privload_tls_init(os_tls->app_lib_tls_base, use_safe_read);
 #endif /* STANDALONE_UNIT_TEST */
     }
 #if defined(X86) && !defined(MACOSX64)
@@ -4708,15 +4708,7 @@ ptrace_takeover_entry(void *param)
     os_thread_take_over(&p->mc, &p->sigset); /* This should not return. */
     ASSERT_NOT_REACHED();
 }
-/*
-static void
-#    if defined(DR_HOST_AARCH64)
-user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs,
-                struct USER_VREGS_TYPE *vregs, struct user_sve_header *sve_header)
-#    else
-user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
-#    endif
-*/
+
 static bool
 ptrace_get_regs(thread_id_t tid, struct user_pt_regs *regs,
                 struct user_fpsimd_struct *vregs)
@@ -4742,7 +4734,10 @@ ptrace_set_regs(thread_id_t tid, struct user_pt_regs *regs)
 }
 
 /* XXX: There is code in this function similar to that in injector.c. We may
- * want to put as much of this as possible into common helpers.
+ * want to put as much of this as possible into common helpers. Implement this
+ * type of feature detection function to support other architectures enabled by
+ * the -attach_unmask_suspend_signal option. All other code paths implementing
+ * -attach_unmask_suspend_signal are architecture neutral.
  */
 static bool
 ptrace_get_sve_state(thread_id_t tid, struct user_sve_header **sve_state_out,
@@ -4804,7 +4799,10 @@ ptrace_get_sve_state(thread_id_t tid, struct user_sve_header **sve_state_out,
 }
 
 /* XXX: There is code in this function similar to that in injector.c. We may
- * want to put as much of this as possible into common helpers.
+ * want to put as much of this as possible into common helpers. Implement this
+ * register state transfer function to support other architectures enabled by
+ * the -attach_unmask_suspend_signal option. All other code paths implementing
+ * -attach_unmask_suspend_signal are architecture neutral.
  */
 static void
 user_regs_to_mc_aarch64(priv_mcontext_t *mc, struct user_pt_regs *regs,
@@ -4920,6 +4918,9 @@ ptrace_takeover_thread(thread_id_t tid)
     stack_top = stack + PTRACE_TAKEOVER_STACK_SIZE;
     stack_top = (byte *)ALIGN_BACKWARD(stack_top, ABI_STACK_ALIGNMENT);
 
+    /* XXX: Executing on the stack violates security policies so this will fail
+     * on some platforms. One fix is to mmap() executable memory.
+     */
     regs.sp = (uint64)stack_top;
     regs.pc = (uint64)(ptr_uint_t)ptrace_takeover_entry;
     regs.regs[0] = (uint64)(ptr_uint_t)param;
@@ -11832,6 +11833,13 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     uint num_threads;
     thread_id_t *tids;
     uint threads_to_signal = 0, threads_timed_out = 0;
+    /* Flag used to decide whether to defer timeout handling for ptrace fallback. */
+    bool use_ptrace_fallback = false;
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
+    /* Per‑thread array marking which threads timed out. */
+    byte *timed_out = NULL;
+    uint timed_out_count = 0;
+#endif
 
     /* We do not want to re-takeover a thread that's in between notifying us on
      * the last call to this routine and getting onto the all_threads list as
@@ -11965,6 +11973,14 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 
         /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
+        /* Initialise per-thread timeout array. */
+        if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
+            timed_out = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal, ACCT_THREAD_MGT,
+                                         PROTECTED);
+            memset(timed_out, 0, threads_to_signal);
+        }
+#endif
         for (i = 0; i < threads_to_signal; i++) {
             static const int progress_period = 50;
             if (i % progress_period == 0) {
@@ -11992,26 +12008,100 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                     break;
                 }
                 if (++attempts > max_attempts) {
-                    if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
-                        SYSLOG(
-                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                            get_application_name(), get_application_pid(),
-                            "Continuing since -unsafe_ignore_takeover_timeout is set.");
-                        ++threads_timed_out;
-                    } else {
-                        SYSLOG(
-                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                            get_application_name(), get_application_pid(),
-                            "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
-                        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
-                                                    get_application_name(),
-                                                    get_application_pid());
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
+                    use_ptrace_fallback = (timed_out != NULL);
+                    if (use_ptrace_fallback) {
+                        timed_out[i] = 1;
+                        timed_out_count++;
+                    }
+#endif
+                    if (!use_ptrace_fallback) {
+                        if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
+                            SYSLOG(
+                                SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                get_application_name(), get_application_pid(),
+                                "Continuing since -unsafe_ignore_takeover_timeout is set.");
+                            ++threads_timed_out;
+                        } else {
+                            SYSLOG(
+                                SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                get_application_name(), get_application_pid(),
+                                "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
+                            REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
+                                                        get_application_name(),
+                                                        get_application_pid());
+                        }
                     }
                     break;
                 }
                 /* Else try again. */
             }
         }
+
+#if defined(LINUX) && defined(DR_HOST_AARCH64)
+        if (timed_out != NULL && timed_out_count > 0) {
+            /* Try a ptrace takeover for threads that timed out. */
+            uint retry_count = 0;
+            thread_id_t *retry_tids =
+                HEAP_ARRAY_ALLOC(dcontext, thread_id_t, timed_out_count,
+                                 ACCT_THREAD_MGT, PROTECTED);
+            for (i = 0; i < threads_to_signal; i++) {
+                if (timed_out[i] == 0)
+                    continue;
+                char task[64];
+                snprintf(task, BUFFER_SIZE_ELEMENTS(task), "/proc/self/task/%d", tids[i]);
+                NULL_TERMINATE_BUFFER(task);
+                if (!os_file_exists(task, false /*!is dir*/))
+                    continue;
+                retry_tids[retry_count++] = records[i].tid;
+            }
+            if (retry_count > 0) {
+                os_ptrace_takeover_threads(dcontext, retry_tids, retry_count);
+                /* Wait again for the threads just retried. */
+                for (i = 0; i < threads_to_signal; i++) {
+                    if (timed_out[i] == 0)
+                        continue;
+                    static const int wait_ms = 25;
+                    int max_attempts =
+                        DYNAMO_OPTION(takeover_timeout_ms) / wait_ms;
+                    int attempts = 0;
+                    while (!wait_for_event(records[i].event, wait_ms)) {
+                        char task[64];
+                        snprintf(task, BUFFER_SIZE_ELEMENTS(task), "/proc/self/task/%d",
+                                 tids[i]);
+                        NULL_TERMINATE_BUFFER(task);
+                        if (!os_file_exists(task, false /*!is dir*/))
+                            break;
+                        if (++attempts > max_attempts) {
+                            if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
+                                SYSLOG(
+                                    SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                    get_application_name(), get_application_pid(),
+                                    "Continuing since -unsafe_ignore_takeover_timeout is set.");
+                                ++threads_timed_out;
+                            } else {
+                                SYSLOG(
+                                    SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                    get_application_name(), get_application_pid(),
+                                    "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
+                                REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
+                                                            get_application_name(),
+                                                            get_application_pid());
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            HEAP_ARRAY_FREE(dcontext, retry_tids, thread_id_t, timed_out_count,
+                            ACCT_THREAD_MGT, PROTECTED);
+        }
+        if (timed_out != NULL) {
+            HEAP_ARRAY_FREE(dcontext, timed_out, byte, threads_to_signal, ACCT_THREAD_MGT,
+                            PROTECTED);
+            timed_out = NULL;
+        }
+#endif
 
         /* Now that we've taken over the other threads, we can safely free the
          * records and reset the shared globals.
