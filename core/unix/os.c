@@ -11976,8 +11976,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 #if defined(LINUX) && defined(DR_HOST_AARCH64)
         /* Initialise per-thread timeout array. */
         if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
-            timed_out = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal, ACCT_THREAD_MGT,
-                                         PROTECTED);
+            timed_out = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal,
+                                         ACCT_THREAD_MGT, PROTECTED);
             memset(timed_out, 0, threads_to_signal);
         }
 #endif
@@ -12017,16 +12017,16 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 #endif
                     if (!use_ptrace_fallback) {
                         if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
-                            SYSLOG(
-                                SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                                get_application_name(), get_application_pid(),
-                                "Continuing since -unsafe_ignore_takeover_timeout is set.");
+                            SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                   get_application_name(), get_application_pid(),
+                                   "Continuing since -unsafe_ignore_takeover_timeout is "
+                                   "set.");
                             ++threads_timed_out;
                         } else {
-                            SYSLOG(
-                                SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                                get_application_name(), get_application_pid(),
-                                "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
+                            SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                   get_application_name(), get_application_pid(),
+                                   "Aborting. Use -unsafe_ignore_takeover_timeout to "
+                                   "ignore.");
                             REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
                                                         get_application_name(),
                                                         get_application_pid());
@@ -12042,9 +12042,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         if (timed_out != NULL && timed_out_count > 0) {
             /* Try a ptrace takeover for threads that timed out. */
             uint retry_count = 0;
-            thread_id_t *retry_tids =
-                HEAP_ARRAY_ALLOC(dcontext, thread_id_t, timed_out_count,
-                                 ACCT_THREAD_MGT, PROTECTED);
+            thread_id_t *retry_tids = HEAP_ARRAY_ALLOC(
+                dcontext, thread_id_t, timed_out_count, ACCT_THREAD_MGT, PROTECTED);
             for (i = 0; i < threads_to_signal; i++) {
                 if (timed_out[i] == 0)
                     continue;
@@ -12062,8 +12061,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                     if (timed_out[i] == 0)
                         continue;
                     static const int wait_ms = 25;
-                    int max_attempts =
-                        DYNAMO_OPTION(takeover_timeout_ms) / wait_ms;
+                    int max_attempts = DYNAMO_OPTION(takeover_timeout_ms) / wait_ms;
                     int attempts = 0;
                     while (!wait_for_event(records[i].event, wait_ms)) {
                         char task[64];
@@ -12074,18 +12072,18 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                             break;
                         if (++attempts > max_attempts) {
                             if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
-                                SYSLOG(
-                                    SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                                    get_application_name(), get_application_pid(),
-                                    "Continuing since -unsafe_ignore_takeover_timeout is set.");
+                                SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                       get_application_name(), get_application_pid(),
+                                       "Continuing since -unsafe_ignore_takeover_timeout "
+                                       "is set.");
                                 ++threads_timed_out;
                             } else {
-                                SYSLOG(
-                                    SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                                    get_application_name(), get_application_pid(),
-                                    "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
-                                REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
-                                                            get_application_name(),
+                                SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                       get_application_name(), get_application_pid(),
+                                       "Aborting. Use -unsafe_ignore_takeover_timeout to "
+                                       "ignore.");
+                                REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS,
+                                                            2, get_application_name(),
                                                             get_application_pid());
                             }
                             break;
