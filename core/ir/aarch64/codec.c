@@ -3641,7 +3641,10 @@ decode_opnd_imm16_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     return true;
 }
 
-static inline bool
+__attribute__((always_inline)) inline bool
+encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out);
+
+bool
 encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     uint value;
@@ -3652,10 +3655,7 @@ encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     value = opnd_get_immed_int(opnd);
 
     opnd = opnd_create_immed_uint(value, OPSZ_2);
-    uint enc_value;
-    encode_opnd_int(0, 16, false, false, 0, opnd, &enc_value);
-    *enc_out = enc_value;
-    return true;
+    return encode_opnd_int(0, 16, false, false, 0, opnd, enc_out);
 }
 
 /* imm1_ew_16: 1 bit symbolised imm, representing 90 or 270 */
