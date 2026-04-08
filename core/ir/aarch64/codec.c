@@ -3641,9 +3641,8 @@ decode_opnd_imm16_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     return true;
 }
 
-bool
-encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-    __attribute__((always_inline));
+__attribute__((always_inline)) inline bool
+encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out);
 
 bool
 encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
