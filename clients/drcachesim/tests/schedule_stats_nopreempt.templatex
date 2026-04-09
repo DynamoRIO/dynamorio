@@ -18,7 +18,7 @@ Total counts:
            0 switches nop-ed
            0 quantum_preempts
            0 migrations
-           0 work steals
+           1 work steals
            1 rebalances
            0 output limits hit
          480 system calls
@@ -35,8 +35,8 @@ Total counts:
       *[0-9\.]*% cpu busy by time
       *[0-9\.]*% cpu busy by time, ignoring idle past last instr
   Instructions per context switch histogram:
-           0..   50000    16
-       50000..  100000     5
+           0..   50000    15
+       50000..  100000     6
   Thread W0.T.* instructions per context switch histogram:
 .*
   Cores per thread:

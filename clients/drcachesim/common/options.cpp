@@ -1037,8 +1037,8 @@ droption_t<bool> op_core_serial(
     "-core_serial is automatically turned on for offline analysis.");
 
 droption_t<int64_t>
-    // We pick 10 million to match 2 instructions per nanosecond with a 5ms quantum.
-    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 10 * 1000 * 1000,
+    // We pick 20 million to match 4 instructions per nanosecond with a 5ms quantum.
+    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 20 * 1000 * 1000,
                      "Scheduling quantum",
                      "Applies to -core_sharded and -core_serial.  Scheduling quantum in "
                      "instructions, unless -sched_time is set in which case this value "
@@ -1065,7 +1065,7 @@ droption_t<uint64_t> op_sched_syscall_switch_us(
     "syscalls).  Applies to -core_sharded and -core_serial. ");
 
 droption_t<uint64_t> op_sched_blocking_switch_us(
-    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 500,
+    DROPTION_SCOPE_ALL, "sched_blocking_switch_us", 600,
     "Minimum latency to consider a maybe-blocking syscall as incurring a context switch.",
     "Minimum latency in timestamp units (us) to consider any syscall that is marked as "
     "maybe-blocking to incur a context switch. Applies to -core_sharded and "
@@ -1188,7 +1188,7 @@ droption_t<double> op_sched_exit_if_fraction_inputs_left(
     "this value on uneven inputs.");
 
 droption_t<int> op_sched_random_initial_layout(
-    DROPTION_SCOPE_FRONTEND, "sched_random_initial_layout", -1,
+    DROPTION_SCOPE_FRONTEND, "sched_random_initial_layout", 1,
     "Randomize initial mapping of inputs to outputs, using this seed",
     "If <0, the initial assignment of inputs to outputs is done in a round-robin "
     "fashion.  If >=0, each input is assigned to a random output, using a seed equal to "

@@ -12,9 +12,9 @@ Total counts:
            0 system call sequence injections
       100.00% voluntary switches
         0.00% direct switches
-           4 switches input-to-input
-           8 switches input-to-idle
-           8 switches idle-to-input
+           8 switches input-to-input
+          20 switches input-to-idle
+          20 switches idle-to-input
            0 switches nop-ed
            0 quantum_preempts
            0 migrations
@@ -35,8 +35,8 @@ Total counts:
     [0-9\. ]*% cpu busy by time
     [0-9\. ]*% cpu busy by time, ignoring idle past last instr
   Instructions per context switch histogram:
-           0..   50000    16
-       50000..  100000     5
+           0..   50000    15
+       50000..  100000     6
   Thread W0.T.* instructions per context switch histogram:
 .*
   Cores per thread:
