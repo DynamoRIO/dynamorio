@@ -3082,8 +3082,7 @@ encode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, opnd_t opnd,
         return false;
 
     opnd = opnd_create_immed_uint(cmode4, OPSZ_1b);
-    encode_opnd_int(12, 1, false, false, 0, opnd, enc_out);
-    return true;
+    return encode_opnd_int(12, 1, false, 0, 0, opnd, enc_out);
 }
 
 /* imm1_ew_12: 1 bit symbolised imm, representing 90 or 270 */
@@ -3258,8 +3257,7 @@ encode_opnd_cmode_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
         return false;
 
     opnd = opnd_create_immed_uint(cmode, OPSZ_1b);
-    encode_opnd_int(13, 1, false, false, 0, opnd, enc_out);
-    return true;
+    return encode_opnd_int(13, 1, false, 0, 0, opnd, enc_out);
 }
 
 static inline bool
@@ -3415,8 +3413,7 @@ encode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     }
 
     opnd = opnd_create_immed_uint(cmode, OPSZ_2b);
-    encode_opnd_int(13, 2, false, false, 0, opnd, enc_out);
-    return true;
+    return encode_opnd_int(13, 2, false, 0, 0, opnd, enc_out);
 }
 
 /* imm2_nesw_13: 2 bit symbolised imm, representing 0, 90, 180, or 270 */
@@ -3652,10 +3649,7 @@ encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     value = opnd_get_immed_int(opnd);
 
     opnd = opnd_create_immed_uint(value, OPSZ_2);
-    uint enc_value;
-    encode_opnd_int(0, 16, false, false, 0, opnd, &enc_value);
-    *enc_out = enc_value;
-    return true;
+    return encode_opnd_int(0, 16, false, 0, 0, opnd, enc_out);
 }
 
 /* imm1_ew_16: 1 bit symbolised imm, representing 90 or 270 */
@@ -3936,11 +3930,13 @@ encode_opnd_imm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 
     uint enc_top = 0;
     opnd = opnd_create_immed_uint((eight_bits >> 5) & 0b111, OPSZ_3b);
-    encode_opnd_int(16, 3, false, false, 0, opnd, &enc_top);
+    if (!encode_opnd_int(16, 3, false, 0, 0, opnd, &enc_top))
+        return false;
 
     uint enc_bottom = 0;
     opnd = opnd_create_immed_uint(eight_bits & 0b11111, OPSZ_5b);
-    encode_opnd_int(5, 5, false, false, 0, opnd, &enc_bottom);
+    if (!encode_opnd_int(5, 5, false, 0, 0, opnd, &enc_bottom))
+        return false;
 
     *enc_out = enc_top | enc_bottom;
     return true;
@@ -3997,14 +3993,16 @@ encode_opnd_exp_imm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     for (uint i = first_top_bit; i < first_top_bit + num_top_bits; i++)
         top_bits |= (value & (uint64)1 << (i * 8)) >> (i * 7 + first_top_bit);
     opnd = opnd_create_immed_uint(top_bits, OPSZ_3b);
-    encode_opnd_int(16, num_top_bits, false, false, 0, opnd, &enc_top);
+    if (!encode_opnd_int(16, num_top_bits, false, 0, 0, opnd, &enc_top))
+        return false;
 
     uint bottom_bits = 0;
     uint enc_bottom = 0;
     for (uint i = first_bottom_bit; i < first_bottom_bit + num_bottom_bits; i++)
         bottom_bits |= (value & (uint64)1 << (i * 8)) >> (i * 7 + first_bottom_bit);
     opnd = opnd_create_immed_uint(bottom_bits, OPSZ_5b);
-    encode_opnd_int(5, num_bottom_bits, false, false, 0, opnd, &enc_bottom);
+    if (!encode_opnd_int(5, num_bottom_bits, false, 0, 0, opnd, &enc_bottom))
+        return false;
 
     *enc_out = enc_top | enc_bottom;
     return true;
