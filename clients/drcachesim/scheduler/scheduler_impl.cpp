@@ -3207,6 +3207,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t outp
                 }
                 if (res == sched_type_t::STATUS_WAIT)
                     return res;
+                lock.unlock();
                 input = &inputs_[outputs_[output].cur_input];
                 lock = std::unique_lock<mutex_dbg_owned>(*input->lock);
                 continue;
