@@ -9648,6 +9648,7 @@ decode_category(uint encoding, instr_t *instr)
 #include "encode_gen_v82.h"
 #include "encode_gen_v81.h"
 #include "encode_gen_v80.h"
+/*
 #include "isa_feature_gen_sve2.h"
 #include "isa_feature_gen_sve.h"
 #include "isa_feature_gen_v87.h"
@@ -9657,6 +9658,7 @@ decode_category(uint encoding, instr_t *instr)
 #include "isa_feature_gen_v82.h"
 #include "isa_feature_gen_v81.h"
 #include "isa_feature_gen_v80.h"
+*/
 
 /******************************************************************************/
 
@@ -9784,5 +9786,6 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di)
 uint
 isa_feature_common(byte *pc, instr_t *i, decode_info_t *di)
 {
-    return isa_feature_v80(pc, i, di);
+    // return isa_feature_v80(pc, i, di);
+    return 0;
 }
