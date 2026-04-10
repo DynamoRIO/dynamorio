@@ -78,6 +78,14 @@ if (AARCH64)
     COMMAND ${CMAKE_COMMAND}
     ARGS -E copy ${PROJECT_BINARY_DIR}/opcode_api.h
     ${aarch64_exported_opcodes} VERBATIM)
+  # Export the generated isa feature header.
+  set(aarch64_exported_isa_features ${BUILD_INCLUDE}/dr_ir_isa_features_aarch64.h)
+  add_custom_target(gen_aarch64_isa_features DEPENDS ${aarch64_exported_isa_features})
+  add_custom_command(OUTPUT ${aarch64_exported_isa_features}
+    DEPENDS ${PROJECT_BINARY_DIR}/isa_features.h
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${PROJECT_BINARY_DIR}/isa_features.h
+    ${aarch64_exported_isa_features} VERBATIM)
 endif ()
 
 if (RISCV64)
@@ -1233,6 +1241,7 @@ DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instrlist_api.h dr_ir_instrlist.
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/dr_ir_opcodes.h dr_ir_opcodes.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/opcode_api.h dr_ir_opcodes_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/opcode_api.h dr_ir_opcodes_arm.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/dr_ir_isa_features.h dr_ir_isa_features.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_create_shared_api.h dr_ir_macros.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/instr_create_api.h dr_ir_macros_x86.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/instr_create_api.h dr_ir_macros_arm.h)

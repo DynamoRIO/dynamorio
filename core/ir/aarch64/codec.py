@@ -545,14 +545,14 @@ def generate_opcode_opnd_pairs(patterns):
     return '\n'.join(c) + '\n'
 
 def generate_isa_feature(patterns):
-    c = ['#ifndef _DR_IR_ISA_FEATURE_AARCH64_H_',
-         '#define _DR_IR_ISA_FEATURE_AARCH64_H_ 1',
+    c = ['#ifndef _DR_IR_ISA_FEATURES_AARCH64_H_',
+         '#define _DR_IR_ISA_FEATURES_AARCH64_H_ 1',
          '',
          '/****************************************************************************',
          ' * ISA_FEATURE',
          ' */',
          '/**',
-         ' * @file dr_ir_isa_feature_aarch64.h',
+         ' * @file dr_ir_isa_features_aarch64.h',
          ' * @brief ISA features (e.g., sve, sve2) constants for AArch64.',
          ' */',
          '/** ISA feature constants returned by instr_get_isa_feature(). */',
@@ -578,7 +578,7 @@ def generate_isa_feature(patterns):
           '/******************************'
           '**********************************************/',
           '',
-          '#endif /* _DR_IR_ISA_FEATURE_AARCH64_H */']
+          '#endif /* _DR_IR_ISA_FEATURES_AARCH64_H */']
     return '\n'.join(c) + '\n'
 
 def write_if_changed(file, data):
@@ -803,7 +803,7 @@ def main():
     opcode_opnd_pairs_patterns.sort(key=lambda pat: pat.opcode)
     write_if_changed(os.path.join(output_dir, 'opcode_opnd_pairs.h'),
                      opcode_header + generate_opcode_opnd_pairs(opcode_opnd_pairs_patterns))
-    write_if_changed(os.path.join(output_dir, 'isa_feature.h'),
+    write_if_changed(os.path.join(output_dir, 'isa_features.h'),
                      opcode_header + generate_isa_feature(isa_feature_patterns))
 
 
