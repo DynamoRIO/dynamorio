@@ -243,6 +243,32 @@ test_store_source(void)
     instr_destroy(GD, in);
 }
 
+static void
+test_isa_features(void)
+{
+    const uint raw[] = {
+        0x0b010000, /* add %w0 %w1 lsl $0x00 -> %w0 : BASE */
+        0xc5d57c04, /* ldff1d (%x0,%z21.d,sxtw)[32byte] %p7/z -> %z4.d : SVE */
+    };
+
+    size_t instr_count = sizeof(raw) / sizeof(uint);
+    const uint expected_features[] = {
+        ISA_FEAT_BASE,
+        ISA_FEAT_SVE,
+    };
+
+    byte *pc = (byte *)raw;
+    for (size_t i = 0; i < instr_count; i++) {
+        instr_t instr;
+        instr_init(GD, &instr);
+        instr_set_raw_bits(&instr, pc, 4);
+        uint feat = instr_get_isa_feature(pc, &instr);
+        ASSERT(feat == expected_features[i]);
+        pc += 4;
+        instr_free(GD, &instr);
+    }
+}
+
 int
 main()
 {
@@ -255,6 +281,8 @@ main()
     test_categories();
 
     test_store_source();
+
+    test_isa_features();
 
     print("done\n");
 
