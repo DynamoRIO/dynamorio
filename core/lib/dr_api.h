@@ -92,6 +92,9 @@ extern "C" {
 /* opcode OP_ constants and opcode-only routines */
 #include "dr_ir_opcodes.h" // IWYU pragma: export
 
+/* ISA feture ISA_FEAT_ constants */
+#include "dr_ir_isa_features.h" // IWYU pragma: export
+
 /* CREATE_INSTR_ macros */
 #include "dr_ir_macros.h" // IWYU pragma: export
 
