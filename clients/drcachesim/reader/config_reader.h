@@ -43,6 +43,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "options.h"
 #include "cache_simulator_create.h"
@@ -94,7 +95,7 @@ struct cache_params_t {
     // op_replace_policy (see ../common/options.cpp).
     std::string replace_policy;
     // Parameters of cache replacement policy
-    cache_replacement_policy_config_t *replace_policy_config;
+    std::unique_ptr<cache_replacement_policy_config_t> replace_policy_config;
     // Type of prefetcher as described by the runtime option
     // op_data_prefetcher (see ../common/options.cpp).
     std::string prefetcher;

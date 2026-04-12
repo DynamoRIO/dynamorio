@@ -42,8 +42,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-static cache_params_t
-find_cache(const std::map<std::string, cache_params_t> &caches, std::string name)
+static const cache_params_t &
+find_cache(const std::map<std::string, cache_params_t> &caches, const std::string &name)
 {
     auto cache_it = caches.find(name);
     if (cache_it == caches.end()) {
@@ -60,7 +60,7 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
             std::string parent_, std::string replace_policy, std::string prefetcher,
             std::string miss_file)
 {
-    auto cache = find_cache(caches, name);
+    const auto &cache = find_cache(caches, name);
     if (cache.type != type || cache.core != core || cache.size != size ||
         cache.assoc != assoc || cache.inclusive != inclusive || cache.parent != parent_ ||
         cache.replace_policy != replace_policy || cache.prefetcher != prefetcher ||
@@ -319,7 +319,7 @@ unit_test_replacement_policy()
             exit(1);
         }
 
-        auto cache_L1 = find_cache(caches, "L1");
+        const auto &cache_L1 = find_cache(caches, "L1");
         if (cache_L1.replace_policy != "LRU") {
             std::cerr
                 << "drcachesim config_reader_test failed (simple; wrong replace_policy "
@@ -333,7 +333,7 @@ unit_test_replacement_policy()
             exit(1);
         }
 
-        auto cache_L2 = find_cache(caches, "L2");
+        const auto &cache_L2 = find_cache(caches, "L2");
         if (cache_L2.replace_policy != "RRIP") {
             std::cerr << "drcachesim config_reader_test failed (wrong replace_policy "
                       << cache_L2.replace_policy << " for cache " << cache_L2.name
@@ -362,7 +362,7 @@ unit_test_replacement_policy()
             exit(1);
         }
 
-        auto cache_L1 = find_cache(caches, "L1");
+        const auto &cache_L1 = find_cache(caches, "L1");
         if (cache_L1.replace_policy != "LRU") {
             std::cerr
                 << "drcachesim config_reader_test failed (simple; wrong replace_policy "
@@ -376,7 +376,7 @@ unit_test_replacement_policy()
             exit(1);
         }
 
-        auto cache_L2 = find_cache(caches, "L2");
+        const auto &cache_L2 = find_cache(caches, "L2");
         if (cache_L2.replace_policy != "RRIP") {
             std::cerr << "drcachesim config_reader_test failed (wrong replace_policy "
                       << cache_L2.replace_policy << " for cache " << cache_L2.name
@@ -407,7 +407,7 @@ unit_test_replacement_policy()
             exit(1);
         }
 
-        auto cache_L2 = find_cache(caches, "L2");
+        const auto &cache_L2 = find_cache(caches, "L2");
         if (cache_L2.replace_policy != "RRIP") {
             std::cerr << "drcachesim config_reader_test failed (wrong replace_policy "
                       << cache_L2.replace_policy << " for cache " << cache_L2.name
@@ -420,7 +420,8 @@ unit_test_replacement_policy()
                       << cache_L2.name << ")\n";
             exit(1);
         }
-        auto rrip_config = dynamic_cast<rrip_config_t *>(cache_L2.replace_policy_config);
+        const auto &rrip_config =
+            dynamic_cast<rrip_config_t *>(cache_L2.replace_policy_config.get());
         if (rrip_config->rrpv_bits != 2 || rrip_config->rrpv_period != 32 ||
             rrip_config->rrpv_long_per_period != 3) {
             std::cerr << "drcachesim config_reader_test failed (wrong "

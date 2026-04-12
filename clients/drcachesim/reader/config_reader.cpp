@@ -216,15 +216,15 @@ configure_cache(const config_t &params, cache_params_t *cache)
                 if (cache->replace_policy == REPLACE_POLICY_RRIP &&
                     p.second.children.size() > 1) {
                     // Read configuration of the RRIP replacement policy.
-                    rrip_config_t *rrip_conf = new rrip_config_t();
-                    if (!configure_rrip_policy(p.second.children, rrip_conf)) {
+                    std::unique_ptr<rrip_config_t> rrip_conf { new rrip_config_t() };
+                    if (!configure_rrip_policy(p.second.children, rrip_conf.get())) {
                         ERRMSG("Failed to read RRIP replacement policy parameters at "
                                "line %d "
                                "column %d\n",
                                p.second.val_line, p.second.val_column);
                         return false;
                     }
-                    cache->replace_policy_config = rrip_conf;
+                    cache->replace_policy_config = std::move(rrip_conf);
                 }
             } else
 

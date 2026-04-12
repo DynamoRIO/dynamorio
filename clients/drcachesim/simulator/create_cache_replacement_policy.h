@@ -44,9 +44,9 @@ namespace drmemtrace {
 
 /// Initializes and returns a specific replacement policy.
 std::unique_ptr<cache_replacement_policy_t>
-create_cache_replacement_policy(const std::string &policy, int num_sets,
-                                int associativity,
-                                cache_replacement_policy_config_t *config = nullptr);
+create_cache_replacement_policy(
+    const std::string &policy, int num_sets, int associativity,
+    std::unique_ptr<cache_replacement_policy_config_t> config = nullptr);
 
 } // namespace drmemtrace
 } // namespace dynamorio
