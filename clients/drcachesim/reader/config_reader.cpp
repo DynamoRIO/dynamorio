@@ -226,13 +226,13 @@ configure_cache(const config_t &params, cache_params_t *cache)
                     }
                     cache->replace_policy_config = std::move(rrip_conf);
                 }
-            } else
-
+            } else {
                 // Replacement policy specified by name
                 if (!parse_param_value_or_fail(p.first, p.second,
                                                &cache->replace_policy)) {
                     return false;
                 }
+            }
             if (cache->replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
                 cache->replace_policy != REPLACE_POLICY_LRU &&
                 cache->replace_policy != REPLACE_POLICY_LFU &&
