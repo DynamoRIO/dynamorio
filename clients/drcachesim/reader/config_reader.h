@@ -46,7 +46,7 @@
 
 #include "options.h"
 #include "cache_simulator_create.h"
-#include "create_cache_replacement_policy.h"
+#include "cache_replacement_policy_config.h"
 
 namespace dynamorio {
 namespace drmemtrace {
