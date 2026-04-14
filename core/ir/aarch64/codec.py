@@ -544,7 +544,7 @@ def generate_opcode_opnd_pairs(patterns):
           '#endif /* DR_OPCODE_OPND_PAIRS_H */']
     return '\n'.join(c) + '\n'
 
-def generate_isa_feature(patterns):
+def generate_isa_features(patterns):
     c = ['#ifndef _DR_IR_ISA_FEATURES_AARCH64_H_',
          '#define _DR_IR_ISA_FEATURES_AARCH64_H_ 1',
          '',
@@ -572,13 +572,35 @@ def generate_isa_feature(patterns):
             isa_feature_enum_value += 1
         except KeyError:
             pass
-    c += ['',
-          '};',
+    c += ['};',
           '',
           '/******************************'
           '**********************************************/',
           '',
           '#endif /* _DR_IR_ISA_FEATURES_AARCH64_H */']
+    return '\n'.join(c) + '\n'
+
+def generate_isa_feature_names(patterns):
+    c = ['#ifndef ISA_FEATURE_NAMES_AARCH64_H',
+         '#define ISA_FEATURES_NAMES_AARCH64_H 1',
+         '',
+         'const char *isa_feature_names[] = {',
+          '/*   0 */ "<invalid>",',
+          '/*   1 */ "<unknown>",']
+    # Positions 0 and 1 are reserved, so we start from 2.
+    isa_feature_enum_value = 2
+    # Create a set to remove duplicates and sort the values to keep the order of features
+    # deterministic. Note that sorted() returns an ordered list.
+    isa_feature_list = sorted(set([pattern.feat for pattern in patterns]))
+    for isa_feature in isa_feature_list:
+        try:
+            c.append('/*{:>4} */ "{}",'.format(isa_feature_enum_value, isa_feature))
+            isa_feature_enum_value += 1
+        except KeyError:
+            pass
+    c += ['};',
+          '',
+          '#endif /* ISA_FEATURE_NAMES_AARCH64_H */']
     return '\n'.join(c) + '\n'
 
 def write_if_changed(file, data):
@@ -804,7 +826,9 @@ def main():
     write_if_changed(os.path.join(output_dir, 'opcode_opnd_pairs.h'),
                      opcode_header + generate_opcode_opnd_pairs(opcode_opnd_pairs_patterns))
     write_if_changed(os.path.join(output_dir, 'isa_features.h'),
-                     opcode_header + generate_isa_feature(isa_feature_patterns))
+                     opcode_header + generate_isa_features(isa_feature_patterns))
+    write_if_changed(os.path.join(output_dir, 'isa_feature_names.h'),
+                     opcode_header + generate_isa_feature_names(isa_feature_patterns))
 
 
 if __name__ == '__main__':
