@@ -273,7 +273,7 @@ test_isa_features(void)
         ASSERT(pc != NULL);
         uint instr_isa_feat = instr_get_isa_feature(pc, instr);
         ASSERT(instr_isa_feat == expected_instr_isa_features[i]);
-        const char *instr_isa_feat_name = get_isa_feature_name(instr_isa_feat);
+        const char *instr_isa_feat_name = instr_get_isa_feature_name(instr_isa_feat);
         ASSERT(strncmp(instr_isa_feat_name, expected_instr_isa_feature_names[i],
                        BUFFER_SIZE_BYTES(expected_instr_isa_feature_names[i])) == 0);
         instr_reset(GD, instr);
