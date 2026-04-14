@@ -577,16 +577,17 @@ def generate_isa_features(patterns):
           '/******************************'
           '**********************************************/',
           '',
-          '#endif /* _DR_IR_ISA_FEATURES_AARCH64_H */']
+          '#endif /* _DR_IR_ISA_FEATURES_AARCH64_H_ */']
     return '\n'.join(c) + '\n'
 
 def generate_isa_feature_names(patterns):
     c = ['#ifndef ISA_FEATURE_NAMES_AARCH64_H',
-         '#define ISA_FEATURES_NAMES_AARCH64_H 1',
+         '#define ISA_FEATURE_NAMES_AARCH64_H 1',
          '',
          'const char *isa_feature_names[] = {',
           '/*   0 */ "<invalid>",',
-          '/*   1 */ "<unknown>",']
+          '/*   1 */ "<unknown>",',
+         '']
     # Positions 0 and 1 are reserved, so we start from 2.
     isa_feature_enum_value = 2
     # Create a set to remove duplicates and sort the values to keep the order of features
