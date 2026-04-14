@@ -247,23 +247,26 @@ static void
 test_isa_features(void)
 {
     const uint raw_instr_encodings[] = {
-        0x12020000, /* int, and %w0 $0x40000000 -> %w0 */
-        0x0b010000, /* add %w0 %w1 lsl $0x00 -> %w0 : BASE */
-        0xc5d57c04, /* ldff1d (%x0,%z21.d,sxtw)[32byte] %p7/z -> %z4.d : SVE */
+        0x12020000, /* int, and %w0 $0x40000000 -> %w0 : ISA_FEAT_BASE */
+        0x0b010000, /* add %w0 %w1 lsl $0x00 -> %w0 : ISA_FEAT_BASE */
+        0xc5d57c04, /* ldff1d (%x0,%z21.d,sxtw)[32byte] %p7/z -> %z4.d : ISA_FEAT_SVE */
+        0xa401a421, /* ld1b   +0x10(%x1)[1byte] %p1/z -> %z1.b : ISA_FEAT_SVE */
+        0xe400e000, /* st1b   %z0.b %p0 -> (%x0)[1byte] : ISA_FEAT_SVE */
     };
 
     const uint expected_instr_isa_features[] = {
-        ISA_FEAT_BASE,
-        ISA_FEAT_BASE,
-        ISA_FEAT_SVE,
+        ISA_FEAT_BASE, ISA_FEAT_BASE, ISA_FEAT_SVE, ISA_FEAT_SVE, ISA_FEAT_SVE,
     };
 
-    byte *pc = NULL;
-    for (size_t i = 0; i < BUFFER_SIZE_ELEMENTS(raw_instr_encodings); i++) {
+    constexpr size_t NUM_INSTRS = BUFFER_SIZE_ELEMENTS(raw_instr_encodings);
+    constexpr size_t NUM_ISA_FEATURES = BUFFER_SIZE_ELEMENTS(expected_instr_isa_features);
+    ASSERT(NUM_INSTRS == NUM_ISA_FEATURES);
+
+    for (size_t i = 0; i < ; i++) {
         instr_noalloc_t noalloc;
         instr_noalloc_init(GD, &noalloc);
         instr_t *instr = instr_from_noalloc(&noalloc);
-        pc = decode(GD, (byte *)&raw_instr_encodings[i], instr);
+        byte *pc = decode(GD, (byte *)&raw_instr_encodings[i], instr);
         ASSERT(pc != NULL);
         uint instr_isa_feat = instr_get_isa_feature(pc, instr);
         ASSERT(instr_isa_feat == expected_instr_isa_features[i]);
