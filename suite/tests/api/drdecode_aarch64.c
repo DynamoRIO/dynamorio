@@ -290,8 +290,7 @@ test_isa_features(void)
         GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
         opnd_create_immed_uint(0, OPSZ_1), opnd_create_immed_uint(0, OPSZ_1b));
     uint isa_feat_sve = instr_get_isa_feature(NULL, instr_sve);
-    ASSERT(isa_feat_sve == FEAT_ISA_SVE)
-)
+    ASSERT(isa_feat_sve == ISA_FEAT_SVE);
 }
 
 int
