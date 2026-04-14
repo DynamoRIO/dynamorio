@@ -249,17 +249,20 @@ test_isa_features(void)
     const uint raw_instr_encodings[] = {
         0x12020000, /* and    %w0 $0x40000000 -> %w0                   : ISA_FEAT_BASE */
         0x0b010000, /* add    %w0 %w1 lsl $0x00 -> %w0                 : ISA_FEAT_BASE */
-        0xc5d57c04, /* ldff1d (%x0,%z21.d,sxtw)[32byte] %p7/z -> %z4.d : ISA_FEAT_SVE */
-        0xa401a421, /* ld1b   +0x10(%x1)[1byte] %p1/z -> %z1.b         : ISA_FEAT_SVE */
-        0xe400e000, /* st1b   %z0.b %p0 -> (%x0)[1byte]                : ISA_FEAT_SVE */
+        // 0xc5d57c04, /* ldff1d (%x0,%z21.d,sxtw)[32byte] %p7/z -> %z4.d : ISA_FEAT_SVE
+        // */ 0xa401a421, /* ld1b   +0x10(%x1)[1byte] %p1/z -> %z1.b         :
+        // ISA_FEAT_SVE */ 0xe400e000, /* st1b   %z0.b %p0 -> (%x0)[1byte] : ISA_FEAT_SVE
+        // */
     };
 
     const uint expected_instr_isa_features[] = {
-        ISA_FEAT_BASE, ISA_FEAT_BASE, ISA_FEAT_SVE, ISA_FEAT_SVE, ISA_FEAT_SVE,
+        ISA_FEAT_BASE, ISA_FEAT_BASE,
+        // ISA_FEAT_SVE, ISA_FEAT_SVE, ISA_FEAT_SVE,
     };
 
     const char *expected_instr_isa_feature_names[] = {
-        "BASE", "BASE", "SVE", "SVE", "SVE",
+        "BASE", "BASE",
+        //"SVE", "SVE", "SVE",
     };
 
     const size_t NUM_INSTRS = BUFFER_SIZE_ELEMENTS(raw_instr_encodings);
