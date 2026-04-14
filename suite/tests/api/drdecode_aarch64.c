@@ -258,7 +258,8 @@ test_isa_features(void)
         ISA_FEAT_SVE,
     };
 
-    for (size_t i = 0; i < BUFFER_SIZE_ELEMENTS(raw); i++) {
+    byte *pc = NULL;
+    for (size_t i = 0; i < BUFFER_SIZE_ELEMENTS(raw_instr_encodings); i++) {
         instr_noalloc_t noalloc;
         instr_noalloc_init(GD, &noalloc);
         instr_t *instr = instr_from_noalloc(&noalloc);
