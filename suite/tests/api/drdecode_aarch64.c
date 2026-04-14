@@ -246,44 +246,28 @@ test_store_source(void)
 static void
 test_isa_features(void)
 {
-    byte buf[128];
-    byte *end;
-    instr_t *to_encode = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_X0),
-                                           OPND_CREATE_MEMPTR(DR_REG_X0, 0));
-    end = instr_encode(GD, to_encode, buf);
-    uint feat = instr_get_isa_feature(buf, to_encode);
-    print("F %u\n", feat);
-    instr_destroy(GD, to_encode);
-
-    instr_noalloc_t noalloc;
-    instr_noalloc_init(GD, &noalloc);
-    instr_t *instr = instr_from_noalloc(&noalloc);
-    pc = decode(GD, buf, instr);
-    uint feat2 = instr_get_isa_feature(pc, instr);
-    print("F_from_decode %u\n", feat2);
-
-    const uint raw[] = {
+    const uint raw_instr_encodings[] = {
         0x12020000, /* int, and %w0 $0x40000000 -> %w0 */
         0x0b010000, /* add %w0 %w1 lsl $0x00 -> %w0 : BASE */
         0xc5d57c04, /* ldff1d (%x0,%z21.d,sxtw)[32byte] %p7/z -> %z4.d : SVE */
     };
 
-    size_t instr_count = sizeof(raw) / sizeof(uint);
-    const uint expected_features[] = {
+    const uint expected_instr_isa_features[] = {
+        ISA_FEAT_BASE,
         ISA_FEAT_BASE,
         ISA_FEAT_SVE,
     };
 
     byte *pc = (byte *)raw;
-    for (size_t i = 0; i < instr_count; i++) {
-        instr_t instr;
-        instr_init(GD, &instr);
-        instr_set_raw_bits(&instr, pc, 4);
-        uint feat = instr_get_isa_feature(pc, &instr);
-        print("f %u ef %u\n", feat, expected_features[i]);
-        ASSERT(feat == expected_features[i]);
-        pc += 4;
-        instr_free(GD, &instr);
+    for (size_t i = 0; i < BUFFER_SIZE_ELEMENTS(raw); i++) {
+        instr_noalloc_t noalloc;
+        instr_noalloc_init(GD, &noalloc);
+        instr_t *instr = instr_from_noalloc(&noalloc);
+        pc = decode(GD, (byte *)raw_instr_encodings[i], instr);
+        ASSERT(pc != NULL);
+        uint instr_isa_feat = instr_get_isa_feature(pc, instr);
+        ASSERT(instr_isa_feat == expected_instr_isa_features[i]);
+        instr_reset(GD, instr);
     }
 }
 
