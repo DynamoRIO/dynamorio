@@ -263,7 +263,7 @@ test_isa_features(void)
         instr_noalloc_t noalloc;
         instr_noalloc_init(GD, &noalloc);
         instr_t *instr = instr_from_noalloc(&noalloc);
-        pc = decode(GD, (byte *)raw_instr_encodings[i], instr);
+        pc = decode(GD, (byte *)&raw_instr_encodings[i], instr);
         ASSERT(pc != NULL);
         uint instr_isa_feat = instr_get_isa_feature(pc, instr);
         ASSERT(instr_isa_feat == expected_instr_isa_features[i]);
