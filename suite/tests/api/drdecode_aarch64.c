@@ -258,24 +258,28 @@ test_isa_features(void)
         ISA_FEAT_BASE, ISA_FEAT_BASE, ISA_FEAT_SVE, ISA_FEAT_SVE, ISA_FEAT_SVE,
     };
 
-    const char *expected_instr_isa_feature_names[] = { "BASE", "BASE", "SVE", "SVE",
-                                                       "SVE" };
+    const char *expected_instr_isa_feature_names[] = {
+        "BASE", "BASE", "SVE", "SVE", "SVE",
+    };
 
     const size_t NUM_INSTRS = BUFFER_SIZE_ELEMENTS(raw_instr_encodings);
     const size_t NUM_ISA_FEATURES = BUFFER_SIZE_ELEMENTS(expected_instr_isa_features);
     ASSERT(NUM_INSTRS == NUM_ISA_FEATURES);
 
+    const size_t MAX_STRNCMP_MATCH_LENGTH = 512;
+    byte *pc = NULL;
+    instr_noalloc_t noalloc;
+    instr_noalloc_init(GD, &noalloc);
+    instr_t *instr = instr_from_noalloc(&noalloc);
     for (size_t i = 0; i < NUM_INSTRS; i++) {
-        instr_noalloc_t noalloc;
-        instr_noalloc_init(GD, &noalloc);
-        instr_t *instr = instr_from_noalloc(&noalloc);
-        byte *pc = decode(GD, (byte *)&raw_instr_encodings[i], instr);
+        pc = decode(GD, (byte *)&raw_instr_encodings[i], instr);
         ASSERT(pc != NULL);
         uint instr_isa_feat = instr_get_isa_feature(pc, instr);
         ASSERT(instr_isa_feat == expected_instr_isa_features[i]);
         const char *instr_isa_feat_name = instr_get_isa_feature_name(instr_isa_feat);
         ASSERT(strncmp(instr_isa_feat_name, expected_instr_isa_feature_names[i],
-                       strnlen(expected_instr_isa_feature_names[i], 512)) == 0);
+                       strnlen(expected_instr_isa_feature_names[i],
+                               MAX_STRNCMP_MATCH_LENGTH)) == 0);
         instr_reset(GD, instr);
     }
 }
