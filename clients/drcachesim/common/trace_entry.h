@@ -752,6 +752,32 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
 
+    /**
+     * This marker is used to indicate an occurrence of a discontinuity in regular
+     * execution flow caused by an exception or interrupt.  It is used in traces that
+     * record the hardware thread view of events; it is loosely similar to the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker that is used to
+     * indicate discontinuities due to user signals in the regular software view
+     * traces.  The value of this marker contains the program counter at the
+     * interruption point.  If the interruption point is just after a branch, this
+     * value is the target of that branch.
+     */
+    TRACE_MARKER_TYPE_HARDWARE_EVENT,
+
+    /**
+     * This marker is used to indicate an occurrence of a hardware context return
+     * event, such as an eret on AArch64 or iret on x86.  Such instructions perform
+     * various implicit operations, which may include restoring state, and modifying
+     * the exception/ring level.  It is used in traces that record the hardware
+     * thread view of events; it is loosely similar to the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_XFER marker that is used to
+     * indicate control transfers out of user signal handlers in the regular
+     * software view traces.  Note that multiple instances of this marker may
+     * match to a prior #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT
+     * marker.
+     */
+    TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -1160,6 +1186,16 @@ typedef enum {
      * hence encoding size and instruction fetch size may not match.
      */
     OFFLINE_FILE_TYPE_ARCH_REGDEPS = 0x20000,
+    /**
+     * Trace that denotes the hardware view of events.  Such traces are derived from
+     * techniques that see the hardware thread centric view, such as Intel-PT, ETM, and
+     * QEMU-TCG, which is unlike regular drmemtraces that see the software thread centric
+     * view.  Such traces have additional trace entries that are only relevant to them,
+     * such as the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT and
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers.  They
+     * may not support all the features available in the regular drmemtraces.
+     */
+    OFFLINE_FILE_TYPE_HARDWARE_VIEW = 0x40000,
     /**
      * All possible architecture types, including synthetic ones.
      */
