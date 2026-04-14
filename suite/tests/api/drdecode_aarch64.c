@@ -258,11 +258,11 @@ test_isa_features(void)
         ISA_FEAT_BASE, ISA_FEAT_BASE, ISA_FEAT_SVE, ISA_FEAT_SVE, ISA_FEAT_SVE,
     };
 
-    constexpr size_t NUM_INSTRS = BUFFER_SIZE_ELEMENTS(raw_instr_encodings);
-    constexpr size_t NUM_ISA_FEATURES = BUFFER_SIZE_ELEMENTS(expected_instr_isa_features);
+    const size_t NUM_INSTRS = BUFFER_SIZE_ELEMENTS(raw_instr_encodings);
+    const size_t NUM_ISA_FEATURES = BUFFER_SIZE_ELEMENTS(expected_instr_isa_features);
     ASSERT(NUM_INSTRS == NUM_ISA_FEATURES);
 
-    for (size_t i = 0; i < ; i++) {
+    for (size_t i = 0; i < NUM_INSTRS; i++) {
         instr_noalloc_t noalloc;
         instr_noalloc_init(GD, &noalloc);
         instr_t *instr = instr_from_noalloc(&noalloc);
