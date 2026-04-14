@@ -697,10 +697,6 @@ instr_branch_type(instr_t *cti_instr);
 const char *
 get_opcode_name(int opc);
 #endif
-#if defined(AARCH64)
-const char *
-get_isa_feature_name(uint isa_feature);
-#endif
 /* these routines can assume that instr's opcode is valid */
 bool
 instr_is_call_arch(instr_t *instr);

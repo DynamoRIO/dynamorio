@@ -244,7 +244,7 @@ struct _instr_t {
 
     /* Used to hold the relative offset within an instruction list when encoding. */
     size_t offset;
-};     /* instr_t */
+}; /* instr_t */
 #endif /* DR_FAST_IR */
 
 /**
@@ -1865,10 +1865,19 @@ instr_get_category_name(dr_instr_category_t category);
 
 DR_API
 /**
- * Performs an encoding walk and returns the ISA_FEAT_ enum.
+ * Performs an encoding walk and returns the ISA_FEAT_ constant.
  */
 uint
 instr_get_isa_feature(byte *pc, instr_t *instr);
+
+DR_API
+/**
+ * Assumes \p isa_feature is a ISA_FEAT_ constant.
+ * See inst_get_isa_feature().
+ * Returns \p isa_feature name in string format.
+ */
+const char *
+instr_get_isa_feature_name(uint isa_feature);
 
 DR_API
 /**

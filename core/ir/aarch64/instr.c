@@ -897,7 +897,7 @@ instr_get_isa_feature(byte *pc, instr_t *instr)
 }
 
 const char *
-get_isa_feature_name(uint isa_feature)
+instr_get_isa_feature_name(uint isa_feature)
 {
     return isa_feature_names[isa_feature];
 }
