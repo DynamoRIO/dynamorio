@@ -247,22 +247,22 @@ static void
 test_isa_features(void)
 {
     const uint raw_instr_encodings[] = {
-        0x12020000, /* and    %w0 $0x40000000 -> %w0                   : ISA_FEAT_BASE */
-        0x0b010000, /* add    %w0 %w1 lsl $0x00 -> %w0                 : ISA_FEAT_BASE */
-        // 0xc5d57c04, /* ldff1d (%x0,%z21.d,sxtw)[32byte] %p7/z -> %z4.d : ISA_FEAT_SVE
-        // */ 0xa401a421, /* ld1b   +0x10(%x1)[1byte] %p1/z -> %z1.b         :
-        // ISA_FEAT_SVE */ 0xe400e000, /* st1b   %z0.b %p0 -> (%x0)[1byte] : ISA_FEAT_SVE
-        // */
+        0x12020000, /* and %w0 $0x40000000   -> %w0 : ISA_FEAT_BASE */
+        0x0b010000, /* add %w0 %w1 lsl $0x00 -> %w0 : ISA_FEAT_BASE */
     };
 
+    /* We can only reliably test the BASE ISA feature here, as we are not using the
+     * standalone decoder, so the machine this test runs on would need to have the
+     * required feature (e.g., SVE) to decode the instr_t first.
+     */
     const uint expected_instr_isa_features[] = {
-        ISA_FEAT_BASE, ISA_FEAT_BASE,
-        // ISA_FEAT_SVE, ISA_FEAT_SVE, ISA_FEAT_SVE,
+        ISA_FEAT_BASE,
+        ISA_FEAT_BASE,
     };
 
     const char *expected_instr_isa_feature_names[] = {
-        "BASE", "BASE",
-        //"SVE", "SVE", "SVE",
+        "BASE",
+        "BASE",
     };
 
     const size_t NUM_INSTRS = BUFFER_SIZE_ELEMENTS(raw_instr_encodings);
@@ -285,6 +285,13 @@ test_isa_features(void)
                                MAX_STRNCMP_MATCH_LENGTH)) == 0);
         instr_reset(GD, instr);
     }
+
+    instr_t *instr_sve = INSTR_CREATE_add_sve_shift(
+        GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
+        opnd_create_immed_uint(0, OPSZ_1), opnd_create_immed_uint(0, OPSZ_1b));
+    uint isa_feat_sve = instr_get_isa_feature(NULL, instr_sve);
+    ASSERT(isa_feat_sve == FEAT_ISA_SVE)
+)
 }
 
 int
