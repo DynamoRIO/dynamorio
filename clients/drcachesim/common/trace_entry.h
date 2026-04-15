@@ -771,13 +771,14 @@ typedef enum {
      * the exception/ring level.  It is used in traces that record the whole
      * system view of events; it is loosely similar to the
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_XFER marker that is used to
-     * indicate control transfers out of user signal handlers via sigreturn in the
-     * regular user-mode view traces, and other control-altering syscalls.  Note that
-     * multiple instances of this marker may match to a prior
-     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT marker.  Note that this
-     * may not be present on other cases that changes the privilege level (e.g., far
-     * branch on x86; syscall gateways). The marker value does not hold any information
-     * currently.
+     * indicate control-altering syscalls which includes user event (UNIX signal,
+     * Windows callback, exception, or APC) handler returns that match up to prior
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT markers in the
+     * regular user-mode view traces.  Note that multiple instances of this marker may
+     * match to a single prior #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT
+     * marker.  Note that this may not be present on other cases that change the
+     * privilege level (e.g., far branch on x86; syscall gateways). The marker value
+     * does not hold any information currently.
      */
     TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN,
 
