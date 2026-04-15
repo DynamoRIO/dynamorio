@@ -322,12 +322,16 @@ typedef enum {
      * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
      * A signal handler is optionally further identified by a subsequent marker
      * of type #TRACE_MARKER_TYPE_SIGNAL_NUMBER.
+     * This marker will not be present in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
      * The subsequent instruction is the target of a system call that changes the
      * context: a signal return on UNIX, or a callback return or NtContinue or
      * NtSetContextThread on Windows.
+     * This marker will not be present in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.
      */
     TRACE_MARKER_TYPE_KERNEL_XFER,
     // XXX i#5634: Add 64-bit marker value support to 32-bit to avoid truncating.
@@ -754,7 +758,8 @@ typedef enum {
 
     /**
      * This marker is used to indicate an occurrence of a discontinuity in regular
-     * execution flow caused by an exception or interrupt.  It is used in traces that
+     * execution flow caused by an exception or interrupt, in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  It is used in traces that
      * record the whole-system view of events; it is loosely similar to the
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker that is used to
      * indicate discontinuities due to user signals in the regular user-mode view
@@ -766,7 +771,8 @@ typedef enum {
 
     /**
      * This marker is used to indicate an occurrence of a hardware context return
-     * event, such as an eret on AArch64 or iret on x86.  Such instructions perform
+     * event, such as an eret on AArch64 or iret on x86, in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  Such instructions perform
      * various implicit operations, which may include restoring state, and modifying
      * the exception/ring level.  It is used in traces that record the whole
      * system view of events; it is loosely similar to the
