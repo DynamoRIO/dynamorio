@@ -320,7 +320,7 @@ test_isa_features(void)
     instr = INSTR_CREATE_aesd_sve(GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
                                   opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1));
     isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
-    ASSERT(isa_feat == ISA_FEAT_SVE);
+    ASSERT(isa_feat == ISA_FEAT_SVE2);
     ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE2", strlen("SVE2")) == 0);
     instr_destroy(GD, instr);
 }
