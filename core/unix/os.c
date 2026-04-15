@@ -4314,8 +4314,8 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     } else {
         void *app_tls = os_get_app_tls_base(dcontext, TLS_REG_LIB);
         LOG(THREAD, LOG_THREADS, 1,
-            "dr_create_client_thread parent tid " TIDFMT " app_tls=" PFX
-            " our_tls=" PFX "\n",
+            "dr_create_client_thread parent tid " TIDFMT " app_tls=" PFX " our_tls=" PFX
+            "\n",
             d_r_get_thread_id(), app_tls, our_tls);
         if (app_tls != NULL)
             our_tls = app_tls;

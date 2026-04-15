@@ -565,9 +565,8 @@ privload_tls_init(void *app_tp, bool use_safe_read)
                     size_to_copy = region_end - app_start;
                 }
             } else {
-                LOG(GLOBAL, LOG_LOADER, 1,
-                    "%s: no readable region for app_tp " PFX "\n", __FUNCTION__,
-                    app_tp);
+                LOG(GLOBAL, LOG_LOADER, 1, "%s: no readable region for app_tp " PFX "\n",
+                    __FUNCTION__, app_tp);
                 ASSERT(false);
             }
         }
