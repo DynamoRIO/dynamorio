@@ -273,24 +273,45 @@ test_isa_features(void)
     byte *pc = NULL;
     instr_noalloc_t noalloc;
     instr_noalloc_init(GD, &noalloc);
-    instr_t *instr = instr_from_noalloc(&noalloc);
+    instr_t *instr_to_reuse = instr_from_noalloc(&noalloc);
     for (size_t i = 0; i < NUM_INSTRS; i++) {
-        pc = decode(GD, (byte *)&raw_instr_encodings[i], instr);
+        pc = decode(GD, (byte *)&raw_instr_encodings[i], instr_to_reuse);
         ASSERT(pc != NULL);
-        uint instr_isa_feat = instr_get_isa_feature(pc, instr);
+        uint instr_isa_feat = instr_get_isa_feature(pc, instr_to_reuse);
         ASSERT(instr_isa_feat == expected_instr_isa_features[i]);
         const char *instr_isa_feat_name = instr_get_isa_feature_name(instr_isa_feat);
         ASSERT(strncmp(instr_isa_feat_name, expected_instr_isa_feature_names[i],
                        strnlen(expected_instr_isa_feature_names[i],
                                MAX_STRNCMP_MATCH_LENGTH)) == 0);
-        instr_reset(GD, instr);
+        instr_reset(GD, instr_to_reuse);
     }
 
-    instr_t *instr_sve = INSTR_CREATE_add_sve_shift(
+    uint unused_buf = 0;
+    instr_t *instr = NULL;
+    uint isa_feat = 0;
+
+    instr = INSTR_CREATE_sqrdmlsh_scalar(GD, opnd_create_reg(DR_REG_H0),
+                                         opnd_create_reg(DR_REG_H0),
+                                         opnd_create_reg(DR_REG_H0));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_LSE);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "LSE", strlen("LSE")));
+    instr_destroy(GD, instr);
+
+    instr = INSTR_CREATE_add_sve_shift(
         GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
         opnd_create_immed_uint(0, OPSZ_1), opnd_create_immed_uint(0, OPSZ_1b));
-    uint isa_feat_sve = instr_get_isa_feature(NULL, instr_sve);
-    ASSERT(isa_feat_sve == ISA_FEAT_SVE);
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_SVE);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE", strlen("SVE")));
+    instr_destroy(GD, instr);
+
+    instr = INSTR_CREATE_aesd_sve(GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
+                                  opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_SVE);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE2", strlen("SVE2")));
+    instr_destroy(GD, instr);
 }
 
 int
