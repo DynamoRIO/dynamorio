@@ -289,7 +289,7 @@ test_isa_features(void)
     /* We test additional ISA features by directly creating the instruction for it. */
     uint unused_buf = 0;
     instr_t *instr = NULL;
-    uint isa_feat = 0;
+    uint isa_feat = ISA_FEAT_INVALID;
 
     /* ISA feature defined in core/ir/aarch64/codec_v81.txt. */
     instr = INSTR_CREATE_sqrdmlsh_scalar(GD, opnd_create_reg(DR_REG_H0),
