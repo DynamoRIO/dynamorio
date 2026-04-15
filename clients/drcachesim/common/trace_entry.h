@@ -755,7 +755,7 @@ typedef enum {
     /**
      * This marker is used to indicate an occurrence of a discontinuity in regular
      * execution flow caused by an exception or interrupt.  It is used in traces that
-     * record the hardware view of events; it is loosely similar to the
+     * record the whole-system view of events; it is loosely similar to the
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker that is used to
      * indicate discontinuities due to user signals in the regular user-mode view
      * traces.  The value of this marker contains the program counter at the
@@ -768,8 +768,8 @@ typedef enum {
      * This marker is used to indicate an occurrence of a hardware context return
      * event, such as an eret on AArch64 or iret on x86.  Such instructions perform
      * various implicit operations, which may include restoring state, and modifying
-     * the exception/ring level.  It is used in traces that record the hardware
-     * view of events; it is loosely similar to the
+     * the exception/ring level.  It is used in traces that record the whole
+     * system view of events; it is loosely similar to the
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_XFER marker that is used to
      * indicate control transfers out of user signal handlers via sigreturn in the
      * regular user-mode view traces, and other control-altering syscalls.  Note that
