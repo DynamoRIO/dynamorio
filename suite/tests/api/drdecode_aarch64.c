@@ -246,15 +246,15 @@ test_store_source(void)
 static void
 test_isa_features(void)
 {
+    /* We can only reliably test the BASE ISA feature with raw encodings, as we are not
+     * using the standalone decoder, so the machine this test runs on would need to have
+     * the required feature (e.g., SVE) to decode the instr_t first.
+     */
     const uint raw_instr_encodings[] = {
         0x12020000, /* and %w0 $0x40000000   -> %w0 : ISA_FEAT_BASE */
         0x0b010000, /* add %w0 %w1 lsl $0x00 -> %w0 : ISA_FEAT_BASE */
     };
 
-    /* We can only reliably test the BASE ISA feature here, as we are not using the
-     * standalone decoder, so the machine this test runs on would need to have the
-     * required feature (e.g., SVE) to decode the instr_t first.
-     */
     const uint expected_instr_isa_features[] = {
         ISA_FEAT_BASE,
         ISA_FEAT_BASE,
@@ -286,18 +286,28 @@ test_isa_features(void)
         instr_reset(GD, instr_to_reuse);
     }
 
+    /* We test additional ISA features by directly creating the instruction for it. */
     uint unused_buf = 0;
     instr_t *instr = NULL;
     uint isa_feat = 0;
 
+    /* ISA feature defined in core/ir/aarch64/codec_v81.txt. */
     instr = INSTR_CREATE_sqrdmlsh_scalar(GD, opnd_create_reg(DR_REG_H0),
                                          opnd_create_reg(DR_REG_H0),
                                          opnd_create_reg(DR_REG_H0));
     isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
-    ASSERT(isa_feat == ISA_FEAT_LSE);
-    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "LSE", strlen("LSE")));
+    ASSERT(isa_feat == ISA_FEAT_RDM);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "RDM", strlen("RDM")));
     instr_destroy(GD, instr);
 
+    /* ISA feature defined in core/ir/aarch64/codec_v85.txt. */
+    instr = INSTR_CREATE_bti(GD, opnd_create_immed_uint(0, OPSZ_3b));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_BTI);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "BTI", strlen("BTI")));
+    instr_destroy(GD, instr);
+
+    /* ISA feature defined in core/ir/aarch64/codec_sve.txt. */
     instr = INSTR_CREATE_add_sve_shift(
         GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
         opnd_create_immed_uint(0, OPSZ_1), opnd_create_immed_uint(0, OPSZ_1b));
@@ -306,6 +316,7 @@ test_isa_features(void)
     ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE", strlen("SVE")));
     instr_destroy(GD, instr);
 
+    /* ISA feature defined in core/ir/aarch64/codec_sve2.txt. */
     instr = INSTR_CREATE_aesd_sve(GD, opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1),
                                   opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1));
     isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
