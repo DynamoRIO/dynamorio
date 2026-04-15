@@ -1190,15 +1190,17 @@ typedef enum {
      */
     OFFLINE_FILE_TYPE_ARCH_REGDEPS = 0x20000,
     /**
-     * Trace that denotes the hardware view of events.  Such traces are derived from
+     * Trace that denotes the whole-system view of events.  Such traces are derived from
      * techniques that see the hardware centric view, such as Intel-PT, ETM, and
      * QEMU-TCG, which is unlike regular drmemtraces that see the user mode centric
-     * view.  Such traces have additional trace entries that are only relevant to them,
+     * view.  They may include events from the user and kernel components of the traced
+     * system, representing the target application and other user/kernel processes on the
+     * system. Such traces have additional trace entries that are only relevant to them,
      * such as the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT and
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers.  They
      * may not support all the features available in the regular drmemtraces.
      */
-    OFFLINE_FILE_TYPE_HARDWARE_VIEW = 0x40000,
+    OFFLINE_FILE_TYPE_WHOLE_SYSTEM = 0x40000,
     /**
      * All possible architecture types, including synthetic ones.
      */
