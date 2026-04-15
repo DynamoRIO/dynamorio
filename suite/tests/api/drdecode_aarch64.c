@@ -297,14 +297,14 @@ test_isa_features(void)
                                          opnd_create_reg(DR_REG_H0));
     isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
     ASSERT(isa_feat == ISA_FEAT_RDM);
-    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "RDM", strlen("RDM")));
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "RDM", strlen("RDM")) == 0);
     instr_destroy(GD, instr);
 
     /* ISA feature defined in core/ir/aarch64/codec_v85.txt. */
     instr = INSTR_CREATE_bti(GD, opnd_create_immed_uint(0, OPSZ_3b));
     isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
     ASSERT(isa_feat == ISA_FEAT_BTI);
-    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "BTI", strlen("BTI")));
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "BTI", strlen("BTI")) == 0);
     instr_destroy(GD, instr);
 
     /* ISA feature defined in core/ir/aarch64/codec_sve.txt. */
@@ -313,7 +313,7 @@ test_isa_features(void)
         opnd_create_immed_uint(0, OPSZ_1), opnd_create_immed_uint(0, OPSZ_1b));
     isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
     ASSERT(isa_feat == ISA_FEAT_SVE);
-    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE", strlen("SVE")));
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE", strlen("SVE")) == 0);
     instr_destroy(GD, instr);
 
     /* ISA feature defined in core/ir/aarch64/codec_sve2.txt. */
@@ -321,7 +321,7 @@ test_isa_features(void)
                                   opnd_create_reg_element_vector(DR_REG_Z0, OPSZ_1));
     isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
     ASSERT(isa_feat == ISA_FEAT_SVE);
-    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE2", strlen("SVE2")));
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "SVE2", strlen("SVE2")) == 0);
     instr_destroy(GD, instr);
 }
 
