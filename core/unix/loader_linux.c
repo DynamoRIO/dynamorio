@@ -542,6 +542,35 @@ privload_tls_init(void *app_tp, bool use_safe_read)
          */
         size_to_copy = ALIGN_BACKWARD(dr_start + client_tls_alloc_size, PAGE_SIZE) -
             (ptr_uint_t)dr_start;
+        if (app_tp != NULL) {
+            byte *tp_map_base = NULL;
+            size_t tp_map_size = 0;
+            uint prot = MEMPROT_NONE;
+            /* Only copy the valid mapped memory of app_tp (pointer to TCB/TLS block). */
+            if (get_memory_info_from_os((byte *)app_tp, &tp_map_base, &tp_map_size,
+                                        &prot) &&
+                TEST(MEMPROT_READ, prot)) {
+                byte *region_end = tp_map_base + tp_map_size;
+                if (app_start < tp_map_base) {
+                    size_t delta = tp_map_base - app_start;
+                    if (delta >= size_to_copy)
+                        size_to_copy = 0;
+                    else {
+                        app_start = tp_map_base;
+                        dr_start += delta;
+                        size_to_copy -= delta;
+                    }
+                }
+                if (app_start + size_to_copy > region_end) {
+                    size_to_copy = region_end - app_start;
+                }
+            } else {
+                LOG(GLOBAL, LOG_LOADER, 1,
+                    "%s: no readable region for app_tp " PFX "\n", __FUNCTION__,
+                    app_tp);
+                ASSERT(false);
+            }
+        }
     }
 #endif
     if (app_tp != NULL) {

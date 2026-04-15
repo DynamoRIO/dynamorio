@@ -4312,6 +4312,13 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     if (INTERNAL_OPTION(private_loader)) {
         write_thread_register(NULL);
     } else {
+        void *app_tls = os_get_app_tls_base(dcontext, TLS_REG_LIB);
+        LOG(THREAD, LOG_THREADS, 1,
+            "dr_create_client_thread parent tid " TIDFMT " app_tls=" PFX
+            " our_tls=" PFX "\n",
+            d_r_get_thread_id(), app_tls, our_tls);
+        if (app_tls != NULL)
+            our_tls = app_tls;
         /* Try to leverage privload TLS setup to ensure the client thread has
          * some TLS in place in case it invokes some app code (though client-safe
          * code is better, in some cases it is a big advantage to be able to run
