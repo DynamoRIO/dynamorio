@@ -36,6 +36,7 @@
 #include "tools/basic_counts.h"
 #include "memref_gen.h"
 
+#include <cinttypes>
 #include <vector>
 
 namespace dynamorio {
