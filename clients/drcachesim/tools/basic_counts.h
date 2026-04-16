@@ -290,7 +290,7 @@ protected:
                 const std::pair<memref_tid_t, per_shard_t *> &r);
     void
     print_counters(const counters_t &counters, const std::string &prefix,
-                   bool for_kernel_trace = false);
+                   bool for_kernel_trace = false, bool for_whole_system_trace = false);
     void
     compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 

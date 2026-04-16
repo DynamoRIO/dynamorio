@@ -278,7 +278,7 @@ basic_counts_t::cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
 
 void
 basic_counts_t::print_counters(const counters_t &counters, const std::string &prefix,
-                               bool for_kernel_trace)
+                               bool for_kernel_trace, bool for_whole_system_trace)
 {
     std::cerr << std::setw(12) << counters.instrs << prefix
               << " (fetched) instructions\n";
@@ -286,7 +286,7 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
         std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
                   << " unique (fetched) instructions\n";
     }
-    if (for_kernel_trace) {
+    if (for_kernel_trace || for_whole_system_trace) {
         std::cerr << std::setw(12) << counters.user_instrs << prefix
                   << " userspace instructions\n";
         std::cerr << std::setw(12) << counters.kernel_instrs << prefix
@@ -294,7 +294,7 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
     }
     std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
               << " non-fetched instructions\n";
-    if (for_kernel_trace) {
+    if (for_kernel_trace || for_whole_system_trace) {
         std::cerr << std::setw(12) << counters.user_nofetch_instrs << prefix
                   << " non-fetched userspace instructions\n";
         std::cerr << std::setw(12) << counters.kernel_nofetch_instrs << prefix
@@ -318,8 +318,12 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
     std::cerr << std::setw(12) << counters.wait_markers << prefix << " wait markers\n";
     std::cerr << std::setw(12) << counters.xfer_markers << prefix
               << " kernel transfer markers\n";
-    std::cerr << std::setw(12) << counters.hardware_xfer_markers << prefix
-              << " hardware transfer markers\n";
+    if (for_whole_system_trace) {
+        // These markers are seen only in OFFLINE_FILE_TYPE_WHOLE_SYSTEM traces, so
+        // we skip them in the output altogether if they're not relevant.
+        std::cerr << std::setw(12) << counters.hardware_xfer_markers << prefix
+                  << " hardware transfer markers\n";
+    }
     std::cerr << std::setw(12) << counters.func_id_markers << prefix
               << " function id markers\n";
     std::cerr << std::setw(12) << counters.func_retaddr_markers << prefix
@@ -350,6 +354,7 @@ basic_counts_t::print_results()
     }
 
     bool for_kernel_trace = false;
+    bool for_whole_system_trace = false;
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
             total += ctr;
@@ -360,6 +365,10 @@ basic_counts_t::print_results()
                     shard.second->filetype_)) {
             for_kernel_trace = true;
         }
+        if (!for_whole_system_trace &&
+            TESTANY(OFFLINE_FILE_TYPE_WHOLE_SYSTEM, shard.second->filetype_)) {
+            for_whole_system_trace = true;
+        }
     }
     // Print kernel data if context switches were inserted.
     if (total.kernel_instrs > 0)
@@ -367,7 +376,7 @@ basic_counts_t::print_results()
     total.shard_count = shard_map_.size();
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
-    print_counters(total, TOTAL_COUNT_PREFIX, for_kernel_trace);
+    print_counters(total, TOTAL_COUNT_PREFIX, for_kernel_trace, for_whole_system_trace);
 
     if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
@@ -375,8 +384,8 @@ basic_counts_t::print_results()
             std::cerr << "Window #" << i << ":\n";
             for (const auto &shard : shard_map_) {
                 if (shard.second->counters.size() > i) {
-                    print_counters(shard.second->counters[i], " window",
-                                   for_kernel_trace);
+                    print_counters(shard.second->counters[i], " window", for_kernel_trace,
+                                   for_whole_system_trace);
                 }
             }
         }
@@ -391,7 +400,8 @@ basic_counts_t::print_results()
             std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
         else
             std::cerr << "Core " << keyvals.second->core << " counts:\n";
-        print_counters(keyvals.second->counters[0], "", for_kernel_trace);
+        print_counters(keyvals.second->counters[0], "", for_kernel_trace,
+                       for_whole_system_trace);
     }
 
     // TODO i#3599: also print thread-per-window stats.
