@@ -97,11 +97,9 @@ test_hardware_xfer_marker_counts()
 int
 test_main(int argc, const char *argv[])
 {
-    dr_standalone_init();
     if (!test_hardware_xfer_marker_counts())
         return 1;
     fprintf(stderr, "All done!\n");
-    dr_standalone_exit();
     return 0;
 }
 
