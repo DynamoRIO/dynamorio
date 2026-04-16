@@ -1201,9 +1201,10 @@ typedef enum {
      * techniques that see the hardware centric view, such as Intel-PT, ETM, and
      * QEMU-TCG, which is unlike regular drmemtraces that see the user mode centric
      * view.  They may include events from the user and kernel components of the traced
-     * system, representing the target application and other user/kernel processes on the
-     * system. Such traces have additional trace entries that are only relevant to them,
-     * such as the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT and
+     * system, representing the target application and possibly other user/kernel
+     * processes on the system. Such traces have additional trace entries that are only
+     * relevant to them, such as the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT and
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers.  They
      * may not support all the features available in the regular drmemtraces.
      */
