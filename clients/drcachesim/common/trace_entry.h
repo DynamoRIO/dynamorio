@@ -322,12 +322,16 @@ typedef enum {
      * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
      * A signal handler is optionally further identified by a subsequent marker
      * of type #TRACE_MARKER_TYPE_SIGNAL_NUMBER.
+     * This marker will not be present in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
      * The subsequent instruction is the target of a system call that changes the
      * context: a signal return on UNIX, or a callback return or NtContinue or
      * NtSetContextThread on Windows.
+     * This marker will not be present in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.
      */
     TRACE_MARKER_TYPE_KERNEL_XFER,
     // XXX i#5634: Add 64-bit marker value support to 32-bit to avoid truncating.
@@ -752,6 +756,38 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_MIDBLOCK_END_PC,
 
+    /**
+     * This marker is used to indicate an occurrence of a discontinuity in regular
+     * execution flow caused by an exception or interrupt, in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  It is used in traces that
+     * record the whole-system view of events; it is loosely similar to the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker that is used to
+     * indicate discontinuities due to user signals in the regular user-mode view
+     * traces.  The value of this marker contains the program counter at the
+     * interruption point.  If the interruption point is just after a branch, this
+     * value is the target of that branch.
+     */
+    TRACE_MARKER_TYPE_HARDWARE_EVENT,
+
+    /**
+     * This marker is used to indicate an occurrence of a hardware context return
+     * event, such as an eret on AArch64 or iret on x86, in traces with the
+     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  Such instructions perform
+     * various implicit operations, which may include restoring state, and modifying
+     * the exception/ring level.  It is used in traces that record the whole
+     * system view of events; it is loosely similar to the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_XFER marker that is used to
+     * indicate control-altering syscalls which includes user event (UNIX signal,
+     * Windows callback, exception, or APC) handler returns that match up to prior
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT markers in the
+     * regular user-mode view traces.  Note that multiple instances of this marker may
+     * match to a single prior #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT
+     * marker.  Note that this may not be present on other cases that change the
+     * privilege level (e.g., far branch on x86; syscall gateways). The marker value
+     * does not hold any information currently.
+     */
+    TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -1160,6 +1196,19 @@ typedef enum {
      * hence encoding size and instruction fetch size may not match.
      */
     OFFLINE_FILE_TYPE_ARCH_REGDEPS = 0x20000,
+    /**
+     * Trace that denotes the whole-system view of events.  Such traces are derived from
+     * techniques that see the hardware centric view, such as Intel-PT, ETM, and
+     * QEMU-TCG, which is unlike regular drmemtraces that see the user mode centric
+     * view.  They may include events from the user and kernel components of the traced
+     * system, representing the target application and possibly other user/kernel
+     * processes on the system. Such traces have additional trace entries that are only
+     * relevant to them, such as the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT and
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers.  They
+     * may not support all the features available in the regular drmemtraces.
+     */
+    OFFLINE_FILE_TYPE_WHOLE_SYSTEM = 0x40000,
     /**
      * All possible architecture types, including synthetic ones.
      */
