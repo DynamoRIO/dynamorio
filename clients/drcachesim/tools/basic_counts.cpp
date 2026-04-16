@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -173,6 +173,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                    memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
             ++counters->xfer_markers;
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+                   memref.marker.marker_type ==
+                       TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+            ++counters->hardware_xfer_markers;
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
             ++counters->idle_markers;
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
@@ -314,6 +318,8 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
     std::cerr << std::setw(12) << counters.wait_markers << prefix << " wait markers\n";
     std::cerr << std::setw(12) << counters.xfer_markers << prefix
               << " kernel transfer markers\n";
+    std::cerr << std::setw(12) << counters.hardware_xfer_markers << prefix
+              << " hardware transfer markers\n";
     std::cerr << std::setw(12) << counters.func_id_markers << prefix
               << " function id markers\n";
     std::cerr << std::setw(12) << counters.func_retaddr_markers << prefix

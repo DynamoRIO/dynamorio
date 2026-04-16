@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -458,6 +458,13 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // ISA.
             std::cerr << "<marker: uncompleted instruction, encoding 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_HARDWARE_EVENT:
+            std::cerr << "<marker: hardware xfer from 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << " to handler>\n";
+            break;
+        case TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN:
+            std::cerr << "<marker: hardware context return\n";
             break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "

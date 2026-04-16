@@ -980,6 +980,17 @@ if (BUILD_TESTS)
       ${test_seconds})
   endif ()
 
+  add_executable(tool.drcacheoff.wholesys_trace_analysis_tests
+                 tests/wholesys_trace_analysis_tests.cpp)
+  configure_DynamoRIO_standalone(tool.drcacheoff.wholesys_trace_analysis_tests)
+  add_win32_flags(tool.drcacheoff.wholesys_trace_analysis_tests ON)
+  target_link_libraries(tool.drcacheoff.wholesys_trace_analysis_tests
+    drmemtrace_basic_counts test_helpers)
+  add_test(NAME tool.drcacheoff.wholesys_trace_analysis_tests
+           COMMAND tool.drcacheoff.wholesys_trace_analysis_tests)
+  set_tests_properties(tool.drcacheoff.wholesys_trace_analysis_tests PROPERTIES TIMEOUT
+    ${test_seconds})
+
   add_executable(tool.drcacheoff.trace_interval_analysis_unit_tests
                  tests/trace_interval_analysis_unit_tests.cpp)
   add_win32_flags(tool.drcacheoff.trace_interval_analysis_unit_tests ON)

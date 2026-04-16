@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -106,6 +106,7 @@ public:
             idle_markers += rhs.idle_markers;
             wait_markers += rhs.wait_markers;
             xfer_markers += rhs.xfer_markers;
+            hardware_xfer_markers += rhs.hardware_xfer_markers;
             func_id_markers += rhs.func_id_markers;
             func_retaddr_markers += rhs.func_retaddr_markers;
             func_arg_markers += rhs.func_arg_markers;
@@ -141,6 +142,7 @@ public:
             idle_markers -= rhs.idle_markers;
             wait_markers -= rhs.wait_markers;
             xfer_markers -= rhs.xfer_markers;
+            hardware_xfer_markers -= rhs.hardware_xfer_markers;
             func_id_markers -= rhs.func_id_markers;
             func_retaddr_markers -= rhs.func_retaddr_markers;
             func_arg_markers -= rhs.func_arg_markers;
@@ -176,6 +178,7 @@ public:
                 stores == rhs.stores && sched_markers == rhs.sched_markers &&
                 idle_markers == rhs.idle_markers && wait_markers == rhs.wait_markers &&
                 xfer_markers == rhs.xfer_markers &&
+                hardware_xfer_markers == rhs.hardware_xfer_markers &&
                 func_id_markers == rhs.func_id_markers &&
                 func_retaddr_markers == rhs.func_retaddr_markers &&
                 func_arg_markers == rhs.func_arg_markers &&
@@ -202,7 +205,8 @@ public:
         int64_t sched_markers = 0; // Timestamps and cpuids.
         int64_t idle_markers = 0;
         int64_t wait_markers = 0;
-        int64_t xfer_markers = 0; // Kernel transfers.
+        int64_t xfer_markers = 0;          // Kernel transfers.
+        int64_t hardware_xfer_markers = 0; // Hardware transfers.
         int64_t func_id_markers = 0;
         int64_t func_retaddr_markers = 0;
         int64_t func_arg_markers = 0;
