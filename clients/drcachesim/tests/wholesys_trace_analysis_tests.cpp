@@ -67,7 +67,7 @@ run_basic_counts(const std::vector<memref_t> &memrefs)
 }
 
 static bool
-test_hardware_xfer_markers()
+test_hardware_xfer_marker_counts()
 {
     std::vector<memref_t> memrefs = {
         gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
@@ -84,9 +84,10 @@ test_hardware_xfer_markers()
         gen_exit(TID_A),
     };
     basic_counts_t::counters_t counts = run_basic_counts(memrefs);
+    int64_t expected_hardware_xfer_markers = 3;
     if (counts.hardware_xfer_markers != 3) {
-        fprintf(stderr, "Expected 3 hardware xfer markers, found %ld\n",
-                counts.hardware_xfer_markers);
+        fprintf(stderr, "Expected %ld hardware xfer markers, found %ld\n",
+                expected_hardware_xfer_markers, counts.hardware_xfer_markers);
         return false;
     }
     fprintf(stderr, "test_hardware_xfer_markers passed\n");
@@ -97,7 +98,7 @@ int
 test_main(int argc, const char *argv[])
 {
     dr_standalone_init();
-    if (!test_hardware_xfer_markers())
+    if (!test_hardware_xfer_marker_counts())
         return 1;
     fprintf(stderr, "All done!\n");
     dr_standalone_exit();
