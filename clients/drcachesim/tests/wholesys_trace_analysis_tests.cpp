@@ -86,7 +86,7 @@ test_hardware_xfer_marker_counts()
     basic_counts_t::counters_t counts = run_basic_counts(memrefs);
     int64_t expected_hardware_xfer_markers = 3;
     if (counts.hardware_xfer_markers != expected_hardware_xfer_markers) {
-        fprintf(stderr, "Expected %ld hardware xfer markers, found %ld\n",
+        fprintf(stderr, "Expected %" PRId64 " hardware xfer markers, found %" PRId64 "\n",
                 expected_hardware_xfer_markers, counts.hardware_xfer_markers);
         return false;
     }
