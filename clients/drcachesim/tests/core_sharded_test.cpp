@@ -185,13 +185,31 @@ Core [0-9] counts:
             dir.c_str(), "-cores",        "11",    "-cpu_schedule_file", cpu_file.c_str()
         };
         std::string output = run_analyzer(sizeof(args) / sizeof(args[0]), args);
-        assert(std::regex_search(output, std::regex(R"DELIM(Basic counts tool results:
+        // We're sharding into 11 cores which creates an output string which is
+        // apparently too large for our std::regex_search below (i#7858), so we try to
+        // reduce the haystack by extracting only the relevant stats from the full
+        // output.
+        // The last line in the total stats or stats for any core.
+        constexpr char kLastStats[] = " encodings\n";
+        std::size_t total_stats_end_index = output.find(kLastStats);
+        assert(total_stats_end_index != std::string::npos);
+        std::string total_stats =
+            output.substr(0, total_stats_end_index + strlen(kLastStats));
+        assert(
+            std::regex_search(total_stats, std::regex(R"DELIM(Basic counts tool results:
 Total counts:
       650576 total \(fetched\) instructions
 (.|\n)*
            9 total threads
 (.|\n)*
-Core 8 counts:
+)DELIM")));
+        std::size_t core_8_onwards_stats_index = output.find("Core 8 counts");
+        assert(core_8_onwards_stats_index != std::string::npos);
+        std::string core_8_onwards_stats = output.substr(core_8_onwards_stats_index);
+        std::size_t core_8_stats_index = core_8_onwards_stats.find(kLastStats);
+        std::string core_8_stats =
+            core_8_onwards_stats.substr(0, core_8_stats_index + strlen(kLastStats));
+        assert(std::regex_search(core_8_stats, std::regex(R"DELIM(Core 8 counts:
       156381 \(fetched\) instructions
 (.|\n)*
            1 threads
