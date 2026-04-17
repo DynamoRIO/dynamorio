@@ -51,6 +51,9 @@ namespace drmemtrace {
 void
 disable_popups();
 
+instr_t *
+create_test_syscall(void *drcontext);
+
 } // namespace drmemtrace
 } // namespace dynamorio
 

@@ -30,6 +30,9 @@
  * DAMAGE.
  */
 
+#include "test_helpers.h"
+#include "dr_api.h"
+
 #ifdef WINDOWS
 #    ifndef WIN32_LEAN_AND_MEAN
 #        define WIN32_LEAN_AND_MEAN
@@ -85,6 +88,23 @@ disable_popups()
     // Nothing to do.
 }
 #endif
+
+instr_t *
+create_test_syscall(void *drcontext)
+{
+    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
+    // complexities (xref create_syscall_instr()).
+#ifdef X86
+    return INSTR_CREATE_syscall(drcontext);
+#elif defined(AARCHXX)
+    return INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+#elif defined(RISCV64)
+    return INSTR_CREATE_ecall(drcontext);
+#else
+    DR_ASSERT_MSG(false, "create_test_syscall: Unsupported architecture");
+    return nullptr;
+#endif
+}
 
 #ifndef NO_HELPER_MAIN
 // The test implements this.

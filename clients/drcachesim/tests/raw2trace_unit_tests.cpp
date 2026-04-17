@@ -1063,17 +1063,7 @@ test_duplicate_syscalls(void *drcontext)
     instr_t *nop = XINST_CREATE_nop(drcontext);
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
-    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
-    // complexities (xref create_syscall_instr()).
-#ifdef X86
-    instr_t *sys = INSTR_CREATE_syscall(drcontext);
-#elif defined(AARCHXX)
-    instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#elif defined(RISCV64)
-    instr_t *sys = INSTR_CREATE_ecall(drcontext);
-#else
-#    error Unsupported architecture.
-#endif
+    instr_t *sys = create_test_syscall(drcontext);
 #ifdef X86_32
     unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR_SYSENTER;
 #else
@@ -1170,17 +1160,7 @@ test_false_syscalls(void *drcontext)
     instr_t *nop = XINST_CREATE_nop(drcontext);
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
-    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
-    // complexities (xref create_syscall_instr()).
-#    ifdef X86
-    instr_t *sys = INSTR_CREATE_syscall(drcontext);
-#    elif defined(AARCHXX)
-    instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#    elif defined(RISCV64)
-    instr_t *sys = INSTR_CREATE_ecall(drcontext);
-#    else
-#        error Unsupported architecture.
-#    endif
+    instr_t *sys = create_test_syscall(drcontext);
 #    ifdef X86_32
     unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR_SYSENTER;
 #    else
@@ -1285,17 +1265,7 @@ test_syscall_with_interleaving_markers(void *drcontext)
     instr_t *nop = XINST_CREATE_nop(drcontext);
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
-    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
-    // complexities (xref create_syscall_instr()).
-#    ifdef X86
-    instr_t *sys = INSTR_CREATE_syscall(drcontext);
-#    elif defined(AARCHXX)
-    instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#    elif defined(RISCV64)
-    instr_t *sys = INSTR_CREATE_ecall(drcontext);
-#    else
-#        error Unsupported architecture.
-#    endif
+    instr_t *sys = create_test_syscall(drcontext);
 #    ifdef X86_32
     unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR_SYSENTER;
 #    else
@@ -3646,17 +3616,7 @@ test_syscall_injection(void *drcontext)
     instr_t *nop = XINST_CREATE_nop(drcontext);
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
-    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
-    // complexities (xref create_syscall_instr()).
-#ifdef X86
-    instr_t *sys = INSTR_CREATE_syscall(drcontext);
-#elif defined(AARCHXX)
-    instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#elif defined(RISCV64)
-    instr_t *sys = INSTR_CREATE_ecall(drcontext);
-#else
-#    error Unsupported architecture.
-#endif
+    instr_t *sys = create_test_syscall(drcontext);
 #ifdef X86_32
     unsigned short expected_syscall_instr_type = TRACE_TYPE_INSTR_SYSENTER;
 #else
