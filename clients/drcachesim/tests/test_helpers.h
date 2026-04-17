@@ -43,6 +43,8 @@
 
 #ifdef __cplusplus
 
+#include "dr_api.h"
+
 namespace dynamorio {
 namespace drmemtrace {
 
