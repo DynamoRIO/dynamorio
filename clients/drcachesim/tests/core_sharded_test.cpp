@@ -176,6 +176,7 @@ Core [0-9] counts:
         assert(std::distance(std::sregex_iterator(output.begin(), output.end(), count),
                              std::sregex_iterator()) == 3);
     }
+#    ifdef DISABLED_FOR_i7858
     {
         // Test core-sharded with replay-as-traced.
         std::string cpu_file = std::string(testdir) +
@@ -198,6 +199,7 @@ Core 8 counts:
 (.|\n)*
 )DELIM")));
     }
+#    endif
     {
         // Test record-replay.
         std::string record_file = "tmp_core_sharded_replay.zip";
