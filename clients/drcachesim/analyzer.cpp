@@ -67,6 +67,17 @@
 #endif
 #include "common/utils.h"
 
+#undef VPRINT
+// Make printing available in release build by not using ifdef DEBUG here.
+// The usefulness for diagnostics outweighs any overhead from extra branches.
+#define VPRINT(analyzer, level, ...)                            \
+    do {                                                        \
+        if ((analyzer)->verbosity_ >= (level)) {                \
+            fprintf(stderr, "%s ", (analyzer)->output_prefix_); \
+            fprintf(stderr, __VA_ARGS__);                       \
+        }                                                       \
+    } while (0)
+
 namespace dynamorio {
 namespace drmemtrace {
 
