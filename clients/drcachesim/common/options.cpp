@@ -1348,5 +1348,15 @@ droption_t<int> op_scale_timeouts(
     "timing among application threads in the presence of significant slowdowns from "
     "tracing.");
 
+droption_t<double> op_max_load_imbalance(
+    DROPTION_SCOPE_ALL, "max_load_imbalance", 2.5, 1.,
+    (std::numeric_limits<double>::max)(),
+    "Keep fastest/slowest core ratio below this for dynamic scheduling",
+    "This applies only to dynamic core-sharded scheduling. The activity (the sum "
+    "of instructions and idles) on each core is monitored and if the ratio of the "
+    "highest activity to the lowest activity rises above this ratio then the worker "
+    "thread for the highest activity core is paused until the ratio drops below "
+    "this value. A value of 1. or below disables the feature.");
+
 } // namespace drmemtrace
 } // namespace dynamorio
