@@ -206,10 +206,10 @@ Total counts:
         std::size_t core_8_onwards_stats_index = output.find("Core 8 counts");
         assert(core_8_onwards_stats_index != std::string::npos);
         std::string core_8_onwards_stats = output.substr(core_8_onwards_stats_index);
-        std::size_t core_8_stats_index = core_8_onwards_stats.find(kLastStats);
-        assert(core_8_stats_index != std::string::npos);
+        std::size_t core_8_stats_end_index = core_8_onwards_stats.find(kLastStats);
+        assert(core_8_stats_end_index != std::string::npos);
         std::string core_8_stats =
-            core_8_onwards_stats.substr(0, core_8_stats_index + strlen(kLastStats));
+            core_8_onwards_stats.substr(0, core_8_stats_end_index + strlen(kLastStats));
         assert(std::regex_search(core_8_stats, std::regex(R"DELIM(Core 8 counts:
       156381 \(fetched\) instructions
 (.|\n)*
