@@ -4324,7 +4324,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
          * code is better, in some cases it is a big advantage to be able to run
          * some limited app code in a static-DR setup).
          */
-        void *child_tls = privload_tls_init(our_tls, false);
+        void *child_tls = privload_tls_init(our_tls, /*use_safe_read=*/ false);
         write_thread_register(child_tls);
         byte **dr_tls_base_addr = (byte **)get_dr_tls_base_addr();
         ASSERT(dr_tls_base_addr != NULL);
@@ -4384,14 +4384,14 @@ typedef struct _ptrace_thread_events_t {
     event_t done;
 } ptrace_thread_events_t;
 
-/* Used by the ptrace_unmask_worker thread to scan all threads and clear
+/* Used by the ptrace_unmask_all_threads thread to scan all threads and clear
  * SUSPEND_SIGNAL from their sigmasks, before the normal signal based takeover
  * begins.
  */
 typedef struct _ptrace_unmask_state_t {
     ptrace_thread_events_t events;
     process_id_t target_pid;
-    thread_id_t skip_tid; /* ptrace_unmask_worker must not ptrace itself. */
+    thread_id_t skip_tid; /* ptrace_unmask_all_threads must not ptrace itself. */
     thread_id_t tracer_tid;
     int suspend_sig;
     bool success;
@@ -4431,8 +4431,8 @@ destroy_events(ptrace_thread_events_t *events)
 
 /* The PTRACE_{GET,SET}SIGMASK API requires a size argument but the size varies
  * by kernel and userspace ABI. ptrace_get_sigmask_with_size() and
- * ptrace_set_sigmask_cached() use 128 bytes (a safe upper bound for most Linux
- * ABIs) to probe several candidate sizes until one works. The size which works
+ * ptrace_set_sigmask() use 128 bytes (a safe upper bound for most Linux ABIs)
+ * to probe several candidate sizes until one works. The size which works
  * is cached in ptrace_sigmask_size.
  */
 #    define PTRACE_SIGMASK_MAX_SIZE 128
@@ -4440,29 +4440,6 @@ static size_t ptrace_sigmask_size;
 
 static void
 ptrace_takeover_record_set(thread_id_t tid, ptrace_takeover_param_t *param);
-
-/* sigset helpers to check and clear signal mask bits. See os_exports.h for
- * sizing of _NSIG_BPW and _NSIG_WORDS.
- */
-static inline bool
-kernel_sigset_has(kernel_sigset_t *set, int _sig)
-{
-    int sig = _sig - 1;
-    if (_NSIG_WORDS == 1)
-        return CAST_TO_bool(1 & (set->sig[0] >> sig));
-    else
-        return CAST_TO_bool(1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW)));
-}
-
-static inline void
-kernel_sigset_del(kernel_sigset_t *set, int _sig)
-{
-    uint sig = _sig - 1;
-    if (_NSIG_WORDS == 1)
-        set->sig[0] &= ~(1UL << sig);
-    else
-        set->sig[sig / _NSIG_BPW] &= ~(1UL << (sig % _NSIG_BPW));
-}
 
 /* Determine whether a given thread is blocked inside one of the signal waiting
  * syscalls: rt_sigwaitinfo, rt_sigtimedwait or rt_sigtimedwait_time64. If it
@@ -4522,7 +4499,7 @@ thread_in_sigtimedwait(thread_id_t tid, int suspend_sig, bool *is_in_set)
         size_t to_read = sigset_size;
         if (to_read) {
             if (d_r_safe_read((void *)(ptr_uint_t)sigset, to_read, &kset)) {
-                in_set = kernel_sigset_has(&kset, suspend_sig);
+                in_set = kernel_sigismember(&kset, suspend_sig);
             } else {
                 SYSLOG_INTERNAL_WARNING_ONCE("thread_in_sigtimedwait: failed to read "
                                              "sigset (tid=%d, ptr=%p, sigset_size=%zu)",
@@ -4609,7 +4586,7 @@ ptrace_get_sigmask_with_size(thread_id_t tid, size_t sz, kernel_sigset_t *mask)
 }
 
 static bool
-ptrace_get_sigmask_cached(thread_id_t tid, kernel_sigset_t *mask)
+ptrace_get_sigmask(thread_id_t tid, kernel_sigset_t *mask)
 {
     /* The PTRACE_{GET,SET}SIGMASK API requires a size argument but the size
      * varies by kernel and userspace ABI, see #define PTRACE_SIGMASK_MAX_SIZE
@@ -4631,14 +4608,14 @@ ptrace_get_sigmask_cached(thread_id_t tid, kernel_sigset_t *mask)
 }
 
 static bool
-ptrace_set_sigmask_cached(thread_id_t tid, kernel_sigset_t *mask)
+ptrace_set_sigmask(thread_id_t tid, kernel_sigset_t *mask)
 {
     byte buf[PTRACE_SIGMASK_MAX_SIZE];
     size_t sz = ptrace_sigmask_size;
     size_t to_copy;
     if (sz == 0) {
         kernel_sigset_t unused;
-        if (!ptrace_get_sigmask_cached(tid, &unused))
+        if (!ptrace_get_sigmask(tid, &unused))
             return false;
         sz = ptrace_sigmask_size;
         if (sz == 0)
@@ -4659,12 +4636,12 @@ ptrace_unmask_thread_sig(ptrace_unmask_state_t *state, thread_id_t tid)
     kernel_sigset_t mask;
     if (state->suspend_sig <= 0 || state->suspend_sig > MAX_SIGNUM)
         return false;
-    if (!ptrace_get_sigmask_cached(tid, &mask)) {
+    if (!ptrace_get_sigmask(tid, &mask)) {
         return false;
     }
-    if (kernel_sigset_has(&mask, state->suspend_sig)) {
-        kernel_sigset_del(&mask, state->suspend_sig);
-        if (!ptrace_set_sigmask_cached(tid, &mask)) {
+    if (kernel_sigismember(&mask, state->suspend_sig)) {
+        kernel_sigdelset(&mask, state->suspend_sig);
+        if (!ptrace_set_sigmask(tid, &mask)) {
             return false;
         }
     }
@@ -4672,13 +4649,14 @@ ptrace_unmask_thread_sig(ptrace_unmask_state_t *state, thread_id_t tid)
 }
 
 static void
-ptrace_unmask_worker(void *param)
+ptrace_unmask_all_threads(void *param)
 {
     ptrace_unmask_state_t *state = (ptrace_unmask_state_t *)param;
     dcontext_t *dcontext = get_thread_private_dcontext();
     uint num_threads = 0;
     thread_id_t *tids = NULL;
-    bool unmasked_thread_sig = false;
+    bool any_tids_attempted = false;
+    bool any_tids_failed = false;
 
     state->tracer_tid = d_r_get_thread_id();
     signal_event(state->events.ready);
@@ -4693,17 +4671,18 @@ ptrace_unmask_worker(void *param)
             if (!ptrace_attach_and_stop(tid, NULL)) {
                 continue;
             }
-            unmasked_thread_sig = ptrace_unmask_thread_sig(state, tid);
+
+            any_tids_attempted = true;
+            if (!ptrace_unmask_thread_sig(state, tid))
+                any_tids_failed = true;
+
             dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL);
         }
         HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT,
                         PROTECTED);
     }
 
-    if (unmasked_thread_sig)
-        state->success = true;
-    else
-        state->success = false;
+    state->success = (!any_tids_attempted || !any_tids_failed);
     signal_event(state->events.done);
 }
 
@@ -4916,7 +4895,7 @@ ptrace_takeover_thread(thread_id_t tid)
         sve_state = NULL;
         sve_state_size = 0;
     }
-    if (!ptrace_get_sigmask_cached(tid, &param->sigset)) {
+    if (!ptrace_get_sigmask(tid, &param->sigset)) {
         /* Best effort: leave sigset empty. */
         memset(&param->sigset, 0, sizeof(param->sigset));
     }
@@ -5025,7 +5004,7 @@ os_ptrace_takeover_threads(dcontext_t *dcontext, thread_id_t *tids, uint count)
     return ok;
 }
 
-/* This function creates a thread, ptrace_unmask_worker, which uses
+/* This function creates a thread, ptrace_unmask_all_threads, which uses
  * /proc/<pid>/task to list threads by PID, attaching and stopping each thread
  * with ptrace. PTRACE_{GETSIGMASK,SETSIGMASK} are used to clear SUSPEND_SIGNAL
  * from each thread’s blocked mask before detaching with ptrace.
@@ -5040,7 +5019,7 @@ os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
                             PROTECTED);
     memset(state, 0, sizeof(*state));
 
-    /* ptrace_unmask_worker thread synchronisation events and state data. */
+    /* ptrace_unmask_all_threadsthread synchronisation events and state data. */
     state->events.ready = create_event();
     state->events.go = create_event();
     state->events.done = create_event();
@@ -5048,7 +5027,7 @@ os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
     state->skip_tid = skip_tid;
     state->suspend_sig = suspend_signum;
 
-    if (!dr_create_client_thread(ptrace_unmask_worker, state)) {
+    if (!dr_create_client_thread(ptrace_unmask_all_threads, state)) {
         destroy_events(&state->events);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, state, ptrace_unmask_state_t, ACCT_THREAD_MGT,
                        PROTECTED);
