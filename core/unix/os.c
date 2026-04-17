@@ -4324,7 +4324,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
          * code is better, in some cases it is a big advantage to be able to run
          * some limited app code in a static-DR setup).
          */
-        void *child_tls = privload_tls_init(our_tls, /*use_safe_read=*/ false);
+        void *child_tls = privload_tls_init(our_tls, /*use_safe_read=*/false);
         write_thread_register(child_tls);
         byte **dr_tls_base_addr = (byte **)get_dr_tls_base_addr();
         ASSERT(dr_tls_base_addr != NULL);
