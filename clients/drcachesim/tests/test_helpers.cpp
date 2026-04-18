@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-#include "test_helpers.h"
 #include "dr_api.h"
 
 #ifdef WINDOWS

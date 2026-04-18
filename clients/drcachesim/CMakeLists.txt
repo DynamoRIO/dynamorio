@@ -426,6 +426,7 @@ install_client_nonDR_header(drmemtrace scheduler/flexible_queue.h)
 install_client_nonDR_header(drmemtrace scheduler/speculator.h)
 
 add_library(test_helpers STATIC tests/test_helpers.cpp)
+target_link_libraries(test_helpers drdecode)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
