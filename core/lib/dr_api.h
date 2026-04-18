@@ -92,7 +92,7 @@ extern "C" {
 /* opcode OP_ constants and opcode-only routines */
 #include "dr_ir_opcodes.h" // IWYU pragma: export
 
-/* ISA feture ISA_FEAT_ constants */
+/* ISA_FEAT_ constants for ISA features (e.g., SVE, SVE2) */
 #include "dr_ir_isa_features.h" // IWYU pragma: export
 
 /* CREATE_INSTR_ macros */
