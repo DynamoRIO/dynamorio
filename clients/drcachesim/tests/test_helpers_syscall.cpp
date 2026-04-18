@@ -47,8 +47,7 @@ create_test_syscall(void *drcontext)
 #elif defined(RISCV64)
     return INSTR_CREATE_ecall(drcontext);
 #else
-    DR_ASSERT_MSG(false, "create_test_syscall: Unsupported architecture");
-    return nullptr;
+#    error Unsupported architecture.
 #endif
 }
 
