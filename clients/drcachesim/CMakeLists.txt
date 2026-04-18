@@ -426,7 +426,6 @@ install_client_nonDR_header(drmemtrace scheduler/flexible_queue.h)
 install_client_nonDR_header(drmemtrace scheduler/speculator.h)
 
 add_library(test_helpers STATIC tests/test_helpers.cpp)
-target_link_libraries(test_helpers drdecode)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
@@ -896,7 +895,7 @@ if (BUILD_TESTS)
 
   # XXX i#3544 Make raw2trace_unit_tests compilable in RISCV64.
   if (NOT RISCV64)
-    add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
+    add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp tests/test_helpers_ir.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
     add_win32_flags(tool.drcacheoff.raw2trace_unit_tests ON)
     target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace
@@ -1055,11 +1054,12 @@ if (BUILD_TESTS)
     set_tests_properties(tool.drcachesim.miss_analyzer_unit_test PROPERTIES
       TIMEOUT ${test_seconds})
 
-    add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp)
+    add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp tests/test_helpers_ir.cpp)
     configure_DynamoRIO_standalone(tool.drcachesim.invariant_checker_test)
     add_win32_flags(tool.drcachesim.invariant_checker_test ON)
     target_link_libraries(tool.drcachesim.invariant_checker_test
         drmemtrace_static drmemtrace_analyzer drmemtrace_invariant_checker test_helpers)
+    use_DynamoRIO_extension(tool.drcachesim.invariant_checker_test drdecode)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
     set_tests_properties(tool.drcachesim.invariant_checker_test PROPERTIES
