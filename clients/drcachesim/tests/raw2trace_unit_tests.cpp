@@ -38,6 +38,7 @@
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
 #include "test_helpers.h"
+#include "test_helpers_syscall.h"
 #include <iostream>
 #include <sstream>
 

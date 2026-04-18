@@ -1,7 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Google, Inc.  All rights reserved.
  * **********************************************************/
-
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -20,7 +19,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,30 +29,28 @@
  * DAMAGE.
  */
 
-/* helpers.h: utilities for tests, along with compile-time checking for NDEBUG
- * for which we include this even in tests that do not use the other utilities here.
- */
-
-#ifndef _TEST_HELPERS_H_
-#define _TEST_HELPERS_H_
-
-#ifdef NDEBUG
-#    error NDEBUG should not be set for tests.
-#endif
-
-#ifdef __cplusplus
+#include "test_helpers_syscall.h"
+#include "dr_api.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-// Tests with a main() should use test_main() which calls this.  This is declared
-// separately for use with _tmain().
-void
-disable_popups();
+instr_t *
+create_test_syscall(void *drcontext)
+{
+    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
+    // complexities (xref create_syscall_instr()).
+#ifdef X86
+    return INSTR_CREATE_syscall(drcontext);
+#elif defined(AARCHXX)
+    return INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+#elif defined(RISCV64)
+    return INSTR_CREATE_ecall(drcontext);
+#else
+    DR_ASSERT_MSG(false, "create_test_syscall: Unsupported architecture");
+    return nullptr;
+#endif
+}
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#endif
-
-#endif /* _TEST_HELPERS_H_ */

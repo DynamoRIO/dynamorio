@@ -44,7 +44,7 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 #include "trace_entry.h"
-#include "test_helpers.h"
+#include "test_helpers_syscall.h"
 
 #ifdef LINUX
 #    include "../../core/unix/include/syscall_target.h"

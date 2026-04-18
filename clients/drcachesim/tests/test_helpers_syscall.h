@@ -28,25 +28,19 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
+
+#ifndef _TEST_HELPERS_SYSCALL_H_
+#define _TEST_HELPERS_SYSCALL_H_
+
 #include "dr_api.h"
-#include "test_helpers.h"
+
 namespace dynamorio {
 namespace drmemtrace {
+
 instr_t *
-create_test_syscall(void *drcontext)
-{
-    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
-    // complexities (xref create_syscall_instr()).
-#ifdef X86
-    return INSTR_CREATE_syscall(drcontext);
-#elif defined(AARCHXX)
-    return INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#elif defined(RISCV64)
-    return INSTR_CREATE_ecall(drcontext);
-#else
-    DR_ASSERT_MSG(false, "create_test_syscall: Unsupported architecture");
-    return nullptr;
-#endif
-}
+create_test_syscall(void *drcontext);
+
 } // namespace drmemtrace
 } // namespace dynamorio
+
+#endif /* _TEST_HELPERS_SYSCALL_H_ */
