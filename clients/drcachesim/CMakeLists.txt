@@ -711,7 +711,7 @@ macro(add_win32_flags target is_test)
     # with recent-C++-isms.
     get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
     if (NOT cur MATCHES "-std=")
-      append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++14")
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++17")
     endif ()
     if (DEBUG AND NOT cur MATCHES "-g")
       # We can't use restore_nonclient_flags() for clients, so we manually re-add debug
