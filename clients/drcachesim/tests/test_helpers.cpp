@@ -86,7 +86,6 @@ disable_popups()
 }
 #endif
 
-
 #ifndef NO_HELPER_MAIN
 // The test implements this.
 int
