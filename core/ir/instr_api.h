@@ -1865,6 +1865,25 @@ instr_get_category_name(dr_instr_category_t category);
 
 DR_API
 /**
+ * Performs an encoding walk and returns the ISA_FEAT_ constant.
+ * Currently implemented only for AARCH64. This API offers a simplistic view of ISA
+ * features (e.g., SVE, SVE2) using a one-to-one mapping. This is not always accurate, as
+ * some instructions require more than one feature.
+ */
+uint
+instr_get_isa_feature(byte *pc, instr_t *instr);
+
+DR_API
+/**
+ * Assumes \p isa_feature is a ISA_FEAT_ constant.
+ * See inst_get_isa_feature().
+ * Returns \p isa_feature name in string format.
+ */
+const char *
+instr_get_isa_feature_name(uint isa_feature);
+
+DR_API
+/**
  * Returns true iff \p instr is a floating point instruction.
  * @param[in] instr  The instruction to query
  * @param[out] type  If the return value is true and \p type is

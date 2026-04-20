@@ -283,6 +283,10 @@ Further non-compatibility-affecting changes include:
  - Added #drvector_config_t that contains additional config parameters for a #drvector_t.
  - Added drvector_init_ex() API that initializes a #drvector_t with extra parameters
    defined in #drvector_config_t.
+ - Added instr_get_isa_feature() which performs an encoding walk and returns the
+   instruction ISA_FEAT_ constant.
+ - Added instr_get_isa_feature_name() which returns the string name of an ISA_FEAT_
+   constant.
 
 **************************************************
 <hr>
