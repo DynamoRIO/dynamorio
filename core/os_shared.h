@@ -91,7 +91,7 @@ os_process_not_under_dynamorio(dcontext_t *dcontext);
 bool
 os_take_over_all_unknown_threads(dcontext_t *dcontext);
 
-#if defined(LINUX) && defined(AARCH64)
+#if defined(LINUX)
 bool
 os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid);
 #endif
