@@ -4375,15 +4375,15 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
 /* For older Linux versions these constants may not be defined in
  * libc headers even though a kernel supports them.
  */
-#    ifndef PTRACE_GETSIGMASK
-#        define PTRACE_GETSIGMASK 0x420a
-#        define PTRACE_SETSIGMASK 0x420b
-#    endif
-#    ifndef PR_SET_PTRACER
-#        define PR_SET_PTRACER 0x59616d61
-#    endif
+#ifndef PTRACE_GETSIGMASK
+#    define PTRACE_GETSIGMASK 0x420a
+#    define PTRACE_SETSIGMASK 0x420b
+#endif
+#ifndef PR_SET_PTRACER
+#    define PR_SET_PTRACER 0x59616d61
+#endif
 
-#    define PTRACE_TAKEOVER_STACK_SIZE (DYNAMORIO_STACK_SIZE)
+#define PTRACE_TAKEOVER_STACK_SIZE (DYNAMORIO_STACK_SIZE)
 
 /* Data structures required by ptrace takeover functions. */
 
@@ -4445,7 +4445,7 @@ destroy_events(ptrace_thread_events_t *events)
  * to probe several candidate sizes until one works. The size which works
  * is cached in ptrace_sigmask_size.
  */
-#    define PTRACE_SIGMASK_MAX_SIZE 128
+#define PTRACE_SIGMASK_MAX_SIZE 128
 static size_t ptrace_sigmask_size;
 
 static void
@@ -4495,12 +4495,12 @@ thread_in_sigtimedwait(thread_id_t tid, int suspend_sig, bool *is_in_set)
 
     switch (syscall_num) {
     case SYS_rt_sigtimedwait: is_wait = true; break;
-#    ifdef SYS_rt_sigwaitinfo
+#ifdef SYS_rt_sigwaitinfo
     case SYS_rt_sigwaitinfo: is_wait = true; break;
-#    endif
-#    ifdef SYS_rt_sigtimedwait_time64
+#endif
+#ifdef SYS_rt_sigtimedwait_time64
     case SYS_rt_sigtimedwait_time64: is_wait = true; break;
-#    endif
+#endif
     default: return false;
     }
 
