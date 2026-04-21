@@ -49,6 +49,7 @@
 #include <queue>
 #include <random>
 #include <set>
+#include <shared_mutex>
 #include <stack>
 #include <string>
 #include <unordered_map>
@@ -1272,9 +1273,9 @@ protected:
     // Inputs that are unscheduled indefinitely until directly targeted.
     input_queue_t unscheduled_priority_;
     std::minstd_rand rand_gen_;
-    // This lock protects direct_targets_.
+    // This read-write lock protects direct_targets_.
     // It should be acquired *after* both output or input locks.
-    mutex_dbg_owned direct_target_lock_;
+    std::shared_mutex direct_target_rwlock_;
     flexible_queue_t<input_ordinal_t> direct_targets_;
 };
 

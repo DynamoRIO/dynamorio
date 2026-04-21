@@ -43,6 +43,7 @@
 #include <limits>
 #include <mutex>
 #include <random>
+#include <shared_mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -302,8 +303,12 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
         }
     }
     flexible_queue_t<input_ordinal_t> local_direct_targets;
-    if (options_.direct_switch_fallbacks) {
-        std::unique_lock<mutex_dbg_owned> target_set_lock(direct_target_lock_);
+    if (options_.direct_switch_fallbacks &&
+        prev_index != sched_type_t::INVALID_INPUT_ORDINAL &&
+        inputs_[prev_index].switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+        // Use a read lock here to avoid contention which can significantly
+        // degrade performance.
+        std::shared_lock<std::shared_mutex> target_set_rlock(direct_target_rwlock_);
         local_direct_targets = direct_targets_;
     }
     size_t fallback_attempts = 0;
@@ -696,8 +701,17 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::process_marker(
         } else {
             input.switch_to_input = it->second;
             if (options_.direct_switch_fallbacks) {
-                std::unique_lock<mutex_dbg_owned> target_set_lock(direct_target_lock_);
-                if (!direct_targets_.find(input.switch_to_input)) {
+                bool target_recorded = false;
+                // Avoid the write lock for the common case of already added.
+                {
+                    std::shared_lock<std::shared_mutex> target_set_rlock(
+                        direct_target_rwlock_);
+                    if (direct_targets_.find(input.switch_to_input))
+                        target_recorded = true;
+                }
+                if (!target_recorded) {
+                    std::unique_lock<std::shared_mutex> target_set_wlock(
+                        direct_target_rwlock_);
                     VPRINT(this, 2, "Adding input #%d to direct target set\n",
                            input.switch_to_input);
                     direct_targets_.push(input.switch_to_input);
@@ -1403,7 +1417,7 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::mark_input_eof_for_mode(
 {
     if (options_.direct_switch_fallbacks) {
         VPRINT(this, 2, "Removing input #%dn from direct target set\n", input.index);
-        std::unique_lock<mutex_dbg_owned> target_set_lock(direct_target_lock_);
+        std::unique_lock<std::shared_mutex> target_set_wlock(direct_target_rwlock_);
         direct_targets_.erase(input.index);
     }
     return sched_type_t::STATUS_OK;
