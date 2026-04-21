@@ -36,6 +36,8 @@
 #include "decode.h"
 #include "encode_api.h"
 #include "opcode_names.h"
+#include "isa_feature_names.h"
+#include "codec.h"
 
 #include <stddef.h>
 
@@ -885,4 +887,17 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     }
 
     return false;
+}
+
+uint
+instr_get_isa_feature(byte *pc, instr_t *instr)
+{
+    decode_info_t di;
+    return isa_feature_common(pc, instr, &di);
+}
+
+const char *
+instr_get_isa_feature_name(uint isa_feature)
+{
+    return isa_feature_names[isa_feature];
 }
