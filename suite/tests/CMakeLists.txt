@@ -450,8 +450,8 @@ function (set_cflags source)
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
     # configure_DynamoRIO_global removes unfavorable options for clients,
-    # re-adding -std=c++14.
-    string(REGEX REPLACE "-std=gnu99" "-std=c++14" cflags "${cflags}")
+    # re-adding -std=c++17.
+    string(REGEX REPLACE "-std=gnu99" "-std=c++17" cflags "${cflags}")
     if (WIN32)
       set(cflags "${cflags} /EHsc")
     endif (WIN32)
@@ -4830,13 +4830,11 @@ if (BUILD_CLIENTS)
     if (UNIX AND NOT CMAKE_COMPILER_IS_CLANG)
       set(heap_test_src ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/heap_test.cpp)
       add_exe(tool.heap_test ${heap_test_src})
-      if (cxx17_available)
-        # Enable recent operator new/delete variants.
-        set_source_files_properties(${heap_test_src} PROPERTIES
-          # XXX: c++17 seems to warn more about the static functions in tools.h.
-          # We should move those to tools.c.  For now we disable the warning.
-          COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS} -std=c++17 -Wno-unused-function")
-      endif ()
+      # Enable recent operator new/delete variants.
+      set_source_files_properties(${heap_test_src} PROPERTIES
+        # XXX: c++17 seems to warn more about the static functions in tools.h.
+        # We should move those to tools.c.  For now we disable the warning.
+        COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS} -Wno-unused-function")
       torunonly_drcacheoff(func_view_heap tool.heap_test
         "-record_heap" "@-tool@func_view@-no_show_func_trace" "")
       unset(tool.drcacheoff.func_view_heap_rawtemp) # use preprocessor
