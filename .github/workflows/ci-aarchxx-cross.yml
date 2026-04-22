@@ -256,7 +256,7 @@ jobs:
       # always invoked.
       if: ${{ always() }}
       with:
-        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7} | {8} {9}',
+        test_suite_status: ${{ format('{0} {1} | {2} {3} | {4} {5} | {6} {7}',
                                       'aarch64-cross-compile', needs.aarch64-cross-compile.result,
                                       'arm-cross-compile', needs.arm-cross-compile.result,
                                       'android-aarch64-cross-compile', needs.android-aarch64-cross-compile.result,
