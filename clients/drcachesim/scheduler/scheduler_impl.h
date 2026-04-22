@@ -49,6 +49,7 @@
 #include <queue>
 #include <random>
 #include <set>
+#include <shared_mutex>
 #include <stack>
 #include <string>
 #include <unordered_map>
@@ -1272,9 +1273,17 @@ protected:
     // Inputs that are unscheduled indefinitely until directly targeted.
     input_queue_t unscheduled_priority_;
     std::minstd_rand rand_gen_;
-    // This lock protects direct_targets_.
+    // This read-write lock protects direct_targets_.
     // It should be acquired *after* both output or input locks.
-    mutex_dbg_owned direct_target_lock_;
+    std::shared_mutex direct_target_rwlock_;
+    // The set of inputs observed to have been targeted by direct switches.
+    // We use these as fallbacks to find alternate direct targets.
+    // We do not want to pick among the general input set as there are some
+    // inputs with different roles within the application (e.g., poller threads)
+    // which should not be activated by direct switches from main threads.
+    // Ideally, we would partition into separate scheduling trees as the inputs
+    // that are targeted can fall into different groups themselves, but we
+    // do not have that information and it may be difficult to capture.
     flexible_queue_t<input_ordinal_t> direct_targets_;
 };
 
