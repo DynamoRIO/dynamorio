@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -291,13 +291,14 @@ enum {
     REGPARM_6 = DR_REG_R6,
     REGPARM_7 = DR_REG_R7,
     NUM_REGPARM = 8,
+    REGPARM_END_ALIGN = 16,
 #    else
     DR_SYSNUM_REG = DR_REG_R7,
     NUM_REGPARM = 4,
+    REGPARM_END_ALIGN = 8,
 #    endif /* 64/32 */
     REDZONE_SIZE = 0,
     REGPARM_MINSTACK = 0,
-    REGPARM_END_ALIGN = 8,
 #elif defined(RISCV64)
     DR_SYSNUM_REG = DR_REG_A7,
     REGPARM_0 = DR_REG_A0,

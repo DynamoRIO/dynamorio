@@ -155,6 +155,7 @@ GLOBAL_LABEL(dynamorio_mach_syscall:)
  */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
+        and      ARG2, ARG2, #-FRAME_ALIGNMENT /* Ensure stack alignment. */
         stp      ARG6, x0, [ARG2, #-16]! /* func is now on TOS of newsp */
         /* All args are already in syscall registers. */
         mov      SYSNUM_REG, #SYS_clone
