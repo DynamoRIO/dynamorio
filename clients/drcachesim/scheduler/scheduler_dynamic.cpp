@@ -304,8 +304,10 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::pick_next_input_for_mode(
     }
     flexible_queue_t<input_ordinal_t> local_direct_targets;
     if (options_.direct_switch_fallbacks &&
+        // A direct switch requires a valid prev_index to have initiated it.
         prev_index != sched_type_t::INVALID_INPUT_ORDINAL &&
         inputs_[prev_index].switch_to_input != sched_type_t::INVALID_INPUT_ORDINAL) {
+        // Create a local copy for the loop below.
         // Use a read lock here to avoid contention which can significantly
         // degrade performance.
         std::shared_lock<std::shared_mutex> target_set_rlock(direct_target_rwlock_);
