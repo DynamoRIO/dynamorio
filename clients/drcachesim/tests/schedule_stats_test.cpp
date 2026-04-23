@@ -89,7 +89,7 @@ public:
     }
 
     double
-    get_core_ratio()
+    get_max_core_activity_ratio()
     {
         return max_core_activity_ratio_;
     }
@@ -953,7 +953,7 @@ test_core_ratio()
     };
     mock_schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
     run_schedule_stats_with_tool(tool, memrefs);
-    double ratio = tool.get_core_ratio();
+    double ratio = tool.get_max_core_activity_ratio();
     std::cerr << "Core ratio: " << ratio << "\n";
     assert(ratio > 2.999 && ratio <= 3.001);
     return true;

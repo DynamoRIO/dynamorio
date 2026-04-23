@@ -674,7 +674,7 @@ schedule_stats_t::aggregate_results(counters_t &total)
 
         // Compute the activity range among cores to give an idea of how "even" the
         // schedule is. For measuring analyzer worker thread load balancing, it would
-        // be fairer count all records including loads/stores and markers, but the
+        // be fairer to count all records including loads/stores and markers, but the
         // focus here is more on how a microarchitectural simulator would view these
         // cores, so we focus on just instructions and idles. This still gives a good
         // idea of the worker thread balancing.
