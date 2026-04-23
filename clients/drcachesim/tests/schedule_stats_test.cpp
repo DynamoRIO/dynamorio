@@ -88,6 +88,12 @@ public:
         return global_time_;
     }
 
+    double
+    get_max_core_activity_ratio()
+    {
+        return max_core_activity_ratio_;
+    }
+
     bool
     parallel_shard_memref(void *shard_data, const memref_t &memref) override
     {
@@ -159,12 +165,12 @@ private:
 
 // Bypasses the analyzer and scheduler for a controlled test sequence.
 // Alternates the per-core memref vectors in lockstep.
+// This version takes in the tool.
 static schedule_stats_t::counters_t
-run_schedule_stats(
-    const std::vector<std::vector<memref_t>> &memrefs,
+run_schedule_stats_with_tool(
+    mock_schedule_stats_t &tool, const std::vector<std::vector<memref_t>> &memrefs,
     const std::vector<std::vector<schedule_record_t>> *expected_record = nullptr)
 {
-    mock_schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
     struct per_core_t {
         void *worker_data;
         void *shard_data;
@@ -248,6 +254,17 @@ run_schedule_stats(
         }
     }
     return tool.get_total_counts();
+}
+
+// Bypasses the analyzer and scheduler for a controlled test sequence.
+// Alternates the per-core memref vectors in lockstep.
+static schedule_stats_t::counters_t
+run_schedule_stats(
+    const std::vector<std::vector<memref_t>> &memrefs,
+    const std::vector<std::vector<schedule_record_t>> *expected_record = nullptr)
+{
+    mock_schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
+    return run_schedule_stats_with_tool(tool, memrefs, expected_record);
 }
 
 static bool
@@ -903,6 +920,45 @@ test_syscall_latencies_with_kernel_trace()
     return true;
 }
 
+static bool
+test_core_ratio()
+{
+    static constexpr int64_t PID = 1234;
+    static constexpr int64_t TID = 242;
+    static constexpr addr_t INSTR_PC = 1001;
+    static constexpr size_t INSTR_SIZE = 4;
+    std::vector<std::vector<memref_t>> memrefs = {
+        {
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+        },
+        {
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+        },
+        {
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+            gen_instr(TID, INSTR_PC, INSTR_SIZE, PID),
+        },
+    };
+    mock_schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
+    run_schedule_stats_with_tool(tool, memrefs);
+    double ratio = tool.get_max_core_activity_ratio();
+    std::cerr << "Core ratio: " << ratio << "\n";
+    assert(ratio > 2.999 && ratio <= 3.001);
+    return true;
+}
+
 } // namespace
 
 int
@@ -910,7 +966,7 @@ test_main(int argc, const char *argv[])
 {
     if (test_basic_stats() && test_basic_stats_with_syscall_trace() && test_idle() &&
         test_cpu_footprint() && test_syscall_latencies() &&
-        test_syscall_latencies_with_kernel_trace()) {
+        test_syscall_latencies_with_kernel_trace() && test_core_ratio()) {
         std::cerr << "schedule_stats_test passed\n";
         return 0;
     }

@@ -41,6 +41,7 @@
 #include <cassert>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -663,38 +664,50 @@ schedule_stats_t::aggregate_results(counters_t &total)
 {
     std::unordered_map<workload_tid_t, std::unordered_set<int64_t>, workload_tid_hash_t>
         cpu_footprint;
-    for (const auto &shard : shard_map_) {
+    int64_t min_activity = std::numeric_limits<int64_t>::max();
+    int64_t max_activity = std::numeric_limits<int64_t>::min();
+    for (const auto &[index, shard] : shard_map_) {
         // First update our per-shard data with per-shard stats from the scheduler.
-        get_scheduler_stats(shard.second->stream, shard.second->counters);
+        get_scheduler_stats(shard->stream, shard->counters);
 
-        total += shard.second->counters;
+        total += shard->counters;
 
-        for (const workload_tid_t wtid : shard.second->counters.threads) {
-            cpu_footprint[wtid].insert(shard.second->core);
+        // Compute the activity range among cores to give an idea of how "even" the
+        // schedule is. For measuring analyzer worker thread load balancing, it would
+        // be fairer to count all records including loads/stores and markers, but the
+        // focus here is more on how a microarchitectural simulator would view these
+        // cores, so we focus on just instructions and idles. This still gives a good
+        // idea of the worker thread balancing.
+        int64_t activity = shard->counters.instrs + shard->counters.idles;
+        min_activity = std::min(activity, min_activity);
+        max_activity = std::max(activity, max_activity);
+
+        for (const workload_tid_t wtid : shard->counters.threads) {
+            cpu_footprint[wtid].insert(shard->core);
         }
 
         // Sanity check against the scheduler's own stats, unless the trace
         // is pre-scheduled, or we're in core-serial mode where we don't have access
         // to the separate output streams, or we're in a unit test with a mock
         // stream and no stats.
-        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard.second->filetype) ||
+        if (TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->filetype) ||
             serial_stream_ != nullptr ||
-            shard.second->stream->get_schedule_statistic(
+            shard->stream->get_schedule_statistic(
                 memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT) < 0)
             continue;
         // We assume our counts fit in the get_schedule_statistic()'s double's 54-bit
         // mantissa and thus we can safely use "==".
         // Currently our switch count ignores idle-to-input.
-        assert(shard.second->counters.total_switches ==
-               shard.second->stream->get_schedule_statistic(
+        assert(shard->counters.total_switches ==
+               shard->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_INPUT) +
-                   shard.second->stream->get_schedule_statistic(
+                   shard->stream->get_schedule_statistic(
                        memtrace_stream_t::SCHED_STAT_SWITCH_INPUT_TO_IDLE));
-        assert(shard.second->counters.direct_switch_requests ==
-               shard.second->stream->get_schedule_statistic(
+        assert(shard->counters.direct_switch_requests ==
+               shard->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_ATTEMPTS));
-        assert(shard.second->counters.direct_switches ==
-               shard.second->stream->get_schedule_statistic(
+        assert(shard->counters.direct_switches ==
+               shard->stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_DIRECT_SWITCH_SUCCESSES));
     }
     // Our observed_migrations are counted on the destination core, while
@@ -709,6 +722,8 @@ schedule_stats_t::aggregate_results(counters_t &total)
     for (const auto &entry : cpu_footprint) {
         total.cores_per_thread->add(entry.second.size());
     }
+
+    max_core_activity_ratio_ = static_cast<double>(max_activity) / min_activity;
 }
 
 bool
@@ -756,6 +771,7 @@ schedule_stats_t::print_results()
             std::cerr << "    ... (increase -verbose to see more)\n";
         }
     }
+    std::cerr << "Max activity ratio between cores: " << max_core_activity_ratio_ << "\n";
     return true;
 }
 

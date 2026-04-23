@@ -27,3 +27,4 @@ Core #2 schedule: _[A-Ia-i_]*
 Core #3 schedule: _[A-Ia-i_]*
 Core #0 switch-outs:
 .*
+Max activity ratio between cores: .*
