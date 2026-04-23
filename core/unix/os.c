@@ -10245,7 +10245,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
             /* we already added the whole image region when we hit the first map for it */
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
-        } else if (TEST(MEMPROT_READ, iter->prot) &&
+        } else if (TEST(MEMPROT_READ | MEMPROT_EXEC, iter->prot) &&
                    module_is_header(iter->vm_start, size)) {
             DEBUG_DECLARE(size_t image_size = size;)
             app_pc mod_base, mod_first_end, mod_max_end;
