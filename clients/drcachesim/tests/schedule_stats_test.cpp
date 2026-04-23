@@ -91,7 +91,7 @@ public:
     double
     get_core_ratio()
     {
-        return max_core_record_ratio_;
+        return max_core_activity_ratio_;
     }
 
     bool

@@ -480,7 +480,7 @@ protected:
     std::unordered_map<workload_tid_t, int64_t, workload_tid_hash_t> prev_core_;
     std::mutex prev_core_mutex_;
     // Ratio of largest instructions+idles to smallest across the cores.
-    double max_core_record_ratio_;
+    double max_core_activity_ratio_;
 };
 
 } // namespace drmemtrace

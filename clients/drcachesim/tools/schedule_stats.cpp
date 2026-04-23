@@ -664,23 +664,23 @@ schedule_stats_t::aggregate_results(counters_t &total)
 {
     std::unordered_map<workload_tid_t, std::unordered_set<int64_t>, workload_tid_hash_t>
         cpu_footprint;
-    int64_t min_records = std::numeric_limits<int64_t>::max();
-    int64_t max_records = std::numeric_limits<int64_t>::min();
+    int64_t min_activity = std::numeric_limits<int64_t>::max();
+    int64_t max_activity = std::numeric_limits<int64_t>::min();
     for (const auto &[index, shard] : shard_map_) {
         // First update our per-shard data with per-shard stats from the scheduler.
         get_scheduler_stats(shard->stream, shard->counters);
 
         total += shard->counters;
 
-        // Compute the record count range among cores to give an idea of how "even"
-        // the schedule is. Maybe it would be fairer, for measuring analyzer worker
-        // thread load balancing, to count *all* records including loads/stores and
-        // markers, but the focus here is more on how a microarchitectural simulator
-        // would view these cores, so we focus on just instructions and idles.
-        // This still gives a good idea of the worker thread balancing.
-        int64_t records = shard->counters.instrs + shard->counters.idles;
-        min_records = std::min(records, min_records);
-        max_records = std::max(records, max_records);
+        // Compute the activity range among cores to give an idea of how "even" the
+        // schedule is. For measuring analyzer worker thread load balancing, it would
+        // be fairer count all records including loads/stores and markers, but the
+        // focus here is more on how a microarchitectural simulator would view these
+        // cores, so we focus on just instructions and idles. This still gives a good
+        // idea of the worker thread balancing.
+        int64_t activity = shard->counters.instrs + shard->counters.idles;
+        min_activity = std::min(activity, min_activity);
+        max_activity = std::max(activity, max_activity);
 
         for (const workload_tid_t wtid : shard->counters.threads) {
             cpu_footprint[wtid].insert(shard->core);
@@ -723,7 +723,7 @@ schedule_stats_t::aggregate_results(counters_t &total)
         total.cores_per_thread->add(entry.second.size());
     }
 
-    max_core_record_ratio_ = static_cast<double>(max_records) / min_records;
+    max_core_activity_ratio_ = static_cast<double>(max_activity) / min_activity;
 }
 
 bool
@@ -771,7 +771,7 @@ schedule_stats_t::print_results()
             std::cerr << "    ... (increase -verbose to see more)\n";
         }
     }
-    std::cerr << "Ratio of largest to smallest core: " << max_core_record_ratio_ << "\n";
+    std::cerr << "Max activity ratio between cores: " << max_core_activity_ratio_ << "\n";
     return true;
 }
 
