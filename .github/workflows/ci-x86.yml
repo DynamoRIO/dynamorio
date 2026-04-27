@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2026 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -90,11 +90,6 @@ jobs:
           liblz4-dev g++-multilib libunwind-dev
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
-
     - name: Check if format checks are disabled
       id: are_format_checks_disabled
       uses: ./.github/actions/are-format-checks-disabled
@@ -142,12 +137,6 @@ jobs:
         sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
         sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-
-    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
-    - name: Setup newer cmake
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.19.7'
 
     - name: Check if format checks are disabled
       id: are_format_checks_disabled
