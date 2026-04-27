@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -205,6 +205,10 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
     }
     report_if_false(shard,
                     shard->saw_thread_exit_ ||
+                        // For core-sharded, even if we changed to per-tid tracking,
+                        // typically the trace ends early to avoid tail artifacts, so we
+                        // have to abandon this check.
+                        core_sharded_ ||
                         trace_incomplete_
                         // XXX i#6733: For online we sometimes see threads
                         // exiting w/o the tracer inserting an exit.  Until we figure

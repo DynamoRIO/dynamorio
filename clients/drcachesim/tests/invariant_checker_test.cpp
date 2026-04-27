@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2025 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2026 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -5318,6 +5318,20 @@ check_core_sharded()
                                 /*ref_ordinal=*/4, /*last_timestamp=*/0,
                                 /*instrs_since_last_timestamp=*/1 },
                               "Failed to catch unexpected tid on core_idle"))
+            return false;
+    }
+    // Verify that no missing thread exit is reported for core-sharded.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_instr(TID_B, /*pc=*/2),
+            gen_instr(TID_B, /*pc=*/3),
+            gen_marker(IDLE_THREAD_ID, TRACE_MARKER_TYPE_CORE_IDLE, 1),
+        };
+        if (!run_csod_checker(memrefs, false))
             return false;
     }
     return true;
