@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -975,6 +975,10 @@ include:
 
 - Trimming the start (via -trim_before_timestamp) and end (via -trim_after_timestamp)
   of a trace.  Any now-empty shards are deleted entirely.
+
+- Created a core-sharded-on-disk trace by running in core-sharded mode.  It is
+  recommended to run the schedule_stats tool at the same time to gather schedule
+  statistics when using a dynamic schedule.
 
 A filter can be applied only to the start of a trace using the -filter_stop_timestamp
 option.

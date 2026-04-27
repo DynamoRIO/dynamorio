@@ -52,16 +52,17 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-class schedule_stats_t : public analysis_tool_t {
+template <typename RecordType>
+class schedule_stats_template_t : public analysis_tool_tmpl_t<RecordType> {
 public:
-    schedule_stats_t(uint64_t print_every, unsigned int verbose = 0);
-    ~schedule_stats_t() override;
+    schedule_stats_template_t(uint64_t print_every, unsigned int verbose = 0);
+    ~schedule_stats_template_t() override;
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
     std::string
     initialize_shard_type(shard_type_t shard_type) override;
     bool
-    process_memref(const memref_t &memref) override;
+    process_memref(const RecordType &memref) override;
     bool
     print_results() override;
     bool
@@ -77,7 +78,7 @@ public:
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
-    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    parallel_shard_memref(void *shard_data, const RecordType &memref) override;
     std::string
     parallel_shard_error(void *shard_data) override;
 
@@ -188,7 +189,7 @@ public:
     };
 
     struct counters_t {
-        explicit counters_t(schedule_stats_t *analyzer)
+        explicit counters_t(schedule_stats_template_t *analyzer)
             : analyzer(analyzer)
         {
             instrs_per_switch = analyzer->create_histogram(kSwitchBinSize);
@@ -247,7 +248,7 @@ public:
             }
             return *this;
         }
-        schedule_stats_t *analyzer;
+        schedule_stats_template_t *analyzer;
         // Statistics provided by scheduler.
         // XXX: Should we change all of these to uint64_t? Never negative: but signed
         // ints are generally recommended as better for the compiler.
@@ -381,7 +382,7 @@ protected:
     static constexpr int64_t INVALID_WORKLOAD_ID = -1;
 
     struct per_shard_t {
-        per_shard_t(schedule_stats_t *analyzer)
+        per_shard_t(schedule_stats_template_t *analyzer)
             : counters(analyzer)
         {
         }
@@ -440,6 +441,21 @@ protected:
         return hist_ptr;
     }
 
+    trace_type_t
+    get_record_type(RecordType record);
+
+    // Returns whether the given record is an instruction; if so, optionally
+    // returns its pc and size.
+    bool
+    is_record_instr(RecordType record, addr_t *pc = nullptr, size_t *size = nullptr);
+
+    // If the given record is a marker, returns true and its fields.
+    bool
+    is_record_marker(RecordType record, trace_marker_type_t &type, uintptr_t &value);
+
+    bool
+    get_record_tid(RecordType record, memref_tid_t &tid);
+
     void
     print_percentage(double numerator, double denominator, const std::string &label);
 
@@ -482,6 +498,10 @@ protected:
     // Ratio of largest instructions+idles to smallest across the cores.
     double max_core_activity_ratio_;
 };
+
+typedef schedule_stats_template_t<memref_t> schedule_stats_t;
+
+typedef schedule_stats_template_t<trace_entry_t> record_schedule_stats_t;
 
 } // namespace drmemtrace
 } // namespace dynamorio

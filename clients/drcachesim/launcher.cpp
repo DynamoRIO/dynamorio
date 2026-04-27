@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -324,7 +324,10 @@ _tmain(int argc, const TCHAR *targv[])
             FATAL_ERROR("invalid -outdir %s", op_outdir.get_value().c_str());
         }
     } else {
-        if (op_tool.get_value() == RECORD_FILTER) {
+        // We assume RECORD_FILTER isn't a substring of some other tool.
+        // We use it as the trigger since the other record tool, schedule_stats,
+        // should only be run if RECORD_FILTER is also being run.
+        if (op_tool.get_value().find(RECORD_FILTER) != std::string::npos) {
             record_analyzer = new record_analyzer_multi_t;
             if (!*record_analyzer) {
                 std::string error_string_ = record_analyzer->get_error_string();
