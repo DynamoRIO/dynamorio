@@ -186,14 +186,15 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             assert(!set_skipped); // Not supported for CSOD at this time.
         }
         for (const auto &memref : memrefs) {
-            int shard_index =
-                core_sharded_on_disk ? 0 : static_cast<int>(memref.instr.tid - TID_BASE);
-            stream.set_tid(memref.instr.tid);
-            stream.set_shard_index(shard_index);
             if (core_sharded_on_disk) {
+                stream.set_tid(memref.instr.tid);
+                stream.set_shard_index(0);
                 checker.parallel_shard_memref(shardA, memref);
                 continue;
             }
+            int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
+            stream.set_tid(memref.instr.tid);
+            stream.set_shard_index(shard_index);
             switch (memref.instr.tid) {
             case TID_A:
                 if (shardA == nullptr) {
