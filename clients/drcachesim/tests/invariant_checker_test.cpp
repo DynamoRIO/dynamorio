@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2025 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2026 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,7 +54,7 @@ namespace drmemtrace {
 
 struct error_info_t {
     std::string invariant_name;
-    memref_tid_t tid;
+    int64_t id; // TID for thread-sharded; core index for core-sharded.
     uint64_t ref_ordinal;
     uint64_t last_timestamp;
     uint64_t instrs_since_last_timestamp;
@@ -62,7 +62,7 @@ struct error_info_t {
     bool
     operator!=(const error_info_t &rhs) const
     {
-        return rhs.invariant_name != invariant_name || rhs.tid != tid ||
+        return rhs.invariant_name != invariant_name || rhs.id != id ||
             rhs.ref_ordinal != ref_ordinal || rhs.last_timestamp != last_timestamp ||
             rhs.instrs_since_last_timestamp != instrs_since_last_timestamp;
     }
@@ -109,11 +109,12 @@ protected:
                     const std::string &invariant_name) override
     {
         if (!condition) {
-            std::cerr << "Recording |" << invariant_name << "| in T" << shard->tid_
+            int64_t id = core_sharded_ ? shard->shard_id_ : shard->tid_;
+            std::cerr << "Recording |" << invariant_name << "| in id " << id
                       << " @ ref # " << shard->ref_count_ << " ("
                       << shard->instr_count_since_last_timestamp_
                       << " instrs since timestamp " << shard->last_timestamp_ << ")\n";
-            errors_.push_back({ invariant_name, shard->tid_, shard->ref_count_,
+            errors_.push_back({ invariant_name, id, shard->ref_count_,
                                 shard->last_timestamp_,
                                 shard->instr_count_since_last_timestamp_ });
         }
@@ -177,11 +178,22 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                                    serial_schedule_file);
         default_memtrace_stream_t stream;
         checker.initialize_stream(&stream);
+        // For core_sharded_on_disk we only use shardA.
         void *shardA = nullptr, *shardB = nullptr, *shardC = nullptr;
+        if (core_sharded_on_disk) {
+            shardA =
+                checker.parallel_shard_init_stream(/*shard_index=*/0, nullptr, &stream);
+            assert(!set_skipped); // Not supported for CSOD at this time.
+        }
         for (const auto &memref : memrefs) {
-            int shard_index = static_cast<int>(memref.instr.tid - TID_BASE);
+            int shard_index =
+                core_sharded_on_disk ? 0 : static_cast<int>(memref.instr.tid - TID_BASE);
             stream.set_tid(memref.instr.tid);
             stream.set_shard_index(shard_index);
+            if (core_sharded_on_disk) {
+                checker.parallel_shard_memref(shardA, memref);
+                continue;
+            }
             switch (memref.instr.tid) {
             case TID_A:
                 if (shardA == nullptr) {
@@ -5136,7 +5148,7 @@ check_chunk_order(void)
         };
         if (!run_csod_checker(memrefs, true,
                               { "Chunks do not increase monotonically",
-                                /*tid=*/TID_A,
+                                /*id=*/0,
                                 /*ref_ordinal=*/9, /*last_timestamp=*/0,
                                 /*instrs_since_last_timestamp=*/3 },
                               "Failed to catch chunk ordinal skip for csod"))
@@ -5189,7 +5201,7 @@ check_chunk_order(void)
         };
         if (!run_csod_checker(memrefs, true,
                               { "Chunk instruction counts are inconsistent",
-                                /*tid=*/TID_A,
+                                /*id=*/0,
                                 /*ref_ordinal=*/5, /*last_timestamp=*/0,
                                 /*instrs_since_last_timestamp=*/1 },
                               "Failed to detect inconsistent chunk instr count for csod"))
@@ -5267,7 +5279,7 @@ check_core_sharded()
         };
         if (!run_csod_checker(memrefs, true,
                               { "Non-explicit control flow has no marker",
-                                /*tid=*/TID_A,
+                                /*id=*/0,
                                 /*ref_ordinal=*/12, /*last_timestamp=*/0,
                                 /*instrs_since_last_timestamp=*/6 },
                               "Failed to catch PC disc in core-sharded-on-disk"))
@@ -5314,7 +5326,7 @@ check_core_sharded()
         };
         if (!run_csod_checker(memrefs, true,
                               { "Unexpected tid for core_idle marker",
-                                /*tid=*/TID_A,
+                                /*id=*/0,
                                 /*ref_ordinal=*/4, /*last_timestamp=*/0,
                                 /*instrs_since_last_timestamp=*/1 },
                               "Failed to catch unexpected tid on core_idle"))
@@ -5410,7 +5422,7 @@ check_core_sharded_with_kernel()
         };
         if (!run_csod_checker(memrefs, true,
                               { "Missing system call trace",
-                                /*tid=*/TID_A,
+                                /*id=*/0,
                                 /*ref_ordinal=*/5, /*last_timestamp=*/0,
                                 /*instrs_since_last_timestamp=*/2 },
                               "Failed to catch missing syscall trace"))
@@ -5432,7 +5444,7 @@ check_core_sharded_with_kernel()
         };
         if (!run_csod_checker(memrefs, true,
                               { "Missing context switch trace",
-                                /*tid=*/TID_A,
+                                /*id=*/0,
                                 /*ref_ordinal=*/4, /*last_timestamp=*/0,
                                 /*instrs_since_last_timestamp=*/1 },
                               "Failed to catch missing switch trace"))
@@ -5456,7 +5468,7 @@ check_core_sharded_with_kernel()
         };
         if (!run_csod_checker(memrefs, true,
                               { "Missing context switch trace",
-                                /*tid=*/TID_A,
+                                /*id=*/0,
                                 /*ref_ordinal=*/7, /*last_timestamp=*/0,
                                 /*instrs_since_last_timestamp=*/3 },
                               "Failed to catch missing switch trace"))
