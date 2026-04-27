@@ -47,8 +47,8 @@
 #include <stdio.h>
 #include <linux/elf.h>
 
-#if !defined(LINUX) || !(defined(AARCH64) || (defined(X86) && defined(X64)))
-#    error "ptrace_attach.c currently supports only Linux AArch64 and Linux x86_64"
+#if !defined(LINUX) || !(defined(AARCH64) || defined(X86))
+#    error "ptrace_attach.c currently supports only Linux AArch64 and Linux x86"
 #endif
 
 /* Most of this file is intended to remain architecture-neutral. Keep ISA-specific
@@ -440,7 +440,8 @@ ptrace_takeover_thread(thread_id_t tid)
     }
     return true;
 #else
-    ASSERT_NOT_IMPLEMENTED(false && "ptrace takeover NYI on Linux x86_64");
+    ASSERT_NOT_IMPLEMENTED(false &&
+                           "ptrace takeover currently only implemented on Linux AArch64");
     return false;
 #endif
 }
@@ -524,7 +525,8 @@ os_ptrace_takeover_threads(dcontext_t *dcontext, thread_id_t *tids, uint count)
     if (count == 0)
         return true;
 #if !defined(AARCH64) || !defined(DR_HOST_AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false && "ptrace takeover NYI without native Linux AArch64");
+    ASSERT_NOT_IMPLEMENTED(false &&
+                           "ptrace takeover currently only implemented on Linux AArch64");
     return false;
 #endif
     state = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, ptrace_takeover_state_t, ACCT_THREAD_MGT,

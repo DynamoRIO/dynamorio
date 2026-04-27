@@ -35,10 +35,11 @@
 
 #include "os_private.h"
 
-#if defined(LINUX) && (defined(AARCH64) || (defined(X86) && defined(X64)))
-/* Keep this header focused on the ptrace takeover coordination shared with
- * os.c. New architecture ports should add the smallest possible ISA-specific
- * surface here and keep policy/orchestration in the common code.
+#if defined(LINUX) && (defined(AARCH64) || defined(X86))
+/* This header declares ptrace takeover functions used by core/unix/os.c.
+ * Implementing ptrace takeover for a new architecture should minimise
+ * architecture specific code. Below are Advanced SIMD and SVE date structures
+ * specific to AArch64.
  */
 #    if defined(AARCH64) && defined(DR_HOST_AARCH64)
 struct user_pt_regs;
@@ -69,6 +70,6 @@ ptrace_takeover_cleanup(void *param);
 
 void
 ptrace_attach_on_thread_takeover(dcontext_t *dcontext, void *param);
-#endif /* Linux AArch64/x86_64 ptrace backend */
+#endif
 
 #endif /* _PTRACE_PRIVATE_H_ */

@@ -41,7 +41,7 @@
 #include "../globals.h"
 #include "os_exports.h"
 
-#if defined(LINUX) && (defined(AARCH64) || (defined(X86) && defined(X64)))
+#if defined(LINUX) && (defined(AARCH64) || defined(X86))
 #    include <sys/ptrace.h>
 
 bool
