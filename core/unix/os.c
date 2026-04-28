@@ -11295,15 +11295,16 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                     break;
                 }
                 if (++attempts > max_attempts) {
+                    bool handle_takeover_timeout = true;
 #ifdef PTRACE_TAKEOVER
                     use_ptrace_fallback = (timed_out != NULL);
                     if (use_ptrace_fallback) {
                         timed_out[i] = 1;
                         timed_out_count++;
+                        handle_takeover_timeout = false;
                     }
-                    if (!use_ptrace_fallback)
 #endif
-                    {
+                    if (handle_takeover_timeout) {
                         if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
                             SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
                                    get_application_name(), get_application_pid(),
