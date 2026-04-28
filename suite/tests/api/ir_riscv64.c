@@ -1663,7 +1663,7 @@ test_decode_xtheadsync(void *dc)
 }
 
 static void
-test_isa_features(void)
+test_isa_features(void *dc)
 {
     /* TODO i#7842: Until instr_get_isa_feature() and instr_get_isa_feature_name() are
      * implemented for RISCV64, we can only test ISA_FEAT_UNKNOWN.
@@ -1702,7 +1702,7 @@ main(int argc, char *argv[])
 
     disassemble_set_syntax(DR_DISASM_RISCV);
 
-    test_isa_features();
+    test_isa_features(dcontext);
 
     test_insert_mov_immed_arch(dcontext);
 
