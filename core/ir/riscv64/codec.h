@@ -312,5 +312,7 @@ byte *
 decode_common(dcontext_t *dc, byte *pc, byte *orig_pc, instr_t *instr);
 uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di);
+uint
+isa_feature_common(byte *pc, instr_t *i, decode_info_t *di);
 
 #endif /* CODEC_H */

@@ -1662,6 +1662,35 @@ test_decode_xtheadsync(void *dc)
     test_instr_encoding(dc, OP_th_sync_is, instr);
 }
 
+static void
+test_isa_features(void)
+{
+    /* TODO i#7842: Until instr_get_isa_feature() and instr_get_isa_feature_name() are
+     * implemented for RISCV64, we can only test ISA_FEAT_UNKNOWN.
+     */
+    uint unused_buf = 0;
+    instr_t *instr = NULL;
+    uint isa_feat = ISA_FEAT_INVALID;
+
+    instr =
+        XINST_CREATE_load(dc, opnd_create_reg(DR_REG_A0),
+                          opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_UNKNOWN);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "<unknown>",
+                   strlen("<unknown>")) == 0);
+    instr_destroy(dc, instr);
+
+    instr = XINST_CREATE_store(
+        dc, opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A0));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_UNKNOWN);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "<unknown>",
+                   strlen("<unknown>")) == 0);
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1672,6 +1701,8 @@ main(int argc, char *argv[])
 #endif
 
     disassemble_set_syntax(DR_DISASM_RISCV);
+
+    test_isa_features();
 
     test_insert_mov_immed_arch(dcontext);
 

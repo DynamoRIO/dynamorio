@@ -33,6 +33,7 @@
 #include "../globals.h"
 #include "instr.h"
 #include "encode_api.h"
+#include "isa_feature_names.h"
 #include "codec.h"
 
 /* XXX i#6690: currently only RISCV64 is supported for instruction encoding.
@@ -532,4 +533,17 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     /* XXX i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
+}
+
+uint
+instr_get_isa_feature(byte *pc, instr_t *instr)
+{
+    decode_info_t di;
+    return isa_feature_common(pc, instr, &di);
+}
+
+const char *
+instr_get_isa_feature_name(uint isa_feature)
+{
+    return isa_feature_names[isa_feature];
 }

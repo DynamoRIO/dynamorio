@@ -33,8 +33,14 @@
 #ifndef _DR_IR_ISA_FEATURES_H_
 #define _DR_IR_ISA_FEATURES_H_
 
-#if defined(AARCH64)
+#ifdef X86
+#    include "dr_ir_isa_features_x86.h"
+#elif defined(AARCH64)
 #    include "dr_ir_isa_features_aarch64.h"
+#elif defined(ARM)
+#    include "dr_ir_isa_features_arm.h"
+#elif defined(RISCV64)
+#    include "dr_ir_isa_features_riscv64.h"
 #endif
 
 #endif /* _DR_IR_ISA_FEATURES_H_ */
