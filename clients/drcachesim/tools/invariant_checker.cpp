@@ -135,12 +135,18 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
              invariant_name == "Branch does not go to the correct target")) {
             return;
         }
-        std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
-                  << shard->stream->get_record_ordinal() << " at instruction # "
-                  << shard->stream->get_instruction_ordinal() << " ("
-                  << shard->instr_count_since_last_timestamp_
-                  << " instrs since timestamp " << shard->last_timestamp_
-                  << "): " << invariant_name << "\n";
+        std::ostringstream out;
+        out << "Trace invariant failure in ";
+        if (core_sharded_) {
+            out << "core " << shard->shard_id_;
+        } else {
+            out << "T" << shard->tid_;
+        }
+        out << " at ref # " << shard->stream->get_record_ordinal() << " at instruction # "
+            << shard->stream->get_instruction_ordinal() << " ("
+            << shard->instr_count_since_last_timestamp_ << " instrs since timestamp "
+            << shard->last_timestamp_ << "): " << invariant_name << "\n";
+        std::cerr << out.str();
         if (abort_on_invariant_error_) {
             abort();
         } else {
@@ -163,6 +169,7 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
     per_shard->stream = shard_stream;
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(init_mutex_);
+    per_shard->shard_id_ = shard_index;
     per_shard->tid_ = shard_stream->get_tid();
     per_shard->last_next_trace_pc_ = shard_stream->get_next_trace_pc();
     shard_map_[shard_index] = std::move(per_shard);
@@ -1543,6 +1550,7 @@ invariant_checker_t::process_memref(const memref_t &memref)
         auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t);
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
+        per_shard->shard_id_ = serial_stream_->get_shard_index();
         per_shard->tid_ = serial_stream_->get_tid();
         per_shard->last_next_trace_pc_ = serial_stream_->get_next_trace_pc();
         shard_map_[shard_index] = std::move(per_shard_unique);

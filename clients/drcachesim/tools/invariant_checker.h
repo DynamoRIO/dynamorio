@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -130,6 +130,7 @@ protected:
         // Provide a virtual destructor to facilitate subclassing.
         virtual ~per_shard_t() = default;
 
+        int shard_id_ = -1;
         memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
