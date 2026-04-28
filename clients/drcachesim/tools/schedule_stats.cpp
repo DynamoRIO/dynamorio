@@ -74,7 +74,7 @@ record_schedule_stats_tool_create(uint64_t print_every, unsigned int verbose)
 }
 
 /******************************************************************************
- * Specializations for schedule_stats_template_t<trace_entry_t>, aka
+ * Specializations for schedule_stats_template_t<memref_t>, aka
  * schedule_stats_t.
  */
 
@@ -124,7 +124,7 @@ schedule_stats_template_t<memref_t>::get_record_tid(memref_t record, memref_tid_
 }
 
 /******************************************************************************
- * Specializations for schedule_stats_template_t<memref_t>, aka
+ * Specializations for schedule_stats_template_t<trace_entry_t>, aka
  * record_schedule_stats_t.
  */
 
