@@ -637,6 +637,8 @@ schedule_stats_template_t<RecordType>::parallel_shard_memref(void *shard_data,
 #endif
     if (shard->stream->get_tid() != INVALID_THREAD_ID) {
         assert(!get_record_tid(record, record_tid) ||
+               // Early header markers do not have a valid tid field.
+               record_tid == -1 || record_tid == INVALID_THREAD_ID ||
                tid_from_memref_tid(record_tid) == shard->stream->get_tid());
         shard->counters.threads.insert(
             workload_tid_t(workload_id, shard->stream->get_tid()));
