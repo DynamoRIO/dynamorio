@@ -35,7 +35,6 @@
 #include "../isa_regdeps/decode.h"
 #include "codec.h"
 #include "encode_api.h"
-#include "isa_features.h"
 #include "trie.h"
 
 /* RISC-V extended instruction information structure.
@@ -2968,11 +2967,4 @@ encode_common(byte *pc, instr_t *instr, decode_info_t *di)
 
 encode_failure:
     return ENCFAIL;
-}
-
-/* TODO i#7842: to be implemented. */
-uint
-isa_feature_common(byte *pc, instr_t *i, decode_info_t *di)
-{
-    return ISA_FEAT_UNKNOWN;
 }

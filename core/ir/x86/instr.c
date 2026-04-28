@@ -42,6 +42,8 @@
 #include "decode_private.h"
 #include "encode_api.h"
 #include "instr_create_shared.h"
+#include "isa_features.h"
+#include "isa_feature_names.h"
 
 #ifdef X64
 /*
@@ -1936,4 +1938,18 @@ instr_is_gather(instr_t *instr)
     case OP_vpgatherqq: return true;
     default: return false;
     }
+}
+
+DR_API
+uint
+instr_get_isa_feature(byte *pc, instr_t *instr)
+{
+    return ISA_FEAT_UNKNOWN;
+}
+
+DR_API
+const char *
+instr_get_isa_feature_name(uint isa_feature)
+{
+    return isa_feature_names[isa_feature];
 }
