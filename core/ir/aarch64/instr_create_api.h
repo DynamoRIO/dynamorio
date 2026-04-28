@@ -4561,6 +4561,357 @@
  */
 #define INSTR_CREATE_stllrh(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_stllrh, Rt, Rn)
 
+/** @name CAS single-register variants */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * Creates a CAS single-register variant instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CAS<order>  <Ws>, <Wt>, [<Xn|SP>{, #0}]
+ *    CAS<order>  <Xs>, <Xt>, [<Xn|SP>{, #0}]
+ *    CAS<order>B <Ws>, <Wt>, [<Xn|SP>{, #0}]
+ *    CAS<order>H <Ws>, <Wt>, [<Xn|SP>{, #0}]
+ * \endverbatim
+ * where \<order\> is A, AL, L, or absent.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rs   The first source and destination register. Use W (Word, 32 bits)
+ *             for byte and halfword forms, and W or X (Extended, 64 bits) for
+ *             word and doubleword forms.
+ * \param Rt   The second source register. Use W (Word, 32 bits) for byte and
+ *             halfword forms, and W or X (Extended, 64 bits) for word and
+ *             doubleword forms.
+ * \param mem  The source and destination memory address operand constructed with the
+ *             function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, 0, opsz)
+ */
+#define INSTR_CREATE_cas(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_cas, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_casa(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_casa, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_casab(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_casab, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_casah(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_casah, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_casal(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_casal, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_casalb(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_casalb, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_casalh(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_casalh, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_casb(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_casb, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_cash(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_cash, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_casl(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_casl, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_caslb(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_caslb, Rs, mem, Rs, Rt, mem)
+#define INSTR_CREATE_caslh(dc, Rs, Rt, mem) \
+    instr_create_2dst_3src(dc, OP_caslh, Rs, mem, Rs, Rt, mem)
+/** @} */ /* end doxygen group */
+
+/** @name CASP pair variants */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * Creates a CASP pair variant instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CASP<order> <Ws1>, <Ws2>, <Wt1>, <Wt2>, [<Xn|SP>{, #0}]
+ *    CASP<order> <Xs1>, <Xs2>, <Xt1>, <Xt2>, [<Xn|SP>{, #0}]
+ * \endverbatim
+ * where \<order\> is A, AL, L, or absent.
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rs1   The first source and destination register, W (Word, 32 bits)
+ *              or X (Extended, 64 bits).
+ * \param Rs2   The second source and destination register, W (Word, 32 bits)
+ *              or X (Extended, 64 bits).
+ * \param Rt1   The first source register, W (Word, 32 bits) or X (Extended, 64 bits).
+ * \param Rt2   The second source register, W (Word, 32 bits) or X (Extended, 64 bits).
+ * \param mem   The source and destination memory address operand constructed with the
+ *              function:
+ *              opnd_create_base_disp(Rn, DR_REG_NULL, 0, 0, opsz)
+ */
+#define INSTR_CREATE_casp(dc, Rs1, Rs2, Rt1, Rt2, mem) \
+    instr_create_3dst_5src(dc, OP_casp, Rs1, Rs2, mem, Rs1, Rs2, Rt1, Rt2, mem)
+#define INSTR_CREATE_caspa(dc, Rs1, Rs2, Rt1, Rt2, mem) \
+    instr_create_3dst_5src(dc, OP_caspa, Rs1, Rs2, mem, Rs1, Rs2, Rt1, Rt2, mem)
+#define INSTR_CREATE_caspal(dc, Rs1, Rs2, Rt1, Rt2, mem) \
+    instr_create_3dst_5src(dc, OP_caspal, Rs1, Rs2, mem, Rs1, Rs2, Rt1, Rt2, mem)
+#define INSTR_CREATE_caspl(dc, Rs1, Rs2, Rt1, Rt2, mem) \
+    instr_create_3dst_5src(dc, OP_caspl, Rs1, Rs2, mem, Rs1, Rs2, Rt1, Rt2, mem)
+/** @} */ /* end doxygen group */
+
+/** @name LSE atomic load-operation variants */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * Creates an LSE atomic load-operation variant instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD<op><order>  <Ws>, <Wt>, [<Xn|SP>]
+ *    LD<op><order>  <Xs>, <Xt>, [<Xn|SP>]
+ *    LD<op><order>B <Ws>, <Wt>, [<Xn|SP>]
+ *    LD<op><order>H <Ws>, <Wt>, [<Xn|SP>]
+ * \endverbatim
+ * where \<op\> is ADD, CLR, EOR, SET, SMAX, SMIN, UMAX, or UMIN, and \<order\>
+ * is A, AL, L, or absent.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rs   The first source register. Use W (Word, 32 bits) for byte and
+ *             halfword forms, and W or X (Extended, 64 bits) for word and
+ *             doubleword forms.
+ * \param Rt   The first destination register. Use W (Word, 32 bits) for byte
+ *             and halfword forms, and W or X (Extended, 64 bits) for word and
+ *             doubleword forms.
+ * \param mem  The source and destination memory address operand constructed with the
+ *             function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, 0, opsz)
+ */
+#define INSTR_CREATE_ldadd(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldadd, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldadda(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldadda, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddal(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddal, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddalb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddalb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddalh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddalh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddlb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddlb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldaddlh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldaddlh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclr(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclr, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclra(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclra, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclrab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclrab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclrah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclrah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclral(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclral, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclralb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclralb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclralh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclralh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclrb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclrb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclrh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclrh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclrl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclrl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclrlb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclrlb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldclrlh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldclrlh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeor(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeor, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeora(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeora, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeorab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeorab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeorah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeorah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeoral(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeoral, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeoralb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeoralb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeoralh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeoralh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeorb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeorb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeorh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeorh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeorl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeorl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeorlb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeorlb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldeorlh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldeorlh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldset(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldset, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldseta(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldseta, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetal(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetal, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetalb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetalb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetalh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetalh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldseth(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldseth, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetlb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetlb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsetlh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsetlh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmax(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmax, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxa(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxa, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxal(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxal, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxalb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxalb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxalh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxalh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxlb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxlb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmaxlh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmaxlh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmin(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmin, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsmina(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsmina, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminal(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminal, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminalb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminalb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminalh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminalh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminlb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminlb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldsminlh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldsminlh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumax(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumax, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxa(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxa, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxal(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxal, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxalb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxalb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxalh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxalh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxlb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxlb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumaxlh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumaxlh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumin(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumin, Rt, mem, Rs, mem)
+#define INSTR_CREATE_ldumina(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_ldumina, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminal(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminal, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminalb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminalb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminalh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminalh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminlb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminlb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_lduminlh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_lduminlh, Rt, mem, Rs, mem)
+/** @} */ /* end doxygen group */
+
+/** @name LSE atomic swap variants */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * Creates an LSE atomic swap variant instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SWP<order>  <Ws>, <Wt>, [<Xn|SP>]
+ *    SWP<order>  <Xs>, <Xt>, [<Xn|SP>]
+ *    SWP<order>B <Ws>, <Wt>, [<Xn|SP>]
+ *    SWP<order>H <Ws>, <Wt>, [<Xn|SP>]
+ * \endverbatim
+ * where \<order\> is A, AL, L, or absent.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rs   The first source register. Use W (Word, 32 bits) for byte and
+ *             halfword forms, and W or X (Extended, 64 bits) for word and
+ *             doubleword forms.
+ * \param Rt   The first destination register. Use W (Word, 32 bits) for byte
+ *             and halfword forms, and W or X (Extended, 64 bits) for word and
+ *             doubleword forms.
+ * \param mem  The source and destination memory address operand constructed with the
+ *             function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, 0, opsz)
+ */
+#define INSTR_CREATE_swp(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swp, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swpa(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swpa, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swpab(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swpab, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swpah(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swpah, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swpal(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swpal, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swpalb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swpalb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swpalh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swpalh, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swpb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swpb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swph(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swph, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swpl(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swpl, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swplb(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swplb, Rt, mem, Rs, mem)
+#define INSTR_CREATE_swplh(dc, Rs, Rt, mem) \
+    instr_create_2dst_2src(dc, OP_swplh, Rt, mem, Rs, mem)
+/** @} */ /* end doxygen group */
+
 /**
  * Creates a LDAPR load-acquire instruction.
  *
