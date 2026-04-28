@@ -976,7 +976,7 @@ include:
 - Trimming the start (via -trim_before_timestamp) and end (via -trim_after_timestamp)
   of a trace.  Any now-empty shards are deleted entirely.
 
-- Created a core-sharded-on-disk trace by running in core-sharded mode.  It is
+- Creating a core-sharded-on-disk trace by running in core-sharded mode.  It is
   recommended to run the schedule_stats tool at the same time to gather schedule
   statistics when using a dynamic schedule.
 

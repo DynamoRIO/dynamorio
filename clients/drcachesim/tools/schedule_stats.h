@@ -78,7 +78,7 @@ public:
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
-    parallel_shard_memref(void *shard_data, const RecordType &memref) override;
+    parallel_shard_memref(void *shard_data, const RecordType &record) override;
     std::string
     parallel_shard_error(void *shard_data) override;
 
