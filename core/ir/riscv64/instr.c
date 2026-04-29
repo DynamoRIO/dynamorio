@@ -536,12 +536,16 @@ instr_compute_vector_address(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     return false;
 }
 
+/* TODO i#7842: to be implemented. */
+DR_API
 uint
 instr_get_isa_feature(byte *pc, instr_t *instr)
 {
     return ISA_FEAT_UNKNOWN;
 }
 
+/* TODO i#7842: to be implemented. */
+DR_API
 const char *
 instr_get_isa_feature_name(uint isa_feature)
 {
