@@ -5238,6 +5238,14 @@ if (BUILD_CLIENTS)
       # it checks encodings).
       "opcode_mix")
 
+    # Test running record_schedule_stats at the same time as record_filte.
+    set(testname "tool.record_filter_plus_stats")
+    torun_record_filter("${testname}" ${ci_shared_app}
+      "record_filter_plus_stats"
+      # As above, we assume the app name starts with "s" here.
+      "${drcachesim_path}@-tool@record_filter:schedule_stats@-indir@${testname}.s*.dir/trace@-core_sharded@-cores@4@-outdir@${testname}.filtered.dir"
+      "basic_counts")
+
     if (X86 AND X64 AND ZLIB_FOUND)
         set(testname "tool.record_filter_encodings2regdeps")
         torun_record_filter("${testname}" ${ci_shared_app}

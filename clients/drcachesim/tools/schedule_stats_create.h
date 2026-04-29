@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,6 +54,14 @@ namespace drmemtrace {
  */
 analysis_tool_t *
 schedule_stats_tool_create(uint64_t print_every, unsigned int verbose = 0);
+
+/**
+ * Creates a record analysis tool which counts the number and type of context switches
+ * in a core-sharded trace schedule.  The tool fails if run in any mode besides
+ * core-sharded.
+ */
+record_analysis_tool_t *
+record_schedule_stats_tool_create(uint64_t print_every, unsigned int verbose = 0);
 
 } // namespace drmemtrace
 } // namespace dynamorio
