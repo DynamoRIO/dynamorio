@@ -44,6 +44,7 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 #include "trace_entry.h"
+#include "test_helpers_syscall.h"
 
 #ifdef LINUX
 #    include "../../core/unix/include/syscall_target.h"
@@ -1732,18 +1733,7 @@ check_syscalls()
     // checks do not currently work properly there.
     return true;
 #else
-    // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction
-    // and it turns out there is no simple cross-platform way.
-#    ifdef X86
-    instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
-#    elif defined(AARCHXX)
-    instr_t *sys =
-        INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#    elif defined(RISCV64)
-    instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
-#    else
-#        error Unsupported architecture.
-#    endif
+    instr_t *sys = create_test_syscall(GLOBAL_DCONTEXT);
     instr_t *move1 =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
@@ -3471,18 +3461,7 @@ check_kernel_syscall_trace(void)
     // checks do not currently work properly there.
     return true;
 #else
-    // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction
-    // and it turns out there is no simple cross-platform way.
-#    ifdef X86
-    instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
-#    elif defined(AARCHXX)
-    instr_t *sys =
-        INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#    elif defined(RISCV64)
-    instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
-#    else
-#        error Unsupported architecture.
-#    endif
+    instr_t *sys = create_test_syscall(GLOBAL_DCONTEXT);
     instr_t *sys_return;
 #    ifdef X86
     sys_return = INSTR_CREATE_sysret(GLOBAL_DCONTEXT);

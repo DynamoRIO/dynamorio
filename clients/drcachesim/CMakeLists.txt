@@ -895,7 +895,7 @@ if (BUILD_TESTS)
 
   # XXX i#3544 Make raw2trace_unit_tests compilable in RISCV64.
   if (NOT RISCV64)
-    add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
+    add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp tests/test_helpers_syscall.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
     add_win32_flags(tool.drcacheoff.raw2trace_unit_tests ON)
     target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace
@@ -1054,7 +1054,7 @@ if (BUILD_TESTS)
     set_tests_properties(tool.drcachesim.miss_analyzer_unit_test PROPERTIES
       TIMEOUT ${test_seconds})
 
-    add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp)
+    add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp tests/test_helpers_syscall.cpp)
     configure_DynamoRIO_standalone(tool.drcachesim.invariant_checker_test)
     add_win32_flags(tool.drcachesim.invariant_checker_test ON)
     target_link_libraries(tool.drcachesim.invariant_checker_test
