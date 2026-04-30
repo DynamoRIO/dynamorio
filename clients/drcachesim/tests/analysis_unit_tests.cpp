@@ -69,7 +69,7 @@ public:
     using analyzer_tmpl_t<RecordType, ReaderType>::worker_data_;
     using analyzer_tmpl_t<RecordType, ReaderType>::load_balance_;
     using analyzer_tmpl_t<RecordType, ReaderType>::load_balance_cadence_;
-    using analyzer_tmpl_t<RecordType, ReaderType>::max_imbalance_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::max_allowed_imbalance_;
     using typename analyzer_tmpl_t<RecordType, ReaderType>::analyzer_worker_data_t;
     mock_analyzer_tmpl_t(
         std::vector<typename scheduler_tmpl_t<RecordType, ReaderType>::input_workload_t>
@@ -124,9 +124,9 @@ public:
         load_balance_cadence_ = value;
     }
     void
-    set_max_imbalance(double value)
+    set_max_allowed_imbalance(double value)
     {
-        max_imbalance_ = value;
+        max_allowed_imbalance_ = value;
     }
 };
 
@@ -769,8 +769,7 @@ test_load_balance()
                 std::cerr << "shard " << i << " saw " << instr_count_[i]
                           << " instructions\n";
                 if (i > 0) {
-                    assert(static_cast<double>(instr_count_[0]) * MAX_RATIO +
-                               NUM_INSTRS >=
+                    assert(static_cast<double>(instr_count_[0]) * MAX_RATIO >=
                            instr_count_[i]);
                 }
             }
@@ -834,7 +833,7 @@ test_load_balance()
     analyzer.set_load_balance(true);
     // Our test is scaled down to make it fast enough for automation.
     analyzer.set_load_balance_cadence(NUM_INSTRS / 5);
-    analyzer.set_max_imbalance(MAX_RATIO);
+    analyzer.set_max_allowed_imbalance(MAX_RATIO);
     bool res = analyzer.run();
     // It would be nice to assert that there was some waiting by having
     // analyzer give us the worker imbalance_wait_count, but this likely

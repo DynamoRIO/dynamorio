@@ -379,7 +379,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     }
     sched_mapping_ = options.mapping;
     if (sched_mapping_ == sched_type_t::MAP_TO_ANY_OUTPUT && worker_count_ > 0 &&
-        max_imbalance_ > 1.) {
+        max_allowed_imbalance_ >= 1.) {
         load_balance_ = true;
     }
     if (scheduler_.init(workloads, output_count, std::move(sched_ops)) !=
@@ -735,7 +735,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::check_load_balance(
         int64_t min_activity = std::numeric_limits<int64_t>::max();
         const analyzer_worker_data_t *min_worker = nullptr;
         for (const auto &worker_data : worker_data_) {
-            // We can't wait for a finished worker.
+            // We can't wait for a finished worker (this only happens when
+            // all inputs, or exit_if_fraction_inputs_left inputs, are at EOF).
             if (worker_data.exited.load(std::memory_order_acquire))
                 continue;
             int64_t worker_activity =
@@ -745,7 +746,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::check_load_balance(
                 min_worker = &worker_data;
             }
         }
-        if (worker->activity_count <= max_imbalance_ * min_activity) {
+        if (worker->activity_count <= max_allowed_imbalance_ * min_activity) {
             VPRINT(this, 3,
                    "Worker %d @%" PRId64 " NOT waiting for slowest %d @%" PRId64 "\n",
                    worker->index, worker->activity_count, min_worker->index,
@@ -761,10 +762,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::check_load_balance(
         ++worker->imbalance_wait_count;
         int iters = 0;
         // Don't stay here too long: return back to the main code to process
-        // exits and other conditions.
+        // exits and other conditions, even if the imbalance is not fully restored yet.
+        // We'll come back here if it's not, or if another worker has become the slowest,
+        // and try again.
         constexpr int MAX_ITERS = 100;
-        while (worker->activity_count > max_imbalance_ * min_activity &&
+        while (worker->activity_count > max_allowed_imbalance_ * min_activity &&
                ++iters < MAX_ITERS) {
+            // A yield is not sufficient when the slower worker is competing on another
+            // core while the faster worker has no competition and will just run again
+            // with a yield: we need to give the slower worker *time*.
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             min_activity =
                 min_worker->shared_activity_count.load(std::memory_order_acquire);
@@ -961,7 +967,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
         }
     }
-    VPRINT(this, 1, "Worker %d waited %" PRId64 " times for load balancing\n",
+    VPRINT(this, 1, "Worker %d finished; waited %" PRId64 " times for load balancing\n",
            worker->index, worker->imbalance_wait_count);
     worker->exited.store(true, std::memory_order_release);
 }
