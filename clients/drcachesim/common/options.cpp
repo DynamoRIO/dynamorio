@@ -1356,7 +1356,8 @@ droption_t<double> op_max_load_imbalance(
     "of instructions and idles) on each core is monitored and if the ratio of the "
     "highest activity to the lowest activity rises above this ratio then the worker "
     "thread for the highest activity core is paused until the ratio drops below "
-    "this value. A value below 1 disables the feature.");
+    "this value. A value below 1 disables the feature. Values under 1.5 can be "
+    "difficult to achieve and may incur noticeable overhead.");
 
 } // namespace drmemtrace
 } // namespace dynamorio
