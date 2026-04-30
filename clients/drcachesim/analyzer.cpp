@@ -733,15 +733,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::check_load_balance(
         worker->prev_ord_balance_check = worker->activity_count;
         int64_t min_activity = std::numeric_limits<int64_t>::max();
         const analyzer_worker_data_t *min_worker = nullptr;
-        for (const auto &worker : worker_data_) {
+        for (const auto &worker_data : worker_data_) {
             // We can't wait for a finished worker.
-            if (worker.exited.load(std::memory_order_acquire))
+            if (worker_data.exited.load(std::memory_order_acquire))
                 continue;
             int64_t worker_activity =
-                worker.shared_activity_count.load(std::memory_order_acquire);
+                worker_data.shared_activity_count.load(std::memory_order_acquire);
             if (worker_activity < min_activity) {
                 min_activity = worker_activity;
-                min_worker = &worker;
+                min_worker = &worker_data;
             }
         }
         if (worker->activity_count <= max_imbalance_ * min_activity) {
