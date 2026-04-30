@@ -45,8 +45,10 @@
 
 #include <stdint.h>
 
+#include <atomic>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -54,6 +56,7 @@
 #include <vector>
 
 #include "analysis_tool.h"
+#include "flexible_queue.h"
 #include "memref.h"
 #include "noise_generator.h"
 #include "reader.h"
@@ -206,9 +209,22 @@ protected:
         }
 
         int index;
+        std::atomic<bool> exited = false;
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
         std::unordered_map<int, analyzer_shard_data_t> shard_data;
+
+        // The simulation-impactful activity seen on this worker, measured by
+        // summing instructions and idles.
+        int64_t activity_count = 0;
+        // Using a global min-queue requires a mutex which causes significant
+        // contention issues so we instead read atomic fields in other workers
+        // directly for much lower overhead.
+        std::atomic<int64_t> shared_activity_count;
+        // We only periodically compare to other workers' activites.
+        int64_t prev_ord_balance_check = 0;
+        // Statistics about load balancing.
+        int64_t imbalance_wait_count = 0;
 
     private:
         // Delete copy constructor and assignment operator to avoid overhead of
@@ -251,6 +267,10 @@ protected:
     // Helper for process_tasks().
     bool
     process_tasks_internal(analyzer_worker_data_t *worker);
+
+    // Load balance feature for dynamic scheduling.
+    void
+    check_load_balance(analyzer_worker_data_t *worker);
 
     // Helper for process_tasks() which calls parallel_shard_exit() in each tool.
     // Returns false if there was an error and the caller should return early.
@@ -446,6 +466,20 @@ protected:
     // input workloads.
     noise_generator_factory_t<RecordType, ReaderType> noise_generator_factory_;
     bool add_noise_generator_ = false;
+
+    // Load balancing for dynamic core-sharded scheduling to avoid underlying kernel
+    // thread scheduling of our workers from leaving some virtual cores too empty.
+    bool load_balance_ = false;
+    // We want to periodically check the load balance.
+    // Experiments show that the 100K value used here works well, keeping
+    // a precise target ratio at a minimal cost.
+    // Auto-raising to 1M or higher for larger inputs was found to reduce
+    // accuracy, so we keep it at 100K.  It's not a constant to allow tests
+    // to change it in subclasses.
+    int64_t load_balance_cadence_ = 100000;
+    // The maximum ratio allowed between the slowest worker and any other worker
+    // in count of worker.activity_count which includes idles.
+    double max_allowed_imbalance_ = 2.5;
 
 private:
     bool
