@@ -474,8 +474,9 @@ protected:
     // Experiments show that the 100K value used here works well, keeping
     // a precise target ratio at a minimal cost.
     // Auto-raising to 1M or higher for larger inputs was found to reduce
-    // accuracy, so we keep it at 100K.
-    constexpr int64_t LOAD_BALANCE_CADENCE = 100000;
+    // accuracy, so we keep it at 100K.  It's not a constant to allow tests
+    // to change it in subclasses.
+    int64_t load_balance_cadence_ = 100000;
     // The maximum ratio allowed between the slowest worker and any other worker
     // in count of worker.activity_count which includes idles.
     double max_imbalance_ = 2.5;

@@ -727,7 +727,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::check_load_balance(
 {
     // Only update the shared atomic value and read other threads' values every
     // so often to reduce overhead.
-    if (worker->activity_count - worker->prev_ord_balance_check >= LOAD_BALANCE_CADENCE) {
+    if (worker->activity_count - worker->prev_ord_balance_check >=
+        load_balance_cadence_) {
         worker->shared_activity_count.store(worker->activity_count,
                                             std::memory_order_release);
         worker->prev_ord_balance_check = worker->activity_count;
