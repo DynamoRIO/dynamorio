@@ -5495,6 +5495,7 @@ check_core_sharded_with_kernel()
 bool
 check_hardware_event_markers()
 {
+#ifdef UNIX
     std::cerr << "Testing hardware event markers\n";
     // Incorrect test: Hardware event markers found in non-whole-system trace.
     {
@@ -5826,6 +5827,23 @@ check_hardware_event_markers()
             return false;
         }
     }
+    // Correct test: Starts inside a hardware context event, popping across context return
+    // safely.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
+            gen_instr(TID_A, /*pc=*/2, /*size=*/1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+#endif
     return true;
 }
 

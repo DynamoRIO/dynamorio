@@ -1230,7 +1230,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (is_context_return_marker(shard->prev_xfer_marker_.marker.marker_type)) {
             // For the following checks, we use the values popped from the
             // context_stack_ into last_context_ at the last
-            // TRACE_MARKER_TYPE_KERNEL_XFER marker.
+            // TRACE_MARKER_TYPE_KERNEL_XFER or
+            // TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN marker.
             bool context_event_marker_equality =
                 // Skip this check if we did not see the corresponding
                 // kernel_event or hardware_event marker in the trace because
@@ -1386,8 +1387,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->context_stack_depth_at_context_switch_trace_start_ <
                                 static_cast<int>(shard->context_stack_.size()),
                             switch_msg);
-            // We assume paired signal entry-exit (so no longjmp and no rseq
-            // inside signal handlers).
+            // We assume paired signal/interrupt entry-exit (so no longjmp and no rseq
+            // inside signal/interrupt handlers).
             if (shard->context_stack_.empty()) {
                 // This can happen if tracing started in the middle of a signal.
                 // Try to continue by skipping the checks.

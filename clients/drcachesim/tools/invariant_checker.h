@@ -178,7 +178,7 @@ protected:
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
         instr_info_t prev_instr_;
 #ifdef UNIX
-        // We keep track of some state per nested signal depth.
+        // We keep track of some state per nested signal/interrupt context depth.
         struct signal_context {
             addr_t xfer_int_pc;
             instr_info_t pre_context_instr;
@@ -187,17 +187,18 @@ protected:
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
         std::stack<signal_context> context_stack_;
 
-        // When we see a TRACE_MARKER_TYPE_KERNEL_XFER we pop the top entry from
+        // When we see a context return marker (TRACE_MARKER_TYPE_KERNEL_XFER or
+        // TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) we pop the top entry from
         // the above stack into the following. This is required because some of
-        // our signal-related checks happen after the above stack is already popped
-        // at the TRACE_MARKER_TYPE_KERNEL_XFER marker.
-        // The defaults are set to skip various signal-related checks in case we
-        // see a signal-return before a signal-start (which happens when the trace
-        // starts inside the app signal handler).
+        // our context-event-related checks happen after the above stack is already popped
+        // at the context return marker.
+        // The defaults are set to skip various context-event-related checks in case we
+        // see a context-return before a context-start (which happens when the trace
+        // starts inside the app signal/interrupt handler).
         signal_context last_context_ = { 0, {}, TRACE_MARKER_TYPE_KERNEL_EVENT };
 
-        // For the outer-most scope, like other nested signal scopes, we start with an
-        // empty memref_t to denote absence of any pre-signal instr.
+        // For the outer-most scope, like other nested context scopes, we start with an
+        // empty memref_t to denote absence of any pre-signal/interrupt instr.
         instr_info_t last_instr_in_cur_context_;
 
         bool saw_rseq_abort_ = false;
