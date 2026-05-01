@@ -241,7 +241,7 @@ opcode_mix_t::decode_opcode_from_key(uint64_t key)
 uint
 opcode_mix_t::decode_isa_from_key(uint64_t key)
 {
-    return static_cast<uint>(key & 0xffffffff);
+    return static_cast<uint>(key & 0x0000ffff);
 }
 
 std::string
