@@ -401,7 +401,7 @@ opcode_mix_t::print_interval_results(
         const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
         std::cerr << "ID:" << snap->get_interval_id() << " ending at instruction "
                   << snap->get_instr_count_cumulative() << " has "
-                  << snap->opcode_isa_counts_.size() << " opcodes" << " and "
+                  << snap->opcode_isa_counts_.size() << " opcodes and "
                   << snap->category_counts_.size() << " categories.\n";
         std::vector<std::pair<uint64_t, int64_t>> sorted(snap->opcode_isa_counts_.begin(),
                                                          snap->opcode_isa_counts_.end());
