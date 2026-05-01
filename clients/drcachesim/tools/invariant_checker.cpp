@@ -1341,8 +1341,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         // Ignore timestamp, etc. markers which show up at signal delivery boundaries
         // b/c the tracer does a buffer flush there.
-        (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)) {
+        (is_context_event_marker(memref.marker.marker_type) ||
+         is_context_return_marker(memref.marker.marker_type))) {
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << "marker type " << memref.marker.marker_type << " value 0x"
