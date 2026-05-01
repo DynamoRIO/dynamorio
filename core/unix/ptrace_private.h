@@ -35,7 +35,8 @@
 
 #include "os_private.h"
 
-#if !defined(PTRACE_TAKEOVER) && defined(LINUX) && (defined(AARCH64) || defined(X86))
+#if !defined(PTRACE_TAKEOVER) && defined(LINUX) && !defined(ANDROID) && \
+    (defined(AARCH64) || defined(X86))
 #    define PTRACE_TAKEOVER 1
 #endif
 

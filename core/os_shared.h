@@ -43,7 +43,7 @@
 #include "os_api.h"
 
 /* Keep in sync with the ptrace_attach.c OS_SRCS guard in core/CMakeLists.txt. */
-#if defined(LINUX) && (defined(AARCH64) || defined(X86))
+#if defined(LINUX) && !defined(ANDROID) && (defined(AARCH64) || defined(X86))
 #    define PTRACE_TAKEOVER 1
 #endif
 
