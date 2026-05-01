@@ -5507,7 +5507,8 @@ check_hardware_event_markers()
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
-                         { "Hardware event marker found in non-whole-system trace", TID_A,
+                         { "Hardware context marker found in non-whole-system trace",
+                           TID_A,
                            /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch hardware event in non-WS trace")) {

@@ -359,7 +359,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         (memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
          memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN)) {
         report_if_false(shard, TESTANY(OFFLINE_FILE_TYPE_WHOLE_SYSTEM, shard->file_type_),
-                        "Hardware event marker found in non-whole-system trace");
+                        "Hardware context marker found in non-whole-system trace");
     }
     // These markers are allowed between the syscall marker and a possible
     // syscall trace.
@@ -1255,6 +1255,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 handler_name = "Interrupt";
             }
             std::string error_msg = handler_name + " handler return point incorrect";
+            // Whole-system traces sometimes have the hardware_event and
+            // hardware_context_return markers nested inside the syscall_trace_start
+            // and syscall_trace_end markers, in which case they are really for the
+            // system call.
             if (shard->prev_xfer_marker_.marker.marker_type ==
                     TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN &&
                 shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
@@ -1337,8 +1341,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         // Ignore timestamp, etc. markers which show up at signal delivery boundaries
         // b/c the tracer does a buffer flush there.
-        (is_context_event_marker(memref.marker.marker_type) ||
-         is_context_return_marker(memref.marker.marker_type))) {
+        (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)) {
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << "marker type " << memref.marker.marker_type << " value 0x"
