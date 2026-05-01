@@ -292,7 +292,7 @@ test_isa_features(void)
     uint isa_feat = ISA_FEAT_INVALID;
 
     /* ISA feature defined in core/ir/aarch64/codec_v80.txt. */
-    instr = INSTR_CREATE_adrp(dc, opnd_create_reg(DR_REG_X1),
+    instr = INSTR_CREATE_adrp(GD, opnd_create_reg(DR_REG_X1),
                               OPND_CREATE_ABSMEM((void *)0x0000000020208000, OPSZ_0));
     isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
     ASSERT(isa_feat == ISA_FEAT_BASE);
