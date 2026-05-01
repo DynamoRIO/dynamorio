@@ -181,10 +181,11 @@ protected:
         // We keep track of some state per nested signal depth.
         struct signal_context {
             addr_t xfer_int_pc;
-            instr_info_t pre_signal_instr;
+            instr_info_t pre_context_instr;
+            trace_marker_type_t context_marker_type;
         };
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
-        std::stack<signal_context> signal_stack_;
+        std::stack<signal_context> context_stack_;
 
         // When we see a TRACE_MARKER_TYPE_KERNEL_XFER we pop the top entry from
         // the above stack into the following. This is required because some of
@@ -193,7 +194,7 @@ protected:
         // The defaults are set to skip various signal-related checks in case we
         // see a signal-return before a signal-start (which happens when the trace
         // starts inside the app signal handler).
-        signal_context last_signal_context_ = { 0, {} };
+        signal_context last_context_ = { 0, {}, TRACE_MARKER_TYPE_KERNEL_EVENT };
 
         // For the outer-most scope, like other nested signal scopes, we start with an
         // empty memref_t to denote absence of any pre-signal instr.
@@ -256,8 +257,8 @@ protected:
         instr_info_t pre_syscall_trace_instr_;
         instr_info_t pre_context_switch_trace_instr_;
 #ifdef UNIX
-        int signal_stack_depth_at_syscall_trace_start_ = -1;
-        int signal_stack_depth_at_context_switch_trace_start_ = -1;
+        int context_stack_depth_at_syscall_trace_start_ = -1;
+        int context_stack_depth_at_context_switch_trace_start_ = -1;
 #endif
         addr_t prev_kernel_end_branch_target_ = 0;
         // Relevant when -no_abort_on_invariant_error.

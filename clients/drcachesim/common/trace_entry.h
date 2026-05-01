@@ -1266,7 +1266,9 @@ entry_has_pc(const trace_entry_t &entry, uint64_t &pc)
         return true;
     }
     if (static_cast<trace_type_t>(entry.type) == TRACE_TYPE_MARKER &&
-        static_cast<trace_marker_type_t>(entry.size) == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        (static_cast<trace_marker_type_t>(entry.size) == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+         static_cast<trace_marker_type_t>(entry.size) ==
+             TRACE_MARKER_TYPE_HARDWARE_EVENT)) {
         pc = entry.addr;
         return true;
     }
