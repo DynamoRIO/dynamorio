@@ -4526,6 +4526,7 @@ if (BUILD_CLIENTS)
 
     torunonly_drcacheoff(interval-opcode-mix-output ${ci_shared_app} ""
       "@-tool@opcode_mix@-interval_instr_count@10000" "")
+    unset(tool.drcacheoff.interval-opcode-mix-output_rawtemp) # use preprocessor
 
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global ${concurrent_test_app}

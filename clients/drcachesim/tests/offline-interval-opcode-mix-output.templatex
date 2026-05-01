@@ -2,8 +2,8 @@ Hello, world!
  *Opcode mix tool results:
     *[0-9]* : total executed instructions
 #ifdef AARCH64
-  *[1-9][0-9]* : *[a-z][ a-z]* \([a-z]*\)
-  *[1-9][0-9]* : *[a-z][ a-z]* \([a-z]*\)
+  *[1-9][0-9]* : *[a-z][ a-z]* \([a-z,A-Z,0-9]*\)
+  *[1-9][0-9]* : *[a-z][ a-z]* \([a-z,A-Z,0-9]*\)
 #else
   *[1-9][0-9]* : *[a-z][ a-z]*
   *[1-9][0-9]* : *[a-z][ a-z]*
@@ -13,8 +13,8 @@ Printing unmerged per-shard interval results:
 There were [0-9]* intervals created.
 ID:1 ending at instruction 10000 has [0-9]* opcodes and [0-9]* categories.
 #ifdef AARCH64
- *\[1\] Opcode: [ a-z]* \([0-9]*\) ISA feature: [a-z]* Count=[0-9]* PKI=[0-9\.]*
- *\[2\] Opcode: [ a-z]* \([0-9]*\) ISA feature: [a-z]* Count=[0-9]* PKI=[0-9\.]*
+ *\[1\] Opcode: [ a-z]* \([0-9]*\) ISA feature: [a-z,A-Z,0-9]* Count=[0-9]* PKI=[0-9\.]*
+ *\[2\] Opcode: [ a-z]* \([0-9]*\) ISA feature: [a-z,A-Z,0-9]* Count=[0-9]* PKI=[0-9\.]*
 #else
  *\[1\] Opcode: [ a-z]* \([0-9]*\) Count=[0-9]* PKI=[0-9\.]*
  *\[2\] Opcode: [ a-z]* \([0-9]*\) Count=[0-9]* PKI=[0-9\.]*
