@@ -291,6 +291,14 @@ test_isa_features(void)
     instr_t *instr = NULL;
     uint isa_feat = ISA_FEAT_INVALID;
 
+    /* ISA feature defined in core/ir/aarch64/codec_v80.txt. */
+    instr = INSTR_CREATE_adrp(dc, opnd_create_reg(DR_REG_X1),
+                              OPND_CREATE_ABSMEM((void *)0x0000000020208000, OPSZ_0));
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_BASE);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "BASE", strlen("BASE")) == 0);
+    instr_destroy(GD, instr);
+
     /* ISA feature defined in core/ir/aarch64/codec_v81.txt. */
     instr = INSTR_CREATE_sqrdmlsh_scalar(GD, opnd_create_reg(DR_REG_H0),
                                          opnd_create_reg(DR_REG_H0),
