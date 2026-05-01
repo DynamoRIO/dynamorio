@@ -745,6 +745,34 @@
         ? instr_create_0dst_2src((dc), OP_msr, (sysreg), (Xt_or_imm)) \
         : instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt_or_imm))
 #define INSTR_CREATE_nop(dc) instr_create_0dst_0src((dc), OP_nop)
+/**
+ * Creates a PRFM instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PRFM    <prfop>, <label>
+ *    PRFM    <prfop>, [<Xn|SP>, <R><m>{, <extend> {<amount>}}]
+ *    PRFM    <prfop>, [<Xn|SP>{, #<pimm>}]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param prfop The prefetch operation.
+ * \param mem   The source memory operand.
+ */
+#define INSTR_CREATE_prfm(dc, prfop, mem) \
+    instr_create_0dst_2src((dc), OP_prfm, (prfop), (mem))
+/**
+ * Creates a PRFUM instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PRFUM   <prfop>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param prfop The prefetch operation.
+ * \param mem   The source memory operand.
+ */
+#define INSTR_CREATE_prfum(dc, prfop, mem) \
+    instr_create_0dst_2src((dc), OP_prfum, (prfop), (mem))
 #define INSTR_CREATE_ret(dc, Rn) instr_create_0dst_1src((dc), OP_ret, (Rn))
 #define INSTR_CREATE_stp(dc, mem, rt1, rt2) \
     instr_create_1dst_2src(dc, OP_stp, mem, rt1, rt2)
