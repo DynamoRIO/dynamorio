@@ -4371,6 +4371,7 @@ if (BUILD_CLIENTS)
 
       torunonly_drcachesim(opcode_mix ${ci_shared_app}
         "-instr_encodings -tool opcode_mix" "")
+      unset(tool.drcachesim.opcode_mix_rawtemp) # use preprocessor
     endif (NOT RISCV64)
     # The sim_atops should start with @ and be in @-as-space format (hence "atops").
     # If the exetgt has drcachesim statically linked in, the _nodr property must be
@@ -4753,6 +4754,7 @@ if (BUILD_CLIENTS)
       # TODO i#3544: Port tests to RISC-V 64
       torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
         "@-tool@opcode_mix" "")
+      unset(tool.drcacheoff.opcode_mix_rawtemp) # use preprocessor
 
       # Ensure the tool works without the raw/ subdir.
       set(tool.drcacheoff.opcode_mix_postcmd
@@ -4764,6 +4766,7 @@ if (BUILD_CLIENTS)
 
       torunonly_drcacheoff(skip_instrs_opcode_mix ${ci_shared_app} ""
         "@-tool@opcode_mix@-skip_instrs@1" "")
+      unset(tool.drcacheoff.skip_instrs_opcode_mix_rawtemp) # use preprocessor
 
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-tool@view@-exit_after_records@16384" "")

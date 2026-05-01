@@ -1,8 +1,15 @@
 Hello, world!
 Opcode mix tool results:
     *[0-9]* : total executed instructions
+#ifdef AARCH64
+    *[0-9]* : [a-z ]* \([a-z,A-Z,0-9]*\)
+    *[0-9]* : [a-z ]* \([a-z,A-Z,0-9]*\)
+    *[0-9]* : [a-z ]* \([a-z,A-Z,0-9]*\)
+    *[0-9]* : [a-z ]* \([a-z,A-Z,0-9]*\)
+#else
     *[0-9]* : [a-z ]*
     *[0-9]* : [a-z ]*
     *[0-9]* : [a-z ]*
     *[0-9]* : [a-z ]*
+#endif
 .*

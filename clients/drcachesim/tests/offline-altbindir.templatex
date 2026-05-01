@@ -1,8 +1,8 @@
 #ifdef AARCH64
 Opcode mix tool results:
          126122 : total executed instructions
-          15924 :     bcond
-          15171 :       stp
+          15924 :     bcond (BASE)
+          15171 :       stp (BASE)
 .*
 #elif defined(ARM)
 ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.altbindir.aarch64/raw/drmemtrace.threadsig..*.raw.gz: Architecture mismatch: trace recorded on aarch64 but tools built for arm
