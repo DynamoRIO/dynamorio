@@ -2259,7 +2259,6 @@ if (DR_HOST_NOT_TARGET)
       "offline-altbindir.c" ""
       "-indir;${locdir};-tool;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
       OFF OFF)
-    unset(tool.drcacheoff.altbindir_rawtemp ON) # use preprocessor
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
