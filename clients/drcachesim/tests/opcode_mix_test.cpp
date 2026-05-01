@@ -57,7 +57,12 @@ public:
     get_opcode_mix(void *shard)
     {
         shard_data_t *shard_data = reinterpret_cast<shard_data_t *>(shard);
-        return shard_data->opcode_counts;
+        std::unordered_map<int, int64_t> opcode_mix;
+        for (const auto &opcode_isa_count : shard_data->opcode_isa_counts) {
+            const int opcode = decode_opcode_from_key(opcode_isa_count.first);
+            opcode_mix[opcode] = opcode_isa_count.second;
+        }
+        return opcode_mix;
     }
 
 protected:

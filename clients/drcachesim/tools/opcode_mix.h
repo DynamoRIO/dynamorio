@@ -101,6 +101,15 @@ public:
         std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
 
 protected:
+    uint64_t
+    encode_opcode_isa(int opcode, uint isa_feature);
+
+    int
+    decode_opcode_from_key(uint64_t key);
+
+    uint
+    decode_isa_from_key(uint64_t key);
+
     std::string
     get_category_names(uint category);
 
@@ -108,15 +117,19 @@ protected:
     public:
         opcode_data_t()
             : opcode_(OP_INVALID)
+            , isa_feature_(ISA_FEAT_INVALID)
             , category_(DR_INSTR_CATEGORY_UNCATEGORIZED)
         {
         }
-        opcode_data_t(int opcode, uint category)
+        opcode_data_t(int opcode, uint isa_feature, uint category)
             : opcode_(opcode)
+            , isa_feature_(isa_feature)
             , category_(category)
         {
         }
         int opcode_;
+        // ISA feature of an instruction (e.g., SVE, SVE2 in AARCH64).
+        uint isa_feature_;
         /*
          * The category field is a uint instead of a dr_instr_category_t because
          * multiple category bits can be set when an instruction belongs to more
@@ -136,7 +149,7 @@ protected:
     public:
         // Snapshot the counts as cumulative stats, and then converted them to deltas in
         // finalize_interval_snapshots().  Printed interval results are all deltas.
-        std::unordered_map<int, int64_t> opcode_counts_;
+        std::unordered_map<uint64_t, int64_t> opcode_isa_counts_;
         std::unordered_map<uint, int64_t> category_counts_;
     };
 
@@ -146,7 +159,7 @@ protected:
         }
 
         int64_t instr_count = 0;
-        std::unordered_map<int, int64_t> opcode_counts;
+        std::unordered_map<uint64_t, int64_t> opcode_isa_counts;
         std::unordered_map<uint, int64_t> category_counts;
         std::string error;
         dynamorio::drmemtrace::memtrace_stream_t *stream = nullptr;

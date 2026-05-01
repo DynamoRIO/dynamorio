@@ -196,7 +196,8 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     // The opcode_data here will never be nullptr since we return
     // early if the prior add_decode_info returned an error.
-    ++shard->opcode_counts[opcode_data->opcode_];
+    ++shard->opcode_isa_counts[encode_opcode_isa(opcode_data->opcode_,
+                                                 opcode_data->isa_feature_)];
     ++shard->category_counts[opcode_data->category_];
     return true;
 }
@@ -218,10 +219,29 @@ opcode_mix_t::process_memref(const memref_t &memref)
     return true;
 }
 
+template <typename T>
 static bool
-cmp_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
+cmp_val(const std::pair<T, int64_t> &l, const std::pair<T, int64_t> &r)
 {
     return (l.second > r.second) || (l.second == r.second && l.first < r.first);
+}
+
+uint64_t
+opcode_mix_t::encode_opcode_isa(int opcode, uint isa_feature)
+{
+    return (static_cast<uint64_t>(opcode) << 32) | static_cast<uint64_t>(isa_feature);
+}
+
+int
+opcode_mix_t::decode_opcode_from_key(uint64_t key)
+{
+    return static_cast<int>(key >> 32);
+}
+
+uint
+opcode_mix_t::decode_isa_from_key(uint64_t key)
+{
+    return static_cast<uint>(key & 0xffffffff);
 }
 
 std::string
@@ -266,8 +286,8 @@ opcode_mix_t::print_results()
     } else {
         for (const auto &shard : shard_map_) {
             aggregated.instr_count += shard.second->instr_count;
-            for (const auto &keyvals : shard.second->opcode_counts) {
-                aggregated.opcode_counts[keyvals.first] += keyvals.second;
+            for (const auto &keyvals : shard.second->opcode_isa_counts) {
+                aggregated.opcode_isa_counts[keyvals.first] += keyvals.second;
             }
             for (const auto &keyvals : shard.second->category_counts) {
                 aggregated.category_counts[keyvals.first] += keyvals.second;
@@ -277,19 +297,26 @@ opcode_mix_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << total->instr_count
               << " : total executed instructions\n";
-    std::vector<std::pair<int, int64_t>> sorted(total->opcode_counts.begin(),
-                                                total->opcode_counts.end());
-    std::sort(sorted.begin(), sorted.end(), cmp_val);
-    for (const auto &keyvals : sorted) {
+    std::vector<std::pair<uint64_t, int64_t>> sorted_opcode_isa_counts(
+        total->opcode_isa_counts.begin(), total->opcode_isa_counts.end());
+    std::sort(sorted_opcode_isa_counts.begin(), sorted_opcode_isa_counts.end(),
+              cmp_val<uint64_t>);
+    for (const auto &keyvals : sorted_opcode_isa_counts) {
+        const int opcode = decode_opcode_from_key(keyvals.first);
+        const uint isa_feature = decode_isa_from_key(keyvals.first);
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
-                  << decode_opcode_name(keyvals.first) << "\n";
+                  << decode_opcode_name(opcode);
+        if (isa_feature != ISA_FEAT_UNKNOWN)
+            std::cerr << " (" << instr_get_isa_feature_name(isa_feature) << ")";
+        std::cerr << "\n";
     }
     std::cerr << "\n";
     std::cerr << std::setw(15) << total->category_counts.size()
               << " : sets of categories\n";
     std::vector<std::pair<uint, int64_t>> sorted_category_counts(
         total->category_counts.begin(), total->category_counts.end());
-    std::sort(sorted_category_counts.begin(), sorted_category_counts.end(), cmp_val);
+    std::sort(sorted_category_counts.begin(), sorted_category_counts.end(),
+              cmp_val<uint>);
     for (const auto &keyvals : sorted_category_counts) {
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                   << get_category_names(keyvals.first) << "\n";
@@ -310,7 +337,7 @@ opcode_mix_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interv
     assert(shard_data != nullptr);
     auto &shard = *reinterpret_cast<shard_data_t *>(shard_data);
     auto *snap = new snapshot_t;
-    snap->opcode_counts_ = shard.opcode_counts;
+    snap->opcode_isa_counts_ = shard.opcode_isa_counts;
     snap->category_counts_ = shard.category_counts;
     return snap;
 }
@@ -325,8 +352,8 @@ opcode_mix_t::finalize_interval_snapshots(
     for (int i = static_cast<int>(interval_snapshots.size()) - 1; i > 0; --i) {
         auto &this_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i]);
         auto &prior_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i - 1]);
-        for (auto &opc_count : this_snap.opcode_counts_) {
-            opc_count.second -= prior_snap.opcode_counts_[opc_count.first];
+        for (auto &opc_isa_count : this_snap.opcode_isa_counts_) {
+            opc_isa_count.second -= prior_snap.opcode_isa_counts_[opc_isa_count.first];
         }
         for (auto &cat_count : this_snap.category_counts_) {
             cat_count.second -= prior_snap.category_counts_[cat_count.first];
@@ -348,8 +375,8 @@ opcode_mix_t::combine_interval_snapshots(
             snap->get_interval_end_timestamp() != interval_end_timestamp) {
             continue;
         }
-        for (const auto opc_count : snap->opcode_counts_) {
-            super_snap->opcode_counts_[opc_count.first] += opc_count.second;
+        for (const auto opc_isa_count : snap->opcode_isa_counts_) {
+            super_snap->opcode_isa_counts_[opc_isa_count.first] += opc_isa_count.second;
         }
         for (const auto cat_count : snap->category_counts_) {
             super_snap->category_counts_[cat_count.first] += cat_count.second;
@@ -369,22 +396,26 @@ opcode_mix_t::print_interval_results(
         const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
         std::cerr << "ID:" << snap->get_interval_id() << " ending at instruction "
                   << snap->get_instr_count_cumulative() << " has "
-                  << snap->opcode_counts_.size() << " opcodes"
-                  << " and " << snap->category_counts_.size() << " categories.\n";
-        std::vector<std::pair<int, int64_t>> sorted(snap->opcode_counts_.begin(),
-                                                    snap->opcode_counts_.end());
-        std::sort(sorted.begin(), sorted.end(), cmp_val);
+                  << snap->opcode_isa_counts_.size() << " opcodes" << " and "
+                  << snap->category_counts_.size() << " categories.\n";
+        std::vector<std::pair<uint64_t, int64_t>> sorted(snap->opcode_isa_counts_.begin(),
+                                                         snap->opcode_isa_counts_.end());
+        std::sort(sorted.begin(), sorted.end(), cmp_val<uint64_t>);
         for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
+            const int opcode = decode_opcode_from_key(sorted[i].first);
+            const uint isa_feature = decode_isa_from_key(sorted[i].first);
             std::cerr << "   [" << i + 1 << "]"
-                      << " Opcode: " << decode_opcode_name(sorted[i].first) << " ("
-                      << sorted[i].first << ")"
-                      << " Count=" << sorted[i].second << " PKI="
+                      << " Opcode: " << decode_opcode_name(opcode) << " (" << opcode
+                      << ")";
+            if (isa_feature != ISA_FEAT_UNKNOWN)
+                std::cerr << " ISA feature: " << instr_get_isa_feature_name(isa_feature);
+            std::cerr << " Count=" << sorted[i].second << " PKI="
                       << sorted[i].second * 1000.0 / snap->get_instr_count_delta()
                       << "\n";
         }
         std::vector<std::pair<uint, int64_t>> sorted_cats(snap->category_counts_.begin(),
                                                           snap->category_counts_.end());
-        std::sort(sorted_cats.begin(), sorted_cats.end(), cmp_val);
+        std::sort(sorted_cats.begin(), sorted_cats.end(), cmp_val<uint>);
         for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted_cats.size());
              ++i) {
             std::cerr << "   [" << i + 1 << "]"
@@ -411,6 +442,7 @@ opcode_mix_t::opcode_data_t::set_decode_info_derived(
 {
     opcode_ = instr_get_opcode(instr);
     category_ = instr_get_category(instr);
+    isa_feature_ = instr_get_isa_feature(decode_pc, instr);
     return "";
 }
 
