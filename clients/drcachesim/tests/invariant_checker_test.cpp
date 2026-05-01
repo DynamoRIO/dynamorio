@@ -5502,7 +5502,7 @@ check_hardware_event_markers()
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
             gen_exit(TID_A),
         };
@@ -5521,11 +5521,11 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
-            gen_instr(TID_A, /*pc=*/101, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
-            gen_instr(TID_A, /*pc=*/2, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false)) {
@@ -5539,7 +5539,7 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 3),
             gen_exit(TID_A),
         };
@@ -5560,11 +5560,11 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
-            gen_instr(TID_A, /*pc=*/101, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
-            gen_instr(TID_A, /*pc=*/5, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/5),
             gen_exit(TID_A),
         };
         if (!run_checker(
@@ -5582,15 +5582,15 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 10),
-            gen_instr(TID_A, /*pc=*/20, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 103),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 11),
+            gen_instr(TID_A, /*pc=*/20),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 21),
+            gen_instr(TID_A, /*pc=*/11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 12),
+            gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false)) {
@@ -5605,9 +5605,9 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/10),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
@@ -5615,7 +5615,7 @@ check_hardware_event_markers()
         };
         if (!run_checker(
                 memrefs, true,
-                { "Syscall trace has extra hardware_event_return marker", TID_A,
+                { "Syscall trace has extra hardware_context_return marker", TID_A,
                   /*ref_ordinal=*/9, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/2 },
                 "Failed to catch mismatched hardware context return in syscall trace")) {
@@ -5632,9 +5632,9 @@ check_hardware_event_markers()
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/1, /*size=*/1,
                            /*indirect_branch_target=*/2),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/10),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
-            gen_instr(TID_A, /*pc=*/2, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false)) {
@@ -5651,9 +5651,9 @@ check_hardware_event_markers()
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/1, /*size=*/1,
                            /*indirect_branch_target=*/2),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/10),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
-            gen_instr(TID_A, /*pc=*/5, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/5),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -5672,14 +5672,14 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/101, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/101),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 102),
-            gen_instr(TID_A, /*pc=*/201, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/201),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 202),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 102),
-            gen_instr(TID_A, /*pc=*/201, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/201),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 202),
-            gen_instr(TID_A, /*pc=*/102, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/102),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false)) {
@@ -5693,14 +5693,14 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 10),
-            gen_instr(TID_A, /*pc=*/20, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 103),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/20),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 21),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false)) {
@@ -5716,15 +5716,15 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/20, /*size=*/1,
-                           /*indirect_branch_target=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
+                           /*indirect_branch_target=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 123),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false)) {
@@ -5737,10 +5737,10 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 2),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 11),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -5757,10 +5757,10 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 1),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 2),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -5780,13 +5780,13 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
-                           /*indirect_branch_target=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 1),
+                           /*indirect_branch_target=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 123),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
@@ -5797,9 +5797,8 @@ check_hardware_event_markers()
             return false;
         }
     }
-    // Incorrect test: Hardware context event occurring within a syscall trace context,
-    // hardware_context_return immediately preceding syscall_trace_end, returns to
-    // incorrect PC.
+    // Incorrect test: Syscall in whole-system trace returns to correct non-fallthrough
+    // pc.
     {
         uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
             OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
@@ -5807,15 +5806,38 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/1, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/20, /*size=*/1,
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 5),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
                            /*indirect_branch_target=*/5),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 1),
-            gen_instr(TID_A, /*pc=*/5, /*size=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 123),
+            gen_instr(TID_A, /*pc=*/5),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: Syscall in whole-system trace returns to incorrect pc.
+    {
+        uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
+            OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 5),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
+                           /*indirect_branch_target=*/6),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 123),
+            gen_instr(TID_A, /*pc=*/6),
             gen_exit(TID_A),
         };
         if (!run_checker(
@@ -5827,16 +5849,16 @@ check_hardware_event_markers()
             return false;
         }
     }
-    // Correct test: Starts inside a hardware context event, popping across context return
-    // safely.
+    // Correct test: Starts inside a hardware context event.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_instr(TID_A, /*pc=*/10, /*size=*/1),
-            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
-            gen_instr(TID_A, /*pc=*/2, /*size=*/1),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            // Never-before-seen context; no discontinuity.
+            gen_instr(TID_A, /*pc=*/2),
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, false)) {

@@ -32,7 +32,6 @@
 
 #include "invariant_checker.h"
 
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1373,7 +1372,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // to the PT syscall traces today.
             std::string marker_name = "kernel_xfer";
             if (memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
-                marker_name = "hardware_event_return";
+                marker_name = "hardware_context_return";
             }
             std::string syscall_msg =
                 "Syscall trace has extra " + marker_name + " marker";
