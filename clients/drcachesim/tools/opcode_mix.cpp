@@ -229,19 +229,24 @@ cmp_val(const std::pair<T, int64_t> &l, const std::pair<T, int64_t> &r)
 uint64_t
 opcode_mix_t::encode_opcode_isa(int opcode, uint isa_feature)
 {
+    // Combines opcode and isa_feature in a uint64_t by setting the opcode to the upper 32
+    // bits and the ISA feature enum constant to the lower 32 bits.
     return (static_cast<uint64_t>(opcode) << 32) | static_cast<uint64_t>(isa_feature);
 }
 
 int
 opcode_mix_t::decode_opcode_from_key(uint64_t key)
 {
+    // Shift the opcode to the lower 32 bits to retrieve it as an int.
     return static_cast<int>(key >> 32);
 }
 
 uint
 opcode_mix_t::decode_isa_from_key(uint64_t key)
 {
-    return static_cast<uint>(key & 0x0000ffff);
+    // The cast to uint truncates the upper 32 bits of the key, leaving the isa_feature
+    // as a uint.
+    return static_cast<uint>(key);
 }
 
 std::string
