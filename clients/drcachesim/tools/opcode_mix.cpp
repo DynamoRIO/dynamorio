@@ -196,7 +196,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     // The opcode_data here will never be nullptr since we return
     // early if the prior add_decode_info returned an error.
-    ++shard->opcode_isa_counts[encode_opcode_isa(opcode_data->opcode_,
+    ++shard->opcode_isa_counts[opcode_isa_feat_t(opcode_data->opcode_,
                                                  opcode_data->isa_feature_)];
     ++shard->category_counts[opcode_data->category_];
     return true;
@@ -219,6 +219,7 @@ opcode_mix_t::process_memref(const memref_t &memref)
     return true;
 }
 
+// Order by count first, then by key, if the key is an integer value.
 template <typename T>
 static bool
 cmp_val(const std::pair<T, int64_t> &l, const std::pair<T, int64_t> &r)
@@ -226,27 +227,18 @@ cmp_val(const std::pair<T, int64_t> &l, const std::pair<T, int64_t> &r)
     return (l.second > r.second) || (l.second == r.second && l.first < r.first);
 }
 
-uint64_t
-opcode_mix_t::encode_opcode_isa(int opcode, uint isa_feature)
+// Specialization for opcode_isa_feat_t, used as key in opcode_isa_map.
+// Order first by count, then by opcode, then by ISA feature.
+template <>
+bool
+cmp_val<opcode_mix_t::opcode_isa_feat_t>(
+    const std::pair<opcode_mix_t::opcode_isa_feat_t, int64_t> &l,
+    const std::pair<opcode_mix_t::opcode_isa_feat_t, int64_t> &r)
 {
-    // Combines opcode and isa_feature in a uint64_t by setting the opcode to the upper 32
-    // bits and the ISA feature enum constant to the lower 32 bits.
-    return (static_cast<uint64_t>(opcode) << 32) | static_cast<uint64_t>(isa_feature);
-}
-
-int
-opcode_mix_t::decode_opcode_from_key(uint64_t key)
-{
-    // Shift the opcode to the lower 32 bits to retrieve it as an int.
-    return static_cast<int>(key >> 32);
-}
-
-uint
-opcode_mix_t::decode_isa_from_key(uint64_t key)
-{
-    // The cast to uint truncates the upper 32 bits of the key, leaving the isa_feature
-    // as a uint.
-    return static_cast<uint>(key);
+    return (l.second > r.second) ||
+        (l.second == r.second && l.first.opcode < r.first.opcode) ||
+        (l.second == r.second && l.first.opcode == r.first.opcode &&
+         l.first.isa_feature < r.first.isa_feature);
 }
 
 std::string
@@ -302,15 +294,19 @@ opcode_mix_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << total->instr_count
               << " : total executed instructions\n";
-    std::vector<std::pair<uint64_t, int64_t>> sorted_opcode_isa_counts(
+    std::vector<std::pair<opcode_isa_feat_t, int64_t>> sorted_opcode_isa_counts(
         total->opcode_isa_counts.begin(), total->opcode_isa_counts.end());
     std::sort(sorted_opcode_isa_counts.begin(), sorted_opcode_isa_counts.end(),
-              cmp_val<uint64_t>);
+              cmp_val<opcode_mix_t::opcode_isa_feat_t>);
     for (const auto &keyvals : sorted_opcode_isa_counts) {
-        const int opcode = decode_opcode_from_key(keyvals.first);
-        const uint isa_feature = decode_isa_from_key(keyvals.first);
+        const int opcode = keyvals.first.opcode;
+        const uint isa_feature = keyvals.first.isa_feature;
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                   << decode_opcode_name(opcode);
+        // TODO i#7842: print all ISA features once instr_get_isa_feature() is implemented
+        // for all architectures (or at least X86). Currently it's only implemented for
+        // AARCH64, so we avoid polluting the output of opcode_mix with <unknown> ISA
+        // feature.
         if (isa_feature != ISA_FEAT_UNKNOWN)
             std::cerr << " (" << instr_get_isa_feature_name(isa_feature) << ")";
         std::cerr << "\n";
@@ -403,15 +399,19 @@ opcode_mix_t::print_interval_results(
                   << snap->get_instr_count_cumulative() << " has "
                   << snap->opcode_isa_counts_.size() << " opcodes and "
                   << snap->category_counts_.size() << " categories.\n";
-        std::vector<std::pair<uint64_t, int64_t>> sorted(snap->opcode_isa_counts_.begin(),
-                                                         snap->opcode_isa_counts_.end());
-        std::sort(sorted.begin(), sorted.end(), cmp_val<uint64_t>);
+        std::vector<std::pair<opcode_isa_feat_t, int64_t>> sorted(
+            snap->opcode_isa_counts_.begin(), snap->opcode_isa_counts_.end());
+        std::sort(sorted.begin(), sorted.end(), cmp_val<opcode_mix_t::opcode_isa_feat_t>);
         for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
-            const int opcode = decode_opcode_from_key(sorted[i].first);
-            const uint isa_feature = decode_isa_from_key(sorted[i].first);
+            const int opcode = sorted[i].first.opcode;
+            const uint isa_feature = sorted[i].first.isa_feature;
             std::cerr << "   [" << i + 1 << "]"
                       << " Opcode: " << decode_opcode_name(opcode) << " (" << opcode
                       << ")";
+            // TODO i#7842: print all ISA features once instr_get_isa_feature() is
+            // implemented for all architectures (or at least X86). Currently it's only
+            // implemented for AARCH64, so we avoid polluting the output of opcode_mix
+            // with <unknown> ISA feature.
             if (isa_feature != ISA_FEAT_UNKNOWN)
                 std::cerr << " ISA feature: " << instr_get_isa_feature_name(isa_feature);
             std::cerr << " Count=" << sorted[i].second << " PKI="
