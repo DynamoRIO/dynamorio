@@ -60,7 +60,7 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
             std::string parent_, std::string replace_policy, std::string prefetcher,
             std::string miss_file)
 {
-    const auto &cache = find_cache(caches, name);
+    const cache_params_t &cache = find_cache(caches, name);
     if (cache.type != type || cache.core != core || cache.size != size ||
         cache.assoc != assoc || cache.inclusive != inclusive || cache.parent != parent_ ||
         cache.replace_policy != replace_policy || cache.prefetcher != prefetcher ||
@@ -420,7 +420,7 @@ unit_test_replacement_policy()
                       << cache_L2.name << ")\n";
             exit(1);
         }
-        const auto &rrip_config =
+        const rrip_config_t *rrip_config =
             dynamic_cast<rrip_config_t *>(cache_L2.replace_policy_config.get());
         if (rrip_config->rrpv_bits != 2 || rrip_config->rrpv_period != 32 ||
             rrip_config->rrpv_long_per_period != 3) {

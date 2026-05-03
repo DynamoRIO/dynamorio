@@ -52,8 +52,6 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-struct cache_replacement_policy_config_t;
-
 // Cache configuration settings.
 struct cache_params_t {
     cache_params_t()
