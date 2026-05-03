@@ -5798,8 +5798,8 @@ check_hardware_event_markers()
             return false;
         }
     }
-    // Incorrect test: Syscall in whole-system trace returns to correct non-fallthrough
-    // pc.
+    // Correct test: Syscall in whole-system trace allowed to return to
+    // non-fallthrough pc if the hardware_event marker has the same pc.
     {
         uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
             OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
