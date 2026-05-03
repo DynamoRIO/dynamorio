@@ -33,6 +33,7 @@
 #include "config_reader.h"
 #include "config_reader_helpers.h"
 #include <sstream>
+#include <set>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -86,6 +87,45 @@ convert_string_to_size(const std::string &s, uint64_t &size)
         size = (uint64_t)(input * scale);
     else {
         size = 0;
+        return false;
+    }
+    return true;
+}
+
+bool
+configure_rrip_policy(const config_t &params, rrip_config_t *config)
+{
+    // All parameters are mandatory if the replacement policy configuration specified.
+    std::set<std::string> required = { "rrpv_bits", "rrpv_period",
+                                       "rrpv_long_per_period" };
+
+    for (const auto &p : params) {
+        if (p.first == "rrpv_bits") {
+            if (!parse_param_value_or_fail(p.first, p.second, &config->rrpv_bits)) {
+                return false;
+            }
+            required.erase(p.first);
+        } else if (p.first == "rrpv_period") {
+            if (!parse_param_value_or_fail(p.first, p.second, &config->rrpv_period)) {
+                return false;
+            }
+            required.erase(p.first);
+        } else if (p.first == "rrpv_long_per_period") {
+            if (!parse_param_value_or_fail(p.first, p.second,
+                                           &config->rrpv_long_per_period)) {
+                return false;
+            }
+            required.erase(p.first);
+        } else if (p.first == "type") {
+            // This parameter already read, just skip it.
+        } else {
+            ERRMSG("Unexpected parameter %s at line %d column %d\n", p.first.c_str(),
+                   p.second.val_line, p.second.val_column);
+            return false;
+        }
+    }
+    if (!required.empty()) {
+        ERRMSG("Missed parameter %s\n", required.begin()->c_str());
         return false;
     }
     return true;
@@ -159,8 +199,39 @@ configure_cache(const config_t &params, cache_params_t *cache)
         } else if (p.first == "replace_policy") {
             // Cache replacement policy: REPLACE_POLICY_LRU (default),
             // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
-            if (!parse_param_value_or_fail(p.first, p.second, &cache->replace_policy)) {
-                return false;
+            if (p.second.type == config_param_node_t::MAP) {
+                // Replacement policy configuration is a nested structure.
+                // Read replacement policy type.
+                const auto type_it = p.second.children.find("type");
+                if (type_it == p.second.children.end()) {
+                    ERRMSG("Replacement policy type should be specified at line %d "
+                           "column %d\n",
+                           p.second.val_line, p.second.val_column);
+                    return false;
+                }
+                if (!parse_param_value_or_fail(p.first, type_it->second,
+                                               &cache->replace_policy)) {
+                    return false;
+                }
+                if (cache->replace_policy == REPLACE_POLICY_RRIP &&
+                    p.second.children.size() > 1) {
+                    // Read configuration of the RRIP replacement policy.
+                    std::unique_ptr<rrip_config_t> rrip_conf { new rrip_config_t() };
+                    if (!configure_rrip_policy(p.second.children, rrip_conf.get())) {
+                        ERRMSG("Failed to read RRIP replacement policy parameters at "
+                               "line %d "
+                               "column %d\n",
+                               p.second.val_line, p.second.val_column);
+                        return false;
+                    }
+                    cache->replace_policy_config = std::move(rrip_conf);
+                }
+            } else {
+                // Replacement policy specified by name
+                if (!parse_param_value_or_fail(p.first, p.second,
+                                               &cache->replace_policy)) {
+                    return false;
+                }
             }
             if (cache->replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
                 cache->replace_policy != REPLACE_POLICY_LRU &&

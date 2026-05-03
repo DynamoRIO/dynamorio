@@ -264,16 +264,16 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file,
              * multiple children to place the snoop filter.
              * Fully shared caches are marked as non-coherent.
              */
-            cache_params_t current_cache = cache_params.find(LL_name)->second;
+            const cache_params_t *current_cache = &(cache_params.find(LL_name)->second);
             non_coherent_caches_[LL_name] = all_caches_[LL_name];
-            while (current_cache.children.size() == 1) {
-                std::string child_name = current_cache.children[0];
+            while (current_cache->children.size() == 1) {
+                std::string child_name = current_cache->children[0];
                 non_coherent_caches_[child_name] = all_caches_[child_name];
-                current_cache = cache_params.find(child_name)->second;
+                current_cache = &(cache_params.find(child_name)->second);
             }
-            if (current_cache.children.size() > 0) {
-                lowest_shared_cache = current_cache.name;
-                total_snooped_caches = (unsigned int)current_cache.children.size();
+            if (current_cache->children.size() > 0) {
+                lowest_shared_cache = current_cache->name;
+                total_snooped_caches = (unsigned int)current_cache->children.size();
             }
         } else {
             total_snooped_caches = num_LL;
@@ -344,10 +344,11 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file,
                          (int)cache_config.size, parent_,
                          new cache_stats_t((int)knobs_.line_size, cache_config.miss_file,
                                            warmup_enabled_, is_coherent_),
-                         create_cache_replacement_policy(cache_config.replace_policy,
-                                                         (int)cache_config.size /
-                                                             (int)knobs_.line_size,
-                                                         (int)cache_config.assoc),
+                         create_cache_replacement_policy(
+                             cache_config.replace_policy,
+                             (int)cache_config.size / (int)knobs_.line_size,
+                             (int)cache_config.assoc,
+                             std::move(cache_config.replace_policy_config)),
                          get_prefetcher(cache_config.prefetcher), inclusion_policy,
                          is_coherent_, is_snooped ? snoop_id : -1,
                          is_snooped ? snoop_filter_ : nullptr, children)) {
