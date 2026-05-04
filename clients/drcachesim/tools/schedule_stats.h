@@ -496,9 +496,9 @@ protected:
     std::unordered_map<workload_tid_t, int64_t, workload_tid_hash_t> prev_core_;
     std::mutex prev_core_mutex_;
     // Ratio of largest instructions+idles to smallest across the cores.
-    double max_core_activity_ratio_;
+    double max_core_activity_ratio_ = -1.;
     // Ratio of most instructions to fewest across the cores.
-    double max_core_instruction_ratio_;
+    double max_core_instruction_ratio_ = -1.;
 };
 
 typedef schedule_stats_template_t<memref_t> schedule_stats_t;
