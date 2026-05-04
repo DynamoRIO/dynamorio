@@ -497,6 +497,8 @@ protected:
     std::mutex prev_core_mutex_;
     // Ratio of largest instructions+idles to smallest across the cores.
     double max_core_activity_ratio_;
+    // Ratio of most instructions to fewest across the cores.
+    double max_core_instruction_ratio_;
 };
 
 typedef schedule_stats_template_t<memref_t> schedule_stats_t;
