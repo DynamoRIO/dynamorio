@@ -94,6 +94,12 @@ public:
         return max_core_activity_ratio_;
     }
 
+    double
+    get_max_core_instruction_ratio()
+    {
+        return max_core_instruction_ratio_;
+    }
+
     bool
     parallel_shard_memref(void *shard_data, const memref_t &memref) override
     {
@@ -953,9 +959,12 @@ test_core_ratio()
     };
     mock_schedule_stats_t tool(/*print_every=*/1, /*verbosity=*/1);
     run_schedule_stats_with_tool(tool, memrefs);
-    double ratio = tool.get_max_core_activity_ratio();
-    std::cerr << "Core ratio: " << ratio << "\n";
-    assert(ratio > 2.999 && ratio <= 3.001);
+    double activity_ratio = tool.get_max_core_activity_ratio();
+    std::cerr << "Core activity ratio: " << activity_ratio << "\n";
+    assert(activity_ratio > 2.999 && activity_ratio <= 3.001);
+    double instruction_ratio = tool.get_max_core_instruction_ratio();
+    std::cerr << "Core instruction ratio: " << instruction_ratio << "\n";
+    assert(instruction_ratio > 2.999 && instruction_ratio <= 3.001);
     return true;
 }
 

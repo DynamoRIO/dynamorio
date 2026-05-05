@@ -814,6 +814,8 @@ schedule_stats_template_t<RecordType>::aggregate_results(counters_t &total)
         cpu_footprint;
     int64_t min_activity = std::numeric_limits<int64_t>::max();
     int64_t max_activity = std::numeric_limits<int64_t>::min();
+    int64_t min_instrs = std::numeric_limits<int64_t>::max();
+    int64_t max_instrs = std::numeric_limits<int64_t>::min();
     for (const auto &[index, shard] : shard_map_) {
         // First update our per-shard data with per-shard stats from the scheduler.
         get_scheduler_stats(shard->stream, shard->counters);
@@ -829,6 +831,8 @@ schedule_stats_template_t<RecordType>::aggregate_results(counters_t &total)
         int64_t activity = shard->counters.instrs + shard->counters.idles;
         min_activity = std::min(activity, min_activity);
         max_activity = std::max(activity, max_activity);
+        min_instrs = std::min(shard->counters.instrs, min_instrs);
+        max_instrs = std::max(shard->counters.instrs, max_instrs);
 
         for (const workload_tid_t wtid : shard->counters.threads) {
             cpu_footprint[wtid].insert(shard->core);
@@ -872,6 +876,7 @@ schedule_stats_template_t<RecordType>::aggregate_results(counters_t &total)
     }
 
     max_core_activity_ratio_ = static_cast<double>(max_activity) / min_activity;
+    max_core_instruction_ratio_ = static_cast<double>(max_instrs) / min_instrs;
 }
 
 template <typename RecordType>
@@ -921,6 +926,8 @@ schedule_stats_template_t<RecordType>::print_results()
         }
     }
     std::cerr << "Max activity ratio between cores: " << max_core_activity_ratio_ << "\n";
+    std::cerr << "Max instruction ratio between cores: " << max_core_instruction_ratio_
+              << "\n";
     return true;
 }
 
