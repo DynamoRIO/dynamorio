@@ -53,11 +53,12 @@ public:
         , instrs_(instrs)
     {
     }
-    std::unordered_map<int, int64_t>
-    get_opcode_mix(void *shard)
+
+    std::unordered_map<opcode_isa_feat_t, int64_t, opcode_isa_hasher_t>
+    get_opcode_isa_counts(void *shard)
     {
         shard_data_t *shard_data = reinterpret_cast<shard_data_t *>(shard);
-        return shard_data->opcode_counts;
+        return shard_data->opcode_isa_feat_counts;
     }
 
 protected:
@@ -141,15 +142,19 @@ check_opcode_mix(void *drcontext, bool use_module_mapper)
             return opcode_mix.parallel_shard_error(shard_data);
         }
     }
-    std::unordered_map<int, int64_t> mix = opcode_mix.get_opcode_mix(shard_data);
-    if (mix.size() != 2) {
-        return "Found incorrect count of opcodes";
+    std::unordered_map<opcode_mix_t::opcode_isa_feat_t, int64_t,
+                       opcode_mix_t::opcode_isa_hasher_t>
+        opcode_isa_counts = opcode_mix.get_opcode_isa_counts(shard_data);
+    if (opcode_isa_counts.size() != 2) {
+        return "Found incorrect count of <opcode, isa_feat> pairs";
     }
-    int64_t nop_count = mix[instr_get_opcode(nop)];
+    int64_t nop_count = opcode_isa_counts[opcode_mix_t::opcode_isa_feat_t(
+        instr_get_opcode(nop), instr_get_isa_feature((byte *)nop, nop))];
     if (nop_count != 2) {
         return "Found incorrect nop count";
     }
-    int64_t ret_count = mix[instr_get_opcode(ret)];
+    int64_t ret_count = opcode_isa_counts[opcode_mix_t::opcode_isa_feat_t(
+        instr_get_opcode(ret), instr_get_isa_feature((byte *)ret, ret))];
     if (ret_count != 1) {
         return "Found incorrect ret count";
     }

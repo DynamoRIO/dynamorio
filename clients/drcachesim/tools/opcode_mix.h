@@ -41,6 +41,7 @@
 #include <string>
 #include <utility>
 #include <unordered_map>
+#include <vector>
 
 #include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
 #include "analysis_tool.h"
@@ -54,6 +55,34 @@ namespace drmemtrace {
 
 class opcode_mix_t : public analysis_tool_t {
 public:
+    /**
+     * Represent an opcode and its ISA feature, used as key in opcode_isa_counts map.
+     */
+    struct opcode_isa_feat_t {
+        opcode_isa_feat_t(int opc, uint feat)
+            : opcode(opc)
+            , isa_feature(feat)
+        {
+        }
+
+        bool
+        operator==(const opcode_isa_feat_t &other) const
+        {
+            return opcode == other.opcode && isa_feature == other.isa_feature;
+        }
+
+        int opcode = OP_INVALID;
+        uint isa_feature = ISA_FEAT_INVALID;
+    };
+
+    struct opcode_isa_hasher_t {
+        std::size_t
+        operator()(const opcode_isa_feat_t &k) const
+        {
+            return (static_cast<uint64_t>(k.opcode) << 32) | k.isa_feature;
+        }
+    };
+
     // The module_file_path is optional and unused for traces with
     // OFFLINE_FILE_TYPE_ENCODINGS.
     // XXX: Once we update our toolchains to guarantee C++17 support we could use
@@ -108,15 +137,19 @@ protected:
     public:
         opcode_data_t()
             : opcode_(OP_INVALID)
+            , isa_feature_(ISA_FEAT_INVALID)
             , category_(DR_INSTR_CATEGORY_UNCATEGORIZED)
         {
         }
-        opcode_data_t(int opcode, uint category)
+        opcode_data_t(int opcode, uint isa_feature, uint category)
             : opcode_(opcode)
+            , isa_feature_(isa_feature)
             , category_(category)
         {
         }
         int opcode_;
+        // ISA feature of an instruction (e.g., SVE, SVE2 in AARCH64).
+        uint isa_feature_;
         /*
          * The category field is a uint instead of a dr_instr_category_t because
          * multiple category bits can be set when an instruction belongs to more
@@ -136,7 +169,8 @@ protected:
     public:
         // Snapshot the counts as cumulative stats, and then converted them to deltas in
         // finalize_interval_snapshots().  Printed interval results are all deltas.
-        std::unordered_map<int, int64_t> opcode_counts_;
+        std::unordered_map<opcode_isa_feat_t, int64_t, opcode_isa_hasher_t>
+            opcode_isa_feat_counts_;
         std::unordered_map<uint, int64_t> category_counts_;
     };
 
@@ -146,7 +180,11 @@ protected:
         }
 
         int64_t instr_count = 0;
-        std::unordered_map<int, int64_t> opcode_counts;
+        std::unordered_map<opcode_isa_feat_t, int64_t, opcode_isa_hasher_t>
+            opcode_isa_feat_counts;
+        // We report category sets frequency counts separately from <opcode, isa_feature>
+        // counts, as we only care about how many instructions belong to a given set of
+        // categories and not which <opcode, isa_feature> they belong to.
         std::unordered_map<uint, int64_t> category_counts;
         std::string error;
         dynamorio::drmemtrace::memtrace_stream_t *stream = nullptr;
