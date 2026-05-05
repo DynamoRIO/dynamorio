@@ -36,6 +36,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -377,6 +378,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         sched_ops.kernel_syscall_trace_path = options.kernel_syscall_trace_path;
     }
     sched_mapping_ = options.mapping;
+    if (sched_mapping_ == sched_type_t::MAP_TO_ANY_OUTPUT && worker_count_ > 0 &&
+        max_allowed_imbalance_ >= 1.) {
+        load_balance_ = true;
+    }
     if (scheduler_.init(workloads, output_count, std::move(sched_ops)) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
@@ -600,7 +605,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         } else if (status == sched_type_t::STATUS_IDLE) {
             assert(shard_type_ == SHARD_BY_CORE);
             record = create_idle_marker();
-        } else if (status != sched_type_t::STATUS_OK) {
+            ++worker.activity_count;
+        } else if (status == sched_type_t::STATUS_OK) {
+            if (record_is_instr(record))
+                ++worker.activity_count;
+        } else {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
                     worker.error =
@@ -711,6 +720,63 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_exit(
     }
     return true;
 }
+template <typename RecordType, typename ReaderType>
+void
+analyzer_tmpl_t<RecordType, ReaderType>::check_load_balance(
+    analyzer_worker_data_t *worker)
+{
+    // Only update the shared atomic value and read other threads' values every
+    // so often to reduce overhead.
+    if (worker->activity_count - worker->prev_ord_balance_check >=
+        load_balance_cadence_) {
+        worker->shared_activity_count.store(worker->activity_count,
+                                            std::memory_order_release);
+        worker->prev_ord_balance_check = worker->activity_count;
+        int64_t min_activity = std::numeric_limits<int64_t>::max();
+        const analyzer_worker_data_t *min_worker = nullptr;
+        for (const auto &worker_data : worker_data_) {
+            // We can't wait for a finished worker (this only happens when
+            // all inputs, or exit_if_fraction_inputs_left inputs, are at EOF).
+            if (worker_data.exited.load(std::memory_order_acquire))
+                continue;
+            int64_t worker_activity =
+                worker_data.shared_activity_count.load(std::memory_order_acquire);
+            if (worker_activity < min_activity) {
+                min_activity = worker_activity;
+                min_worker = &worker_data;
+            }
+        }
+        if (worker->activity_count <= max_allowed_imbalance_ * min_activity) {
+            VPRINT(this, 3,
+                   "Worker %d @%" PRId64 " NOT waiting for slowest %d @%" PRId64 "\n",
+                   worker->index, worker->activity_count, min_worker->index,
+                   min_activity);
+            return;
+        }
+        constexpr int LOG_EVERY = 100;
+        if (worker->imbalance_wait_count % LOG_EVERY == 0) {
+            VPRINT(
+                this, 1, "Worker %d @%" PRId64 " waiting for slowest %d @%" PRId64 "\n",
+                worker->index, worker->activity_count, min_worker->index, min_activity);
+        }
+        ++worker->imbalance_wait_count;
+        int iters = 0;
+        // Don't stay here too long: return back to the main code to process
+        // exits and other conditions, even if the imbalance is not fully restored yet.
+        // We'll come back here if it's not, or if another worker has become the slowest,
+        // and try again.
+        constexpr int MAX_ITERS = 100;
+        while (worker->activity_count > max_allowed_imbalance_ * min_activity &&
+               ++iters < MAX_ITERS) {
+            // A yield is not sufficient when the slower worker is competing on another
+            // core while the faster worker has no competition and will just run again
+            // with a yield: we need to give the slower worker *time*.
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            min_activity =
+                min_worker->shared_activity_count.load(std::memory_order_acquire);
+        }
+    }
+}
 
 template <typename RecordType, typename ReaderType>
 bool
@@ -748,7 +814,16 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks_internal(
             // We synthesize a record here.  If we wanted this to count toward output
             // stream ordinals we would need to add a scheduler API to inject it.
             record = create_idle_marker();
-        } else if (status != sched_type_t::STATUS_OK) {
+            ++worker->activity_count;
+            if (load_balance_)
+                check_load_balance(worker);
+        } else if (status == sched_type_t::STATUS_OK) {
+            if (record_is_instr(record)) {
+                ++worker->activity_count;
+                if (load_balance_)
+                    check_load_balance(worker);
+            }
+        } else {
             if (status == sched_type_t::STATUS_REGION_INVALID) {
                 worker->error =
                     "Too-far -skip_instrs for: " + worker->stream->get_stream_name();
@@ -892,6 +967,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
         }
     }
+    VPRINT(this, 1, "Worker %d finished; waited %" PRId64 " times for load balancing\n",
+           worker->index, worker->imbalance_wait_count);
+    worker->exited.store(true, std::memory_order_release);
 }
 
 template <typename RecordType, typename ReaderType>

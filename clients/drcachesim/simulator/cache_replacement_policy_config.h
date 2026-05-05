@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,25 +30,23 @@
  * DAMAGE.
  */
 
-#ifndef _CREATE_CACHE_REPLACEMENT_POLICY_H_
-#define _CREATE_CACHE_REPLACEMENT_POLICY_H_
-
-#include <memory>
-#include <string>
-
-#include "cache_replacement_policy.h"
-#include "cache_replacement_policy_config.h"
+#ifndef _CACHE_REPLACEMENT_POLICY_CONFIG_H_
+#define _CACHE_REPLACEMENT_POLICY_CONFIG_H_
 
 namespace dynamorio {
 namespace drmemtrace {
 
-/// Initializes and returns a specific replacement policy.
-std::unique_ptr<cache_replacement_policy_t>
-create_cache_replacement_policy(
-    const std::string &policy, int num_sets, int associativity,
-    std::unique_ptr<cache_replacement_policy_config_t> config = nullptr);
+struct cache_replacement_policy_config_t {
+    virtual ~cache_replacement_policy_config_t() = default;
+};
+
+struct rrip_config_t : cache_replacement_policy_config_t {
+    size_t rrpv_bits;
+    size_t rrpv_period;
+    size_t rrpv_long_per_period;
+};
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _CREATE_CACHE_REPLACEMENT_POLICY_H_ */
+#endif /* _CACHE_REPLACEMENT_POLICY_CONFIG_H_ */

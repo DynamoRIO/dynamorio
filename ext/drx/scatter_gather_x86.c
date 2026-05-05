@@ -719,6 +719,71 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
     return true;
 }
 
+static bool
+expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
+                                   scatter_gather_info_t *sg_info, uint no_of_elements,
+                                   app_pc orig_app_pc)
+{
+    uint processed_bytes =
+        no_of_elements * opnd_size_in_bytes(sg_info->scalar_value_size);
+    if (processed_bytes == opnd_size_in_bytes(sg_info->scatter_gather_size))
+        return true;
+    /* We may have a partial gather if the index size is larger than the data size,
+     * which causes only the first half of the destination vector reg to be loaded.
+     * E.g., for vpgatherqd and vgatherqps.
+     * We cannot zero out the whole vector before the gather expansion because we
+     * want to preserve initial values of masked data elements that are not supposed
+     * to be loaded/overwritten.
+     */
+    ASSERT(processed_bytes * 2 == opnd_size_in_bytes(sg_info->scatter_gather_size),
+           "Partial gather must statically fill exactly half of the destination "
+           "register.");
+
+    reg_id_t dst_reg = sg_info->gather_dst_reg;
+    if (processed_bytes == 8) {
+        /* E.g., vpgatherqd/vgatherqps xmm0 {k1}, [xax + xmm1 * 4] */
+        reg_id_t dst_xmm = reg_resize_to_opsz(dst_reg, OPSZ_16);
+        /* vmovq between xmm registers is a 64-bit move: it copies the lowest
+         * 64 bits onto themselves (preserving gathered data) and explicitly
+         * clears the higher 64 bits of the destination xmm register to all 0s.
+         */
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vmovq(drcontext, opnd_create_reg(dst_xmm),
+                                            opnd_create_reg(dst_xmm)),
+                         orig_app_pc));
+    } else if (processed_bytes == 16) {
+        /* E.g., vpgatherqd/vgatherqps xmm0 {k1}, [xax + ymm1 * 4]
+         * where the dest reg is inflated to YMM size by the DR decoder, by design.
+         */
+        reg_id_t dst_xmm = reg_resize_to_opsz(dst_reg, OPSZ_16);
+        /* vmovdqa between xmm registers is a 128-bit move: it copies the full
+         * 16 bytes onto themselves (preserving gathered data) and zeroes out the
+         * upper bits of the ymm register.
+         */
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vmovdqa(drcontext, opnd_create_reg(dst_xmm),
+                                              opnd_create_reg(dst_xmm)),
+                         orig_app_pc));
+    } else if (processed_bytes == 32) {
+        /* E.g., vpgatherqd/vgatherqps ymm0 {k1}, [xax + zmm1 * 4]
+         * where the dest reg is inflated to zmm size by the DR decoder, by design.
+         */
+        reg_id_t dst_ymm = reg_resize_to_opsz(dst_reg, OPSZ_32);
+        /* vmovdqa between ymm registers is a 256-bit move: it copies the full
+         * 32 bytes onto themselves (preserving gathered data) and zeroes out the
+         * upper bits of the zmm register.
+         */
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(INSTR_CREATE_vmovdqa(drcontext, opnd_create_reg(dst_ymm),
+                                              opnd_create_reg(dst_ymm)),
+                         orig_app_pc));
+    } else {
+        ASSERT(false, "Unexpected processed_bytes size for partial gather zeroing");
+        return false;
+    }
+    return true;
+}
+
 /*****************************************************************************************
  * drx_expand_scatter_gather()
  *
@@ -1079,6 +1144,9 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
                     goto drx_expand_scatter_gather_exit;
                 MINSERT(bb, sg_instr, skip_label);
             }
+            if (!expand_gather_zero_remaining_lanes(drcontext, bb, sg_instr, &sg_info,
+                                                    no_of_elements, orig_app_pc))
+                goto drx_expand_scatter_gather_exit;
         } else /* AVX-512 instr_is_scatter(sg_instr) */ {
             for (uint el = 0; el < no_of_elements; ++el) {
                 instr_t *skip_label = INSTR_CREATE_label(drcontext);
@@ -1148,6 +1216,9 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
                 goto drx_expand_scatter_gather_exit;
             MINSERT(bb, sg_instr, skip_label);
         }
+        if (!expand_gather_zero_remaining_lanes(drcontext, bb, sg_instr, &sg_info,
+                                                no_of_elements, orig_app_pc))
+            goto drx_expand_scatter_gather_exit;
         /* The mask register is zeroed completely when instruction finishes. */
         PREXL8(bb, sg_instr,
                INSTR_XL8(INSTR_CREATE_vpxor(drcontext, opnd_create_reg(sg_info.mask_reg),

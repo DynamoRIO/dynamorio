@@ -590,6 +590,7 @@ analyzer_multi_tmpl_t<RecordType, ReaderType>::analyzer_multi_tmpl_t()
             this->parallel_ = false;
         }
         sched_ops = init_dynamic_schedule();
+        this->max_allowed_imbalance_ = op_max_load_imbalance.get_value();
     } else if (op_skip_to_timestamp.get_value() > 0) {
 #ifdef HAS_ZIP
         if (!op_cpu_schedule_file.get_value().empty()) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -67,6 +67,9 @@ public:
     using analyzer_tmpl_t<RecordType, ReaderType>::scheduler_;
     using analyzer_tmpl_t<RecordType, ReaderType>::success_;
     using analyzer_tmpl_t<RecordType, ReaderType>::worker_data_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::load_balance_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::load_balance_cadence_;
+    using analyzer_tmpl_t<RecordType, ReaderType>::max_allowed_imbalance_;
     using typename analyzer_tmpl_t<RecordType, ReaderType>::analyzer_worker_data_t;
     mock_analyzer_tmpl_t(
         std::vector<typename scheduler_tmpl_t<RecordType, ReaderType>::input_workload_t>
@@ -109,6 +112,21 @@ public:
         for (int i = 0; i < worker_count_; ++i) {
             worker_data_.push_back(analyzer_worker_data_t(i, scheduler_.get_stream(i)));
         }
+    }
+    void
+    set_load_balance(bool on)
+    {
+        load_balance_ = on;
+    }
+    void
+    set_load_balance_cadence(uint64_t value)
+    {
+        load_balance_cadence_ = value;
+    }
+    void
+    set_max_allowed_imbalance(double value)
+    {
+        max_allowed_imbalance_ = value;
     }
 };
 
@@ -650,6 +668,182 @@ test_tool_errors()
     return true;
 }
 
+bool
+test_load_balance()
+{
+    std::cerr << "\n----------------\nTesting load balancing\n";
+
+    // We want inputs with tens of thousands of instructions, so we
+    // synthesize them on the fly instead of requiring arrays.
+    class many_instr_reader_t : public reader_t {
+    public:
+        many_instr_reader_t() = default;
+        many_instr_reader_t(memref_tid_t tid, uint64_t instr_count)
+            : reader_t(/*online=*/false, /*verbosity=*/3, "many_instr_reader_t")
+            , tid_(tid)
+            , instr_count_(instr_count)
+        {
+        }
+        bool
+        init() override
+        {
+            at_eof_ = false;
+            ++*this;
+            return true;
+        }
+        trace_entry_t *
+        read_next_entry() override
+        {
+            ++index_;
+            if (index_ == 0) {
+                entry_ = test_util::make_thread(tid_);
+            } else if (index_ == 1) {
+                entry_ = test_util::make_pid(/*pid=*/1);
+            } else if (index_ < instr_count_ + META_ENTRIES - 1) {
+                entry_ = test_util::make_instr(/*pc=*/index_);
+            } else if (index_ == instr_count_ + META_ENTRIES - 1) {
+                entry_ = test_util::make_exit(tid_);
+            } else {
+                at_eof_ = true;
+                return nullptr;
+            }
+            return &entry_;
+        }
+        std::string
+        get_stream_name() const override
+        {
+            return "";
+        }
+
+    private:
+        uint64_t instr_count_ = 0;
+        int index_ = -1;
+        trace_entry_t entry_;
+        memref_tid_t tid_;
+        // We have tid, pid, and exit entries.
+        const int META_ENTRIES = 3;
+    };
+
+    // We want many inputs so other workers can steal them.
+    static constexpr int NUM_INPUTS = 512;
+    // We have 4 workers: one slow and 3 fast.
+    static constexpr int NUM_OUTPUTS = 4;
+    // We need enough total instructions to hit the load balance cadence
+    // of 100K.
+    static constexpr int NUM_INSTRS = 5000;
+    static constexpr int BASE_TID = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = BASE_TID + i;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<many_instr_reader_t>(
+                new many_instr_reader_t(tid, NUM_INSTRS)),
+            std::unique_ptr<many_instr_reader_t>(new many_instr_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(
+        scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+        scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+    // Make it easy to migrate so the fast workers will steal from the slow.
+    sched_ops.time_units_per_us = 1.;
+    sched_ops.migration_threshold_us = 1;
+    // Exit early before the slow can finish its current input.
+    sched_ops.exit_if_fraction_inputs_left = 0.3;
+
+    constexpr double MAX_RATIO = 2.5;
+
+    class test_tool_t : public analysis_tool_t {
+    public:
+        bool
+        process_memref(const memref_t &memref) override
+        {
+            assert(false); // Only expect parallel mode.
+            return false;
+        }
+        bool
+        print_results() override
+        {
+            for (int i = 0; i < NUM_OUTPUTS; ++i) {
+                std::cerr << "shard " << i << " saw " << instr_count_[i]
+                          << " instructions\n";
+                if (i > 0) {
+                    assert(static_cast<double>(instr_count_[0]) * MAX_RATIO >=
+                           instr_count_[i]);
+                }
+            }
+            return true;
+        }
+        bool
+        parallel_shard_supported() override
+        {
+            return true;
+        }
+        void *
+        parallel_shard_init_stream(int shard_index, void *worker_data,
+                                   memtrace_stream_t *stream) override
+        {
+            auto per_shard = new per_shard_t;
+            per_shard->index = shard_index;
+            per_shard->stream = stream;
+            return reinterpret_cast<void *>(per_shard);
+        }
+        bool
+        parallel_shard_exit(void *shard_data) override
+        {
+            per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+            instr_count_[shard->index] = shard->instr_count;
+            delete shard;
+            return true;
+        }
+        bool
+        parallel_shard_memref(void *shard_data, const memref_t &memref) override
+        {
+            per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+            if (type_is_instr(memref.instr.type)) {
+                ++shard->instr_count;
+                // Here is where we make worker#0 slow, by sleeping frequently.
+                // Increasing the frequency here makes it more uneven but makes
+                // the load balancing take longer to catch up and we want
+                // to keep the test time down.
+                if (shard->index == 0 && shard->instr_count % 50 == 0) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+            }
+            return true;
+        }
+
+    private:
+        struct per_shard_t {
+            int index;
+            memtrace_stream_t *stream;
+            uint64_t instr_count = 0;
+        };
+        uint64_t instr_count_[NUM_OUTPUTS];
+    };
+
+    std::vector<analysis_tool_t *> tools;
+    // This test_tool_t contains our assert that everything is balanced.
+    auto test_tool = std::unique_ptr<test_tool_t>(new test_tool_t);
+    tools.push_back(test_tool.get());
+    mock_analyzer_t analyzer(sched_inputs, &tools[0], (int)tools.size(),
+                             /*parallel=*/true, NUM_OUTPUTS, &sched_ops);
+    assert(!!analyzer);
+    analyzer.set_load_balance(true);
+    // Our test is scaled down to make it fast enough for automation.
+    analyzer.set_load_balance_cadence(NUM_INSTRS / 5);
+    analyzer.set_max_allowed_imbalance(MAX_RATIO);
+    bool res = analyzer.run();
+    // It would be nice to assert that there was some waiting by having
+    // analyzer give us the worker imbalance_wait_count, but this likely
+    // would become a flaky test, being so dependent on timing.
+    // For now we live with manually observing some waiting.
+    assert(res);
+    analyzer.print_stats();
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -657,7 +851,8 @@ test_main(int argc, const char *argv[])
         !test_next_trace_pc_queries<memref_t, reader_t, test_util::mock_reader_t>(
             "memref_t") ||
         !test_next_trace_pc_queries<trace_entry_t, record_reader_t,
-                                    test_util::mock_record_reader_t>("trace_entry_t"))
+                                    test_util::mock_record_reader_t>("trace_entry_t") ||
+        !test_load_balance())
         return 1;
     std::cerr << "All done!\n";
     return 0;

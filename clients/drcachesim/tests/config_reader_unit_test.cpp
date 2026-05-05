@@ -42,11 +42,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-static void
-check_cache(const std::map<std::string, cache_params_t> &caches, std::string name,
-            std::string type, int core, uint64_t size, unsigned int assoc, bool inclusive,
-            std::string parent_, std::string replace_policy, std::string prefetcher,
-            std::string miss_file)
+static const cache_params_t &
+find_cache(const std::map<std::string, cache_params_t> &caches, const std::string &name)
 {
     auto cache_it = caches.find(name);
     if (cache_it == caches.end()) {
@@ -54,9 +51,16 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
                   << " unfound)\n";
         exit(1);
     }
+    return cache_it->second;
+}
 
-    auto &cache = cache_it->second;
-
+static void
+check_cache(const std::map<std::string, cache_params_t> &caches, std::string name,
+            std::string type, int core, uint64_t size, unsigned int assoc, bool inclusive,
+            std::string parent_, std::string replace_policy, std::string prefetcher,
+            std::string miss_file)
+{
+    const cache_params_t &cache = find_cache(caches, name);
     if (cache.type != type || cache.core != core || cache.size != size ||
         cache.assoc != assoc || cache.inclusive != inclusive || cache.parent != parent_ ||
         cache.replace_policy != replace_policy || cache.prefetcher != prefetcher ||
@@ -292,6 +296,174 @@ unit_test_inclusion_policy()
             std::cerr << "drcachesim inclusion_policy_test failed (conflicting exclusive "
                          "and inclusive)"
                       << std::endl;
+            exit(1);
+        }
+    }
+}
+
+void
+unit_test_replacement_policy()
+{
+    {
+        // Correct: Specified replacement policy name
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1{type unified core 0 parent L2 replace_policy LRU}\n"
+               "L2{type unified replace_policy RRIP}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim config_reader_test failed (simple)" << std::endl;
+            exit(1);
+        }
+
+        const auto &cache_L1 = find_cache(caches, "L1");
+        if (cache_L1.replace_policy != "LRU") {
+            std::cerr
+                << "drcachesim config_reader_test failed (simple; wrong replace_policy "
+                << cache_L1.replace_policy << " for cache " << cache_L1.name << ")\n";
+            exit(1);
+        }
+        if (cache_L1.replace_policy_config != nullptr) {
+            std::cerr << "drcachesim config_reader_test failed (simple; "
+                         "replace_policy_config not null for cache "
+                      << cache_L1.name << ")\n";
+            exit(1);
+        }
+
+        const auto &cache_L2 = find_cache(caches, "L2");
+        if (cache_L2.replace_policy != "RRIP") {
+            std::cerr << "drcachesim config_reader_test failed (wrong replace_policy "
+                      << cache_L2.replace_policy << " for cache " << cache_L2.name
+                      << ")\n";
+            exit(1);
+        }
+        if (cache_L2.replace_policy_config != nullptr) {
+            std::cerr << "drcachesim config_reader_test failed (simple; "
+                         "replace_policy_config not null for cache "
+                      << cache_L2.name << ")\n";
+            exit(1);
+        }
+    }
+    {
+        // Correct: Specified replacement policy map
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1{type unified core 0 parent L2 replace_policy {type LRU}}\n"
+               "L2{type unified replace_policy {type RRIP}}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim replacement_policy_test failed (map)" << std::endl;
+            exit(1);
+        }
+
+        const auto &cache_L1 = find_cache(caches, "L1");
+        if (cache_L1.replace_policy != "LRU") {
+            std::cerr
+                << "drcachesim config_reader_test failed (simple; wrong replace_policy "
+                << cache_L1.replace_policy << " for cache " << cache_L1.name << ")\n";
+            exit(1);
+        }
+        if (cache_L1.replace_policy_config != nullptr) {
+            std::cerr << "drcachesim config_reader_test failed (simple; "
+                         "replace_policy_config not null for cache "
+                      << cache_L1.name << ")\n";
+            exit(1);
+        }
+
+        const auto &cache_L2 = find_cache(caches, "L2");
+        if (cache_L2.replace_policy != "RRIP") {
+            std::cerr << "drcachesim config_reader_test failed (wrong replace_policy "
+                      << cache_L2.replace_policy << " for cache " << cache_L2.name
+                      << ")\n";
+            exit(1);
+        }
+        if (cache_L2.replace_policy_config != nullptr) {
+            std::cerr << "drcachesim config_reader_test failed (simple; "
+                         "replace_policy_config not null for cache "
+                      << cache_L2.name << ")\n";
+            exit(1);
+        }
+    }
+    {
+        // Correct: Specified replacement policy RRIP with parameters
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1{type unified core 0 parent L2 replace_policy LRU}\n"
+               "L2{type unified replace_policy {type RRIP rrpv_bits 2 rrpv_period 32 "
+               "rrpv_long_per_period 3}}\n");
+        config_reader_t config;
+        if (!config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim replacement_policy_test failed (simple RRIP)"
+                      << std::endl;
+            exit(1);
+        }
+
+        const auto &cache_L2 = find_cache(caches, "L2");
+        if (cache_L2.replace_policy != "RRIP") {
+            std::cerr << "drcachesim config_reader_test failed (wrong replace_policy "
+                      << cache_L2.replace_policy << " for cache " << cache_L2.name
+                      << ")\n";
+            exit(1);
+        }
+        if (cache_L2.replace_policy_config == nullptr) {
+            std::cerr << "drcachesim config_reader_test failed (simple; "
+                         "replace_policy_config is null for cache "
+                      << cache_L2.name << ")\n";
+            exit(1);
+        }
+        const rrip_config_t *rrip_config =
+            dynamic_cast<rrip_config_t *>(cache_L2.replace_policy_config.get());
+        if (rrip_config->rrpv_bits != 2 || rrip_config->rrpv_period != 32 ||
+            rrip_config->rrpv_long_per_period != 3) {
+            std::cerr << "drcachesim config_reader_test failed (wrong "
+                         "replace_policy_config for cache "
+                      << cache_L2.name << ")\n";
+            exit(1);
+        }
+    }
+    {
+        // Incorrect: Missed parameters for replacement policy RRIP
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str(
+            "num_cores 1\n"
+            "L1{type unified core 0 parent L2 replace_policy LRU}\n"
+            "L2{type unified replace_policy {type RRIP rrpv_bits 2 rrpv_period 32}}\n");
+        config_reader_t config;
+        if (config.configure(&ss, knobs, caches)) {
+            std::cerr << "drcachesim replacement_policy_test failed (missed parameters "
+                         "for RRIP)"
+                      << std::endl;
+            exit(1);
+        }
+    }
+    {
+        // Incorrect: Unexpected parameters for replacement policy RRIP
+        cache_simulator_knobs_t knobs;
+        std::map<std::string, cache_params_t> caches;
+
+        std::stringstream ss;
+        ss.str("num_cores 1\n"
+               "L1{type unified core 0 parent L2 replace_policy LRU}\n"
+               "L2{type unified replace_policy {type RRIP rrpv_bits 2 rrpv_period 32 "
+               "rrpv_long_per_period 1 extra_param 8}}\n");
+        config_reader_t config;
+        if (config.configure(&ss, knobs, caches)) {
+            std::cerr
+                << "drcachesim replacement_policy_test failed (unexpected parameters "
+                   "for RRIP)"
+                << std::endl;
             exit(1);
         }
     }
