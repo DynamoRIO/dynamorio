@@ -53,27 +53,12 @@ public:
         , instrs_(instrs)
     {
     }
-    std::unordered_map<int, int64_t>
-    get_opcode_counts(void *shard)
+
+    std::unordered_map<opcode_isa_feat_t, int64_t, opcode_isa_hasher_t>
+    get_opcode_isa_counts(void *shard)
     {
         shard_data_t *shard_data = reinterpret_cast<shard_data_t *>(shard);
-        std::unordered_map<int, int64_t> opcode_counts;
-        for (const auto &opcode_isa_count : shard_data->opcode_isa_counts) {
-            const int opcode = opcode_isa_count.first.opcode;
-            opcode_counts[opcode] += opcode_isa_count.second;
-        }
-        return opcode_counts;
-    }
-    std::unordered_map<uint, int64_t>
-    get_isa_feature_counts(void *shard)
-    {
-        shard_data_t *shard_data = reinterpret_cast<shard_data_t *>(shard);
-        std::unordered_map<uint, int64_t> isa_feature_counts;
-        for (const auto &opcode_isa_count : shard_data->opcode_isa_counts) {
-            const uint isa_feature = opcode_isa_count.first.isa_feature;
-            isa_feature_counts[isa_feature] += opcode_isa_count.second;
-        }
-        return isa_feature_counts;
+        return shard_data->opcode_isa_feat_counts;
     }
 
 protected:
@@ -157,37 +142,22 @@ check_opcode_mix(void *drcontext, bool use_module_mapper)
             return opcode_mix.parallel_shard_error(shard_data);
         }
     }
-    std::unordered_map<int, int64_t> opcode_counts =
-        opcode_mix.get_opcode_counts(shard_data);
-    if (opcode_counts.size() != 2) {
-        return "Found incorrect count of opcodes";
+    std::unordered_map<opcode_mix_t::opcode_isa_feat_t, int64_t,
+                       opcode_mix_t::opcode_isa_hasher_t>
+        opcode_isa_counts = opcode_mix.get_opcode_isa_counts(shard_data);
+    if (opcode_isa_counts.size() != 2) {
+        return "Found incorrect count of <opcode, isa_feat> pairs";
     }
-    int64_t nop_count = opcode_counts[instr_get_opcode(nop)];
+    int64_t nop_count = opcode_isa_counts[opcode_mix_t::opcode_isa_feat_t(
+        instr_get_opcode(nop), instr_get_isa_feature((byte *)nop, nop))];
     if (nop_count != 2) {
         return "Found incorrect nop count";
     }
-    int64_t ret_count = opcode_counts[instr_get_opcode(ret)];
+    int64_t ret_count = opcode_isa_counts[opcode_mix_t::opcode_isa_feat_t(
+        instr_get_opcode(ret), instr_get_isa_feature((byte *)ret, ret))];
     if (ret_count != 1) {
         return "Found incorrect ret count";
     }
-    std::unordered_map<uint, int64_t> isa_feature_counts =
-        opcode_mix.get_isa_feature_counts(shard_data);
-    if (isa_feature_counts.size() != 1) {
-        return "Found incorrect count of ISA features";
-    }
-#ifdef AARCH64
-    // Opcodes nop and ret both have ISA_FEAT_BASE.
-    if (isa_feature_counts[ISA_FEAT_BASE] != 3) {
-        return "Found incorrect ISA_FEAT_BASE count";
-    }
-#else
-    // TODO i#7842: once ISA feature is implemented for other architectures, update the
-    // check for this count accordingly. Currently, other architectures always return
-    // ISA_FEAT_UNKNOWN.
-    if (isa_feature_counts[ISA_FEAT_UNKNOWN] != 3) {
-        return "Found incorrect ISA_FEAT_UNKNOWN count";
-    }
-#endif
     std::cerr << "check_opcode_mix with use_module_mapper: " << use_module_mapper
               << " passed\n";
     return "";

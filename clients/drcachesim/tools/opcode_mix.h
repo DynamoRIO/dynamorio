@@ -75,6 +75,14 @@ public:
         uint isa_feature = ISA_FEAT_INVALID;
     };
 
+    struct opcode_isa_hasher_t {
+        std::size_t
+        operator()(const opcode_isa_feat_t &k) const
+        {
+            return (static_cast<uint64_t>(k.opcode) << 32) | k.isa_feature;
+        }
+    };
+
     // The module_file_path is optional and unused for traces with
     // OFFLINE_FILE_TYPE_ENCODINGS.
     // XXX: Once we update our toolchains to guarantee C++17 support we could use
@@ -157,20 +165,12 @@ protected:
             instr_t *instr, app_pc decode_pc) override;
     };
 
-    struct opcode_isa_hasher_t {
-        std::size_t
-        operator()(const opcode_isa_feat_t &k) const
-        {
-            return (static_cast<uint64_t>(k.opcode) << 32) | k.isa_feature;
-        }
-    };
-
     class snapshot_t : public interval_state_snapshot_t {
     public:
         // Snapshot the counts as cumulative stats, and then converted them to deltas in
         // finalize_interval_snapshots().  Printed interval results are all deltas.
         std::unordered_map<opcode_isa_feat_t, int64_t, opcode_isa_hasher_t>
-            opcode_isa_counts_;
+            opcode_isa_feat_counts_;
         std::unordered_map<uint, int64_t> category_counts_;
     };
 
@@ -181,7 +181,7 @@ protected:
 
         int64_t instr_count = 0;
         std::unordered_map<opcode_isa_feat_t, int64_t, opcode_isa_hasher_t>
-            opcode_isa_counts;
+            opcode_isa_feat_counts;
         // We report category sets frequency counts separately from <opcode, isa_feature>
         // counts, as we only care about how many instructions belong to a given set of
         // categories and not which <opcode, isa_feature> they belong to.

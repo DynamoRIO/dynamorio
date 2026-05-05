@@ -196,8 +196,8 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     // The opcode_data here will never be nullptr since we return
     // early if the prior add_decode_info returned an error.
-    ++shard->opcode_isa_counts[opcode_isa_feat_t(opcode_data->opcode_,
-                                                 opcode_data->isa_feature_)];
+    ++shard->opcode_isa_feat_counts[opcode_isa_feat_t(opcode_data->opcode_,
+                                                      opcode_data->isa_feature_)];
     ++shard->category_counts[opcode_data->category_];
     return true;
 }
@@ -219,7 +219,7 @@ opcode_mix_t::process_memref(const memref_t &memref)
     return true;
 }
 
-// Order by count first, then by key, if the key is an integer value.
+// Order first by count, then by key, if the key is an integer value.
 template <typename T>
 static bool
 cmp_val(const std::pair<T, int64_t> &l, const std::pair<T, int64_t> &r)
@@ -227,7 +227,7 @@ cmp_val(const std::pair<T, int64_t> &l, const std::pair<T, int64_t> &r)
     return (l.second > r.second) || (l.second == r.second && l.first < r.first);
 }
 
-// Specialization for opcode_isa_feat_t, used as key in opcode_isa_map.
+// Specialization for opcode_isa_feat_t, used as key in opcode_isa_feat_counts map.
 // Order first by count, then by opcode, then by ISA feature.
 template <>
 bool
@@ -283,8 +283,8 @@ opcode_mix_t::print_results()
     } else {
         for (const auto &shard : shard_map_) {
             aggregated.instr_count += shard.second->instr_count;
-            for (const auto &keyvals : shard.second->opcode_isa_counts) {
-                aggregated.opcode_isa_counts[keyvals.first] += keyvals.second;
+            for (const auto &keyvals : shard.second->opcode_isa_feat_counts) {
+                aggregated.opcode_isa_feat_counts[keyvals.first] += keyvals.second;
             }
             for (const auto &keyvals : shard.second->category_counts) {
                 aggregated.category_counts[keyvals.first] += keyvals.second;
@@ -294,11 +294,11 @@ opcode_mix_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << total->instr_count
               << " : total executed instructions\n";
-    std::vector<std::pair<opcode_isa_feat_t, int64_t>> sorted_opcode_isa_counts(
-        total->opcode_isa_counts.begin(), total->opcode_isa_counts.end());
-    std::sort(sorted_opcode_isa_counts.begin(), sorted_opcode_isa_counts.end(),
+    std::vector<std::pair<opcode_isa_feat_t, int64_t>> sorted_opcode_isa_feat_counts(
+        total->opcode_isa_feat_counts.begin(), total->opcode_isa_feat_counts.end());
+    std::sort(sorted_opcode_isa_feat_counts.begin(), sorted_opcode_isa_feat_counts.end(),
               cmp_val<opcode_mix_t::opcode_isa_feat_t>);
-    for (const auto &keyvals : sorted_opcode_isa_counts) {
+    for (const auto &keyvals : sorted_opcode_isa_feat_counts) {
         const int opcode = keyvals.first.opcode;
         const uint isa_feature = keyvals.first.isa_feature;
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
@@ -338,7 +338,7 @@ opcode_mix_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interv
     assert(shard_data != nullptr);
     auto &shard = *reinterpret_cast<shard_data_t *>(shard_data);
     auto *snap = new snapshot_t;
-    snap->opcode_isa_counts_ = shard.opcode_isa_counts;
+    snap->opcode_isa_feat_counts_ = shard.opcode_isa_feat_counts;
     snap->category_counts_ = shard.category_counts;
     return snap;
 }
@@ -353,8 +353,9 @@ opcode_mix_t::finalize_interval_snapshots(
     for (int i = static_cast<int>(interval_snapshots.size()) - 1; i > 0; --i) {
         auto &this_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i]);
         auto &prior_snap = *reinterpret_cast<snapshot_t *>(interval_snapshots[i - 1]);
-        for (auto &opc_isa_count : this_snap.opcode_isa_counts_) {
-            opc_isa_count.second -= prior_snap.opcode_isa_counts_[opc_isa_count.first];
+        for (auto &opc_isa_feat_count : this_snap.opcode_isa_feat_counts_) {
+            opc_isa_feat_count.second -=
+                prior_snap.opcode_isa_feat_counts_[opc_isa_feat_count.first];
         }
         for (auto &cat_count : this_snap.category_counts_) {
             cat_count.second -= prior_snap.category_counts_[cat_count.first];
@@ -376,8 +377,9 @@ opcode_mix_t::combine_interval_snapshots(
             snap->get_interval_end_timestamp() != interval_end_timestamp) {
             continue;
         }
-        for (const auto opc_isa_count : snap->opcode_isa_counts_) {
-            super_snap->opcode_isa_counts_[opc_isa_count.first] += opc_isa_count.second;
+        for (const auto opc_isa_feat_count : snap->opcode_isa_feat_counts_) {
+            super_snap->opcode_isa_feat_counts_[opc_isa_feat_count.first] +=
+                opc_isa_feat_count.second;
         }
         for (const auto cat_count : snap->category_counts_) {
             super_snap->category_counts_[cat_count.first] += cat_count.second;
@@ -397,10 +399,10 @@ opcode_mix_t::print_interval_results(
         const auto *snap = reinterpret_cast<const snapshot_t *>(base_snap);
         std::cerr << "ID:" << snap->get_interval_id() << " ending at instruction "
                   << snap->get_instr_count_cumulative() << " has "
-                  << snap->opcode_isa_counts_.size() << " opcodes and "
+                  << snap->opcode_isa_feat_counts_.size() << " opcodes and "
                   << snap->category_counts_.size() << " categories.\n";
         std::vector<std::pair<opcode_isa_feat_t, int64_t>> sorted(
-            snap->opcode_isa_counts_.begin(), snap->opcode_isa_counts_.end());
+            snap->opcode_isa_feat_counts_.begin(), snap->opcode_isa_feat_counts_.end());
         std::sort(sorted.begin(), sorted.end(), cmp_val<opcode_mix_t::opcode_isa_feat_t>);
         for (int i = 0; i < PRINT_TOP_N && i < static_cast<int>(sorted.size()); ++i) {
             const int opcode = sorted[i].first.opcode;
