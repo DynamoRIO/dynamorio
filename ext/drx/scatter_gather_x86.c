@@ -753,7 +753,7 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
                          orig_app_pc));
     } else if (processed_bytes == 16) {
         /* E.g., vpgatherqd/vgatherqps xmm0 {k1}, [xax + ymm1 * 4]
-         * where the dest reg is inflated to YMM size by the DR decoder.
+         * where the dest reg is inflated to YMM size by the DR decoder, by design.
          */
         reg_id_t dst_xmm = reg_resize_to_opsz(dst_reg, OPSZ_16);
         /* vmovdqa between xmm registers is a 128-bit move: it copies the full
@@ -766,8 +766,8 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
                          orig_app_pc));
     } else if (processed_bytes == 32) {
         /* E.g., vpgatherqd/vgatherqps ymm0 {k1}, [xax + zmm1 * 4]
-         * where the dest reg is inflated to zmm size by the DR decoder.
-         * */
+         * where the dest reg is inflated to zmm size by the DR decoder, by design.
+         */
         reg_id_t dst_ymm = reg_resize_to_opsz(dst_reg, OPSZ_32);
         /* vmovdqa between ymm registers is a 256-bit move: it copies the full
          * 32 bytes onto themselves (preserving gathered data) and zeroes out the
