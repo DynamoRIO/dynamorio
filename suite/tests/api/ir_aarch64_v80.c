@@ -661,6 +661,85 @@ TEST_INSTR(ccmn)
         });
 }
 
+static const uint prfop[6] = {
+    0x0, 0x2, 0x4, 0x10, 0x12, 0x17,
+};
+TEST_INSTR(prfm)
+{
+    static const dr_extend_type_t extend32[6] = {
+        DR_EXTEND_UXTW, DR_EXTEND_SXTW, DR_EXTEND_SXTW,
+        DR_EXTEND_SXTW, DR_EXTEND_UXTW, DR_EXTEND_UXTW,
+    };
+    /* Testing PRFM <prfop>, [<Xn|SP>, W<m>{, <extend> {<amount>}}] */
+    TEST_LOOP_EXPECT(
+        prfm, 6,
+        INSTR_CREATE_prfm(dc, opnd_create_immed_int(prfop[i], OPSZ_5b),
+                          opnd_create_base_disp_aarch64(Xn_six_offset_0_sp[i],
+                                                        Wn_six_offset_1[i], extend32[i],
+                                                        i % 2 == 1, 0, 0, OPSZ_0)),
+        {
+            EXPECT_DISASSEMBLY(
+                "prfm   $0x00 (%x0,%w0,uxtw)", "prfm   $0x02 (%x5,%w6,sxtw #3)",
+                "prfm   $0x04 (%x10,%w11,sxtw)", "prfm   $0x10 (%x15,%w16,sxtw #3)",
+                "prfm   $0x12 (%x20,%w21,uxtw)", "prfm   $0x17 (%sp,%w30,uxtw #3)");
+            EXPECT_TRUE(instr_is_prefetch(instr));
+        });
+
+    static const dr_extend_type_t extend64[6] = {
+        DR_EXTEND_UXTX, DR_EXTEND_UXTX, DR_EXTEND_SXTX,
+        DR_EXTEND_SXTX, DR_EXTEND_UXTX, DR_EXTEND_UXTX,
+    };
+    /* Testing PRFM <prfop>, [<Xn|SP>, X<m>{, <extend> {<amount>}}] */
+    TEST_LOOP_EXPECT(
+        prfm, 6,
+        INSTR_CREATE_prfm(dc, opnd_create_immed_int(prfop[i], OPSZ_5b),
+                          opnd_create_base_disp_aarch64(Xn_six_offset_0_sp[i],
+                                                        Xn_six_offset_1[i], extend64[i],
+                                                        i % 2 == 1, 0, 0, OPSZ_0)),
+        {
+            EXPECT_DISASSEMBLY(
+                "prfm   $0x00 (%x0,%x0)", "prfm   $0x02 (%x5,%x6,lsl #3)",
+                "prfm   $0x04 (%x10,%x11,sxtx)", "prfm   $0x10 (%x15,%x16,sxtx #3)",
+                "prfm   $0x12 (%x20,%x21)", "prfm   $0x17 (%sp,%x30,lsl #3)");
+            EXPECT_TRUE(instr_is_prefetch(instr));
+        });
+
+    static const uint pimm[6] = {
+        0, 6552, 13104, 19656, 26208, 32760,
+    };
+    /* Testing PRFM <prfop>, [<Xn|SP>{, #<pimm>}] */
+    TEST_LOOP_EXPECT(
+        prfm, 6,
+        INSTR_CREATE_prfm(dc, opnd_create_immed_int(prfop[i], OPSZ_5b),
+                          opnd_create_base_disp(Xn_six_offset_0_sp[i], DR_REG_NULL, 0,
+                                                pimm[i], OPSZ_0)),
+        {
+            EXPECT_DISASSEMBLY("prfm   $0x00 (%x0)", "prfm   $0x02 +0x1998(%x5)",
+                               "prfm   $0x04 +0x3330(%x10)", "prfm   $0x10 +0x4cc8(%x15)",
+                               "prfm   $0x12 +0x6660(%x20)", "prfm   $0x17 +0x7ff8(%sp)");
+            EXPECT_TRUE(instr_is_prefetch(instr));
+        });
+}
+
+TEST_INSTR(prfum)
+{
+    /* Testing PRFUM <prfop>, [<Xn|SP>{, #<simm>}] */
+    static const int simm[6] = {
+        0, -256, -100, -16, 42, 255,
+    };
+    TEST_LOOP_EXPECT(
+        prfum, 6,
+        INSTR_CREATE_prfum(dc, opnd_create_immed_int(prfop[i], OPSZ_5b),
+                           opnd_create_base_disp(Xn_six_offset_0_sp[i], DR_REG_NULL, 0,
+                                                 simm[i], OPSZ_0)),
+        {
+            EXPECT_DISASSEMBLY("prfum  $0x00 (%x0)", "prfum  $0x02 -0x0100(%x5)",
+                               "prfum  $0x04 -0x64(%x10)", "prfum  $0x10 -0x10(%x15)",
+                               "prfum  $0x12 +0x2a(%x20)", "prfum  $0x17 +0xff(%sp)");
+            EXPECT_TRUE(instr_is_prefetch(instr));
+        });
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -687,6 +766,9 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(ccmp);
     RUN_INSTR_TEST(ccmn);
+
+    RUN_INSTR_TEST(prfm);
+    RUN_INSTR_TEST(prfum);
 
     print("All v8.0 tests complete.\n");
 #ifndef STANDALONE_DECODER
