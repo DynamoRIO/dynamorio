@@ -557,6 +557,16 @@ schedule_stats_template_t<RecordType>::parallel_shard_memref(void *shard_data,
         }
         record_context_switch(shard, shard->prev_workload_id, shard->prev_tid,
                               workload_id, tid, input_id, letter_ord);
+#ifndef NDEBUG
+        memref_tid_t record_tid;
+#endif
+        if (tid != INVALID_THREAD_ID && tid != dynamorio::drmemtrace::IDLE_THREAD_ID) {
+            assert(!get_record_tid(record, record_tid) ||
+                   // Early header markers do not have a valid tid field.
+                   record_tid == -1 || record_tid == INVALID_THREAD_ID ||
+                   tid_from_memref_tid(record_tid) == tid);
+            shard->counters.threads.insert(workload_tid_t(workload_id, tid));
+        }
     }
     shard->prev_workload_id = workload_id;
     shard->prev_tid = tid;
@@ -631,19 +641,6 @@ schedule_stats_template_t<RecordType>::parallel_shard_memref(void *shard_data,
             shard->direct_switch_target = INVALID_THREAD_ID;
         }
         shard->saw_exit = false;
-    }
-#ifndef NDEBUG
-    memref_tid_t record_tid;
-#endif
-    if (shard->stream->get_tid() != INVALID_THREAD_ID) {
-        assert(!get_record_tid(record, record_tid) ||
-               // Early header markers do not have a valid tid field.
-               record_tid == -1 || record_tid == INVALID_THREAD_ID ||
-               tid_from_memref_tid(record_tid) == shard->stream->get_tid());
-        shard->counters.threads.insert(
-            workload_tid_t(workload_id, shard->stream->get_tid()));
-    } else {
-        assert(!get_record_tid(record, record_tid));
     }
     if (is_marker) {
         if (marker_type == TRACE_MARKER_TYPE_SYSCALL) {
