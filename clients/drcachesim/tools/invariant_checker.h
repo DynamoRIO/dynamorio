@@ -296,7 +296,7 @@ protected:
     check_for_pc_discontinuity(per_shard_t *shard,
                                const per_shard_t::instr_info_t &prev_instr_info,
                                const per_shard_t::instr_info_t &cur_memref_info,
-                               bool expect_encoding, bool at_kernel_event);
+                               bool expect_encoding, bool at_context_event);
 
     // Check for invariant violations related to OFFLINE_FILE_TYPE_ARCH_REGDEPS traces.
     // Checks both instructions and markers.
