@@ -758,14 +758,14 @@ typedef enum {
 
     /**
      * This marker is used to indicate an occurrence of a discontinuity in regular
-     * execution flow caused by an exception or interrupt, in traces with the
-     * #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  It is used in traces that
+     * execution flow caused by an exception, interrupt, or system call, in traces with
+     * the #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  It is used in traces that
      * record the whole-system view of events; it is loosely similar to the
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker that is used to
-     * indicate discontinuities due to user signals in the regular user-mode view
-     * traces.  The value of this marker contains the program counter at the
-     * interruption point.  If the interruption point is just after a branch, this
-     * value is the target of that branch.
+     * indicate discontinuities in the regular user-mode view traces.  The value of
+     * this marker contains the program counter at the interruption point.  If the
+     * interruption point is just after a branch, this value is the target of that
+     * branch.
      */
     TRACE_MARKER_TYPE_HARDWARE_EVENT,
 
@@ -780,11 +780,9 @@ typedef enum {
      * indicate control-altering syscalls which includes user event (UNIX signal,
      * Windows callback, exception, or APC) handler returns that match up to prior
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT markers in the
-     * regular user-mode view traces.  Note that multiple instances of this marker may
-     * match to a single prior #dynamorio::drmemtrace::TRACE_MARKER_TYPE_HARDWARE_EVENT
-     * marker.  Note that this may not be present on other cases that change the
-     * privilege level (e.g., far branch on x86; syscall gateways). The marker value
-     * does not hold any information currently.
+     * regular user-mode view traces. Note that this may not be present on other cases
+     * that change the privilege level (e.g., far branch on x86; syscall gateways). The
+     * marker value does not hold any information currently.
      */
     TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN,
 
@@ -1266,7 +1264,9 @@ entry_has_pc(const trace_entry_t &entry, uint64_t &pc)
         return true;
     }
     if (static_cast<trace_type_t>(entry.type) == TRACE_TYPE_MARKER &&
-        static_cast<trace_marker_type_t>(entry.size) == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        (static_cast<trace_marker_type_t>(entry.size) == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+         static_cast<trace_marker_type_t>(entry.size) ==
+             TRACE_MARKER_TYPE_HARDWARE_EVENT)) {
         pc = entry.addr;
         return true;
     }

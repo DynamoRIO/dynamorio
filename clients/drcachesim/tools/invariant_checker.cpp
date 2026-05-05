@@ -306,6 +306,20 @@ invariant_checker_t::is_dynamically_core_sharded(per_shard_t *shard)
     return core_sharded_ && !TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->file_type_);
 }
 
+static bool
+is_context_event_marker(const trace_marker_type_t marker_type)
+{
+    return marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+        marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT;
+}
+
+static bool
+is_context_return_marker(const trace_marker_type_t marker_type)
+{
+    return marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
+        marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN;
+}
+
 bool
 invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
@@ -341,6 +355,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             memref, TESTANY(OFFLINE_FILE_TYPE_CORE_SHARDED, shard->file_type_));
     }
 
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        (memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+         memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN)) {
+        report_if_false(shard, TESTANY(OFFLINE_FILE_TYPE_WHOLE_SYSTEM, shard->file_type_),
+                        "Hardware context marker found in non-whole-system trace");
+    }
     // These markers are allowed between the syscall marker and a possible
     // syscall trace.
     bool prev_was_syscall_marker_saved = shard->prev_was_syscall_marker_;
@@ -419,11 +439,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             at_skip || shard->last_next_trace_pc_ == memref.instr.addr,
                             "Unexpected next trace pc from instr");
         } else if (memref.marker.type == TRACE_TYPE_MARKER &&
-                   memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                   is_context_event_marker(memref.marker.marker_type)) {
             report_if_false(shard,
                             at_skip ||
                                 shard->last_next_trace_pc_ == memref.marker.marker_value,
-                            "Unexpected next trace pc from kernel_event marker");
+                            "Unexpected next trace pc from context event marker");
         } else {
             report_if_false(
                 shard,
@@ -585,6 +605,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         is_a_unit_test(shard) ||
                             shard->file_type_ == shard->stream->get_filetype(),
                         "Stream interface filetype != trace marker");
+        report_if_false(
+            shard,
+            !TESTANY(OFFLINE_FILE_TYPE_WHOLE_SYSTEM, shard->file_type_) ||
+                !TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, shard->file_type_),
+            "Trace cannot have both whole_system and kernel_syscalls bit set");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_INSTRUCTION_COUNT) {
@@ -756,7 +781,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard,
                         TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
                                     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY |
-                                    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                                    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES |
+                                    OFFLINE_FILE_TYPE_WHOLE_SYSTEM,
                                 shard->file_type_),
                         "Found kernel syscall trace without corresponding file type");
         report_if_false(shard, !shard->between_kernel_syscall_trace_markers_,
@@ -797,7 +823,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->pre_syscall_trace_instr_ = shard->prev_instr_;
         shard->between_kernel_syscall_trace_markers_ = true;
 #ifdef UNIX
-        shard->signal_stack_depth_at_syscall_trace_start_ = shard->signal_stack_.size();
+        shard->context_stack_depth_at_syscall_trace_start_ = shard->context_stack_.size();
 #endif
         shard->saw_syscall_trace_.insert(static_cast<int>(memref.marker.marker_value));
     }
@@ -838,17 +864,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (shard->between_kernel_syscall_trace_markers_) {
 #ifdef UNIX
             report_if_false(shard,
-                            shard->signal_stack_depth_at_syscall_trace_start_ ==
-                                static_cast<int>(shard->signal_stack_.size()),
-                            "Syscall trace has extra kernel_event marker");
-            shard->signal_stack_depth_at_syscall_trace_start_ = -1;
+                            shard->context_stack_depth_at_syscall_trace_start_ ==
+                                static_cast<int>(shard->context_stack_.size()),
+                            "Syscall trace has extra context event marker");
+            shard->context_stack_depth_at_syscall_trace_start_ = -1;
 #endif
             shard->between_kernel_syscall_trace_markers_ = false;
             // Pretend the prev instruction to be the last user-space instruction,
             // so that later PC continuity checks properly verify the user-space view
             // of the trace.
             // PC equality between the syscall-end branch target marker value and the
-            // next instruction PC (or the next kernel_event marker PC if a signal is
+            // next instruction PC (or the next context event marker PC if a signal is
             // next) is also verified in check_for_pc_discontinuity.
             shard->prev_instr_ = shard->pre_syscall_trace_instr_;
 #ifdef UNIX
@@ -862,8 +888,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Nested kernel context switch traces are not expected");
         shard->between_kernel_context_switch_markers_ = true;
 #ifdef UNIX
-        shard->signal_stack_depth_at_context_switch_trace_start_ =
-            shard->signal_stack_.size();
+        shard->context_stack_depth_at_context_switch_trace_start_ =
+            shard->context_stack_.size();
 #endif
         switch_type_t switch_type =
             static_cast<switch_type_t>(memref.marker.marker_value);
@@ -886,11 +912,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // Protected by above if-condition to avoid noise from another invariant
             // error due to a missing start marker.
             report_if_false(shard,
-                            shard->signal_stack_depth_at_context_switch_trace_start_ ==
-                                static_cast<int>(shard->signal_stack_.size()),
-                            "Context switch trace has extra kernel_event marker");
+                            shard->context_stack_depth_at_context_switch_trace_start_ ==
+                                static_cast<int>(shard->context_stack_.size()),
+                            "Context switch trace has extra context event marker");
         }
-        shard->signal_stack_depth_at_context_switch_trace_start_ = -1;
+        shard->context_stack_depth_at_context_switch_trace_start_ = -1;
 #endif
         report_if_false(
             shard,
@@ -947,8 +973,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                      // The last instruction is not known if the signal arrived before any
                      // instructions in the trace, or the trace started mid-signal. We
                      // assume the function markers are correct to avoid false positives.
-                     shard->last_signal_context_.pre_signal_instr.memref.instr.addr ==
-                         0 ||
+                     shard->last_context_.pre_context_instr.memref.instr.addr == 0 ||
                      // The last instruction of the outer-most scope was a branch.
                      type_is_instr_branch(
                          shard->last_instr_in_cur_context_.memref.instr.type))),
@@ -1201,38 +1226,55 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // elsewhere.
         const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
             shard, shard->prev_instr_, cur_instr_info, expect_encoding,
-            /*at_kernel_event=*/false);
+            /*at_context_event=*/false);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
                         non_explicit_flow_violation_msg);
 
 #ifdef UNIX
-        // Ensure signal handlers return to the interruption point.
-        if (shard->prev_xfer_marker_.marker.marker_type ==
-            TRACE_MARKER_TYPE_KERNEL_XFER) {
+        // Ensure signal/interrupt handlers return to the interruption point.
+        if (is_context_return_marker(shard->prev_xfer_marker_.marker.marker_type)) {
             // For the following checks, we use the values popped from the
-            // signal_stack_ into last_signal_context_ at the last
-            // TRACE_MARKER_TYPE_KERNEL_XFER marker.
-            bool kernel_event_marker_equality =
+            // context_stack_ into last_context_ at the last
+            // TRACE_MARKER_TYPE_KERNEL_XFER or
+            // TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN marker.
+            bool context_event_marker_equality =
                 // Skip this check if we did not see the corresponding
-                // kernel_event marker in the trace because the trace
-                // started mid-signal.
-                shard->last_signal_context_.xfer_int_pc == 0 ||
+                // kernel_event or hardware_event marker in the trace because
+                // the trace started mid-signal/interrupt.
+                shard->last_context_.xfer_int_pc == 0 ||
                 // Regular check for equality with kernel event marker pc.
-                memref.instr.addr == shard->last_signal_context_.xfer_int_pc ||
+                memref.instr.addr == shard->last_context_.xfer_int_pc ||
                 // DR hands us a different address for sysenter than the
                 // resumption point.
-                shard->last_signal_context_.pre_signal_instr.memref.instr.type ==
+                shard->last_context_.pre_context_instr.memref.instr.type ==
                     TRACE_TYPE_INSTR_SYSENTER // clang-format off
                 // The AArch64 scatter/gather expansion test skips faulting
                 // instructions in the signal handler by incrementing the PC.
                 IF_AARCH64(||
                            (knob_test_name_ == "scattergather" &&
                             memref.instr.addr ==
-                                shard->last_signal_context_.xfer_int_pc + 4));
+                                shard->last_context_.xfer_int_pc + 4));
             // clang-format on
+            std::string handler_name = "Signal";
+            if (shard->prev_xfer_marker_.marker.marker_type ==
+                TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+                handler_name = "Interrupt";
+            }
+            std::string error_msg = handler_name + " handler return point incorrect";
+            // Whole-system trace hardware_event and hardware_context_return markers
+            // are sometimes nested inside the syscall_trace_start and
+            // syscall_trace_end markers, in which case they are really for the
+            // system call.
+            if (shard->prev_xfer_marker_.marker.marker_type ==
+                    TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN &&
+                shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                shard->prev_entry_.marker.marker_type ==
+                    TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
+                error_msg = "Syscall return point incorrect in wholesys trace";
+            }
             report_if_false(
                 shard,
-                kernel_event_marker_equality ||
+                context_event_marker_equality ||
                     // Nested signal.  XXX: This only works for our annotated test
                     // signal_invariants where we know shard->app_handler_pc_.
                     memref.instr.addr == shard->app_handler_pc_ ||
@@ -1242,7 +1284,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // Instruction-filtered can easily skip the return point.
                     TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                             shard->file_type_),
-                "Signal handler return point incorrect");
+                error_msg);
         }
         // last_instr_in_cur_context_ is recorded as the pre-signal instr when we see a
         // TRACE_MARKER_TYPE_KERNEL_EVENT marker. Note that we cannot perform this
@@ -1305,8 +1347,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         // Ignore timestamp, etc. markers which show up at signal delivery boundaries
         // b/c the tracer does a buffer flush there.
-        (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)) {
+        (is_context_event_marker(memref.marker.marker_type) ||
+         is_context_return_marker(memref.marker.marker_type))) {
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << "marker type " << memref.marker.marker_type << " value 0x"
@@ -1315,7 +1357,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Zero is pushed as a sentinel. This push matches the return used by post
         // signal handler to run the restorer code. It is assumed that all signal
         // handlers return normally and longjmp is not used.
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
+        if (is_context_event_marker(memref.marker.marker_type) &&
             // retaddr_stack_ tracking is only for user-space code where we do
             // function tracing.
             !(shard->between_kernel_syscall_trace_markers_ ||
@@ -1330,48 +1372,73 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
+        if (is_context_return_marker(memref.marker.marker_type)) {
             // We expect a proper pairing of TRACE_MARKER_TYPE_KERNEL_EVENT and
-            // TRACE_MARKER_TYPE_KERNEL_XFER markers inside the kernel system call
-            // and context switch traces that are used for trace injection.
+            // TRACE_MARKER_TYPE_KERNEL_XFER markers, and
+            // TRACE_MARKER_TYPE_HARDWARE_EVENT and
+            // TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers inside the kernel system
+            // call and context switch traces.
             // XXX: Note that we do not make an effort to add these markers at all
             // to the PT syscall traces today.
+            std::string marker_name = "kernel_xfer";
+            if (memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+                marker_name = "hardware_context_return";
+            }
+            std::string syscall_msg =
+                "Syscall trace has extra " + marker_name + " marker";
+            std::string switch_msg =
+                "Context switch trace has extra " + marker_name + " marker";
             report_if_false(shard,
-                            shard->signal_stack_depth_at_syscall_trace_start_ <
-                                static_cast<int>(shard->signal_stack_.size()),
-                            "Syscall trace has extra kernel_xfer marker");
+                            shard->context_stack_depth_at_syscall_trace_start_ <
+                                static_cast<int>(shard->context_stack_.size()),
+                            syscall_msg);
             report_if_false(shard,
-                            shard->signal_stack_depth_at_context_switch_trace_start_ <
-                                static_cast<int>(shard->signal_stack_.size()),
-                            "Context switch trace has extra kernel_xfer marker");
-            // We assume paired signal entry-exit (so no longjmp and no rseq
-            // inside signal handlers).
-            if (shard->signal_stack_.empty()) {
+                            shard->context_stack_depth_at_context_switch_trace_start_ <
+                                static_cast<int>(shard->context_stack_.size()),
+                            switch_msg);
+            // We assume paired signal/interrupt entry-exit (so no longjmp and no rseq
+            // inside signal/interrupt handlers).
+            if (shard->context_stack_.empty()) {
                 // This can happen if tracing started in the middle of a signal.
                 // Try to continue by skipping the checks.
-                shard->last_signal_context_ = { 0, {} };
+                shard->last_context_ = { 0, {}, TRACE_MARKER_TYPE_KERNEL_EVENT };
                 // We have not seen any instr in the outermost scope that we just
                 // discovered.
                 shard->last_instr_in_cur_context_ = {};
             } else {
-                // The pre_signal_instr for this signal may be {} in some cases:
-                // - for nested signals without any intervening instr
-                // - if there's a signal at the very beginning of the trace
+                // The pre_context_instr for this signal or interrupt may be {} in some
+                // cases:
+                // - for nested signals/interrupts without any intervening instr
+                // - if there's a signal/interrupt at the very beginning of the trace
                 // In both these cases the empty instr implies that it should not
-                // be used for the pre-signal instr check.
-                shard->last_signal_context_ = shard->signal_stack_.top();
-                shard->signal_stack_.pop();
+                // be used for the pre-signal/interrupt instr check.
+                shard->last_context_ = shard->context_stack_.top();
+                shard->context_stack_.pop();
+                if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
+                    report_if_false(shard,
+                                    shard->last_context_.context_marker_type ==
+                                        TRACE_MARKER_TYPE_KERNEL_EVENT,
+                                    "Mismatched signal/interrupt context return marker");
+                } else if (memref.marker.marker_type ==
+                           TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+                    report_if_false(shard,
+                                    shard->last_context_.context_marker_type ==
+                                        TRACE_MARKER_TYPE_HARDWARE_EVENT,
+                                    "Mismatched signal/interrupt context return marker");
+                }
                 // In the case where there's no instr between two consecutive signals
-                // (at the same nesting depth), the pre-signal instr for the second
-                // signal should be same as the pre-signal instr for the first one.
+                // or interrupts (at the same nesting depth), the pre-signal/interrupt
+                // instr for the second signal/interrupt should be same as the
+                // pre-interruption instr for the first one.
                 // Here we restore last_instr_in_cur_context_ to the last instr we
-                // saw *in the same nesting depth* before the first signal.
+                // saw *in the same nesting depth* before the first signal/interrupt.
                 shard->last_instr_in_cur_context_ =
-                    shard->last_signal_context_.pre_signal_instr;
+                    shard->last_context_.pre_context_instr;
             }
-        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        } else if (is_context_event_marker(memref.marker.marker_type)) {
             // If preceded by an RSEQ abort marker, this is not really a signal.
-            if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+            if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
+                shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
                 shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 saw_rseq_abort = true;
             } else {
@@ -1387,8 +1454,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     const std::string discontinuity = check_for_pc_discontinuity(
                         shard, shard->last_instr_in_cur_context_, memref_info,
                         TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_),
-                        /*at_kernel_event=*/true);
-                    const std::string error_msg_suffix = " @ kernel_event marker";
+                        /*at_context_event=*/true);
+                    std::string error_msg_suffix = " @ kernel_event marker";
+                    if (memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT) {
+                        error_msg_suffix = " @ hardware_event marker";
+                    }
                     report_if_false(shard, discontinuity.empty(),
                                     discontinuity + error_msg_suffix);
                 } else if (shard->prev_kernel_end_branch_target_ != 0 &&
@@ -1405,8 +1475,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                     "context-first kernel_event marker");
                     shard->prev_kernel_end_branch_target_ = 0;
                 }
-                shard->signal_stack_.push(
-                    { memref.marker.marker_value, shard->last_instr_in_cur_context_ });
+                shard->context_stack_.push({ memref.marker.marker_value,
+                                             shard->last_instr_in_cur_context_,
+                                             memref.marker.marker_type });
                 // XXX: if last_instr_in_cur_context_ is {} currently, it means this is
                 // either a signal that arrived before the first instr in the trace, or
                 // it's a nested signal without any intervening instr after its
@@ -1724,16 +1795,16 @@ std::string
 invariant_checker_t::check_for_pc_discontinuity(
     per_shard_t *shard, const per_shard_t::instr_info_t &prev_instr_info,
     const per_shard_t::instr_info_t &cur_memref_info, bool expect_encoding,
-    bool at_kernel_event)
+    bool at_context_event)
 {
     const memref_t prev_instr = prev_instr_info.memref;
     std::string error_msg = "";
     bool have_branch_target = false;
     addr_t branch_target = 0;
     const addr_t prev_instr_trace_pc = prev_instr.instr.addr;
-    // cur_memref_info is a marker (not an instruction) if at_kernel_event is true.
-    const addr_t cur_pc = at_kernel_event ? cur_memref_info.memref.marker.marker_value
-                                          : cur_memref_info.memref.instr.addr;
+    // cur_memref_info is a marker (not an instruction) if at_context_event is true.
+    const addr_t cur_pc = at_context_event ? cur_memref_info.memref.marker.marker_value
+                                           : cur_memref_info.memref.instr.addr;
     if (shard->prev_kernel_end_branch_target_ != 0) {
         const addr_t kernel_end_branch_target = shard->prev_kernel_end_branch_target_;
         shard->prev_kernel_end_branch_target_ = 0;
@@ -1793,22 +1864,22 @@ invariant_checker_t::check_for_pc_discontinuity(
            cur_memref_info.memref.instr.size == prev_instr.instr.size))) ||
         // Same PC is allowed for a kernel interruption which may restart the
         // same instruction.
-        (prev_instr_trace_pc == cur_pc && at_kernel_event) ||
+        (prev_instr_trace_pc == cur_pc && at_context_event) ||
         // Kernel-mediated, but we can't tell if we had a thread swap.
-        (shard->prev_xfer_marker_.instr.tid != 0 && !at_kernel_event &&
-         (shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-          shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
+        (shard->prev_xfer_marker_.instr.tid != 0 && !at_context_event &&
+         (is_context_event_marker(shard->prev_xfer_marker_.marker.marker_type) ||
+          is_context_return_marker(shard->prev_xfer_marker_.marker.marker_type) ||
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
 #ifdef UNIX
         // In case of an RSEQ abort followed by a signal, the pre-signal-instr PC is
         // different from the interruption PC which is the RSEQ handler. If there is a
         // back-to-back signal without any intervening instructions, the kernel transfer
         // marker of the second signal should point to the same interruption PC, and not
-        // the pre-signal-instr PC. The shard->last_signal_context_ has not been updated,
+        // the pre-signal-instr PC. The shard->last_context_ has not been updated,
         // it still points to the previous signal context.
-        (at_kernel_event && cur_pc == shard->last_signal_context_.xfer_int_pc &&
+        (at_context_event && cur_pc == shard->last_context_.xfer_int_pc &&
          prev_instr_trace_pc ==
-             shard->last_signal_context_.pre_signal_instr.memref.instr.addr) ||
+             shard->last_context_.pre_context_instr.memref.instr.addr) ||
 #endif
         // We expect a gap on a window transition.
         shard->window_transition_ ||
@@ -2067,8 +2138,8 @@ invariant_checker_t::per_shard_t::reset_at_context_switch(const memref_t &memref
     expect_syscall_trace_ = false;
     prev_kernel_end_branch_target_ = 0;
 #ifdef UNIX
-    signal_stack_ = std::stack<signal_context>();
-    last_signal_context_ = { 0, {} };
+    context_stack_ = std::stack<signal_context>();
+    last_context_ = { 0, {} };
     last_instr_in_cur_context_ = {};
     saw_rseq_abort_ = false;
     instrs_until_interrupt_ = -1;

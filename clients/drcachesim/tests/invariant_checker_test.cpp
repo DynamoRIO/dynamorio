@@ -3063,7 +3063,7 @@ check_kernel_trace_and_signal_markers(bool for_syscall)
             gen_exit(TID_A),
         };
         if (!run_checker(memrefs, true,
-                         { test_type + " trace has extra kernel_event marker",
+                         { test_type + " trace has extra context event marker",
                            /*tid=*/TID_A,
                            /*ref_ordinal=*/10, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/3 },
@@ -5492,6 +5492,407 @@ check_core_sharded_with_kernel()
     return true;
 }
 
+bool
+check_hardware_event_markers()
+{
+#ifdef UNIX
+    constexpr uintptr_t FILE_TYPE =
+        OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
+    std::cerr << "Testing hardware event markers\n";
+    // Incorrect test: Hardware event markers found in non-whole-system trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Hardware context marker found in non-whole-system trace",
+                           TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch hardware event in non-WS trace")) {
+            return false;
+        }
+    }
+    // Correct test: Hardware event markers in a whole-system trace, transitions
+    // seamlessly.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/101),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: Cannot have both whole_system and kernel_syscalls bit set in
+    // file type.
+    {
+        uintptr_t file_type =
+            OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Trace cannot have both whole_system and kernel_syscalls bit set",
+                  TID_A,
+                  /*ref_ordinal=*/1, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/0 },
+                "Failed to catch invalid file type combination")) {
+            return false;
+        }
+    }
+    // Incorrect test (PC discontinuity): Transition to discontinuous PC in hardware
+    // event marker.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 3),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Non-explicit control flow has no marker @ hardware_event marker",
+                  TID_A,
+                  /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
+                "Failed to catch PC discontinuity in WS hardware event")) {
+            return false;
+        }
+    }
+    // Incorrect test: Hardware context return in a whole-system trace with a PC gap in
+    // user-space (incorrect resumption PC).
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/101),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
+            gen_instr(TID_A, /*pc=*/5),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Interrupt handler return point incorrect", TID_A,
+                  /*ref_ordinal=*/8, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/3 },
+                "Failed to catch incorrect return PC after hardware event return")) {
+            return false;
+        }
+    }
+    // Correct test: Nested hardware events in a whole-system trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 11),
+            gen_instr(TID_A, /*pc=*/20),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 21),
+            gen_instr(TID_A, /*pc=*/11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 12),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: Mismatched hardware context return inside a syscall trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 1),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Syscall trace has extra hardware_context_return marker", TID_A,
+                  /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/2 },
+                "Failed to catch mismatched hardware context return in syscall trace")) {
+            return false;
+        }
+    }
+    // Correct test: Interrupted indirect branch by hardware event in a whole-system
+    // trace, returns to correct PC (the branch target PC).
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/1, /*size=*/1,
+                           /*indirect_branch_target=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: Interrupted indirect branch by hardware event in a whole-system
+    // trace, returns to incorrect PC.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/1, /*size=*/1,
+                           /*indirect_branch_target=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 102),
+            gen_instr(TID_A, /*pc=*/5),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Interrupt handler return point incorrect", TID_A,
+                           /*ref_ordinal=*/8, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
+                         "Failed to catch incorrect return PC after interrupted indirect "
+                         "branch")) {
+            return false;
+        }
+    }
+    // Correct test: Consecutive hardware events without intervening instruction inside a
+    // whole-system trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/101),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 102),
+            gen_instr(TID_A, /*pc=*/201),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 202),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 102),
+            gen_instr(TID_A, /*pc=*/201),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 202),
+            gen_instr(TID_A, /*pc=*/102),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct test: Nested hardware events without any intervening instruction inside a
+    // whole-system trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 10),
+            gen_instr(TID_A, /*pc=*/20),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 21),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct test: Syscall trace, which is supposed to have hardware_event and
+    // hardware_context_return too.
+    {
+
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
+                           /*indirect_branch_target=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 123),
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: Enters with HARDWARE_EVENT but exits with KERNEL_XFER.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, 11),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Mismatched signal/interrupt context return marker", TID_A,
+                           /*ref_ordinal=*/7, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch mismatched KERNEL_XFER after HARDWARE_EVENT")) {
+            return false;
+        }
+    }
+    // Incorrect test: Enters with KERNEL_EVENT but exits with HARDWARE_CONTEXT_RETURN.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Mismatched signal/interrupt context return marker", TID_A,
+                           /*ref_ordinal=*/7, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch mismatched HARDWARE_CONTEXT_RETURN after "
+                         "KERNEL_EVENT")) {
+            return false;
+        }
+    }
+    // Incorrect test: Syscall trace has an extra/unpopped hardware_event marker.
+    {
+
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 2),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
+                           /*indirect_branch_target=*/2),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 123),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Syscall trace has extra context event marker", TID_A,
+                           /*ref_ordinal=*/9, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch extra hardware_event inside syscall trace")) {
+            return false;
+        }
+    }
+    // Correct test: Syscall in whole-system trace allowed to return to
+    // non-fallthrough pc if the hardware_event marker has the same pc.
+    {
+
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
+            // Control is expected to return to some PC other than non-fallthrough
+            // of the syscall. This is a known discontinuity at the syscall event
+            // itself. We allow this because some system calls indeed may cause
+            // a context switch to a different thread (the whole-system trace
+            // view shows all threads interleaved), or control transfers on the
+            // same one.
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 5),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
+                           /*indirect_branch_target=*/5),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 123),
+            gen_instr(TID_A, /*pc=*/5),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: Syscall in whole-system trace returns to incorrect pc.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 5),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
+                           /*indirect_branch_target=*/6),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 123),
+            gen_instr(TID_A, /*pc=*/6),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Syscall return point incorrect in wholesys trace", TID_A,
+                  /*ref_ordinal=*/11, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/3 },
+                "Failed to catch incorrect return PC in wholesys syscall trace")) {
+            return false;
+        }
+    }
+    // Correct test: Starts inside a hardware context event.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/10),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, 11),
+            // Never-before-seen context; no discontinuity.
+            gen_instr(TID_A, /*pc=*/2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+#endif
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -5506,7 +5907,8 @@ test_main(int argc, const char *argv[])
         check_kernel_context_switch_trace() &&
         check_kernel_trace_and_signal_markers(/*for_syscall=*/false) &&
         check_kernel_trace_and_signal_markers(/*for_syscall=*/true) && check_regdeps() &&
-        check_chunk_order() && check_core_sharded() && check_core_sharded_with_kernel()) {
+        check_chunk_order() && check_core_sharded() && check_core_sharded_with_kernel() &&
+        check_hardware_event_markers()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
