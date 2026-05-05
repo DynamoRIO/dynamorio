@@ -605,6 +605,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         is_a_unit_test(shard) ||
                             shard->file_type_ == shard->stream->get_filetype(),
                         "Stream interface filetype != trace marker");
+        report_if_false(
+            shard,
+            !TESTANY(OFFLINE_FILE_TYPE_WHOLE_SYSTEM, shard->file_type_) ||
+                !TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, shard->file_type_),
+            "Trace cannot have both whole_system and kernel_syscalls bit set");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_INSTRUCTION_COUNT) {
@@ -776,7 +781,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard,
                         TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS |
                                     OFFLINE_FILE_TYPE_KERNEL_SYSCALL_INSTR_ONLY |
-                                    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES,
+                                    OFFLINE_FILE_TYPE_KERNEL_SYSCALL_TRACE_TEMPLATES |
+                                    OFFLINE_FILE_TYPE_WHOLE_SYSTEM,
                                 shard->file_type_),
                         "Found kernel syscall trace without corresponding file type");
         report_if_false(shard, !shard->between_kernel_syscall_trace_markers_,
@@ -1255,9 +1261,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 handler_name = "Interrupt";
             }
             std::string error_msg = handler_name + " handler return point incorrect";
-            // Whole-system traces sometimes have the hardware_event and
-            // hardware_context_return markers nested inside the syscall_trace_start
-            // and syscall_trace_end markers, in which case they are really for the
+            // Whole-system trace hardware_event and hardware_context_return markers
+            // are sometimes nested inside the syscall_trace_start and
+            // syscall_trace_end markers, in which case they are really for the
             // system call.
             if (shard->prev_xfer_marker_.marker.marker_type ==
                     TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN &&

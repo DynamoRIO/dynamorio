@@ -5496,6 +5496,8 @@ bool
 check_hardware_event_markers()
 {
 #ifdef UNIX
+    constexpr uintptr_t FILE_TYPE =
+        OFFLINE_FILE_TYPE_SYSCALL_NUMBERS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
     std::cerr << "Testing hardware event markers\n";
     // Incorrect test: Hardware event markers found in non-whole-system trace.
     {
@@ -5533,8 +5535,30 @@ check_hardware_event_markers()
             return false;
         }
     }
+    // Incorrect test: Cannot have both whole_system and kernel_syscalls bit set in
+    // file type.
+    {
+        uintptr_t file_type =
+            OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, /*pc=*/1),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Trace cannot have both whole_system and kernel_syscalls bit set",
+                  TID_A,
+                  /*ref_ordinal=*/1, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/0 },
+                "Failed to catch invalid file type combination")) {
+            return false;
+        }
+    }
     // Incorrect test (PC discontinuity): Transition to discontinuous PC in hardware
-    // context return.
+    // event marker.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
@@ -5600,10 +5624,8 @@ check_hardware_event_markers()
     }
     // Incorrect test: Mismatched hardware context return inside a syscall trace.
     {
-        uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
-            OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
         std::vector<memref_t> memrefs = {
-            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
@@ -5711,10 +5733,9 @@ check_hardware_event_markers()
     // Correct test: Syscall trace, which is supposed to have hardware_event and
     // hardware_context_return too.
     {
-        uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
-            OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
+
         std::vector<memref_t> memrefs = {
-            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
@@ -5775,10 +5796,9 @@ check_hardware_event_markers()
     }
     // Incorrect test: Syscall trace has an extra/unpopped hardware_event marker.
     {
-        uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
-            OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
+
         std::vector<memref_t> memrefs = {
-            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
@@ -5801,15 +5821,18 @@ check_hardware_event_markers()
     // Correct test: Syscall in whole-system trace allowed to return to
     // non-fallthrough pc if the hardware_event marker has the same pc.
     {
-        uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
-            OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
+
         std::vector<memref_t> memrefs = {
-            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL, 123),
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
+            // Control is expected to return to some PC other than non-fallthrough
+            // of the syscall. This is a known discontinuity at the syscall event
+            // itself possibly due to some whole-system event like switching to a
+            // different thread.
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 5),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
                            /*indirect_branch_target=*/5),
@@ -5824,10 +5847,8 @@ check_hardware_event_markers()
     }
     // Incorrect test: Syscall in whole-system trace returns to incorrect pc.
     {
-        uintptr_t file_type = OFFLINE_FILE_TYPE_SYSCALL_NUMBERS |
-            OFFLINE_FILE_TYPE_KERNEL_SYSCALLS | OFFLINE_FILE_TYPE_WHOLE_SYSTEM;
         std::vector<memref_t> memrefs = {
-            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, file_type),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(TID_A, /*pc=*/1),

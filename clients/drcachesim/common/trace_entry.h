@@ -762,10 +762,10 @@ typedef enum {
      * the #OFFLINE_FILE_TYPE_WHOLE_SYSTEM file type bit.  It is used in traces that
      * record the whole-system view of events; it is loosely similar to the
      * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT marker that is used to
-     * indicate discontinuities due to user signals in the regular user-mode view
-     * traces, but it is additionally present also at system calls.  The value of this
-     * marker contains the program counter at the interruption point.  If the interruption
-     * point is just after a branch, this value is the target of that branch.
+     * indicate discontinuities in the regular user-mode view traces.  The value of
+     * this marker contains the program counter at the interruption point.  If the
+     * interruption point is just after a branch, this value is the target of that
+     * branch.
      */
     TRACE_MARKER_TYPE_HARDWARE_EVENT,
 
