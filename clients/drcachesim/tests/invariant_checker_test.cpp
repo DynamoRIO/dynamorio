@@ -5831,8 +5831,10 @@ check_hardware_event_markers()
             gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 123),
             // Control is expected to return to some PC other than non-fallthrough
             // of the syscall. This is a known discontinuity at the syscall event
-            // itself possibly due to some whole-system event like switching to a
-            // different thread.
+            // itself. We allow this because some system calls indeed may cause
+            // a context switch to a different thread (the whole-system trace
+            // view shows all threads interleaved), or control transfers on the
+            // same one.
             gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, 5),
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A, /*pc=*/10, /*size=*/1,
                            /*indirect_branch_target=*/5),
