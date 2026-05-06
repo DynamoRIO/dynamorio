@@ -1,5 +1,5 @@
  /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -217,10 +217,175 @@ _start:
         cmp      eax, 0xffffffff
         jne      incorrect
 
+        // Test 4: Verify that gather into XMM zeroes the upper YMM bits.
+        // Initialize ymm4 to all 1s.
+        vpcmpeqd ymm4, ymm4, ymm4
+
+        // Set up mask in xmm13 (all 1s)
+        vpcmpeqd xmm13, xmm13, xmm13
+
+        // Gather into xmm4.
+        // Upper 128 bits of ymm4 should be zeroed.
+        vpgatherdd xmm4, [arr + xmm11*4], xmm13
+
+        // Extract upper 128 bits of ymm4 into xmm5.
+        vextracti128 xmm5, ymm4, 1
+
+        // Verify xmm5 is all zeroes.
+        vptest   xmm5, xmm5
+        jnz      incorrect_zeroing
+
+        // Test 5: Verify that gather into XMM zeroes the upper YMM bits even
+        // when mask is all 0s.
+        // Initialize ymm4 to all 1s.
+        vpcmpeqd ymm4, ymm4, ymm4
+
+        // Set up mask in xmm13 (all 0s)
+        vpxor    xmm13, xmm13, xmm13
+
+        // Gather into xmm4.
+        // Since mask is 0, no elements are gathered.
+        // Lower 128 bits of ymm4 should remain all 1s (preserved).
+        // Upper 128 bits of ymm4 should be zeroed.
+        vpgatherdd xmm4, [arr + xmm11*4], xmm13
+
+        // Verify xmm4 is all ones, since gather uses merge masking
+        // and xmm4 was all ones before the vpgatherdd.
+        vpcmpeqd xmm6, xmm6, xmm6
+        pcmpeqq  xmm4, xmm6
+        vpextrd  eax, xmm4, 0
+        cmp      eax, 0xffffffff
+        jne      incorrect_zeroing_mask0
+        vpextrd  eax, xmm4, 2
+        cmp      eax, 0xffffffff
+        jne      incorrect_zeroing_mask0
+
+        // Verify upper bits of ymm4 are zeroed.
+        vextracti128 xmm5, ymm4, 1
+        vptest   xmm5, xmm5
+        jnz      incorrect_zeroing_mask0
+
+#ifdef __AVX512F__
+        // Test 6: Verify that EVEX gather into XMM zeroes the upper ZMM
+        // bits (128-511).
+        // Initialize zmm4 to all 1s.
+        vmovdqu64 zmm4, [ones_512]
+
+        // Set up mask in k1 (all 1s for 4 elements)
+        mov      eax, 0xf
+        kmovw    k1, eax
+
+        // Gather into xmm4.
+        vpgatherdd xmm4 {k1}, [arr + xmm11*4]
+
+        // Store zmm4 to memory to inspect.
+        vmovdqu64 [zmm_dest], zmm4
+
+        // Verify upper 384 bits (bytes 16-63) are all zeroes.
+        mov      rax, qword ptr [zmm_dest + 16]
+        or       rax, qword ptr [zmm_dest + 24]
+        or       rax, qword ptr [zmm_dest + 32]
+        or       rax, qword ptr [zmm_dest + 40]
+        or       rax, qword ptr [zmm_dest + 48]
+        or       rax, qword ptr [zmm_dest + 56]
+        cmp      rax, 0
+        jne      incorrect_avx512_zeroing
+
+        // Test 7: Verify that EVEX gather into XMM zeroes the upper ZMM
+        // bits even when mask is 0.
+        // Initialize zmm4 to all 1s.
+        vmovdqu64 zmm4, [ones_512]
+
+        // Set up mask in k1 (all 0s)
+        xor      eax, eax
+        kmovw    k1, eax
+
+        // Gather into xmm4.
+        vpgatherdd xmm4 {k1}, [arr + xmm11*4]
+
+        // Store zmm4 to memory to inspect.
+        vmovdqu64 [zmm_dest], zmm4
+
+        // Verify the xmm part is all ones, since gather uses merge
+        // masking and xmm was all ones before the vpgatherdd.
+        mov      rax, qword ptr [zmm_dest]
+        and      rax, qword ptr [zmm_dest + 8]
+        cmp      rax, -1
+        jne      incorrect_avx512_zeroing_mask0
+
+        mov      rax, qword ptr [zmm_dest + 16]
+        or       rax, qword ptr [zmm_dest + 24]
+        or       rax, qword ptr [zmm_dest + 32]
+        or       rax, qword ptr [zmm_dest + 40]
+        or       rax, qword ptr [zmm_dest + 48]
+        or       rax, qword ptr [zmm_dest + 56]
+        cmp      rax, 0
+        jne      incorrect_avx512_zeroing_mask0
+
+        // Test 8: Verify that EVEX gather into YMM zeroes the upper ZMM
+        // bits (256-511).
+        // Prepare ymm11 (indices) by duplicating xmm11.
+        vinserti128 ymm11, ymm11, xmm11, 1
+
+        // Initialize zmm4 to all 1s.
+        vmovdqu64 zmm4, [ones_512]
+
+        // Set up mask in k1 (all 1s for 8 elements)
+        mov      eax, 0xff
+        kmovw    k1, eax
+
+        // Gather into ymm4.
+        vpgatherdd ymm4 {k1}, [arr + ymm11*4]
+
+        // Store zmm4 to memory.
+        vmovdqu64 [zmm_dest], zmm4
+
+        // Verify upper 256 bits (bytes 32-63) are all zeroes.
+        mov      rax, qword ptr [zmm_dest + 32]
+        or       rax, qword ptr [zmm_dest + 40]
+        or       rax, qword ptr [zmm_dest + 48]
+        or       rax, qword ptr [zmm_dest + 56]
+        cmp      rax, 0
+        jne      incorrect_avx512_ymm_zeroing
+
+        // Test 9: Verify that EVEX gather into YMM zeroes the upper ZMM
+        // bits even when mask is 0.
+        // Initialize zmm4 to all 1s.
+        vmovdqu64 zmm4, [ones_512]
+
+        // Set up mask in k1 (all 0s)
+        xor      eax, eax
+        kmovw    k1, eax
+
+        // Gather into ymm4.
+        vpgatherdd ymm4 {k1}, [arr + ymm11*4]
+
+        // Store zmm4 to memory.
+        vmovdqu64 [zmm_dest], zmm4
+
+        // Verify the ymm part is all ones, because gather is merge
+        // masking and it was all ones before the vpgatherdd.
+        mov      rax, qword ptr [zmm_dest]
+        and      rax, qword ptr [zmm_dest + 8]
+        and      rax, qword ptr [zmm_dest + 16]
+        and      rax, qword ptr [zmm_dest + 24]
+        cmp      rax, -1
+        jne      incorrect_avx512_ymm_zeroing_mask0
+
+        // Verify the upper part of zmm is all zero.
+        mov      rax, qword ptr [zmm_dest + 32]
+        or       rax, qword ptr [zmm_dest + 40]
+        or       rax, qword ptr [zmm_dest + 48]
+        or       rax, qword ptr [zmm_dest + 56]
+        cmp      rax, 0
+        jne      incorrect_avx512_ymm_zeroing_mask0
+#endif
+
         // Print comparison result.
         lea      rsi, correct_str
         mov      rdx, 8           // sizeof(correct_str)
         jmp      done_cmp
+
 incorrect:
         lea      rsi, incorrect_str
         mov      rdx, 10          // sizeof(incorrect_str)
@@ -228,6 +393,30 @@ incorrect:
 incorrect_scratch:
         lea      rsi, incorrect_scratch_str
         mov      rdx, 18
+        jmp      done_cmp
+incorrect_zeroing:
+        lea      rsi, incorrect_zeroing_str
+        mov      rdx, 28          // sizeof(incorrect_zeroing_str)
+        jmp      done_cmp
+incorrect_zeroing_mask0:
+        lea      rsi, incorrect_zeroing_mask0_str
+        mov      rdx, 34          // sizeof(incorrect_zeroing_mask0_str)
+        jmp      done_cmp
+incorrect_avx512_zeroing:
+        lea      rsi, incorrect_avx512_zeroing_str
+        mov      rdx, 30          // sizeof(incorrect_avx512_zeroing_str)
+        jmp      done_cmp
+incorrect_avx512_zeroing_mask0:
+        lea      rsi, incorrect_avx512_zeroing_mask0_str
+        mov      rdx, 36          // sizeof(incorrect_avx512_zeroing_mask0_str)
+        jmp      done_cmp
+incorrect_avx512_ymm_zeroing:
+        lea      rsi, incorrect_avx512_ymm_zeroing_str
+        mov      rdx, 30          // sizeof(incorrect_avx512_ymm_zeroing_str)
+        jmp      done_cmp
+incorrect_avx512_ymm_zeroing_mask0:
+        lea      rsi, incorrect_avx512_ymm_zeroing_mask0_str
+        mov      rdx, 36          // sizeof(incorrect_avx512_ymm_zeroing_mask0_str)
 done_cmp:
         mov      rdi, 2           // stderr
         mov      eax, 1           // SYS_write
@@ -255,9 +444,25 @@ incorrect_str:
         .string  "Incorrect\n"
 incorrect_scratch_str:
         .string  "Incorrect scratch\n"
+incorrect_zeroing_str:
+        .string  "Incorrect YMM upper zeroing\n"
+incorrect_zeroing_mask0_str:
+        .string  "Incorrect YMM upper zeroing mask0\n"
 arr_neg:
         .zero    4
 arr:
         .zero    16
 save_mm0:
+        .zero    64
+incorrect_avx512_zeroing_str:
+        .string  "Incorrect AVX-512 XMM zeroing\n"
+incorrect_avx512_zeroing_mask0_str:
+        .string  "Incorrect AVX-512 XMM zeroing mask0\n"
+incorrect_avx512_ymm_zeroing_str:
+        .string  "Incorrect AVX-512 YMM zeroing\n"
+incorrect_avx512_ymm_zeroing_mask0_str:
+        .string  "Incorrect AVX-512 YMM zeroing mask0\n"
+ones_512:
+        .quad    -1, -1, -1, -1, -1, -1, -1, -1
+zmm_dest:
         .zero    64
