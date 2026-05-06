@@ -1,5 +1,6 @@
 #ifdef __AVX512F__
-AVX-512 gather ok
+(<Application .*AVX-512 was detected at PC 0x[0-9a-f]+. AVX-512 is not fully supported yet.>
+)?AVX-512 gather ok
 AVX-512 gather ok
 #ifdef X64
 AVX-512 gather ok
