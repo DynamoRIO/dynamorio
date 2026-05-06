@@ -726,18 +726,24 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
 {
     uint processed_bytes =
         no_of_elements * opnd_size_in_bytes(sg_info->scalar_value_size);
-    if (processed_bytes == opnd_size_in_bytes(sg_info->scatter_gather_size))
+    uint max_vector_bytes = proc_avx512_enabled() ? 64 : 32;
+    if (processed_bytes == max_vector_bytes)
         return true;
     /* We may have a partial gather if the index size is larger than the data size,
      * which causes only the first half of the destination vector reg to be loaded.
      * E.g., for vpgatherqd and vgatherqps.
+     * Or we may have a full gather into a smaller vector register (XMM or YMM)
+     * where we need to zero out the remaining upper bits of the larger register
+     * (YMM or ZMM) due to VEX/EVEX encoding rules.
      * We cannot zero out the whole vector before the gather expansion because we
      * want to preserve initial values of masked data elements that are not supposed
      * to be loaded/overwritten.
      */
-    ASSERT(processed_bytes * 2 == opnd_size_in_bytes(sg_info->scatter_gather_size),
-           "Partial gather must statically fill exactly half of the destination "
-           "register.");
+    if (processed_bytes < opnd_size_in_bytes(sg_info->scatter_gather_size)) {
+        ASSERT(processed_bytes * 2 == opnd_size_in_bytes(sg_info->scatter_gather_size),
+               "Partial gather must statically fill exactly half of the destination "
+               "register.");
+    }
 
     reg_id_t dst_reg = sg_info->gather_dst_reg;
     if (processed_bytes == 8) {
