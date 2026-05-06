@@ -71,6 +71,7 @@
  * that works.
  */
 #define PTRACE_SIGMASK_MAX_SIZE 128
+/* Access this only with the load-acquire/store-release helpers below. */
 static size_t ptrace_sigmask_size;
 
 /* Keep the helpers in this file architecture-neutral where possible. The
@@ -145,18 +146,34 @@ ptrace_detach(thread_id_t tid)
     return dynamorio_syscall(SYS_ptrace, 4, PTRACE_DETACH, tid, NULL, NULL) == 0;
 }
 
+static size_t
+ptrace_sigmask_size_load_acquire(void)
+{
+    size_t sz;
+    ATOMIC_8BYTE_ALIGNED_READ(&ptrace_sigmask_size, &sz);
+    return sz;
+}
+
+static void
+ptrace_sigmask_size_store_release(size_t sz)
+{
+    ASSERT(sz != 0 && sz <= PTRACE_SIGMASK_MAX_SIZE);
+    ATOMIC_PTRSZ_ALIGNED_WRITE(&ptrace_sigmask_size, sz, false /* hot_patch */);
+}
+
 bool
 ptrace_get_sigmask(thread_id_t tid, kernel_sigset_t *mask)
 {
     static const size_t sizes[] = { sizeof(kernel_sigset_t), 8, 16, 32, 64, 128 };
+    size_t cached_sz = ptrace_sigmask_size_load_acquire();
 
-    if (ptrace_sigmask_size != 0) {
-        return ptrace_get_sigmask_with_size(tid, ptrace_sigmask_size, mask);
-    }
+    if (cached_sz != 0)
+        return ptrace_get_sigmask_with_size(tid, cached_sz, mask);
+
     for (uint i = 0; i < BUFFER_SIZE_ELEMENTS(sizes); i++) {
         size_t sz = sizes[i];
         if (ptrace_get_sigmask_with_size(tid, sz, mask)) {
-            ptrace_sigmask_size = sz;
+            ptrace_sigmask_size_store_release(sz);
             return true;
         }
     }
@@ -167,14 +184,14 @@ bool
 ptrace_set_sigmask(thread_id_t tid, const kernel_sigset_t *mask)
 {
     byte buf[PTRACE_SIGMASK_MAX_SIZE];
-    size_t sz = ptrace_sigmask_size;
+    size_t sz = ptrace_sigmask_size_load_acquire();
     size_t to_copy;
 
     if (sz == 0) {
         kernel_sigset_t unused;
         if (!ptrace_get_sigmask(tid, &unused))
             return false;
-        sz = ptrace_sigmask_size;
+        sz = ptrace_sigmask_size_load_acquire();
         if (sz == 0)
             return false;
     }
