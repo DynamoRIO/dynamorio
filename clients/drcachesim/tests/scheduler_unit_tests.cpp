@@ -9081,6 +9081,248 @@ test_initial_migrate()
     assert(sched_as_string[1] == CORE1_SCHED_STRING);
 }
 
+static scheduler_t::scheduler_options_t
+set_up_steal_period_options(std::vector<trace_entry_t> refs_A, memref_tid_t TID_A,
+                            std::vector<trace_entry_t> refs_B, memref_tid_t TID_B,
+                            std::vector<trace_entry_t> refs_C, memref_tid_t TID_C,
+                            std::vector<trace_entry_t> refs_D, memref_tid_t TID_D,
+                            std::vector<trace_entry_t> refs_E, memref_tid_t TID_E,
+                            std::vector<trace_entry_t> refs_F, memref_tid_t TID_F,
+                            uint64_t BLOCK_THRESHOLD,
+                            std::vector<scheduler_t::input_workload_t> &sched_inputs)
+{
+    static constexpr uint64_t MIGRATION_THRESHOLD = 10;
+    static constexpr uint64_t STEAL_ATTEMPT_PERIOD = 4;
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_A)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_A);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_B)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_B);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_C)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_C);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_D)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_D);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_E)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_E);
+    readers.emplace_back(
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t(refs_F)),
+        std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()), TID_F);
+    sched_inputs.emplace_back(std::move(readers));
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    // Run everything.
+    sched_ops.exit_if_fraction_inputs_left = 0.;
+    // Use a round-robin layout for simpler deterministic testing.
+    sched_ops.random_initial_layout = -1;
+    sched_ops.block_time_multiplier = 0.001; // Do not stay blocked.
+    sched_ops.blocking_switch_threshold = BLOCK_THRESHOLD;
+    sched_ops.time_units_per_us = 1.;
+    sched_ops.migration_threshold_us = MIGRATION_THRESHOLD;
+    sched_ops.steal_attempt_period = STEAL_ATTEMPT_PERIOD;
+    return sched_ops;
+}
+
+static void
+test_steal_period()
+{
+    std::cerr << "\n----------------\nTesting steal period\n";
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    static constexpr memref_tid_t TID_C = TID_BASE + 2;
+    static constexpr memref_tid_t TID_D = TID_BASE + 3;
+    static constexpr memref_tid_t TID_E = TID_BASE + 4;
+    static constexpr memref_tid_t TID_F = TID_BASE + 5;
+    static constexpr uint64_t TIMESTAMP_START = 10;
+    static constexpr uint64_t PRE_SYS_TIMESTAMP = TIMESTAMP_START + 100;
+    static constexpr uint64_t BLOCK_THRESHOLD = 500;
+
+    // We set up a round-robin assignemt with 3 inputs on each output: A, C, E
+    // on output #0 and B, D, F on #1.
+    // A and C both block quickly and #1 runs E the rest of the time.
+    // B, D, and F are short, so #1 finishes and goes idle, where it steals
+    // A and C: but it fails with each initially as they haven't met the migration
+    // threshold.
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
+        test_util::make_instr(11),
+        test_util::make_exit(TID_A),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_B = {
+        /* clang-format off */
+        test_util::make_thread(TID_B),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 10),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_B),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_C = {
+        /* clang-format off */
+        test_util::make_thread(TID_C),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 20),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_instr(11),
+        test_util::make_instr(12),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL, 42),
+        test_util::make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        test_util::make_timestamp(PRE_SYS_TIMESTAMP + BLOCK_THRESHOLD),
+        test_util::make_instr(13),
+        test_util::make_exit(TID_C),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_D = {
+        /* clang-format off */
+        test_util::make_thread(TID_D),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 30),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_D),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_E = {
+        /* clang-format off */
+        test_util::make_thread(TID_E),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 40),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_E),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_F = {
+        /* clang-format off */
+        test_util::make_thread(TID_F),
+        test_util::make_pid(1),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(TIMESTAMP_START + 50),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        test_util::make_instr(10),
+        test_util::make_exit(TID_F),
+        /* clang-format on */
+    };
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        scheduler_t::scheduler_options_t sched_ops = set_up_steal_period_options(
+            refs_A, TID_A, refs_B, TID_B, refs_C, TID_C, refs_D, TID_D, refs_E, TID_E,
+            refs_F, TID_F, BLOCK_THRESHOLD, sched_inputs);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+        }
+        // As described above, #1 steals A and C but only after first going idle
+        // (because the targets haven't hit the migration threshold yet), thus
+        // testing repeated steal attempts: each steal is after multiple of 4 idles
+        // (the steal period).
+        static const char *const CORE0_SCHED_STRING =
+            "...A.......CCC.......EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE.";
+        static const char *const CORE1_SCHED_STRING =
+            "...B....D....F.________A.____C.__________________________";
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+        assert(scheduler.get_stream(0)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_MIGRATIONS) == 2);
+        assert(scheduler.get_stream(1)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS) == 2);
+    }
+    {
+        // Now run without steal retries.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        scheduler_t::scheduler_options_t sched_ops = set_up_steal_period_options(
+            refs_A, TID_A, refs_B, TID_B, refs_C, TID_C, refs_D, TID_D, refs_E, TID_E,
+            refs_F, TID_F, BLOCK_THRESHOLD, sched_inputs);
+        // Disable retries: only attempt when first go idle.
+        sched_ops.steal_attempt_period *= 100;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE, /*send_time=*/true);
+        // There are now no steals since #1 only tries when it first goes idle.
+        static const char *const CORE0_SCHED_STRING =
+            "...A.......CCC.......EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE.A.C.";
+        static const char *const CORE1_SCHED_STRING =
+            "...B....D....F.______________________________________________";
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+            assert(scheduler.get_stream(i)->get_schedule_statistic(
+                       memtrace_stream_t::SCHED_STAT_MIGRATIONS) == 0);
+        }
+        assert(sched_as_string[0] == CORE0_SCHED_STRING);
+        assert(sched_as_string[1] == CORE1_SCHED_STRING);
+        assert(scheduler.get_stream(1)->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_RUNQUEUE_STEALS) == 0);
+    }
+}
+
 static void
 test_exit_early()
 {
@@ -9764,6 +10006,7 @@ test_main(int argc, const char *argv[])
     test_record_scheduler_i7574();
     test_rebalancing();
     test_initial_migrate();
+    test_steal_period();
     test_exit_early();
     test_marker_updates();
     test_options_match();

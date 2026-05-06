@@ -529,7 +529,7 @@ protected:
         std::unique_ptr<std::atomic<int>> record_index;
         bool waiting = false; // Waiting or idling.
         // Used to limit stealing to one attempt per transition to idle.
-        bool tried_to_steal_on_idle = false;
+        int64_t consecutive_idles = 0;
         // This is accessed by other outputs for stealing and rebalancing.
         // Indirected so we can store it in our vector.
         std::unique_ptr<std::atomic<bool>> active;
