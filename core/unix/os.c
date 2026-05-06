@@ -206,6 +206,7 @@ char **our_environ;
 #endif
 #include "../module_shared.h"
 #include "os_private.h"
+#include "ptrace_private.h"
 #include "../synch.h"
 #include "memquery.h"
 #include "ksynch.h"
@@ -273,6 +274,11 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_
 /* forward decl */
 static void
 handle_execve_post(dcontext_t *dcontext);
+
+/* Helper used by os_list_threads() and os_list_threads_by_pid(). */
+static thread_id_t *
+os_list_threads_from_task_dir(dcontext_t *dcontext, const char *task_path,
+                              uint *num_threads_out);
 static bool
 os_switch_lib_tls(dcontext_t *dcontext, bool to_app);
 static bool
@@ -1012,6 +1018,9 @@ d_r_os_init(void)
      * Unfortunately, QEMU crashes when we send SIGILL or SIGFPE to its thread trying
      * to take it over, so we are forced to dynamically vary the number and we switch
      * to SIGSTKFLT for QEMU where we live with the lack of gdb support.
+     * In cases where applications block SIGSTKFLT, the
+     * -attach_unmask_suspend_signal option can be invoked which uses ptrace to
+     *  enable attach, see os_unmask_suspend_signal_via_ptrace() etc.
      */
     suspend_signum = IF_MACOS_ELSE(SIGFPE, NUDGESIG_SIGNUM);
 #ifdef LINUX
@@ -2339,8 +2348,19 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 
     /* now allocate the tls segment for client libraries */
     if (INTERNAL_OPTION(private_loader)) {
-        os_tls->os_seg_info.priv_lib_tls_base = IF_UNIT_TEST_ELSE(
-            os_tls->app_lib_tls_base, privload_tls_init(os_tls->app_lib_tls_base));
+#ifdef PTRACE_TAKEOVER
+        if (DYNAMO_OPTION(attach_unmask_suspend_signal) &&
+            ptrace_takeover_record_present(get_sys_thread_id())) {
+            os_tls->os_seg_info.priv_lib_tls_base =
+                IF_UNIT_TEST_ELSE(os_tls->app_lib_tls_base,
+                                  privload_tls_init(os_tls->app_lib_tls_base, false));
+        } else
+#endif
+        {
+            os_tls->os_seg_info.priv_lib_tls_base =
+                IF_UNIT_TEST_ELSE(os_tls->app_lib_tls_base,
+                                  privload_tls_init(os_tls->app_lib_tls_base, true));
+        }
     }
 #if defined(X86) && !defined(MACOSX64)
     LOG(THREAD_GET, LOG_THREADS, 1,
@@ -4278,12 +4298,19 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     if (INTERNAL_OPTION(private_loader)) {
         write_thread_register(NULL);
     } else {
+        void *app_tls = os_get_app_tls_base(dcontext, TLS_REG_LIB);
+        LOG(THREAD, LOG_THREADS, 1,
+            "dr_create_client_thread parent tid " TIDFMT " app_tls=" PFX " our_tls=" PFX
+            "\n",
+            d_r_get_thread_id(), app_tls, our_tls);
+        if (app_tls != NULL)
+            our_tls = app_tls;
         /* Try to leverage privload TLS setup to ensure the client thread has
          * some TLS in place in case it invokes some app code (though client-safe
          * code is better, in some cases it is a big advantage to be able to run
          * some limited app code in a static-DR setup).
          */
-        void *child_tls = privload_tls_init(our_tls);
+        void *child_tls = privload_tls_init(our_tls, /*use_safe_read=*/false);
         write_thread_register(child_tls);
         byte **dr_tls_base_addr = (byte **)get_dr_tls_base_addr();
         ASSERT(dr_tls_base_addr != NULL);
@@ -10931,6 +10958,7 @@ os_dir_iterator_next(dir_iterator_t *iter)
 typedef struct _takeover_record_t {
     thread_id_t tid;
     event_t event;
+    void *ptrace_cleanup;
 } takeover_record_t;
 
 /* When attempting thread takeover, we store an array of thread id and event
@@ -10950,12 +10978,59 @@ static uint num_thread_takeover_records;
  */
 static dcontext_t *takeover_dcontext;
 
-/* Lists active threads in the process.
- * XXX: The /proc man page says /proc/pid/task is only available if the main
- * thread is still alive, but experiments on 2.6.38 show otherwise.
- */
+void
+ptrace_takeover_record_set(thread_id_t tid, void *param)
+{
+    if (thread_takeover_records == NULL)
+        return;
+    for (uint i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == tid) {
+            thread_takeover_records[i].ptrace_cleanup = param;
+            return;
+        }
+    }
+}
+
+void *
+ptrace_takeover_record_get(thread_id_t tid)
+{
+    if (thread_takeover_records == NULL)
+        return NULL;
+    for (uint i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == tid) {
+            void *param = thread_takeover_records[i].ptrace_cleanup;
+            thread_takeover_records[i].ptrace_cleanup = NULL;
+            return param;
+        }
+    }
+    return NULL;
+}
+
+bool
+ptrace_takeover_record_present(thread_id_t tid)
+{
+    if (thread_takeover_records == NULL)
+        return false;
+    for (uint i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == tid) {
+            return thread_takeover_records[i].ptrace_cleanup != NULL;
+        }
+    }
+    return false;
+}
+thread_id_t *
+os_list_threads_by_pid(dcontext_t *dcontext, process_id_t pid, uint *num_threads_out)
+{
+    char task_path[MAXIMUM_PATH];
+
+    snprintf(task_path, BUFFER_SIZE_ELEMENTS(task_path), "/proc/%d/task", pid);
+    NULL_TERMINATE_BUFFER(task_path);
+    return os_list_threads_from_task_dir(dcontext, task_path, num_threads_out);
+}
+
 static thread_id_t *
-os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
+os_list_threads_from_task_dir(dcontext_t *dcontext, const char *task_path,
+                              uint *num_threads_out)
 {
     dir_iterator_t iter;
     file_t task_dir;
@@ -10965,21 +11040,13 @@ os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
     thread_id_t *tids;
 
     ASSERT(num_threads_out != NULL);
-
-#ifdef MACOS
-    /* XXX i#58: NYI.
-     * We may want SYS_proc_info with PROC_INFO_PID_INFO and PROC_PIDLISTTHREADS,
-     * or is that just BSD threads and instead we want process_set_tasks()
-     * and task_info() as in 7.3.1.3 in Singh's OSX book?
-     */
     *num_threads_out = 0;
-    return NULL;
-#endif
+
+    task_dir = os_open_directory(task_path, OS_OPEN_READ);
+    ASSERT(task_dir != INVALID_FILE);
 
     tids =
         HEAP_ARRAY_ALLOC(dcontext, thread_id_t, tids_alloced, ACCT_THREAD_MGT, PROTECTED);
-    task_dir = os_open_directory("/proc/self/task", OS_OPEN_READ);
-    ASSERT(task_dir != INVALID_FILE);
     os_dir_iterator_start(&iter, task_dir);
     while (os_dir_iterator_next(&iter)) {
         thread_id_t tid;
@@ -11017,6 +11084,26 @@ os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
     return tids;
 }
 
+/* Lists active threads in the current process.
+ * XXX: The /proc man page says /proc/pid/task is only available if the main
+ * thread is still alive, but experiments on 2.6.38 show otherwise.
+ */
+static thread_id_t *
+os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
+{
+#ifdef MACOS
+    /* XXX i#58: NYI.
+     * We may want SYS_proc_info with PROC_INFO_PID_INFO and PROC_PIDLISTTHREADS,
+     * or is that just BSD threads and instead we want process_set_tasks()
+     * and task_info() as in 7.3.1.3 in Singh's OSX book?
+     */
+    *num_threads_out = 0;
+    return NULL;
+#endif
+
+    return os_list_threads_from_task_dir(dcontext, "/proc/self/task", num_threads_out);
+}
+
 /* List the /proc/self/task directory and add all unknown thread ids to the
  * all_threads hashtable in dynamo.c.  Returns true if we found any unknown
  * threads and false otherwise.  We assume that since we don't know about them
@@ -11029,6 +11116,13 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     uint num_threads;
     thread_id_t *tids;
     uint threads_to_signal = 0, threads_timed_out = 0;
+#ifdef PTRACE_TAKEOVER
+    /* Flag used to decide whether to defer timeout handling for ptrace fallback. */
+    bool use_ptrace_fallback = false;
+    /* Per‑thread array marking which threads timed out. */
+    byte *timed_out = NULL;
+    uint timed_out_count = 0;
+#endif
 
     /* We do not want to re-takeover a thread that's in between notifying us on
      * the last call to this routine and getting onto the all_threads list as
@@ -11086,6 +11180,11 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: %d threads to take over\n", threads_to_signal);
     if (threads_to_signal > 0) {
         takeover_record_t *records;
+#ifdef PTRACE_TAKEOVER
+        thread_id_t *ptrace_tids = NULL;
+        byte *use_ptrace = NULL;
+        uint ptrace_count = 0;
+#endif
 
         /* Assuming pthreads, prepare signal_field for sharing. */
         handle_clone(dcontext, PTHREAD_CLONE_FLAGS);
@@ -11099,6 +11198,29 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 tids[i]);
             records[i].tid = tids[i];
             records[i].event = create_event();
+            records[i].ptrace_cleanup = NULL;
+#ifdef PTRACE_TAKEOVER
+            if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
+                if (use_ptrace == NULL) {
+                    use_ptrace = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal,
+                                                  ACCT_THREAD_MGT, PROTECTED);
+                    memset(use_ptrace, 0, threads_to_signal);
+                    ptrace_tids =
+                        HEAP_ARRAY_ALLOC(dcontext, thread_id_t, threads_to_signal,
+                                         ACCT_THREAD_MGT, PROTECTED);
+                }
+                bool in_set = false;
+                if (thread_in_sigtimedwait(records[i].tid, suspend_signum, &in_set) &&
+                    in_set) {
+                    /* TODO i#7805: Keep the takeover policy here architecture
+                     * neutral. Future ports should extend the ptrace backend
+                     * helpers rather than adding ISA-specific branching in os.c.
+                     */
+                    use_ptrace[i] = 1;
+                    ptrace_tids[ptrace_count++] = records[i].tid;
+                }
+            }
+#endif
         }
 
         /* Publish the records and the initial take over dcontext. */
@@ -11106,14 +11228,46 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         num_thread_takeover_records = threads_to_signal;
         takeover_dcontext = dcontext;
 
-        /* Signal the other threads. */
+        /* Signal the other threads if they are not marked for ptrace takeover. */
         for (i = 0; i < threads_to_signal; i++) {
-            send_suspend_signal(NULL, get_process_id(), records[i].tid);
+#ifdef PTRACE_TAKEOVER
+            if (use_ptrace != NULL && use_ptrace[i] != 0) {
+                continue;
+            }
+#endif
+            bool sent = send_suspend_signal(NULL, get_process_id(), records[i].tid);
+            (void)sent;
         }
         d_r_mutex_unlock(&thread_initexit_lock);
 
+#ifdef PTRACE_TAKEOVER
+        if (ptrace_count > 0) {
+            if (!os_ptrace_takeover_threads(dcontext, ptrace_tids, ptrace_count)) {
+                for (i = 0; i < ptrace_count; i++) {
+                    (void)send_suspend_signal(NULL, get_process_id(), ptrace_tids[i]);
+                }
+            }
+        }
+        if (use_ptrace != NULL) {
+            HEAP_ARRAY_FREE(dcontext, use_ptrace, byte, threads_to_signal,
+                            ACCT_THREAD_MGT, PROTECTED);
+        }
+        if (ptrace_tids != NULL) {
+            HEAP_ARRAY_FREE(dcontext, ptrace_tids, thread_id_t, threads_to_signal,
+                            ACCT_THREAD_MGT, PROTECTED);
+        }
+#endif
+
         /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
+        /* Initialise per-thread timeout array. */
+#ifdef PTRACE_TAKEOVER
+        if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
+            timed_out = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal,
+                                         ACCT_THREAD_MGT, PROTECTED);
+            memset(timed_out, 0, threads_to_signal);
+        }
+#endif
         for (i = 0; i < threads_to_signal; i++) {
             static const int progress_period = 50;
             if (i % progress_period == 0) {
@@ -11141,26 +11295,100 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                     break;
                 }
                 if (++attempts > max_attempts) {
-                    if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
-                        SYSLOG(
-                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                            get_application_name(), get_application_pid(),
-                            "Continuing since -unsafe_ignore_takeover_timeout is set.");
-                        ++threads_timed_out;
-                    } else {
-                        SYSLOG(
-                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                            get_application_name(), get_application_pid(),
-                            "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
-                        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
-                                                    get_application_name(),
-                                                    get_application_pid());
+                    bool handle_takeover_timeout = true;
+#ifdef PTRACE_TAKEOVER
+                    use_ptrace_fallback = (timed_out != NULL);
+                    if (use_ptrace_fallback) {
+                        timed_out[i] = 1;
+                        timed_out_count++;
+                        handle_takeover_timeout = false;
+                    }
+#endif
+                    if (handle_takeover_timeout) {
+                        if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
+                            SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                   get_application_name(), get_application_pid(),
+                                   "Continuing since -unsafe_ignore_takeover_timeout is "
+                                   "set.");
+                            ++threads_timed_out;
+                        } else {
+                            SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                   get_application_name(), get_application_pid(),
+                                   "Aborting. Use -unsafe_ignore_takeover_timeout to "
+                                   "ignore.");
+                            REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
+                                                        get_application_name(),
+                                                        get_application_pid());
+                        }
                     }
                     break;
                 }
                 /* Else try again. */
             }
         }
+
+#ifdef PTRACE_TAKEOVER
+        if (timed_out != NULL && timed_out_count > 0) {
+            /* Try a ptrace takeover for threads that timed out. */
+            uint retry_count = 0;
+            thread_id_t *retry_tids = HEAP_ARRAY_ALLOC(
+                dcontext, thread_id_t, timed_out_count, ACCT_THREAD_MGT, PROTECTED);
+            for (i = 0; i < threads_to_signal; i++) {
+                if (timed_out[i] == 0)
+                    continue;
+                char task[64];
+                snprintf(task, BUFFER_SIZE_ELEMENTS(task), "/proc/self/task/%d", tids[i]);
+                NULL_TERMINATE_BUFFER(task);
+                if (!os_file_exists(task, false /*!is dir*/))
+                    continue;
+                retry_tids[retry_count++] = records[i].tid;
+            }
+            if (retry_count > 0) {
+                os_ptrace_takeover_threads(dcontext, retry_tids, retry_count);
+                /* Wait again for the threads just retried. */
+                for (i = 0; i < threads_to_signal; i++) {
+                    if (timed_out[i] == 0)
+                        continue;
+                    static const int wait_ms = 25;
+                    int max_attempts = DYNAMO_OPTION(takeover_timeout_ms) / wait_ms;
+                    int attempts = 0;
+                    while (!wait_for_event(records[i].event, wait_ms)) {
+                        char task[64];
+                        snprintf(task, BUFFER_SIZE_ELEMENTS(task), "/proc/self/task/%d",
+                                 tids[i]);
+                        NULL_TERMINATE_BUFFER(task);
+                        if (!os_file_exists(task, false /*!is dir*/))
+                            break;
+                        if (++attempts > max_attempts) {
+                            if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
+                                SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                       get_application_name(), get_application_pid(),
+                                       "Continuing since -unsafe_ignore_takeover_timeout "
+                                       "is set.");
+                                ++threads_timed_out;
+                            } else {
+                                SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                                       get_application_name(), get_application_pid(),
+                                       "Aborting. Use -unsafe_ignore_takeover_timeout to "
+                                       "ignore.");
+                                REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS,
+                                                            2, get_application_name(),
+                                                            get_application_pid());
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            HEAP_ARRAY_FREE(dcontext, retry_tids, thread_id_t, timed_out_count,
+                            ACCT_THREAD_MGT, PROTECTED);
+        }
+        if (timed_out != NULL) {
+            HEAP_ARRAY_FREE(dcontext, timed_out, byte, threads_to_signal, ACCT_THREAD_MGT,
+                            PROTECTED);
+            timed_out = NULL;
+        }
+#endif
 
         /* Now that we've taken over the other threads, we can safely free the
          * records and reset the shared globals.
@@ -11172,6 +11400,12 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         num_thread_takeover_records = 0;
         takeover_dcontext = NULL;
         for (i = 0; i < threads_to_signal; i++) {
+#ifdef PTRACE_TAKEOVER
+            if (records[i].ptrace_cleanup != NULL) {
+                ptrace_takeover_cleanup(records[i].ptrace_cleanup);
+                records[i].ptrace_cleanup = NULL;
+            }
+#endif
             destroy_event(records[i].event);
         }
         HEAP_ARRAY_FREE(dcontext, records, takeover_record_t, threads_to_signal,
@@ -11243,6 +11477,9 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
 {
     dcontext_t *dcontext;
     priv_mcontext_t *dc_mc;
+#ifdef PTRACE_TAKEOVER
+    void *pt_param = NULL;
+#endif
 
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: received signal in thread " TIDFMT "\n",
         get_sys_thread_id());
@@ -11273,6 +11510,9 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     dcontext->whereami = DR_WHERE_APP;
     dcontext->next_tag = mc->pc;
 
+#ifdef PTRACE_TAKEOVER
+    pt_param = ptrace_takeover_record_get(get_sys_thread_id());
+#endif
     os_thread_signal_taken_over();
 
     DOLOG(2, LOG_TOP, {
@@ -11301,6 +11541,9 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     }
 
     /* Start interpreting from the signal context. */
+#ifdef PTRACE_TAKEOVER
+    ptrace_attach_on_thread_takeover(dcontext, pt_param);
+#endif
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();

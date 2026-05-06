@@ -406,6 +406,12 @@ if (UNIX)
       if (AARCH64 OR (X86 AND X64))
         set(OS_SRCS ${OS_SRCS} unix/coredump.c)
       endif ()
+      # Architecture neutral builds on AArch64 and x86 for ptrace helpers
+      # referenced by core/unix.os.c. But ptrace takeover currently only
+      # implemented on AArch64.
+      if (AARCH64 OR X86)
+        set(OS_SRCS ${OS_SRCS} unix/ptrace_lib.c unix/ptrace_attach.c)
+      endif ()
     endif ()
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery.c)

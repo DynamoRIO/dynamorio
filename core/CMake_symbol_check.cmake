@@ -38,7 +38,8 @@
 
 include(${lib_fileloc}.cmake)
 
-# Return whether binutils is version 2.30 (xref i#3450).
+# Return whether binutils is version 2.30 (xref i#3450), or readelf is showing
+# an unsupported R_386_GOTOFF==9 relocation warning in .debug_info.
 function (is_i3450_binutils_version var_out)
   set(readelfver ${READELF_EXECUTABLE} --version)
   execute_process(COMMAND ${readelfver}
@@ -52,6 +53,9 @@ function (is_i3450_binutils_version var_out)
     string(REGEX MATCH "[0-9.].*$" readelf_verno "${readelf_out}")
   endif ()
   if (readelf_verno EQUAL 2.30)
+    set(is_i3450 1)
+  elseif (readelf_verno AND readelf_error MATCHES
+      "Warning: unable to apply unsupported reloc type 9 to section[ \n]+'?\\.debug_info'?")
     set(is_i3450 1)
   endif ()
   set(${var_out} ${is_i3450} PARENT_SCOPE)
@@ -67,13 +71,17 @@ execute_process(COMMAND
   OUTPUT_VARIABLE output
   )
 
-# Check for binutils/readelf version 2.30, and if yes, then ignore error for 32-bit
-# release build. Binutils bug https://sourceware.org/bugzilla/show_bug.cgi?id=24382
-# has been filed. Both earlier and later versions seem ok (xref i#3450).
+# Check for binutils/readelf version 2.30 and "unsupported reloc type 9"
+# warning, and if yes, then ignore error for 32-bit release build. Binutils bug
+# https://sourceware.org/bugzilla/show_bug.cgi?id=24382 has been filed. Both
+# earlier and later versions seem ok (xref i#3450).
 is_i3450_binutils_version(is_i3450)
 
 if (X86 AND NOT X64 AND NOT DEBUG AND is_i3450)
-  set(readelf_error "")
+  string(REGEX REPLACE
+    "([^\n]*Warning: unable to apply unsupported reloc type 9 to section[ \n]+'?\\.debug_info'?\n?)+"
+    "" readelf_error "${readelf_error}")
+  string(STRIP "${readelf_error}" readelf_error)
 endif ()
 if (readelf_result OR readelf_error)
   message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")

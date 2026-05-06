@@ -2977,6 +2977,21 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     /* Similarly, with our signal handler back in place, we remove the TLS limit. */
     detacher_tid = INVALID_THREAD_ID;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+    /* TODO i#7805: Add support for all Linux platforms. */
+#ifdef PTRACE_TAKEOVER
+    /* Use ptrace() to remove blocked SUSPEND_SIGNAL (SIGILL on Linux) from the
+     * mask of every thread (except the caller), so that the standard
+     * signal‑based takeover can work on such threads.
+     */
+    if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
+        bool are_all_unmasked = os_unmask_suspend_signal_via_ptrace(d_r_get_thread_id());
+        if (!are_all_unmasked) {
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "ERROR: attach_unmask_suspend_signal: failed to unmask 1 or more "
+                "threads.\n");
+        }
+    }
+#endif
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.
      */

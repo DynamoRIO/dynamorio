@@ -573,26 +573,6 @@ kernel_sigaddset(kernel_sigset_t *set, int _sig)
         set->sig[sig / _NSIG_BPW] |= 1UL << (sig % _NSIG_BPW);
 }
 
-static inline void
-kernel_sigdelset(kernel_sigset_t *set, int _sig)
-{
-    uint sig = _sig - 1;
-    if (_NSIG_WORDS == 1)
-        set->sig[0] &= ~(1UL << sig);
-    else
-        set->sig[sig / _NSIG_BPW] &= ~(1UL << (sig % _NSIG_BPW));
-}
-
-static inline bool
-kernel_sigismember(kernel_sigset_t *set, int _sig)
-{
-    int sig = _sig - 1; /* go to 0-based */
-    if (_NSIG_WORDS == 1)
-        return CAST_TO_bool(1 & (set->sig[0] >> sig));
-    else
-        return CAST_TO_bool(1 & (set->sig[sig / _NSIG_BPW] >> (sig % _NSIG_BPW)));
-}
-
 /* XXX: how does libc do this? */
 static inline void
 copy_kernel_sigset_to_sigset(kernel_sigset_t *kset, sigset_t *uset)
