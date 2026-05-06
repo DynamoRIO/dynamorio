@@ -761,9 +761,9 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
                                             opnd_create_reg(dst_xmm)),
                          orig_app_pc));
     } else if (processed_bytes == XMM_REG_SIZE) {
-        /* Partial gather example:
+        /* This also handles partial gathers into inflated ymm (i#7887) such as:
          * vpgatherqd/vgatherqps xmm0 {k1}, [xax + ymm1 * 4]
-         * where the dest reg is inflated to YMM size by the DR decoder, by design.
+         * where the dest reg is inflated to ymm size by the DR decoder, by design.
          */
         reg_id_t dst_xmm = reg_resize_to_opsz(dst_reg, OPSZ_16);
         /* vmovdqa between xmm registers is a 128-bit move: it copies the full
@@ -775,7 +775,7 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
                                               opnd_create_reg(dst_xmm)),
                          orig_app_pc));
     } else if (processed_bytes == YMM_REG_SIZE) {
-        /* Partial gather example:
+        /* This also handles partial gathers into inflated zmm (i#7887) such as:
          * vpgatherqd/vgatherqps ymm0 {k1}, [xax + zmm1 * 4]
          * where the dest reg is inflated to zmm size by the DR decoder, by design.
          */
