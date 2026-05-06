@@ -2,11 +2,20 @@ Correct
 Hello world!
 Basic counts tool results:
 Total counts:
+#ifdef __AVX512F__
+         175 total \(fetched\) instructions
+         175 total unique \(fetched\) instructions
+#else
          116 total \(fetched\) instructions
          116 total unique \(fetched\) instructions
+#endif
            0 total non-fetched instructions
            0 total prefetches
+#ifdef __AVX512F__
+          52 total data loads
+#else
           10 total data loads
+#endif
            5 total data stores
            0 total icache flushes
            0 total dcache flushes
@@ -14,11 +23,20 @@ Total counts:
      .* total timestamp \+ cpuid markers
 .*
 Thread .* counts:
+#ifdef __AVX512F__
+         175 \(fetched\) instructions
+         175 unique \(fetched\) instructions
+#else
          116 \(fetched\) instructions
          116 unique \(fetched\) instructions
+#endif
            0 non-fetched instructions
            0 prefetches
+#ifdef __AVX512F__
+          52 data loads
+#else
           10 data loads
+#endif
            5 data stores
            0 icache flushes
            0 dcache flushes
