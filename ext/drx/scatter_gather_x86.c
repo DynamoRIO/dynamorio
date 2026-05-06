@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,6 +68,7 @@
 #    define IF_DEBUG(x)    /* nothing */
 #endif                     /* DEBUG */
 
+#define HALF_XMM_REG_SIZE 8
 #define XMM_REG_SIZE 16
 #define YMM_REG_SIZE 32
 #define ZMM_REG_SIZE 64
@@ -726,7 +727,7 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
 {
     uint processed_bytes =
         no_of_elements * opnd_size_in_bytes(sg_info->scalar_value_size);
-    uint max_vector_bytes = proc_avx512_enabled() ? 64 : 32;
+    uint max_vector_bytes = proc_avx512_enabled() ? ZMM_REG_SIZE : YMM_REG_SIZE;
     if (processed_bytes == max_vector_bytes)
         return true;
     /* We may have a partial gather if the index size is larger than the data size,
@@ -746,8 +747,10 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
     }
 
     reg_id_t dst_reg = sg_info->gather_dst_reg;
-    if (processed_bytes == 8) {
-        /* E.g., vpgatherqd/vgatherqps xmm0 {k1}, [xax + xmm1 * 4] */
+    if (processed_bytes == HALF_XMM_REG_SIZE) {
+        /* Partial gather example:
+         * vpgatherqd/vgatherqps xmm0 {k1}, [xax + xmm1 * 4]
+         */
         reg_id_t dst_xmm = reg_resize_to_opsz(dst_reg, OPSZ_16);
         /* vmovq between xmm registers is a 64-bit move: it copies the lowest
          * 64 bits onto themselves (preserving gathered data) and explicitly
@@ -757,8 +760,9 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
                INSTR_XL8(INSTR_CREATE_vmovq(drcontext, opnd_create_reg(dst_xmm),
                                             opnd_create_reg(dst_xmm)),
                          orig_app_pc));
-    } else if (processed_bytes == 16) {
-        /* E.g., vpgatherqd/vgatherqps xmm0 {k1}, [xax + ymm1 * 4]
+    } else if (processed_bytes == XMM_REG_SIZE) {
+        /* Partial gather example:
+         * vpgatherqd/vgatherqps xmm0 {k1}, [xax + ymm1 * 4]
          * where the dest reg is inflated to YMM size by the DR decoder, by design.
          */
         reg_id_t dst_xmm = reg_resize_to_opsz(dst_reg, OPSZ_16);
@@ -770,8 +774,9 @@ expand_gather_zero_remaining_lanes(void *drcontext, instrlist_t *bb, instr_t *sg
                INSTR_XL8(INSTR_CREATE_vmovdqa(drcontext, opnd_create_reg(dst_xmm),
                                               opnd_create_reg(dst_xmm)),
                          orig_app_pc));
-    } else if (processed_bytes == 32) {
-        /* E.g., vpgatherqd/vgatherqps ymm0 {k1}, [xax + zmm1 * 4]
+    } else if (processed_bytes == YMM_REG_SIZE) {
+        /* Partial gather example:
+         * vpgatherqd/vgatherqps ymm0 {k1}, [xax + zmm1 * 4]
          * where the dest reg is inflated to zmm size by the DR decoder, by design.
          */
         reg_id_t dst_ymm = reg_resize_to_opsz(dst_reg, OPSZ_32);
