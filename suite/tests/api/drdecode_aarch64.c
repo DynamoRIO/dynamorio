@@ -294,7 +294,7 @@ test_isa_features(void)
     /* ISA feature defined in core/ir/aarch64/codec_v80.txt.
      * Test bcond with distant target to reproduce the check reachability issue.
      * We use a target PC that is far away from &unused_buf to trigger the reachability
-     * failure, if it were enabled (which is not supposed to). That would cause
+     * failure, if reachability checking were incorrectly enabled. That would cause
      * instr_get_isa_feature() to return ISA_FEAT_INVALID instead of ISA_FEAT_BASE.
      */
     instr =
