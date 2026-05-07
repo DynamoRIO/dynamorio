@@ -150,7 +150,7 @@ static size_t
 ptrace_sigmask_size_load_acquire(void)
 {
     size_t sz;
-    ATOMIC_8BYTE_ALIGNED_READ(&ptrace_sigmask_size, &sz);
+    ATOMIC_PTRSZ_ALIGNED_READ(&ptrace_sigmask_size, &sz);
     return sz;
 }
 
