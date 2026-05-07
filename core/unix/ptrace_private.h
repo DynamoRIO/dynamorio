@@ -30,6 +30,14 @@
  * DAMAGE.
  */
 
+/* Internal interface between core/unix/os.c thread takeover and
+ * ptrace-assisted API attach. This is not the same as the ptrace-assisted
+ * external attach in core/unix/injector.c. ptrace_attach.c also uses these
+ * functions to detect and unmask signal blockers and execute thread takeover.
+ * This header exposes DynamoRIO ptrace coordination functions not raw ptrace
+ * syscall wrappers, which are in ptrace_lib.[h|c].
+ */
+
 #ifndef _PTRACE_PRIVATE_H_
 #define _PTRACE_PRIVATE_H_
 
@@ -43,7 +51,7 @@
 #ifdef PTRACE_TAKEOVER
 /* This header declares ptrace takeover functions used by core/unix/os.c.
  * Implementing ptrace takeover for a new architecture should minimise
- * architecture specific code. Below are Advanced SIMD and SVE date structures
+ * architecture specific code. Below are Advanced SIMD and SVE data structures
  * specific to AArch64.
  */
 #    if defined(AARCH64) && defined(DR_HOST_AARCH64)

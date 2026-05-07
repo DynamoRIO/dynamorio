@@ -30,9 +30,7 @@
  * DAMAGE.
  */
 
-/*
- * ptrace_lib.c - low-level ptrace helpers for internal attach support
- */
+/* Low-level ptrace interface for attach helpers in ptrace_attach.c. */
 
 #include "configure.h"
 #include "../globals.h"

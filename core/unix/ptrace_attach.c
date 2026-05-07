@@ -30,8 +30,10 @@
  * DAMAGE.
  */
 
-/*
- * ptrace_attach.c - DynamoRIO core integration for ptrace-assisted attach
+/* Internal functions for core/unix/os.c thread takeover and ptrace-assisted
+ * API attach. This is not the same as the ptrace-assisted external attach in
+ * core/unix/injector.c. These functions bridge core/unix/os.c's
+ * attach/takeover logic to low-level ptrace operations in ptrace_lib.[h|c].
  */
 
 #include "configure.h"
@@ -538,6 +540,14 @@ os_ptrace_takeover_threads(dcontext_t *dcontext, thread_id_t *tids, uint count)
     state->tids = tids;
     state->count = count;
 
+    /* A separate thread is needed because Linux ptrace cannot
+     * PTRACE_ATTACH/PTRACE_SEIZE another thread in the same thread group.
+     * dr_create_client_thread() creates threads with CLONE_VM but without
+     * CLONE_THREAD, so the thread shares DR's address space/heap/events but in
+     * a different thread group from app threads. Without this,
+     * PTRACE_ATTACH/PTRACE_SEIZE above fails with EPERM when trying to
+     * takeover with ptrace.
+     */
     if (!dr_create_client_thread(ptrace_takeover_worker, state)) {
         destroy_events(&state->events);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, state, ptrace_takeover_state_t, ACCT_THREAD_MGT,
@@ -580,6 +590,17 @@ os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid)
     state->skip_tid = skip_tid;
     state->suspend_sig = suspend_signum;
 
+    /* A separate thread is needed because Linux ptrace cannot
+     * PTRACE_INTERRUPT/PTRACE_ATTACH another thread in the same thread group.
+     * dr_create_client_thread() creates threads with CLONE_VM but without
+     * CLONE_THREAD, so the thread shares DR's address space/heap/events but in
+     * a different thread group from app threads. Without this,
+     * PTRACE_INTERRUPT/PTRACE_ATTACH above fails with EPERM when trying to
+     * takeover with ptrace. Also, a separate thread is required to avoid
+     * deadlock because PTRACE_INTERRUPT requires wait4 to be able to observe
+     * a thread stopping. Without a separate thread, the current thread can
+     * block inside the attach path.
+     */
     if (!dr_create_client_thread(ptrace_unmask_all_threads, state)) {
         destroy_events(&state->events);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, state, ptrace_unmask_state_t, ACCT_THREAD_MGT,
