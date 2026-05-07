@@ -291,6 +291,20 @@ test_isa_features(void)
     instr_t *instr = NULL;
     uint isa_feat = ISA_FEAT_INVALID;
 
+    /* ISA feature defined in core/ir/aarch64/codec_v80.txt.
+     * Test bcond with distant target to reproduce the check reachability issue.
+     * We use a target PC that is far away from &unused_buf to trigger the reachability
+     * failure, if reachability checking were incorrectly enabled. That would cause
+     * instr_get_isa_feature() to return ISA_FEAT_INVALID instead of ISA_FEAT_BASE.
+     */
+    instr =
+        INSTR_CREATE_bcond(GD, opnd_create_pc((app_pc)((byte *)&unused_buf + 0x1000000)));
+    instr_set_predicate(instr, DR_PRED_EQ);
+    isa_feat = instr_get_isa_feature((byte *)&unused_buf, instr);
+    ASSERT(isa_feat == ISA_FEAT_BASE);
+    ASSERT(strncmp(instr_get_isa_feature_name(isa_feat), "BASE", strlen("BASE")) == 0);
+    instr_destroy(GD, instr);
+
     /* ISA feature defined in core/ir/aarch64/codec_v81.txt. */
     instr = INSTR_CREATE_sqrdmlsh_scalar(GD, opnd_create_reg(DR_REG_H0),
                                          opnd_create_reg(DR_REG_H0),
