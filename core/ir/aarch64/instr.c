@@ -894,12 +894,13 @@ uint
 instr_get_isa_feature(byte *pc, instr_t *instr)
 {
     decode_info_t di;
-    // We only need to identify the instruction's ISA feature and not actually generate a
-    // valid encoding, so we can safely skip the reachability check, which, for
-    // instructions like bcond, checks if the target address in the instructions operand
-    // is reachable from the instructions' pc. Depending on how this function is used, pc
-    // is not necessarily the instruction's actual pc, it can be an unrelated address like
-    // a buffer, so disabling the reachability check is necessary.
+    /* We only need to identify the instruction's ISA feature and not actually generate a
+     * valid encoding, so we can safely skip the reachability check, which, for
+     * instructions like bcond, checks if the target address in the instructions operand
+     * is reachable from the instructions' pc. Depending on how this function is used, pc
+     * is not necessarily the instruction's actual pc, it can be an unrelated address like
+     * a buffer, so disabling the reachability check is necessary.
+     */
     di.check_reachable = false;
     return isa_feature_common(pc, instr, &di);
 }
