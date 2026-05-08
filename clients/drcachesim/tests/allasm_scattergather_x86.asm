@@ -252,13 +252,8 @@ _start:
         // Verify xmm4 is all ones, since gather uses merge masking
         // and xmm4 was all ones before the vpgatherdd.
         vpcmpeqd xmm6, xmm6, xmm6
-        pcmpeqq  xmm4, xmm6
-        vpextrd  eax, xmm4, 0
-        cmp      eax, 0xffffffff
-        jne      incorrect_zeroing_mask0
-        vpextrd  eax, xmm4, 2
-        cmp      eax, 0xffffffff
-        jne      incorrect_zeroing_mask0
+        vptest   xmm4, xmm6
+        jnc      incorrect_zeroing_mask0
 
         // Verify upper bits of ymm4 are zeroed.
         vextracti128 xmm5, ymm4, 1
