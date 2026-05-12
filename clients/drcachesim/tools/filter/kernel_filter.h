@@ -40,29 +40,34 @@ namespace drmemtrace {
 
 class kernel_filter_t : public record_filter_t::record_filter_func_t {
 public:
+    struct shard_data_t {
+        bool in_kernel = false;
+    };
+
     void *
     parallel_shard_init(memtrace_stream_t *shard_stream,
                         bool partial_trace_filter) override
     {
-        return nullptr;
+        return new shard_data_t();
     }
     bool
     parallel_shard_filter(
         trace_entry_t &entry, void *shard_data,
         record_filter_t::record_filter_info_t &record_filter_info) override
     {
+        shard_data_t *data = reinterpret_cast<shard_data_t *>(shard_data);
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_ = true; break;
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: data->in_kernel = true; break;
             default: break;
             }
         }
-        bool to_return = !in_kernel_;
+        bool to_return = !data->in_kernel;
         if (entry.type == TRACE_TYPE_MARKER) {
             switch (entry.size) {
             case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: in_kernel_ = false; break;
+            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: data->in_kernel = false; break;
             default: break;
             }
         }
@@ -71,6 +76,7 @@ public:
     bool
     parallel_shard_exit(void *shard_data) override
     {
+        delete reinterpret_cast<shard_data_t *>(shard_data);
         return true;
     }
     uint64_t
@@ -79,9 +85,6 @@ public:
         filetype &= ~OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
         return filetype;
     }
-
-private:
-    bool in_kernel_ = false;
 };
 
 } // namespace drmemtrace
