@@ -2914,8 +2914,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::on_context_switch(
     } else {
         VPRINT(this, 2, "Switch on output %d idle-to-input %d", output, new_input);
         ++outputs_[output].stats[memtrace_stream_t::SCHED_STAT_SWITCH_IDLE_TO_INPUT];
-        // Reset the flag so we'll try to steal if we go idle again.
-        outputs_[output].tried_to_steal_on_idle = false;
+        // Reset the counter controlling stealing if we go idle again.
+        outputs_[output].consecutive_idles = 0;
     }
 
     // We want to insert the context switch records (which includes the new input's

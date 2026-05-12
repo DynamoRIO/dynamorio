@@ -1175,6 +1175,13 @@ droption_t<uint64_t> op_sched_rebalance_period_us(
     "The period in simulated microseconds at which per-core run queues are re-balanced "
     "to redistribute load.");
 
+droption_t<uint64_t> op_sched_steal_attempt_period(
+    DROPTION_SCOPE_ALL, "sched_steal_attempt_period", 10000,
+    "Period in idles at which cores attempt to steal from other cores",
+    "The cadence of steal attempts when an output is idle. Each output keeps track of "
+    "consecutive idles and attempts to steal when its idles hit a multiple of this value "
+    "(including at 0).  Setting this parameter to 0 disables stealing.");
+
 droption_t<double> op_sched_exit_if_fraction_inputs_left(
     DROPTION_SCOPE_FRONTEND, "sched_exit_if_fraction_inputs_left", 0.1,
     "Exit if non-EOF inputs left are <= this fraction of the total",

@@ -1051,12 +1051,12 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
                live_inputs);
         return sched_type_t::STATUS_EOF;
     }
-    //  Before going idle, try to steal work from another output.
-    //  We start with us+1 to avoid everyone stealing from the low-numbered outputs.
-    //  We only try when we first transition to idle; we rely on rebalancing after
-    //  that, to avoid repeatededly grabbing other output's locks over and over.
-    if (!outputs_[output].tried_to_steal_on_idle) {
-        outputs_[output].tried_to_steal_on_idle = true;
+    // When going idle, periodically try to steal work from another output.
+    // We don't want to try every time as we'll cause too much lock contention.
+    // We start with us+1 to avoid everyone stealing from the low-numbered outputs
+    // (better to randomly pick target cores?).
+    if (options_.steal_attempt_period > 0 &&
+        outputs_[output].consecutive_idles++ % options_.steal_attempt_period == 0) {
         for (unsigned int i = 1; i < outputs_.size(); ++i) {
             output_ordinal_t target = (output + i) % outputs_.size();
             assert(target != output); // Sanity check (we won't reach "output").
@@ -1071,6 +1071,10 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
                 VPRINT(this, 2,
                        "eof_or_idle: output %d stole input %d from %d's ready_queue\n",
                        output, queue_next->index, target);
+                // This stolen task now has a core to itself, so it may make extra
+                // progress without competition: but that is better than this core
+                // sitting idle while the task is not running; plus, the next global
+                // rebalance will even runqueues out further.
                 return sched_type_t::STATUS_STOLE;
             }
             // We didn't find anything; loop and check another output.

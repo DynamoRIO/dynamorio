@@ -931,6 +931,12 @@ public:
          * application is not using direct switches for dependencies.
          */
         bool direct_switch_fallbacks = false;
+        /**
+         * The cadence of steal attempts when an output is idle.  Each output keeps track
+         * of consecutive idles and attempts to steal when its idles hit a multiple of
+         * this value (including at 0).  Setting this field to 0 disables stealing.
+         */
+        uint64_t steal_attempt_period = 10000;
         // When adding new options, also add to print_configuration().
     };
 

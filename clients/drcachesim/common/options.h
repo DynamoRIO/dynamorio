@@ -234,6 +234,7 @@ extern dynamorio::droption::droption_t<bool> op_sched_disable_direct_switches;
 extern dynamorio::droption::droption_t<bool> op_sched_infinite_timeouts;
 extern dynamorio::droption::droption_t<uint64_t> op_sched_migration_threshold_us;
 extern dynamorio::droption::droption_t<uint64_t> op_sched_rebalance_period_us;
+extern dynamorio::droption::droption_t<uint64_t> op_sched_steal_attempt_period;
 extern dynamorio::droption::droption_t<double> op_sched_time_units_per_us;
 extern dynamorio::droption::droption_t<double> op_sched_exit_if_fraction_inputs_left;
 extern dynamorio::droption::droption_t<int> op_sched_random_initial_layout;
