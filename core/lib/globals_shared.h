@@ -972,6 +972,9 @@ typedef struct {
  * We pick a signal that is very unlikely to be sent asynchronously by
  * the app, and for which we can distinguish synch from asynch by
  * looking at the interrupted pc.
+ * In cases where applications block SIGILL, the -attach_unmask_suspend_signal
+ * option can be invoked which uses ptrace to enable attach, see
+ * os_unmask_suspend_signal_via_ptrace() etc.
  */
 #    define NUDGESIG_SIGNUM SIGILL
 #endif

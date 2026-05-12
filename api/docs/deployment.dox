@@ -1012,6 +1012,20 @@ they want to shrink memory usage
    -tracedump_text or -tracedump_binary, adds a full disassembly of the
    constituent basic blocks to the selected dump.
 
+ - \b -attach_unmask_suspend_signal
+   The API's attach mechanism is based on signals an application is unlikely to
+   use, SIGILL on Linux and SIGSTKFLT if running on QEMU. Applications which do
+   use these signals may block them. The -attach_unmask_suspend_signal option
+   changes the way DynamoRIO attaches, by unmasking the signals so that the
+   usual attach-via-signal mechanism can be used. This option also enables
+   attaching when such signals are blocked and the thread is waiting in one of
+   the sigwait syscalls.
+   Note that this feature is currently available on AArch64 Linux only and
+   requires ptrace privileges, which can be enabled with this command:
+\code
+% echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+\endcode
+
 \if profiling
 XXX PR 225255: profiling options
 \endif

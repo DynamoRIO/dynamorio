@@ -479,7 +479,7 @@ privload_mod_tls_primary_thread_init(privmod_t *mod)
 #endif
 
 void *
-privload_tls_init(void *app_tp)
+privload_tls_init(void *app_tp, bool use_safe_read)
 {
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     app_pc dr_tp;
@@ -542,12 +542,55 @@ privload_tls_init(void *app_tp)
          */
         size_to_copy = ALIGN_BACKWARD(dr_start + client_tls_alloc_size, PAGE_SIZE) -
             (ptr_uint_t)dr_start;
+        if (app_tp != NULL) {
+            byte *tp_map_base = NULL;
+            size_t tp_map_size = 0;
+            uint prot = MEMPROT_NONE;
+            /* Only copy the valid mapped memory of app_tp (pointer to TCB/TLS block). */
+            if (get_memory_info_from_os((byte *)app_tp, &tp_map_base, &tp_map_size,
+                                        &prot) &&
+                TEST(MEMPROT_READ, prot)) {
+                byte *region_end = tp_map_base + tp_map_size;
+                if (app_start < tp_map_base) {
+                    size_t delta = tp_map_base - app_start;
+                    if (delta >= size_to_copy)
+                        size_to_copy = 0;
+                    else {
+                        app_start = tp_map_base;
+                        dr_start += delta;
+                        size_to_copy -= delta;
+                    }
+                }
+                if (app_start + size_to_copy > region_end) {
+                    size_to_copy = region_end - app_start;
+                }
+            } else {
+                LOG(GLOBAL, LOG_LOADER, 1, "%s: no readable region for app_tp " PFX "\n",
+                    __FUNCTION__, app_tp);
+                ASSERT(false);
+            }
+        }
     }
 #endif
-    if (app_tp != NULL &&
-        !safe_read_ex(app_start, size_to_copy, dr_start, &tls_bytes_read)) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed after %zd bytes\n", __FUNCTION__,
-            tls_bytes_read);
+    if (app_tp != NULL) {
+        if (!use_safe_read) {
+            /* Check page protections for readability before safely
+             * memcpy()ing, i.e. not risking a SIGSEGV. This avoids
+             * safe_read_ex() during thread takeover because TLS fault handling
+             * is not yet fully established. Warning: this is a race condition.
+             */
+            if (is_readable_without_exception_query_os(app_start, size_to_copy)) {
+                memcpy(dr_start, app_start, size_to_copy);
+                tls_bytes_read = size_to_copy;
+            } else {
+                LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS is not readable\n", __FUNCTION__);
+            }
+        } else {
+            if (!safe_read_ex(app_start, size_to_copy, dr_start, &tls_bytes_read)) {
+                LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed after %zd bytes\n",
+                    __FUNCTION__, tls_bytes_read);
+            }
+        }
     }
     LOG(GLOBAL, LOG_LOADER, 2, "%d copied %zu bytes from %p to %p (TP %p)\n",
         get_sys_thread_id(), tls_bytes_read, app_start, dr_start, dr_tp);

@@ -1237,14 +1237,20 @@ atomic_aligned_read_int64(volatile int64 *var)
         } while (0)
 #endif
 
-/* Our ATOMIC_* macros target release-acquire semantics.  ATOMIC_PTRSZ_ALIGNED_WRITE
- * is a Store-Release and ensures prior stores in program order in this thread
- * are not observed by another thread after this store.
+/* Our ATOMIC_* macros target release-acquire semantics.
+ * ATOMIC_PTRSZ_ALIGNED_WRITE is a store-release and ATOMIC_PTRSZ_ALIGNED_READ
+ * is a load-acquire. ATOMIC_PTRSZ_ALIGNED_WRITE ensures prior stores in
+ * program order in this thread are not observed by another thread after this
+ * store.
  */
 #ifdef X64
+#    define ATOMIC_PTRSZ_ALIGNED_READ(addr_src, addr_res) \
+        ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)
 #    define ATOMIC_PTRSZ_ALIGNED_WRITE(target, value, hot_patch) \
         ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch)
 #else
+#    define ATOMIC_PTRSZ_ALIGNED_READ(addr_src, addr_res) \
+        ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)
 #    define ATOMIC_PTRSZ_ALIGNED_WRITE(target, value, hot_patch) \
         ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch)
 #endif

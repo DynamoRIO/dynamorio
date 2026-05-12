@@ -1,0 +1,11 @@
+starting busy_thread
+busy_thread starting \(tid=[0-9]+\)
+starting sig_thread
+sig_thread blocked signals
+pre-DR start
+stopping busy_thread
+busy_thread exiting
+sending SIGUSR1 to sig_thread
+sig_thread received SIGUSR1
+pre-DR stop
+all done

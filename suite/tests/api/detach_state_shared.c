@@ -530,6 +530,15 @@ make_mem_writable(ptr_uint_t pc)
     protect_mem((void *)pc, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
 }
 
+void
+make_mem_non_writeable(ptr_uint_t pc)
+{
+    /* Reset self-modifying test page permissions so later non-self-modifying
+     * fragment cache tests do not inherit RWX, violating DR's ASSERT() checks.
+     */
+    protect_mem((void *)pc, 1024, ALLOW_READ | ALLOW_EXEC);
+}
+
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
 #    include "api/detach_state_shared.h"
@@ -955,6 +964,7 @@ START_FILE
 DECL_EXTERN(sideline_exit)
 DECL_EXTERN(sideline_ready_for_detach)
 DECL_EXTERN(make_mem_writable)
+DECL_EXTERN(make_mem_non_writeable)
 DECL_EXTERN(check_gpr_vals)
 DECL_EXTERN(safe_stack)
 
@@ -1332,10 +1342,14 @@ check_gprs_from_cache_spin:
 
 #if defined(X86)
 #define MAKE_WRITEABLE \
-        call     LOCAL_LABEL(retaddr) @N@\
-LOCAL_LABEL(retaddr): @N@\
+        call     LOCAL_LABEL(writable_pc) @N@\
+LOCAL_LABEL(writable_pc): @N@\
         pop      REG_XAX @N@\
         CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
+
+#define REMOVE_WRITEABLE \
+        lea      REG_XAX, SYMREF(LOCAL_LABEL(writable_pc)) @N@\
+        CALLC1(GLOBAL_REF(make_mem_non_writeable), REG_XAX)
 
 #define SELFMOD_INIT(reg) \
         mov      reg, HEX(0)
@@ -1369,8 +1383,13 @@ ADDRTAKEN_LABEL(LOCAL_LABEL(immed_plus_four:))
 
 #if defined(AARCH64)
 #define MAKE_WRITEABLE \
-        adr      REG_SCRATCH0, 0 @N@\
+LOCAL_LABEL(writable_pc): @N@\
+        adr      REG_SCRATCH0, GLOBAL_REF(LOCAL_LABEL(writable_pc)) @N@\
         CALLC1(GLOBAL_REF(make_mem_writable), REG_SCRATCH0)
+
+#define REMOVE_WRITEABLE \
+        adr      REG_SCRATCH0, GLOBAL_REF(LOCAL_LABEL(writable_pc)) @N@\
+        CALLC1(GLOBAL_REF(make_mem_non_writeable), REG_SCRATCH0)
 
 /* Clean a single cache line covering the address in addr_reg.
  * We can't call tool_clear_icache() because that would disturb the register state
@@ -1455,6 +1474,7 @@ check_gprs_from_DR1_spin:
         mov      REG_SCRATCH1, SELFMOD_GPR_MASK1
         CALLC2(GLOBAL_REF(check_gpr_vals), REG_SCRATCH0, REG_SCRATCH1)
         POPALL
+        REMOVE_WRITEABLE
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
@@ -1491,6 +1511,7 @@ check_gprs_from_DR2_spin:
         mov      REG_SCRATCH1, SELFMOD_GPR_MASK2
         CALLC2(GLOBAL_REF(check_gpr_vals), REG_SCRATCH0, REG_SCRATCH1)
         POPALL
+        REMOVE_WRITEABLE
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
@@ -1590,6 +1611,7 @@ check_status_reg_from_DR_spin:
         mov      REG_SCRATCH0, REG_SP
         CALLC1(GLOBAL_REF(check_status_reg), REG_SCRATCH0)
         POP_STATUS_REG
+        REMOVE_WRITEABLE
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
@@ -1683,6 +1705,7 @@ check_xsp_from_DR_spin:
         mov        REG_SCRATCH0, REG_SP
         CALLC1(GLOBAL_REF(check_xsp), REG_SCRATCH0)
         POP_SP
+        REMOVE_WRITEABLE
         POP_CALLEE_SAVED
         UNALIGN_STACK_ON_FUNC_EXIT
         ret
