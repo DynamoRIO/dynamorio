@@ -38,6 +38,10 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+// Removes all entries between and including the pairs of markers representing
+// kernel execution: for syscalls (TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+// TRACE_MARKER_TYPE_SYSCALL_TRACE_END), and context switches
+// (TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END).
 class kernel_filter_t : public record_filter_t::record_filter_func_t {
 public:
     struct shard_data_t {
