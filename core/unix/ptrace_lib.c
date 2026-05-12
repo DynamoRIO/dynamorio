@@ -43,7 +43,8 @@
 #include <sys/wait.h>
 
 #if !defined(LINUX) || !(defined(AARCH64) || defined(X86))
-#    error "ptrace_lib.c currently supports only Linux AArch64 and Linux x86"
+#    error "ptrace_attach.c currently supports only Linux AArch64 with partial " \
+        "support for Linux x86."
 #endif
 
 #ifndef NT_PRSTATUS

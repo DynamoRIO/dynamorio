@@ -2348,7 +2348,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 
     /* now allocate the tls segment for client libraries */
     if (INTERNAL_OPTION(private_loader)) {
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
         if (DYNAMO_OPTION(attach_unmask_suspend_signal) &&
             ptrace_takeover_record_present(get_sys_thread_id())) {
             os_tls->os_seg_info.priv_lib_tls_base =
@@ -11018,6 +11018,7 @@ ptrace_takeover_record_present(thread_id_t tid)
     }
     return false;
 }
+
 thread_id_t *
 os_list_threads_by_pid(dcontext_t *dcontext, process_id_t pid, uint *num_threads_out)
 {
@@ -11116,7 +11117,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     uint num_threads;
     thread_id_t *tids;
     uint threads_to_signal = 0, threads_timed_out = 0;
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
     /* Flag used to decide whether to defer timeout handling for ptrace fallback. */
     bool use_ptrace_fallback = false;
     /* Per‑thread array marking which threads timed out. */
@@ -11180,7 +11181,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: %d threads to take over\n", threads_to_signal);
     if (threads_to_signal > 0) {
         takeover_record_t *records;
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
         thread_id_t *ptrace_tids = NULL;
         byte *use_ptrace = NULL;
         uint ptrace_count = 0;
@@ -11199,7 +11200,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
             records[i].tid = tids[i];
             records[i].event = create_event();
             records[i].ptrace_cleanup = NULL;
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
             if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
                 if (use_ptrace == NULL) {
                     use_ptrace = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal,
@@ -11212,10 +11213,6 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 bool in_set = false;
                 if (thread_in_sigtimedwait(records[i].tid, suspend_signum, &in_set) &&
                     in_set) {
-                    /* TODO i#7805: Keep the takeover policy here architecture
-                     * neutral. Future ports should extend the ptrace backend
-                     * helpers rather than adding ISA-specific branching in os.c.
-                     */
                     use_ptrace[i] = 1;
                     ptrace_tids[ptrace_count++] = records[i].tid;
                 }
@@ -11230,7 +11227,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
 
         /* Signal the other threads if they are not marked for ptrace takeover. */
         for (i = 0; i < threads_to_signal; i++) {
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
             if (use_ptrace != NULL && use_ptrace[i] != 0) {
                 continue;
             }
@@ -11240,7 +11237,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         }
         d_r_mutex_unlock(&thread_initexit_lock);
 
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
         if (ptrace_count > 0) {
             if (!os_ptrace_takeover_threads(dcontext, ptrace_tids, ptrace_count)) {
                 for (i = 0; i < ptrace_count; i++) {
@@ -11261,7 +11258,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
         /* Initialise per-thread timeout array. */
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
         if (DYNAMO_OPTION(attach_unmask_suspend_signal)) {
             timed_out = HEAP_ARRAY_ALLOC(dcontext, byte, threads_to_signal,
                                          ACCT_THREAD_MGT, PROTECTED);
@@ -11296,7 +11293,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 }
                 if (++attempts > max_attempts) {
                     bool handle_takeover_timeout = true;
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
                     use_ptrace_fallback = (timed_out != NULL);
                     if (use_ptrace_fallback) {
                         timed_out[i] = 1;
@@ -11327,7 +11324,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
             }
         }
 
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
         if (timed_out != NULL && timed_out_count > 0) {
             /* Try a ptrace takeover for threads that timed out. */
             uint retry_count = 0;
@@ -11400,7 +11397,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         num_thread_takeover_records = 0;
         takeover_dcontext = NULL;
         for (i = 0; i < threads_to_signal; i++) {
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
             if (records[i].ptrace_cleanup != NULL) {
                 ptrace_takeover_cleanup(records[i].ptrace_cleanup);
                 records[i].ptrace_cleanup = NULL;
@@ -11477,7 +11474,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
 {
     dcontext_t *dcontext;
     priv_mcontext_t *dc_mc;
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
     void *pt_param = NULL;
 #endif
 
@@ -11510,7 +11507,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     dcontext->whereami = DR_WHERE_APP;
     dcontext->next_tag = mc->pc;
 
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
     pt_param = ptrace_takeover_record_get(get_sys_thread_id());
 #endif
     os_thread_signal_taken_over();
@@ -11541,7 +11538,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     }
 
     /* Start interpreting from the signal context. */
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
     ptrace_attach_on_thread_takeover(dcontext, pt_param);
 #endif
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,

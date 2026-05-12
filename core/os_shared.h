@@ -44,7 +44,7 @@
 
 /* Keep in sync with the ptrace_attach.c OS_SRCS guard in core/CMakeLists.txt. */
 #if defined(LINUX) && !defined(ANDROID) && (defined(AARCH64) || defined(X86))
-#    define PTRACE_TAKEOVER 1
+#    define PTRACE_TAKEOVER_SUPPORTED 1
 #endif
 
 enum { VM_ALLOCATION_BOUNDARY = 64 * 1024 }; /* 64KB allocation size for Windows */
@@ -96,7 +96,7 @@ os_process_not_under_dynamorio(dcontext_t *dcontext);
 bool
 os_take_over_all_unknown_threads(dcontext_t *dcontext);
 
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
 bool
 os_unmask_suspend_signal_via_ptrace(thread_id_t skip_tid);
 #endif

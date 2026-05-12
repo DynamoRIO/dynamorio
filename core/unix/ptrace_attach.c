@@ -50,7 +50,8 @@
 #include <linux/elf.h>
 
 #if !defined(LINUX) || !(defined(AARCH64) || defined(X86))
-#    error "ptrace_attach.c currently supports only Linux AArch64 and Linux x86"
+#    error "ptrace_attach.c currently supports only Linux AArch64 with partial " \
+        "support for Linux x86."
 #endif
 
 /* Most of this file is intended to remain architecture-neutral. Keep ISA-specific

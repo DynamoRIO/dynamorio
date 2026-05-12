@@ -43,12 +43,12 @@
 
 #include "os_private.h"
 
-#if !defined(PTRACE_TAKEOVER) && defined(LINUX) && !defined(ANDROID) && \
+#if !defined(PTRACE_TAKEOVER_SUPPORTED) && defined(LINUX) && !defined(ANDROID) && \
     (defined(AARCH64) || defined(X86))
-#    define PTRACE_TAKEOVER 1
+#    define PTRACE_TAKEOVER_SUPPORTED 1
 #endif
 
-#ifdef PTRACE_TAKEOVER
+#ifdef PTRACE_TAKEOVER_SUPPORTED
 /* This header declares ptrace takeover functions used by core/unix/os.c.
  * Implementing ptrace takeover for a new architecture should minimise
  * architecture specific code. Below are Advanced SIMD and SVE data structures
