@@ -1071,6 +1071,10 @@ scheduler_dynamic_tmpl_t<RecordType, ReaderType>::eof_or_idle_for_mode(
                 VPRINT(this, 2,
                        "eof_or_idle: output %d stole input %d from %d's ready_queue\n",
                        output, queue_next->index, target);
+                // This stolen task now has a core to itself, so it may make extra
+                // progress without competition: but that is better than this core
+                // sitting idle while the task is not running; plus, the next global
+                // rebalance will even runqueues out further.
                 return sched_type_t::STATUS_STOLE;
             }
             // We didn't find anything; loop and check another output.
