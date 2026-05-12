@@ -8034,17 +8034,17 @@ const instr_info_t vex_W_extensions[][2] = {
     /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpgatherdd,0x66389018, catSIMD, "vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexwb[189][0]},
-    {OP_vpgatherdq,0x66389058, catSIMD, "vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexwb[189][2]},
+    {OP_vpgatherdd,0x66389018, catSIMD, "vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,fWR,tevexwb[189][0]},
+    {OP_vpgatherdq,0x66389058, catSIMD, "vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,fWR,tevexwb[189][2]},
   }, { /* vex_W_ext 67 */
-    {OP_vpgatherqd,0x66389118, catSIMD, "vpgatherqd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexwb[190][0]},
-    {OP_vpgatherqq,0x66389158, catSIMD, "vpgatherqq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexwb[190][2]},
+    {OP_vpgatherqd,0x66389118, catSIMD, "vpgatherqd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,fWR,tevexwb[190][0]},
+    {OP_vpgatherqq,0x66389158, catSIMD, "vpgatherqq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,fWR,tevexwb[190][2]},
   }, { /* vex_W_ext 68 */
-    {OP_vgatherdps,0x66389218, catSIMD, "vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexwb[191][0]},
-    {OP_vgatherdpd,0x66389258, catSIMD, "vgatherdpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexwb[191][2]},
+    {OP_vgatherdps,0x66389218, catSIMD, "vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,fWR,tevexwb[191][0]},
+    {OP_vgatherdpd,0x66389258, catSIMD, "vgatherdpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,fWR,tevexwb[191][2]},
   }, { /* vex_W_ext 69 */
-    {OP_vgatherqps,0x66389318, catSIMD, "vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexwb[192][0]},
-    {OP_vgatherqpd,0x66389358, catSIMD, "vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexwb[192][2]},
+    {OP_vgatherqps,0x66389318, catSIMD, "vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,fWR,tevexwb[192][0]},
+    {OP_vgatherqpd,0x66389358, catSIMD, "vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,fWR,tevexwb[192][2]},
   }, { /* vex_W_ext 70 */
     {OP_vpmaskmovd,0x66388c18, catSIMD, "vpmaskmovd",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][0]},
     {OP_vpmaskmovq,0x66388c58, catSIMD, "vpmaskmovq",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][1]},
@@ -9165,47 +9165,47 @@ const instr_info_t evex_Wb_extensions[][4] = {
     /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpgatherdd, 0x66389008, catSIMD, "vpgatherdd", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vpgatherdd, 0x66389008, catSIMD, "vpgatherdd", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x66389018, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpgatherdq, 0x66389048, catSIMD, "vpgatherdq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vpgatherdq, 0x66389048, catSIMD, "vpgatherdq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x66389058, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 190 */
-    {OP_vpgatherqd, 0x66389108, catSIMD, "vpgatherqd", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vpgatherqd, 0x66389108, catSIMD, "vpgatherqd", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x66389118, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpgatherqq, 0x66389148, catSIMD, "vpgatherqq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vpgatherqq, 0x66389148, catSIMD, "vpgatherqq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x66389158, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 191 */
-    {OP_vgatherdps, 0x66389208, catSIMD, "vgatherdps", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vgatherdps, 0x66389208, catSIMD, "vgatherdps", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x66389218, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vgatherdpd, 0x66389248, catSIMD, "vgatherdpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vgatherdpd, 0x66389248, catSIMD, "vgatherdpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x66389258, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 192 */
-    {OP_vgatherqps, 0x66389308, catSIMD, "vgatherqps", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vgatherqps, 0x66389308, catSIMD, "vgatherqps", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x66389318, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vgatherqpd, 0x66389348, catSIMD, "vgatherqpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vgatherqpd, 0x66389348, catSIMD, "vgatherqpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x66389358, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 193 */
     /* XXX: OP_v*scatter* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpscatterdd, 0x6638a008, catSIMD, "vpscatterdd", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vpscatterdd, 0x6638a008, catSIMD, "vpscatterdd", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x6638a018, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpscatterdq, 0x6638a048, catSIMD, "vpscatterdq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vpscatterdq, 0x6638a048, catSIMD, "vpscatterdq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x6638a058, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 194 */
-    {OP_vpscatterqd, 0x6638a108, catSIMD, "vpscatterqd", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vpscatterqd, 0x6638a108, catSIMD, "vpscatterqd", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x6638a118, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpscatterqq, 0x6638a148, catSIMD, "vpscatterqq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vpscatterqq, 0x6638a148, catSIMD, "vpscatterqq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x6638a158, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 195 */
-    {OP_vscatterdps, 0x6638a208, catSIMD, "vscatterdps", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vscatterdps, 0x6638a208, catSIMD, "vscatterdps", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x6638a218, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vscatterdpd, 0x6638a248, catSIMD, "vscatterdpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vscatterdpd, 0x6638a248, catSIMD, "vscatterdpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x6638a258, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 196 */
-    {OP_vscatterqps, 0x6638a308, catSIMD, "vscatterqps", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vscatterqps, 0x6638a308, catSIMD, "vscatterqps", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x6638a318, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vscatterqpd, 0x6638a348, catSIMD, "vscatterqpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, x, END_LIST},
+    {OP_vscatterqpd, 0x6638a348, catSIMD, "vscatterqpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttt1s|nok0, fWR, END_LIST},
     {INVALID, 0x6638a358, catUncategorized, "(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_Wb_ext 197 */
        /* XXX i#1312: The encoding of this and the following gather prefetch instructions
