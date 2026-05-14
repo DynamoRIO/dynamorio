@@ -367,8 +367,8 @@ public:
         }
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
 
-        auto it_inserted = decode_cache_.try_emplace(trace_pc, DecodeInfo());
-        bool already_exists = !it_inserted.second;
+        auto [it_info, inserted] = decode_cache_.try_emplace(trace_pc, DecodeInfo());
+        bool already_exists = !inserted;
         if (already_exists &&
             // We can return the existing cached DecodeInfo if:
             // - we're using the module mapper, where we don't support the
@@ -380,15 +380,15 @@ public:
             // We return the cached DecodeInfo even if it is !is_valid();
             // attempting decoding again is not useful because the encoding
             // hasn't changed.
-            cached_decode_info = &it_inserted.first->second;
+            cached_decode_info = &it_info->second;
             // Return the original error string if any.
             return cached_decode_info->get_error_string();
         } else if (already_exists) {
             // We may end up here if we're using the embedded encodings from
             // the trace and now we have a new instr at trace_pc.
-            it_inserted.first->second = DecodeInfo();
+            it_info->second = DecodeInfo();
         }
-        cached_decode_info = &it_inserted.first->second;
+        cached_decode_info = &it_info->second;
 
         // Get address for the instr encoding raw bytes.
         app_pc decode_pc;
@@ -423,9 +423,8 @@ public:
                 return cached_decode_info->get_error_string();
             }
         }
-        it_inserted.first->second.set_decode_info(dcontext_, memref_instr, instr,
-                                                  decode_pc);
-        return it_inserted.first->second.get_error_string();
+        it_info->second.set_decode_info(dcontext_, memref_instr, instr, decode_pc);
+        return it_info->second.get_error_string();
     }
 
     /**
