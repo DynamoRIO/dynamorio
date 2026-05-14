@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -367,17 +367,8 @@ public:
         }
         const app_pc trace_pc = reinterpret_cast<app_pc>(memref_instr.addr);
 
-        // XXX: Simplify using try_emplace when we upgrade to C++17.
-        auto info = decode_cache_.find(trace_pc);
-        bool already_exists = info != decode_cache_.end();
-        if (!already_exists) {
-            auto it_inserted =
-                decode_cache_.emplace(std::piecewise_construct,
-                                      std::forward_as_tuple(trace_pc), std::tuple<> {});
-            info = it_inserted.first;
-            assert(it_inserted.second);
-        }
-
+        auto it_inserted = decode_cache_.try_emplace(trace_pc, DecodeInfo());
+        bool already_exists = !it_inserted.second;
         if (already_exists &&
             // We can return the existing cached DecodeInfo if:
             // - we're using the module mapper, where we don't support the
@@ -389,15 +380,15 @@ public:
             // We return the cached DecodeInfo even if it is !is_valid();
             // attempting decoding again is not useful because the encoding
             // hasn't changed.
-            cached_decode_info = &info->second;
+            cached_decode_info = &it_inserted.first->second;
             // Return the original error string if any.
             return cached_decode_info->get_error_string();
         } else if (already_exists) {
             // We may end up here if we're using the embedded encodings from
             // the trace and now we have a new instr at trace_pc.
-            info->second = DecodeInfo();
+            it_inserted.first->second = DecodeInfo();
         }
-        cached_decode_info = &info->second;
+        cached_decode_info = &it_inserted.first->second;
 
         // Get address for the instr encoding raw bytes.
         app_pc decode_pc;
@@ -432,8 +423,9 @@ public:
                 return cached_decode_info->get_error_string();
             }
         }
-        info->second.set_decode_info(dcontext_, memref_instr, instr, decode_pc);
-        return info->second.get_error_string();
+        it_inserted.first->second.set_decode_info(dcontext_, memref_instr, instr,
+                                                  decode_pc);
+        return it_inserted.first->second.get_error_string();
     }
 
     /**
