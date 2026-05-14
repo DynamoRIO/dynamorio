@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,7 @@
  * record" command or a single PT raw trace file produced by "drcachesim".
  */
 
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -355,21 +356,14 @@ option_init(int argc, const char *argv[])
 static bool
 load_file(DR_PARAM_IN const std::string &path, DR_PARAM_OUT std::vector<uint8_t> &buffer)
 {
-    /* Under C++11, there is no good solution to get the file size after using ifstream to
-     * open a file. Because we will not change the PT raw trace file during converting, we
-     * don't need to think about write-after-read. We get the file size from file stat
-     * first and then use ifstream to open and read the PT raw trace file.
-     * XXX: We may need to update Dynamorio to support C++17+. Then we can implement the
-     * following logic without opening the file twice.
-     */
-    errno = 0;
-    struct stat fstat;
-    if (stat(path.c_str(), &fstat) == -1) {
+    std::error_code error;
+    std::uintmax_t file_size = std::filesystem::file_size(path, error);
+    if (file_size == static_cast<std::uintmax_t>(-1)) {
         std::cerr << CLIENT_NAME << ": Failed to get file size of PT raw file: " << path
-                  << ": " << errno << std::endl;
+                  << ": " << error << std::endl;
         return false;
     }
-    size_t buffer_size = static_cast<size_t>(fstat.st_size);
+    size_t buffer_size = static_cast<size_t>(file_size);
     buffer.resize(buffer_size);
 
     std::ifstream f(path, std::ios::binary | std::ios::in);

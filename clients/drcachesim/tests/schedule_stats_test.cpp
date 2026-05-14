@@ -368,12 +368,11 @@ test_basic_stats()
     assert(std::regex_search(global_hist,
                              std::regex(R"DELIM(1.. *2 *4\n *3.. *4 *3\n)DELIM")));
     assert(result.tid2instrs_per_switch.size() == 3);
-    // XXX i#6672: Upgrade to C++17 for structured bindings.
-    for (const auto &keyval : result.tid2instrs_per_switch) {
-        std::string hist = keyval.second->to_string();
-        assert(keyval.first.workload_id == 0);
-        std::cerr << "Tid " << keyval.first.tid << " switches:\n" << hist;
-        switch (keyval.first.tid) {
+    for (const auto &[workload, histogram] : result.tid2instrs_per_switch) {
+        std::string hist = histogram->to_string();
+        assert(workload.workload_id == 0);
+        std::cerr << "Tid " << workload.tid << " switches:\n" << hist;
+        switch (workload.tid) {
         case TID_A:
             assert(std::regex_search(
                 hist, std::regex(R"DELIM(1.. *2 *2\n *3.. *4 *1\n)DELIM")));
