@@ -4262,8 +4262,10 @@ if (BUILD_CLIENTS)
         set(tool.switch_file_invariants_rawtemp ON) # no preprocessor
 
         # Test -multi_indir with 3 copies of our sample dir.
+        # We set -sched_exit_if_fraction_inputs_left to 0 so our exact instruction
+        # count check in the template will always match.
         torunonly_simtool(multi_indir ${ci_shared_app}
-          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -cores 3"
+          "-multi_indir ${thread_trace_dir}:${thread_trace_dir}:${thread_trace_dir} ${thread_trace_scale} -tool schedule_stats -cores 3 -sched_exit_if_fraction_inputs_left 0"
           "")
         set(tool.multi_indir_rawtemp ON) # no preprocessor
 
