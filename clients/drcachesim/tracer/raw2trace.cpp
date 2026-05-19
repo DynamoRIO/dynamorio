@@ -1424,7 +1424,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         return true;
     // Filtered and instruction-only traces have no elision; we also skip
     // memcount-based checks.
-    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
+    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED |
+                    OFFLINE_FILE_TYPE_IFILTERED | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
                 get_file_type(tdata)))
         return true;
     // We build an ilist to use identify_elidable_addresses() and fill in
