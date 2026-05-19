@@ -1422,9 +1422,9 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
     // Old versions have no elision; we also skip memcount-based checks there.
     if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
         return true;
-    // Filtered and instruction-only traces have no elision.
-    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
-                    OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
+    // Filtered and instruction-only traces have no elision; we also skip
+    // memcount-based checks.
+    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
                 get_file_type(tdata)))
         return true;
     // We build an ilist to use identify_elidable_addresses() and fill in
@@ -1447,6 +1447,10 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                              total_traced_mem_count)) {
         tdata->error = "Failed to set flags for elided base address";
         return false;
+    }
+    if (TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, get_file_type(tdata))) {
+        // If optimizations are enabled we're done now that we have the count.
+        return true;
     }
 
     for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
@@ -1688,11 +1692,12 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         block_summary_t *block = lookup_block_summary(tdata, in_entry->pc.modidx,
                                                       in_entry->pc.modoffs, start_pc);
-        DR_ASSERT(block != nullptr);
-        // Currently we only use total_mem_count to compute expect_all_memrefs,
-        // but we will want it for handling tagged addresses if we need to
-        // identify block boundaries in the presence of ambiguous records.
-        total_mem_count = block->total_mem_count;
+        if (block == nullptr) {
+            // This must be an i-filtered trace.
+            DR_ASSERT(instrs_are_separate);
+        } else {
+            total_mem_count = block->total_mem_count;
+        }
     }
     bool expect_all_memrefs = total_mem_count >= 0;
     log(4, "expect_all_memrefs=%d total_mem_count=%d\n", expect_all_memrefs,
@@ -2351,7 +2356,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         DR_ASSERT(in_entry != nullptr);
         // We take the full value, to handle low or high.
         buf->addr = (addr_t)in_entry->combined_value;
-        ++consumed_memrefs;
+        ++(*consumed_memrefs);
     }
     if (memref.remember_base &&
         instru_offline_.opnd_is_elidable(memref.opnd, base, version)) {
@@ -2703,7 +2708,7 @@ raw2trace_t::create_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
 
     block_summary_t *block = new block_summary_t(block_start, instr_count);
     decode_cache_[tdata->worker].add(modidx, modoffs, block);
-    VPRINT(5,
+    VPRINT(4,
            "Created new block summary " PFX " for " PFX " modidx=" INT64_FORMAT_STRING
            " modoffs=" HEX64_FORMAT_STRING "\n",
            block, block_start, modidx, modoffs);
@@ -2724,6 +2729,10 @@ raw2trace_t::set_block_mem_count(raw2trace_thread_data_t *tdata, uint64 modidx,
         block = create_block_summary(tdata, modidx, modoffs, block_start, instr_count);
     }
     block->total_mem_count = total_traced_mem_count;
+    VPRINT(4,
+           "Set block mem count for " PFX " modidx=" INT64_FORMAT_STRING
+           " modoffs=" HEX64_FORMAT_STRING " to %d\n",
+           block_start, modidx, modoffs, total_traced_mem_count);
     return true;
 }
 

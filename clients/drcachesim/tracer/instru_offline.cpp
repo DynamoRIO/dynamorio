@@ -958,10 +958,10 @@ int
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
                                               int version, bool memref_needs_full_info)
 {
-    int total_traced_mem_count = -1;
+    int total_traced_mem_count = 0;
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
-    bool contains_predication = false;
+    bool contains_memory_predication = false;
     // We can't elide when doing filtering; we also don't know the total count.
     if (memref_needs_full_info)
         return -1;
@@ -985,14 +985,17 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
     }
     for (instr_t *instr = instrlist_first_app(ilist); instr != NULL;
          instr = instr_get_next_app(instr)) {
+        // Use instr_{reads,writes}_memory() to rule out LEA and NOP.
+        bool instr_accesses_memory =
+            instr_reads_memory(instr) || instr_writes_memory(instr);
         // For now we bail at predication.
         if (instr_get_predicate(instr) != DR_PRED_NONE) {
             saw_base.clear();
-            contains_predication = true;
+            if (instr_accesses_memory)
+                contains_memory_predication = true;
             continue;
         }
-        // Use instr_{reads,writes}_memory() to rule out LEA and NOP.
-        if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
+        if (instr_accesses_memory) {
             int opnd_mem_count = 0;
             for (int i = 0; i < instr_num_srcs(instr); i++) {
                 if (opnd_is_memory_reference(instr_get_src(instr, i))) {
@@ -1038,7 +1041,7 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
                 ++reg_it;
         }
     }
-    if (contains_predication)
+    if (contains_memory_predication)
         return -1;
     return total_traced_mem_count;
 }
