@@ -1419,7 +1419,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                                         uint64 modoffs, app_pc start_pc, uint instr_count)
 {
     int version = get_version(tdata);
-    // Old versions have no elision.
+    // Old versions have no elision; we also skip memcount-based checks there.
     if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
         return true;
     // Filtered and instruction-only traces have no elision.
@@ -1441,7 +1441,13 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         instrlist_append(ilist, inst);
     }
 
-    instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, false);
+    int total_traced_mem_count =
+        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, false);
+    if (!set_block_mem_count(tdata, modidx, modoffs, start_pc, instr_count,
+                             total_traced_mem_count)) {
+        tdata->error = "Failed to set flags for elided base address";
+        return false;
+    }
 
     for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
          inst = instr_get_next(inst)) {
@@ -1664,6 +1670,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     // Legacy traces need the offset, not the pc.
     uint64_t cur_offs = in_entry->pc.modoffs;
     std::unordered_map<reg_id_t, addr_t> reg_vals;
+    int total_mem_count = -1;
     if (instr_count == 0) {
         // L0 filtering adds a PC entry with a count of 0 prior to each memref.
         skip_icache = true;
@@ -1679,11 +1686,22 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                             in_entry->pc.modoffs, start_pc, instr_count))
                 return false;
         }
+        block_summary_t *block = lookup_block_summary(tdata, in_entry->pc.modidx,
+                                                      in_entry->pc.modoffs, start_pc);
+        DR_ASSERT(block != nullptr);
+        // Currently we only use total_mem_count to compute expect_all_memrefs,
+        // but we will want it for handling tagged addresses if we need to
+        // identify block boundaries in the presence of ambiguous records.
+        total_mem_count = block->total_mem_count;
     }
+    bool expect_all_memrefs = total_mem_count >= 0;
+    log(4, "expect_all_memrefs=%d total_mem_count=%d\n", expect_all_memrefs,
+        total_mem_count);
     if (instrs_are_separate && instr_count != 1) {
         tdata->error = "cannot mix 0-count and >1-count";
         return false;
     }
+    int consumed_memrefs = 0;
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf_start = get_write_buffer(tdata);
         trace_entry_t *buf = buf_start;
@@ -1896,20 +1914,23 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                             // only the original app instr though. So we use the 0th
                             // dest/src of the original scatter/gather instr for all.
                             is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
-                            is_scatter, reg_vals, &reached_end_of_memrefs))
+                            is_scatter, reg_vals, &reached_end_of_memrefs,
+                            expect_all_memrefs, &consumed_memrefs))
                         return false;
                 }
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
-                                       reg_vals, nullptr))
+                                       reg_vals, nullptr, expect_all_memrefs,
+                                       &consumed_memrefs))
                         return false;
                 }
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
-                                       reg_vals, nullptr))
+                                       reg_vals, nullptr, expect_all_memrefs,
+                                       &consumed_memrefs))
                         return false;
                 }
             }
@@ -1961,6 +1982,12 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         if (rseq_aborted || interrupted)
             break;
+    }
+    if (expect_all_memrefs && consumed_memrefs != total_mem_count) {
+        tdata->error = "Failed to find expected memref count";
+        log(1, "Expected %d memrefs but found %d memrefs\n", total_mem_count,
+            consumed_memrefs);
+        return false;
     }
     *handled = true;
     return true;
@@ -2218,7 +2245,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
                            const instr_summary_t *instr,
                            instr_summary_t::memref_summary_t memref, bool write,
                            std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                           DR_PARAM_OUT bool *reached_end_of_memrefs)
+                           DR_PARAM_OUT bool *reached_end_of_memrefs,
+                           bool expect_all_memrefs, DR_PARAM_OUT int *consumed_memrefs)
 {
     DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, get_file_type(tdata)));
     trace_entry_t *buf = *buf_in;
@@ -2273,6 +2301,16 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         (in_entry == nullptr ||
          (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
           in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH))) {
+        if (expect_all_memrefs) {
+            tdata->error = "Missing memref in unconditional block";
+            log(1,
+                "Error: missing memref in unconditional block "
+                "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
+                in_entry == nullptr ? 0 : in_entry->combined_value);
+            if (in_entry != nullptr)
+                unread_last_entry(tdata);
+            return false;
+        }
         // This happens when there are predicated memrefs in the bb, or for a
         // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
         // For predicated memrefs, they could be earlier, so "instr"
@@ -2313,6 +2351,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         DR_ASSERT(in_entry != nullptr);
         // We take the full value, to handle low or high.
         buf->addr = (addr_t)in_entry->combined_value;
+        ++consumed_memrefs;
     }
     if (memref.remember_base &&
         instru_offline_.opnd_is_elidable(memref.opnd, base, version)) {
@@ -2657,6 +2696,37 @@ raw2trace_t::lookup_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
     return ret;
 }
 
+raw2trace_t::block_summary_t *
+raw2trace_t::create_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
+                                  uint64 modoffs, app_pc block_start, int instr_count)
+{
+
+    block_summary_t *block = new block_summary_t(block_start, instr_count);
+    decode_cache_[tdata->worker].add(modidx, modoffs, block);
+    VPRINT(5,
+           "Created new block summary " PFX " for " PFX " modidx=" INT64_FORMAT_STRING
+           " modoffs=" HEX64_FORMAT_STRING "\n",
+           block, block_start, modidx, modoffs);
+    tdata->last_decode_block_start = block_start;
+    tdata->last_decode_modidx = modidx;
+    tdata->last_decode_modoffs = modoffs;
+    tdata->last_block_summary = block;
+    return block;
+}
+
+bool
+raw2trace_t::set_block_mem_count(raw2trace_thread_data_t *tdata, uint64 modidx,
+                                 uint64 modoffs, app_pc block_start, int instr_count,
+                                 int total_traced_mem_count)
+{
+    block_summary_t *block = lookup_block_summary(tdata, modidx, modoffs, block_start);
+    if (block == nullptr) {
+        block = create_block_summary(tdata, modidx, modoffs, block_start, instr_count);
+    }
+    block->total_mem_count = total_traced_mem_count;
+    return true;
+}
+
 instr_summary_t *
 raw2trace_t::lookup_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
                                   uint64 modoffs, app_pc block_start, int index,
@@ -2690,18 +2760,9 @@ raw2trace_t::create_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
                                   DR_PARAM_INOUT app_pc *pc, app_pc orig)
 {
     if (block == nullptr) {
-        block = new block_summary_t(block_start, instr_count);
-        DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
-        decode_cache_[tdata->worker].add(modidx, modoffs, block);
-        VPRINT(5,
-               "Created new block summary " PFX " for " PFX " modidx=" INT64_FORMAT_STRING
-               " modoffs=" HEX64_FORMAT_STRING "\n",
-               block, block_start, modidx, modoffs);
-        tdata->last_decode_block_start = block_start;
-        tdata->last_decode_modidx = modidx;
-        tdata->last_decode_modoffs = modoffs;
-        tdata->last_block_summary = block;
+        block = create_block_summary(tdata, modidx, modoffs, block_start, instr_count);
     }
+    DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
     instr_summary_t *desc = &block->instrs[index];
     if (!instr_summary_t::construct(dcontext_, block_start, pc, orig, desc, verbosity_)) {
         WARN("Encountered invalid/undecodable instr @ idx=" INT64_FORMAT_STRING

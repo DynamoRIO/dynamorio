@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -429,6 +429,33 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
     return true;
 }
 
+// Takes ownership of ilist and destroys it.
+// Returns the failure string.
+std::string
+run_raw2trace_for_error_string(void *drcontext, const std::vector<offline_entry_t> raw,
+                               instrlist_t *ilist)
+{
+    // We need an istream so we use istringstream.
+    std::ostringstream raw_out;
+    for (const auto &entry : raw) {
+        std::string as_string(reinterpret_cast<const char *>(&entry),
+                              reinterpret_cast<const char *>(&entry + 1));
+        raw_out << as_string;
+    }
+    std::istringstream raw_in(raw_out.str());
+    std::vector<std::istream *> input;
+    input.push_back(&raw_in);
+
+    // We need an ostream to capture out.
+    std::ostringstream result_stream;
+    std::vector<std::ostream *> output;
+    output.push_back(&result_stream);
+
+    // Run raw2trace with our subclass supplying our decodings.
+    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
+    return raw2trace.do_conversion();
+}
+
 bool
 test_branch_delays(void *drcontext)
 {
@@ -807,8 +834,10 @@ test_chunk_boundaries(void *drcontext)
     raw.push_back(make_block(offs_move1, 2));
     raw.push_back(make_block(offs_jmp2, 1));
     raw.push_back(make_block(offs_move2, 2));
+    raw.push_back(make_memref(42)); // ret load.
     raw.push_back(make_block(offs_jcc1, 1));
     raw.push_back(make_block(offs_ret1, 1));
+    raw.push_back(make_memref(42)); // ret load.
     raw.push_back(make_block(offs_move1, 1));
     // TODO i#5724: Add repeats of the same instrs to test re-emitting encodings
     // in new chunks.
@@ -862,6 +891,7 @@ test_chunk_boundaries(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
 #ifdef X86_32
         // An extra encoding entry is needed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
@@ -883,6 +913,7 @@ test_chunk_boundaries(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         // Block 5.
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         // Block 6.
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
@@ -959,9 +990,11 @@ test_chunk_encodings(void *drcontext)
     // Add a final chunk boundary right between a branch;ret pair.
     raw.push_back(make_block(offs_nop_start, 4));
     raw.push_back(make_block(offs_ret, 1));
+    raw.push_back(make_memref(42)); // ret load.
     // Test that we don't get another encoding for a 2nd instance of the ret
     // (yes, nonsensical having the ret target itself: that's ok).
     raw.push_back(make_block(offs_ret, 1));
+    raw.push_back(make_memref(42)); // ret load.
     // Re-use move2 for the target of the 2nd ret to it isn't truncated.
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
@@ -1042,9 +1075,11 @@ test_chunk_encodings(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1, offs_ret) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
         // There should be no encoding before the 2nd instance.
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1, offs_ret) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // Footer.
@@ -2997,6 +3032,7 @@ test_branch_decoration(void *drcontext)
         // Now repeat that branch to test encodings.
         raw.push_back(make_block(offs_mov, 2));
         raw.push_back(make_block(offs_store, 1));
+        raw.push_back(make_memref(42));
         raw.push_back(make_exit());
 
         std::vector<trace_entry_t> entries;
@@ -3026,6 +3062,7 @@ test_branch_decoration(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_INSTR_TAKEN_JUMP, -1, offs_jcc) &&
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
             check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
     }
@@ -3068,6 +3105,7 @@ test_branch_decoration(void *drcontext)
         raw.push_back(make_block(offs_mov, 2));
         raw.push_back(make_block(offs_jcc_move, 1));
         raw.push_back(make_block(offs_store, 1));
+        raw.push_back(make_memref(42));
         raw.push_back(make_exit());
 
         std::vector<trace_entry_t> entries;
@@ -3108,6 +3146,7 @@ test_branch_decoration(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc_move) &&
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+            check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
             check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
     }
@@ -4119,6 +4158,72 @@ test_negative_timestamps(void *drcontext)
     }
 }
 
+bool
+test_missing_memref(void *drcontext)
+{
+#ifdef X86
+    std::cerr << "\n===============\nTesting missing memref\n";
+    {
+        // Test a conditional block.
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *cmov = INSTR_CREATE_cmovcc(drcontext, OP_cmovnle, opnd_create_reg(REG1),
+                                            OPND_CREATE_MEMPTR(REG2, 0));
+        instr_t *ret = XINST_CREATE_return(drcontext);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, cmov);
+        instrlist_append(ilist, ret);
+        size_t offs_cmov = instr_length(drcontext, nop);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_timestamp());
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_cmov, 2));
+        // Just one memref for ret, none for cmov.
+        raw.push_back(make_memref(42));
+        raw.push_back(make_exit());
+
+        std::string error = run_raw2trace_for_error_string(drcontext, raw, ilist);
+        CHECK(error.empty(), "Failed to allow missing memref in conditional block");
+    }
+    {
+        // Test an unconditional block.
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop = XINST_CREATE_nop(drcontext);
+        instr_t *load = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(REG1),
+                                            OPND_CREATE_MEMPTR(REG2, 0));
+        instr_t *ret = XINST_CREATE_return(drcontext);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, load);
+        instrlist_append(ilist, ret);
+        size_t offs_load = instr_length(drcontext, nop);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_timestamp());
+        raw.push_back(make_core());
+        raw.push_back(make_block(offs_load, 2));
+        // Just 1 memref when load+ret should be 2 total: error.
+        raw.push_back(make_memref(42));
+        raw.push_back(make_exit());
+
+        std::string error = run_raw2trace_for_error_string(drcontext, raw, ilist);
+        CHECK(!error.empty() &&
+                  error.find("Missing memref in unconditional block") !=
+                      std::string::npos,
+              "Failed to detect missing memref");
+    }
+#endif
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -4144,7 +4249,7 @@ test_main(int argc, const char *argv[])
         !test_stats_timestamp_instr_count(drcontext) ||
         !test_is_maybe_blocking_syscall(drcontext) || !test_ifiltered(drcontext) ||
         !test_asynchronous_signal(drcontext) || !test_syscall_injection(drcontext) ||
-        !test_negative_timestamps(drcontext))
+        !test_negative_timestamps(drcontext) || !test_missing_memref(drcontext))
         return 1;
     return 0;
 }

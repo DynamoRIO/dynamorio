@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -903,7 +903,7 @@ offline_instru_t::opnd_is_elidable(opnd_t memop, DR_PARAM_OUT reg_id_t &base, in
     return true;
 }
 
-void
+bool
 offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                       opnd_t memop, int op_index, int memop_index,
                                       bool write, int version, reg_id_set_t &saw_base)
@@ -912,7 +912,7 @@ offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr
     // displacement, as well as rip-relative or absolute-address operands.
     reg_id_t base;
     if (!opnd_is_elidable(memop, base, version))
-        return;
+        return false;
     // When adding new elision cases, be sure to check "version" to keep backward
     // compatibility.  See the opnd_is_elidable() notes.  Here we insert a label if
     // we find a base that has not changed or a rip-relative operand.
@@ -925,8 +925,10 @@ offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr
         data->data[LABEL_DATA_ELIDED_IS_WRITE] = write;
         data->data[LABEL_DATA_ELIDED_NEEDS_BASE] = (base != DR_REG_NULL);
         MINSERT(ilist, instr, note);
+        return true;
     } else
         saw_base.insert(base);
+    return false;
 }
 
 bool
@@ -952,17 +954,17 @@ offline_instru_t::label_marks_elidable(instr_t *instr, DR_PARAM_OUT int *opnd_in
     return true;
 }
 
-void
+int
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
                                               int version, bool memref_needs_full_info)
 {
+    int total_traced_mem_count = -1;
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
-    if (disable_optimizations_)
-        return;
-    // We can't elide when doing filtering.
+    bool contains_predication = false;
+    // We can't elide when doing filtering; we also don't know the total count.
     if (memref_needs_full_info)
-        return;
+        return -1;
     reg_id_set_t saw_base;
     for (instr_t *instr = instrlist_first(ilist); instr != NULL;
          instr = instr_get_next(instr)) {
@@ -975,10 +977,10 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         // drx_expand_scatter_gather) when building the ilist.
         if (drutil_instr_is_stringop_loop(instr)
                 IF_X86_OR_AARCH64(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
-            return;
+            return -1;
         }
         if (drmgr_is_emulation_start(instr) || drmgr_is_emulation_end(instr)) {
-            return;
+            return -1;
         }
     }
     for (instr_t *instr = instrlist_first_app(ilist); instr != NULL;
@@ -986,16 +988,21 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         // For now we bail at predication.
         if (instr_get_predicate(instr) != DR_PRED_NONE) {
             saw_base.clear();
+            contains_predication = true;
             continue;
         }
         // Use instr_{reads,writes}_memory() to rule out LEA and NOP.
         if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
-            int mem_count = 0;
+            int opnd_mem_count = 0;
             for (int i = 0; i < instr_num_srcs(instr); i++) {
                 if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                    opnd_check_elidable(drcontext, ilist, instr, instr_get_src(instr, i),
-                                        i, mem_count, false, version, saw_base);
-                    ++mem_count;
+                    if (disable_optimizations_)
+                        ++total_traced_mem_count;
+                    else if (!opnd_check_elidable(
+                                 drcontext, ilist, instr, instr_get_src(instr, i), i,
+                                 opnd_mem_count, false, version, saw_base))
+                        ++total_traced_mem_count;
+                    ++opnd_mem_count;
                 }
             }
             // Rule out sharing with any dest if the base is written to.  The ISA
@@ -1007,12 +1014,16 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
                 else
                     ++reg_it;
             }
-            mem_count = 0;
+            opnd_mem_count = 0;
             for (int i = 0; i < instr_num_dsts(instr); i++) {
                 if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                    opnd_check_elidable(drcontext, ilist, instr, instr_get_dst(instr, i),
-                                        i, mem_count, true, version, saw_base);
-                    ++mem_count;
+                    if (disable_optimizations_)
+                        ++total_traced_mem_count;
+                    else if (!opnd_check_elidable(
+                                 drcontext, ilist, instr, instr_get_dst(instr, i), i,
+                                 opnd_mem_count, true, version, saw_base))
+                        ++total_traced_mem_count;
+                    ++opnd_mem_count;
                 }
             }
         }
@@ -1027,6 +1038,9 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
                 ++reg_it;
         }
     }
+    if (contains_predication)
+        return -1;
+    return total_traced_mem_count;
 }
 
 } // namespace drmemtrace

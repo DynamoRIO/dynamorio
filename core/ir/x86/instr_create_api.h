@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -314,7 +314,7 @@
  * precisely where this instruction will be encoded).
  */
 #define XINST_CREATE_jump_cond(dc, pred, t) \
-    (INSTR_CREATE_jcc((dc), (pred)-DR_PRED_O + OP_jo, (t)))
+    (INSTR_CREATE_jcc((dc), (pred) - DR_PRED_O + OP_jo, (t)))
 
 /**
  * This platform-independent macro creates an #instr_t for an unconditional
@@ -3051,8 +3051,9 @@
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
  */
-#define INSTR_CREATE_cmovcc(dc, op, d, s) \
-    INSTR_PRED(instr_create_1dst_1src((dc), (op), (d), (s)), DR_PRED_O + (op)-OP_cmovo)
+#define INSTR_CREATE_cmovcc(dc, op, d, s)                    \
+    INSTR_PRED(instr_create_1dst_1src((dc), (op), (d), (s)), \
+               (dr_pred_type_t)((int)DR_PRED_O + (op) - OP_cmovo))
 
 /**
  * This INSTR_CREATE_xxx_imm macro creates an #instr_t with opcode OP_xxx and the given

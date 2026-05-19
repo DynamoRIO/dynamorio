@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -626,6 +626,7 @@ protected:
         }
         app_pc start_pc;
         std::vector<instr_summary_t> instrs;
+        int total_mem_count = 0;
     };
 
     struct branch_info_t {
@@ -1097,6 +1098,14 @@ private:
     block_summary_t *
     lookup_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
                          app_pc block_start);
+    block_summary_t *
+    create_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
+                         app_pc block_start, int instr_count);
+    // Creates a new block summary if one doesn't exist.
+    bool
+    set_block_mem_count(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
+                        app_pc block_start, int instr_count, int total_traced_mem_count);
+
     instr_summary_t *
     lookup_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx, uint64 modoffs,
                          app_pc block_start, int index, app_pc pc,
@@ -1219,7 +1228,8 @@ private:
     append_memref(raw2trace_thread_data_t *tdata, DR_PARAM_INOUT trace_entry_t **buf_in,
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                  DR_PARAM_OUT bool *reached_end_of_memrefs);
+                  DR_PARAM_OUT bool *reached_end_of_memrefs, bool expect_all_memrefs,
+                  DR_PARAM_OUT int *consumed_memrefs);
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
