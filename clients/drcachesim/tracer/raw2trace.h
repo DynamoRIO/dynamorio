@@ -687,6 +687,7 @@ protected:
         offline_file_type_t file_type;
         size_t cache_line_size = 0;
         std::deque<offline_entry_t> pre_read;
+        offline_instru_t instru_offline;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
         std::vector<trace_entry_t> delayed_branch;
@@ -1360,7 +1361,6 @@ private:
     // Chunking for seeking support in compressed files.
     uint64_t chunk_instr_count_ = 0;
 
-    offline_instru_t instru_offline_;
     const std::vector<module_t> *modvec_ptr_ = nullptr;
 
     // For decoding kernel PT traces.

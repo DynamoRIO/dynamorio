@@ -503,6 +503,12 @@ public:
                          DR_PARAM_OUT int *memopnd_index, DR_PARAM_OUT bool *is_write,
                          DR_PARAM_OUT bool *needs_base);
 
+    void
+    set_disable_optimizations(bool disable_optimizations)
+    {
+        disable_optimizations_ = disable_optimizations;
+    }
+
 private:
     struct custom_module_data_t {
         custom_module_data_t(const char *base_in, size_t size_in, void *user_in)

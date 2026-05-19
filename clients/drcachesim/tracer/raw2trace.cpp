@@ -1023,6 +1023,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // another source.
         tdata->saw_header = trace_metadata_reader_t::is_thread_start(
             in_entry, &tdata->error, &tdata->version, &tdata->file_type);
+        tdata->instru_offline.set_disable_optimizations(
+            TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, tdata->file_type));
         VPRINT(2, "Trace file version is %d; type is %d\n", tdata->version,
                tdata->file_type);
         if (!tdata->error.empty())
@@ -1442,8 +1444,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         instrlist_append(ilist, inst);
     }
 
-    int total_traced_mem_count =
-        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, false);
+    int total_traced_mem_count = tdata->instru_offline.identify_elidable_addresses(
+        dcontext_, ilist, version, false);
     if (!set_block_mem_count(tdata, modidx, modoffs, start_pc, instr_count,
                              total_traced_mem_count)) {
         tdata->error = "Failed to set flags for elided base address";
@@ -1458,8 +1460,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
          inst = instr_get_next(inst)) {
         int index, memop_index;
         bool write, needs_base;
-        if (!instru_offline_.label_marks_elidable(inst, &index, &memop_index, &write,
-                                                  &needs_base))
+        if (!tdata->instru_offline.label_marks_elidable(inst, &index, &memop_index,
+                                                        &write, &needs_base))
             continue;
         // There could be multiple labels for one instr (e.g., "push (%rsp)".
         instr_t *meminst = instr_get_next(inst);
@@ -1489,7 +1491,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         opnd_t elided_op =
             write ? instr_get_dst(meminst, index) : instr_get_src(meminst, index);
         reg_id_t base;
-        bool got_base = instru_offline_.opnd_is_elidable(elided_op, base, version);
+        bool got_base = tdata->instru_offline.opnd_is_elidable(elided_op, base, version);
         DR_ASSERT(got_base && base != DR_REG_NULL);
         int remember_index = -1;
         for (instr_t *prev = meminst; prev != nullptr; prev = instr_get_prev(prev)) {
@@ -1504,8 +1506,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                 for (int i = 0; i < instr_num_srcs(prev); i++) {
                     reg_id_t prev_base;
                     if (opnd_is_memory_reference(instr_get_src(prev, i))) {
-                        if (instru_offline_.opnd_is_elidable(instr_get_src(prev, i),
-                                                             prev_base, version) &&
+                        if (tdata->instru_offline.opnd_is_elidable(instr_get_src(prev, i),
+                                                                   prev_base, version) &&
                             prev_base == base) {
                             remember_index = mem_count;
                             break;
@@ -1519,8 +1521,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                 for (int i = 0; i < instr_num_dsts(prev); i++) {
                     reg_id_t prev_base;
                     if (opnd_is_memory_reference(instr_get_dst(prev, i))) {
-                        if (instru_offline_.opnd_is_elidable(instr_get_dst(prev, i),
-                                                             prev_base, version) &&
+                        if (tdata->instru_offline.opnd_is_elidable(instr_get_dst(prev, i),
+                                                                   prev_base, version) &&
                             prev_base == base) {
                             remember_index = mem_count;
                             remember_write = true;
@@ -2265,7 +2267,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                                OFFLINE_FILE_TYPE_DFILTERED,
                            get_file_type(tdata)));
-        bool is_elidable = instru_offline_.opnd_is_elidable(memref.opnd, base, version);
+        bool is_elidable =
+            tdata->instru_offline.opnd_is_elidable(memref.opnd, base, version);
         DR_ASSERT(is_elidable);
         if (base == DR_REG_NULL) {
             DR_ASSERT(IF_REL_ADDRS(opnd_is_near_rel_addr(memref.opnd) ||)
@@ -2360,12 +2363,12 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         ++(*consumed_memrefs);
     }
     if (memref.remember_base &&
-        instru_offline_.opnd_is_elidable(memref.opnd, base, version)) {
+        tdata->instru_offline.opnd_is_elidable(memref.opnd, base, version)) {
         log(5, "Remembering base " PFX " for %s\n", buf->addr, get_register_name(base));
         reg_vals[base] = buf->addr;
     }
     if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, get_file_type(tdata)) &&
-        instru_offline_.opnd_disp_is_elidable(memref.opnd)) {
+        tdata->instru_offline.opnd_disp_is_elidable(memref.opnd)) {
         // We stored only the base reg, as an optimization.
         buf->addr += opnd_get_disp(memref.opnd);
     }
@@ -3619,6 +3622,8 @@ raw2trace_t::set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t f
     // entries that follow after TRACE_MARKER_TYPE_FILTER_ENDPOINT. This does not affect
     // the written-out type.
     tdata->file_type = file_type;
+    tdata->instru_offline.set_disable_optimizations(
+        TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, file_type));
 }
 
 raw2trace_t::raw2trace_t(
