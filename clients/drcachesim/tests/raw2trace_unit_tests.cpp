@@ -834,10 +834,14 @@ test_chunk_boundaries(void *drcontext)
     raw.push_back(make_block(offs_move1, 2));
     raw.push_back(make_block(offs_jmp2, 1));
     raw.push_back(make_block(offs_move2, 2));
+#ifdef X86
     raw.push_back(make_memref(42)); // ret load.
+#endif
     raw.push_back(make_block(offs_jcc1, 1));
     raw.push_back(make_block(offs_ret1, 1));
+#ifdef X86
     raw.push_back(make_memref(42)); // ret load.
+#endif
     raw.push_back(make_block(offs_move1, 1));
     // TODO i#5724: Add repeats of the same instrs to test re-emitting encodings
     // in new chunks.
@@ -891,7 +895,9 @@ test_chunk_boundaries(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+#ifdef X86
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+#endif
 #ifdef X86_32
         // An extra encoding entry is needed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
@@ -913,7 +919,9 @@ test_chunk_boundaries(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         // Block 5.
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1) &&
+#ifdef X86
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         // Block 6.
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
@@ -990,11 +998,15 @@ test_chunk_encodings(void *drcontext)
     // Add a final chunk boundary right between a branch;ret pair.
     raw.push_back(make_block(offs_nop_start, 4));
     raw.push_back(make_block(offs_ret, 1));
+#ifdef X86
     raw.push_back(make_memref(42)); // ret load.
+#endif
     // Test that we don't get another encoding for a 2nd instance of the ret
     // (yes, nonsensical having the ret target itself: that's ok).
     raw.push_back(make_block(offs_ret, 1));
+#ifdef X86
     raw.push_back(make_memref(42)); // ret load.
+#endif
     // Re-use move2 for the target of the 2nd ret to it isn't truncated.
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
@@ -1075,11 +1087,15 @@ test_chunk_encodings(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1, offs_ret) &&
+#ifdef X86
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+#endif
         // There should be no encoding before the 2nd instance.
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1, offs_ret) &&
+#ifdef X86
         check_entry(entries, idx, TRACE_TYPE_READ, -1) &&
+#endif
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // Footer.
