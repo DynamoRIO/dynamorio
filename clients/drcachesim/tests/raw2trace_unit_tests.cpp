@@ -2087,7 +2087,9 @@ test_rseq_side_exit_signal(void *drcontext)
     // A discontinuity as we continue with the side exit target.
     // But, a signal arrived (whose interruption must be that target).
     raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move3));
-    raw.push_back(make_block(offs_move1, 1));
+    // Re-use the rseq end as our signal handler.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_XFER, offs_store));
     raw.push_back(make_block(offs_move3, 1));
     raw.push_back(make_exit());
@@ -2122,6 +2124,9 @@ test_rseq_side_exit_signal(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_XFER) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move3) &&

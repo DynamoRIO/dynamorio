@@ -1696,8 +1696,9 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         block_summary_t *block = lookup_block_summary(tdata, in_entry->pc.modidx,
                                                       in_entry->pc.modoffs, start_pc);
         if (block == nullptr) {
-            // This must be an i-filtered trace.
-            DR_ASSERT(instrs_are_separate);
+            // This must be a filtered or instr-only trace.
+            DR_ASSERT(instrs_are_separate || is_instr_only_trace ||
+                      TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)));
         } else {
             total_mem_count = block->total_mem_count;
         }
@@ -1710,6 +1711,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         return false;
     }
     int consumed_memrefs = 0;
+    bool interrupted = false;
+    bool rseq_aborted = false;
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf_start = get_write_buffer(tdata);
         trace_entry_t *buf = buf_start;
@@ -1830,7 +1833,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // The trace is recording instruction retirement, premmpted instructions
         // and the corresponding memrefs, and instructions causing a fault are
         // removed.
-        const bool interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
+        interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
         if (interrupted) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
             // indicate an instruction is removed from the trace because it was
@@ -1958,7 +1961,6 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             }
         }
         // Check for rseq abort *after* the instruction.
-        bool rseq_aborted = false;
         if (!handle_rseq_abort_marker(tdata, &buf, cur_pc, cur_offs, &rseq_aborted))
             return false;
 
@@ -1991,7 +1993,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         if (rseq_aborted || interrupted)
             break;
     }
-    if (expect_all_memrefs && consumed_memrefs != total_mem_count) {
+    if (expect_all_memrefs && !interrupted && !rseq_aborted &&
+        consumed_memrefs != total_mem_count) {
         tdata->error = "Failed to find expected memref count";
         log(1, "Expected %d memrefs but found %d memrefs\n", total_mem_count,
             consumed_memrefs);

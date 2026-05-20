@@ -626,7 +626,7 @@ protected:
         }
         app_pc start_pc;
         std::vector<instr_summary_t> instrs;
-        int total_mem_count = 0;
+        int total_mem_count = -1;
     };
 
     struct branch_info_t {
