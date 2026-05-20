@@ -2317,8 +2317,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             tdata->error = "Missing memref in unconditional block";
             log(1,
                 "Error: missing memref in unconditional block "
-                "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
-                in_entry == nullptr ? 0 : in_entry->combined_value);
+                "(next type is 0x" ZHEX64_FORMAT_STRING "; consumed %d memrefs)\n",
+                in_entry == nullptr ? 0 : in_entry->combined_value, *consumed_memrefs);
             if (in_entry != nullptr)
                 unread_last_entry(tdata);
             return false;
