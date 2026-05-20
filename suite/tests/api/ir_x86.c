@@ -2927,6 +2927,36 @@ test_disasm_to_buffer(void *dc)
     ASSERT(len == expect_len - 2);
 }
 
+static void
+test_fred_instructions(void *dc)
+{
+#ifdef X64
+    instr_t instr;
+    instr_init(dc, &instr);
+    byte *pc;
+
+    const byte bytes_erets[] = { 0xf2, 0x0f, 0x01, 0xca };
+    instr_reset(dc, &instr);
+    pc = decode(dc, (byte *)bytes_erets, &instr);
+    ASSERT(instr_get_opcode(&instr) == OP_erets);
+    ASSERT(pc == bytes_erets + sizeof(bytes_erets));
+
+    const byte bytes_eretu[] = { 0xf3, 0x0f, 0x01, 0xca };
+    instr_reset(dc, &instr);
+    pc = decode(dc, (byte *)bytes_eretu, &instr);
+    ASSERT(instr_get_opcode(&instr) == OP_eretu);
+    ASSERT(pc == bytes_eretu + sizeof(bytes_eretu));
+
+    const byte bytes_lkgs[] = { 0xf2, 0x0f, 0x00, 0xf0 };
+    instr_reset(dc, &instr);
+    pc = decode(dc, (byte *)bytes_lkgs, &instr);
+    ASSERT(instr_get_opcode(&instr) == OP_lkgs);
+    ASSERT(pc == bytes_lkgs + sizeof(bytes_lkgs));
+
+    instr_free(dc, &instr);
+#endif
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2988,6 +3018,8 @@ main(int argc, char *argv[])
     test_avx512_bf16_encoding(dcontext);
 
     test_x64_vmovq(dcontext);
+
+    test_fred_instructions(dcontext);
 #endif
 
     test_regs(dcontext);
