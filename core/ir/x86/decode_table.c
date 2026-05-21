@@ -6023,7 +6023,7 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_clac,         0x0f01ca, catUncategorized, "clac", xx, xx, xx, xx, xx, no, fWAC, END_LIST},
     {OP_eretu,      0xf30f01ca, catBranch, "eretu", xx, xx, xx, xx, xx, o64, x, END_LIST},
     {INVALID,       0x660f01ca, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_erets,       0xf20f01ca, catBranch, "erets", xx, xx, xx, xx, xx, o64, x, END_LIST},
+    {OP_erets,      0xf20f01ca, catBranch, "erets", xx, xx, xx, xx, xx, o64, x, END_LIST},
     {INVALID,         0x0f01ca, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0xf30f01ca, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0x660f01ca, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
