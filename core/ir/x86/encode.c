@@ -3198,6 +3198,10 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
      * in encoding_possible().
      */
     di.prefixes = instr->prefixes;
+    if (opc == OP_eretu)
+        di.prefixes |= PREFIX_REP;
+    else if (opc == OP_erets)
+        di.prefixes |= PREFIX_REPNE;
     di.vex_vvvv = 0xf; /* 4 1's by default. This is a union with di.evex_vvvv. */
 
     /* We check predication, to help clients who are generating instrs from
@@ -3327,6 +3331,14 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             field_ptr++;
         } else if (TEST(PREFIX_JCC_NOT_TAKEN, di.prefixes)) {
             *field_ptr = RAW_PREFIX_jcc_not_taken;
+            field_ptr++;
+        }
+        if (TEST(PREFIX_REP, di.prefixes)) {
+            *field_ptr = REP_PREFIX_OPCODE;
+            field_ptr++;
+        }
+        if (TEST(PREFIX_REPNE, di.prefixes)) {
+            *field_ptr = REPNE_PREFIX_OPCODE;
             field_ptr++;
         }
     }
