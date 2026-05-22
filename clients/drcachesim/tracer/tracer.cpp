@@ -1832,7 +1832,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     case DR_XFER_EXCEPTION_DISPATCHER:
     case DR_XFER_RAISE_DISPATCHER:
     case DR_XFER_CALLBACK_DISPATCHER:
-    case DR_XFER_RSEQ_ABORT: marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT_RAW; break;
+    case DR_XFER_RSEQ_ABORT:
+        marker_type = op_offline.get_value() ? TRACE_MARKER_TYPE_KERNEL_EVENT_RAW
+                                             : TRACE_MARKER_TYPE_KERNEL_EVENT;
+        break;
     case DR_XFER_SIGNAL_RETURN:
     case DR_XFER_CALLBACK_RETURN:
     case DR_XFER_CONTINUE:

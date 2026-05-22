@@ -1917,6 +1917,15 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                             is_scatter, reg_vals, &reached_end_of_memrefs))
                         return false;
                 }
+            } else if (instrs_are_separate) {
+                // There is only one memref entry, after a count=0 PC entry.
+                // Full info (type and size) is provided via OFFLINE_EXT_TYPE_MEMINFO
+                // records, so we don't need to iterate operands.
+                if (instr->num_mem_srcs() + instr->num_mem_dests() > 0) {
+                    if (!append_memref(tdata, &buf, instr, instr->mem_src_at(0), false,
+                                       reg_vals, nullptr))
+                        return false;
+                }
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
