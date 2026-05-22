@@ -684,6 +684,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         shard->last_chunk_ordinal_ = memref.marker.marker_value;
     }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW) {
+        report_if_false(
+            shard, false,
+            "TRACE_MARKER_TYPE_KERNEL_EVENT_RAW should not appear in the final trace");
+    }
     // Ensure each syscall instruction has a marker immediately afterward.  An
     // asynchronous signal could be delivered after the tracer recorded the syscall
     // instruction but before DR executed the syscall itself (xref i#5790) but raw2trace

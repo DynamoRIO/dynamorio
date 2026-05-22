@@ -1832,7 +1832,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     case DR_XFER_EXCEPTION_DISPATCHER:
     case DR_XFER_RAISE_DISPATCHER:
     case DR_XFER_CALLBACK_DISPATCHER:
-    case DR_XFER_RSEQ_ABORT: marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT; break;
+    case DR_XFER_RSEQ_ABORT:
+        marker_type = op_offline.get_value() ? TRACE_MARKER_TYPE_KERNEL_EVENT_RAW
+                                             : TRACE_MARKER_TYPE_KERNEL_EVENT;
+        break;
     case DR_XFER_SIGNAL_RETURN:
     case DR_XFER_CALLBACK_RETURN:
     case DR_XFER_CONTINUE:
@@ -2603,8 +2606,14 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
      * max_bb_instrs can fit in the instr_count bitfield in offline_entry_t.
      */
     uint64 max_bb_instrs;
-    if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))
-        max_bb_instrs = 256; /* current default */
+    if (!dr_get_integer_option(MAX_BB_INSTRS_NAME, &max_bb_instrs))
+        max_bb_instrs = MAX_BB_INSTRS;
+    else if (max_bb_instrs > MAX_BB_INSTRS) {
+        NOTIFY(
+            1,
+            "Warning: -%s is too large (max is %d) to safely support Top Byte Ignore\n",
+            MAX_BB_INSTRS_NAME, MAX_BB_INSTRS);
+    }
     DR_ASSERT(max_bb_instrs < uint64(1) << PC_INSTR_COUNT_BITS);
     redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
 

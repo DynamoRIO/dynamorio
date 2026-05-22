@@ -987,6 +987,24 @@ check_kernel_xfer()
             return false;
     }
 #endif
+    // Contains raw-only marker.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID_A, 1),
+            gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT_RAW, 2),
+            gen_exit(TID_A),
+        };
+        if (!run_checker(memrefs, true,
+                         { "TRACE_MARKER_TYPE_KERNEL_EVENT_RAW should not appear in the "
+                           "final trace",
+                           TID_A,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch raw-only marker"))
+            return false;
+    }
     return true;
 }
 
