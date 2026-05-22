@@ -2247,7 +2247,7 @@ raw2trace_t::could_entry_be_address(offline_entry_t entry)
     // architectures the 2nd-highest byte (bits 48..55) must be canonical:
     // all 0's or all 1's.
     char bits48_55 = (entry.combined_value >> 48) & 0xff;
-    return bits48_55 == 0 || bits48_55 == 0xff;
+    return bits48_55 == 0 || bits48_55 == static_cast<char>(0xff);
 }
 
 bool
