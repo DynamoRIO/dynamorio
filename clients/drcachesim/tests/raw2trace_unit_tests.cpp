@@ -4125,6 +4125,9 @@ test_negative_timestamps(void *drcontext)
 bool
 test_top_byte_ignore(void *drcontext)
 {
+#ifndef X64
+    return true;
+#else
     std::cerr << "\n===============\nTesting non-canonical top bytes in addresses\n";
     instrlist_t *ilist = instrlist_create(drcontext);
     instr_t *nop = XINST_CREATE_nop(drcontext);
@@ -4229,6 +4232,7 @@ test_top_byte_ignore(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_WRITE, -1, ADDR_LIKE_FOOTER) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+#endif
 }
 
 int
