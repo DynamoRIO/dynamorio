@@ -363,6 +363,8 @@ private:
 struct trace_metadata_writer_t {
     static int
     write_thread_exit(byte *buffer, thread_id_t tid);
+    static trace_marker_type_t
+    canonicalize_marker_type(trace_marker_type_t marker_type);
     static int
     write_marker(byte *buffer, trace_marker_type_t type, uintptr_t val);
     static int

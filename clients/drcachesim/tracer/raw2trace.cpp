@@ -104,13 +104,18 @@ trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
 {
     return instru.append_thread_exit(buffer, tid);
 }
+trace_marker_type_t
+trace_metadata_writer_t::canonicalize_marker_type(trace_marker_type_t marker_type)
+{
+    if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW)
+        return TRACE_MARKER_TYPE_KERNEL_EVENT;
+    return marker_type;
+}
 int
 trace_metadata_writer_t::write_marker(byte *buffer, trace_marker_type_t type,
                                       uintptr_t val)
 {
-    if (val == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW)
-        val = TRACE_MARKER_TYPE_KERNEL_EVENT;
-    return instru.append_marker(buffer, type, val);
+    return instru.append_marker(buffer, canonicalize_marker_type(type), val);
 }
 int
 trace_metadata_writer_t::write_iflush(byte *buffer, addr_t start, size_t size)
@@ -399,6 +404,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 return false;
             trace_marker_type_t marker_type =
                 static_cast<trace_marker_type_t>(in_entry->extended.valueB);
+            marker_type = trace_metadata_writer_t::canonicalize_marker_type(marker_type);
             if (!process_marker(tdata, marker_type, marker_val, buf, flush_decode_cache))
                 return false;
             // If there is currently a delayed branch that has not been emitted yet,
@@ -491,6 +497,8 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
                             trace_marker_type_t marker_type, uintptr_t marker_val,
                             byte *&buf, DR_PARAM_OUT bool *flush_decode_cache)
 {
+    // The type should have been canonicalized.
+    DR_ASSERT(marker_type != TRACE_MARKER_TYPE_KERNEL_EVENT_RAW);
     if (marker_type == TRACE_MARKER_TYPE_MIDBLOCK_END_PC) {
         // Consumed by raw2trace and not made visible in final trace.
         return true;
@@ -525,8 +533,7 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
         return true;
     }
     buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
-    if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-        marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW) {
+    if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         log(4, "Signal/exception between bbs\n");
         // An rseq side exit may next hit a signal which is then the
         // boundary of the rseq region.
