@@ -958,7 +958,6 @@ int
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
                                               int version, bool memref_needs_full_info)
 {
-    int total_traced_mem_count = 0;
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
     bool contains_memory_predication = false;
@@ -983,6 +982,7 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
             return -1;
         }
     }
+    int total_traced_mem_count = 0;
     for (instr_t *instr = instrlist_first_app(ilist); instr != NULL;
          instr = instr_get_next_app(instr)) {
         // Use instr_{reads,writes}_memory() to rule out LEA and NOP.
@@ -1003,8 +1003,9 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
                         ++total_traced_mem_count;
                     else if (!opnd_check_elidable(
                                  drcontext, ilist, instr, instr_get_src(instr, i), i,
-                                 opnd_mem_count, false, version, saw_base))
+                                 opnd_mem_count, false, version, saw_base)) {
                         ++total_traced_mem_count;
+                    }
                     ++opnd_mem_count;
                 }
             }
@@ -1024,8 +1025,9 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
                         ++total_traced_mem_count;
                     else if (!opnd_check_elidable(
                                  drcontext, ilist, instr, instr_get_dst(instr, i), i,
-                                 opnd_mem_count, true, version, saw_base))
+                                 opnd_mem_count, true, version, saw_base)) {
                         ++total_traced_mem_count;
+                    }
                     ++opnd_mem_count;
                 }
             }

@@ -1230,7 +1230,7 @@ private:
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
                   DR_PARAM_OUT bool *reached_end_of_memrefs, bool expect_all_memrefs,
-                  DR_PARAM_OUT int *consumed_memrefs);
+                  DR_PARAM_OUT int &consumed_memrefs);
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);

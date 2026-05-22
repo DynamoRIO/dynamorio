@@ -1421,7 +1421,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                                         uint64 modoffs, app_pc start_pc, uint instr_count)
 {
     int version = get_version(tdata);
-    // Old versions have no elision; we also skip memcount-based checks there.
+    // Old versions have no elision; we also skip memcount-based checks there
+    // for simplicity.
     if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
         return true;
     // Filtered and instruction-only traces have no elision; we also skip
@@ -1833,6 +1834,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // The trace is recording instruction retirement, premmpted instructions
         // and the corresponding memrefs, and instructions causing a fault are
         // removed.
+        DR_ASSERT(!interrupted);
         interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
         if (interrupted) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
@@ -1926,14 +1928,14 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                             // dest/src of the original scatter/gather instr for all.
                             is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
                             is_scatter, reg_vals, &reached_end_of_memrefs,
-                            expect_all_memrefs, &consumed_memrefs))
+                            expect_all_memrefs, consumed_memrefs))
                         return false;
                 }
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
                                        reg_vals, nullptr, expect_all_memrefs,
-                                       &consumed_memrefs))
+                                       consumed_memrefs))
                         return false;
                 }
                 // We break before subsequent memrefs on an interrupt, though with
@@ -1941,7 +1943,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
                                        reg_vals, nullptr, expect_all_memrefs,
-                                       &consumed_memrefs))
+                                       consumed_memrefs))
                         return false;
                 }
             }
@@ -1961,6 +1963,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             }
         }
         // Check for rseq abort *after* the instruction.
+        DR_ASSERT(!rseq_aborted);
         if (!handle_rseq_abort_marker(tdata, &buf, cur_pc, cur_offs, &rseq_aborted))
             return false;
 
@@ -2257,7 +2260,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
                            instr_summary_t::memref_summary_t memref, bool write,
                            std::unordered_map<reg_id_t, addr_t> &reg_vals,
                            DR_PARAM_OUT bool *reached_end_of_memrefs,
-                           bool expect_all_memrefs, DR_PARAM_OUT int *consumed_memrefs)
+                           bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs)
 {
     DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, get_file_type(tdata)));
     trace_entry_t *buf = *buf_in;
@@ -2314,11 +2317,11 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
          (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
           in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH))) {
         if (expect_all_memrefs) {
-            tdata->error = "Missing memref in unconditional block";
+            tdata->error = "Missing memref in block without predicated accesses";
             log(1,
-                "Error: missing memref in unconditional block "
+                "Error: missing memref in block without predicated accesses "
                 "(next type is 0x" ZHEX64_FORMAT_STRING "; consumed %d memrefs)\n",
-                in_entry == nullptr ? 0 : in_entry->combined_value, *consumed_memrefs);
+                in_entry == nullptr ? 0 : in_entry->combined_value, consumed_memrefs);
             if (in_entry != nullptr)
                 unread_last_entry(tdata);
             return false;
@@ -2363,7 +2366,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         DR_ASSERT(in_entry != nullptr);
         // We take the full value, to handle low or high.
         buf->addr = (addr_t)in_entry->combined_value;
-        ++(*consumed_memrefs);
+        ++consumed_memrefs;
     }
     if (memref.remember_base &&
         tdata->instru_offline.opnd_is_elidable(memref.opnd, base, version)) {

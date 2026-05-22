@@ -4185,7 +4185,7 @@ test_missing_memref(void *drcontext)
 #ifdef X86
     std::cerr << "\n===============\nTesting missing memref\n";
     {
-        // Test a conditional block.
+        // Test a block with conditional loads/stores.
         instrlist_t *ilist = instrlist_create(drcontext);
         instr_t *nop = XINST_CREATE_nop(drcontext);
         instr_t *cmov = INSTR_CREATE_cmovcc(drcontext, OP_cmovnle, opnd_create_reg(REG1),
@@ -4204,8 +4204,9 @@ test_missing_memref(void *drcontext)
         raw.push_back(make_timestamp());
         raw.push_back(make_core());
         raw.push_back(make_block(offs_cmov, 2));
-        // Just one memref for ret, none for cmov.
-        raw.push_back(make_memref(42));
+        // We have no memref for the cmov, which is normal, but we also omit
+        // one for the memref just to show there is no error when any instruction
+        // in the block is condtional.
         raw.push_back(make_exit());
 
         std::string error = run_raw2trace_for_error_string(drcontext, raw, ilist);
@@ -4237,7 +4238,7 @@ test_missing_memref(void *drcontext)
 
         std::string error = run_raw2trace_for_error_string(drcontext, raw, ilist);
         CHECK(!error.empty() &&
-                  error.find("Missing memref in unconditional block") !=
+                  error.find("Missing memref in block without predicated accesses") !=
                       std::string::npos,
               "Failed to detect missing memref");
     }
