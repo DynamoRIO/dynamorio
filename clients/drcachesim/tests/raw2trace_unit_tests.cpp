@@ -258,8 +258,11 @@ offline_entry_t
 make_memref(uint64_t addr)
 {
     offline_entry_t entry;
-    entry.addr.type = OFFLINE_TYPE_MEMREF;
-    entry.addr.addr = addr;
+    // The type field is included in the address, just like occurs in
+    // instrumentation, even with non-canonical addresses which won't
+    // have the right type field (which we distinguish using the logic
+    // outlined in the offline_type_t comment).
+    entry.combined_value = addr;
     return entry;
 }
 
@@ -4180,10 +4183,144 @@ test_negative_timestamps(void *drcontext)
 }
 
 bool
+test_top_byte_ignore(void *drcontext)
+{
+#ifndef X64
+    return true;
+#else
+    std::cerr << "\n===============\nTesting non-canonical top bytes in addresses\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *load1 =
+        XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG2, 0));
+    // Re-use the base so this will be elided, to test base sharing.
+    constexpr int SHARE_DISP = 10;
+    instr_t *load2 = XINST_CREATE_load(drcontext, opnd_create_reg(REG1),
+                                       OPND_CREATE_MEMPTR(REG2, SHARE_DISP));
+    // No elision (because REG1 has changed).
+    instr_t *load3 =
+        XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG1, 0));
+    // No elision (because REG1 has changed).
+    instr_t *load4 =
+        XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG1, 0));
+    // No elision (because REG1 has changed).
+    instr_t *store1 =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG1, 0), opnd_create_reg(REG2));
+    instr_t *move =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    // No elision (b/c prior move changed REG2).
+    instr_t *store2 =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, load1);
+    instrlist_append(ilist, load2);
+    instrlist_append(ilist, load3);
+    instrlist_append(ilist, load4);
+    instrlist_append(ilist, store1);
+    instrlist_append(ilist, move);
+    instrlist_append(ilist, store2);
+    size_t offs_nop = 0;
+    size_t offs_load1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_load2 = offs_load1 + instr_length(drcontext, load1);
+    size_t offs_load3 = offs_load2 + instr_length(drcontext, load2);
+    size_t offs_load4 = offs_load3 + instr_length(drcontext, load3);
+    size_t offs_store1 = offs_load4 + instr_length(drcontext, load4);
+    size_t offs_move = offs_store1 + instr_length(drcontext, store1);
+    size_t offs_store2 = offs_move + instr_length(drcontext, move);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    constexpr uint64_t TIME_VALUE = 101;
+    raw.push_back(make_timestamp(TIME_VALUE));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_load1, 7));
+    // Select addresses with top bits set such that they look like
+    // other record types, to ensure we treat them as addresses.
+    offline_entry_t check_type;
+    constexpr uint64_t ADDR_LIKE_TIMESTAMP = 0x8000123400005678;
+    check_type.combined_value = ADDR_LIKE_TIMESTAMP;
+    ASSERT(check_type.timestamp.type == OFFLINE_TYPE_TIMESTAMP,
+           "invalid top-bit constant");
+    raw.push_back(make_memref(ADDR_LIKE_TIMESTAMP));
+    constexpr uint64_t ADDR_LIKE_PC = 0x20ff123400005678;
+    check_type.combined_value = ADDR_LIKE_PC;
+    ASSERT(check_type.pc.type == OFFLINE_TYPE_PC, "invalid top-bit constant");
+    raw.push_back(make_memref(ADDR_LIKE_PC));
+    constexpr uint64_t ADDR_LIKE_KERNEL_EVENT = 0xc200000000000000;
+    check_type.combined_value = ADDR_LIKE_KERNEL_EVENT;
+    ASSERT(check_type.extended.type == OFFLINE_TYPE_EXTENDED &&
+               check_type.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+               check_type.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT,
+           "invalid top-bit constant");
+    raw.push_back(make_memref(ADDR_LIKE_KERNEL_EVENT));
+    constexpr uint64_t ADDR_LIKE_HEADER = 0xc400200000000c40;
+    check_type.combined_value = ADDR_LIKE_HEADER;
+    ASSERT(check_type.extended.type == OFFLINE_TYPE_EXTENDED &&
+               check_type.extended.ext == OFFLINE_EXT_TYPE_HEADER,
+           "invalid top-bit constant");
+    raw.push_back(make_memref(ADDR_LIKE_HEADER));
+    constexpr uint64_t ADDR_LIKE_FOOTER = 0xc100000000000000;
+    check_type.combined_value = ADDR_LIKE_FOOTER;
+    ASSERT(check_type.extended.type == OFFLINE_TYPE_EXTENDED &&
+               check_type.extended.ext == OFFLINE_EXT_TYPE_FOOTER,
+           "invalid top-bit constant");
+    raw.push_back(make_memref(ADDR_LIKE_FOOTER));
+    raw.push_back(make_exit());
+
+    std::vector<uint64_t> stats;
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
+        return false;
+    int idx = 0;
+    return (
+        stats[RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE] == 5 &&
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
+                    TIME_VALUE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load1) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1, ADDR_LIKE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load2) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1,
+                    ADDR_LIKE_TIMESTAMP + SHARE_DISP) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load3) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1, ADDR_LIKE_PC) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load4) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1, ADDR_LIKE_KERNEL_EVENT) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store1) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1, ADDR_LIKE_HEADER) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store2) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1, ADDR_LIKE_FOOTER) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+#endif
+}
+
+bool
 test_missing_memref(void *drcontext)
 {
 #ifdef X86
     std::cerr << "\n===============\nTesting missing memref\n";
+    // We need real timestamp values to avoid them looking like memrefs.
+    constexpr uint64_t TIMESTAMP = 13423087440807175;
     {
         // Test a block with conditional loads/stores.
         instrlist_t *ilist = instrlist_create(drcontext);
@@ -4201,12 +4338,13 @@ test_missing_memref(void *drcontext)
         raw.push_back(make_tid());
         raw.push_back(make_pid());
         raw.push_back(make_line_size());
-        raw.push_back(make_timestamp());
+        raw.push_back(make_timestamp(TIMESTAMP));
         raw.push_back(make_core());
         raw.push_back(make_block(offs_cmov, 2));
         // We have no memref for the cmov, which is normal, but we also omit
-        // one for the memref just to show there is no error when any instruction
+        // one for the ret just to show there is no error when any instruction
         // in the block is condtional.
+        raw.push_back(make_timestamp(TIMESTAMP));
         raw.push_back(make_exit());
 
         std::string error = run_raw2trace_for_error_string(drcontext, raw, ilist);
@@ -4229,11 +4367,12 @@ test_missing_memref(void *drcontext)
         raw.push_back(make_tid());
         raw.push_back(make_pid());
         raw.push_back(make_line_size());
-        raw.push_back(make_timestamp());
+        raw.push_back(make_timestamp(TIMESTAMP));
         raw.push_back(make_core());
         raw.push_back(make_block(offs_load, 2));
         // Just 1 memref when load+ret should be 2 total: error.
         raw.push_back(make_memref(42));
+        raw.push_back(make_timestamp(TIMESTAMP));
         raw.push_back(make_exit());
 
         std::string error = run_raw2trace_for_error_string(drcontext, raw, ilist);
@@ -4271,7 +4410,8 @@ test_main(int argc, const char *argv[])
         !test_stats_timestamp_instr_count(drcontext) ||
         !test_is_maybe_blocking_syscall(drcontext) || !test_ifiltered(drcontext) ||
         !test_asynchronous_signal(drcontext) || !test_syscall_injection(drcontext) ||
-        !test_negative_timestamps(drcontext) || !test_missing_memref(drcontext))
+        !test_negative_timestamps(drcontext) || !test_top_byte_ignore(drcontext) ||
+        !test_missing_memref(drcontext))
         return 1;
     return 0;
 }

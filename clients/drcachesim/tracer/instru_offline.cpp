@@ -104,8 +104,13 @@ offline_instru_t::offline_instru_t(
     DR_ASSERT(elide_memref_note_ != DRMGR_NOTE_NONE);
 
     uint64 max_bb_instrs;
-    if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))
-        max_bb_instrs = 256; /* current default */
+    if (!dr_get_integer_option(MAX_BB_INSTRS_NAME, &max_bb_instrs))
+        max_bb_instrs = MAX_BB_INSTRS;
+    else if (max_bb_instrs > MAX_BB_INSTRS) {
+        log_(1,
+             "Warning: -%s is too large (max is %d) to safely support Top Byte Ignore\n",
+             MAX_BB_INSTRS_NAME, MAX_BB_INSTRS);
+    }
     max_block_encoding_size_ = static_cast<int>(max_bb_instrs) * MAX_INSTR_LENGTH;
     encoding_lock_ = dr_mutex_create();
     encoding_buf_sz_ = ALIGN_FORWARD(max_block_encoding_size_ * 10, dr_page_size());

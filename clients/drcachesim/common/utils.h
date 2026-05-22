@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -141,6 +141,11 @@ namespace drmemtrace {
 #    define IF_WINDOWS(x)
 #    define IF_UNIX(x) x
 #endif
+
+// This value is selected so that offline_entry_t.pc never has canonical
+// (all 0 or all 1) bits 48..55.  See the offline_type_t comment.
+#define MAX_BB_INSTRS_NAME "max_bb_instrs"
+#define MAX_BB_INSTRS 126
 
 static inline int
 compute_log2(int64_t value)
