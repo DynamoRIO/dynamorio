@@ -2608,6 +2608,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     uint64 max_bb_instrs;
     if (!dr_get_integer_option(MAX_BB_INSTRS_NAME, &max_bb_instrs))
         max_bb_instrs = MAX_BB_INSTRS;
+    else if (max_bb_instrs > MAX_BB_INSTRS) {
+        NOTIFY(
+            1,
+            "Warning: -%s is too large (max is %d) to safely support Top Byte Ignore\n",
+            MAX_BB_INSTRS_NAME, MAX_BB_INSTRS);
+    }
     DR_ASSERT(max_bb_instrs < uint64(1) << PC_INSTR_COUNT_BITS);
     redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
 

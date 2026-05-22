@@ -258,6 +258,10 @@ offline_entry_t
 make_memref(uint64_t addr)
 {
     offline_entry_t entry;
+    // The type field is included in the address, just like occurs in
+    // instrumentation, even with non-canonical addresses which won't
+    // have the right type field (which we distinguish using the logic
+    // outlined in the offline_type_t comment).
     entry.combined_value = addr;
     return entry;
 }
@@ -4179,15 +4183,34 @@ test_top_byte_ignore(void *drcontext)
     raw.push_back(make_block(offs_load1, 7));
     // Select addresses with top bits set such that they look like
     // other record types, to ensure we treat them as addresses.
+    offline_entry_t check_type;
     constexpr uint64_t ADDR_LIKE_TIMESTAMP = 0x8000123400005678;
+    check_type.combined_value = ADDR_LIKE_TIMESTAMP;
+    ASSERT(check_type.timestamp.type == OFFLINE_TYPE_TIMESTAMP,
+           "invalid top-bit constant");
     raw.push_back(make_memref(ADDR_LIKE_TIMESTAMP));
     constexpr uint64_t ADDR_LIKE_PC = 0x20ff123400005678;
+    check_type.combined_value = ADDR_LIKE_PC;
+    ASSERT(check_type.pc.type == OFFLINE_TYPE_PC, "invalid top-bit constant");
     raw.push_back(make_memref(ADDR_LIKE_PC));
     constexpr uint64_t ADDR_LIKE_KERNEL_EVENT = 0xc200000000000000;
+    check_type.combined_value = ADDR_LIKE_KERNEL_EVENT;
+    ASSERT(check_type.extended.type == OFFLINE_TYPE_EXTENDED &&
+               check_type.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+               check_type.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT,
+           "invalid top-bit constant");
     raw.push_back(make_memref(ADDR_LIKE_KERNEL_EVENT));
     constexpr uint64_t ADDR_LIKE_HEADER = 0xc400200000000c40;
+    check_type.combined_value = ADDR_LIKE_HEADER;
+    ASSERT(check_type.extended.type == OFFLINE_TYPE_EXTENDED &&
+               check_type.extended.ext == OFFLINE_EXT_TYPE_HEADER,
+           "invalid top-bit constant");
     raw.push_back(make_memref(ADDR_LIKE_HEADER));
     constexpr uint64_t ADDR_LIKE_FOOTER = 0xc100000000000000;
+    check_type.combined_value = ADDR_LIKE_FOOTER;
+    ASSERT(check_type.extended.type == OFFLINE_TYPE_EXTENDED &&
+               check_type.extended.ext == OFFLINE_EXT_TYPE_FOOTER,
+           "invalid top-bit constant");
     raw.push_back(make_memref(ADDR_LIKE_FOOTER));
     raw.push_back(make_exit());
 

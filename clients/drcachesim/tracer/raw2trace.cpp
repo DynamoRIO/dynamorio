@@ -994,8 +994,9 @@ raw2trace_t::maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdat
         // For syscalls interrupted by a signal and did not have a post-syscall
         // event.
         (is_marker &&
-         (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-          entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW))) {
+         trace_metadata_writer_t::canonicalize_marker_type(
+             static_cast<trace_marker_type_t>(entry.extended.valueB)) ==
+             TRACE_MARKER_TYPE_KERNEL_EVENT)) {
         is_injection_point = true;
     } else if (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_FUNC_ID) {
         if (!tdata->saw_first_func_id_marker_after_syscall_) {
@@ -1091,8 +1092,9 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
             (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
              (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-              (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW ||
+              (trace_metadata_writer_t::canonicalize_marker_type(
+                   static_cast<trace_marker_type_t>(entry.extended.valueB)) ==
+                   TRACE_MARKER_TYPE_KERNEL_EVENT ||
                entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER ||
                (entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID &&
                 entry.extended.valueA != tdata->last_window))))) {
@@ -1100,8 +1102,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             // Get the next instr's pc from the interruption value in the marker
             // (a record for the next instr itself won't appear until the signal
             // returns, if that happens).
-            if (is_marker_type(&entry, TRACE_MARKER_TYPE_KERNEL_EVENT) ||
-                is_marker_type(&entry, TRACE_MARKER_TYPE_KERNEL_EVENT_RAW)) {
+            if (is_marker_type(&entry, TRACE_MARKER_TYPE_KERNEL_EVENT)) {
                 uintptr_t marker_val = 0;
                 if (!get_marker_value(tdata, &in_entry, &marker_val))
                     return false;
@@ -1597,12 +1598,14 @@ raw2trace_t::interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_
             // Check for interruption of the basic block in the middle by either
             // a kernel event (e.g., a signal) or DR not finishing the block
             // (e.g., on detach or some thread relocation like a synchronous flush).
-            if (next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW ||
+            if (trace_metadata_writer_t::canonicalize_marker_type(
+                    static_cast<trace_marker_type_t>(next_entry->extended.valueB)) ==
+                    TRACE_MARKER_TYPE_KERNEL_EVENT ||
                 next_entry->extended.valueB == TRACE_MARKER_TYPE_MIDBLOCK_END_PC) {
                 bool is_kernel =
-                    next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                    next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW;
+                    trace_metadata_writer_t::canonicalize_marker_type(
+                        static_cast<trace_marker_type_t>(next_entry->extended.valueB)) ==
+                    TRACE_MARKER_TYPE_KERNEL_EVENT;
                 uintptr_t marker_val = 0;
                 if (!get_marker_value(tdata, &next_entry, &marker_val)) {
                     return false;
@@ -1918,9 +1921,9 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                         return false;
                 }
             } else if (instrs_are_separate) {
-                // There is only one memref entry, after a count=0 PC entry.
-                // Full info (type and size) is provided via OFFLINE_EXT_TYPE_MEMINFO
-                // records, so we don't need to iterate operands.
+                // There is only one memref entry (each memref is after a count=0 PC
+                // entry). Full info (type and size) is provided via
+                // OFFLINE_EXT_TYPE_MEMINFO records, so we don't need to iterate operands.
                 if (instr->num_mem_srcs() + instr->num_mem_dests() > 0) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(0), false,
                                        reg_vals, nullptr))
@@ -2189,7 +2192,9 @@ raw2trace_t::is_marker_type(const offline_entry_t *entry, trace_marker_type_t ma
 {
     return entry->extended.type == OFFLINE_TYPE_EXTENDED &&
         entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-        entry->extended.valueB == marker_type;
+        (entry->extended.valueB == marker_type ||
+         trace_metadata_writer_t::canonicalize_marker_type(
+             static_cast<trace_marker_type_t>(entry->extended.valueB)) == marker_type);
 }
 
 bool
@@ -2213,8 +2218,9 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
 #endif
     }
 #ifdef X64 // 32-bit always had the absolute pc as the raw marker value.
-    if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-        (*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW ||
+    if (trace_metadata_writer_t::canonicalize_marker_type(
+            static_cast<trace_marker_type_t>((*entry)->extended.valueB)) ==
+            TRACE_MARKER_TYPE_KERNEL_EVENT ||
         (*entry)->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT ||
         (*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) {
         if (get_version(tdata) >= OFFLINE_FILE_VERSION_KERNEL_INT_PC &&
@@ -2245,7 +2251,11 @@ raw2trace_t::could_entry_be_address(offline_entry_t entry)
 {
     // With Top Byte Ignore the top byte might be anything, but on our current
     // architectures the 2nd-highest byte (bits 48..55) must be canonical:
-    // all 0's or all 1's.
+    // all 0's or all 1's.  We use the logic outlined in the comment for
+    // offline_type_t to rule out other records that can appear where we
+    // look for addresses by having those other types containn non-canonical
+    // values in 48..55 (and all other records cannot appear where we look
+    // for addresses).
     char bits48_55 = (entry.combined_value >> 48) & 0xff;
     return bits48_55 == 0 || bits48_55 == static_cast<char>(0xff);
 }

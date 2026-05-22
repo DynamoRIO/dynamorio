@@ -787,9 +787,11 @@ typedef enum {
     TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN,
 
     /**
-     * Appears only in raw records. This is turned into #TRACE_MARKER_TYPE_KERNEL_EVENT
-     * in post-processing. Its purpose is to have a non-canonical value in bits 48..55
-     * so we can distinguish it from an address with the top byte set and ignored.
+     * Appears only in offline raw records. This is turned into
+     * #TRACE_MARKER_TYPE_KERNEL_EVENT in post-processing.  Its purpose is to have a
+     * non-canonical value in bits 48..55 of offline_entry_t (unlike
+     * #TRACE_MARKER_TYPE_KERNEL_EVENT which has 0 in 48..55) so we can distinguish it
+     * from an address with the top byte set and ignored.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT_RAW,
 
@@ -987,24 +989,29 @@ typedef struct _trace_entry_t trace_entry_t;
 // We target 64-bit addresses and do not bother to shrink the module or timestamp
 // entries for 32-bit apps.
 // We assume that a 64-bit address has far fewer real bits, typically
-// 48 bits, and that the top bits 48..55 are always identical.
-// Often 56..63 must also be identical: that's where we store our type field.
-// For the most common, a memref, we have both all 0's and all 1's be its
+// 48 bits, and that the bits 48..55 are always identical.
+// Often all 48..63 are identical, including 61..63 where we store our type field.
+// For the most common record type, a memref, we have both all 0's and all 1's be its
 // type to reduce instrumentation overhead.
-// The offline_type_t identifies which union alternative.
+// The offline_type_t, along with other logic for Top Byte Ignore described below,
+// identifies the union alternative.
 //
-// For Top Byte Ignore where the top byte 56..63 can be anything, we need to
-// distinguish OFFLINE_TYPE_MEMREF{,_HIGH} from the others.
-// We do this as follows:
+// For Top Byte Ignore where the top byte 56..63 can be anything, making
+// OFFLINE_TYPE_MEMREF{,_HIGH} look like any of the other record types.
+// We distinguish it by adding restrictions on the other types to avoid
+// having all 0's or all 1's in bits 48..55 (we assume OFFLINE_TYPE_MEMREF{,HIGH}
+// always has all 0's or all 1's there as previously mentioned) as follows:
 // + OFFLINE_TYPE_PC: A PC record: instr_count is 12 bits: 5 in top byte; 7 as top
-//   bits of 48.55. Bit 48 is top bit of modidx: which can be set as that's part of
-//   PC_MODIDX_INVALID. So for 48.55 to be all 0's: count is multiple of 128, or
-//   count is 0. 0 is only used for filtered, where it precedes any memref, so it
-//   should never be confused. To be all 1's: count is at least 127. We solve this by
-//   ensuring -max_bb_instrs is 126.
-// + OFFLINE_TYPE_THREAD and OFFLINE_TYPE_PID: We assume these will never
-//   appear where we expect a memref; there will always be a timestamp or
-//   some other marker in between.
+//   bits of 48..55. Bit 48 is top bit of modidx: which can be set as that's part of
+//   PC_MODIDX_INVALID. So for 48..55 to be all 0's: count is multiple of 128, or
+//   count is 0. 0 is only used for filtered, where a PC entry with count 0 precedes
+//   each memref, so we can distinguish by record order. To be all 1's: count must be
+//   at least 127. We avoid this by ensuring -max_bb_instrs is 126.
+// + OFFLINE_TYPE_THREAD and OFFLINE_TYPE_PID: We assume these will never appear where
+//   we expect a memref; there will always be a timestamp or some other marker in
+//   between.
+//   XXX i#1734: If this were to change: we would ensure we can identify block
+//   boundaries by knowing the memref count or adding a record in order to avoid these.
 // + OFFLINE_TYPE_TIMESTAMP: A timestamp with 0's in 48..55 and 0's in top bits would
 //   be older than 0x8001000000000000 which is 12/2/1609; with 0's in 48..55 and at
 //   least one 1 in top bits would be at least 0x8100000000000000 which is 5/31/3884;
@@ -1015,17 +1022,17 @@ typedef struct _trace_entry_t trace_entry_t;
 // + OFFLINE_TYPE_EXTENDED:
 //   + OFFLINE_EXT_TYPE_MARKER: offline_entry_t.extended.valueB is bits 48..55 so
 //     we need to distinguish marker types 0 and all 1's. There is no all 1's; 0 is
-//     TRACE_MARKER_TYPE_KERNEL_EVENT which we no longer use in raw recores: we use
+//     TRACE_MARKER_TYPE_KERNEL_EVENT which we no longer use in raw records: we use
 //     TRACE_MARKER_TYPE_KERNEL_EVENT_RAW and convert it in raw2trace.
 //   + OFFLINE_EXT_TYPE_HEADER_DEPRECATED, OFFLINE_EXT_TYPE_FOOTER,
-//     OFFLINE_EXT_TYPE_FOOTER: We assume these will never appear where we expect a
+//     OFFLINE_EXT_TYPE_HEADER: We assume these will never appear where we expect a
 //     memref; there will always be a timestamp or some other marker in between.
-//   + OFFLINE_EXT_TYPE_MEMINFO: a read (==0) would have canonical 48.55: but this
+//   + OFFLINE_EXT_TYPE_MEMINFO: a read (==0) would have canonical 48..55: but this
 //     is used for filtering and always precedes addresses, so it should never be
 //     confused with an address.
-// TODO i#1734: Add support to reader_t to optionally (default true) canonicalize
-// all non-canonical addresses (and PC values: and make sure non-canonical PC
-// values are preserved, which they should be without extra work).
+// TODO i#1734: Add support to reader_t to optionally (default true) canonicalize all
+// non-canonical addresses (including PC values, along with adding tests to ensure
+// non-canonical PC values are preserved, which they should be without extra work).
 typedef enum {
     OFFLINE_TYPE_MEMREF, // We rely on this being 0.
     OFFLINE_TYPE_PC,
