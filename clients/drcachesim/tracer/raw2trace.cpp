@@ -108,6 +108,8 @@ int
 trace_metadata_writer_t::write_marker(byte *buffer, trace_marker_type_t type,
                                       uintptr_t val)
 {
+    if (val == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW)
+        val = TRACE_MARKER_TYPE_KERNEL_EVENT;
     return instru.append_marker(buffer, type, val);
 }
 int
@@ -523,7 +525,8 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
         return true;
     }
     buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
-    if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+    if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+        marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW) {
         log(4, "Signal/exception between bbs\n");
         // An rseq side exit may next hit a signal which is then the
         // boundary of the rseq region.
@@ -983,7 +986,9 @@ raw2trace_t::maybe_inject_pending_syscall_sequence(raw2trace_thread_data_t *tdat
         (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) ||
         // For syscalls interrupted by a signal and did not have a post-syscall
         // event.
-        (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT)) {
+        (is_marker &&
+         (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+          entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW))) {
         is_injection_point = true;
     } else if (is_marker && entry.extended.valueB == TRACE_MARKER_TYPE_FUNC_ID) {
         if (!tdata->saw_first_func_id_marker_after_syscall_) {
@@ -1080,6 +1085,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
              (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
               (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW ||
                entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER ||
                (entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID &&
                 entry.extended.valueA != tdata->last_window))))) {
@@ -1087,7 +1093,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             // Get the next instr's pc from the interruption value in the marker
             // (a record for the next instr itself won't appear until the signal
             // returns, if that happens).
-            if (is_marker_type(&entry, TRACE_MARKER_TYPE_KERNEL_EVENT)) {
+            if (is_marker_type(&entry, TRACE_MARKER_TYPE_KERNEL_EVENT) ||
+                is_marker_type(&entry, TRACE_MARKER_TYPE_KERNEL_EVENT_RAW)) {
                 uintptr_t marker_val = 0;
                 if (!get_marker_value(tdata, &in_entry, &marker_val))
                     return false;
@@ -1318,6 +1325,7 @@ raw2trace_t::do_conversion()
                 thread_data_[i]->syscall_traces_conversion_empty;
             syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
             negative_times_corrected_ += thread_data_[i]->negative_times_corrected;
+            non_canonical_top_bytes_ += thread_data_[i]->non_canonical_top_bytes;
         }
     } else {
         // The files can be converted concurrently.
@@ -1351,6 +1359,7 @@ raw2trace_t::do_conversion()
             syscall_traces_conversion_empty_ += tdata->syscall_traces_conversion_empty;
             syscall_traces_injected_ += tdata->syscall_traces_injected;
             negative_times_corrected_ += tdata->negative_times_corrected;
+            non_canonical_top_bytes_ += tdata->non_canonical_top_bytes;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -1582,9 +1591,11 @@ raw2trace_t::interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_
             // a kernel event (e.g., a signal) or DR not finishing the block
             // (e.g., on detach or some thread relocation like a synchronous flush).
             if (next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW ||
                 next_entry->extended.valueB == TRACE_MARKER_TYPE_MIDBLOCK_END_PC) {
                 bool is_kernel =
-                    next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT;
+                    next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                    next_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW;
                 uintptr_t marker_val = 0;
                 if (!get_marker_value(tdata, &next_entry, &marker_val)) {
                     return false;
@@ -2187,6 +2198,7 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
     }
 #ifdef X64 // 32-bit always had the absolute pc as the raw marker value.
     if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+        (*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT_RAW ||
         (*entry)->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT ||
         (*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) {
         if (get_version(tdata) >= OFFLINE_FILE_VERSION_KERNEL_INT_PC &&
@@ -2210,6 +2222,16 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
 #endif
     *value = marker_val;
     return true;
+}
+
+bool
+raw2trace_t::could_entry_be_address(offline_entry_t entry)
+{
+    // With Top Byte Ignore the top byte might be anything, but on our current
+    // architectures the 2nd-highest byte (bits 48..55) must be canonical:
+    // all 0's or all 1's.
+    char bits48_55 = (entry.combined_value >> 48) & 0xff;
+    return bits48_55 == 0 || bits48_55 == 0xff;
 }
 
 bool
@@ -2273,24 +2295,36 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         (in_entry == nullptr ||
          (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
           in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH))) {
-        // This happens when there are predicated memrefs in the bb, or for a
-        // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
-        // For predicated memrefs, they could be earlier, so "instr"
-        // may not itself be predicated.
-        // XXX i#2015: if there are multiple predicated memrefs, our instr vs
-        // data stream may not be in the correct order here.
-        log(4,
-            "Missing memref from predication, 0-iter repstr, filter, "
-            "or reached end of memrefs output by scatter/gather seq "
-            "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
-            in_entry == nullptr ? 0 : in_entry->combined_value);
-        if (in_entry != nullptr) {
-            unread_last_entry(tdata);
+        if (in_entry != nullptr && could_entry_be_address(*in_entry)) {
+            // We've distinguished other types as documented under the
+            // offline_type_t type, so we assume this is in fact an address
+            // and Top Byte Ignore is enabled in the hardware.
+            // We do not clear the top bits for remember_base or recording in
+            // the trace: that's left to higher abstraction levels, and we need
+            // the precise value for remember_base.
+            log(2, "Found non-canonical-top-byte address 0x" ZHEX64_FORMAT_STRING "\n",
+                in_entry->combined_value);
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE, 1);
+        } else {
+            // This happens when there are predicated memrefs in the bb, or for a
+            // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
+            // For predicated memrefs, they could be earlier, so "instr"
+            // may not itself be predicated.
+            // XXX i#2015: if there are multiple predicated memrefs, our instr vs
+            // data stream may not be in the correct order here.
+            log(4,
+                "Missing memref from predication, 0-iter repstr, filter, "
+                "or reached end of memrefs output by scatter/gather seq "
+                "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
+                in_entry == nullptr ? 0 : in_entry->combined_value);
+            if (in_entry != nullptr) {
+                unread_last_entry(tdata);
+            }
+            if (reached_end_of_memrefs != nullptr) {
+                *reached_end_of_memrefs = true;
+            }
+            return true;
         }
-        if (reached_end_of_memrefs != nullptr) {
-            *reached_end_of_memrefs = true;
-        }
-        return true;
     }
     if (!have_type) {
         if (instr->is_prefetch()) {
@@ -3680,6 +3714,9 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED:
         tdata->negative_times_corrected += value;
         break;
+    case RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE:
+        tdata->non_canonical_top_bytes += value;
+        break;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
@@ -3707,6 +3744,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
         return syscall_traces_conversion_empty_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
     case RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED: return negative_times_corrected_;
+    case RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE: return non_canonical_top_bytes_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }

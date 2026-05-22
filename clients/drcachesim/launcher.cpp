@@ -168,12 +168,18 @@ configure_application(char *app_name, char **app_argv, std::string tracer_ops,
     pid = dr_inject_get_process_id(*inject_data);
 
     process = dr_inject_get_image_name(*inject_data);
+
+    // Default option so we can distinguish raw PC records from top-byte-set
+    // addresses.
+    std::string default_dr_ops =
+        std::string("-") + MAX_BB_INSTRS_NAME + " " + std::to_string(MAX_BB_INSTRS);
+    std::string dr_ops = default_dr_ops + op_dr_ops.get_value();
+
     NOTIFY(1, "INFO", "configuring %s pid=" PIDFMT " dr_ops=\"%s\"", process, pid,
-           op_dr_ops.get_value().c_str());
+           dr_ops.c_str());
     if (dr_register_process(process, pid, false /*local*/, op_dr_root.get_value().c_str(),
                             DR_MODE_CODE_MANIPULATION, op_dr_debug.get_value(),
-                            DR_PLATFORM_DEFAULT,
-                            op_dr_ops.get_value().c_str()) != DR_SUCCESS) {
+                            DR_PLATFORM_DEFAULT, dr_ops.c_str()) != DR_SUCCESS) {
         FATAL_ERROR("failed to register DynamoRIO configuration");
     }
     NOTIFY(1, "INFO", "configuring client \"%s\" ops=\"%s\"",

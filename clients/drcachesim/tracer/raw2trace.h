@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -126,6 +126,8 @@ typedef enum {
     RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED,
     // Count of negative times that were corrected.
     RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED,
+    // Count of addresses found with a non-canonical top byte.
+    RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE,
     // We add a MAX member so that we can iterate over all stats in unit tests.
     RAW2TRACE_STAT_MAX,
 } raw2trace_statistic_t;
@@ -732,6 +734,7 @@ protected:
         uint64 syscall_traces_conversion_empty = 0;
         uint64 syscall_traces_injected = 0;
         uint64 negative_times_corrected = 0;
+        uint64 non_canonical_top_bytes = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -1010,6 +1013,7 @@ protected:
     uint64 syscall_traces_conversion_empty_ = 0;
     uint64 syscall_traces_injected_ = 0;
     uint64 negative_times_corrected_ = 0;
+    uint64 non_canonical_top_bytes_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
@@ -1214,6 +1218,9 @@ private:
     get_marker_value(raw2trace_thread_data_t *tdata,
                      DR_PARAM_INOUT const offline_entry_t **entry,
                      DR_PARAM_OUT uintptr_t *value);
+
+    bool
+    could_entry_be_address(offline_entry_t entry);
 
     bool
     append_memref(raw2trace_thread_data_t *tdata, DR_PARAM_INOUT trace_entry_t **buf_in,
