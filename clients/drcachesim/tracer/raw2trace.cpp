@@ -2381,6 +2381,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
                 "Error: missing memref in block without predicated accesses "
                 "(next type is 0x" ZHEX64_FORMAT_STRING "; consumed %d memrefs)\n",
                 in_entry == nullptr ? 0 : in_entry->combined_value, consumed_memrefs);
+            // Though we're returning a presumably fatal error, we reset the state just in
+            // case the caller handles and continues.
             if (in_entry != nullptr)
                 unread_last_entry(tdata);
             return false;
