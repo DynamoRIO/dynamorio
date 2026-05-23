@@ -2750,6 +2750,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     /* DrMem#1735: pass app pc, not selfmod copy pc */
     app_pc tag = bb->pretend_pc == NULL ? bb->start_pc : bb->pretend_pc;
 
+#if defined(LINUX) && defined(X86_32)
+    if (DYNAMO_OPTION(hook_vsyscall) && tag == vsyscall_sysenter_displaced_pc) {
+        tag = vsyscall_sysenter_return_pc;
+    }
+#endif
 #ifdef LINUX
     if (TEST(FRAG_STARTS_RSEQ_REGION, bb->flags)) {
         rseq_insert_start_label(dcontext, tag, bb->ilist);
