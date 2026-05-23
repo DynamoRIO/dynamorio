@@ -2133,6 +2133,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
     if (pt->skip[pt->wrap_level]) {
         /* drwrap_skip_call already adjusted the stack and pc */
         /* ensure we have DR_MC_ALL */
+        pt->wrap_level--;
         dr_redirect_execution(drwrap_get_mcontext_internal((void *)&wrapcxt, DR_MC_ALL));
         ASSERT(false, "dr_redirect_execution should not return");
     }
