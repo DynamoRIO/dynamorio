@@ -536,7 +536,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|api.rseq' => 1, # i#6185 i#1807
                 'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
                 'code_api|client.attach_test' => 1, # i#6452
-                'code_api|client.detach_test' => 1, # i#6536
                 # These are from the long suite.
                 'code_api,opt_memory|common.loglevel' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807
