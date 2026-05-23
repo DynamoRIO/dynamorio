@@ -36,9 +36,11 @@
 
 We have a rotating Triager who is responsible for monitoring our continuous testing infrastructure and for triaging incoming requests from users.  Specific duties include:
 
-- Ensure that our Continuous Integration testing through Github Actions and Jenkins are operating smoothly.
+- Ensure that our Continuous Integration testing through Github Actions are operating smoothly.
+  - Do this by going to the Github Actions page: https://github.com/DynamoRIO/dynamorio/actions. Look for red Xs and in those failing builds watch for flaky tests.
   - If flaky tests are failing too often, assign someone to fix them ASAP, or mark them to be ignored in `runsuite_wrapper.pl`.
 - Watch merges to master for failures on the longer test suite.
+  - Do this by going to the Github Actions page for the master branch: https://github.com/DynamoRIO/dynamorio/actions?query=branch%3Amaster. Look for red Xs and investigate any failures found.
   - File an issue on previously-unknown failures, or update existing issues for repeats.  Consider marking tests as flaky in `runsuite_wrapper.pl` if they are keeping the master merge red.
 - Answer (or request that someone else who is more of an expert in that area answer) incoming dynamorio-users emails.
   - Sometimes emails to the list are marked as spam, so it is a good idea to directly watch the web interface: https://groups.google.com/g/DynamoRIO-Users
