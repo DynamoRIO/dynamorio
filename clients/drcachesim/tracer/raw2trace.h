@@ -1219,7 +1219,8 @@ private:
     bool
     get_marker_value(raw2trace_thread_data_t *tdata,
                      DR_PARAM_INOUT const offline_entry_t **entry,
-                     DR_PARAM_OUT uintptr_t *value);
+                     DR_PARAM_OUT uintptr_t *value,
+                     DR_PARAM_OUT bool *split_error = nullptr);
 
     bool
     could_entry_be_address(offline_entry_t entry);
