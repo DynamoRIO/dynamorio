@@ -45,7 +45,6 @@
 #include <string>
 
 #include "dr_api.h"
-#include "drmemtrace.h"
 #include "drmgr.h"
 #include "droption.h"
 #include "drx.h"
