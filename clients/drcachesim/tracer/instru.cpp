@@ -179,7 +179,9 @@ instru_t::is_aarch64_dcache_flush_op(instr_t *instr)
     case OP_dc_ivac:
     case OP_dc_cvau:
     case OP_dc_civac:
-    case OP_dc_cvac: return true;
+    case OP_dc_cvac:
+    case OP_dc_cvap:
+    case OP_dc_cvadp: return true;
     }
     return false;
 }
