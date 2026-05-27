@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -109,7 +109,7 @@ proc_set_cache_size(uint val, uint *dst)
     case 512: *dst = CACHE_SIZE_512_KB; break;
     case 1024: *dst = CACHE_SIZE_1_MB; break;
     case 2048: *dst = CACHE_SIZE_2_MB; break;
-    default: SYSLOG_INTERNAL_ERROR("Unknown processor cache size"); break;
+    default: SYSLOG_INTERNAL_ERROR("Unknown processor cache size %u", val); break;
     }
 }
 
