@@ -9960,6 +9960,9 @@ test_random_layout()
 void
 test_canonicalize()
 {
+#ifndef X64
+    return;
+#else
     std::cerr << "\n----------------\nTesting address canonicalization\n";
     static constexpr memref_tid_t TID_A = 42;
     static constexpr addr_t TOP_PC_A = 0xab00123400560078;
@@ -10133,6 +10136,7 @@ test_canonicalize()
         assert(stream->get_schedule_statistic(
                    memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES) == 0);
     }
+#endif
 }
 
 int
