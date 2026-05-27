@@ -960,6 +960,25 @@ protected:
     void
     insert_switch_tid_pid(input_info_t &input);
 
+    static inline addr_t
+    canonicalize_address(addr_t address)
+    {
+#ifdef X64
+        if (TESTANY(1ULL << 47, address))
+            return address | 0xffff000000000000;
+        return address & 0x0000ffffffffffff;
+#else
+        return address;
+#endif
+    }
+
+    bool
+    record_type_canonicalization_supported();
+
+    // Returns the number of fields that were modified.
+    int
+    record_type_canonicalize_addresses(RecordType &record);
+
     void
     update_next_record(output_ordinal_t output, RecordType &record);
 

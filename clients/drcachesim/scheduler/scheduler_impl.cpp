@@ -390,6 +390,10 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::print_record(const memref_t &record)
     else if (record.marker.type == TRACE_TYPE_MARKER) {
         fprintf(stderr, " marker=%d val=%zu", record.marker.marker_type,
                 record.marker.marker_value);
+    } else if (type_is_prefetch(record.data.type) ||
+               record.data.type == TRACE_TYPE_READ ||
+               record.data.type == TRACE_TYPE_WRITE) {
+        fprintf(stderr, " addr=0x%zx", record.data.addr);
     }
     fprintf(stderr, "\n");
 }
@@ -416,6 +420,79 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::invalid_kernel_sequence_key()
 {
     // System numbers are small non-negative integers.
     return -1;
+}
+
+template <>
+bool
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_canonicalization_supported()
+{
+    return true;
+}
+
+template <>
+int
+scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_canonicalize_addresses(
+    memref_t &record)
+{
+    int count = 0;
+    if (type_is_instr(record.instr.type)) {
+        addr_t canon_pc = canonicalize_address(record.instr.addr);
+        if (canon_pc != record.instr.addr) {
+            ++count;
+            record.instr.addr = canon_pc;
+        }
+        if (record.instr.indirect_branch_target != 0) {
+            canon_pc = canonicalize_address(record.instr.indirect_branch_target);
+            if (canon_pc != record.instr.indirect_branch_target) {
+                ++count;
+                record.instr.indirect_branch_target = canon_pc;
+            }
+        }
+    } else if (type_is_prefetch(record.data.type) ||
+               record.data.type == TRACE_TYPE_READ ||
+               record.data.type == TRACE_TYPE_WRITE) {
+        addr_t canon_addr = canonicalize_address(record.data.addr);
+        if (canon_addr != record.data.addr) {
+            ++count;
+            record.data.addr = canon_addr;
+        }
+        addr_t canon_pc = canonicalize_address(record.data.pc);
+        if (canon_pc != record.data.pc) {
+            ++count;
+            record.data.pc = canon_pc;
+        }
+    } else if (record.flush.type == TRACE_TYPE_INSTR_FLUSH ||
+               record.flush.type == TRACE_TYPE_INSTR_FLUSH_END ||
+               record.flush.type == TRACE_TYPE_DATA_FLUSH ||
+               record.flush.type == TRACE_TYPE_DATA_FLUSH_END) {
+        addr_t canon_addr = canonicalize_address(record.flush.addr);
+        if (canon_addr != record.flush.addr) {
+            ++count;
+            record.flush.addr = canon_addr;
+        }
+        addr_t canon_pc = canonicalize_address(record.flush.pc);
+        if (canon_pc != record.flush.pc) {
+            ++count;
+            record.flush.pc = canon_pc;
+        }
+    } else if (record.marker.type == TRACE_TYPE_MARKER &&
+               (record.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+                record.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN)) {
+        addr_t canon_value = canonicalize_address(record.marker.marker_value);
+        if (canon_value != record.marker.marker_value) {
+            ++count;
+            record.marker.marker_value = canon_value;
+        }
+    }
+    return count;
 }
 
 /******************************************************************************
@@ -707,6 +784,25 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::invalid_kernel_sequence_k
     return -1;
 }
 
+template <>
+bool
+scheduler_impl_tmpl_t<trace_entry_t,
+                      record_reader_t>::record_type_canonicalization_supported()
+{
+    // Canonicalization is only supported for memref_t.
+    return false;
+}
+
+template <>
+int
+scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_canonicalize_addresses(
+    trace_entry_t &record)
+{
+    // Canonicalization is only supported for memref_t.
+    assert(false);
+    return 0;
+}
+
 /***************************************************************************
  * Scheduler.
  */
@@ -780,6 +876,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::print_configuration()
            options_.ignore_low_latency_unsched);
     VPRINT(this, 1, "  %-25s : %d\n", "direct_switch_fallbacks",
            options_.direct_switch_fallbacks);
+    VPRINT(this, 1, "  %-25s : %" PRIu64 "\n", "steal_attempt_period",
+           options_.steal_attempt_period);
+    VPRINT(this, 1, "  %-25s : %d\n", "canonicalize_addresses",
+           options_.canonicalize_addresses);
 }
 
 template <typename RecordType, typename ReaderType>
@@ -815,6 +915,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::~scheduler_impl_tmpl_t()
         VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Runqueue lock contended",
                outputs_[i].ready_queue.lock->get_count_contended());
 #endif
+        VPRINT(this, 1, "  %-35s: %9" PRId64 "\n", "Addresses auto-canonicalized",
+               outputs_[i].stats[memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES]);
     }
 }
 
@@ -857,6 +959,12 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
 {
     options_ = std::move(options);
     verbosity_ = options_.verbosity;
+
+    if (options_.canonicalize_addresses && !record_type_canonicalization_supported()) {
+        error_string_ = "canonicalize_addresses is only supported for memref_t";
+        return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+    }
+
     // workload_inputs is not const so we can std::move readers out of it.
     for (int workload_idx = 0; workload_idx < static_cast<int>(workload_inputs.size());
          ++workload_idx) {
@@ -3314,6 +3422,10 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::update_next_record(output_ordinal
     if (is_marker && marker_type == TRACE_MARKER_TYPE_FILETYPE) {
         record_type_set_marker_value(
             record, adjust_filetype(static_cast<offline_file_type_t>(marker_value)));
+    }
+    if (options_.canonicalize_addresses) {
+        outputs_[output].stats[memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES] +=
+            record_type_canonicalize_addresses(record);
     }
     if (options_.mapping != sched_type_t::MAP_TO_ANY_OUTPUT &&
         options_.mapping != sched_type_t::MAP_AS_PREVIOUSLY)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -120,6 +120,14 @@ public:
          * Counts the instances when the kernel syscall sequences were injected.
          */
         SCHED_STAT_KERNEL_SYSCALL_SEQUENCE_INJECTIONS,
+        /**
+         * Counts the instances of top address bits being modified for auto-
+         * canonicalization (when #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * scheduler_options_t.canonicalize_addresses is enabled).
+         * This counts at the #memref_t level and so will double-count an instruction
+         * PC that is present in both an instruction fetch and data load/store record.
+         */
+        SCHED_STAT_CANONICALIZED_ADDRESSES,
         /** Count of statistic types. */
         SCHED_STAT_TYPE_COUNT,
     };
