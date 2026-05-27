@@ -423,13 +423,6 @@ scheduler_impl_tmpl_t<memref_t, reader_t>::invalid_kernel_sequence_key()
 }
 
 template <>
-bool
-scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_canonicalization_supported()
-{
-    return true;
-}
-
-template <>
 int
 scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_canonicalize_addresses(
     memref_t &record)
@@ -785,15 +778,6 @@ scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::invalid_kernel_sequence_k
 }
 
 template <>
-bool
-scheduler_impl_tmpl_t<trace_entry_t,
-                      record_reader_t>::record_type_canonicalization_supported()
-{
-    // Canonicalization is only supported for memref_t.
-    return false;
-}
-
-template <>
 int
 scheduler_impl_tmpl_t<trace_entry_t, record_reader_t>::record_type_canonicalize_addresses(
     trace_entry_t &record)
@@ -960,7 +944,8 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
     options_ = std::move(options);
     verbosity_ = options_.verbosity;
 
-    if (options_.canonicalize_addresses && !record_type_canonicalization_supported()) {
+    if (options_.canonicalize_addresses &&
+        !sched_type_t::record_type_canonicalization_supported()) {
         error_string_ = "canonicalize_addresses is only supported for memref_t";
         return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
     }
