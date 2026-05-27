@@ -2474,7 +2474,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     // all addresses during tracing or when instruction or data address entries
     // are being filtered.
     if (op_use_physical.get_value() || op_L0I_filter.get_value() ||
-        op_L0D_filter.get_value())
+        op_L0D_filter.get_value() || op_L0_filter_until_instrs.get_value())
         op_disable_optimizations.set_value(true);
 
     init_record_syscall();

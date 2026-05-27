@@ -1036,6 +1036,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // another source.
         tdata->saw_header = trace_metadata_reader_t::is_thread_start(
             in_entry, &tdata->error, &tdata->version, &tdata->file_type);
+        tdata->instru_offline.set_disable_optimizations(
+            TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, tdata->file_type));
         VPRINT(2, "Trace file version is %d; type is %d\n", tdata->version,
                tdata->file_type);
         if (!tdata->error.empty())
@@ -1436,12 +1438,14 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                                         uint64 modoffs, app_pc start_pc, uint instr_count)
 {
     int version = get_version(tdata);
-    // Old versions have no elision.
+    // Old versions have no elision; we also skip memcount-based checks there
+    // for simplicity.
     if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
         return true;
-    // Filtered and instruction-only traces have no elision.
-    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
-                    OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
+    // Filtered and instruction-only traces have no elision; we also skip
+    // memcount-based checks.
+    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED |
+                    OFFLINE_FILE_TYPE_IFILTERED | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
                 get_file_type(tdata)))
         return true;
     // We build an ilist to use identify_elidable_addresses() and fill in
@@ -1458,14 +1462,24 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         instrlist_append(ilist, inst);
     }
 
-    instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, false);
+    int total_traced_mem_count = tdata->instru_offline.identify_elidable_addresses(
+        dcontext_, ilist, version, false);
+    if (!set_block_mem_count(tdata, modidx, modoffs, start_pc, instr_count,
+                             total_traced_mem_count)) {
+        tdata->error = "Failed to set flags for elided base address";
+        return false;
+    }
+    if (TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, get_file_type(tdata))) {
+        // If optimizations are enabled we're done now that we have the count.
+        return true;
+    }
 
     for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
          inst = instr_get_next(inst)) {
         int index, memop_index;
         bool write, needs_base;
-        if (!instru_offline_.label_marks_elidable(inst, &index, &memop_index, &write,
-                                                  &needs_base))
+        if (!tdata->instru_offline.label_marks_elidable(inst, &index, &memop_index,
+                                                        &write, &needs_base))
             continue;
         // There could be multiple labels for one instr (e.g., "push (%rsp)".
         instr_t *meminst = instr_get_next(inst);
@@ -1495,7 +1509,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         opnd_t elided_op =
             write ? instr_get_dst(meminst, index) : instr_get_src(meminst, index);
         reg_id_t base;
-        bool got_base = instru_offline_.opnd_is_elidable(elided_op, base, version);
+        bool got_base = tdata->instru_offline.opnd_is_elidable(elided_op, base, version);
         DR_ASSERT(got_base && base != DR_REG_NULL);
         int remember_index = -1;
         for (instr_t *prev = meminst; prev != nullptr; prev = instr_get_prev(prev)) {
@@ -1510,8 +1524,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                 for (int i = 0; i < instr_num_srcs(prev); i++) {
                     reg_id_t prev_base;
                     if (opnd_is_memory_reference(instr_get_src(prev, i))) {
-                        if (instru_offline_.opnd_is_elidable(instr_get_src(prev, i),
-                                                             prev_base, version) &&
+                        if (tdata->instru_offline.opnd_is_elidable(instr_get_src(prev, i),
+                                                                   prev_base, version) &&
                             prev_base == base) {
                             remember_index = mem_count;
                             break;
@@ -1525,8 +1539,8 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                 for (int i = 0; i < instr_num_dsts(prev); i++) {
                     reg_id_t prev_base;
                     if (opnd_is_memory_reference(instr_get_dst(prev, i))) {
-                        if (instru_offline_.opnd_is_elidable(instr_get_dst(prev, i),
-                                                             prev_base, version) &&
+                        if (tdata->instru_offline.opnd_is_elidable(instr_get_dst(prev, i),
+                                                                   prev_base, version) &&
                             prev_base == base) {
                             remember_index = mem_count;
                             remember_write = true;
@@ -1685,6 +1699,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     // Legacy traces need the offset, not the pc.
     uint64_t cur_offs = in_entry->pc.modoffs;
     std::unordered_map<reg_id_t, addr_t> reg_vals;
+    int total_mem_count = -1;
     if (instr_count == 0) {
         // L0 filtering adds a PC entry with a count of 0 prior to each memref.
         skip_icache = true;
@@ -1700,11 +1715,26 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                             in_entry->pc.modoffs, start_pc, instr_count))
                 return false;
         }
+        block_summary_t *block = lookup_block_summary(tdata, in_entry->pc.modidx,
+                                                      in_entry->pc.modoffs, start_pc);
+        if (block == nullptr) {
+            // This must be a filtered or instr-only trace.
+            DR_ASSERT(instrs_are_separate || is_instr_only_trace ||
+                      TESTANY(OFFLINE_FILE_TYPE_DFILTERED, get_file_type(tdata)));
+        } else {
+            total_mem_count = block->total_mem_count;
+        }
     }
+    bool expect_all_memrefs = total_mem_count >= 0;
+    log(4, "expect_all_memrefs=%d total_mem_count=%d\n", expect_all_memrefs,
+        total_mem_count);
     if (instrs_are_separate && instr_count != 1) {
         tdata->error = "cannot mix 0-count and >1-count";
         return false;
     }
+    int consumed_memrefs = 0;
+    bool interrupted = false;
+    bool rseq_aborted = false;
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf_start = get_write_buffer(tdata);
         trace_entry_t *buf = buf_start;
@@ -1825,7 +1855,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // The trace is recording instruction retirement, premmpted instructions
         // and the corresponding memrefs, and instructions causing a fault are
         // removed.
-        const bool interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
+        DR_ASSERT(!interrupted);
+        interrupted = interrupted_by_kernel_event(tdata, cur_pc, cur_offs);
         if (interrupted) {
             // Insert the TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION marker to
             // indicate an instruction is removed from the trace because it was
@@ -1917,7 +1948,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                             // only the original app instr though. So we use the 0th
                             // dest/src of the original scatter/gather instr for all.
                             is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
-                            is_scatter, reg_vals, &reached_end_of_memrefs))
+                            is_scatter, reg_vals, &reached_end_of_memrefs,
+                            expect_all_memrefs, consumed_memrefs))
                         return false;
                 }
             } else if (instrs_are_separate) {
@@ -1926,20 +1958,23 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 // OFFLINE_EXT_TYPE_MEMINFO records, so we don't need to iterate operands.
                 if (instr->num_mem_srcs() + instr->num_mem_dests() > 0) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(0), false,
-                                       reg_vals, nullptr))
+                                       reg_vals, nullptr, expect_all_memrefs,
+                                       consumed_memrefs))
                         return false;
                 }
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
-                                       reg_vals, nullptr))
+                                       reg_vals, nullptr, expect_all_memrefs,
+                                       consumed_memrefs))
                         return false;
                 }
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
                     if (!append_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
-                                       reg_vals, nullptr))
+                                       reg_vals, nullptr, expect_all_memrefs,
+                                       consumed_memrefs))
                         return false;
                 }
             }
@@ -1959,7 +1994,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             }
         }
         // Check for rseq abort *after* the instruction.
-        bool rseq_aborted = false;
+        DR_ASSERT(!rseq_aborted);
         if (!handle_rseq_abort_marker(tdata, &buf, cur_pc, cur_offs, &rseq_aborted))
             return false;
 
@@ -1991,6 +2026,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         if (rseq_aborted || interrupted)
             break;
+    }
+    if (expect_all_memrefs && !interrupted && !rseq_aborted &&
+        consumed_memrefs != total_mem_count) {
+        tdata->error = "Failed to find expected memref count";
+        log(1, "Expected %d memrefs but found %d memrefs\n", total_mem_count,
+            consumed_memrefs);
+        return false;
     }
     *handled = true;
     return true;
@@ -2266,7 +2308,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
                            const instr_summary_t *instr,
                            instr_summary_t::memref_summary_t memref, bool write,
                            std::unordered_map<reg_id_t, addr_t> &reg_vals,
-                           DR_PARAM_OUT bool *reached_end_of_memrefs)
+                           DR_PARAM_OUT bool *reached_end_of_memrefs,
+                           bool expect_all_memrefs, DR_PARAM_OUT int &consumed_memrefs)
 {
     DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, get_file_type(tdata)));
     trace_entry_t *buf = *buf_in;
@@ -2279,7 +2322,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         DR_ASSERT(!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                                OFFLINE_FILE_TYPE_DFILTERED,
                            get_file_type(tdata)));
-        bool is_elidable = instru_offline_.opnd_is_elidable(memref.opnd, base, version);
+        bool is_elidable =
+            tdata->instru_offline.opnd_is_elidable(memref.opnd, base, version);
         DR_ASSERT(is_elidable);
         if (base == DR_REG_NULL) {
             DR_ASSERT(IF_REL_ADDRS(opnd_is_near_rel_addr(memref.opnd) ||)
@@ -2331,6 +2375,17 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
             log(2, "Found non-canonical-top-byte address 0x" ZHEX64_FORMAT_STRING "\n",
                 in_entry->combined_value);
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE, 1);
+        } else if (expect_all_memrefs) {
+            tdata->error = "Missing memref in block without predicated accesses";
+            log(1,
+                "Error: missing memref in block without predicated accesses "
+                "(next type is 0x" ZHEX64_FORMAT_STRING "; consumed %d memrefs)\n",
+                in_entry == nullptr ? 0 : in_entry->combined_value, consumed_memrefs);
+            // Though we're returning a presumably fatal error, we reset the state just in
+            // case the caller handles and continues.
+            if (in_entry != nullptr)
+                unread_last_entry(tdata);
+            return false;
         } else {
             // This happens when there are predicated memrefs in the bb, or for a
             // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
@@ -2373,14 +2428,15 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         DR_ASSERT(in_entry != nullptr);
         // We take the full value, to handle low or high.
         buf->addr = (addr_t)in_entry->combined_value;
+        ++consumed_memrefs;
     }
     if (memref.remember_base &&
-        instru_offline_.opnd_is_elidable(memref.opnd, base, version)) {
+        tdata->instru_offline.opnd_is_elidable(memref.opnd, base, version)) {
         log(5, "Remembering base " PFX " for %s\n", buf->addr, get_register_name(base));
         reg_vals[base] = buf->addr;
     }
     if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, get_file_type(tdata)) &&
-        instru_offline_.opnd_disp_is_elidable(memref.opnd)) {
+        tdata->instru_offline.opnd_disp_is_elidable(memref.opnd)) {
         // We stored only the base reg, as an optimization.
         buf->addr += opnd_get_disp(memref.opnd);
     }
@@ -2717,6 +2773,41 @@ raw2trace_t::lookup_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
     return ret;
 }
 
+raw2trace_t::block_summary_t *
+raw2trace_t::create_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
+                                  uint64 modoffs, app_pc block_start, int instr_count)
+{
+
+    block_summary_t *block = new block_summary_t(block_start, instr_count);
+    decode_cache_[tdata->worker].add(modidx, modoffs, block);
+    VPRINT(4,
+           "Created new block summary " PFX " for " PFX " modidx=" INT64_FORMAT_STRING
+           " modoffs=" HEX64_FORMAT_STRING "\n",
+           block, block_start, modidx, modoffs);
+    tdata->last_decode_block_start = block_start;
+    tdata->last_decode_modidx = modidx;
+    tdata->last_decode_modoffs = modoffs;
+    tdata->last_block_summary = block;
+    return block;
+}
+
+bool
+raw2trace_t::set_block_mem_count(raw2trace_thread_data_t *tdata, uint64 modidx,
+                                 uint64 modoffs, app_pc block_start, int instr_count,
+                                 int total_traced_mem_count)
+{
+    block_summary_t *block = lookup_block_summary(tdata, modidx, modoffs, block_start);
+    if (block == nullptr) {
+        block = create_block_summary(tdata, modidx, modoffs, block_start, instr_count);
+    }
+    block->total_mem_count = total_traced_mem_count;
+    VPRINT(4,
+           "Set block mem count for " PFX " modidx=" INT64_FORMAT_STRING
+           " modoffs=" HEX64_FORMAT_STRING " to %d\n",
+           block_start, modidx, modoffs, total_traced_mem_count);
+    return true;
+}
+
 instr_summary_t *
 raw2trace_t::lookup_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
                                   uint64 modoffs, app_pc block_start, int index,
@@ -2750,18 +2841,9 @@ raw2trace_t::create_instr_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
                                   DR_PARAM_INOUT app_pc *pc, app_pc orig)
 {
     if (block == nullptr) {
-        block = new block_summary_t(block_start, instr_count);
-        DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
-        decode_cache_[tdata->worker].add(modidx, modoffs, block);
-        VPRINT(5,
-               "Created new block summary " PFX " for " PFX " modidx=" INT64_FORMAT_STRING
-               " modoffs=" HEX64_FORMAT_STRING "\n",
-               block, block_start, modidx, modoffs);
-        tdata->last_decode_block_start = block_start;
-        tdata->last_decode_modidx = modidx;
-        tdata->last_decode_modoffs = modoffs;
-        tdata->last_block_summary = block;
+        block = create_block_summary(tdata, modidx, modoffs, block_start, instr_count);
     }
+    DEBUG_ASSERT(index >= 0 && index < static_cast<int>(block->instrs.size()));
     instr_summary_t *desc = &block->instrs[index];
     if (!instr_summary_t::construct(dcontext_, block_start, pc, orig, desc, verbosity_)) {
         WARN("Encountered invalid/undecodable instr @ idx=" INT64_FORMAT_STRING
@@ -3608,6 +3690,8 @@ raw2trace_t::set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t f
     // entries that follow after TRACE_MARKER_TYPE_FILTER_ENDPOINT. This does not affect
     // the written-out type.
     tdata->file_type = file_type;
+    tdata->instru_offline.set_disable_optimizations(
+        TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS, file_type));
 }
 
 raw2trace_t::raw2trace_t(
