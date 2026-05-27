@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -1005,7 +1005,8 @@ find_unfiltered_record(byte *start, byte *end)
     int num_memrefs = 0;
 
     for (offline_entry_t *entry = last; entry >= (offline_entry_t *)start; entry--) {
-        if (entry->pc.type == OFFLINE_TYPE_PC) {
+        if (entry->pc.type ==
+            OFFLINE_TYPE_PC IF_X64(|| entry->addr.type == OFFLINE_TYPE_PC_TOP_BIT)) {
             NOTIFY(4, "PC: instr count = %d, num_memrefs = %d\n", entry->pc.instr_count,
                    num_memrefs);
             if ((entry->pc.instr_count == 1 && num_memrefs > 0) ||
