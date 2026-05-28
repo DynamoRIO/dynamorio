@@ -9957,6 +9957,188 @@ test_random_layout()
     assert(random_match_count <= NUM_OUTPUTS);
 }
 
+void
+test_canonicalize()
+{
+#ifndef X64
+    return;
+#else
+    std::cerr << "\n----------------\nTesting address canonicalization\n";
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr addr_t TOP_PC_A = 0xab00123400560078;
+    static constexpr addr_t TOP_PC_A_CANON = 0x0000123400560078;
+    static constexpr addr_t TOP_PC_B = 0xeeffa23400560078;
+    static constexpr addr_t TOP_PC_B_CANON = 0xffffa23400560078;
+    static constexpr addr_t TOP_ADDR_A = 0x5700432100560078;
+    static constexpr addr_t TOP_ADDR_A_CANON = 0x0000432100560078;
+    static constexpr addr_t TOP_ADDR_B = 0xcdff832100780056;
+    static constexpr addr_t TOP_ADDR_B_CANON = 0xffff832100780056;
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        test_util::make_thread(TID_A),
+        test_util::make_pid(1),
+        test_util::make_version(4),
+        test_util::make_timestamp(10),
+        test_util::make_instr(TOP_PC_A),
+        test_util::make_memref(TOP_ADDR_A, TRACE_TYPE_WRITE),
+        test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, TOP_PC_A),
+        test_util::make_instr(TOP_PC_B, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+        test_util::make_memref(TOP_ADDR_B),
+        test_util::make_instr(TOP_PC_A),
+        test_util::make_memref(TOP_ADDR_A, TRACE_TYPE_PREFETCH_READ_L1),
+        test_util::make_instr(TOP_PC_B),
+        test_util::make_memref(TOP_ADDR_A, TRACE_TYPE_INSTR_FLUSH),
+        test_util::make_memref(TOP_ADDR_A, TRACE_TYPE_INSTR_FLUSH_END),
+        test_util::make_instr(TOP_PC_A),
+        test_util::make_memref(TOP_ADDR_B, TRACE_TYPE_DATA_FLUSH),
+        test_util::make_memref(TOP_ADDR_B, TRACE_TYPE_DATA_FLUSH_END),
+        test_util::make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_KERNEL_XFER, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_FUNC_RETADDR, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, TOP_ADDR_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, TOP_ADDR_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, TOP_PC_A),
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_EVENT, TOP_PC_B),
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, TOP_PC_B),
+        test_util::make_exit(TID_A),
+        /* clang-format on */
+    };
+    {
+        // Test with canonicalization.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.canonicalize_addresses = true;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            if (type_is_instr(memref.instr.type)) {
+                assert(memref.instr.addr == TOP_PC_A_CANON ||
+                       memref.instr.addr == TOP_PC_B_CANON);
+                assert(memref.instr.indirect_branch_target == 0 ||
+                       memref.instr.indirect_branch_target == TOP_PC_A_CANON ||
+                       memref.instr.indirect_branch_target == TOP_PC_B_CANON);
+            } else if (type_is_prefetch(memref.data.type) ||
+                       memref.data.type == TRACE_TYPE_READ ||
+                       memref.data.type == TRACE_TYPE_WRITE) {
+                assert(memref.data.addr == TOP_ADDR_A_CANON ||
+                       memref.data.addr == TOP_ADDR_B_CANON);
+                assert(memref.data.pc == TOP_PC_A_CANON ||
+                       memref.data.pc == TOP_PC_B_CANON);
+            } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
+                       memref.flush.type == TRACE_TYPE_INSTR_FLUSH_END ||
+                       memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
+                       memref.flush.type == TRACE_TYPE_DATA_FLUSH_END) {
+                assert(memref.flush.addr == TOP_ADDR_A_CANON ||
+                       memref.flush.addr == TOP_ADDR_B_CANON);
+                assert(memref.flush.pc == TOP_PC_A_CANON ||
+                       memref.flush.pc == TOP_PC_B_CANON);
+            } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+                       (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+                        memref.marker.marker_type ==
+                            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN)) {
+                assert(memref.marker.marker_value == TOP_ADDR_A_CANON ||
+                       memref.marker.marker_value == TOP_ADDR_B_CANON ||
+                       memref.marker.marker_value == TOP_PC_A_CANON ||
+                       memref.marker.marker_value == TOP_PC_B_CANON);
+            }
+        }
+        std::cerr << "Auto-canonicalized "
+                  << scheduler.get_stream(0)->get_schedule_statistic(
+                         memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES)
+                  << " addresses\n";
+        assert(stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES) == 29);
+    }
+    {
+        // Test without canonicalization.
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(refs_A)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID_A);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/3);
+        sched_ops.canonicalize_addresses = false;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            if (type_is_instr(memref.instr.type)) {
+                assert(memref.instr.addr == TOP_PC_A || memref.instr.addr == TOP_PC_B);
+                assert(memref.instr.indirect_branch_target == 0 ||
+                       memref.instr.indirect_branch_target == TOP_PC_A ||
+                       memref.instr.indirect_branch_target == TOP_PC_B);
+            } else if (type_is_prefetch(memref.data.type) ||
+                       memref.data.type == TRACE_TYPE_READ ||
+                       memref.data.type == TRACE_TYPE_WRITE) {
+                assert(memref.data.addr == TOP_ADDR_A || memref.data.addr == TOP_ADDR_B);
+                assert(memref.data.pc == TOP_PC_A || memref.data.pc == TOP_PC_B);
+            } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
+                       memref.flush.type == TRACE_TYPE_INSTR_FLUSH_END ||
+                       memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
+                       memref.flush.type == TRACE_TYPE_DATA_FLUSH_END) {
+                assert(memref.flush.addr == TOP_ADDR_A ||
+                       memref.flush.addr == TOP_ADDR_B);
+                assert(memref.flush.pc == TOP_PC_A || memref.flush.pc == TOP_PC_B);
+            } else if (memref.marker.type == TRACE_TYPE_MARKER &&
+                       (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_VIRTUAL_ADDRESS ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET ||
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+                        memref.marker.marker_type ==
+                            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN)) {
+                assert(memref.marker.marker_value == TOP_ADDR_A ||
+                       memref.marker.marker_value == TOP_ADDR_B ||
+                       memref.marker.marker_value == TOP_PC_A ||
+                       memref.marker.marker_value == TOP_PC_B);
+            }
+        }
+        assert(stream->get_schedule_statistic(
+                   memtrace_stream_t::SCHED_STAT_CANONICALIZED_ADDRESSES) == 0);
+    }
+#endif
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -10012,6 +10194,7 @@ test_main(int argc, const char *argv[])
     test_options_match();
     test_noise_generator();
     test_random_layout();
+    test_canonicalize();
 
     dr_standalone_exit();
     return 0;

@@ -960,6 +960,33 @@ protected:
     void
     insert_switch_tid_pid(input_info_t &input);
 
+    static inline addr_t
+    canonicalize_address(addr_t address)
+    {
+#ifdef ARM_64
+        // For AArch64 the top address bit does *not* have to match the ignored
+        // bits, so we go with the 2nd-most-significant byte (since top-byte-ignore
+        // is only the very top byte; the 2nd must be all 1's or all 0's and is
+        // what we want the top byte to match to make canonical).
+        if (TESTANY(1ULL << 55, address))
+            return address | 0xffff000000000000;
+        return address & 0x0000ffffffffffff;
+#elif defined(X64)
+        // The Intel manual defines canonical as the top bits matching the highest
+        // actual address bit. RISC-V seems to match, based on how the Linux kernel
+        // "untags" addresses.
+        if (TESTANY(1ULL << 47, address))
+            return address | 0xffff000000000000;
+        return address & 0x0000ffffffffffff;
+#else
+        return address;
+#endif
+    }
+
+    // Returns the number of fields that were modified.
+    int
+    record_type_canonicalize_addresses(RecordType &record);
+
     void
     update_next_record(output_ordinal_t output, RecordType &record);
 
