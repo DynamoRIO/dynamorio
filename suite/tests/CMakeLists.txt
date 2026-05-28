@@ -4444,7 +4444,8 @@ if (BUILD_CLIENTS)
     endif ()
 
     # Test reading a legacy pre-interleaved file in thread-sharded mode.
-    if (ZLIB_FOUND)
+    # The checked-in file is for x86_64 so we have to limit the test to that.
+    if (ZLIB_FOUND AND X64)
       torunonly_api(tool.drcacheoff.legacy "${drcachesim_path}" "offline-legacy.c" ""
         "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz;-no_core_sharded"
         OFF OFF)
@@ -4810,7 +4811,8 @@ if (BUILD_CLIENTS)
         "-use_physical" "@${test_mode_flag}@-tool@view" "")
     endif ()
 
-    if (UNIX AND ZLIB_FOUND)
+    # The checked-in file is for x86_64 so we have to limit the test to that.
+    if (UNIX AND ZLIB_FOUND AND X64)
       add_exe(tool.fib_plus
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/fib_plus.c)
       link_with_pthread(tool.fib_plus)
@@ -4922,10 +4924,15 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_replace_nodr ON)
       torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
 
-      set(tool.drcacheoff.burst_replaceall_nodr ON)
-      torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall ""
-        "@-tool@basic_counts" "")
-      unset(tool.drcacheoff.burst_replaceall_rawtemp) # use preprocessor
+      # This test has not been updated to write out encodings.bin and so it has
+      # trouble with some vdso code in 32-bit. 32-bit is a low priority target
+      # so we do not plan to address this and simply disable for 32-bit.
+      if (X64)
+        set(tool.drcacheoff.burst_replaceall_nodr ON)
+        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall ""
+          "@-tool@basic_counts" "")
+        unset(tool.drcacheoff.burst_replaceall_rawtemp) # use preprocessor
+      endif ()
 
       if (X64 AND UNIX)
         set(tool.drcacheoff.burst_noreach_nodr ON)
@@ -5471,7 +5478,8 @@ if (BUILD_CLIENTS)
   # Limited to UNIX because the checked-in modules.log is in UNIX format
   # (Windows needs extra fields per library).
   # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
-  if (UNIX AND ZLIB_FOUND)
+  # The checked-in file is for x86_64 so we have to limit the test to that.
+  if (UNIX AND ZLIB_FOUND AND X64)
     # We make a writable copy so we can both write the final trace there and run our
     # analyzer in a single command line  Since we're testing postprocessing we
     # need to dynamically clobber the directory.
