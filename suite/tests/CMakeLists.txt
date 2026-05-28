@@ -5478,30 +5478,33 @@ if (BUILD_CLIENTS)
   # Limited to UNIX because the checked-in modules.log is in UNIX format
   # (Windows needs extra fields per library).
   # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
-  # The checked-in file is for x86_64 so we have to limit the test to that.
-  if (UNIX AND ZLIB_FOUND AND X64)
-    # We make a writable copy so we can both write the final trace there and run our
-    # analyzer in a single command line  Since we're testing postprocessing we
-    # need to dynamically clobber the directory.
-    set(srcdir
-      ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
-    set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.altbindir.aarch64)
-    file(MAKE_DIRECTORY ${locdir})
-    file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
-    torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
-      "offline-altbindir.c" ""
-      "-indir;${locdir};-tool;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
-      OFF OFF)
-    set(tool.drcacheoff.altbindir_basedir
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-    set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-    set(tool.drcacheoff.altbindir_precmd
+  if (UNIX AND ZLIB_FOUND)
+    # The checked-in file is for x86_64 so we have to limit the test to that.
+    if (X64)
+      # We make a writable copy so we can both write the final trace there and run our
+      # analyzer in a single command line  Since we're testing postprocessing we
+      # need to dynamically clobber the directory.
+      set(srcdir
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
+      set(locdir ${CMAKE_CURRENT_BINARY_DIR}/drmemtrace.altbindir.aarch64)
+      file(MAKE_DIRECTORY ${locdir})
+      file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+      torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
+        "offline-altbindir.c" ""
+        "-indir;${locdir};-tool;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+        OFF OFF)
+      set(tool.drcacheoff.altbindir_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.altbindir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+      set(tool.drcacheoff.altbindir_precmd
         "${CMAKE_COMMAND}@-E@remove_directory@${locdir}/trace")
-    set(tool.drcacheoff.altbindir_failok ON)
+      set(tool.drcacheoff.altbindir_failok ON)
+    endif ()
 
     # Test the legacy trace versions OFFLINE_FILE_VERSION_KERNEL_INT_PC-1 and
     # TRACE_ENTRY_VERSION_NO_KERNEL_PC.  This requires a checked-in trace and thus
     # -alt_module_dir; it has gzipped .raw files; hence here next to the altbindir test.
+    # This does support 32-bit by expecting an error message there.
     set(srcdir
       ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.legacy-int-offs.raw)
     set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.legacy-int-offs)
