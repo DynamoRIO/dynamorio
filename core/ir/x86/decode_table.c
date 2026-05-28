@@ -1625,7 +1625,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vpopcntq, */ &evex_Wb_extensions[274][2],
 
     /* Supervisor Mode Access Prevention (SMAP) */
-    /* OP_clac */ &rm_extensions[1][2],
+    /* OP_clac */ &prefix_extensions[196][0],
     /* OP_stac */ &rm_extensions[1][3],
 
     /* Supervisor versions of save/restore processor extended
@@ -1698,6 +1698,11 @@ const instr_info_t * const op_instr[] =
     /* OP_vpshrdvw */ &evex_Wb_extensions[289][2],
     /* OP_vpshrdvd */ &evex_Wb_extensions[290][0],
     /* OP_vpshrdvq */ &evex_Wb_extensions[290][2],
+
+    /* Intel FRED instructions */
+    /* OP_erets */ &prefix_extensions[196][3],
+    /* OP_eretu */ &prefix_extensions[196][1],
+    /* OP_lkgs */ &base_extensions[13][6],
 };
 
 
@@ -2989,10 +2994,10 @@ const instr_info_t base_extensions[][8] = {
     {OP_sldt, 0x0f0030, catStore, "sldt", Ew, xx, xx, xx, xx, mrm, x, END_LIST},
     {OP_str,  0x0f0031, catUncategorized, "str", Ew, xx, xx, xx, xx, mrm, x, END_LIST},
     {OP_lldt, 0x0f0032, catUncategorized, "lldt", xx, xx, Ew, xx, xx, mrm, x, END_LIST},
-    {OP_ltr,  0x0f0033, catLoad, "ltr", xx, xx, Ew, xx, xx, mrm, x, END_LIST},
+    {OP_ltr,  0x0f0033, catState, "ltr", xx, xx, Ew, xx, xx, mrm, x, END_LIST},
     {OP_verr, 0x0f0034, catUncategorized, "verr", xx, xx, Ew, xx, xx, mrm, fWZ, END_LIST},
     {OP_verw, 0x0f0035, catUncategorized, "verw", xx, xx, Ew, xx, xx, mrm, fWZ, END_LIST},
-    {INVALID, 0x0f0036, catUncategorized, "(bad)",xx, xx, xx, xx, xx, no, x, NA},
+    {OP_lkgs, 0xf20f0036, catState, "lkgs",xx, xx, Ew, xx, xx, mrm|o64|reqp, x, END_LIST},
     {INVALID, 0x0f0037, catUncategorized, "(bad)",xx, xx, xx, xx, xx, no, x, NA},
  },
   /* group 7 (first bytes 0f 01) */
@@ -6014,6 +6019,19 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf30fae36, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0x660fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 196 */
+    {OP_clac,         0x01ca08, catState, "clac", xx, xx, xx, xx, xx, no, fWAC, END_LIST},
+    {OP_eretu,      0xf301ca08, catBranch, "eretu", xx, xx, xx, xx, xx, o64, x, END_LIST},
+    {INVALID,       0x6601ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_erets,      0xf201ca08, catBranch, "erets", xx, xx, xx, xx, xx, o64, x, END_LIST},
+    {INVALID,         0x01ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf301ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x6601ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf201ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,         0x01ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf301ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x6601ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf201ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }
 };
 /****************************************************************************
@@ -7197,8 +7215,8 @@ const instr_info_t rm_extensions[][8] = {
     /* XXX i#4013: Treat address in xax as IR memref? */
     {OP_monitor, 0xc80f0171, catUncategorized, "monitor",  xx, xx, axAX, ecx, edx, mrm, x, END_LIST},
     {OP_mwait,   0xc90f0171, catUncategorized, "mwait",  xx, xx, eax, ecx, xx, mrm, x, END_LIST},
-    {OP_clac,   0xca0f0171, catUncategorized, "clac", xx, xx, xx, xx, xx, no, fWAC, NA},
-    {OP_stac,   0xcb0f0171, catUncategorized, "stac", xx, xx, xx, xx, xx, no, fWAC, NA},
+    {PREFIX_EXT, 0xca0f0171, catUncategorized, "(prefix ext 196)", xx, xx, xx, xx, xx, no, x, 196},
+    {OP_stac,   0xcb0f0171, catState, "stac", xx, xx, xx, xx, xx, no, fWAC, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},

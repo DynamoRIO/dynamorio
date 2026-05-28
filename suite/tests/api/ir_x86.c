@@ -2927,6 +2927,68 @@ test_disasm_to_buffer(void *dc)
     ASSERT(len == expect_len - 2);
 }
 
+static void
+test_fred_instructions(void *dc)
+{
+#ifdef X64
+    /* Test Encoding of FRED instructions */
+    byte *pc;
+    byte encode_buf[16];
+    instr_t *encode_instr;
+
+    // Test ERETS encoding
+    const byte bytes_erets[] = { 0xf2, 0x0f, 0x01, 0xca };
+    encode_instr = INSTR_CREATE_erets(dc);
+    pc = instr_encode(dc, encode_instr, encode_buf);
+    ASSERT(pc != NULL);
+    ASSERT((pc - encode_buf) == sizeof(bytes_erets));
+    ASSERT(memcmp(encode_buf, bytes_erets, sizeof(bytes_erets)) == 0);
+    instr_destroy(dc, encode_instr);
+
+    // Test ERETU encoding
+    const byte bytes_eretu[] = { 0xf3, 0x0f, 0x01, 0xca };
+    encode_instr = INSTR_CREATE_eretu(dc);
+    pc = instr_encode(dc, encode_instr, encode_buf);
+    ASSERT(pc != NULL);
+    ASSERT((pc - encode_buf) == sizeof(bytes_eretu));
+    ASSERT(memcmp(encode_buf, bytes_eretu, sizeof(bytes_eretu)) == 0);
+    instr_destroy(dc, encode_instr);
+
+    // Test LKGS encoding
+    const byte bytes_lkgs[] = { 0xf2, 0x0f, 0x00, 0xf0 };
+    encode_instr = INSTR_CREATE_lkgs(dc, opnd_create_reg(DR_REG_AX));
+    pc = instr_encode(dc, encode_instr, encode_buf);
+    ASSERT(pc != NULL);
+    ASSERT((pc - encode_buf) == sizeof(bytes_lkgs));
+    ASSERT(memcmp(encode_buf, bytes_lkgs, sizeof(bytes_lkgs)) == 0);
+    instr_destroy(dc, encode_instr);
+
+    /* Test Decoding of FRED instructions */
+    instr_t decode_instr;
+    instr_init(dc, &decode_instr);
+
+    // Test ERETS decoding
+    instr_reset(dc, &decode_instr);
+    pc = decode(dc, (byte *)bytes_erets, &decode_instr);
+    ASSERT(instr_get_opcode(&decode_instr) == OP_erets);
+    ASSERT(pc == bytes_erets + sizeof(bytes_erets));
+
+    // Test ERETU decoding
+    instr_reset(dc, &decode_instr);
+    pc = decode(dc, (byte *)bytes_eretu, &decode_instr);
+    ASSERT(instr_get_opcode(&decode_instr) == OP_eretu);
+    ASSERT(pc == bytes_eretu + sizeof(bytes_eretu));
+
+    // Test LKGS decoding
+    instr_reset(dc, &decode_instr);
+    pc = decode(dc, (byte *)bytes_lkgs, &decode_instr);
+    ASSERT(instr_get_opcode(&decode_instr) == OP_lkgs);
+    ASSERT(pc == bytes_lkgs + sizeof(bytes_lkgs));
+
+    instr_free(dc, &decode_instr);
+#endif
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2988,6 +3050,8 @@ main(int argc, char *argv[])
     test_avx512_bf16_encoding(dcontext);
 
     test_x64_vmovq(dcontext);
+
+    test_fred_instructions(dcontext);
 #endif
 
     test_regs(dcontext);

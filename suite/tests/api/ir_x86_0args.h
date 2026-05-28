@@ -205,3 +205,6 @@ OPCODE(xsusldtrk, xsusldtrk, xsusldtrk, 0)
 OPCODE(xresldtrk, xresldtrk, xresldtrk, 0)
 
 OPCODE(serialize, serialize, serialize, 0)
+
+OPCODE(erets, erets, erets, X64_ONLY)
+OPCODE(eretu, eretu, eretu, X64_ONLY)

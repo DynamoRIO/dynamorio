@@ -532,6 +532,8 @@
 #define INSTR_CREATE_xsusldtrk(dc) instr_create_0dst_0src((dc), OP_xsusldtrk)
 #define INSTR_CREATE_xresldtrk(dc) instr_create_0dst_0src((dc), OP_xresldtrk)
 #define INSTR_CREATE_serialize(dc) instr_create_0dst_0src((dc), OP_serialize)
+#define INSTR_CREATE_erets(dc) instr_create_0dst_0src((dc), OP_erets)
+#define INSTR_CREATE_eretu(dc) instr_create_0dst_0src((dc), OP_eretu)
 /** @} */ /* end doxygen group */
 
 /* no destination, 1 source */
@@ -603,6 +605,7 @@
  * \param dc The void * dcontext used to allocate memory for the #instr_t.
  * \param s The opnd_t explicit source operand for the instruction.
  */
+#define INSTR_CREATE_lkgs(dc, s) instr_create_0dst_1src((dc), OP_lkgs, (s))
 #define INSTR_CREATE_lldt(dc, s) instr_create_0dst_1src((dc), OP_lldt, (s))
 #define INSTR_CREATE_ltr(dc, s) instr_create_0dst_1src((dc), OP_ltr, (s))
 #define INSTR_CREATE_verr(dc, s) instr_create_0dst_1src((dc), OP_verr, (s))

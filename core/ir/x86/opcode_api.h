@@ -1685,6 +1685,11 @@ enum {
     /* 1476 */ OP_vpshrdvd,    /**< IA-32/AMD64 vpshrdvd opcode. */
     /* 1477 */ OP_vpshrdvq,    /**< IA-32/AMD64 vpshrdvq opcode. */
 
+    /* Intel FRED instructions */
+    /* 1478 */ OP_erets, /**< IA-32/AMD64 erets opcode. */
+    /* 1479 */ OP_eretu, /**< IA-32/AMD64 eretu opcode. */
+    /* 1480 */ OP_lkgs,  /**< IA-32/AMD64 lkgs opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
