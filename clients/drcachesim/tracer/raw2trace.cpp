@@ -2304,10 +2304,9 @@ raw2trace_t::could_entry_be_address(offline_entry_t entry)
     // We further handle Linear Address Masking LAM_48 by ensuring the top
     // bit matches bit 47 and either both are zero or bits 48..55 are canonical.
     char bits48_55 = (entry.combined_value >> 48) & 0xff;
-#ifdef X86
-    return TESTALL(0x80ff800000000000, entry.combined_value) ||
-        (bits48_55 == 0 || bits48_55 == static_cast<char>(0xff) ||
-         !TESTANY(0x8000800000000000, entry.combined_value));
+#ifdef X86_64
+    return !TESTANY(0x8000800000000000, entry.combined_value) || bits48_55 == 0 ||
+        bits48_55 == static_cast<char>(0xff);
 #else
     return bits48_55 == 0 || bits48_55 == static_cast<char>(0xff);
 #endif
