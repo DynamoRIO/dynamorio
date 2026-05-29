@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -357,6 +357,25 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::get_schedule_statistic(
     schedule_statistic_t stat) const
 {
     return scheduler_->get_statistic(ordinal_, stat);
+}
+
+template <>
+bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_canonicalization_supported()
+{
+#ifdef X64
+    return true;
+#else
+    return false;
+#endif
+}
+
+template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_canonicalization_supported()
+{
+    // Canonicalization is only supported for memref_t.
+    return false;
 }
 
 template class scheduler_tmpl_t<memref_t, reader_t>;

@@ -795,6 +795,10 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT_RAW,
 
+    // XXX: When adding a new type, if its value is an address, add it to
+    // scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_canonicalize_addresses()
+    // for auto-canonicalization support.
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

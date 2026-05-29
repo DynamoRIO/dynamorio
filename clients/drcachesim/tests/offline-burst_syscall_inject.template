@@ -12,7 +12,11 @@ Output format:
 ------------------------------------------------------------
            1           0:       W0.T1 <marker: version 7>
 #ifdef X86
+# ifdef X64
            2           0:       W0.T1 <marker: filetype 0x4240>
+# else
+           2           0:       W0.T1 <marker: filetype 0x4220>
+# endif
 #else
            2           0:       W0.T1 <marker: filetype 0x4208>
 #endif
@@ -20,6 +24,7 @@ Output format:
            4           0:       W0.T1 <marker: page size 4096>
            5           0:       W0.T1 <marker: timestamp 1>
 #ifdef X86
+# ifdef X64
            6           0:       W0.T1 <marker: trace start for system call number 324>
            7           1:       W0.T1 ifetch       1 byte\(s\) @ 0x00000000deadbe00 90                   nop
            8           2:       W0.T1 ifetch       2 byte\(s\) @ 0x00000000deadbe01 0f 07                sysret \(target 0xf00d\)
@@ -32,6 +37,20 @@ Output format:
           15           4:       W0.T1 <marker: trace start for system call number 268435455>
           16           5:       W0.T1 ifetch       2 byte\(s\) @ 0x00000000f00d8b00 0f 07                sysret \(target 0xf00d\)
           17           5:       W0.T1 <marker: trace end for system call number 268435455>
+# else
+           6           0:       W0.T1 <marker: trace start for system call number 375>
+           7           1:       W0.T1 ifetch       1 byte\(s\) @ 0xdeadbe00 90                   nop
+           8           2:       W0.T1 ifetch       2 byte\(s\) @ 0xdeadbe01 0f 07                sysret \(target 0xf00d\)
+           9           2:       W0.T1 <marker: trace end for system call number 375>
+          10           2:       W0.T1 <marker: trace start for system call number 224>
+          11           3:       W0.T1 ifetch       2 byte\(s\) @ 0x8badf000 8b 12                mov    \(%edx\), %edx
+          12           3:       W0.T1 read         4 byte\(s\) @ 0xdecafbad by PC 0x8badf000
+          13           4:       W0.T1 ifetch       2 byte\(s\) @ 0x8badf002 0f 07                sysret \(target 0xf00d\)
+          14           4:       W0.T1 <marker: trace end for system call number 224>
+          15           4:       W0.T1 <marker: trace start for system call number 268435455>
+          16           5:       W0.T1 ifetch       2 byte\(s\) @ 0xf00d8b00 0f 07                sysret \(target 0xf00d\)
+          17           5:       W0.T1 <marker: trace end for system call number 268435455>
+# endif
 #else
            6           0:       W0.T1 <marker: trace start for system call number 283>
            7           1:       W0.T1 ifetch       4 byte\(s\) @ 0x00000000deadbe00 d503201f   nop

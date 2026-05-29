@@ -937,6 +937,19 @@ public:
          * this value (including at 0).  Setting this field to 0 disables stealing.
          */
         uint64_t steal_attempt_period = 10000;
+        /**
+         * Sets whether to canonicalize (set to all 0's or all 1's) the top bytes
+         * of each address in each record.  This is relevant for platforms
+         * with a Top Byte Ignore feature where the top byte(s) of a 64-bit address
+         * can contain any value which is ignored by the hardware.
+         * Marker values whose type is unknown are not canonicalized (these include
+         * TRACE_MARKER_TYPE_FUNC_ARG and TRACE_MARKER_TYPE_FUNC_RETVAL).
+         * Auto-canonicalization is only supported for #memref_t instantiation (not
+         * for #trace_entry_t).
+         */
+        bool canonicalize_addresses =
+            scheduler_tmpl_t<RecordType,
+                             ReaderType>::record_type_canonicalization_supported();
         // When adding new options, also add to print_configuration().
     };
 
@@ -1402,6 +1415,15 @@ public:
      */
     scheduler_status_t
     write_recorded_schedule();
+
+    /**
+     * Returns whether auto-canonicalization of addresses is supported by this
+     * scheduler_tmpl_t template instantiation's RecordType.
+     * If supported, it can be enabled via #dynamorio::drmemtrace::scheduler_tmpl_t::
+     * scheduler_options_t.canonicalize_addresses.
+     */
+    static bool
+    record_type_canonicalization_supported();
 
 protected:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
