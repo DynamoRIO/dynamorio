@@ -457,7 +457,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             tdata->error = "memref entry found outside of bb";
             return false;
         }
-    } else if (in_entry->pc.type == OFFLINE_TYPE_PC) {
+    } else if (in_entry->pc.type ==
+               OFFLINE_TYPE_PC IF_X64(|| in_entry->pc.type == OFFLINE_TYPE_PC_TOP_BIT)) {
         if (reinterpret_cast<trace_entry_t *>(buf) != buf_base) {
             tdata->error = "We shouldn't have buffered anything before calling "
                            "append_bb_entries";
@@ -465,6 +466,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
         }
         if (!append_bb_entries(tdata, in_entry, last_bb_handled))
             return false;
+#ifndef X64
     } else if (in_entry->addr.type == OFFLINE_TYPE_IFLUSH) {
         const offline_entry_t *entry = get_next_entry(tdata);
         if (entry == nullptr || entry->addr.type != OFFLINE_TYPE_IFLUSH) {
@@ -475,6 +477,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             (ptr_uint_t)entry->addr.addr);
         buf += trace_metadata_writer_t::write_iflush(
             buf, in_entry->addr.addr, (size_t)(entry->addr.addr - in_entry->addr.addr));
+#endif
     } else {
         std::stringstream ss;
         ss << "Unknown trace type " << (int)in_entry->timestamp.type;
@@ -1335,7 +1338,7 @@ raw2trace_t::do_conversion()
                 thread_data_[i]->syscall_traces_conversion_empty;
             syscall_traces_injected_ += thread_data_[i]->syscall_traces_injected;
             negative_times_corrected_ += thread_data_[i]->negative_times_corrected;
-            non_canonical_top_bytes_ += thread_data_[i]->non_canonical_top_bytes;
+            non_canonical_top_bits_ += thread_data_[i]->non_canonical_top_bits;
         }
     } else {
         // The files can be converted concurrently.
@@ -1369,7 +1372,7 @@ raw2trace_t::do_conversion()
             syscall_traces_conversion_empty_ += tdata->syscall_traces_conversion_empty;
             syscall_traces_injected_ += tdata->syscall_traces_injected;
             negative_times_corrected_ += tdata->negative_times_corrected;
-            non_canonical_top_bytes_ += tdata->non_canonical_top_bytes;
+            non_canonical_top_bits_ += tdata->non_canonical_top_bits;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -2298,8 +2301,15 @@ raw2trace_t::could_entry_be_address(offline_entry_t entry)
     // look for addresses by having those other types containn non-canonical
     // values in 48..55 (and all other records cannot appear where we look
     // for addresses).
+    // We further handle Linear Address Masking LAM_48 by ensuring the top
+    // bit matches bit 47 and either both are zero or bits 48..55 are canonical.
     char bits48_55 = (entry.combined_value >> 48) & 0xff;
+#ifdef X86_64
+    return !TESTANY(0x8000800000000000, entry.combined_value) || bits48_55 == 0 ||
+        bits48_55 == static_cast<char>(0xff);
+#else
     return bits48_55 == 0 || bits48_55 == static_cast<char>(0xff);
+#endif
 }
 
 bool
@@ -2368,13 +2378,13 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata,
         if (in_entry != nullptr && could_entry_be_address(*in_entry)) {
             // We've distinguished other types as documented under the
             // offline_type_t type, so we assume this is in fact an address
-            // and Top Byte Ignore is enabled in the hardware.
+            // and Top Byte Ignore or Linear Address Masking is enabled in the hardware.
             // We do not clear the top bits for remember_base or recording in
             // the trace: that's left to higher abstraction levels, and we need
             // the precise value for remember_base.
             log(2, "Found non-canonical-top-byte address 0x" ZHEX64_FORMAT_STRING "\n",
                 in_entry->combined_value);
-            accumulate_to_statistic(tdata, RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE, 1);
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_NON_CANONICAL_TOP_BITS, 1);
         } else if (expect_all_memrefs) {
             tdata->error = "Missing memref in block without predicated accesses";
             log(1,
@@ -3824,8 +3834,8 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED:
         tdata->negative_times_corrected += value;
         break;
-    case RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE:
-        tdata->non_canonical_top_bytes += value;
+    case RAW2TRACE_STAT_NON_CANONICAL_TOP_BITS:
+        tdata->non_canonical_top_bits += value;
         break;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
@@ -3854,7 +3864,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
         return syscall_traces_conversion_empty_;
     case RAW2TRACE_STAT_SYSCALL_TRACES_INJECTED: return syscall_traces_injected_;
     case RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED: return negative_times_corrected_;
-    case RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE: return non_canonical_top_bytes_;
+    case RAW2TRACE_STAT_NON_CANONICAL_TOP_BITS: return non_canonical_top_bits_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }
