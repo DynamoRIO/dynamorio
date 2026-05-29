@@ -1016,13 +1016,13 @@ typedef struct _trace_entry_t trace_entry_t;
 // boundaries by knowing the memref count or adding a record in order to separate these.)
 // + OFFLINE_TYPE_THREAD
 // + OFFLINE_TYPE_PID
-// + OFFLINE_EXT_TYPE_HEADER_DEPRECATED, OFFLINE_EXT_TYPE_FOOTER,
-//   OFFLINE_EXT_TYPE_HEADER
+// + OFFLINE_TYPE_EXTENDED subtypes OFFLINE_EXT_TYPE_HEADER_DEPRECATED,
+//   OFFLINE_EXT_TYPE_FOOTER, and OFFLINE_EXT_TYPE_HEADER
 // We also do not worry about these:
 // + OFFLINE_TYPE_IFLUSH: Only used for AArch32 where addresses are only 32 bits.
-// + OFFLINE_EXT_TYPE_MEMINFO: a read (==0) would have canonical 48..55: but this
-//   is used for filtering and always precedes addresses, so it should never be
-//   confused with an address.
+// + OFFLINE_TYPE_EXTENDED subtype OFFLINE_EXT_TYPE_MEMINFO: a read (==0) would have
+//   canonical 48..55: but this is used for filtering and always precedes addresses,
+//   so it should never be confused with an address.
 // For the remaining types: for the top byte being non-canonical where bits 48..55
 // still must be all 0's or 1's, we avoid other types from ever being legitimate values
 // when 48..55 are all 0's or '1s as follows:
@@ -1038,16 +1038,17 @@ typedef struct _trace_entry_t trace_entry_t;
 //   with 1's in 48..55 would be at least 0x00ff000000000000 which is 7/1/3875. So it
 //   seems reasonable to exclude any seeming timestamp with a canonical 48..55:
 //   assume it's an address.
-// + OFFLINE_EXT_TYPE_MARKER: offline_entry_t.extended.valueB is bits 48..55 so
-//   we need to distinguish marker types 0 and all 1's. There is no all 1's; 0 is
-//   TRACE_MARKER_TYPE_KERNEL_EVENT which we no longer use in raw records: we use
-//   TRACE_MARKER_TYPE_KERNEL_EVENT_RAW and convert it in raw2trace.
+// + OFFLINE_TYPE_EXTENDED subtype OFFLINE_EXT_TYPE_MARKER:
+//   offline_entry_t.extended.valueB is bits 48..55 so we need to distinguish marker
+//   types 0 and all 1's. There is no all 1's; 0 is TRACE_MARKER_TYPE_KERNEL_EVENT
+//   which we no longer use in raw records: we use TRACE_MARKER_TYPE_KERNEL_EVENT_RAW
+//   and convert it in raw2trace.
 // The final piece is distinguishing LAM_U48 where bits 48..55 do not need to all
 // be the same.  However, here the top bit 63 must match bit 47, with both being 0
 // for user-mode addresses.  We assume kernel code never uses these top bits for
 // metadata, and so if all our types have 1 for the top bit we should be all set.
-// We add OFFLINE_TYPE_PC_TOP_BIT for the PC; TIMESTAMP and MARKER already have
-// the top bit set.
+// We add OFFLINE_TYPE_PC_TOP_BIT for the PC; OFFLINE_TYPE_TIMESTAMP and
+// OFFLINE_TYPE_EXTENDED already have the top bit set.
 typedef enum {
     OFFLINE_TYPE_MEMREF, // We rely on this being 0.
     OFFLINE_TYPE_PC,
@@ -1069,7 +1070,7 @@ typedef enum {
 } offline_type_t;
 
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
-// These differ in what they store in offline_entry_t.extended.value.
+// These differ in what they store in offline_entry_t.extended.value{A,B}.
 typedef enum {
     // The initial entry in trace files with version older than
     // OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP.  The valueA field holds the

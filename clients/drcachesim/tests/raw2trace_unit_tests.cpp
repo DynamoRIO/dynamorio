@@ -4263,7 +4263,7 @@ test_top_byte_ignore(void *drcontext)
     check_type.combined_value = ADDR_LIKE_PC_TOP_BIT;
     ASSERT(check_type.pc.type == OFFLINE_TYPE_PC_TOP_BIT, "invalid top-bit constant");
     raw.push_back(make_memref(ADDR_LIKE_PC_TOP_BIT));
-#    ifdef X86
+#    ifdef X86_64
     // Test bits 48..55 not being canonical.
     constexpr uint64_t ADDR_LIKE_PC_LAM_U57 = 0x2abc123400005678;
     check_type.combined_value = ADDR_LIKE_PC_LAM_U57;
