@@ -1969,10 +1969,15 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                         mem_element_size = opnd_size_in_bytes(opnd_get_size(memref));
                         // dr_get_vector_length() is in bits.
                         element_count = dr_get_vector_length() / 8 / reg_element_size;
+                        // We want the sum across all vectors, if multiple.
+                        int vector_count = instr->scatter_gather_vector_count();
+                        DR_ASSERT(vector_count > 0);
+                        element_count *= vector_count;
                         log(4,
                             "Scatter/gather skip info: base=%p reg_el_sz=%d mem_el_sz=%d "
-                            "el_cnt=%d\n",
-                            base_addr, reg_element_size, mem_element_size, element_count);
+                            "el_cnt=%d (for %d vectors)\n",
+                            base_addr, reg_element_size, mem_element_size, element_count,
+                            vector_count);
                     } else {
                         unread_last_entry(tdata);
                     }
@@ -3058,6 +3063,9 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
             opnd_size_in_bytes(opnd_get_vector_element_size(
                 instr_is_scatter(instr) ? instr_get_src(instr, 0)
                                         : instr_get_dst(instr, 0)));
+        desc->scatter_gather_vector_count_ = instr_is_scatter(instr)
+            ? (instr_num_srcs(instr) - 1 /*predicate*/)
+            : instr_num_dsts(instr);
     }
 #endif
     desc->type_ = ir_utils_t::instr_to_instr_type(instr);
