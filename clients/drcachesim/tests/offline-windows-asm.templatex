@@ -45,6 +45,7 @@ Total counts:
            0 total physical address unavailable markers
            7 total system call number markers
            6 total blocking system call markers
+           0 total skipped memref markers
           13 total other markers
           25 total encodings
 Total windows: 8
@@ -69,6 +70,7 @@ Window #0:
            0 window physical address unavailable markers
            1 window system call number markers
            0 window blocking system call markers
+           0 skipped memref markers
            6 window other markers
            8 window encodings
 Window #1:
@@ -92,6 +94,7 @@ Window #1:
            0 window physical address unavailable markers
            1 window system call number markers
            1 window blocking system call markers
+           0 window skipped memref markers
            1 window other markers
            9 window encodings
 Window #2:
@@ -115,6 +118,7 @@ Window #2:
            0 window physical address unavailable markers
            1 window system call number markers
            1 window blocking system call markers
+           0 window skipped memref markers
            1 window other markers
            3 window encodings
 Window #3:
@@ -138,6 +142,7 @@ Window #3:
            0 window physical address unavailable markers
            1 window system call number markers
            1 window blocking system call markers
+           0 window skipped memref markers
            1 window other markers
            0 window encodings
 Window #4:
@@ -161,6 +166,7 @@ Window #4:
            0 window physical address unavailable markers
            1 window system call number markers
            1 window blocking system call markers
+           0 window skipped memref markers
            1 window other markers
            0 window encodings
 Window #5:
@@ -184,6 +190,7 @@ Window #5:
            0 window physical address unavailable markers
            1 window system call number markers
            1 window blocking system call markers
+           0 window skipped memref markers
            1 window other markers
            0 window encodings
 Window #6:
@@ -207,6 +214,7 @@ Window #6:
            0 window physical address unavailable markers
            1 window system call number markers
            1 window blocking system call markers
+           0 window skipped memref markers
            1 window other markers
            5 window encodings
 Window #7:
@@ -230,6 +238,7 @@ Window #7:
            0 window physical address unavailable markers
            0 window system call number markers
            0 window blocking system call markers
+           0 window skipped memref markers
            1 window other markers
            0 window encodings
 Thread [0-9]* counts:
@@ -253,5 +262,6 @@ Thread [0-9]* counts:
            0 physical address unavailable markers
            1 system call number markers
            0 blocking system call markers
+           0 window skipped memref markers
            6 other markers
            8 encodings

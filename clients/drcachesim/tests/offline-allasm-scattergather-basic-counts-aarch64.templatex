@@ -38,6 +38,24 @@ Total counts:
            1 total threads
      .* total timestamp \+ cpuid markers
 .*
+#ifdef __ARM_FEATURE_SVE2
+#if (__ARM_FEATURE_SVE_BITS == 128)
+        2956 total skipped memref markers
+#elif (__ARM_FEATURE_SVE_BITS == 256)
+// TODO i#7914: Fill in expected value.
+#elif (__ARM_FEATURE_SVE_BITS == 512)
+// TODO i#7914: Fill in expected value.
+#endif /* __ARM_FEATURE_SVE_BITS */
+#else
+#if (__ARM_FEATURE_SVE_BITS == 128)
+// TODO i#7914: Fill in expected value.
+#elif (__ARM_FEATURE_SVE_BITS == 256)
+// TODO i#7914: Fill in expected value.
+#elif (__ARM_FEATURE_SVE_BITS == 512)
+// TODO i#7914: Fill in expected value.
+#endif /* __ARM_FEATURE_SVE_BITS */
+#endif /* __ARM_FEATURE_SVE2 */
+.*
 Thread .* counts:
 #ifdef __ARM_FEATURE_SVE2
          997 \(fetched\) instructions
