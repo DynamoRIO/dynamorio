@@ -80,7 +80,6 @@
  */
 
 test_scalar_plus_vector:
-#if 0 //NOCHECK
         // ld1b scalar+vector
         ld1b    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, uxtw] // 4
         ld1b    DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, S_INDEX_REG.s, sxtw] // 4
@@ -256,14 +255,13 @@ test_scalar_plus_vector:
         st1d    SRC_REG1.d, D_MASK_REG, [BUFFER_REG, D_INDEX_REG.d, lsl #3]  // 2
         st1d    SRC_REG1.d, D_MASK_REG, [BUFFER_REG, D_INDEX_REG.d]          // 2
                                                                              // Total: 12
-#endif
+
         // Total stores: 14 + 28 + 28 + 12 = 82
 
         ret
 
 
 test_vector_plus_immediate:
-#if 0 //NOCHECK
         ld1b    DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
         ldff1b  DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
         ld1sb   DEST_REG1.d, D_MASK_REG/z, [Z_BASE_REG.d, #0] // 2
@@ -287,11 +285,10 @@ test_vector_plus_immediate:
         st1d    SRC_REG1.d, D_MASK_REG, [Z_BASE_REG.d, #0] // 2
 
         // Total stores: 8
-#endif
+
         ret
 
 test_scalar_plus_scalar:
-#if 0 //NOCHECK
         ld1b     DEST_REG1.b, B_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 16
         ld1b     DEST_REG1.h, H_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 8
         ld1b     DEST_REG1.s, S_MASK_REG/z, [BUFFER_REG, X_INDEX_REG]         // 4
@@ -381,7 +378,7 @@ test_scalar_plus_scalar:
                                                                                                                     // Total: 120
 
         // Total stores: 52 + 60 + 90 + 120 = 322
-#endif
+
         ret
 
 
