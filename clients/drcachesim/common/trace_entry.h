@@ -795,6 +795,19 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT_RAW,
 
+    /**
+     * Appears after an instruction fetch entry for an instruction with predicated,
+     * conditional, or masked memory references.  For each memory reference that did
+     * not actually occur as it was masked out or predicated false, this marker will
+     * be included.  The marker value is the memory address that would have been
+     * referenced.  Neither the memory reference size nor type (read or write) is
+     * included: it is assumed that they can be inferred from the instruction fetch
+     * entry.  This marker is meant for use by simulators for prefetching or other
+     * purposes performed by hardware before the mask or predication is resolved.
+     * Online traces do not contain these markers; only offline.
+     */
+    TRACE_MARKER_TYPE_SKIPPED_MEMREF,
+
     // XXX: When adding a new type, if its value is an address, add it to
     // scheduler_impl_tmpl_t<memref_t, reader_t>::record_type_canonicalize_addresses()
     // for auto-canonicalization support.
@@ -1071,6 +1084,10 @@ typedef enum {
     // field holds the type (OFFLINE_FILE_TYPE*), while valueB holds the
     // version (OFFLINE_FILE_VERSION*).
     OFFLINE_EXT_TYPE_HEADER,
+    // valueB holds the address of the base of a contiguous scatter/gather operation.
+    // This is used to produce TRACE_MARKER_TYPE_SKIPPED_MEMREF records.
+    // valueA is set to 1 to avoid this being confused with an address.
+    OFFLINE_EXT_TYPE_GATHER_BASE,
 } offline_ext_type_t;
 
 #define EXT_VALUE_A_BITS 48

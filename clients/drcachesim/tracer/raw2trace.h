@@ -317,6 +317,14 @@ private:
         return branch_target_pc_;
     }
 
+    // Returns the vector element size in bytes for a scatter/gather instruction.
+    // Returns 0 for non-scatter-gather instructions.
+    byte
+    scatter_gather_element_size() const
+    {
+        return scatter_gather_element_size_;
+    }
+
     static const int kReadsMemMask = 0x0001;
     static const int kWritesMemMask = 0x0002;
     static const int kIsPrefetchMask = 0x0004;
@@ -344,6 +352,7 @@ private:
     uint16_t prefetch_type_ = 0;
     uint16_t flush_type_ = 0;
     byte length_ = 0;
+    byte scatter_gather_element_size_ = 0;
     app_pc branch_target_pc_ = 0;
 
     // Squash srcs and dests to save memory usage. We may want to

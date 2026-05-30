@@ -466,6 +466,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN:
             std::cerr << "<marker: hardware context return\n";
             break;
+        case TRACE_MARKER_TYPE_SKIPPED_MEMREF:
+            std::cerr << "<marker: skipped memref 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << "\n";
+            break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";
