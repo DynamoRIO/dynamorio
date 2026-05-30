@@ -1967,7 +1967,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                         }
                         int reg_element_size = instr->scatter_gather_element_size();
                         mem_element_size = opnd_size_in_bytes(opnd_get_size(memref));
-                        element_count = dr_get_vector_length() / reg_element_size;
+                        // dr_get_vector_length() is in bits.
+                        element_count = dr_get_vector_length() / 8 / reg_element_size;
                         log(4,
                             "Scatter/gather skip info: base=%p reg_el_sz=%d mem_el_sz=%d "
                             "el_cnt=%d\n",
@@ -3053,8 +3054,10 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
 #if defined(X86) || defined(AARCH64)
     if (instr_is_scatter(instr) || instr_is_gather(instr)) {
         desc->packed_ |= kIsScatterOrGatherMask;
-        desc->scatter_gather_element_size_ = opnd_get_vector_element_size(
-            instr_is_scatter(instr) ? instr_get_src(instr, 0) : instr_get_dst(instr, 0));
+        desc->scatter_gather_element_size_ =
+            opnd_size_in_bytes(opnd_get_vector_element_size(
+                instr_is_scatter(instr) ? instr_get_src(instr, 0)
+                                        : instr_get_dst(instr, 0)));
     }
 #endif
     desc->type_ = ir_utils_t::instr_to_instr_type(instr);

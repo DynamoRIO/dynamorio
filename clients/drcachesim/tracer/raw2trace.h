@@ -352,7 +352,7 @@ private:
     uint16_t prefetch_type_ = 0;
     uint16_t flush_type_ = 0;
     byte length_ = 0;
-    byte scatter_gather_element_size_ = 0;
+    byte scatter_gather_element_size_ = 0; // Size in bytes.
     app_pc branch_target_pc_ = 0;
 
     // Squash srcs and dests to save memory usage. We may want to
