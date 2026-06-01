@@ -1424,6 +1424,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         ud->last_app_pc = instr_get_app_pc(instr_fetch);
     }
 
+    // TODO i#7914: Add x86 contiguous skipped memref support.
 #ifdef AARCH64
     if (instr_fetch != NULL &&
         (instr_is_gather(instr_fetch) || instr_is_scatter(instr_fetch))) {

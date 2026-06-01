@@ -43,8 +43,8 @@ Total counts:
      .* total physical address \+ virtual address marker pairs
      .* total physical address unavailable markers
      .* total system call number markers
-     .* total skipped memref markers
      .* total blocking system call markers
+     .* total skipped memref markers
      .* total other markers
      .* total encodings
 Thread .* counts:
