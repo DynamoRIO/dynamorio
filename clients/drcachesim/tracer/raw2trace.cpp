@@ -3060,12 +3060,12 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
     if (instr_is_scatter(instr) || instr_is_gather(instr)) {
         desc->packed_ |= kIsScatterOrGatherMask;
         desc->scatter_gather_element_size_ =
-            opnd_size_in_bytes(opnd_get_vector_element_size(
+            static_cast<byte>(opnd_size_in_bytes(opnd_get_vector_element_size(
                 instr_is_scatter(instr) ? instr_get_src(instr, 0)
-                                        : instr_get_dst(instr, 0)));
-        desc->scatter_gather_vector_count_ = instr_is_scatter(instr)
-            ? (instr_num_srcs(instr) - 1 /*predicate*/)
-            : instr_num_dsts(instr);
+                                        : instr_get_dst(instr, 0))));
+        desc->scatter_gather_vector_count_ = static_cast<byte>(
+            instr_is_scatter(instr) ? (instr_num_srcs(instr) - 1 /*predicate*/)
+                                    : instr_num_dsts(instr));
     }
 #endif
     desc->type_ = ir_utils_t::instr_to_instr_type(instr);
