@@ -70,7 +70,7 @@ Window #0:
            0 window physical address unavailable markers
            1 window system call number markers
            0 window blocking system call markers
-           0 skipped memref markers
+           0 window skipped memref markers
            6 window other markers
            8 window encodings
 Window #1:
