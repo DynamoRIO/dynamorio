@@ -885,10 +885,13 @@ offline_instru_t::instrument_gather_base(void *drcontext, instrlist_t *ilist,
     MINSERT(
         ilist, where,
         INSTR_CREATE_or(drcontext, opnd_create_reg(reg_addr), opnd_create_reg(reg_ptr)));
-#else
+#elif defined(AARCH64)
     MINSERT(ilist, where,
             INSTR_CREATE_orr(drcontext, opnd_create_reg(reg_addr),
                              opnd_create_reg(reg_addr), opnd_create_reg(reg_ptr)));
+#else
+    DR_ASSERT(false && "Only x86 and aarch64 are supported for scatter/gather skips");
+    return 0;
 #endif
     // Re-load because reg_ptr was clobbered.
     insert_load_buf_ptr_(drcontext, ilist, where, reg_ptr);
