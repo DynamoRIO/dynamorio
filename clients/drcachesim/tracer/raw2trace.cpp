@@ -1941,11 +1941,64 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 // continue reading entries until we find a non-memref entry.
                 // This works only because drx_expand_scatter_gather ensures that the
                 // expansion has its own basic block, with no other app instr in it.
-                while (!reached_end_of_memrefs) {
+                //
+                // For a contiguous scatter/gather we do know the count and
+                // offsets statically and can fill in skipped memrefs if we
+                // have the base address, which we do via a special record
+                // read below.
+                bool add_skipped_markers = false;
+                addr_t base_addr = 0;
+                int mem_element_size = 0;
+                int element_count = 0;
+                // Conservative upper bound.
+                constexpr int MAX_SG_ELEMENTS = 2048;
+                trace_entry_t sg_buf[MAX_SG_ELEMENTS];
+                trace_entry_t *sg_buf_cur = sg_buf;
+                in_entry = get_next_entry(tdata);
+                if (in_entry != nullptr) {
+                    if (!(in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                          in_entry->extended.ext ==
+                              OFFLINE_EXT_TYPE_SCATTER_GATHER_BASE)) {
+                        // Support older traces without such records.
+                        unread_last_entry(tdata);
+                    } else {
+                        add_skipped_markers = true;
+                        base_addr = in_entry->extended.valueA;
+                        opnd_t memref = is_scatter ? instr->mem_dest_at(0).opnd
+                                                   : instr->mem_src_at(0).opnd;
+                        if (!TESTANY(OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS,
+                                     get_file_type(tdata)) &&
+                            tdata->instru_offline.opnd_disp_is_elidable(memref)) {
+                            // We stored only the base reg, as an optimization.
+                            // This happens even with predicated instructions where we
+                            // don't do base reg elision.
+                            base_addr += opnd_get_disp(memref);
+                        }
+                        int reg_element_size = instr->scatter_gather_element_size();
+                        DR_ASSERT(reg_element_size > 0);
+                        mem_element_size = opnd_size_in_bytes(opnd_get_size(memref));
+                        // dr_get_vector_length() is in bits.
+                        element_count = dr_get_vector_length() / 8 / reg_element_size;
+                        // We want the sum across all vectors, if multiple: e.g.,
+                        // LD4H writes into 4 separate vector registers.
+                        int vector_count = instr->scatter_gather_vector_count();
+                        DR_ASSERT(vector_count > 0);
+                        element_count *= vector_count;
+                        log(4,
+                            "Scatter/gather skip info: base=%p reg_el_sz=%d mem_el_sz=%d "
+                            "el_cnt=%d (for %d vectors)\n",
+                            base_addr, reg_element_size, mem_element_size, element_count,
+                            vector_count);
+                    }
+                }
+                int memref_count = 0;
+                for (; !reached_end_of_memrefs; ++memref_count) {
                     // XXX: Add sanity check for max count of store/load memrefs
-                    // possible for a given scatter/gather instr.
+                    // possible for a given scatter/gather instr. For now we have
+                    // a conservative single max.
+                    DR_ASSERT(memref_count < MAX_SG_ELEMENTS);
                     if (!append_memref(
-                            tdata, &buf, instr,
+                            tdata, &sg_buf_cur, instr,
                             // These memrefs were output by multiple store/load instrs in
                             // the expanded scatter/gather sequence. In raw2trace we see
                             // only the original app instr though. So we use the 0th
@@ -1955,6 +2008,43 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                             expect_all_memrefs, consumed_memrefs))
                         return false;
                 }
+                --memref_count; // The final append_memref did not find one.
+                DR_ASSERT(!add_skipped_markers || memref_count <= element_count);
+                sg_buf_cur = sg_buf;
+                int element_index = 0;
+                for (int memref_index = 0; memref_index < memref_count ||
+                     (add_skipped_markers && element_index < element_count);
+                     ++memref_index) {
+                    if (add_skipped_markers) {
+                        addr_t next_addr = base_addr + element_index * mem_element_size;
+                        log(4, "Scatter/gather el %d: next_addr=%p cur memref %d %p\n",
+                            element_index, next_addr, memref_index,
+                            memref_index < memref_count ? sg_buf_cur->addr : 0);
+                        while (element_index < element_count &&
+                               (memref_index >= memref_count ||
+                                sg_buf_cur->addr > next_addr)) {
+                            log(4, "Scatter/gather el %d: filling in skipped addr=%p\n",
+                                element_index, next_addr);
+                            buf->type = TRACE_TYPE_MARKER;
+                            buf->size = TRACE_MARKER_TYPE_SKIPPED_MEMREF;
+                            buf->addr = next_addr;
+                            ++buf;
+                            ++element_index;
+                            next_addr = base_addr + element_index * mem_element_size;
+                        }
+                        DR_ASSERT(memref_index >= memref_count ||
+                                  sg_buf_cur->addr == next_addr);
+                    }
+                    if (memref_index < memref_count) {
+                        log(4, "Scatter/gather el %d writing memref %d %p\n",
+                            element_index, memref_index, sg_buf_cur->addr);
+                        *buf = *sg_buf_cur;
+                        ++buf;
+                        ++sg_buf_cur;
+                        ++element_index;
+                    }
+                }
+                DR_ASSERT(!add_skipped_markers || element_index == element_count);
             } else if (instrs_are_separate) {
                 // There is only one memref entry (each memref is after a count=0 PC
                 // entry). Full info (type and size) is provided via
@@ -2983,8 +3073,19 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, DR_PARAM_INOUT ap
 #endif
 
 #if defined(X86) || defined(AARCH64)
-    if (instr_is_scatter(instr) || instr_is_gather(instr))
+    if (instr_is_scatter(instr) || instr_is_gather(instr)) {
         desc->packed_ |= kIsScatterOrGatherMask;
+        // TODO i#7914: Add x86 contiguous skipped memref support.
+#    ifdef AARCH64
+        desc->scatter_gather_element_size_ =
+            static_cast<byte>(opnd_size_in_bytes(opnd_get_vector_element_size(
+                instr_is_scatter(instr) ? instr_get_src(instr, 0)
+                                        : instr_get_dst(instr, 0))));
+        desc->scatter_gather_vector_count_ = static_cast<byte>(
+            instr_is_scatter(instr) ? (instr_num_srcs(instr) - 1 /*predicate*/)
+                                    : instr_num_dsts(instr));
+#    endif
+    }
 #endif
     desc->type_ = ir_utils_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;

@@ -91,6 +91,7 @@ Total counts:
            0 total physical address unavailable markers
          480 total system call number markers
          183 total blocking system call markers
+           0 total skipped memref markers
          316 total other markers
        21842 total encodings
 Core [0-9] counts:

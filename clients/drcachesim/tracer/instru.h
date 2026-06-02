@@ -268,6 +268,10 @@ public:
     instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
                           instr_t *rseq_label, reg_id_t reg_ptr, int adjust) = 0;
 
+    virtual int
+    instrument_gather_base(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           reg_id_t reg_ptr, int adjust, opnd_t ref) = 0;
+
     virtual void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
                 bool repstr_expanded, bool memref_needs_full_info) = 0;
@@ -387,6 +391,10 @@ public:
     instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
                           instr_t *rseq_label, reg_id_t reg_ptr, int adjust) override;
 
+    int
+    instrument_gather_base(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           reg_id_t reg_ptr, int adjust, opnd_t ref) override;
+
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
                 bool repstr_expanded, bool memref_needs_full_info) override;
@@ -473,6 +481,10 @@ public:
     int
     instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
                           instr_t *rseq_label, reg_id_t reg_ptr, int adjust) override;
+
+    int
+    instrument_gather_base(void *drcontext, instrlist_t *ilist, instr_t *where,
+                           reg_id_t reg_ptr, int adjust, opnd_t ref) override;
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,

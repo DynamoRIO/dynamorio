@@ -1424,6 +1424,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         ud->last_app_pc = instr_get_app_pc(instr_fetch);
     }
 
+    // TODO i#7914: Add x86 contiguous skipped memref support.
+#ifdef AARCH64
+    if (instr_fetch != NULL &&
+        (instr_is_gather(instr_fetch) || instr_is_scatter(instr_fetch))) {
+        opnd_t memop = instr_is_gather(instr_fetch) ? instr_get_src(instr_fetch, 0)
+                                                    : instr_get_dst(instr_fetch, 0);
+        DR_ASSERT(opnd_is_memory_reference(memop));
+        bool is_contiguous =
+            !(reg_is_z(opnd_get_base(memop)) || reg_is_z(opnd_get_index(memop)));
+        if (is_contiguous) {
+            adjust = instru->instrument_gather_base(drcontext, bb, where, reg_ptr, adjust,
+                                                    memop);
+        }
+    }
+#endif
+
     /* Data entries. */
     if (instr_operands != NULL &&
         (instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) {
