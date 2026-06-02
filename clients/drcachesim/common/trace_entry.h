@@ -795,16 +795,23 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT_RAW,
 
+    // TODO i#7914: Once we've implemented support for all masked/predicated memrefs,
+    // increment the trace version.
     /**
      * Appears after an instruction fetch entry for an instruction with predicated,
      * conditional, or masked memory references.  For each memory reference that did
      * not actually occur as it was masked out or predicated false, this marker will
      * be included.  The marker value is the memory address that would have been
-     * referenced.  Neither the memory reference size nor type (read or write) is
-     * included: it is assumed that they can be inferred from the instruction fetch
-     * entry.  This marker is meant for use by simulators for prefetching or other
-     * purposes performed by hardware before the mask or predication is resolved.
-     * Online traces do not contain these markers; only offline.
+     * referenced.  For instructions with multiple memory references, these markers
+     * will appear at the same position a record for a real reference would appear:
+     * so for a contiguous scatter/gather these markers may be interleaved with
+     * regular records with the full set of markers and regular records fully
+     * covering all possible references.  Neither the memory reference size nor type
+     * (read or write) is included: it is assumed that they can be inferred from the
+     * instruction fetch entry.  This marker is meant for use by simulators for
+     * prefetching or other purposes performed by hardware before the mask or
+     * predication is resolved.  Online traces do not contain these markers; only
+     * offline.
      */
     TRACE_MARKER_TYPE_SKIPPED_MEMREF,
 
@@ -1086,8 +1093,12 @@ typedef enum {
     OFFLINE_EXT_TYPE_HEADER,
     // valueB holds the address of the base of a contiguous scatter/gather operation.
     // This is used to produce TRACE_MARKER_TYPE_SKIPPED_MEMREF records.
-    // valueB is set to 1 to avoid this being confused with an address.
-    OFFLINE_EXT_TYPE_GATHER_BASE,
+    // valueB is set to 1 to avoid this being confused with an address (see
+    // Top Byte Ignore comments).
+    // Since valueB only holds 48 bits this does not preserve the top bits.
+    // TODO i#7914: Store a different sentinel in valueB when the top bits
+    // in canonical form should be 1's.
+    OFFLINE_EXT_TYPE_SCATTER_GATHER_BASE,
 } offline_ext_type_t;
 
 #define EXT_VALUE_A_BITS 48

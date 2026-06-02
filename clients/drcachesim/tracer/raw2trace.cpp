@@ -1953,8 +1953,12 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 trace_entry_t *sg_buf_cur = sg_buf;
                 in_entry = get_next_entry(tdata);
                 if (in_entry != nullptr) {
-                    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                        in_entry->extended.ext == OFFLINE_EXT_TYPE_GATHER_BASE) {
+                    if (!(in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                          in_entry->extended.ext ==
+                              OFFLINE_EXT_TYPE_SCATTER_GATHER_BASE)) {
+                        // Support older traces without such records.
+                        unread_last_entry(tdata);
+                    } else {
                         add_skipped_markers = true;
                         base_addr = in_entry->extended.valueA;
                         opnd_t memref = is_scatter ? instr->mem_dest_at(0).opnd
@@ -1963,13 +1967,17 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                      get_file_type(tdata)) &&
                             tdata->instru_offline.opnd_disp_is_elidable(memref)) {
                             // We stored only the base reg, as an optimization.
+                            // This happens even with predicated instructions where we
+                            // don't do base reg elision.
                             base_addr += opnd_get_disp(memref);
                         }
                         int reg_element_size = instr->scatter_gather_element_size();
+                        DR_ASSERT(reg_element_size > 0);
                         mem_element_size = opnd_size_in_bytes(opnd_get_size(memref));
                         // dr_get_vector_length() is in bits.
                         element_count = dr_get_vector_length() / 8 / reg_element_size;
-                        // We want the sum across all vectors, if multiple.
+                        // We want the sum across all vectors, if multiple: e.g.,
+                        // LD4H writes into 4 separate vector registers.
                         int vector_count = instr->scatter_gather_vector_count();
                         DR_ASSERT(vector_count > 0);
                         element_count *= vector_count;
@@ -1978,8 +1986,6 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                             "el_cnt=%d (for %d vectors)\n",
                             base_addr, reg_element_size, mem_element_size, element_count,
                             vector_count);
-                    } else {
-                        unread_last_entry(tdata);
                     }
                 }
                 int memref_count = 0;

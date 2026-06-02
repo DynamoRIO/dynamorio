@@ -854,9 +854,12 @@ offline_instru_t::instrument_gather_base(void *drcontext, instrlist_t *ilist,
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_addr);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    bool reg_ptr_used;
-    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref, &reg_ptr_used);
+    bool reg_ptr_used_unused;
+    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref,
+                       &reg_ptr_used_unused);
     // Now set the top bits (we don't care if we lose top bits of non-canonical addrs).
+    // TODO i#7914: Store a different sentinel in valueB when the top bits
+    // in canonical form should be 1's.
     offline_entry_t entry_top_zero;
     entry_top_zero.extended.type = 0;
     entry_top_zero.extended.ext = 0;
@@ -875,7 +878,7 @@ offline_instru_t::instrument_gather_base(void *drcontext, instrlist_t *ilist,
 #endif
     offline_entry_t entry_top_set;
     entry_top_set.extended.type = OFFLINE_TYPE_EXTENDED;
-    entry_top_set.extended.ext = OFFLINE_EXT_TYPE_GATHER_BASE;
+    entry_top_set.extended.ext = OFFLINE_EXT_TYPE_SCATTER_GATHER_BASE;
     // We set a bit here to avoid this being confused with an address.
     entry_top_set.extended.valueB = 1;
     entry_top_set.extended.valueA = 0;

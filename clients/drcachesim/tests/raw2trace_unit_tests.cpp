@@ -314,7 +314,7 @@ make_gather_base(uint64_t addr)
 {
     offline_entry_t entry;
     entry.extended.type = OFFLINE_TYPE_EXTENDED;
-    entry.extended.ext = OFFLINE_EXT_TYPE_GATHER_BASE;
+    entry.extended.ext = OFFLINE_EXT_TYPE_SCATTER_GATHER_BASE;
     entry.extended.valueA = addr;
     entry.extended.valueB = 1;
     return entry;
@@ -4403,21 +4403,23 @@ test_skipped_memrefs(void *drcontext)
     std::cerr << "\n===============\nTesting skipped memrefs\n";
     instrlist_t *ilist = instrlist_create(drcontext);
     instr_t *nop = XINST_CREATE_nop(drcontext);
-    constexpr int VECTOR_LENGTH = 16; // In bytes.
-    dr_set_vector_length(VECTOR_LENGTH * 8);
+    constexpr int VECTOR_LENGTH_BYTES = 16; // In bytes.
+    dr_set_vector_length(VECTOR_LENGTH_BYTES * 8);
     // First we do reg+imm memref with different element sizes and vector counts.
     // Test with a displacement.
-    constexpr int DISP = VECTOR_LENGTH;
+    constexpr int DISP = VECTOR_LENGTH_BYTES;
     instr_t *ld1b_imm = INSTR_CREATE_ld1b_sve_pred(
         drcontext, opnd_create_reg_element_vector(DR_REG_Z12, OPSZ_1),
         opnd_create_predicate_reg(DR_REG_P4, /*is_merge=*/false),
         opnd_create_base_disp(REG2, DR_REG_NULL, 0, DISP, OPSZ_1));
-    // Test with elision (base addr hasn't changed).
+    // Test with the potential for elision (base register hasn't changed) -- though
+    // today we won't elide b/c these are in separate blocks and we avoid elision
+    // for predicated/conditional.
     instr_t *ld1h_imm = INSTR_CREATE_ld1h_sve_pred(
         drcontext, opnd_create_reg_element_vector(DR_REG_Z12, OPSZ_2),
         opnd_create_predicate_reg(DR_REG_P4, /*is_merge=*/false),
         opnd_create_base_disp(REG2, DR_REG_NULL, 0, 0, OPSZ_2));
-    // Clear the base so no elision.
+    // Clear the base so no elision for sure (though today there's already none).
     instr_t *move =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
     instr_t *ld2w_imm = INSTR_CREATE_ld2w_sve_pred(
@@ -4457,7 +4459,7 @@ test_skipped_memrefs(void *drcontext)
     raw.push_back(make_tid());
     raw.push_back(make_pid());
     raw.push_back(make_line_size());
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_VECTOR_LENGTH, VECTOR_LENGTH));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_VECTOR_LENGTH, VECTOR_LENGTH_BYTES));
     constexpr uint64_t TIME_VALUE = 0x0013000000000000;
     raw.push_back(make_timestamp(TIME_VALUE));
     raw.push_back(make_core());
@@ -4476,12 +4478,12 @@ test_skipped_memrefs(void *drcontext)
     raw.push_back(make_memref(BASE_ADDR_LD1B - DISP + 15));
     // The ld1h's non-masked-out addresses are just the last 2.
     raw.push_back(make_block(offs_ld1h_imm, 1));
-    constexpr uint64_t BASE_ADDR_LD1H = 0x123456;
+    constexpr uint64_t BASE_ADDR_LD1H = BASE_ADDR_LD1B - DISP;
     raw.push_back(make_gather_base(BASE_ADDR_LD1H));
     raw.push_back(make_memref(BASE_ADDR_LD1H + 12));
     raw.push_back(make_memref(BASE_ADDR_LD1H + 14));
     raw.push_back(make_block(offs_move, 1));
-    // The ld2w's non-masked-out addresses are just the first 2.
+    // The ld2w just has one non-masked entry, so 2 addresses (one for each vector).
     raw.push_back(make_block(offs_ld2w_imm, 1));
     constexpr uint64_t BASE_ADDR_LD2W = 0x12345678;
     raw.push_back(make_gather_base(BASE_ADDR_LD2W));
@@ -4523,7 +4525,7 @@ test_skipped_memrefs(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER,
                     TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VECTOR_LENGTH,
-                    VECTOR_LENGTH) &&
+                    VECTOR_LENGTH_BYTES) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP,
                     TIME_VALUE) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
