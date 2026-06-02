@@ -1690,6 +1690,18 @@ enum {
     /* 1479 */ OP_eretu, /**< IA-32/AMD64 eretu opcode. */
     /* 1480 */ OP_lkgs,  /**< IA-32/AMD64 lkgs opcode. */
 
+    /* Intel CET instructions */
+    /* 1481 */ OP_endbr64,      /**< IA-32/AMD64 endbr64 opcode. */
+    /* 1482 */ OP_endbr32,      /**< IA-32/AMD64 endbr32 opcode. */
+    /* 1483 */ OP_rdssp,         /**< IA-32/AMD64 rdssp opcode. */
+    /* 1484 */ OP_incssp,       /**< IA-32/AMD64 incssp opcode. */
+    /* 1485 */ OP_rstorssp,     /**< IA-32/AMD64 rstorssp opcode. */
+    /* 1486 */ OP_saveprevssp,  /**< IA-32/AMD64 saveprevssp opcode. */
+    /* 1487 */ OP_setssbsy,     /**< IA-32/AMD64 setssbsy opcode. */
+    /* 1488 */ OP_clrssbsy,     /**< IA-32/AMD64 clrssbsy opcode. */
+    /* 1489 */ OP_wrss,         /**< IA-32/AMD64 wrss opcode. */
+    /* 1490 */ OP_wruss,        /**< IA-32/AMD64 wruss opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
