@@ -1086,7 +1086,7 @@ typedef enum {
     OFFLINE_EXT_TYPE_HEADER,
     // valueB holds the address of the base of a contiguous scatter/gather operation.
     // This is used to produce TRACE_MARKER_TYPE_SKIPPED_MEMREF records.
-    // valueA is set to 1 to avoid this being confused with an address.
+    // valueB is set to 1 to avoid this being confused with an address.
     OFFLINE_EXT_TYPE_GATHER_BASE,
 } offline_ext_type_t;
 
