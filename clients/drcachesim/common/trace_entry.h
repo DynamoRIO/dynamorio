@@ -1010,68 +1010,87 @@ typedef struct _trace_entry_t trace_entry_t;
 // reconstructing the trace_entry_t format that the readers expect via a
 // post-processing step before feeding it to analysis tools.
 
+// We use a single 64-bit record entry defined as a union to cover all record types.
+// The offline_type_t enum stored in the type field, along with other logic to handle
+// non-canonical top bits (described right below), identifies the union alternative.
 // We target 64-bit addresses and do not bother to shrink the module or timestamp
 // entries for 32-bit apps.
 // We assume that a 64-bit address has far fewer real bits, typically
-// 48 bits, and that the bits 48..55 are always identical.
+// 48 bits, and that certain bits must be identical to be "canonical" and avoid
+// a fault.
 // Often all 48..63 are identical, including 61..63 where we store our type field.
-// For the most common record type, a memref, we have both all 0's and all 1's be its
-// type to reduce instrumentation overhead.
-// The offline_type_t, along with other logic for Top Byte Ignore described below,
-// identifies the union alternative.
+// For the most common record type, a memref (load or store address), we have both
+// all 0's and all 1's be its type to reduce instrumentation overhead.
 //
-// For Top Byte Ignore where the top byte 56..63 can be anything, making
-// OFFLINE_TYPE_MEMREF{,_HIGH} look like any of the other record types.
-// We distinguish it by adding restrictions on the other types to avoid
-// having all 0's or all 1's in bits 48..55 (we assume OFFLINE_TYPE_MEMREF{,HIGH}
-// always has all 0's or all 1's there as previously mentioned) as follows:
+// We support top address bits being non-canonical in the following manner:
+// + Top Byte Ignore (AArch64) or Upper Address Ignore (AMD): we support the full
+//   top byte 56..63 being anything.
+// + Linear Address Masking (Intel x86_64): we support both LAM_U48 with bits
+//   48..62 (looks like Top Byte Ignore to us) and LAM_U57 with bits 57..62 as
+//   any value.
+// We need to distinguish a memref (OFFLINE_TYPE_MEMREF{,_HIGH}) whose top bits make
+// it look like another type.
+// We do not worry about the following types as they never appear where we expect
+// a memref (they should always be separated by at least a timestamp):
+// (XXX i#1734: If this were to change: we would ensure we can identify block
+// boundaries by knowing the memref count or adding a record in order to separate these.)
+// + OFFLINE_TYPE_THREAD
+// + OFFLINE_TYPE_PID
+// + OFFLINE_TYPE_EXTENDED subtypes OFFLINE_EXT_TYPE_HEADER_DEPRECATED,
+//   OFFLINE_EXT_TYPE_FOOTER, and OFFLINE_EXT_TYPE_HEADER
+// We also do not worry about these:
+// + OFFLINE_TYPE_IFLUSH: Only used for AArch32 where addresses are only 32 bits.
+// + OFFLINE_TYPE_EXTENDED subtype OFFLINE_EXT_TYPE_MEMINFO: a read (==0) would have
+//   canonical 48..55: but this is used for filtering and always precedes addresses,
+//   so it should never be confused with an address.
+// For the remaining types: for the top byte being non-canonical where bits 48..55
+// still must be all 0's or 1's, we avoid other types from ever being legitimate values
+// when 48..55 are all 0's or '1s as follows:
 // + OFFLINE_TYPE_PC: A PC record: instr_count is 12 bits: 5 in top byte; 7 as top
 //   bits of 48..55. Bit 48 is top bit of modidx: which can be set as that's part of
 //   PC_MODIDX_INVALID. So for 48..55 to be all 0's: count is multiple of 128, or
 //   count is 0. 0 is only used for filtered, where a PC entry with count 0 precedes
 //   each memref, so we can distinguish by record order. To be all 1's: count must be
 //   at least 127. We avoid this by ensuring -max_bb_instrs is 126.
-// + OFFLINE_TYPE_THREAD and OFFLINE_TYPE_PID: We assume these will never appear where
-//   we expect a memref; there will always be a timestamp or some other marker in
-//   between.
-//   XXX i#1734: If this were to change: we would ensure we can identify block
-//   boundaries by knowing the memref count or adding a record in order to avoid these.
 // + OFFLINE_TYPE_TIMESTAMP: A timestamp with 0's in 48..55 and 0's in top bits would
 //   be older than 0x8001000000000000 which is 12/2/1609; with 0's in 48..55 and at
 //   least one 1 in top bits would be at least 0x8100000000000000 which is 5/31/3884;
 //   with 1's in 48..55 would be at least 0x00ff000000000000 which is 7/1/3875. So it
 //   seems reasonable to exclude any seeming timestamp with a canonical 48..55:
 //   assume it's an address.
-// + OFFLINE_TYPE_IFLUSH: AArch32-only where addresses are only 32 bits.
-// + OFFLINE_TYPE_EXTENDED:
-//   + OFFLINE_EXT_TYPE_MARKER: offline_entry_t.extended.valueB is bits 48..55 so
-//     we need to distinguish marker types 0 and all 1's. There is no all 1's; 0 is
-//     TRACE_MARKER_TYPE_KERNEL_EVENT which we no longer use in raw records: we use
-//     TRACE_MARKER_TYPE_KERNEL_EVENT_RAW and convert it in raw2trace.
-//   + OFFLINE_EXT_TYPE_HEADER_DEPRECATED, OFFLINE_EXT_TYPE_FOOTER,
-//     OFFLINE_EXT_TYPE_HEADER: We assume these will never appear where we expect a
-//     memref; there will always be a timestamp or some other marker in between.
-//   + OFFLINE_EXT_TYPE_MEMINFO: a read (==0) would have canonical 48..55: but this
-//     is used for filtering and always precedes addresses, so it should never be
-//     confused with an address.
-// TODO i#1734: Add support to reader_t to optionally (default true) canonicalize all
-// non-canonical addresses (including PC values, along with adding tests to ensure
-// non-canonical PC values are preserved, which they should be without extra work).
+// + OFFLINE_TYPE_EXTENDED subtype OFFLINE_EXT_TYPE_MARKER:
+//   offline_entry_t.extended.valueB is bits 48..55 so we need to distinguish marker
+//   types 0 and all 1's. There is no all 1's; 0 is TRACE_MARKER_TYPE_KERNEL_EVENT
+//   which we no longer use in raw records: we use TRACE_MARKER_TYPE_KERNEL_EVENT_RAW
+//   and convert it in raw2trace.
+// The final piece is distinguishing LAM_U48 where bits 48..55 do not need to all
+// be the same.  However, here the top bit 63 must match bit 47, with both being 0
+// for user-mode addresses.  We assume kernel code never uses these top bits for
+// metadata, and so if all our types have 1 for the top bit we should be all set.
+// We add OFFLINE_TYPE_PC_TOP_BIT for the PC; OFFLINE_TYPE_TIMESTAMP and
+// OFFLINE_TYPE_EXTENDED already have the top bit set.
 typedef enum {
     OFFLINE_TYPE_MEMREF, // We rely on this being 0.
     OFFLINE_TYPE_PC,
     OFFLINE_TYPE_THREAD,
     OFFLINE_TYPE_PID,
     OFFLINE_TYPE_TIMESTAMP,
+#ifdef X64
+    // Identical to OFFLINE_TYPE_PC but the top bit is set, which allows distinguishing
+    // from an address with non-canonical bits 48..62 (Intel's Linear Address Masking
+    // in LAM_U48 mode).
+    OFFLINE_TYPE_PC_TOP_BIT,
+#else
     // An ARM SYS_cacheflush: always has two addr entries for [start, end).
     OFFLINE_TYPE_IFLUSH,
+#endif
     // The ext field identifies this further.
     OFFLINE_TYPE_EXTENDED,
     OFFLINE_TYPE_MEMREF_HIGH = 7,
 } offline_type_t;
 
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
-// These differ in what they store in offline_entry_t.extended.value.
+// These differ in what they store in offline_entry_t.extended.value{A,B}.
 typedef enum {
     // The initial entry in trace files with version older than
     // OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP.  The valueA field holds the

@@ -247,7 +247,7 @@ offline_entry_t
 make_block(uint64_t offs, uint64_t instr_count)
 {
     offline_entry_t entry;
-    entry.pc.type = OFFLINE_TYPE_PC;
+    entry.pc.type = IF_X64_ELSE(OFFLINE_TYPE_PC_TOP_BIT, OFFLINE_TYPE_PC);
     entry.pc.modidx = 0; // Just one "module" in this test.
     entry.pc.modoffs = offs;
     entry.pc.instr_count = instr_count;
@@ -4215,6 +4215,12 @@ test_top_byte_ignore(void *drcontext)
     instr_t *load4 =
         XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG1, 0));
     // No elision (because REG1 has changed).
+    instr_t *load5 =
+        XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG1, 0));
+    // No elision (because REG1 has changed).
+    instr_t *load6 =
+        XINST_CREATE_load(drcontext, opnd_create_reg(REG1), OPND_CREATE_MEMPTR(REG1, 0));
+    // No elision (because REG1 has changed).
     instr_t *store1 =
         XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG1, 0), opnd_create_reg(REG2));
     instr_t *move =
@@ -4227,6 +4233,8 @@ test_top_byte_ignore(void *drcontext)
     instrlist_append(ilist, load2);
     instrlist_append(ilist, load3);
     instrlist_append(ilist, load4);
+    instrlist_append(ilist, load5);
+    instrlist_append(ilist, load6);
     instrlist_append(ilist, store1);
     instrlist_append(ilist, move);
     instrlist_append(ilist, store2);
@@ -4235,7 +4243,9 @@ test_top_byte_ignore(void *drcontext)
     size_t offs_load2 = offs_load1 + instr_length(drcontext, load1);
     size_t offs_load3 = offs_load2 + instr_length(drcontext, load2);
     size_t offs_load4 = offs_load3 + instr_length(drcontext, load3);
-    size_t offs_store1 = offs_load4 + instr_length(drcontext, load4);
+    size_t offs_load5 = offs_load4 + instr_length(drcontext, load4);
+    size_t offs_load6 = offs_load5 + instr_length(drcontext, load5);
+    size_t offs_store1 = offs_load6 + instr_length(drcontext, load6);
     size_t offs_move = offs_store1 + instr_length(drcontext, store1);
     size_t offs_store2 = offs_move + instr_length(drcontext, move);
 
@@ -4247,7 +4257,7 @@ test_top_byte_ignore(void *drcontext)
     constexpr uint64_t TIME_VALUE = 101;
     raw.push_back(make_timestamp(TIME_VALUE));
     raw.push_back(make_core());
-    raw.push_back(make_block(offs_load1, 7));
+    raw.push_back(make_block(offs_load1, 9));
     // Select addresses with top bits set such that they look like
     // other record types, to ensure we treat them as addresses.
     offline_entry_t check_type;
@@ -4256,10 +4266,23 @@ test_top_byte_ignore(void *drcontext)
     ASSERT(check_type.timestamp.type == OFFLINE_TYPE_TIMESTAMP,
            "invalid top-bit constant");
     raw.push_back(make_memref(ADDR_LIKE_TIMESTAMP));
-    constexpr uint64_t ADDR_LIKE_PC = 0x20ff123400005678;
+    constexpr uint64_t ADDR_LIKE_PC = 0x2000123400005678;
     check_type.combined_value = ADDR_LIKE_PC;
     ASSERT(check_type.pc.type == OFFLINE_TYPE_PC, "invalid top-bit constant");
     raw.push_back(make_memref(ADDR_LIKE_PC));
+    constexpr uint64_t ADDR_LIKE_PC_TOP_BIT = 0xab00123400005678;
+    check_type.combined_value = ADDR_LIKE_PC_TOP_BIT;
+    ASSERT(check_type.pc.type == OFFLINE_TYPE_PC_TOP_BIT, "invalid top-bit constant");
+    raw.push_back(make_memref(ADDR_LIKE_PC_TOP_BIT));
+#    ifdef X86_64
+    // Test bits 48..55 not being canonical.
+    constexpr uint64_t ADDR_LIKE_PC_LAM_U57 = 0x2abc123400005678;
+    check_type.combined_value = ADDR_LIKE_PC_LAM_U57;
+    ASSERT(check_type.pc.type == OFFLINE_TYPE_PC, "invalid top-bit constant");
+    raw.push_back(make_memref(ADDR_LIKE_PC_LAM_U57));
+#    else
+    raw.push_back(make_memref(ADDR_LIKE_PC));
+#    endif
     constexpr uint64_t ADDR_LIKE_KERNEL_EVENT = 0xc200000000000000;
     check_type.combined_value = ADDR_LIKE_KERNEL_EVENT;
     ASSERT(check_type.extended.type == OFFLINE_TYPE_EXTENDED &&
@@ -4287,7 +4310,7 @@ test_top_byte_ignore(void *drcontext)
         return false;
     int idx = 0;
     return (
-        stats[RAW2TRACE_STAT_NON_CANONICAL_TOP_BYTE] == 5 &&
+        stats[RAW2TRACE_STAT_NON_CANONICAL_TOP_BITS] == 7 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -4311,6 +4334,13 @@ test_top_byte_ignore(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_READ, -1, ADDR_LIKE_PC) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load4) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1, ADDR_LIKE_PC_TOP_BIT) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load5) &&
+        check_entry(entries, idx, TRACE_TYPE_READ, -1,
+                    IF_X86_ELSE(ADDR_LIKE_PC_LAM_U57, ADDR_LIKE_PC)) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_load6) &&
         check_entry(entries, idx, TRACE_TYPE_READ, -1, ADDR_LIKE_KERNEL_EVENT) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store1) &&

@@ -240,9 +240,13 @@ offline_instru_t::get_entry_type(byte *buf_ptr) const
     case OFFLINE_TYPE_PC: return TRACE_TYPE_INSTR;
     case OFFLINE_TYPE_THREAD: return TRACE_TYPE_THREAD;
     case OFFLINE_TYPE_PID: return TRACE_TYPE_PID;
-    case OFFLINE_TYPE_TIMESTAMP: return TRACE_TYPE_THREAD; // Closest.
+#ifdef X64
+    case OFFLINE_TYPE_PC_TOP_BIT: return TRACE_TYPE_INSTR;
+#else
     case OFFLINE_TYPE_IFLUSH: return TRACE_TYPE_INSTR_FLUSH;
-    case OFFLINE_TYPE_EXTENDED: return TRACE_TYPE_MARKER; // Closest.
+#endif
+    case OFFLINE_TYPE_TIMESTAMP: return TRACE_TYPE_THREAD; // Closest.
+    case OFFLINE_TYPE_EXTENDED: return TRACE_TYPE_MARKER;  // Closest.
     }
     DR_ASSERT(false);
     return TRACE_TYPE_THREAD_EXIT; // Unknown: returning rarest entry.
@@ -259,7 +263,8 @@ int
 offline_instru_t::get_instr_count(byte *buf_ptr) const
 {
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
-    if (entry->addr.type != OFFLINE_TYPE_PC)
+    if (entry->addr.type !=
+        OFFLINE_TYPE_PC IF_X64(&&entry->addr.type != OFFLINE_TYPE_PC_TOP_BIT))
         return 0;
     // TODO i#3995: We should *not* count "non-fetched" instrs so we'll match
     // hardware performance counters.
@@ -271,7 +276,8 @@ addr_t
 offline_instru_t::get_entry_addr(void *drcontext, byte *buf_ptr) const
 {
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
-    if (entry->addr.type == OFFLINE_TYPE_PC) {
+    if (entry->addr.type ==
+        OFFLINE_TYPE_PC IF_X64(|| entry->addr.type == OFFLINE_TYPE_PC_TOP_BIT)) {
         // XXX i#4014: Use caching to avoid lookup for last queried modbase.
         app_pc modbase;
         if (drmodtrack_lookup_pc_from_index(drcontext, entry->pc.modidx, &modbase) !=
@@ -353,6 +359,10 @@ offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr
 int
 offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 {
+#ifdef X64
+    DR_ASSERT(false);
+    return 0;
+#else
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->addr.type = OFFLINE_TYPE_IFLUSH;
     entry->addr.addr = start;
@@ -360,6 +370,7 @@ offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
     entry->addr.type = OFFLINE_TYPE_IFLUSH;
     entry->addr.addr = start + size;
     return 2 * sizeof(offline_entry_t);
+#endif
 }
 
 int
@@ -563,7 +574,7 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
                                  app_pc pc, uint instr_count, per_block_t *per_block)
 {
     offline_entry_t entry;
-    entry.pc.type = OFFLINE_TYPE_PC;
+    entry.pc.type = IF_X64_ELSE(OFFLINE_TYPE_PC_TOP_BIT, OFFLINE_TYPE_PC);
     app_pc modbase;
     uint modidx;
     uint64_t modoffs;
