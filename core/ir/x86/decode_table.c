@@ -379,7 +379,7 @@ const instr_info_t * const op_instr[] =
     /* OP_ldmxcsr      */   &e_vex_extensions[61][0],
     /* OP_stmxcsr      */   &e_vex_extensions[62][0],
     /* OP_lfence       */   &mod_extensions[6][1],
-    /* OP_mfence       */   &mod_extensions[7][1],
+    /* OP_mfence       */   &prefix_extensions[197][0],
     /* OP_clflush      */   &prefix_extensions[194][0],
     /* OP_sfence       */   &mod_extensions[3][1],
     /* OP_prefetchnta  */   &base_extensions[23][0],
@@ -1703,6 +1703,10 @@ const instr_info_t * const op_instr[] =
     /* OP_erets */ &prefix_extensions[196][3],
     /* OP_eretu */ &prefix_extensions[196][1],
     /* OP_lkgs */ &base_extensions[13][6],
+
+    /* OP_umonitor */ &prefix_extensions[197][1],
+    /* OP_tpause */ &prefix_extensions[197][2],
+    /* OP_umwait */ &prefix_extensions[197][3],
 };
 
 
@@ -1762,6 +1766,7 @@ const instr_info_t * const op_instr[] =
 #define Rr  TYPE_R, OPSZ_4x8
 #define Rv  TYPE_R, OPSZ_4_rex8_short2
 #define Ry  TYPE_R, OPSZ_4_rex8
+#define Raddr TYPE_R, OPSZ_addr
 #define Sw  TYPE_S, OPSZ_2
 #define Vq  TYPE_V, OPSZ_8
 #define Vdq TYPE_V, OPSZ_16
@@ -4716,7 +4721,7 @@ const instr_info_t prefix_extensions[][12] = {
   }, /* prefix extension 103 */
   {
     {REX_B_EXT,  0x900000, catUncategorized, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
-    {OP_pause,0xf3900000, catUncategorized, "pause", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {OP_pause,  0xf3900000, catOther, "pause", xx, xx, xx, xx, xx, no, x, END_LIST},
     {REX_B_EXT, 0x900000, catUncategorized, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {REX_B_EXT, 0xf2900000, catUncategorized, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {INVALID,     0x900000, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6032,8 +6037,22 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf301ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0x6601ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0xf201ca08, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 197 */
+    {OP_mfence,       0x0fae36, catState, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_umonitor,   0xf30fae36, catOther, "umonitor", xx, xx, Raddr, xx, xx, mrm, x, END_LIST},
+    {OP_tpause,     0x660fae36, catOther, "tpause", xx, xx, Rd, edx, eax, mrm, fW6, END_LIST},
+    {OP_umwait,     0xf20fae36, catOther, "umwait", xx, xx, Rd, edx, eax, mrm, fW6, END_LIST},
+    {INVALID,         0x0fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf30fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x660fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,         0x0fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf30fae36, catUncategorized, "(bad)"  , xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x660fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }
 };
+
 /****************************************************************************
  * Instructions that differ based on whether vex-encoded or not.
  * Most of these require an 0x66 prefix but we use reqp for that
@@ -6715,7 +6734,7 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 7 */
     {PREFIX_EXT,  0x0fae36, catUncategorized, "(prefix ext 195)", xx, xx, xx, xx, xx, no, x, 195},
-    {OP_mfence,   0xf00fae76, catState, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {PREFIX_EXT,  0x0fae76, catUncategorized, "(prefix ext 197)", xx, xx, xx, xx, xx, no, x, 197},
   },
   { /* mod extension 8 */
     {OP_vmovss,  0xf30f1010, catFP | catMove | catSIMD, "vmovss",  Vdq, xx, Wss,  xx, xx, mrm|vex, x, modx[10][0]},
