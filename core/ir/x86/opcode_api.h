@@ -1690,6 +1690,11 @@ enum {
     /* 1479 */ OP_eretu, /**< IA-32/AMD64 eretu opcode. */
     /* 1480 */ OP_lkgs,  /**< IA-32/AMD64 lkgs opcode. */
 
+    /* WAITPKG */
+    /* 1481 */ OP_umonitor, /**< IA-32/AMD64 umonitor opcode. */
+    /* 1482 */ OP_tpause,   /**< IA-32/AMD64 tpause opcode. */
+    /* 1483 */ OP_umwait,   /**< IA-32/AMD64 uwait opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
