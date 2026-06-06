@@ -1952,8 +1952,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 int element_count = 0;
                 // Conservative upper bound.
                 constexpr int MAX_SG_ELEMENTS = 2048;
-                trace_entry_t sg_buf[MAX_SG_ELEMENTS];
-                trace_entry_t *sg_buf_cur = sg_buf;
+                auto sg_buf = std::make_unique<trace_entry_t[]>(MAX_SG_ELEMENTS);
+                trace_entry_t *sg_buf_cur = sg_buf.get();
                 in_entry = get_next_entry(tdata);
                 if (in_entry != nullptr) {
                     if (!(in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
@@ -2010,7 +2010,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 }
                 --memref_count; // The final append_memref did not find one.
                 DR_ASSERT(!add_skipped_markers || memref_count <= element_count);
-                sg_buf_cur = sg_buf;
+                sg_buf_cur = sg_buf.get();
                 int element_index = 0;
                 for (int memref_index = 0; memref_index < memref_count ||
                      (add_skipped_markers && element_index < element_count);
