@@ -103,6 +103,7 @@ proc_set_cache_size(uint val, uint *dst)
     case 8: *dst = CACHE_SIZE_8_KB; break;
     case 16: *dst = CACHE_SIZE_16_KB; break;
     case 32: *dst = CACHE_SIZE_32_KB; break;
+    case 48: *dst = CACHE_SIZE_48_KB; break;
     case 64: *dst = CACHE_SIZE_64_KB; break;
     case 128: *dst = CACHE_SIZE_128_KB; break;
     case 256: *dst = CACHE_SIZE_256_KB; break;
@@ -255,9 +256,10 @@ proc_get_L2_cache_size(void)
 const char *
 proc_get_cache_size_str(cache_size_t size)
 {
-    static const char *strings[] = { "8 KB",   "16 KB",  "32 KB", "64 KB", "128 KB",
-                                     "256 KB", "512 KB", "1 MB",  "2 MB",  "unknown" };
-    CLIENT_ASSERT(size <= CACHE_SIZE_UNKNOWN, "proc_get_cache_size_str: invalid size");
+    static const char *strings[] = { "8 KB",   "16 KB",   "32 KB",  "64 KB",
+                                     "128 KB", "256 KB",  "512 KB", "1 MB",
+                                     "2 MB",   "unknown", "48 KB" };
+    CLIENT_ASSERT(size <= CACHE_SIZE_48_KB, "proc_get_cache_size_str: invalid size");
     return strings[size];
 }
 
