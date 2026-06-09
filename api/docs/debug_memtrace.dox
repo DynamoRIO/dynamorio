@@ -71,7 +71,7 @@ Cheat sheet:
 - 8* is a timestamp
 - 6* is a pid
 - 4* is a tid
-- 2* is a 32-bit or PC entry
+- 2* is a 32-bit PC entry
 - a* is a 64-bit PC entry (or 32-bit arm iflush)
 - c2* is a marker
 - c203* is a cpu id
