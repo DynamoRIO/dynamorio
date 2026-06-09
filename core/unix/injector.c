@@ -2074,7 +2074,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     /* This should run something equivalent to dynamorio_app_init(), and then
      * return.
      * XXX: we can actually fault during dynamorio_app_init() due to safe_reads,
-     * so we have to expect SIGSEGV and let it be delivered.
+     * so we have to expect SIGSEGV or SIGBUS and let it be delivered.
      * XXX: SIGILL is delivered from signal_arch_init() and we should pass it
      * to its original handler.
      */
@@ -2098,7 +2098,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
             return false;
         }
         signal = WSTOPSIG(status);
-    } while (signal == SIGSEGV || signal == SIGILL);
+    } while (signal == SIGSEGV || signal == SIGBUS || signal == SIGILL);
 
     /* When we get SIGTRAP, DR has initialized. */
     if (signal != SIGTRAP) {
