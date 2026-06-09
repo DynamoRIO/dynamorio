@@ -814,7 +814,8 @@ privload_os_finalize(privmod_t *privmod)
     do {
         instr_reset(GLOBAL_DCONTEXT, instr);
         pc = decode(GLOBAL_DCONTEXT, pc, instr);
-        if (instr_get_opcode(instr) == OP_mov_ld &&
+        if ((instr_get_opcode(instr) == OP_mov_ld ||
+             instr_get_opcode(instr) == OP_movdqu) &&
             opnd_is_base_disp(instr_get_src(instr, 0))) {
             int disp = opnd_get_disp(instr_get_src(instr, 0));
             if (disp > MIN_LOAD_OFFS)
