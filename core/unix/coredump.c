@@ -58,7 +58,7 @@
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
-#define VVAR_SECTION "[vvar]"
+#define VVAR_SECTION_PREFIX "[vvar"
 #define VSYSCALL_SECTION "[vsyscall]"
 /*
  * The length of the name has to be a multiple of eight (for X64) to ensure the next
@@ -95,6 +95,8 @@ typedef struct _section_header_info_t {
     app_pc vm_end;
     uint prot;
     ELF_ADDR name_offset;
+    bool is_vvar; /* true for [vvar] and [vvar_vclock]: kernel-owned pages that fault on
+                     direct access despite PROT_READ */
 } section_header_info_t;
 
 /*
@@ -461,17 +463,16 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     // in iter.comment. Region names are stored in the section name table
     // without duplications. An offset is used in the section header to locate
     // the section name in the section name table.
-    int vvar_section = -1;
     while (memquery_iterator_next(&iter)) {
         // Skip non-readable sections during processing, with the exception of the VVAR
-        // section. The VVAR mapping is included in the core dump file, but its contents
-        // are not saved.
+        // sections. The VVAR mappings are included in the core dump file, but their
+        // contents are not saved.
         if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VSYSCALL_SECTION) == 0) {
             continue;
         }
-        if (strcmp(iter.comment, VVAR_SECTION) == 0) {
-            vvar_section = section_count;
-        }
+        /* [vvar] and [vvar_vclock] are kernel-owned pages that return EFAULT on read. */
+        const bool is_vvar = strncmp(iter.comment, VVAR_SECTION_PREFIX,
+                                     sizeof(VVAR_SECTION_PREFIX) - 1) == 0;
         ELF_ADDR offset = 0;
         if (iter.comment != NULL && iter.comment[0] != '\0') {
             TABLE_RWLOCK(string_htable, write, lock);
@@ -498,7 +499,8 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
         section_header_info[section_count].vm_end = iter.vm_end;
         section_header_info[section_count].prot = iter.prot;
         section_header_info[section_count].name_offset = offset;
-        if (section_count != vvar_section) {
+        section_header_info[section_count].is_vvar = is_vvar;
+        if (!is_vvar) {
             section_data_size += iter.vm_end - iter.vm_start;
         }
         ++section_count;
@@ -600,13 +602,13 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
                 /*virtual_address=*/(ELF_ADDR)section_header_info[section_index].vm_start,
                 /*physical_address=*/
                 (ELF_ADDR)section_header_info[section_index].vm_start,
-                /*file_size=*/section_index == vvar_section ? 0 : size,
+                /*file_size=*/section_header_info[section_index].is_vvar ? 0 : size,
                 /*memory_size=*/size,
                 /*alignment=*/os_page_size())) {
             os_close(elf_file);
             return false;
         }
-        if (section_index != vvar_section) {
+        if (!section_header_info[section_index].is_vvar) {
             core_file_offset += section_header_info[section_index].vm_end -
                 section_header_info[section_index].vm_start;
         }
@@ -643,10 +645,9 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     }
     // Write memory content to the core dump file.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
-        // The vvar section is not readable. The program header has the file
-        // size set to zero to indicate the content is not recorded in the
-        // memory dump file.
-        if (section_index == vvar_section) {
+        // [vvar] and [vvar_vclock] are not readable. Their program headers have
+        // file size zero, so there is no content to write.
+        if (section_header_info[section_index].is_vvar) {
             continue;
         }
         const size_t length = section_header_info[section_index].vm_end -
@@ -700,7 +701,7 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
             os_close(elf_file);
             return false;
         }
-        if (section_index != vvar_section) {
+        if (!section_header_info[section_index].is_vvar) {
             core_file_offset += section_header_info[section_index].vm_end -
                 section_header_info[section_index].vm_start;
         }
