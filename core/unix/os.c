@@ -10120,7 +10120,9 @@ found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(DR_PARAM_OUT const char **ma
      */
     ASSERT(iter->vm_end - iter->vm_start == PAGE_SIZE ||
            /* i#1583: recent kernels have 2-page vdso */
-           iter->vm_end - iter->vm_start == 2 * PAGE_SIZE);
+           iter->vm_end - iter->vm_start == 2 * PAGE_SIZE ||
+           /* i#7924: recent kernels have 3-page vdso */
+           iter->vm_end - iter->vm_start == 3 * PAGE_SIZE);
     ASSERT(!dynamo_initialized); /* .data should be +w */
     /* we're not considering as "image" even if part of ld.so (xref i#89) and
      * thus we aren't adjusting our code origins policies to remove the
