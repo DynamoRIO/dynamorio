@@ -6793,9 +6793,10 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     drsyscall_record_lib)
 
   if (X64)
-    file(COPY syscall_record_file.test DESTINATION "${PROJECT_BINARY_DIR}/suite/tests")
     set(syscall_record_test_file
-      "${PROJECT_BINARY_DIR}/suite/tests/syscall_record_file.test")
+      # Add a "trim_" prefix to avoid deletion by client.syscall-records-test.
+      "${PROJECT_BINARY_DIR}/suite/tests/trim_syscall_record_file.test")
+    file(COPY_FILE syscall_record_file.test "${syscall_record_test_file}")
     set(tool.drsyscall-record-trimmer-test_runcmp
       "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
     set(tool.drsyscall-record-trimmer-test_expectbase "drsyscall-record-trimmer-test")
