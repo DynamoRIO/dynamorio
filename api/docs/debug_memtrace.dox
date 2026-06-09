@@ -66,13 +66,13 @@ Of course, if the raw file is compressed, it must first be uncompressed.  Use `u
 
 Cheat sheet:
 
-- c040000000000004 is a header (offline version 4; type 0x40==OFFLINE_FILE_TYPE_ARCH_X86_64)
+- c408000000000c40 is a header (offline version 8; type 0xc40==OFFLINE_FILE_TYPE_SYSCALL_NUMBERS|OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS|OFFLINE_FILE_TYPE_ARCH_X86_64)
 - c100000000000000 is a footer
 - 8* is a timestamp
 - 6* is a pid
 - 4* is a tid
-- 2* are PC entries
-- a* is an arm iflush
+- 2* is a 32-bit or PC entry
+- a* is a 64-bit PC entry (or 32-bit arm iflush)
 - c2* is a marker
 - c203* is a cpu id
 - c20a* is the cache line size
