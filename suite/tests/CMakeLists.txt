@@ -6796,7 +6796,7 @@ IF (NOT ANDROID AND NOT APPLE AND NOT MUSL AND NOT RISCV64 AND NOT WINDOWS)
     set(syscall_record_test_file
       # Add a "trim_" prefix to avoid deletion by client.syscall-records-test.
       "${PROJECT_BINARY_DIR}/suite/tests/trim_syscall_record_file.test")
-    file(COPY_FILE syscall_record_file.test "${syscall_record_test_file}")
+    configure_file(syscall_record_file.test "${syscall_record_test_file}" COPYONLY)
     set(tool.drsyscall-record-trimmer-test_runcmp
       "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
     set(tool.drsyscall-record-trimmer-test_expectbase "drsyscall-record-trimmer-test")
