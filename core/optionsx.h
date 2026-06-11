@@ -67,7 +67,6 @@
  * appended to if multiple option instances are specified
  */
 
-
 /* Shortcuts for the common cases */
 #define OPTION_DEFAULT(type, name, value, description) \
     OPTION_COMMAND(type, name, value, #name, {}, description, STATIC, OP_PCACHE_NOP)
