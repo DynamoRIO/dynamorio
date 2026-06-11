@@ -67,10 +67,6 @@
  * appended to if multiple option instances are specified
  */
 
-#ifdef bool
-/* Avoid problems with bool macros on Mac. */
-#    undef bool
-#endif
 
 /* Shortcuts for the common cases */
 #define OPTION_DEFAULT(type, name, value, description) \

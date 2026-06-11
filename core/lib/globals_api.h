@@ -55,7 +55,13 @@
 #    include <stdio.h>
 #    include <stdlib.h>
 #endif
-#include <stdarg.h> /* for varargs */
+#include <stdarg.h>  /* for varargs */
+#include <stdbool.h> /* for bool */
+
+#ifdef DYNAMORIO_INTERNAL
+/* Use typedef below to avoid token pasting issues with macros in core. */
+#    undef bool
+#endif
 
 #ifndef DYNAMORIO_INTERNAL
 /* A client's target operating system and architecture must be specified. */
@@ -112,12 +118,9 @@
 #            define inline __inline__
 #        endif
 #        ifndef DR_DO_NOT_DEFINE_bool
-#            ifdef DR__Bool_EXISTS
+#            if defined(DR__Bool_EXISTS) & !defined(bool)
 /* prefer _Bool as it avoids truncation casting non-zero to zero */
 typedef _Bool bool;
-#            else
-/* char-sized for compatibility with C++ */
-typedef char bool;
 #            endif
 #        endif
 #        ifndef true
@@ -289,7 +292,7 @@ typedef size_t app_rva_t;
 
 #define PTR_UINT_0 ((ptr_uint_t)0U)
 #define PTR_UINT_1 ((ptr_uint_t)1U)
-#define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
+#define PTR_UINT_MINUS_1 ((ptr_uint_t) - 1)
 
 #ifdef WINDOWS
 typedef ptr_uint_t thread_id_t;
