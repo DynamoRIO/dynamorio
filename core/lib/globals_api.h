@@ -121,6 +121,7 @@
 #            if defined(DR__Bool_EXISTS) & !defined(bool)
 /* prefer _Bool as it avoids truncation casting non-zero to zero */
 typedef _Bool bool;
+#                define DR_BOOL_DEFINED 1
 #            endif
 #        endif
 #        ifndef true

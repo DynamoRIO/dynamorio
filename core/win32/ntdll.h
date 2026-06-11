@@ -460,7 +460,7 @@ typedef struct _PROCESS_DEVICEMAP_INFORMATION {
 } PROCESS_DEVICEMAP_INFORMATION, *PPROCESS_DEVICEMAP_INFORMATION;
 
 #if defined(NOT_DYNAMORIO_CORE)
-#    ifndef bool
+#    if !defined(bool) && !defined(DR_BOOL_DEFINED)
 typedef char bool;
 #    endif /* bool */
 typedef unsigned __int64 uint64;
