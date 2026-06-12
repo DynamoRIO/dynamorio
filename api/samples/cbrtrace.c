@@ -44,19 +44,24 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "utils.h"
+#include "assert.h"
 
 static client_id_t client_id;
 
 static int tls_idx;
-
+static long cbrn = 0;
+static long cbrn_t = 0;
 /* Clean call for the cbr */
 static void
 at_cbr(app_pc inst_addr, app_pc targ_addr, app_pc fall_addr, int taken, void *bb_addr)
 {
+    cbrn += 1;
+    cbrn_t += taken;
+    assert(taken == 1 || taken == 0);
     void *drcontext = dr_get_current_drcontext();
     file_t log = (file_t)(ptr_uint_t)drmgr_get_tls_field(drcontext, tls_idx);
     dr_fprintf(log, "" PFX " [" PFX ", " PFX ", " PFX "] => " PFX "\n", bb_addr,
-               inst_addr, fall_addr, targ_addr, taken == 0 ? fall_addr : targ_addr);
+            inst_addr, fall_addr, targ_addr, taken == 0 ? fall_addr : targ_addr);
 }
 
 static dr_emit_flags_t
@@ -75,10 +80,10 @@ event_thread_init(void *drcontext)
 {
     file_t log;
     log =
-        log_file_open(client_id, drcontext, NULL /* using client lib path */, "cbrtrace",
+            log_file_open(client_id, drcontext, NULL /* using client lib path */, "cbrtrace",
 #ifndef WINDOWS
-                      DR_FILE_CLOSE_ON_FORK |
-#endif
+                          DR_FILE_CLOSE_ON_FORK |
+                          #endif
                           DR_FILE_ALLOW_LARGE);
     DR_ASSERT(log != INVALID_FILE);
     drmgr_set_tls_field(drcontext, tls_idx, (void *)(ptr_uint_t)log);
@@ -93,6 +98,8 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
+    dr_fprintf(STDERR, "CBR instruction number: %ld, taken: %ld, not taken: %ld\n", cbrn,
+               cbrn_t, cbrn - cbrn_t);
     dr_log(NULL, DR_LOG_ALL, 1, "Client 'cbrtrace' exiting");
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on())
