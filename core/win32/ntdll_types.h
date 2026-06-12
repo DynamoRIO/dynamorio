@@ -101,8 +101,26 @@ typedef enum _MEMORY_INFORMATION_CLASS {
     MemoryBasicInformation,
     MemoryWorkingSetList,
     MemorySectionName,
-    MemoryBasicVlmInformation
+    MemoryBasicVlmInformation,
+    /* Windows 11 24H2+ (i#7487): CFG extension information */
+    MemoryImageExtensionInformation = 14
 } MEMORY_INFORMATION_CLASS;
+
+/* Windows 11 24H2+ (i#7487): CFG extension memory region information.
+ * See https://ynwarcs.github.io/Win11-24H2-CFG for details.
+ */
+typedef enum _MEMORY_IMAGE_EXTENSION_TYPE {
+    MemoryImageExtensionCfgScp,
+    MemoryImageExtensionCfgEmulatedScp,
+    MemoryImageExtensionTypeMax,
+} MEMORY_IMAGE_EXTENSION_TYPE;
+
+typedef struct _MEMORY_IMAGE_EXTENSION_INFORMATION {
+    MEMORY_IMAGE_EXTENSION_TYPE ExtensionType;
+    ULONG Flags;
+    PVOID ExtensionImageBaseRva;
+    SIZE_T ExtensionSize;
+} MEMORY_IMAGE_EXTENSION_INFORMATION, *PMEMORY_IMAGE_EXTENSION_INFORMATION;
 
 /* from DDK2003SP1/3790.1830/inc/ddk/wnet/ntddk.h */
 typedef enum _PROCESSINFOCLASS {

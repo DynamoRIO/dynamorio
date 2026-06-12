@@ -207,6 +207,15 @@ redirect_LdrLoadDll(DR_PARAM_IN PWSTR path OPTIONAL,
                     DR_PARAM_IN PULONG characteristics OPTIONAL,
                     DR_PARAM_IN PUNICODE_STRING name, DR_PARAM_OUT PVOID *handle);
 
+PVOID NTAPI
+redirect_LdrResolveDelayLoadedAPI(DR_PARAM_IN PVOID ParentModuleBase,
+                                  DR_PARAM_IN PCIMAGE_DELAYLOAD_DESCRIPTOR
+                                      DelayloadDescriptor,
+                                  DR_PARAM_IN PDELAYLOAD_FAILURE_DLL_CALLBACK FailureDllHook,
+                                  DR_PARAM_IN PVOID FailureSystemHook,
+                                  DR_PARAM_OUT PIMAGE_THUNK_DATA ThunkAddress,
+                                  DR_PARAM_IN ULONG Flags);
+
 /* This is exported by some kernel32.dll versions, but it's just forwarded
  * directly or there's a stub that calls the real impl in ntdll.
  */
