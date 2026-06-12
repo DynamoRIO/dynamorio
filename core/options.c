@@ -66,7 +66,7 @@ typedef unsigned int uint;
 
 #    define print_file(f, s, x)
 
-#    ifndef bool
+#    if !defined(bool) && !defined(DR_BOOL_DEFINED)
 typedef char bool;
 #    endif
 #    ifndef true
