@@ -922,6 +922,8 @@ run_vector_length_test(void *drcontext)
     constexpr int VECTOR_LENGTH_BYTES = 16; // In bytes.
     dr_set_vector_length(VECTOR_LENGTH_BYTES * 8);
     constexpr int DISP = VECTOR_LENGTH_BYTES;
+    // This instruction's memory operand displacement is defined by the
+    // ISA to be a multiple of the vector length.
     instr_t *ld1b_imm = INSTR_CREATE_ld1b_sve_pred(
         drcontext, opnd_create_reg_element_vector(DR_REG_Z12, OPSZ_1),
         opnd_create_predicate_reg(DR_REG_P4, /*is_merge=*/false),
