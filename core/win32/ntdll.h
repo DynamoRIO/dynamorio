@@ -86,13 +86,13 @@
  */
 
 #define NT_CURRENT_PROCESS ((HANDLE)PTR_UINT_MINUS_1)
-#define NT_CURRENT_THREAD ((HANDLE)(ptr_uint_t) - 2)
+#define NT_CURRENT_THREAD ((HANDLE)(ptr_uint_t)-2)
 
 /* This macro is defined in wincon.h, but requires _WIN32_WINNT be XP+. _WIN32_WINNT is
  * defined in globals.h to _WIN32_WINNT_NT4, thus the need for this re-definition.
  */
 #ifndef ATTACH_PARENT_PROCESS
-#    define ATTACH_PARENT_PROCESS ((DWORD) - 1)
+#    define ATTACH_PARENT_PROCESS ((DWORD)-1)
 #endif
 
 #ifdef X64

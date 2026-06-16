@@ -1312,6 +1312,8 @@ if (UNIX) # unlikely to be an issue on Windows
   CHECK_TYPE_SIZE(uint64 DR_DO_NOT_DEFINE_uint64)
   CHECK_TYPE_SIZE(int32 DR_DO_NOT_DEFINE_int32)
   CHECK_TYPE_SIZE(int64 DR_DO_NOT_DEFINE_int64)
+  # We could do CHECK_SYMBOL_EXISTS for MAX and MIN but they're not
+  # in standard headers so up to user to define if an issue.
 endif (UNIX)
 
 if (LINUX)
