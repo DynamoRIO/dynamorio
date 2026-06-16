@@ -121,7 +121,7 @@
 #            define inline __inline__
 #        endif
 #        ifndef DR_DO_NOT_DEFINE_bool
-#            if defined(DR__Bool_EXISTS) && !defined(DYNAMORIO_INTERNAL)
+#            if defined(DR__Bool_EXISTS) && defined(DYNAMORIO_INTERNAL)
 /* prefer _Bool as it avoids truncation casting non-zero to zero */
 typedef _Bool bool;
 #                define DR_BOOL_DEFINED 1
