@@ -296,7 +296,7 @@ typedef size_t app_rva_t;
 
 #define PTR_UINT_0 ((ptr_uint_t)0U)
 #define PTR_UINT_1 ((ptr_uint_t)1U)
-#define PTR_UINT_MINUS_1 ((ptr_uint_t) - 1)
+#define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
 
 #ifdef WINDOWS
 typedef ptr_uint_t thread_id_t;
