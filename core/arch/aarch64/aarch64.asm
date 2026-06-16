@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2025 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2025 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -306,6 +306,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         mov      x26, x5  /* sys_arg3 */
         mov      x27, x6  /* sys_arg4 */
 #endif
+                          /* x28 used below for initstack_mutex. */
 
         /* inc exiting_thread_count to avoid being killed once off all_threads list */
         AARCH64_ADRP_GOT(GLOBAL_REF(exiting_thread_count), x0)
@@ -331,10 +332,13 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* switch to d_r_initstack for cleanup of dstack */
-        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x0)
+        /* Switch to d_r_initstack for cleanup of dstack.
+         * Store the address in callee-saved x28 to avoid clobbering by
+         * atomic_swap if we loop on contention.
+         */
+        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x28)
 cat_spin:
-        CALLC2(GLOBAL_REF(atomic_swap), x0, #1)
+        CALLC2(GLOBAL_REF(atomic_swap), x28, #1)
         cbz      w0, cat_have_lock
         yield
         b        cat_spin
