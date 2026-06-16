@@ -447,10 +447,33 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: wait for another core>\n";
             break;
         case TRACE_MARKER_TYPE_CORE_IDLE: std::cerr << "<marker: core is idle>\n"; break;
-        case TRACE_MARKER_TYPE_VECTOR_LENGTH:
+        case TRACE_MARKER_TYPE_VECTOR_LENGTH: {
             std::cerr << "<marker: vector length " << memref.marker.marker_value
                       << " bytes>\n";
+#ifdef AARCH64
+            const int new_vl_bits = memref.marker.marker_value * 8;
+            if (dr_get_vector_length() != new_vl_bits) {
+                // XXX i#6646: Ideally all uses wouldn't have to set this (we have to do
+                // this in raw2trace and invariant_checker as well) and there would be a
+                // non-0 accurate default set in drdecode's initializer, or for
+                // drmemtrace possibly the reader or decode cache: though there are
+                // problems with those (reader doesn't use libdynamorio, and decode
+                // cache doesn't see all records).  For dynamic changes to the vector
+                // length (xref i#6625), users would have to update it: but that is
+                // likely very rare? Or maybe that argues for decode cache being given
+                // access to every record?
+                dr_set_vector_length(new_vl_bits);
+                if (decode_cache_ != nullptr) {
+                    // Ensure we print the proper offset for SVE load/store instructions
+                    // whose offset depends on the vector length. The vector length
+                    // can change dynamically so this could happen mid-trace (at least
+                    // once i#6625 is finished so drmemtrace outputs a new marker).
+                    decode_cache_->clear_cache();
+                }
+            }
+#endif
             break;
+        }
         case TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION:
             // The value stores the encoding of the uncompleted instruction up
             // to the length of a pointer. The encoding may not be complete so
