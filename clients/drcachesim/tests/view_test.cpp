@@ -912,6 +912,90 @@ run_regdeps_test(void *drcontext)
     return true;
 }
 
+#ifdef AARCH64
+/* Test view tool setting the vector length. */
+bool
+run_vector_length_test(void *drcontext)
+{
+    instrlist_t *ilist = instrlist_create(drcontext);
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    constexpr int VECTOR_LENGTH_BYTES = 16; // In bytes.
+    dr_set_vector_length(VECTOR_LENGTH_BYTES * 8);
+    constexpr int DISP = VECTOR_LENGTH_BYTES;
+    instr_t *ld1b_imm = INSTR_CREATE_ld1b_sve_pred(
+        drcontext, opnd_create_reg_element_vector(DR_REG_Z12, OPSZ_1),
+        opnd_create_predicate_reg(DR_REG_P4, /*is_merge=*/false),
+        opnd_create_base_disp(REG2, DR_REG_NULL, 0, DISP, OPSZ_1));
+    instr_t *ld1b_noimm = INSTR_CREATE_ld1b_sve_pred(
+        drcontext, opnd_create_reg_element_vector(DR_REG_Z12, OPSZ_1),
+        opnd_create_predicate_reg(DR_REG_P4, /*is_merge=*/false),
+        opnd_create_base_disp(REG2, DR_REG_NULL, 0, 0, OPSZ_1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, ld1b_imm);
+    instrlist_append(ilist, ld1b_noimm);
+
+    constexpr int INSTR_SIZE = 4;
+    constexpr int MAX_INSTRS = 4;
+    int encodings[MAX_INSTRS];
+    byte *pc = instrlist_encode_to_copy(
+        drcontext, ilist, reinterpret_cast<byte *>(encodings),
+        reinterpret_cast<byte *>(static_cast<ptr_uint_t>(/*arbitrary*/ 4)), nullptr,
+        /*has_instr_jmp_targets=*/false);
+    assert(pc != nullptr);
+    assert(reinterpret_cast<int *>(pc) - encodings < MAX_INSTRS);
+
+    constexpr int OFFS_LD1B_IMM = 1;
+    constexpr int OFFS_LD1B_NOIMM = 2;
+    constexpr addr_t PC_LD1B_IMM = 0x1234;
+    constexpr addr_t PC_LD1B_NOIMM = PC_LD1B_IMM + INSTR_SIZE;
+
+    const memref_tid_t tid = 3;
+    std::vector<memref_tid_t> tids = { tid };
+    std::vector<trace_entry_t> records = {
+        test_util::make_thread(tid),
+        test_util::make_pid(/*pid=*/tid),
+        test_util::make_marker(TRACE_MARKER_TYPE_VERSION, 3),
+        test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE,
+                               OFFLINE_FILE_TYPE_ARCH_AARCH64 |
+                                   OFFLINE_FILE_TYPE_ENCODINGS),
+        test_util::make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+        test_util::make_marker(TRACE_MARKER_TYPE_VECTOR_LENGTH, VECTOR_LENGTH_BYTES),
+        test_util::make_marker(TRACE_MARKER_TYPE_TIMESTAMP, 1001),
+        test_util::make_marker(TRACE_MARKER_TYPE_CPU_ID, 2),
+        test_util::make_encoding(INSTR_SIZE, encodings[OFFS_LD1B_IMM]),
+        test_util::make_instr(PC_LD1B_IMM, TRACE_TYPE_INSTR, INSTR_SIZE),
+        test_util::make_memref(0x42, TRACE_TYPE_READ, 4),
+        test_util::make_encoding(INSTR_SIZE, encodings[OFFS_LD1B_NOIMM]),
+        test_util::make_instr(PC_LD1B_NOIMM, TRACE_TYPE_INSTR, INSTR_SIZE),
+        test_util::make_memref(0x42, TRACE_TYPE_READ, 4),
+    };
+
+    // We are looking for the first ld1b's displacement to be 0x10.
+    // If the vector length marker isn't processed, it will be 0.
+    /* clang-format off */
+    std::string expect =
+        std::string(R"DELIM(           1           0:       W0.T3 <marker: version 3>
+           2           0:       W0.T3 <marker: filetype 0x208>
+           3           0:       W0.T3 <marker: cache line size 64>
+           4           0:       W0.T3 <marker: vector length 16 bytes>
+           5           0:       W0.T3 <marker: timestamp 1001>
+           6           0:       W0.T3 <marker: W0.T3 on core 2>
+           7           1:       W0.T3 ifetch       4 byte(s) @ 0x0000000000001234 a401b02c   ld1b   +0x10(%x1)[1byte] %p4/z -> %z12.b
+           8           1:       W0.T3 read         4 byte(s) @ 0x0000000000000042 by PC 0x0000000000001234
+           9           2:       W0.T3 ifetch       4 byte(s) @ 0x0000000000001238 a400b02c   ld1b   (%x1)[1byte] %p4/z -> %z12.b
+          10           2:       W0.T3 read         4 byte(s) @ 0x0000000000000042 by PC 0x0000000000001238
+)DELIM");
+    /* clang-format on */
+
+    std::string res = run_with_analyzer(drcontext, *ilist, records);
+    if (res != expect) {
+        std::cerr << "Output mismatch: got |" << res << "| expected |" << expect << "|\n";
+        return false;
+    }
+    return true;
+}
+#endif
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -919,6 +1003,9 @@ test_main(int argc, const char *argv[])
     if (run_limit_tests(drcontext) && run_chunk_tests(drcontext) &&
 #ifdef X86
         run_unfetched_rep_string_test(drcontext) &&
+#endif
+#ifdef AARCH64
+        run_vector_length_test(drcontext) &&
 #endif
         run_regdeps_test(drcontext)) {
         std::cerr << "view_test passed\n";

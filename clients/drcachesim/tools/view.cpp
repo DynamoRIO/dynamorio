@@ -447,10 +447,22 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: wait for another core>\n";
             break;
         case TRACE_MARKER_TYPE_CORE_IDLE: std::cerr << "<marker: core is idle>\n"; break;
-        case TRACE_MARKER_TYPE_VECTOR_LENGTH:
+        case TRACE_MARKER_TYPE_VECTOR_LENGTH: {
             std::cerr << "<marker: vector length " << memref.marker.marker_value
                       << " bytes>\n";
+#ifdef AARCH64
+            const int new_vl_bits = memref.marker.marker_value * 8;
+            if (dr_get_vector_length() != new_vl_bits) {
+                dr_set_vector_length(new_vl_bits);
+                if (decode_cache_ != nullptr) {
+                    // Ensure we print the proper offset for SVE load/store instructions
+                    // whose offset depends on the vector length.
+                    decode_cache_->clear_cache();
+                }
+            }
+#endif
             break;
+        }
         case TRACE_MARKER_TYPE_UNCOMPLETED_INSTRUCTION:
             // The value stores the encoding of the uncompleted instruction up
             // to the length of a pointer. The encoding may not be complete so
