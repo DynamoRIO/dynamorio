@@ -6209,7 +6209,8 @@ if (UNIX)
   if (NOT MACOS) # Mac doesn't support pthread barriers.
     tobuild(pthreads.pthread_exit_barrier pthreads/pthread_exit_barrier.c)
     if (DEBUG)
-      append_property_string(TARGET pthreads.pthread_exit_barrier COMPILE_FLAGS "-DDEBUG")
+      append_property_string(TARGET pthreads.pthread_exit_barrier
+        COMPILE_FLAGS "-DREDUCED_ITERS")
     endif ()
   endif ()
   tobuild(pthreads.ptsig pthreads/ptsig.c)

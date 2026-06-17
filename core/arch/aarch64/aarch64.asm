@@ -294,7 +294,10 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
  */
         DECLARE_FUNC(cleanup_and_terminate)
 GLOBAL_LABEL(cleanup_and_terminate:)
-        /* move argument registers to callee saved registers */
+        /* Move argument registers to callee saved registers.
+         * This function does not return so we do not preserve the caller's values
+         * in these registers.
+         */
         mov      x19, x0  /* dcontext ptr size */
         mov      x20, x1  /* sysnum */
         mov      x21, x2  /* sys_arg1 */

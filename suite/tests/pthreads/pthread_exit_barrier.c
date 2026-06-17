@@ -53,13 +53,13 @@ int
 main(void)
 {
 #define NUM_THREADS 16
-#ifndef DEBUG
-    const int NUM_RUNS = 1000;
-#else
+#ifdef REDUCED_ITERS
     /* The test is too slow in debug build for 1000 iterations. Debug build doesn't
      * reproduce the i#7939 crash in any case.
      */
     const int NUM_RUNS = 50;
+#else
+    const int NUM_RUNS = 1000;
 #endif
     for (int run = 0; run < NUM_RUNS; run++) {
         pthread_t thread[NUM_THREADS];
