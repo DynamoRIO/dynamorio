@@ -6206,6 +6206,13 @@ if (UNIX)
   endif()
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
+  if (NOT MACOS) # Mac doesn't support pthread barriers.
+    tobuild(pthreads.pthread_exit_barrier pthreads/pthread_exit_barrier.c)
+    if (DEBUG)
+      append_property_string(TARGET pthreads.pthread_exit_barrier
+        COMPILE_FLAGS "-DREDUCED_ITERS")
+    endif ()
+  endif ()
   tobuild(pthreads.ptsig pthreads/ptsig.c)
   if (NOT ANDROID) # XXX i#1874: failing on Android
     # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
