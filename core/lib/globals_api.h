@@ -58,6 +58,15 @@
 #include <stdarg.h> /* for varargs */
 
 #ifndef DYNAMORIO_INTERNAL
+#    include <stdbool.h> /* for bool */
+#endif
+
+#ifdef DYNAMORIO_INTERNAL
+/* Use typedef below to avoid token pasting issues with macros in core. */
+#    undef bool
+#endif
+
+#ifndef DYNAMORIO_INTERNAL
 /* A client's target operating system and architecture must be specified. */
 #    if !defined(LINUX) && !defined(WINDOWS) && !defined(MACOS)
 #        error Target operating system unspecified: define WINDOWS, LINUX, or MACOS
@@ -112,12 +121,10 @@
 #            define inline __inline__
 #        endif
 #        ifndef DR_DO_NOT_DEFINE_bool
-#            ifdef DR__Bool_EXISTS
+#            if defined(DR__Bool_EXISTS) && defined(DYNAMORIO_INTERNAL)
 /* prefer _Bool as it avoids truncation casting non-zero to zero */
 typedef _Bool bool;
-#            else
-/* char-sized for compatibility with C++ */
-typedef char bool;
+#                define DR_BOOL_DEFINED 1
 #            endif
 #        endif
 #        ifndef true
