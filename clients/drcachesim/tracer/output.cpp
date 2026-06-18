@@ -1028,7 +1028,7 @@ find_unfiltered_record(byte *start, byte *end)
 
 // Should be invoked only in the middle of an active tracing window.
 void
-process_and_output_buffer(void *drcontext, bool skip_size_cap, bool appended_thread_exit)
+process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_exit)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *mem_ref, *buf_ptr;
@@ -1108,8 +1108,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool appended_thr
         window_changed = true;
         // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
         // one in its header.
-        if (op_offline.get_value() && op_split_windows.get_value() &&
-            !appended_thread_exit) {
+        if (op_offline.get_value() && op_split_windows.get_value() && !at_thread_exit) {
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
         }
     }
@@ -1239,10 +1238,10 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool appended_thr
                 // tacing interval here.
                 maybe_increment_irregular_window_index();
 
-                if (op_offline.get_value() && op_split_windows.get_value() &&
-                    !appended_thread_exit) {
-                    buf_ptr +=
+                if (op_offline.get_value() && op_split_windows.get_value()) {
+                    size_t add =
                         instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
+                    buf_ptr += add;
                 }
                 // Update the global window, but not the local so we can place the rest
                 // of this buffer into the same local window.
@@ -1467,7 +1466,7 @@ exit_thread_io(void *drcontext)
                                    * its exit even if we're over a size limit.
                                    */
                                   data->bytes_written > 0,
-                                  /*appended_thread_exit=*/true);
+                                  /*at_thread_exit=*/true);
     }
     if (op_offline.get_value() && data->file != INVALID_FILE)
         close_thread_file(drcontext);
