@@ -1241,9 +1241,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool appended_thr
 
                 if (op_offline.get_value() && op_split_windows.get_value() &&
                     !appended_thread_exit) {
-                    size_t add =
+                    buf_ptr +=
                         instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
-                    buf_ptr += add;
                 }
                 // Update the global window, but not the local so we can place the rest
                 // of this buffer into the same local window.
