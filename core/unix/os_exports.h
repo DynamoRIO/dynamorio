@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -427,6 +427,8 @@ extern app_pc vsyscall_sysenter_return_pc;
 /* pc where our hook-displaced code was copied */
 extern app_pc vsyscall_sysenter_displaced_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
+/* We use this to match "[vvar]" and "[vvar_vclock]". */
+#define VVAR_PAGE_MAPS_NAME_PREFIX "[vvar"
 
 bool
 was_thread_create_syscall(dcontext_t *dcontext);
@@ -462,7 +464,7 @@ is_DR_segment_reader_entry(app_pc pc);
 #    define NUM_RT 0 /* no RT signals */
 #endif
 /* MAX_SIGNUM is the highest valid signum. */
-#define MAX_SIGNUM ((OFFS_RT) + (NUM_RT)-1)
+#define MAX_SIGNUM ((OFFS_RT) + (NUM_RT) - 1)
 /* i#336: MAX_SIGNUM is a valid signal, so we must allocate space for it.
  */
 #define SIGARRAY_SIZE (MAX_SIGNUM + 1)
