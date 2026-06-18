@@ -165,7 +165,7 @@ static dr_emit_flags_t
 event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                bool translating, DR_PARAM_OUT void **user_data)
 {
-    app_pc pc = (app_pc)tag;
+    app_pc pc = dr_fragment_app_pc(tag);
     /* We only want to instrument the test's own module. Instrumenting other
      * modules (like ld.so or libc.so) is unnecessary and can cause false positives
      * if they happen to have the nop pattern we're looking for.
@@ -360,7 +360,7 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data)
 {
-    app_pc pc = (app_pc)tag;
+    app_pc pc = dr_fragment_app_pc(tag);
     /* Guard to only instrument the test's own module to avoid false positives
      * if other modules happen to have the nop pattern we're looking for.
      */
