@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2024-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,7 +58,14 @@
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
+/* The [vvar] and [vvar_vclock] sections are special kernel-mapped pages. While they
+ * are marked as readable in /proc/self/maps, some pages within them may not be
+ * physically backed and will trigger a SIGBUS if we try to read them during core
+ * dump generation. Thus, we include their program headers in the core dump (with
+ * file size 0) but skip writing their actual content.
+ */
 #define VVAR_SECTION "[vvar]"
+#define VVAR_VCLOCK_SECTION "[vvar_vclock]"
 #define VSYSCALL_SECTION "[vsyscall]"
 /*
  * The length of the name has to be a multiple of eight (for X64) to ensure the next
@@ -95,7 +102,15 @@ typedef struct _section_header_info_t {
     app_pc vm_end;
     uint prot;
     ELF_ADDR name_offset;
+    bool is_vvar;
 } section_header_info_t;
+
+static bool
+is_vvar_section(const char *name)
+{
+    return name != NULL &&
+        (strcmp(name, VVAR_SECTION) == 0 || strcmp(name, VVAR_VCLOCK_SECTION) == 0);
+}
 
 /*
  * Please reference
@@ -461,7 +476,7 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     // in iter.comment. Region names are stored in the section name table
     // without duplications. An offset is used in the section header to locate
     // the section name in the section name table.
-    int vvar_section = -1;
+
     while (memquery_iterator_next(&iter)) {
         // Skip non-readable sections during processing, with the exception of the VVAR
         // section. The VVAR mapping is included in the core dump file, but its contents
@@ -469,9 +484,7 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
         if (iter.prot == MEMPROT_NONE || strcmp(iter.comment, VSYSCALL_SECTION) == 0) {
             continue;
         }
-        if (strcmp(iter.comment, VVAR_SECTION) == 0) {
-            vvar_section = section_count;
-        }
+
         ELF_ADDR offset = 0;
         if (iter.comment != NULL && iter.comment[0] != '\0') {
             TABLE_RWLOCK(string_htable, write, lock);
@@ -498,7 +511,8 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
         section_header_info[section_count].vm_end = iter.vm_end;
         section_header_info[section_count].prot = iter.prot;
         section_header_info[section_count].name_offset = offset;
-        if (section_count != vvar_section) {
+        section_header_info[section_count].is_vvar = is_vvar_section(iter.comment);
+        if (!section_header_info[section_count].is_vvar) {
             section_data_size += iter.vm_end - iter.vm_start;
         }
         ++section_count;
@@ -580,6 +594,7 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     // The last section is shstrtab which stores the section names and it does
     // not require a LOAD program header.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
+        bool is_vvar = section_header_info[section_index].is_vvar;
         ELF_WORD flags = 0;
         if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
             flags |= PF_X;
@@ -600,13 +615,13 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
                 /*virtual_address=*/(ELF_ADDR)section_header_info[section_index].vm_start,
                 /*physical_address=*/
                 (ELF_ADDR)section_header_info[section_index].vm_start,
-                /*file_size=*/section_index == vvar_section ? 0 : size,
+                /*file_size=*/is_vvar ? 0 : size,
                 /*memory_size=*/size,
                 /*alignment=*/os_page_size())) {
             os_close(elf_file);
             return false;
         }
-        if (section_index != vvar_section) {
+        if (!is_vvar) {
             core_file_offset += section_header_info[section_index].vm_end -
                 section_header_info[section_index].vm_start;
         }
@@ -646,7 +661,7 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
         // The vvar section is not readable. The program header has the file
         // size set to zero to indicate the content is not recorded in the
         // memory dump file.
-        if (section_index == vvar_section) {
+        if (section_header_info[section_index].is_vvar) {
             continue;
         }
         const size_t length = section_header_info[section_index].vm_end -
@@ -700,7 +715,7 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
             os_close(elf_file);
             return false;
         }
-        if (section_index != vvar_section) {
+        if (!section_header_info[section_index].is_vvar) {
             core_file_offset += section_header_info[section_index].vm_end -
                 section_header_info[section_index].vm_start;
         }
