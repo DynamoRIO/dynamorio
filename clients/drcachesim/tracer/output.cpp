@@ -1028,7 +1028,7 @@ find_unfiltered_record(byte *start, byte *end)
 
 // Should be invoked only in the middle of an active tracing window.
 void
-process_and_output_buffer(void *drcontext, bool skip_size_cap, bool is_thread_exit)
+process_and_output_buffer(void *drcontext, bool skip_size_cap, bool appended_thread_exit)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *mem_ref, *buf_ptr;
@@ -1098,7 +1098,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool is_thread_ex
     data->has_thread_header = false;
 
     bool window_changed = false;
-    if (!is_thread_exit && has_tracing_windows() &&
+    if (has_tracing_windows() &&
         get_local_window(data) != tracing_window.load(std::memory_order_acquire)) {
         // This buffer is for a prior window.  Do not add to the current window count;
         // emit under the prior window.
@@ -1108,7 +1108,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool is_thread_ex
         window_changed = true;
         // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
         // one in its header.
-        if (op_offline.get_value() && op_split_windows.get_value())
+        if (op_offline.get_value() && op_split_windows.get_value() &&
+            !appended_thread_exit)
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
     }
     // Switch to instruction-tracing mode by adding FILTER_ENDPOINT marker if another
@@ -1212,7 +1213,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool is_thread_ex
                 tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
                 set_local_mode(data, BBDUP_MODE_TRACE);
             }
-        } else if (!is_thread_exit && get_current_trace_for_instrs_value() > 0) {
+        } else if (get_current_trace_for_instrs_value() > 0) {
             bool hit_window_end = false;
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
@@ -1237,7 +1238,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool is_thread_ex
                 // tacing interval here.
                 maybe_increment_irregular_window_index();
 
-                if (op_offline.get_value() && op_split_windows.get_value()) {
+                if (op_offline.get_value() && op_split_windows.get_value() &&
+                    !appended_thread_exit) {
                     size_t add =
                         instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
                     buf_ptr += add;
@@ -1268,7 +1270,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool is_thread_ex
     }
     BUF_PTR(data->seg_base) = data->buf_base;
     ptr_int_t window = -1;
-    if (!is_thread_exit && has_tracing_windows()) {
+    if (has_tracing_windows()) {
         window = tracing_window.load(std::memory_order_acquire);
         set_local_window(drcontext, window);
     }
@@ -1465,7 +1467,7 @@ exit_thread_io(void *drcontext)
                                    * its exit even if we're over a size limit.
                                    */
                                   data->bytes_written > 0,
-                                  /*is_thread_exit=*/true);
+                                  /*appended_thread_exit=*/true);
     }
     if (op_offline.get_value() && data->file != INVALID_FILE)
         close_thread_file(drcontext);
