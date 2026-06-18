@@ -47,7 +47,8 @@ int
 append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window);
 
 void
-process_and_output_buffer(void *drcontext, bool skip_size_cap);
+process_and_output_buffer(void *drcontext, bool skip_size_cap,
+                          bool is_thread_exit = false);
 
 void
 init_thread_io(void *drcontext);

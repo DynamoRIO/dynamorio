@@ -1028,7 +1028,7 @@ find_unfiltered_record(byte *start, byte *end)
 
 // Should be invoked only in the middle of an active tracing window.
 void
-process_and_output_buffer(void *drcontext, bool skip_size_cap)
+process_and_output_buffer(void *drcontext, bool skip_size_cap, bool is_thread_exit)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *mem_ref, *buf_ptr;
@@ -1098,7 +1098,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     data->has_thread_header = false;
 
     bool window_changed = false;
-    if (has_tracing_windows() &&
+    if (!is_thread_exit && has_tracing_windows() &&
         get_local_window(data) != tracing_window.load(std::memory_order_acquire)) {
         // This buffer is for a prior window.  Do not add to the current window count;
         // emit under the prior window.
@@ -1212,7 +1212,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
                 set_local_mode(data, BBDUP_MODE_TRACE);
             }
-        } else if (get_current_trace_for_instrs_value() > 0) {
+        } else if (!is_thread_exit && get_current_trace_for_instrs_value() > 0) {
             bool hit_window_end = false;
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
@@ -1268,7 +1268,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     }
     BUF_PTR(data->seg_base) = data->buf_base;
     ptr_int_t window = -1;
-    if (has_tracing_windows()) {
+    if (!is_thread_exit && has_tracing_windows()) {
         window = tracing_window.load(std::memory_order_acquire);
         set_local_window(drcontext, window);
     }
@@ -1464,7 +1464,8 @@ exit_thread_io(void *drcontext)
                                   /* If this thread already wrote some data, include
                                    * its exit even if we're over a size limit.
                                    */
-                                  data->bytes_written > 0);
+                                  data->bytes_written > 0,
+                                  /*is_thread_exit=*/true);
     }
     if (op_offline.get_value() && data->file != INVALID_FILE)
         close_thread_file(drcontext);
