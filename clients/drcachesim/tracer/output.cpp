@@ -1109,8 +1109,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap, bool appended_thr
         // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
         // one in its header.
         if (op_offline.get_value() && op_split_windows.get_value() &&
-            !appended_thread_exit)
+            !appended_thread_exit) {
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
+        }
     }
     // Switch to instruction-tracing mode by adding FILTER_ENDPOINT marker if another
     // thread triggered the switch.
