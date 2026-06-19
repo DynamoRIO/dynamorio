@@ -237,11 +237,11 @@ test_alarm_signals(void *arg)
     signal_cond_var(child_exit);
 
 #ifdef DISABLED_ISSUE_2311
-    /* PR #5482 (i#2311) disabled rerouting of alarm signals while already
+    /* TODO i#2311: PR #5482 disabled rerouting of alarm signals while already
      * in the app signal handler. This was done to avoid problems on large
      * apps where rerouting sent them to other threads instead of dropping
      * if many accumulated. The following check fails when run under DR
-     * but passed otherwise.
+     * but passes otherwise.
      */
     if (alarm_handler_runs_helper_thread == 0) {
         print("ERROR: helper thread did not receive any itimer signals\n");
