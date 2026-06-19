@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2718,6 +2718,10 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set, size_t sigsetsize)
         dump_sigset(dcontext, &info->app_sigblocked);
     }
 #endif
+    /* We must update the pending signals flag to allow pre_system_call to
+     * potentially skip the sigsuspend if a eligible signal is already pending.
+     */
+    check_signals_pending(dcontext, info);
     d_r_mutex_unlock(&info->sigblocked_lock);
     DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
 }
@@ -7522,7 +7526,6 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         convert_rt_mask_to_nonrt(frame, &our_mask);
     }
 #endif /* LINUX */
-
     /* Make sure we deliver pending signals that are now unblocked.
      */
     check_signals_pending(dcontext, info);
