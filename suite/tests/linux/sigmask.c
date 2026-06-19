@@ -126,6 +126,15 @@ test_alarm_signals(void *arg)
     /* Test alarm signals not being rerouted from handlers. */
     pthread_t init_thread = (pthread_t)arg;
     unblocked_thread = pthread_self();
+    /* We must unblock SIGALRM in the helper thread because it inherited the
+     * blocked mask from the main thread, and we need it unblocked here so that
+     * process-wide SIGALRM signals (from setitimer) can be delivered to this
+     * thread to verify they are not incorrectly rerouted by DR.
+     */
+    sigset_t unblock_set;
+    sigemptyset(&unblock_set);
+    sigaddset(&unblock_set, SIGALRM);
+    pthread_sigmask(SIG_UNBLOCK, &unblock_set, NULL);
     intercept_signal(SIGALRM, alarm_handler, false);
 
     /* Get init thread inside its handler. */
@@ -223,6 +232,18 @@ main(int argc, char **argv)
      * It would be nice to have a guarantee that the signal will come here but
      * that doesn't seem possible.
      */
+
+    /* We block SIGALRM here to avoid a race condition where the helper thread
+     * sends SIGALRM via pthread_kill before this main thread actually enters
+     * sigsuspend. If that happens, the signal is delivered early, and the
+     * subsequent sigsuspend would block indefinitely because no further signals
+     * are sent. Sigsuspend will atomically unblock it (since 'set' is empty
+     * for sigsuspend below).
+     */
+    sigemptyset(&set);
+    sigaddset(&set, SIGALRM);
+    sigprocmask(SIG_BLOCK, &set, NULL);
+
     if (pthread_create(&thread, NULL, test_alarm_signals, (void *)pthread_self()) != 0) {
         perror("failed to create thread");
         exit(1);
