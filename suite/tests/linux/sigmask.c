@@ -284,12 +284,19 @@ run_alarm_test(bool ensure_pending_sig)
 
     if (ensure_pending_sig) {
         /* Ensure that the SIGALRM is already pending before this thread enters
-         * sigsuspend below.
+         * sigsuspend below. This verifies the case where an eligible signal is
+         * already pending for delivery to the app when the app enters the
+         * sigsuspend, in which case DR should skip the sigsuspend.
          */
         wait_cond_var(initial_sigalrm_sent);
     } else {
-        /* We cannot really guarantee that the delivery of the SIGALRM will be *after*
-         * this thread has entered sigsuspend. This is best effort.
+        /* In native runs, the SIGALRM will be delivered to the app after this
+         * thread unblocks it at the sigsuspend. But in runs under DR, since
+         * SIGALRM is not blocked, it may be delivered to DR and queued up as
+         * pending before this thread enters sigsuspend (same as the
+         * ensure_pending_sig case above).
+         * This is a best effort verification for the case where DR indeed enters
+         * the sigsuspend and gets released by the kernel at the SIGALRM.
          */
     }
 
