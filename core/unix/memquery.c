@@ -233,6 +233,8 @@ memquery_library_bounds_by_iterator_internal(
                     }
                 } else {
                     ASSERT(false && "expected elf header");
+                    count = 0;
+                    break;
                 }
             }
             count++;
