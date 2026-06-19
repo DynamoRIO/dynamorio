@@ -102,7 +102,7 @@ thread_routine(void *arg)
 static void
 run_reroute_test(void)
 {
-    print("In run_reroute_test\n");
+    print("in run_reroute_test\n");
     pthread_t thread;
     void *retval;
 
@@ -254,7 +254,7 @@ test_alarm_signals(void *arg)
 static void
 run_alarm_test(bool ensure_pending_sig)
 {
-    print("In run_alarm_test with ensure_pending_sig=%d\n", ensure_pending_sig);
+    print("in run_alarm_test with ensure_pending_sig=%d\n", ensure_pending_sig);
 
     pthread_t thread;
     void *retval;
