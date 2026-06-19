@@ -4925,17 +4925,17 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             !signal_is_fault(dcontext, sig, pc, (byte *)sc->SC_XSP, &frame->info) &&
             atomic_aligned_read_int(&info->sighand->threads_unmasked[sig]) > 0 &&
             (!sig_is_alarm_signal(sig) ||
-            /* RFC: For alarms, currently we don't do any rerouting at all if
-             * the thread to which the kernel delivered it is already in an app handler.
-             * As i#5482 says, this strategy benefits large apps particularly.
-             * Would it be nicer if we do s/&&/||/ below and make -reroute_alarm_signals
-             * default false so it can be set only for the cases that do need it?
-             * This would allow apps like sigmask.c from PR #7958 to function
-             * correctly.
-             * Is there any use case for disabling rerouting even if the thread is
-             * not in an app signal handler when the alarm is delivered to it by
-             * the kernel?
-             */
+             /* RFC: For alarms, currently we don't do any rerouting at all if
+              * the thread to which the kernel delivered it is already in an app handler.
+              * As i#5482 says, this strategy benefits large apps particularly.
+              * Would it be nicer if we do s/&&/||/ below and make -reroute_alarm_signals
+              * default false so it can be set only for the cases that do need it?
+              * This would allow apps like sigmask.c from PR #7958 to function
+              * correctly.
+              * Is there any use case for disabling rerouting even if the thread is
+              * not in an app signal handler when the alarm is delivered to it by
+              * the kernel?
+              */
              (!info->in_app_handler && DYNAMO_OPTION(reroute_alarm_signals)))) {
             /* We need to re-route this but cannot acquire the locks to search the
              * threads here.  We thus start delivery and once we come back from
