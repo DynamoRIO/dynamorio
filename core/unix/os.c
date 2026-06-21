@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
@@ -3693,7 +3693,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         end == (void *)ALIGN_BACKWARD(POINTER_MAX, PAGE_SIZE))
         return os_heap_reserve(NULL, size, error_code, executable);
 
-        /* loop to handle races */
+    /* loop to handle races */
 #define RESERVE_IN_REGION_MAX_ITERS 128
     while (find_free_memory_in_region(find_start, end, size, &try_start, &try_end)) {
         /* If there's space we'd prefer the end, to avoid the common case of
@@ -10120,7 +10120,9 @@ found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(DR_PARAM_OUT const char **ma
      */
     ASSERT(iter->vm_end - iter->vm_start == PAGE_SIZE ||
            /* i#1583: recent kernels have 2-page vdso */
-           iter->vm_end - iter->vm_start == 2 * PAGE_SIZE);
+           iter->vm_end - iter->vm_start == 2 * PAGE_SIZE ||
+           /* i#7924: recent kernels have 3-page vdso */
+           iter->vm_end - iter->vm_start == 3 * PAGE_SIZE);
     ASSERT(!dynamo_initialized); /* .data should be +w */
     /* we're not considering as "image" even if part of ld.so (xref i#89) and
      * thus we aren't adjusting our code origins policies to remove the
@@ -10265,6 +10267,13 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                                     iter->comment, iter->inode);
                 }
             }
+        } else if (strncmp(iter->comment, VVAR_PAGE_MAPS_NAME_PREFIX,
+                           strlen(VVAR_PAGE_MAPS_NAME_PREFIX)) == 0) {
+            /* Do not try to look for module headers in vvar regions as we can
+             * easily trigger SIGBUS every time and while our safe_read should
+             * handle that it doesn't in all cases (i#7952) and it adds extra
+             * overhead and debuggability pain.
+             */
         } else if (add_modules &&
                    mmap_check_for_module_overlap(iter->vm_start, size,
                                                  TEST(MEMPROT_READ, iter->prot),
@@ -10655,11 +10664,11 @@ mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
             if (mc != NULL)
                 set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 
-                /* Unfortunately the synch semantics are different for Linux vs Mac.
-                 * We have to use lock_requests as the futex to avoid waiting if
-                 * lock_requests changes, while on Mac the underlying synch prevents
-                 * a wait there.
-                 */
+            /* Unfortunately the synch semantics are different for Linux vs Mac.
+             * We have to use lock_requests as the futex to avoid waiting if
+             * lock_requests changes, while on Mac the underlying synch prevents
+             * a wait there.
+             */
 #ifdef LINUX
             /* We'll abort the wait if lock_requests has changed at all.
              * We can't have a series of changes that result in no apparent

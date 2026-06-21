@@ -4100,6 +4100,7 @@ if (BUILD_CLIENTS)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c)
       get_target_path_for_execution(tool.multiproc_path tool.multiproc "${location_suffix}")
       torunonly_drcachesim(multiproc tool.multiproc "" "${tool.multiproc_path}")
+      set(tool.drcachesim.multiproc_timeout 180) # Can take a while.
     endif ()
 
     # Test the cache miss analyzer.
@@ -4441,6 +4442,7 @@ if (BUILD_CLIENTS)
     if (UNIX)
       # Test an app with a fork.
       torunonly_drcacheoff(fork linux.fork "" "" "")
+      set(tool.drcacheoff.fork_timeout 180) # Can take a while.
     endif ()
 
     # Test reading a legacy pre-interleaved file in thread-sharded mode.
@@ -4505,6 +4507,7 @@ if (BUILD_CLIENTS)
       # Right now we're only ensuring this doesn't crash and that one of
       # the processes produced traces.
       torunonly_drcacheoff(multiproc tool.multiproc "" "" "${tool.multiproc_path}")
+      set(tool.drcacheoff.multiproc_timeout 180) # Can take a while.
     endif ()
 
     torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter ${test_mode_flag}" "" "")
@@ -4997,7 +5000,7 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.scale_time_nopost ON)
         torunonly_drcacheoff(scale_time tool.drcacheoff.scale_time "" "" "")
         # This test can take more than 90s in 32-bit GA CI (i#7770).
-        set(tool.drcacheoff.scale_time_timeout 180)
+        set(tool.drcacheoff.scale_time_timeout 240)
 
         set(tool.drcacheoff.burst_sleep_nodr ON)
         set(tool.drcacheoff.burst_sleep_nopost ON)
@@ -5030,14 +5033,18 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_malloc_nodr ON)
         torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc
           "" "@-tool@basic_counts" "")
+        set(tool.drcacheoff.burst_malloc_timeout 180) # Can take a while.
 
         set(tool.drcacheoff.burst_reattach_nodr ON)
         torunonly_drcacheoff(burst_reattach tool.drcacheoff.burst_reattach
           "" "@-tool@basic_counts" "")
+        set(tool.drcacheoff.burst_reattach_timeout 180) # Can take a while.
 
         set(tool.drcacheoff.burst_threadfilter_nodr ON)
         torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter
           "" "@-tool@basic_counts" "")
+        set(tool.drcacheoff.burst_threadfilter_timeout 180) # Can take a while.
+
         # This test uses the same app as the one above, so we do not set _nodr
         # so we'll get a custom -subdir_prefix.  We have to pass that in as an
         # app arg here.
@@ -5045,6 +5052,7 @@ if (BUILD_CLIENTS)
           "" "@-tool@basic_counts"
           "-L0_filter -L0I_size 0 -subdir_prefix tool.drcacheoff.burst_threadL0filter")
         set(tool.drcacheoff.burst_threadL0filter_nodr ON)
+        set(tool.drcacheoff.burst_threadL0filter_timeout 180) # Can take a while.
 
         if (X86 AND NOT APPPLE AND NOT RISCV64) # This test is x86-specific.
           # Test that raw2trace doesn't do more IO than it should.
@@ -5184,10 +5192,11 @@ if (BUILD_CLIENTS)
       # from 1M to 50K to make progress.  Once we figure out the hang we should
       # put it back to 1M.
       set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
-      set(tool.histogram.offline_timeout 180)
     else ()
       set(histo_ops "")
     endif ()
+    # This test can take a while on Linux as well as Windows.
+    set(tool.histogram.offline_timeout 180)
     set(testname_full "tool.histogram.offline")
     torunonly_ci(${testname_full} ${histo_app} drmemtrace_launcher
       "histogram-offline.c"
@@ -5338,6 +5347,7 @@ if (BUILD_CLIENTS)
         # our output dir, while still letting the single precmd remove both.
         "${drcachesim_path}@-tool@record_filter@-indir@${testname}.p*.dir/trace@-core_sharded@-cores@3@-outdir@${testname}.filtered.dir"
         "schedule_stats")
+      set(tool.record_filter_bycore_multi_timeout 180) # Can take a while.
     endif ()
 
     if (X86 AND X64 AND ZLIB_FOUND)
@@ -6196,6 +6206,13 @@ if (UNIX)
   endif()
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
+  if (NOT MACOS) # Mac doesn't support pthread barriers.
+    tobuild(pthreads.pthread_exit_barrier pthreads/pthread_exit_barrier.c)
+    if (DEBUG)
+      append_property_string(TARGET pthreads.pthread_exit_barrier
+        COMPILE_FLAGS "-DREDUCED_ITERS")
+    endif ()
+  endif ()
   tobuild(pthreads.ptsig pthreads/ptsig.c)
   if (NOT ANDROID) # XXX i#1874: failing on Android
     # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY

@@ -1406,6 +1406,18 @@ format is identical.
 For details on the offline trace format and how to diagnose problems
 with offline traces, see \ref page_debug_memtrace.
 
+********************
+\section sec_drcachesim_overhead Offline Overhead
+
+Offline tracing overhead is dominated by writing out the raw trace data.  Pick the
+fastest destination possible in order to reduce overhead.  If enough memory is available,
+use a ramdisk to store the entire raw trace in memory.
+
+Select the -raw_compress scheme best suited to your output destination.  Faster storage,
+such as a ramdisk or SSD, should use lz4 or snappy_nocrc, as gzip or other
+higher-compression schemes are too slow.  If you must write to a spinning disk, gzip may
+be a net win.  Experimentation can help in selecting the best tradeoff here.
+
 ****************************************************************************
 \page sec_drcachesim_filter Filtered Traces
 

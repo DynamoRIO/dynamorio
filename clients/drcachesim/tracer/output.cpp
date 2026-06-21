@@ -1028,7 +1028,7 @@ find_unfiltered_record(byte *start, byte *end)
 
 // Should be invoked only in the middle of an active tracing window.
 void
-process_and_output_buffer(void *drcontext, bool skip_size_cap)
+process_and_output_buffer(void *drcontext, bool skip_size_cap, bool at_thread_exit)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *mem_ref, *buf_ptr;
@@ -1108,8 +1108,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         window_changed = true;
         // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
         // one in its header.
-        if (op_offline.get_value() && op_split_windows.get_value())
+        if (op_offline.get_value() && op_split_windows.get_value() && !at_thread_exit) {
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
+        }
     }
     // Switch to instruction-tracing mode by adding FILTER_ENDPOINT marker if another
     // thread triggered the switch.
@@ -1464,7 +1465,8 @@ exit_thread_io(void *drcontext)
                                   /* If this thread already wrote some data, include
                                    * its exit even if we're over a size limit.
                                    */
-                                  data->bytes_written > 0);
+                                  data->bytes_written > 0,
+                                  /*at_thread_exit=*/true);
     }
     if (op_offline.get_value() && data->file != INVALID_FILE)
         close_thread_file(drcontext);
