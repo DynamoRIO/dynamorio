@@ -7972,6 +7972,13 @@ pre_system_call(dcontext_t *dcontext)
            asmlinkage int
            sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize)
          */
+        /* TODO i#7955: If a signal is already pending (either because it was blocked
+         * and is now unblocked by sigsuspend, or because it was already unblocked
+         * but delayed by DR), executing sigsuspend may hang because the signal
+         * was already consumed by DR's signal handler. We should detect this (e.g.,
+         * check signals_pending > 0 after handle_sigsuspend) and preemptively deliver
+         * the signal and skip/re-execute the syscall.
+         */
         handle_sigsuspend(dcontext, (kernel_sigset_t *)sys_param(dcontext, 0),
                           (size_t)sys_param(dcontext, 1));
         break;
