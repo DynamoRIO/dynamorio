@@ -94,8 +94,9 @@ typedef struct _section_header_info_t {
     app_pc vm_end;
     uint prot;
     ELF_ADDR name_offset;
-    bool is_vvar; /* true for [vvar] and [vvar_vclock]: kernel-owned pages that fault on
-                     direct access despite PROT_READ */
+    /* This field is true for [vvar] and [vvar_vclock]. They are kernel-owned pages that
+     * fault on direct access despite PROT_READ. */
+    bool is_vvar;
 } section_header_info_t;
 
 /*
