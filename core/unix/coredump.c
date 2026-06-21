@@ -58,7 +58,6 @@
 #define MAX_SECTION_HEADERS 300
 #define MAX_SECTION_NAME_BUFFER_SIZE 8192
 #define SECTION_HEADER_TABLE ".shstrtab"
-#define VVAR_SECTION_PREFIX "[vvar"
 #define VSYSCALL_SECTION "[vsyscall]"
 /*
  * The length of the name has to be a multiple of eight (for X64) to ensure the next
@@ -471,8 +470,8 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
             continue;
         }
         /* [vvar] and [vvar_vclock] are kernel-owned pages that return EFAULT on read. */
-        const bool is_vvar = strncmp(iter.comment, VVAR_SECTION_PREFIX,
-                                     sizeof(VVAR_SECTION_PREFIX) - 1) == 0;
+        const bool is_vvar = strncmp(iter.comment, VVAR_PAGE_MAPS_NAME_PREFIX,
+                                     strlen(VVAR_PAGE_MAPS_NAME_PREFIX)) == 0;
         ELF_ADDR offset = 0;
         if (iter.comment != NULL && iter.comment[0] != '\0') {
             TABLE_RWLOCK(string_htable, write, lock);
