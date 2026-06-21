@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -47,7 +47,8 @@ int
 append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window);
 
 void
-process_and_output_buffer(void *drcontext, bool skip_size_cap);
+process_and_output_buffer(void *drcontext, bool skip_size_cap,
+                          bool at_thread_exit = false);
 
 void
 init_thread_io(void *drcontext);
