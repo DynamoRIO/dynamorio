@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -249,7 +249,9 @@ main(int argc, char **argv)
         exit(1);
     }
     sigemptyset(&set);
+    bool did_sigsuspend = false;
     while (!should_exit) {
+        did_sigsuspend = true;
         /* We expect just one signal but best practice is to always loop. */
         sigsuspend(&set);
     }
@@ -259,6 +261,9 @@ main(int argc, char **argv)
     destroy_cond_var(child_ready);
     destroy_cond_var(child_exit);
 
+    if (!did_sigsuspend) {
+        print("ERROR: app did not execute the sigsuspend\n");
+    }
     print("all done\n");
 
     return 0;
