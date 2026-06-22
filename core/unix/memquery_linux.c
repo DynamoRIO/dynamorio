@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -357,7 +357,8 @@ memquery_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info,
                  * pieces by our vsyscall hook, so we don't check for a precise match.
                  */
                 info->prot = (MEMPROT_READ | MEMPROT_EXEC | MEMPROT_VDSO);
-            } else if (strcmp(iter.comment, "[vvar]") == 0) {
+            } else if (strncmp(iter.comment, VVAR_PAGE_MAPS_NAME_PREFIX,
+                               strlen(VVAR_PAGE_MAPS_NAME_PREFIX)) == 0) {
                 /* The VVAR pages were added in kernel 3.0 but not labeled until
                  * 3.15.  We document that we do not label prior to 3.15.
                  * DrMem#1778 seems to only happen on 3.19+ in any case.

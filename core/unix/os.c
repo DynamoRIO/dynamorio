@@ -3693,7 +3693,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         end == (void *)ALIGN_BACKWARD(POINTER_MAX, PAGE_SIZE))
         return os_heap_reserve(NULL, size, error_code, executable);
 
-        /* loop to handle races */
+    /* loop to handle races */
 #define RESERVE_IN_REGION_MAX_ITERS 128
     while (find_free_memory_in_region(find_start, end, size, &try_start, &try_end)) {
         /* If there's space we'd prefer the end, to avoid the common case of
@@ -10287,6 +10287,13 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                                     iter->comment, iter->inode);
                 }
             }
+        } else if (strncmp(iter->comment, VVAR_PAGE_MAPS_NAME_PREFIX,
+                           strlen(VVAR_PAGE_MAPS_NAME_PREFIX)) == 0) {
+            /* Do not try to look for module headers in vvar regions as we can
+             * easily trigger SIGBUS every time and while our safe_read should
+             * handle that it doesn't in all cases (i#7952) and it adds extra
+             * overhead and debuggability pain.
+             */
         } else if (add_modules &&
                    mmap_check_for_module_overlap(iter->vm_start, size,
                                                  TEST(MEMPROT_READ, iter->prot),
@@ -10677,11 +10684,11 @@ mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
             if (mc != NULL)
                 set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 
-                /* Unfortunately the synch semantics are different for Linux vs Mac.
-                 * We have to use lock_requests as the futex to avoid waiting if
-                 * lock_requests changes, while on Mac the underlying synch prevents
-                 * a wait there.
-                 */
+            /* Unfortunately the synch semantics are different for Linux vs Mac.
+             * We have to use lock_requests as the futex to avoid waiting if
+             * lock_requests changes, while on Mac the underlying synch prevents
+             * a wait there.
+             */
 #ifdef LINUX
             /* We'll abort the wait if lock_requests has changed at all.
              * We can't have a series of changes that result in no apparent

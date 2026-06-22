@@ -267,11 +267,12 @@ run_alarm_test(bool ensure_pending_sig)
     reset_cond_var(child_exit);
     reset_cond_var(initial_sigalrm_sent);
 
-    /* We block SIGALRM here to avoid a race condition where the SIGALRM sent by
-     * the test_alarm_signals helper thread is delivered before this main thread
-     * actually enters sigsuspend. In that case, the sigsuspend would block
-     * indefinitely because no further signals are sent. Sigsuspend will
-     * atomically unblock it by using an empty set.
+    /* We block SIGALRM here to avoid a race condition where the helper thread
+     * sends SIGALRM via pthread_kill before this main thread actually enters
+     * sigsuspend. If that happens, the signal is delivered early, and the
+     * subsequent sigsuspend would block indefinitely because no further signals
+     * are sent. Sigsuspend will atomically unblock it (since 'set' is empty
+     * for sigsuspend below).
      */
     sigemptyset(&set);
     sigaddset(&set, SIGALRM);
@@ -302,13 +303,18 @@ run_alarm_test(bool ensure_pending_sig)
 
     sigemptyset(&set);
     int runs_before = alarm_handler_runs_init_thread;
+    bool did_sigsuspend = false;
     while (!should_exit) {
+        did_sigsuspend = true;
         /* We expect just one signal but best practice is to always loop. */
         sigsuspend(&set);
     }
 
     if (alarm_handler_runs_init_thread <= runs_before) {
         print("ERROR: SIGALRM handler did not run in main thread!\n");
+    }
+    if (!did_sigsuspend) {
+        print("ERROR: app did not execute the sigsuspend\n");
     }
 
     if (pthread_join(thread, &retval) != 0)
