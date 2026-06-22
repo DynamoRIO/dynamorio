@@ -96,9 +96,6 @@ find_exe_bounds(app_pc *base, app_pc *end)
 // By making it anonymous, the segment loses its filename in /proc/self/maps.
 // DR's heuristic will still try to take a valid ELF header under certain
 // conditions; we add the writable bit to prevent that.
-//
-// This way we keep the setup valid for yesvars where the bounds are provided
-// using linker symbols.
 static void
 copy_and_remap(void *base, size_t offs, size_t size)
 {
