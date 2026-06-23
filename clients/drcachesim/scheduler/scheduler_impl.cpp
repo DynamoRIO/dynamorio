@@ -3661,6 +3661,7 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_impl_tmpl_t<RecordType, ReaderType>::check_scheduler_mode_valid(
     offline_file_type_t filetype)
 {
+    // Whole-system traces are already per-core, so we do not want to reschedule.
     if (TESTANY(OFFLINE_FILE_TYPE_WHOLE_SYSTEM, filetype)) {
         if (options_.mapping != sched_type_t::MAP_TO_CONSISTENT_OUTPUT ||
             options_.deps != sched_type_t::DEPENDENCY_IGNORE) {

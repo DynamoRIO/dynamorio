@@ -10217,6 +10217,34 @@ test_whole_system_invalid_options()
             scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_SUCCESS);
     }
+
+    // Test 4: MAP_TO_ANY_OUTPUT (default) + read_inputs_in_init(false) -> init succeeds,
+    // but reading fails.
+    {
+        auto sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+        sched_ops.read_inputs_in_init = false;
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_SUCCESS);
+
+        auto *stream = scheduler.get_stream(0);
+        memref_t res_entry;
+        scheduler_t::stream_status_t read_status;
+        int count = 0;
+        do {
+            read_status = stream->next_record(res_entry);
+            if (read_status == scheduler_t::STATUS_INVALID)
+                break;
+            assert(read_status == scheduler_t::STATUS_OK);
+            if (++count > 10)
+                break;
+        } while (true);
+        assert(read_status == scheduler_t::STATUS_INVALID);
+    }
 }
 
 // Helpers to get type and marker type in a templated way.
@@ -10258,13 +10286,14 @@ get_marker_type<trace_entry_t>(const trace_entry_t &record)
 
 template <typename RecordType, typename ReaderType>
 static void
-check_kernel_and_next_tmpl(
+assert_kernel_and_next_tmpl(
     scheduler_tmpl_t<RecordType, ReaderType> &scheduler,
     typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
     RecordType &record)
 {
     using SchedType = scheduler_tmpl_t<RecordType, ReaderType>;
     assert(stream->is_record_kernel());
+    // Also check the underlying reader_t or record_reader_t.
     assert(scheduler.get_input_stream_interface(0)->is_record_kernel());
     typename SchedType::stream_status_t status = stream->next_record(record);
     assert(status == SchedType::STATUS_OK);
@@ -10272,13 +10301,14 @@ check_kernel_and_next_tmpl(
 
 template <typename RecordType, typename ReaderType>
 static void
-check_user_and_next_tmpl(
+assert_user_and_next_tmpl(
     scheduler_tmpl_t<RecordType, ReaderType> &scheduler,
     typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
     RecordType &record)
 {
     using SchedType = scheduler_tmpl_t<RecordType, ReaderType>;
     assert(!stream->is_record_kernel());
+    // Also check the underlying reader_t or record_reader_t.
     assert(!scheduler.get_input_stream_interface(0)->is_record_kernel());
     typename SchedType::stream_status_t status = stream->next_record(record);
     assert(status == SchedType::STATUS_OK);
@@ -10355,23 +10385,23 @@ test_hardware_event_kernel_regions_tmpl()
     assert(status == SchedType::STATUS_OK);
 
     do {
-        check_user_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+        assert_user_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
     } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
                get_marker_type(record) == TRACE_MARKER_TYPE_SYSCALL_TRACE_START));
 
     do {
-        check_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+        assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
     } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
                get_marker_type(record) == TRACE_MARKER_TYPE_SYSCALL_TRACE_END));
-    check_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
 
     do {
-        check_user_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+        assert_user_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
     } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
                get_marker_type(record) == TRACE_MARKER_TYPE_HARDWARE_EVENT));
 
     do {
-        check_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+        assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
     } while (get_record_type(record) != TRACE_TYPE_THREAD_EXIT);
 
     assert(!stream->is_record_kernel());

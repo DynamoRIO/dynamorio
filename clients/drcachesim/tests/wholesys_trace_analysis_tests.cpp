@@ -145,48 +145,59 @@ test_kernel_tracker()
         return false;
 
     // Syscall
-    check_in_kernel(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 0));
-    check_in_kernel(tracker, gen_instr(TID_A, PC));
-    check_in_kernel(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0));
-    check_in_user(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0));
-    check_in_kernel(tracker,
-                    gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0));
-    check_in_kernel(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0));
-    check_in_user(tracker, gen_instr(TID_A, PC));
+    bool res =
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 0)) &&
+        check_in_kernel(tracker, gen_instr(TID_A, PC)) &&
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0)) &&
+        check_in_user(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0)) &&
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0)) &&
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0)) &&
+        check_in_user(tracker, gen_instr(TID_A, PC)) &&
 
-    // Hardware event
-    check_in_kernel(tracker,
-                    gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL));
-    check_in_kernel(tracker, gen_instr(TID_A, PC));
-    check_in_kernel(
-        tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL));
-    check_in_user(tracker, gen_instr(TID_A, PC));
+        // Hardware event
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL)) &&
+        check_in_kernel(tracker, gen_instr(TID_A, PC)) &&
+        check_in_kernel(
+            tracker,
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL)) &&
+        check_in_user(tracker, gen_instr(TID_A, PC)) &&
 
-    // Nested hardware events
-    check_in_kernel(tracker,
-                    gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL));
-    check_in_kernel(tracker,
-                    gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL));
-    check_in_kernel(
-        tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL));
-    check_in_kernel(tracker, gen_instr(TID_A, PC));
-    check_in_kernel(
-        tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL));
-    check_in_user(tracker, gen_instr(TID_A, PC));
+        // Nested hardware events
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL)) &&
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL)) &&
+        check_in_kernel(
+            tracker,
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL)) &&
+        check_in_kernel(tracker, gen_instr(TID_A, PC)) &&
+        check_in_kernel(
+            tracker,
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL)) &&
+        check_in_user(tracker, gen_instr(TID_A, PC)) &&
 
-    // Nested hardware event inside syscall
-    check_in_kernel(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 0));
-    check_in_kernel(tracker,
-                    gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL));
-    check_in_kernel(tracker, gen_instr(TID_A, PC));
-    check_in_kernel(
-        tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL));
-    check_in_user(tracker, gen_instr(TID_A, PC));
-    check_in_user(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0));
-    check_in_user(tracker, gen_instr(TID_A, PC));
+        // Nested hardware event inside syscall
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 0)) &&
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL)) &&
+        check_in_kernel(tracker, gen_instr(TID_A, PC)) &&
+        check_in_kernel(
+            tracker,
+            gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL)) &&
+        check_in_kernel(tracker, gen_instr(TID_A, PC)) &&
+        check_in_kernel(tracker,
+                        gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0)) &&
+        check_in_user(tracker, gen_instr(TID_A, PC));
 
-    fprintf(stderr, "test_kernel_tracker passed\n");
-    return true;
+    if (res)
+        fprintf(stderr, "test_kernel_tracker passed\n");
+    return res;
 }
 
 int
