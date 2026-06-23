@@ -1191,6 +1191,17 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::init(
             return res;
         }
     }
+    if (gather_filetype) {
+        for (const auto &input : inputs_) {
+            if (input.reader != nullptr) {
+                res = check_scheduler_mode_valid(
+                    static_cast<offline_file_type_t>(input.reader->get_filetype()));
+                if (res != sched_type_t::STATUS_SUCCESS)
+                    return res;
+                break;
+            }
+        }
+    }
 
     return set_initial_schedule();
 }
@@ -3643,6 +3654,23 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::get_queued_record(input_info_t *i
     input->queue.pop_front();
     input->cur_from_queue = true;
     return true;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_impl_tmpl_t<RecordType, ReaderType>::check_scheduler_mode_valid(
+    offline_file_type_t filetype)
+{
+    if (TESTANY(OFFLINE_FILE_TYPE_WHOLE_SYSTEM, filetype)) {
+        if (options_.mapping != sched_type_t::MAP_TO_CONSISTENT_OUTPUT ||
+            options_.deps != sched_type_t::DEPENDENCY_IGNORE) {
+            error_string_ = "Only MAP_TO_CONSISTENT_OUTPUT and "
+                            "DEPENDENCY_IGNORE are supported for "
+                            "whole-system traces";
+            return sched_type_t::STATUS_ERROR_INVALID_PARAMETER;
+        }
+    }
+    return sched_type_t::STATUS_SUCCESS;
 }
 
 template class scheduler_impl_tmpl_t<memref_t, reader_t>;

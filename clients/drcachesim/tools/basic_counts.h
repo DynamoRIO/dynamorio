@@ -269,11 +269,8 @@ protected:
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
         memref_tid_t last_tid_ = INVALID_THREAD_ID;
-        /* Indicates whether we're currently in the kernel region of the trace, which
-         * means we've seen a TRACE_MARKER_TYPE_SYSCALL_TRACE_START without its matching
-         * TRACE_MARKER_TYPE_SYSCALL_TRACE_STOP.
-         */
-        bool is_kernel = false;
+        // Indicates whether we're currently in the kernel region of the trace.
+        kernel_tracker_t kernel_tracker_;
     };
     // Records a snapshot of counts for a trace interval.
     struct count_snapshot_t : public interval_state_snapshot_t {

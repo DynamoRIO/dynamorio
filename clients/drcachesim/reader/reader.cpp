@@ -317,6 +317,7 @@ reader_t::process_input_entry()
         cur_ref_.marker.tid = cur_tid_;
         cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
         cur_ref_.marker.marker_value = input_entry_->addr;
+
         // Look for timestamp+cpu duplicated from the prior chunk.  Skip them on
         // a linear walk.  File readers that support seeking will read them
         // and use them to start post-seek iteration.
@@ -368,13 +369,6 @@ reader_t::process_input_entry()
             chunk_instr_count_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
             skip_chunk_header_.insert(cur_tid_);
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
-                 cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_START) {
-            in_kernel_trace_ = true;
-        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END ||
-                   cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CONTEXT_SWITCH_END) {
-            in_kernel_trace_ = false;
-        }
         break;
     case TRACE_TYPE_HEADER:
         // We support complete traces being packaged in archives and then read
@@ -411,6 +405,7 @@ reader_t::process_input_entry()
             ++cur_ref_count_;
             VPRINT(this, 5, "ref count is now @%" PRIu64 "\n", cur_ref_count_);
         }
+        kernel_tracker_.update(cur_ref_);
     }
     return have_memref;
 }

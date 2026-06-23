@@ -68,37 +68,131 @@ run_basic_counts(const std::vector<memref_t> &memrefs)
 }
 
 static bool
-test_hardware_xfer_marker_counts()
+test_hardware_xfer_markers()
 {
     std::vector<memref_t> memrefs = {
         gen_marker(TID_A, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
         gen_marker(TID_A, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        gen_instr(TID_A, PC),
         gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, SOME_VAL),
+        gen_instr(TID_A, PC + 100),
         gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_XFER, SOME_VAL),
         gen_instr(TID_A, PC),
+        gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL),
+        gen_instr(TID_A, PC + 200),
+        gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL),
         gen_instr(TID_A, PC + 1),
         gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+
+        gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 0),
+        gen_instr(TID_A, PC + 300),
         gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL),
+        gen_instr(TID_A, PC + 200),
         gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL),
+        gen_instr(TID_A, PC + 301),
+        gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0),
         gen_instr(TID_A, PC + 2),
-        gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL),
         gen_exit(TID_A),
     };
     basic_counts_t::counters_t counts = run_basic_counts(memrefs);
-    int64_t expected_hardware_xfer_markers = 3;
+    int64_t expected_hardware_xfer_markers = 4;
     if (counts.hardware_xfer_markers != expected_hardware_xfer_markers) {
         fprintf(stderr, "Expected %" PRId64 " hardware xfer markers, found %" PRId64 "\n",
                 expected_hardware_xfer_markers, counts.hardware_xfer_markers);
+        return false;
+    }
+    int64_t expected_xfer_markers = 2;
+    if (counts.xfer_markers != expected_xfer_markers) {
+        fprintf(stderr, "Expected %" PRId64 " xfer markers, found %" PRId64 "\n",
+                expected_xfer_markers, counts.xfer_markers);
+        return false;
+    }
+    if (counts.kernel_instrs != 4) {
+        fprintf(stderr, "Expected 4 kernel instrs, found %" PRId64 "\n",
+                counts.kernel_instrs);
+        return false;
+    }
+    if (counts.user_instrs != 5) {
+        fprintf(stderr, "Expected 5 user instrs, found %" PRId64 "\n",
+                counts.user_instrs);
         return false;
     }
     fprintf(stderr, "test_hardware_xfer_markers passed\n");
     return true;
 }
 
+static bool
+check_in_kernel(kernel_tracker_t &tracker, memref_t memref)
+{
+    tracker.update(memref);
+    return tracker.in_kernel_trace();
+}
+
+static bool
+check_in_user(kernel_tracker_t &tracker, memref_t memref)
+{
+    tracker.update(memref);
+    return !tracker.in_kernel_trace();
+}
+
+static bool
+test_kernel_tracker()
+{
+    kernel_tracker_t tracker;
+
+    // Initial state
+    if (tracker.in_kernel_trace())
+        return false;
+
+    // Syscall
+    check_in_kernel(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 0));
+    check_in_kernel(tracker, gen_instr(TID_A, PC));
+    check_in_kernel(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0));
+    check_in_user(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0));
+    check_in_kernel(tracker,
+                    gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, 0));
+    check_in_kernel(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, 0));
+    check_in_user(tracker, gen_instr(TID_A, PC));
+
+    // Hardware event
+    check_in_kernel(tracker,
+                    gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL));
+    check_in_kernel(tracker, gen_instr(TID_A, PC));
+    check_in_kernel(
+        tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL));
+    check_in_user(tracker, gen_instr(TID_A, PC));
+
+    // Nested hardware events
+    check_in_kernel(tracker,
+                    gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL));
+    check_in_kernel(tracker,
+                    gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL));
+    check_in_kernel(
+        tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL));
+    check_in_kernel(tracker, gen_instr(TID_A, PC));
+    check_in_kernel(
+        tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL));
+    check_in_user(tracker, gen_instr(TID_A, PC));
+
+    // Nested hardware event inside syscall
+    check_in_kernel(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, 0));
+    check_in_kernel(tracker,
+                    gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_EVENT, SOME_VAL));
+    check_in_kernel(tracker, gen_instr(TID_A, PC));
+    check_in_kernel(
+        tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, SOME_VAL));
+    check_in_user(tracker, gen_instr(TID_A, PC));
+    check_in_user(tracker, gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 0));
+    check_in_user(tracker, gen_instr(TID_A, PC));
+
+    fprintf(stderr, "test_kernel_tracker passed\n");
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
-    if (!test_hardware_xfer_marker_counts())
+    if (!test_hardware_xfer_markers() || !test_kernel_tracker())
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
