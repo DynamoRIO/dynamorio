@@ -171,7 +171,6 @@ public:
                     if (first_timestamp_ == 0)
                         first_timestamp_ = last_timestamp_;
                     break;
-
                 }
             }
             prev_record_was_pre_instr_ = record_is_pre_instr(&entry_copy_);

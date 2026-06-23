@@ -156,6 +156,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         return res;
 
     // Update our memtrace_stream_t state.
+
+    // While reader_t tracks kernel state, if we dynamically inject a sequence
+    // the input readers will not see it: so we need our own state here.
     kernel_tracker_.update(record);
     std::lock_guard<mutex_dbg_owned> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
@@ -186,9 +189,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         case TRACE_MARKER_TYPE_VERSION: version_ = marker_value; break;
         case TRACE_MARKER_TYPE_FILETYPE:
             filetype_ = marker_value;
-            if (scheduler_->check_scheduler_mode_valid(
-                    static_cast<offline_file_type_t>(marker_value)) !=
-                sched_type_t::STATUS_SUCCESS) {
+            if (scheduler_->check_scheduler_mode_valid(static_cast<offline_file_type_t>(
+                    marker_value)) != sched_type_t::STATUS_SUCCESS) {
                 return sched_type_t::STATUS_INVALID;
             }
             break;
@@ -196,10 +198,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
             chunk_instr_count_ = marker_value;
             break;
-        case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = marker_value; break;
-        // While reader_t tracks kernel state, if we dynamically inject a sequence
-        // the input readers will not see it: so we need our own state here.
-
+        case TRACE_MARKER_TYPE_PAGE_SIZE:
+            page_size_ = marker_value;
+            break;
         default: // No action needed.
             break;
         }
