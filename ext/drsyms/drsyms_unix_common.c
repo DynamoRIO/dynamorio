@@ -130,12 +130,16 @@ load_module(const char *modpath)
     mod->file_size = (size_t)file_size; /* XXX: ignoring truncation */
 
     mod->map_size = mod->file_size;
+    int map_prot = DR_MEMPROT_READ;
+#ifndef WINDOWS
     /* Map as copy-on-write so that elfutils can directly write for cases like
      * compressed sections. This avoids requiring a separate allocation (and
      * patching elfutils to support that use case).
      */
+    map_prot = DR_MEMPROT_WRITE;
+#endif
     mod->map_base =
-        dr_map_file(mod->fd, &mod->map_size, 0, NULL, DR_MEMPROT_WRITE, DR_MAP_PRIVATE);
+        dr_map_file(mod->fd, &mod->map_size, 0, NULL, map_prot, DR_MAP_PRIVATE);
     /* map_size can be larger than file_size */
     if (mod->map_base == NULL || mod->map_size < mod->file_size) {
         NOTIFY("%s: unable to map %s\n", __FUNCTION__, modpath);
@@ -201,9 +205,8 @@ load_module(const char *modpath)
         if (drsym_obj_remap_as_image(mod->obj_info)) {
             dr_unmap_file(mod->map_base, mod->map_size);
             mod->map_size = 0;
-            /* As above, map as copy-on-write. */
-            mod->map_base = dr_map_file(mod->fd, &mod->map_size, 0, NULL,
-                                        DR_MEMPROT_WRITE, DR_MAP_PRIVATE | DR_MAP_IMAGE);
+            mod->map_base = dr_map_file(mod->fd, &mod->map_size, 0, NULL, map_prot,
+                                        DR_MAP_PRIVATE | DR_MAP_IMAGE);
             if (mod->map_base == NULL || mod->map_size < mod->file_size) {
                 NOTIFY("%s: unable to map %s\n", __FUNCTION__, modpath);
                 goto error;
