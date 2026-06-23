@@ -198,9 +198,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
             chunk_instr_count_ = marker_value;
             break;
-        case TRACE_MARKER_TYPE_PAGE_SIZE:
-            page_size_ = marker_value;
-            break;
+        case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = marker_value; break;
         default: // No action needed.
             break;
         }
