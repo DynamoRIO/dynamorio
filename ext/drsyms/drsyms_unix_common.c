@@ -136,7 +136,7 @@ load_module(const char *modpath)
      * compressed sections. This avoids requiring a separate allocation (and
      * patching elfutils to support that use case).
      */
-    map_prot = DR_MEMPROT_WRITE;
+    map_prot |= DR_MEMPROT_WRITE;
 #endif
     mod->map_base =
         dr_map_file(mod->fd, &mod->map_size, 0, NULL, map_prot, DR_MAP_PRIVATE);
