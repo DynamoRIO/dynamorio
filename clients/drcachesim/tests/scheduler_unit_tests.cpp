@@ -10173,57 +10173,62 @@ test_whole_system_invalid_options()
 
     // Test 1: MAP_TO_ANY_OUTPUT (default) -> should fail.
     {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops(
             scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
             scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
         scheduler_t::scheduler_status_t status =
-            scheduler.init(make_workload(refs), 1, std::move(sched_ops));
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
     }
 
     // Test 2: MAP_TO_CONSISTENT_OUTPUT + DEPENDENCY_TIMESTAMPS -> should fail.
     {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops(
             scheduler_t::MAP_TO_CONSISTENT_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
             scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
         scheduler_t::scheduler_status_t status =
-            scheduler.init(make_workload(refs), 1, std::move(sched_ops));
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
     }
 
     // Test 3: MAP_TO_CONSISTENT_OUTPUT + DEPENDENCY_IGNORE -> should succeed.
     {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops(
             scheduler_t::MAP_TO_CONSISTENT_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
             scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
         scheduler_t::scheduler_status_t status =
-            scheduler.init(make_workload(refs), 1, std::move(sched_ops));
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_SUCCESS);
     }
 
     // Test 3b: make_scheduler_parallel_options -> should succeed.
     {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops =
             scheduler_t::make_scheduler_parallel_options(/*verbosity=*/1);
         scheduler_t::scheduler_status_t status =
-            scheduler.init(make_workload(refs), 1, std::move(sched_ops));
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_SUCCESS);
     }
 
     // Test 4: MAP_TO_ANY_OUTPUT (default) + read_inputs_in_init(false) -> init succeeds,
     // but reading fails.
     {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
         scheduler_t scheduler;
         scheduler_t::scheduler_options_t sched_ops(
             scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
             scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
         sched_ops.read_inputs_in_init = false;
         scheduler_t::scheduler_status_t status =
-            scheduler.init(make_workload(refs), 1, std::move(sched_ops));
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
         assert(status == scheduler_t::STATUS_SUCCESS);
 
         auto *stream = scheduler.get_stream(0);
