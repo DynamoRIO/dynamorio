@@ -174,6 +174,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                    memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
             ++counters->xfer_markers;
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT ||
+                   memref.marker.marker_type ==
+                       TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+            ++counters->hardware_xfer_markers;
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_IDLE) {
             ++counters->idle_markers;
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
@@ -216,10 +220,6 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 break;
             case TRACE_MARKER_TYPE_SKIPPED_MEMREF:
                 ++counters->skipped_memref_markers;
-                break;
-            case TRACE_MARKER_TYPE_HARDWARE_EVENT:
-            case TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN:
-                ++counters->hardware_xfer_markers;
                 break;
             case TRACE_MARKER_TYPE_FILETYPE:
                 if (per_shard->filetype_ == -1) {

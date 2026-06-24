@@ -52,6 +52,7 @@
 
 #include "trace_entry.h"
 #include "memref.h"
+#include "kernel_tracker.h"
 
 /**
  * @file drmemtrace/memtrace_stream.h
@@ -352,83 +353,6 @@ public:
     }
 };
 
-/**
- * Utility class to track kernel state based on trace records.
- * Handles nesting of hardware events and separate tracking of syscalls
- * and context switches.
- *
- * XXX: Add handling to properly recognize kernel regions if we land in the
- * middle of one after a chunk skip.
- */
-template <typename RecordType> class kernel_tracker_tmpl_t {
-public:
-    bool
-    in_kernel_trace() const
-    {
-        return in_syscall_ || in_context_switch_ || hardware_event_depth_ > 0 ||
-            last_update_was_end_marker_;
-    }
-
-    void
-    update(const RecordType &record)
-    {
-        update_internal(record);
-    }
-
-private:
-    void
-    update_for_marker(trace_marker_type_t marker_type)
-    {
-        switch (marker_type) {
-        case TRACE_MARKER_TYPE_SYSCALL_TRACE_START: in_syscall_ = true; break;
-        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_context_switch_ = true; break;
-        case TRACE_MARKER_TYPE_HARDWARE_EVENT: ++hardware_event_depth_; break;
-        case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-            in_syscall_ = false;
-            last_update_was_end_marker_ = true;
-            break;
-        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
-            in_context_switch_ = false;
-            last_update_was_end_marker_ = true;
-            break;
-        case TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN:
-            // OFFLINE_FILE_TYPE_WHOLE_SYSTEM traces are expected to have matching pairs
-            // of hardware_event and hardware_context_return markers.
-            --hardware_event_depth_;
-            if (hardware_event_depth_ == 0)
-                last_update_was_end_marker_ = true;
-            break;
-        default: break;
-        }
-    }
-
-    void
-    update_internal(const memref_t &record)
-    {
-        last_update_was_end_marker_ = false;
-        if (record.marker.type == TRACE_TYPE_MARKER) {
-            update_for_marker(
-                static_cast<trace_marker_type_t>(record.marker.marker_type));
-        }
-    }
-
-    void
-    update_internal(const trace_entry_t &record)
-    {
-        last_update_was_end_marker_ = false;
-        if (record.type == TRACE_TYPE_MARKER) {
-            update_for_marker(static_cast<trace_marker_type_t>(record.size));
-        }
-    }
-
-    bool in_syscall_ = false;
-    bool in_context_switch_ = false;
-    int hardware_event_depth_ = 0;
-    bool last_update_was_end_marker_ = false;
-};
-
-using kernel_tracker_t = kernel_tracker_tmpl_t<memref_t>;
-using kernel_record_tracker_t = kernel_tracker_tmpl_t<trace_entry_t>;
 
 /**
  * Implementation of memtrace_stream_t useful for mocks in tests.

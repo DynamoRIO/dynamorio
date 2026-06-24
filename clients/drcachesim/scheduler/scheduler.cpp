@@ -155,11 +155,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
     if (res != sched_type_t::STATUS_OK)
         return res;
 
-    // Update our memtrace_stream_t state.
-
     // While reader_t tracks kernel state, if we dynamically inject a sequence
     // the input readers will not see it: so we need our own state here.
     kernel_tracker_.update(record);
+
+    // Update our memtrace_stream_t state.
     std::lock_guard<mutex_dbg_owned> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         ++cur_ref_count_;

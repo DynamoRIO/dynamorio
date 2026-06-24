@@ -834,8 +834,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->saw_syscall_trace_.insert(static_cast<int>(memref.marker.marker_value));
     }
 
-    bool hit_syscall_trace_end = false;
-    bool hit_context_switch_trace_end = false;
+    bool at_syscall_trace_end = false;
+    bool at_context_switch_trace_end = false;
 
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
@@ -880,7 +880,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->context_stack_depth_at_syscall_trace_start_ = -1;
 #endif
             shard->between_kernel_syscall_trace_markers_ = false;
-            hit_syscall_trace_end = true;
+            at_syscall_trace_end = true;
             // Pretend the prev instruction to be the last user-space instruction,
             // so that later PC continuity checks properly verify the user-space view
             // of the trace.
@@ -940,7 +940,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->prev_instr_.memref.instr.indirect_branch_target;
 
         shard->between_kernel_context_switch_markers_ = false;
-        hit_context_switch_trace_end = true;
+        at_context_switch_trace_end = true;
 #ifdef UNIX
         // Forget any prior instruction existed, because this is a core-sharded
         // trace and now we're going to see instructions from the new context.
@@ -953,7 +953,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard,
                         (shard->between_kernel_syscall_trace_markers_ ||
                          shard->between_kernel_context_switch_markers_ ||
-                         hit_syscall_trace_end || hit_context_switch_trace_end) ==
+                         at_syscall_trace_end || at_context_switch_trace_end) ==
                             shard->stream->is_record_kernel(),
                         "Stream is_record_kernel() inaccurate");
     }
