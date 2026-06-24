@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -233,6 +233,11 @@ memquery_library_bounds_by_iterator_internal(
                     }
                 } else {
                     ASSERT(false && "expected elf header");
+                    /* Return failure in release build. */
+                    count = 0;
+                    mod_start = NULL;
+                    cur_end = NULL;
+                    break;
                 }
             }
             count++;
@@ -250,7 +255,7 @@ memquery_library_bounds_by_iterator_internal(
      * maps file), but not every library has one.  We have to parse the ELF
      * header to know since we can't assume that a subsequent anonymous
      * region is .bss. */
-    if (image_size != 0 && cur_end - mod_start < image_size) {
+    if (image_size != 0 && cur_end - mod_start < image_size && cur_end != NULL) {
         if (iter.comment[0] != '\0') {
             /* There's something else in the text-data gap: xref i#2641. */
         } else {

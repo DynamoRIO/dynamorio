@@ -9812,8 +9812,16 @@ extern int dynamorio_so_start, dynamorio_so_end;
 static void
 get_dynamo_library_bounds(void)
 {
+    ASSERT(!dynamo_initialized);
+    static bool attempted_dynamo_library_bounds = false;
     if (dynamorio_library_filepath[0] != '\0') /* Already cached. */
         return;
+    /* Prevent infinite recursion if bounds recovery fails and triggers an assert,
+     * which in turn tries to print modules and query bounds again.
+     */
+    if (attempted_dynamo_library_bounds)
+        return;
+    attempted_dynamo_library_bounds = true;
     /* Note that we're not counting DYNAMORIO_PRELOAD_NAME as a DR area, to match
      * Windows, so we should unload it like we do there. The other reason not to
      * count it is so is_in_dynamo_dll() can be the only exception to the
