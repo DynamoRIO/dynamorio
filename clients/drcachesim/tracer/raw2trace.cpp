@@ -512,13 +512,13 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
                static_cast<uint>(tdata->tid), stamp);
         if (stamp < tdata->last_timestamp_) {
             // We see time values out of the Linux kernel go backward.
-            // If we see at most 1us difference we assume it's innocuous
+            // If we see at most 10 us difference we assume it's innocuous
             // and we correct it, to avoid invariant problems later.
             // If a subclass overrides process_marker() and acts before us, they'll
             // see the old one, but the difference is minimal and if it really matters
             // they'll have to arrange to run after our code.
-            constexpr int64 NEGATIVE_TIME_CORRECT_THREHSOLD_US = 4;
-            if (tdata->last_timestamp_ - stamp <= NEGATIVE_TIME_CORRECT_THREHSOLD_US) {
+            constexpr int64 NEGATIVE_TIME_CORRECT_THRESHOLD_US = 10;
+            if (tdata->last_timestamp_ - stamp <= NEGATIVE_TIME_CORRECT_THRESHOLD_US) {
                 stamp = tdata->last_timestamp_;
                 marker_val = static_cast<uintptr_t>(stamp);
                 accumulate_to_statistic(tdata, RAW2TRACE_STAT_NEGATIVE_TIMES_CORRECTED,
