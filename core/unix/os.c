@@ -9805,15 +9805,15 @@ extern int dynamorio_so_start, dynamorio_so_end;
 static void
 get_dynamo_library_bounds(void)
 {
-    static bool getting_bounds = false;
+    static bool attempted_dynamo_library_bounds = false;
     if (dynamorio_library_filepath[0] != '\0') /* Already cached. */
         return;
     /* Prevent infinite recursion if bounds recovery fails and triggers an assert,
      * which in turn tries to print modules and query bounds again.
      */
-    if (getting_bounds)
+    if (attempted_dynamo_library_bounds)
         return;
-    getting_bounds = true;
+    attempted_dynamo_library_bounds = true;
     /* Note that we're not counting DYNAMORIO_PRELOAD_NAME as a DR area, to match
      * Windows, so we should unload it like we do there. The other reason not to
      * count it is so is_in_dynamo_dll() can be the only exception to the
@@ -9906,7 +9906,6 @@ get_dynamo_library_bounds(void)
         REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_FIND_DR_BOUNDS, 2, get_application_name(),
                                     get_application_pid());
     }
-    getting_bounds = false;
 }
 
 /* Determines and caches the alternative-bitwidth libdynamorio path.

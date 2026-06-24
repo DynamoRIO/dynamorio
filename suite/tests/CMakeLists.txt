@@ -3682,6 +3682,7 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
     append_link_flags(api.static_maps_mixup_yesvars
         "-Wl,--defsym,dynamorio_so_start=__executable_start -Wl,--defsym,dynamorio_so_end=end")
 
+    # TODO i#3538: Remove the _FLAKY suffix after ensuring no failures remaining.
     set(api.static_maps_mixup_novars_FLAKY_expectbase
        "static_maps_mixup_novars")
     tobuild_api(api.static_maps_mixup_novars_FLAKY
