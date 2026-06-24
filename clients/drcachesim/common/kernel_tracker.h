@@ -54,13 +54,10 @@ namespace drmemtrace {
  */
 template <typename RecordType> class kernel_tracker_tmpl_t {
 public:
-    kernel_tracker_tmpl_t() = default;
-
     /**
      * Returns whether the current point in the trace is inside a kernel region.
      * Kernel regions include system calls, context switches, and hardware events
      * such an interrupts.
-     * Returns true if the trace is currently in a kernel region, false otherwise.
      */
     bool
     in_kernel_trace() const

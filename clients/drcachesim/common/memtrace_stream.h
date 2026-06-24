@@ -353,7 +353,6 @@ public:
     }
 };
 
-
 /**
  * Implementation of memtrace_stream_t useful for mocks in tests.
  */
