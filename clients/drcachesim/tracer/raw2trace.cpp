@@ -512,7 +512,7 @@ raw2trace_t::process_marker(raw2trace_thread_data_t *tdata,
                static_cast<uint>(tdata->tid), stamp);
         if (stamp < tdata->last_timestamp_) {
             // We see time values out of the Linux kernel go backward.
-            // If we see at most 1us difference we assume it's innocuous
+            // If we see at most 4 us difference we assume it's innocuous
             // and we correct it, to avoid invariant problems later.
             // If a subclass overrides process_marker() and acts before us, they'll
             // see the old one, but the difference is minimal and if it really matters
