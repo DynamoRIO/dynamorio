@@ -128,12 +128,13 @@ private:
 };
 
 /**
- * Instantiation of #kernel_tracker_tmpl_t for #memref_t records.
+ * Instantiation of #dynamorio::drmemtrace::kernel_tracker_tmpl_t for #memref_t records.
  */
 using kernel_tracker_t = kernel_tracker_tmpl_t<memref_t>;
 
 /**
- * Instantiation of #kernel_tracker_tmpl_t for #trace_entry_t records.
+ * Instantiation of #dynamorio::drmemtrace::kernel_tracker_tmpl_t for #trace_entry_t
+ * records.
  */
 using kernel_record_tracker_t = kernel_tracker_tmpl_t<trace_entry_t>;
 
