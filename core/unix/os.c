@@ -9805,6 +9805,7 @@ extern int dynamorio_so_start, dynamorio_so_end;
 static void
 get_dynamo_library_bounds(void)
 {
+    ASSERT(!dynamo_initialized);
     static bool attempted_dynamo_library_bounds = false;
     if (dynamorio_library_filepath[0] != '\0') /* Already cached. */
         return;
