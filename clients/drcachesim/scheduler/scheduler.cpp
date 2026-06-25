@@ -156,6 +156,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         return res;
 
     // Update our memtrace_stream_t state.
+    // XXX: Consider scoping this lock to reduce contention.
     std::lock_guard<mutex_dbg_owned> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         ++cur_ref_count_;
