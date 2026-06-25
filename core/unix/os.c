@@ -7972,15 +7972,28 @@ pre_system_call(dcontext_t *dcontext)
            asmlinkage int
            sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize)
          */
-        /* TODO i#7955: If a signal is already pending (either because it was blocked
-         * and is now unblocked by sigsuspend, or because it was already unblocked
-         * but delayed by DR), executing sigsuspend may hang because the signal
-         * was already consumed by DR's signal handler. We should detect this (e.g.,
-         * check signals_pending > 0 after handle_sigsuspend) and preemptively deliver
-         * the signal and skip/re-execute the syscall.
-         */
+
         handle_sigsuspend(dcontext, (kernel_sigset_t *)sys_param(dcontext, 0),
                           (size_t)sys_param(dcontext, 1));
+        if (dcontext->signals_pending > 0) {
+            /* A signal is already pending, which may be because it was blocked
+             * before and is now unblocked by the sigsuspend. Since the kernel has
+             * already delivered it, we must NOT execute the sigsuspend, otherwise
+             * it would hang. Instead, we skip it and return -EINTR.
+             * After we return back to dispatch_enter_dynamorio, dispatch_exit_fcache
+             * will check signals_pending and actually deliver the signal to the
+             * app before returning the EINTR.
+             *
+             * XXX: For pre-existing unblocked signals that were queued up by
+             * DR before the sigsuspend: it's not fully accurate to skip the
+             * sigsuspend; ideally, we should deliver the signal and then enter
+             * sigsuspend. But we choose to avoid that complexity for now; also
+             * apps generally call sigsuspend in a loop until some exit condition is
+             * met.
+             */
+            set_failure_return_val(dcontext, EINTR);
+            execute_syscall = false;
+        }
         break;
     }
 #ifdef LINUX

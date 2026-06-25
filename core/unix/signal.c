@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2718,6 +2718,10 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set, size_t sigsetsize)
         dump_sigset(dcontext, &info->app_sigblocked);
     }
 #endif
+    /* Update the pending signals flag to allow pre_system_call to potentially
+     * skip the sigsuspend if a eligible signal is already pending.
+     */
+    check_signals_pending(dcontext, info);
     d_r_mutex_unlock(&info->sigblocked_lock);
     DOLOG(4, LOG_ASYNCH, dump_unmasked(dcontext, __FUNCTION__););
 }
@@ -4921,6 +4925,17 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             !signal_is_fault(dcontext, sig, pc, (byte *)sc->SC_XSP, &frame->info) &&
             atomic_aligned_read_int(&info->sighand->threads_unmasked[sig]) > 0 &&
             (!sig_is_alarm_signal(sig) ||
+             /* RFC: For alarms, currently we don't do any rerouting at all if
+              * the thread to which the kernel delivered it is already in an app handler.
+              * As i#5482 says, this strategy benefits large apps particularly.
+              * Would it be nicer if we do s/&&/||/ below and make -reroute_alarm_signals
+              * default false so it can be set only for the cases that do need it?
+              * This would allow apps like sigmask.c from PR #7958 to function
+              * correctly.
+              * Is there any use case for disabling rerouting even if the thread is
+              * not in an app signal handler when the alarm is delivered to it by
+              * the kernel?
+              */
              (!info->in_app_handler && DYNAMO_OPTION(reroute_alarm_signals)))) {
             /* We need to re-route this but cannot acquire the locks to search the
              * threads here.  We thus start delivery and once we come back from
@@ -7522,7 +7537,6 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         convert_rt_mask_to_nonrt(frame, &our_mask);
     }
 #endif /* LINUX */
-
     /* Make sure we deliver pending signals that are now unblocked.
      */
     check_signals_pending(dcontext, info);
