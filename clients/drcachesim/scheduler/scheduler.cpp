@@ -155,10 +155,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
     if (res != sched_type_t::STATUS_OK)
         return res;
 
-    // While reader_t tracks kernel state, if we dynamically inject a sequence
-    // the input readers will not see it: so we need our own state here.
-    kernel_tracker_.update(record);
-
     // Update our memtrace_stream_t state.
     std::lock_guard<mutex_dbg_owned> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
@@ -172,6 +168,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
            input->reader->get_record_ordinal(), input->reader->get_instruction_ordinal());
 
     // Update our header and other state.
+
+    // While reader_t tracks kernel state, if we dynamically inject a sequence
+    // the input readers will not see it: so we need our own state here.
+    // TODO i#7854: Add support for regions of interest and skipping for
+    // OFFLINE_FILE_TYPE_WHOLE_SYSTEM traces where the following call would not
+    // see skipped over records that may affect relevant state.
+    kernel_tracker_.update(record);
+
     // If we skipped over these, advance_region_of_interest() sets them.
     // TODO i#5843: Check that all inputs have the same top-level headers here.
     // A possible exception is allowing warmup-phase-filtered traces to be mixed
