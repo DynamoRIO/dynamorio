@@ -885,6 +885,11 @@ protected:
     stream_status_t
     pick_next_input(output_ordinal_t output, uint64_t blocked_time);
 
+    // Returns whether the current scheduler mode is valid for the given
+    // filetype.
+    scheduler_status_t
+    check_scheduler_mode_valid(offline_file_type_t filetype);
+
     // If the given record has a thread id field, returns true and the value.
     // This considers IDLE_THREAD_ID as a valid tid.
     bool

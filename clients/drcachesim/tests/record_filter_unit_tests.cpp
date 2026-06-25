@@ -1859,6 +1859,36 @@ test_kernel_filter()
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, { 1 } },
           true,
           { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Kernel trace between hardware_event and hardware_context_return markers.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, { 1 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Kernel trace between syscall markers and nested hardware_event markers.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, { 1 } },
+          true,
+          { false } },
 
         { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
         { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },

@@ -129,6 +129,7 @@ bool
 basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    per_shard->kernel_tracker_.update(memref);
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
     if (memref.instr.tid != INVALID_THREAD_ID && memref.instr.tid != IDLE_THREAD_ID &&
         memref.instr.tid != per_shard->last_tid_) {
@@ -137,7 +138,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     }
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
-        if (per_shard->is_kernel) {
+        if (per_shard->kernel_tracker_.in_kernel_trace()) {
             ++counters->kernel_instrs;
         } else {
             ++counters->user_instrs;
@@ -150,7 +151,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             ++counters->encodings;
     } else if (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         ++counters->instrs_nofetch;
-        if (per_shard->is_kernel) {
+        if (per_shard->kernel_tracker_.in_kernel_trace()) {
             ++counters->kernel_nofetch_instrs;
         } else {
             ++counters->user_nofetch_instrs;
@@ -219,14 +220,6 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 break;
             case TRACE_MARKER_TYPE_SKIPPED_MEMREF:
                 ++counters->skipped_memref_markers;
-                break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START:
-                per_shard->is_kernel = true;
-                break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
-                per_shard->is_kernel = false;
                 break;
             case TRACE_MARKER_TYPE_FILETYPE:
                 if (per_shard->filetype_ == -1) {

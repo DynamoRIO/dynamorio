@@ -156,6 +156,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         return res;
 
     // Update our memtrace_stream_t state.
+    // XXX: Consider scoping this lock to reduce contention.
     std::lock_guard<mutex_dbg_owned> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         ++cur_ref_count_;
@@ -168,6 +169,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
            input->reader->get_record_ordinal(), input->reader->get_instruction_ordinal());
 
     // Update our header and other state.
+
+    // While reader_t tracks kernel state, if we dynamically inject a sequence
+    // the input readers will not see it: so we need our own state here.
+    // TODO i#7854: Add support for regions of interest and skipping for
+    // OFFLINE_FILE_TYPE_WHOLE_SYSTEM traces where the following call would not
+    // see skipped over records that may affect relevant state.
+    kernel_tracker_.update(record);
+
     // If we skipped over these, advance_region_of_interest() sets them.
     // TODO i#5843: Check that all inputs have the same top-level headers here.
     // A possible exception is allowing warmup-phase-filtered traces to be mixed
@@ -183,18 +192,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
             break;
 
         case TRACE_MARKER_TYPE_VERSION: version_ = marker_value; break;
-        case TRACE_MARKER_TYPE_FILETYPE: filetype_ = marker_value; break;
+        case TRACE_MARKER_TYPE_FILETYPE:
+            filetype_ = marker_value;
+            if (scheduler_->check_scheduler_mode_valid(static_cast<offline_file_type_t>(
+                    marker_value)) != sched_type_t::STATUS_SUCCESS) {
+                return sched_type_t::STATUS_INVALID;
+            }
+            break;
         case TRACE_MARKER_TYPE_CACHE_LINE_SIZE: cache_line_size_ = marker_value; break;
         case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
             chunk_instr_count_ = marker_value;
             break;
         case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = marker_value; break;
-        // While reader_t tracks kernel state, if we dynamically inject a sequence
-        // the input readers will not see it: so we need our own state here.
-        case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: in_kernel_trace_ = true; break;
-        case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-        case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: in_kernel_trace_ = false; break;
         default: // No action needed.
             break;
         }
@@ -340,7 +349,7 @@ template <typename RecordType, typename ReaderType>
 bool
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::is_record_kernel() const
 {
-    return in_kernel_trace_;
+    return kernel_tracker_.in_kernel_trace();
 }
 
 template <typename RecordType, typename ReaderType>

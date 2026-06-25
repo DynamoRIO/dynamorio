@@ -45,9 +45,14 @@
 #ifndef _MEMTRACE_STREAM_H_
 #define _MEMTRACE_STREAM_H_
 
+#include <cassert>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+
+#include "trace_entry.h"
+#include "memref.h"
+#include "kernel_tracker.h"
 
 /**
  * @file drmemtrace/memtrace_stream.h
