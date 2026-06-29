@@ -964,6 +964,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
     }
     if (!is_a_unit_test(shard)) {
+        // TODO i#7854: Run the invariant checker on a checked-in whole_system
+        // trace for coverage of the hardware_event related conditions below.
         report_if_false(shard,
                         (shard->between_kernel_syscall_trace_markers_ ||
                          shard->between_kernel_context_switch_markers_ ||
