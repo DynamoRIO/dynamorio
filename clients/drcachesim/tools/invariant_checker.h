@@ -186,7 +186,6 @@ protected:
         };
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
         std::stack<signal_context> context_stack_;
-        int hardware_event_context_depth_ = 0;
 
         // When we see a context return marker (TRACE_MARKER_TYPE_KERNEL_XFER or
         // TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) we pop the top entry from
@@ -252,6 +251,7 @@ protected:
         int expected_write_records_ = 0;
         bool between_kernel_syscall_trace_markers_ = false;
         bool between_kernel_context_switch_markers_ = false;
+        int hardware_event_context_depth_ = 0;
         // The kernel-trace-end branch target marker may have a zero value if it's at the
         // end of some thread's trace. If we find a zero-value branch_target marker, we
         // set this flag to verify that there's a thread exit next.
