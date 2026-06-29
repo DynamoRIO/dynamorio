@@ -836,7 +836,21 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     bool at_syscall_trace_end = false;
     bool at_context_switch_trace_end = false;
-
+    bool at_outermost_hardware_event_trace_end = false;
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT) {
+        ++shard->hardware_event_context_depth_;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+        --shard->hardware_event_context_depth_;
+        if (shard->hardware_event_context_depth_ < 0) {
+            // Allow the trace to start in the middle of an interrupt handler.
+            shard->hardware_event_context_depth_ = 0;
+        } else if (shard->hardware_event_context_depth_ == 0) {
+            at_outermost_hardware_event_trace_end = true;
+        }
+    }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
         shard->expect_syscall_trace_ = false;
@@ -953,7 +967,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard,
                         (shard->between_kernel_syscall_trace_markers_ ||
                          shard->between_kernel_context_switch_markers_ ||
-                         at_syscall_trace_end || at_context_switch_trace_end) ==
+                         shard->hardware_event_context_depth_ > 0 ||
+                         at_syscall_trace_end || at_context_switch_trace_end ||
+                         at_outermost_hardware_event_trace_end) ==
                             shard->stream->is_record_kernel(),
                         "Stream is_record_kernel() inaccurate");
     }

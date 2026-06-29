@@ -186,6 +186,7 @@ protected:
         };
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
         std::stack<signal_context> context_stack_;
+        int hardware_event_context_depth_ = 0;
 
         // When we see a context return marker (TRACE_MARKER_TYPE_KERNEL_XFER or
         // TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) we pop the top entry from
