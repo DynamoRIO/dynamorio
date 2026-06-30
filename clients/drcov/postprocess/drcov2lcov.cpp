@@ -969,40 +969,85 @@ static bool
 read_drcov_file(const char *input)
 {
     file_t log;
-    const char *map, *ptr;
+    const char *map, *ptr, *map_end;
     size_t map_size;
+    uint64 file_size;
     module_table_t **tables;
     uint num_mods, num_bbs;
-    bool res;
+    uint num_dumps = 0;
+    bool any_bb = false;
 
     PRINT(2, "Reading drcov log file: %s\n", input);
-    log = open_input_file(input, &map, &map_size, NULL);
+    log = open_input_file(input, &map, &map_size, &file_size);
     if (log == INVALID_FILE) {
         WARN(1, "Failed to read drcov log file %s\n", input);
         return false;
     }
-    ptr = read_file_header(map);
-    if (ptr == NULL) {
-        WARN(1, "Invalid version or bitwidth in drcov log file %s\n", input);
-        return false;
+
+    /* A single log file can contain several drcov dumps appended one after
+     * another, and we must read all of them rather than stopping after the
+     * first.
+     *
+     * This happens because drcovlib writes a dump in two situations: once when
+     * the application is about to call execve (so coverage is captured before
+     * the process image is replaced), and again when the process or thread
+     * exits.  Normally those two dumps land in different files, but
+     * posix_spawn() and popen() use a vfork-style clone that shares the
+     * parent's address space.  The "execve" dump from the child therefore gets
+     * written into the parent's still-open log file, and is later followed by
+     * the parent's own exit dump in the same file.
+     *
+     * If we only read the first dump, we see the program's state frozen at the
+     * moment of the popen() call and report everything after it as never
+     * executed.  Reading every dump fixes that.  Each dump carries its own
+     * module table, so the dumps merge cleanly: enumerate_line_info() already
+     * unions line coverage per source file across all module tables, exactly as
+     * it does when merging separate per-process files.
+     */
+    ptr = map;
+    map_end = map + (size_t)file_size;
+    while (ptr < map_end) {
+        const char *hdr = read_file_header(ptr);
+        if (hdr == NULL) {
+            if (num_dumps == 0) {
+                WARN(1, "Invalid version or bitwidth in drcov log file %s\n", input);
+                close_input_file(log, map, map_size);
+                return false;
+            }
+            /* Trailing bytes that are not a valid header: stop after the dumps
+             * we did read rather than failing the whole file.
+             */
+            WARN(2, "Ignoring trailing data after %u dump(s) in %s\n", num_dumps, input);
+            break;
+        }
+
+        ptr = read_module_list(hdr, &tables, &num_mods);
+        if (ptr == NULL) {
+            close_input_file(log, map, map_size);
+            return false;
+        }
+
+        if (dr_sscanf(ptr, "BB Table: %u bbs\n", &num_bbs) != 1) {
+            WARN(1, "Failed to read bb list from %s\n", input);
+            free(tables);
+            close_input_file(log, map, map_size);
+            return false;
+        }
+        ptr = move_to_next_line(ptr);
+        if ((size_t)(ptr - map) + (size_t)num_bbs * sizeof(bb_entry_t) > map_size) {
+            WARN(1, "Wrong number of bbs, corrupt log file %s\n", input);
+            free(tables);
+            close_input_file(log, map, map_size);
+            return false;
+        }
+        /* read_bb_list() frees tables. */
+        if (read_bb_list(ptr, tables, num_mods, num_bbs))
+            any_bb = true;
+        ptr += (size_t)num_bbs * sizeof(bb_entry_t);
+        num_dumps++;
     }
 
-    ptr = read_module_list(ptr, &tables, &num_mods);
-    if (ptr == NULL)
-        return false;
-
-    if (dr_sscanf(ptr, "BB Table: %u bbs\n", &num_bbs) != 1) {
-        WARN(1, "Failed to read bb list from %s\n", input);
-        return false;
-    }
-    ptr = move_to_next_line(ptr);
-    if (num_bbs * sizeof(bb_entry_t) > map_size) {
-        WARN(1, "Wrong number of bbs, corrupt log file %s\n", input);
-        close_input_file(log, map, map_size);
-        return false;
-    }
-    res = read_bb_list(ptr, tables, num_mods, num_bbs);
-    if (res && set_log != INVALID_FILE)
+    if (any_bb && set_log != INVALID_FILE)
         dr_fprintf(set_log, "%s\n", input);
     close_input_file(log, map, map_size);
     return true;
