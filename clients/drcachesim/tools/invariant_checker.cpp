@@ -840,6 +840,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT) {
         ++shard->hardware_event_context_depth_;
+        // Sanity check to ensure we catch missing endpoints.
+        assert(shard->hardware_event_context_depth_ < 30);
+        report_if_false(shard, shard->hardware_event_context_depth_ < 30,
+                        "Possibly missing hardware_context_return markers.");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
