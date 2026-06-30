@@ -836,7 +836,25 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     bool at_syscall_trace_end = false;
     bool at_context_switch_trace_end = false;
-
+    bool at_outermost_hardware_event_trace_end = false;
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT) {
+        ++shard->hardware_event_context_depth_;
+        // Sanity check to ensure we catch missing endpoints.
+        assert(shard->hardware_event_context_depth_ < 30);
+        report_if_false(shard, shard->hardware_event_context_depth_ < 30,
+                        "Possibly missing hardware_context_return markers.");
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+        --shard->hardware_event_context_depth_;
+        if (shard->hardware_event_context_depth_ < 0) {
+            // Allow the trace to start in the middle of an interrupt handler.
+            shard->hardware_event_context_depth_ = 0;
+        } else if (shard->hardware_event_context_depth_ == 0) {
+            at_outermost_hardware_event_trace_end = true;
+        }
+    }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
         shard->expect_syscall_trace_ = false;
@@ -950,10 +968,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
     }
     if (!is_a_unit_test(shard)) {
+        // TODO i#7854: Run the invariant checker on a checked-in whole_system
+        // trace for coverage of the hardware_event related conditions below.
         report_if_false(shard,
                         (shard->between_kernel_syscall_trace_markers_ ||
                          shard->between_kernel_context_switch_markers_ ||
-                         at_syscall_trace_end || at_context_switch_trace_end) ==
+                         shard->hardware_event_context_depth_ > 0 ||
+                         at_syscall_trace_end || at_context_switch_trace_end ||
+                         at_outermost_hardware_event_trace_end) ==
                             shard->stream->is_record_kernel(),
                         "Stream is_record_kernel() inaccurate");
     }
