@@ -146,21 +146,21 @@ vmm_heap_fork_init(dcontext_t *dcontext);
 void
 print_vmm_heap_data(file_t outf);
 byte *
-vmcode_get_start();
+vmcode_get_start(void);
 byte *
-vmcode_get_end();
+vmcode_get_end(void);
 void
 iterate_vmm_regions(void (*cb)(byte *region_start, byte *region_end, void *user_data),
                     void *user_data);
 byte *
-vmcode_unreachable_pc();
+vmcode_unreachable_pc(void);
 byte *
 vmcode_get_writable_addr(byte *exec_addr);
 byte *
 vmcode_get_executable_addr(byte *write_addr);
 
 void
-vmm_heap_handle_pending_low_on_memory_event_trigger();
+vmm_heap_handle_pending_low_on_memory_event_trigger(void);
 
 bool
 heap_check_option_compatibility(void);

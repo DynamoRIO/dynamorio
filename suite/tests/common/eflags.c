@@ -66,7 +66,7 @@ test_flag(uint eflags, uint pos, bool set)
 }
 
 int
-main()
+main(void)
 {
     uint i;
     INIT();

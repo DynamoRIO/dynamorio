@@ -34,7 +34,7 @@
 #include "tools.h"
 
 int
-main()
+main(void)
 {
     /* Execute writable code to test i#143.
      * This opcode sequence is matched in the client.

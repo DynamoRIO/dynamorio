@@ -39,7 +39,7 @@
 #    endif
 
 NOINLINE void
-marker();
+marker(void);
 /* asm routines */
 void
 init_zmm(byte *buf);
@@ -51,9 +51,9 @@ void
 get_opmask(byte *buf);
 
 NOINLINE void
-test1_marker();
+test1_marker(void);
 NOINLINE void
-test2_marker();
+test2_marker(void);
 /* asm routines */
 NOINLINE void
 init_zmm(byte *buf);
@@ -95,7 +95,7 @@ print_opmask(byte opmask_buf[], byte opmask_ref[])
 }
 
 static void
-run_avx512_ctx_test(void (*marker)())
+run_avx512_ctx_test(void (*marker)(void))
 {
     byte zmm_buf[NUM_SIMD_REGS * 64];
     byte zmm_ref[NUM_SIMD_REGS * 64];
@@ -133,7 +133,7 @@ run_avx512_ctx_test(void (*marker)())
 }
 
 static void
-run_avx512_all_tests()
+run_avx512_all_tests(void)
 {
     print("Testing code cache context switch\n");
     run_avx512_ctx_test(test1_marker);
@@ -145,7 +145,7 @@ run_avx512_all_tests()
 }
 
 int
-main()
+main(void)
 {
     run_avx512_all_tests();
     return 0;

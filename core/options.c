@@ -2427,7 +2427,7 @@ check_option_compatibility_helper(int recurse_count)
 
 /* returns true if changed any options */
 static bool
-check_option_compatibility()
+check_option_compatibility(void)
 {
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
@@ -2436,7 +2436,7 @@ check_option_compatibility()
 
 /* returns true if changed any options */
 static bool
-check_dynamic_option_compatibility()
+check_dynamic_option_compatibility(void)
 {
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
     /* NOTE : use non-synch form of USAGE_ERROR  in here to avoid
@@ -2715,7 +2715,7 @@ show_dynamo_options(bool minimal)
 
 /* USAGE Show descriptions of all available options */
 static void
-show_dynamo_option_descriptions()
+show_dynamo_option_descriptions(void)
 {
 #    define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
                            description, flag, pcache)                                 \

@@ -133,7 +133,7 @@ make_sigprocmask(int how, void *sigset, void *oldsigset, int size)
 }
 
 static void
-test_sigprocmask()
+test_sigprocmask(void)
 {
 #if defined(MACOS)
     sigset_t new = 0xf00d, new2 = 0x1234, old, original;

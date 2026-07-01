@@ -42,7 +42,7 @@ void
 test_reg_clobber(char *buf1, char *buf2, int *x);
 
 int
-main()
+main(void)
 {
     char buf1[1024];
     char buf2[1024];

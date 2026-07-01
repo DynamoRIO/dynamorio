@@ -127,7 +127,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
 /* i#1263 */
 static void
-test_abs_base_disp()
+test_abs_base_disp(void)
 {
     opnd_t mem = opnd_create_base_disp(REG_NULL, REG_NULL, 0, -20, OPSZ_4);
     void *addr;

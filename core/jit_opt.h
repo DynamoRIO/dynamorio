@@ -2,10 +2,10 @@
 #define _JIT_OPT_H_
 
 void
-jitopt_init();
+jitopt_init(void);
 
 void
-jitopt_exit();
+jitopt_exit(void);
 
 /* Account for a DGC basic block having the specified span in app space. */
 void

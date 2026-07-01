@@ -130,7 +130,7 @@ get_val_from_ctx(void *drcontext, reg_id_t reg_id)
 }
 
 static void
-set_reg_val()
+set_reg_val(void)
 {
     void *drcontext = dr_get_current_drcontext();
     void *val = (void *)get_val_from_ctx(drcontext, TEST_REG);
@@ -138,7 +138,7 @@ set_reg_val()
 }
 
 static void
-check_reg_val()
+check_reg_val(void)
 {
     void *drcontext = dr_get_current_drcontext();
     reg_t val = get_val_from_ctx(drcontext, TEST_REG);

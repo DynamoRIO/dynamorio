@@ -433,7 +433,7 @@ check_const_ne(ptr_int_t reg, ptr_int_t val)
 }
 
 static void
-empty_clean_call()
+empty_clean_call(void)
 {
     /* TODO i#4999: fix memory leak when the following statement is removed and
      * this routine is truly empty.

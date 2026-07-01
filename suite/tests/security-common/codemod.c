@@ -40,7 +40,7 @@ unsigned int buf[8];
 #endif
 
 int
-main()
+main(void)
 {
 #if ON_STACK
     unsigned int buf[8];

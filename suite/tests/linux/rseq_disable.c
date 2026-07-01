@@ -56,7 +56,7 @@ handler(int sig, siginfo_t *info, void *ucxt)
 }
 
 int
-main()
+main(void)
 {
     /* Rather than sample app code doing regular rseq things, here we're testing
      * the -disable_rseq option.  It should do two things:

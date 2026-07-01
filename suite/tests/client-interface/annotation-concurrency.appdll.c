@@ -113,7 +113,7 @@ jacobi(double *dst, double *src, double **coefficients, double *rhs_vector, int 
 
 /* clean up library instance */
 EXPORT void
-jacobi_exit()
+jacobi_exit(void)
 {
     if (invoke_annotations)
         TEST_ANNOTATION_TEN_ARGS(101, 102, 103, 104, 105, 106, 107, 108, 109, 110);

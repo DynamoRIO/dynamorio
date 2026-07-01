@@ -533,9 +533,9 @@ DYNAMORIO_EXPORT int
 dynamorio_app_init(void);
 /* dynamorio_app_init() can be called in two parts: */
 void
-dynamorio_app_init_part_one_options();
+dynamorio_app_init_part_one_options(void);
 int
-dynamorio_app_init_part_two_finalize();
+dynamorio_app_init_part_two_finalize(void);
 int
 dynamorio_app_exit(void);
 dcontext_t *

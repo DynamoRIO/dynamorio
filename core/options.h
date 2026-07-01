@@ -235,12 +235,12 @@ extern read_write_lock_t options_lock;
 
 /* full access to string requires read lock */
 static inline void
-string_option_read_lock()
+string_option_read_lock(void)
 {
     d_r_read_lock(&options_lock);
 }
 static inline void
-string_option_read_unlock()
+string_option_read_unlock(void)
 {
     d_r_read_unlock(&options_lock);
 }

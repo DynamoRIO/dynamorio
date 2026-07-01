@@ -63,7 +63,7 @@
 
 /* asm routines */
 void
-signal_handler_asm();
+signal_handler_asm(void);
 void
 test_signal_midbb(void);
 void
@@ -137,9 +137,9 @@ process(void *arg)
 int
 main(int argc, char **argv)
 {
-    intercept_signal(SIGUSR1, signal_handler_asm, false);
-    intercept_signal(SIGSEGV, signal_handler_asm, false);
-    intercept_signal(SIGILL, signal_handler_asm, false);
+    intercept_signal(SIGUSR1, (handler_3_t)signal_handler_asm, false);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler_asm, false);
+    intercept_signal(SIGILL, (handler_3_t)signal_handler_asm, false);
 
     /* Perform our assembly tests. */
     if (SIGSETJMP(mark) == 0) {

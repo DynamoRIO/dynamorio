@@ -39,14 +39,14 @@
 jmp_buf mark;
 
 void
-foo()
+foo(void)
 {
     print("about to do longjmp\n");
     longjmp(mark, -1);
 }
 
 int
-main()
+main(void)
 {
     int jmpret;
     /* Save stack environment for return in case of error. First

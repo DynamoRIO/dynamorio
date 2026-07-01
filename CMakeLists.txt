@@ -837,6 +837,7 @@ if (UNIX)
   # now w/ no separate cpp step we should eliminate the
   # warnings and pass -pedantic to main gcc
   set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -std=gnu99")
+  set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -Wstrict-prototypes")
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
   # Ensure DR is interoperable with other toolchains: do not assume char is signed

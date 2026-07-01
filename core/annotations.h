@@ -124,10 +124,10 @@ typedef struct _dr_annotation_handler_t {
 } dr_annotation_handler_t;
 
 void
-annotation_init();
+annotation_init(void);
 
 void
-annotation_exit();
+annotation_exit(void);
 
 static inline bool
 is_annotation_label(instr_t *instr)

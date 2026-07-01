@@ -151,7 +151,7 @@ test_with_null_stack_pointer(bool clone_vm, bool use_clone3)
 #endif
 
 int
-main()
+main(void)
 {
     /* Try using clone3 when it is possibly not defined. This is done for two
      * reasons: test whether the kernel supports it, and our handling of clone3

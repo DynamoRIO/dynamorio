@@ -58,21 +58,21 @@ ring(void **retaddr_p, ptr_int_t x)
 }
 
 ptr_int_t
-foo()
+foo(void)
 {
     print("in foo\n");
     return 1;
 }
 
 ptr_int_t
-bar()
+bar(void)
 {
     print("in bar\n");
     return 3;
 }
 
 ptr_int_t
-twofoo()
+twofoo(void)
 {
     ptr_int_t a = foo();
     print("first foo a=" SZFMT "\n", a);
@@ -128,7 +128,7 @@ invalid_ret(int x)
 }
 
 int
-main()
+main(void)
 {
     INIT();
 

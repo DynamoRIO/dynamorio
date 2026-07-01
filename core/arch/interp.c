@@ -129,7 +129,7 @@ DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
 
 /* initialization */
 void
-interp_init()
+interp_init(void)
 {
     if (INTERNAL_OPTION(bbdump_tags)) {
         bbdump_file = open_log_file("bbs", NULL, 0);
@@ -146,7 +146,7 @@ static int num_rets_removed;
 
 /* cleanup */
 void
-interp_exit()
+interp_exit(void)
 {
     if (INTERNAL_OPTION(bbdump_tags)) {
         close_log_file(bbdump_file);

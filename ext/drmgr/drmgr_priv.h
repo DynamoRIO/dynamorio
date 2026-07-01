@@ -93,7 +93,7 @@ DR_EXPORT
  * Returns true on success.
  */
 bool
-drmgr_unregister_bbdup_event();
+drmgr_unregister_bbdup_event(void);
 
 DR_EXPORT
 /* Registers a callback that is triggered prior to basic block duplication. This gives

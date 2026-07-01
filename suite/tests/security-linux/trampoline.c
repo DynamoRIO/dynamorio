@@ -60,7 +60,7 @@ outer(int x)
 }
 
 int
-main()
+main(void)
 {
     outer(4);
     return 0;

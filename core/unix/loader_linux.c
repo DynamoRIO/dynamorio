@@ -680,7 +680,7 @@ redirect___tls_get_addr(tls_index_t *ti)
 }
 
 void *
-redirect____tls_get_addr()
+redirect____tls_get_addr(void)
 {
     tls_index_t *ti;
     /* XXX: in some version of ___tls_get_addr, ti is passed via xax

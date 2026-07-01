@@ -115,7 +115,7 @@ test_avx512_bf16_encoding(void *dc)
 }
 
 static void
-test_encode_decode()
+test_encode_decode(void)
 {
     void *dcontext = dr_standalone_init();
 
@@ -123,7 +123,7 @@ test_encode_decode()
 }
 
 int
-main()
+main(void)
 {
     dr_printf("test_x86_64_s:\n");
     test_s((byte *)test_x86_64_s_asm);

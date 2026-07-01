@@ -851,7 +851,7 @@ free_callback_list(callback_list_t *vec)
 }
 
 static void
-free_all_callback_lists()
+free_all_callback_lists(void)
 {
     free_callback_list(&exit_callbacks);
     free_callback_list(&post_attach_callbacks);
@@ -903,22 +903,19 @@ instrument_exit_event(void)
     /* support dr_get_mcontext() from the exit event */
     if (!standalone_library)
         get_thread_private_dcontext()->client_data->mcontext_in_dcontext = true;
-    call_all(exit_callbacks, int (*)(),
-             /* It seems the compiler is confused if we pass no var args
-              * to the call_all macro.  Bogus NULL arg */
-             NULL);
+    call_all(exit_callbacks, int (*)(void));
 }
 
 void
 instrument_post_attach_event(void)
 {
-    call_all(post_attach_callbacks, int (*)(), NULL);
+    call_all(post_attach_callbacks, int (*)(void));
 }
 
 void
 instrument_pre_detach_event(void)
 {
-    call_all(pre_detach_callbacks, int (*)(), NULL);
+    call_all(pre_detach_callbacks, int (*)(void));
 }
 
 void
@@ -1212,13 +1209,13 @@ dr_unregister_fork_init_event(void (*func)(void *drcontext))
 #endif
 
 void
-dr_register_low_on_memory_event(void (*func)())
+dr_register_low_on_memory_event(void (*func)(void))
 {
     add_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
 }
 
 bool
-dr_unregister_low_on_memory_event(void (*func)())
+dr_unregister_low_on_memory_event(void (*func)(void))
 {
     return remove_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
 }
@@ -1521,9 +1518,9 @@ instrument_fork_init(dcontext_t *dcontext)
 #endif
 
 void
-instrument_low_on_memory()
+instrument_low_on_memory(void)
 {
-    call_all(low_on_memory_callbacks, int (*)());
+    call_all(low_on_memory_callbacks, int (*)(void));
 }
 
 /* PR 536058: split the exit event from thread cleanup, to provide a

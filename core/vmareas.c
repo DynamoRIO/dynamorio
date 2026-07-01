@@ -1687,7 +1687,7 @@ vm_areas_init()
 }
 
 static void
-vm_areas_statistics()
+vm_areas_statistics(void)
 {
 #ifdef PROGRAM_SHEPHERDING
     DOLOG(1, LOG_VMAREAS | LOG_STATS, {
@@ -9148,7 +9148,7 @@ print_lazy_deletion_list(dcontext_t *dcontext, const char *msg)
 
 #ifdef DEBUG
 static void
-check_lazy_deletion_list_consistency()
+check_lazy_deletion_list_consistency(void)
 {
     uint i = 0;
     fragment_t *f;
@@ -11684,7 +11684,7 @@ check_vec(vm_area_vector_t *v, int i, app_pc start, app_pc end, uint vm_flags,
 }
 
 void
-vmvector_tests()
+vmvector_tests(void)
 {
     vm_area_vector_t v = { 0, 0, 0, VECTOR_SHARED | VECTOR_NEVER_MERGE,
                            INIT_READWRITE_LOCK(thread_vm_areas) };

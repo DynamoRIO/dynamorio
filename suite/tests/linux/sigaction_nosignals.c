@@ -392,7 +392,7 @@ tests_edge(void)
  */
 
 int
-main()
+main(void)
 {
     tests_rw();
     tests_prot();

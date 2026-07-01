@@ -156,7 +156,7 @@ destroy_analysis(void *drcontext, uintptr_t encoding, void *user_data,
 }
 
 static void
-update_encoding()
+update_encoding(void)
 {
     if (encode_val != 0)
         encode_val--;

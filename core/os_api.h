@@ -396,7 +396,7 @@ dr_convert_pid_to_handle(process_id_t pid);
  */
 typedef void *dr_auxlib_handle_t;
 /** An exported routine in a loaded client auxiliary library. */
-typedef void (*dr_auxlib_routine_ptr_t)();
+typedef void (*dr_auxlib_routine_ptr_t)(void);
 #if defined(WINDOWS) && !defined(X64)
 /**
  * A handle to a loaded 64-bit client auxiliary library.  This is a different
