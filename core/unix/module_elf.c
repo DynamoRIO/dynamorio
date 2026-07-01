@@ -1185,7 +1185,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 }
 
 static void
-module_undef_symbols()
+module_undef_symbols(void)
 {
     FATAL_USAGE_ERROR(UNDEFINED_SYMBOL_REFERENCE, 0, "");
 }

@@ -35,7 +35,7 @@
 #include "tools.h"
 
 int
-main()
+main(void)
 {
     /* We use the binary generated from this code with our libcallstack sample library
      * to track malloc() in the sample.callstack test. Since this is technically dead

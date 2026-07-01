@@ -34,7 +34,7 @@
 /* basic block builder may build infinite loop here */
 
 int
-main()
+main(void)
 {
 #if defined(__i386__) || defined(__x86_64__)
     __asm__("jmp    aroundexit");

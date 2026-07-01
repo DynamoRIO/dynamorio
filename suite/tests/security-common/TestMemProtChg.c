@@ -119,7 +119,7 @@ test_alloc_overlap(void)
 #endif
 
 int
-main()
+main(void)
 {
     /* get aligned test buffers */
 #ifdef DO_STACK_TESTS

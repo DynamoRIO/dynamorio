@@ -92,7 +92,7 @@ sideline_exit(void);
  * performs some cleanup and then calls os_terminate
  */
 static void
-soft_terminate()
+soft_terminate(void)
 {
 #ifdef SIDELINE
     /* kill child threads */
@@ -349,7 +349,7 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex
 /* dump process locks that have been acquired at least once */
 /* XXX: since most mutexes are global we don't have thread private lock lists */
 void
-dump_process_locks()
+dump_process_locks(void)
 {
     mutex_t *cur_lock;
     uint depth = 0;
@@ -386,7 +386,7 @@ dump_process_locks()
 }
 
 uint
-locks_not_closed()
+locks_not_closed(void)
 {
     mutex_t *cur_lock;
     uint forgotten = 0;
@@ -727,7 +727,7 @@ DECLARE_FREQPROT_VAR(static uint random_seed, 1234); /* initialized in utils_ini
 DEBUG_DECLARE(static uint initial_random_seed;)
 
 void
-utils_init()
+utils_init(void)
 {
     /* XXX: We need to find a formula (or a better constant) based on real experiments
        also see comment on spinlock_count_on_SMP in optionsx.h */
@@ -1620,7 +1620,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free)
 /* LOGGING */
 
 file_t
-get_thread_private_logfile()
+get_thread_private_logfile(void)
 {
 #ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -2026,7 +2026,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t prng_lock, INIT_LOCK_FREE(prng_lock));
 #ifdef DEBUG
 /* callers should play it safe - no memory allocations, no grabbing locks */
 bool
-under_internal_exception()
+under_internal_exception(void)
 {
 #    ifdef DEADLOCK_AVOIDANCE
     /* ASSUMPTION: reading owner field is atomic */
@@ -2657,7 +2657,7 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t logdir_mutex,
 
 /* enable creating a new base logdir (for a fork, e.g.) */
 void
-enable_new_log_dir()
+enable_new_log_dir(void)
 {
     logdir_initialized = false;
 }
@@ -2976,7 +2976,7 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
 }
 
 const char *
-get_app_name_for_path()
+get_app_name_for_path(void)
 {
     return get_short_name(get_application_name());
 }
@@ -3455,7 +3455,7 @@ print_version_and_app_info(file_t file)
 }
 
 void
-utils_exit()
+utils_exit(void)
 {
     LOG(GLOBAL, LOG_STATS, 1, "-prng_seed " PFX " for reproducing random sequence\n",
         initial_random_seed);
@@ -4250,7 +4250,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t profile_callers_lock,
  * XXX: combine w/ a generalized mutex_collect_callstack()?
  */
 void
-profile_callers()
+profile_callers(void)
 {
     profile_callers_t *entry;
     uint *pc;
@@ -4305,7 +4305,7 @@ profile_callers()
 }
 
 void
-profile_callers_exit()
+profile_callers_exit(void)
 {
     profile_callers_t *entry, *next;
     file_t file;

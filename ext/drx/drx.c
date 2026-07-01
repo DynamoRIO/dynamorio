@@ -119,9 +119,9 @@ drx_buf_exit_library(void);
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 bool
-drx_scatter_gather_init();
+drx_scatter_gather_init(void);
 void
-drx_scatter_gather_exit();
+drx_scatter_gather_exit(void);
 #endif
 
 static int drx_init_count;
@@ -168,7 +168,7 @@ drx_init(void)
 
 DR_EXPORT
 void
-drx_exit()
+drx_exit(void)
 {
     int count = dr_atomic_add32_return_sum(&drx_init_count, -1);
     if (count != 0)

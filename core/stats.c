@@ -225,7 +225,7 @@ kstat_exit()
 }
 
 static void
-kstat_calibrate()
+kstat_calibrate(void)
 {
     uint i;
     static bool kstats_calibrated = false;

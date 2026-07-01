@@ -38,7 +38,7 @@
 #include "tools.h"
 
 int
-main()
+main(void)
 {
     const size_t size = 0x00008765;
     size_t newsize = size + 0x100; /* these values of size & newsize work for

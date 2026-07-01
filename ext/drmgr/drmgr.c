@@ -139,15 +139,15 @@ typedef struct _generic_event_entry_t {
     union {
         void (*generic_cb)(void);
         union {
-            void (*cb_no_user_data)();
+            void (*cb_no_user_data)(void);
             void (*cb_user_data)(void *);
         } exit_cb;
         union {
-            void (*cb_no_user_data)();
+            void (*cb_no_user_data)(void);
             void (*cb_user_data)(void *);
         } post_attach_cb;
         union {
-            void (*cb_no_user_data)();
+            void (*cb_no_user_data)(void);
             void (*cb_user_data)(void *);
         } pre_detach_cb;
         union {
@@ -176,7 +176,7 @@ typedef struct _generic_event_entry_t {
             void (*cb_user_data)(void *, const module_data_t *, void *);
         } modunload_cb;
         union {
-            void (*cb_no_user_data)();
+            void (*cb_no_user_data)(void);
             void (*cb_user_data)(void *);
         } low_on_memory_cb;
         void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
@@ -459,7 +459,7 @@ static void
 drmgr_modunload_event(void *drcontext, const module_data_t *info);
 
 static void
-drmgr_low_on_memory_event();
+drmgr_low_on_memory_event(void);
 
 static void
 drmgr_kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info);
@@ -485,7 +485,7 @@ static void
 our_thread_exit_event(void *drcontext);
 
 static bool
-is_bbdup_enabled();
+is_bbdup_enabled(void);
 
 /***************************************************************************
  * INIT
@@ -3460,7 +3460,7 @@ drmgr_pop_cls(void *drcontext)
 
 DR_EXPORT
 bool
-drmgr_register_low_on_memory_event(void (*func)())
+drmgr_register_low_on_memory_event(void (*func)(void))
 {
     return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
                                    (void (*)(void))func, NULL, false, NULL);
@@ -3468,7 +3468,7 @@ drmgr_register_low_on_memory_event(void (*func)())
 
 DR_EXPORT
 bool
-drmgr_register_low_on_memory_event_ex(void (*func)(), drmgr_priority_t *priority)
+drmgr_register_low_on_memory_event_ex(void (*func)(void), drmgr_priority_t *priority)
 {
     return drmgr_generic_event_add(&cblist_low_on_memory, low_on_memory_event_lock,
                                    (void (*)(void))func, priority, false, NULL);
@@ -3485,7 +3485,7 @@ drmgr_register_low_on_memory_event_user_data(void (*func)(void *user_data),
 
 DR_EXPORT
 bool
-drmgr_unregister_low_on_memory_event(void (*func)())
+drmgr_unregister_low_on_memory_event(void (*func)(void))
 {
     return drmgr_generic_event_remove(&cblist_low_on_memory, low_on_memory_event_lock,
                                       (void (*)(void))func);
@@ -3500,7 +3500,7 @@ drmgr_unregister_low_on_memory_event_user_data(void (*func)(void *user_data))
 }
 
 static void
-drmgr_low_on_memory_event()
+drmgr_low_on_memory_event(void)
 {
     void *drcontext = dr_get_current_drcontext();
     generic_event_entry_t local[EVENTS_STACK_SZ];
@@ -3768,7 +3768,7 @@ drmgr_orig_app_instr_for_operands(void *drcontext)
  */
 
 static bool
-is_bbdup_enabled()
+is_bbdup_enabled(void)
 {
     return bbdup_duplicate_cb != NULL;
 }
@@ -3800,7 +3800,7 @@ drmgr_register_bbdup_event(drmgr_bbdup_duplicate_bb_cb_t bb_dup_func,
 }
 
 bool
-drmgr_unregister_bbdup_event()
+drmgr_unregister_bbdup_event(void)
 {
     bool succ = false;
     dr_rwlock_write_lock(bb_cb_lock);

@@ -81,7 +81,7 @@ static volatile bool child_started[NUM_THREADS];
 static struct timespec sleeptime;
 
 int
-main()
+main(void)
 {
     int i;
     sleeptime.tv_sec = 0;

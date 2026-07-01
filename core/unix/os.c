@@ -915,7 +915,7 @@ get_uname(void)
  *
  */
 static void
-detect_unsupported_syscalls()
+detect_unsupported_syscalls(void)
 {
     /* We know that when clone3 is available, it fails with EINVAL with
      * these args.
@@ -2462,7 +2462,7 @@ os_tls_init(void)
 }
 
 static bool
-should_zero_tls_at_thread_exit()
+should_zero_tls_at_thread_exit(void)
 {
 #ifdef X86
     /* i#2089: For a thread w/o CLONE_SIGHAND we cannot handle a fault, so we want to
@@ -3122,7 +3122,7 @@ detach_finalize_cleanup(void)
 }
 
 static pid_t
-get_process_group_id()
+get_process_group_id(void)
 {
     return dynamorio_syscall(SYS_getpgid, 0);
 }

@@ -109,12 +109,12 @@ static int thread_handling_index = 0, matrix_size;
 static const char *lib_name;
 static MODULE_TYPE jacobi_module;
 static void (*jacobi_init)(int matrix_size, bool enable_annotations);
-static void (*jacobi_exit)();
+static void (*jacobi_exit)(void);
 static void (*jacobi)(double *dst, double *src, double **coefficients, double *rhs_vector,
                       int limit, unsigned int worker_id);
 
 static void
-print_usage()
+print_usage(void)
 {
     print("usage: jacobi { A | B | C } <thread-count> [matrix-size iters]\n");
     print(" e.g.: jacobi A 4\n");

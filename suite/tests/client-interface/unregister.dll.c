@@ -33,7 +33,7 @@
 #include "dr_api.h"
 
 static void
-unregister();
+unregister(void);
 
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
@@ -45,7 +45,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 }
 
 static void
-unregister()
+unregister(void)
 {
     dr_unregister_bb_event(bb_event);
 }

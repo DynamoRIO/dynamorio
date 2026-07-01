@@ -215,7 +215,7 @@ print_all_ldt(void)
 
 /* returns -1 if all indices are in use */
 static int
-find_unused_ldt_index()
+find_unused_ldt_index(void)
 {
     int i, bytes;
     /* N.B.: we don't have 64K of stack for the full LDT_ENTRIES

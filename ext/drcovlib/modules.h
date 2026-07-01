@@ -75,7 +75,7 @@ void
 module_table_print(module_table_t *table, file_t log, bool print_all_info);
 
 module_table_t *
-module_table_create();
+module_table_create(void);
 
 void
 module_table_destroy(module_table_t *table);

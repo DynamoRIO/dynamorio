@@ -78,7 +78,7 @@ compare(const void *arg1, const void *arg2)
 }
 
 int
-sort()
+sort(void)
 {
     int argc = 5;
     const char *argv[] = { "one", "two", "three", "five", "six", "unsorted" };

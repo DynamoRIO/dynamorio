@@ -70,7 +70,7 @@ typedef struct _fragment_tree_t {
 } fragment_tree_t;
 
 static fragment_tree_t *
-fragment_tree_create()
+fragment_tree_create(void)
 {
     fragment_tree_t *tree =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fragment_tree_t, ACCT_OTHER, UNPROTECTED);
@@ -547,7 +547,7 @@ fragment_tree_clear(fragment_tree_t *tree)
 static fragment_tree_t *fragment_tree;
 
 void
-jitopt_init()
+jitopt_init(void)
 {
     if (DYNAMO_OPTION(opt_jit)) {
         fragment_tree = fragment_tree_create();
@@ -564,7 +564,7 @@ jitopt_init()
 }
 
 void
-jitopt_exit()
+jitopt_exit(void)
 {
     if (DYNAMO_OPTION(opt_jit))
         fragment_tree_destroy(fragment_tree);
@@ -618,7 +618,7 @@ unit_test_find_node_in_list(bb_node_t **node_list, bb_node_t *lookup, uint list_
 
 /* Verify the black depth along each path of the tree. */
 static void
-unit_test_verify_black_depth()
+unit_test_verify_black_depth(void)
 {
     ASSERT(!fragment_tree->root->red);
 
@@ -863,7 +863,7 @@ unit_test_churn_narrow_span(bb_node_t **node_list, uint list_length)
 }
 
 void
-unit_test_jit_fragment_tree()
+unit_test_jit_fragment_tree(void)
 {
     uint i;
     bb_node_t *node_list[FRAGMENT_TREE_TEST_NODE_COUNT]; /* N.B.: may contain NULLs */

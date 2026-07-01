@@ -97,7 +97,7 @@ try
     }
 
 int
-main()
+main(void)
 {
     int counts[2] = { 0, 0 };
     uint64_t time = 1;

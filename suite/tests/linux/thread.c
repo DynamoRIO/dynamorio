@@ -81,7 +81,7 @@ static volatile bool child_done;
 static struct timespec sleeptime;
 
 int
-main()
+main(void)
 {
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 10 * 1000 * 1000; /* 10ms */

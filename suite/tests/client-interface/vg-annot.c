@@ -57,7 +57,7 @@
 #define MEMORY_BLOCK_C 89
 
 int
-main()
+main(void)
 {
 #ifdef _MSC_VER /* WINDOWS */
     unsigned int i, j, k;

@@ -73,7 +73,7 @@ foo(void *retaddr)
 }
 
 int
-main()
+main(void)
 {
     ptr_int_t myaddr;
     /* make sure dynamorio can handle this non-call */

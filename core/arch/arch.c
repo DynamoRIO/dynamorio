@@ -2881,7 +2881,7 @@ get_global_do_syscall_entry()
 /* used only by cleanup_and_terminate to avoid the sysenter
  * sygate hack version */
 byte *
-get_cleanup_and_terminate_global_do_syscall_entry()
+get_cleanup_and_terminate_global_do_syscall_entry(void)
 {
     /* see note above: for 32-bit linux apps we use int.
      * xref PR 332427 as well where sysenter causes a crash
@@ -3986,7 +3986,7 @@ test_thread_func(void *arg)
 }
 
 static void
-do_parallel_updates()
+do_parallel_updates(void)
 {
     int i;
 #    ifdef UNIX

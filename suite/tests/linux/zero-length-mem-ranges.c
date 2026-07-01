@@ -33,7 +33,7 @@
 #include "tools.h"
 
 int
-main()
+main(void)
 {
     void *bad_mem = mmap(NULL, 0, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (bad_mem != MAP_FAILED) {

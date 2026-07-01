@@ -670,7 +670,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drx_unregister_time_scaling();
+drx_unregister_time_scaling(void);
 
 DR_EXPORT
 /**

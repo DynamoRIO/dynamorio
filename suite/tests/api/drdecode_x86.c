@@ -287,7 +287,7 @@ test_isa_features(void)
 }
 
 int
-main()
+main(void)
 {
     test_disasm_style();
 

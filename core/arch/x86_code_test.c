@@ -89,7 +89,7 @@ test_call_switch_stack(dcontext_t *dc)
 }
 
 static void
-test_cpuid()
+test_cpuid(void)
 {
 #    ifdef X86
     int cpuid_res[4] = { 0 };
@@ -106,7 +106,7 @@ test_cpuid()
 #    if !defined(DR_HOST_NOT_TARGET) && defined(__AVX__)
 
 static void
-unit_test_get_ymm_caller_saved()
+unit_test_get_ymm_caller_saved(void)
 {
     dr_zmm_t ref_buffer[MCXT_NUM_SIMD_SLOTS];
     dr_zmm_t get_buffer[MCXT_NUM_SIMD_SLOTS];
@@ -200,7 +200,7 @@ unit_test_get_ymm_caller_saved()
 #    ifdef __AVX512F__
 
 static void
-unit_test_get_zmm_caller_saved()
+unit_test_get_zmm_caller_saved(void)
 {
     dr_zmm_t ref_buffer[MCXT_NUM_SIMD_SLOTS];
     dr_zmm_t get_buffer[MCXT_NUM_SIMD_SLOTS];
@@ -317,7 +317,7 @@ unit_test_get_zmm_caller_saved()
 }
 
 static void
-unit_test_get_opmask_caller_saved()
+unit_test_get_opmask_caller_saved(void)
 {
     /* While DynamoRIO's dr_opmask_t type is 8 bytes, the actual machine register is
      * really only 8 bytes if the processor and OS support AVX512BW. Otherwise it is

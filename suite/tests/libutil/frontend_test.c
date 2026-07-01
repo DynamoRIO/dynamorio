@@ -40,7 +40,7 @@
 #define DBGHELP_LIB "dbghelp.dll"
 
 int
-main()
+main(void)
 {
     bool dir_exists;
     int res;
