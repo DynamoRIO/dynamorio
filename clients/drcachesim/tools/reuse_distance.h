@@ -72,8 +72,8 @@ namespace drmemtrace {
 #    define IF_DEBUG_VERBOSE(level, action)
 #endif
 
-struct line_ref_list_t;
-struct line_ref_t;
+struct line_ref_entry_t;
+class line_ref_container_t;
 
 class reuse_distance_t : public analysis_tool_t {
 public:
@@ -115,8 +115,8 @@ protected:
     // for computing over different units if for some reason that was desired.
     struct shard_data_t {
         shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist,
-                     unsigned int distance_limit, bool verify);
-        std::unordered_map<addr_t, line_ref_t *> cache_map;
+                     uint32_t distance_limit, bool verify, bool use_splay_tree);
+        std::unordered_map<addr_t, line_ref_entry_t *> cache_map;
         std::unordered_set<addr_t> pruned_addresses;
         // These are our reuse distance histograms: one for all accesses and one
         // only for data references.  An instruction histogram can be computed by
@@ -131,7 +131,7 @@ protected:
         distance_histogram_t dist_map;
         distance_histogram_t dist_map_data;
         bool dist_map_is_instr_only = true;
-        std::unique_ptr<line_ref_list_t> ref_list;
+        std::unique_ptr<line_ref_container_t> ref_list;
         int64_t total_refs = 0;
         int64_t data_refs = 0; // Non-instruction reference count.
         memref_tid_t tid = 0;  // For SHARD_BY_THREAD.
@@ -153,6 +153,9 @@ protected:
     void
     print_shard_results(const shard_data_t *shard);
 
+    line_ref_entry_t *
+    build_entry(addr_t val);
+
     // Return a pointer to aggregate results, building them if needed.
     virtual const shard_data_t *
     get_aggregated_results();
@@ -169,14 +172,26 @@ protected:
     memtrace_stream_t *serial_stream_ = nullptr;
 };
 
+struct line_ref_entry_t {
+    uint64_t time_stamp;   // the most recent reference time stamp on this line
+    uint64_t total_refs;   // the total number of references on this line
+    uint64_t distant_refs; // the total number of distant references on this line
+    addr_t tag;
+
+    line_ref_entry_t(addr_t tag)
+        : total_refs(1)
+        , distant_refs(0)
+        , tag(tag)
+    {
+    }
+
+    virtual ~line_ref_entry_t() = default;
+};
+
 /* A doubly linked list node for the cache line reference info */
-struct line_ref_t {
+struct line_ref_t : line_ref_entry_t {
     struct line_ref_t *prev; // the prev line_ref in the list
     struct line_ref_t *next; // the next line_ref in the list
-    uint64_t time_stamp;     // the most recent reference time stamp on this line
-    uint64_t total_refs;     // the total number of references on this line
-    uint64_t distant_refs;   // the total number of distant references on this line
-    addr_t tag;
 
     // We have a one-layer skip list for more efficient depth computation.
     // We inline the fields in every node for simplicity and to reduce allocs.
@@ -185,16 +200,37 @@ struct line_ref_t {
     int64_t depth;                // only valid for skip list nodes; -1 for others
 
     line_ref_t(addr_t val)
-        : prev(NULL)
+        : line_ref_entry_t(val)
+        , prev(NULL)
         , next(NULL)
-        , total_refs(1)
-        , distant_refs(0)
-        , tag(val)
         , prev_skip(NULL)
         , next_skip(NULL)
         , depth(-1)
     {
     }
+};
+
+class line_ref_container_t {
+public:
+    uint64_t cur_time_;     // current time stamp
+    uint64_t unique_lines_; // the total number of unique cache lines accessed
+    uint64_t threshold_;    // the reuse distance threshold
+
+    line_ref_container_t(uint64_t reuse_threshold)
+        : cur_time_(0)
+        , unique_lines_(0)
+        , threshold_(reuse_threshold)
+    {
+    }
+    virtual ~line_ref_container_t() = default;
+    virtual void
+    add_to_front(line_ref_entry_t *ref) = 0;
+    virtual int64_t
+    move_to_front(line_ref_entry_t *ref) = 0;
+    virtual void
+    prune_tail() = 0;
+    virtual line_ref_entry_t *
+    get_tail() = 0;
 };
 
 // We use a doubly linked list to keep track of the cache line reuse distance.
@@ -212,29 +248,30 @@ struct line_ref_t {
 // We have a second doubly-linked list, a one-layer skip list, for
 // more efficient computation of the depth.  Each node in the skip
 // list stores its depth from the front.
-struct line_ref_list_t {
+struct line_ref_list_t : public line_ref_container_t {
     line_ref_t *head_;       // the most recently accessed cache line
     line_ref_t *gate_;       // the earliest cache line refs within the threshold
     line_ref_t *tail_;       // the least recently accessed cache line
-    uint64_t cur_time_;      // current time stamp
-    uint64_t unique_lines_;  // the total number of unique cache lines accessed
-    uint64_t threshold_;     // the reuse distance threshold
     uint64_t skip_distance_; // distance between skip list nodes
     bool verify_skip_;       // check results using brute-force walks
 
     line_ref_list_t(uint64_t reuse_threshold_, uint64_t skip_dist, bool verify)
-        : head_(NULL)
+        : line_ref_container_t(reuse_threshold_)
+        , head_(NULL)
         , gate_(NULL)
         , tail_(NULL)
-        , cur_time_(0)
-        , unique_lines_(0)
-        , threshold_(reuse_threshold_)
         , skip_distance_(skip_dist)
         , verify_skip_(verify)
     {
     }
 
-    virtual ~line_ref_list_t()
+    line_ref_entry_t *
+    get_tail() override
+    {
+        return tail_;
+    }
+
+    virtual ~line_ref_list_t() override
     {
         line_ref_t *ref;
         line_ref_t *next;
@@ -292,8 +329,10 @@ struct line_ref_list_t {
     // than the threshold so that the gate points to the earliest
     // referenced cache line within the threshold.
     void
-    add_to_front(line_ref_t *ref)
+    add_to_front(line_ref_entry_t *ref_entry) override
     {
+        line_ref_t *ref = dynamic_cast<line_ref_t *>(ref_entry);
+        assert(ref != nullptr);
         IF_DEBUG_VERBOSE(3, std::cerr << "Add tag 0x" << std::hex << ref->tag << "\n");
         // update head_
         ref->next = head_;
@@ -340,7 +379,7 @@ struct line_ref_list_t {
 
     // Remove the last entry from the distance list.
     void
-    prune_tail()
+    prune_tail() override
     {
         // Make sure the tail pointers are legal.
         assert(tail_ != NULL);
@@ -373,8 +412,10 @@ struct line_ref_list_t {
     // line is the gate_ cache line or any cache line after.
     // Returns the reuse distance of ref.
     int64_t
-    move_to_front(line_ref_t *ref)
+    move_to_front(line_ref_entry_t *ref_entry) override
     {
+        line_ref_t *ref = dynamic_cast<line_ref_t *>(ref_entry);
+        assert(ref != nullptr);
         IF_DEBUG_VERBOSE(
             3, std::cerr << "Move tag 0x" << std::hex << ref->tag << " to front\n");
         line_ref_t *prev;
@@ -450,6 +491,432 @@ struct line_ref_list_t {
         // knob_reuse_skip_dist to stay close to the mean, for best performance.
         return dist;
     }
+};
+
+/* A splay tree node for the cache line reference info */
+struct line_ref_node_t : line_ref_entry_t {
+    struct line_ref_node_t *left;   // the left child of the node
+    struct line_ref_node_t *right;  // the right child of the node
+    struct line_ref_node_t *parent; // the parent of the node
+    uint64_t size;                  // Size of the subtree
+
+    line_ref_node_t(addr_t val)
+        : line_ref_entry_t(val)
+        , left(nullptr)
+        , right(nullptr)
+        , parent(nullptr)
+        , size(1)
+    {
+    }
+};
+
+// We use a splay tree to keep track of the cache line reuse distance.
+// The leftmost node of the splay tree is the most recently accessed cache line.
+// The earlier the cache line was last accessed, the more to the right this cache line
+// is in the splay tree.
+// If a cache line is accessed, its time stamp is set as current, and it is
+// added/moved to the left of the splay tree.  The cache line reference
+// reuse distance is the cache line position in the splay tree before moving.
+// We also keep a pointer (gate) pointing to the earliest cache
+// line referenced within the threshold.  Thus, we can quickly check
+// whether a cache line is recently accessed by comparing the time
+// stamp of the referenced cache line and the gate cache line.
+// The splay tree is a binary search tree that uses the splay operation for balancing,
+// which allows deleting and inserting an element at any position in O(log n) amortized
+// time.
+class line_ref_splay_t : public line_ref_container_t {
+public:
+    line_ref_node_t *gate_; // the earliest cache line refs within the threshold
+    line_ref_node_t *head_; // the most recently accessed cache line
+    line_ref_node_t *tail_; // the least recently accessed cache line
+
+    line_ref_splay_t(uint64_t reuse_threshold_)
+        : line_ref_container_t(reuse_threshold_)
+        , gate_(nullptr)
+        , head_(nullptr)
+        , tail_(nullptr)
+        , root_(nullptr)
+    {
+    }
+
+    virtual ~line_ref_splay_t()
+    {
+        line_ref_node_t *current = root_;
+        while (current != nullptr) {
+            if (current->left != nullptr) {
+                current = current->left;
+            } else if (current->right != nullptr) {
+                current = current->right;
+            } else {
+                line_ref_node_t *parent = current->parent;
+                if (parent != nullptr) {
+                    if (parent->left == current) {
+                        parent->left = nullptr;
+                    } else {
+                        parent->right = nullptr;
+                    }
+                }
+                delete current;
+                current = parent;
+            }
+        }
+    }
+
+    line_ref_entry_t *
+    get_tail() override
+    {
+        return tail_;
+    }
+
+    bool
+    ref_is_distant(line_ref_node_t *ref)
+    {
+        if (gate_ == NULL || ref->time_stamp >= gate_->time_stamp)
+            return false;
+        return true;
+    }
+
+    void
+    print_node(line_ref_node_t *node)
+    {
+        assert(node != nullptr);
+        std::cerr << "\tTag 0x" << std::hex << node->tag << " size=" << std::dec
+                  << node->size << " parent=" << std::hex
+                  << (node->parent == nullptr ? 0 : node->parent->tag)
+                  << " left=" << std::hex << (node->left == nullptr ? 0 : node->left->tag)
+                  << " right=" << std::hex
+                  << (node->right == nullptr ? 0 : node->right->tag);
+    }
+
+    // Print splay tree in the order of traversal.
+    void
+    print_list()
+    {
+        std::cerr << "Reuse tag list:\n";
+        line_ref_node_t *node = root_;
+        // the last visited node
+        line_ref_node_t *last = nullptr;
+
+        while (node != nullptr) {
+            assert(node->parent != nullptr || node == root_);
+            assert(get_size(node->left) + get_size(node->right) + 1 == node->size);
+
+            if (node->left != nullptr && last != node->left && last != node->right) {
+                node = node->left;
+                last = nullptr;
+            } else if (node->right != nullptr && last == node->left) {
+                print_node(node);
+                node = node->right;
+                last = nullptr;
+            } else {
+                if (node->right == nullptr) {
+                    print_node(node);
+                }
+                last = node;
+                node = node->parent;
+            }
+        }
+    }
+
+    // Add a new cache line to the front of the splay tree.
+    // We may need to move gate_ forward if there are more cache lines
+    // than the threshold so that the gate points to the earliest
+    // referenced cache line within the threshold.
+    void
+    add_to_front(line_ref_entry_t *ref_entry) override
+    {
+        line_ref_node_t *ref = dynamic_cast<line_ref_node_t *>(ref_entry);
+        assert(ref != nullptr);
+
+        push_front(ref);
+        if (gate_ == nullptr) {
+            gate_ = ref;
+        }
+        if (tail_ == nullptr) {
+            tail_ = ref;
+        }
+        // move gate_ forward if necessary
+        if (unique_lines_ > threshold_) {
+            gate_ = get_prev(gate_);
+        }
+
+        unique_lines_++;
+        ref->time_stamp = cur_time_++;
+        IF_DEBUG_VERBOSE(3, print_list());
+    }
+
+    // Remove the last entry from the distance tree.
+    void
+    prune_tail() override
+    {
+        // Make sure the tail pointers are legal.
+        assert(tail_ != nullptr);
+        assert(tail_ != head_);
+        assert(tail_->right == nullptr);
+
+        // Get new tail.
+        line_ref_node_t *new_tail = get_prev(tail_);
+
+        // Link the child of tail with the parent
+        if (tail_->parent != nullptr) {
+            assert(is_right_child(tail_));
+            tail_->parent->right = tail_->left;
+            if (tail_->left != nullptr) {
+                tail_->left->parent = tail_->parent;
+            }
+        }
+
+        // Update sizes of all parents
+        line_ref_node_t *parent = tail_->parent;
+        while (parent != nullptr) {
+            parent->size--;
+            parent = parent->parent;
+        }
+        if (tail_ == gate_) {
+            // move gate_ if tail_ was the gate_.
+            gate_ = new_tail;
+        }
+        // And finally, update tail_.
+        tail_ = new_tail;
+    }
+
+    // Move a referenced cache line to the front of the splay tree.
+    // We need to move the gate_ pointer forward if the referenced cache
+    // line is the gate_ cache line or any cache line after.
+    // Returns the reuse distance of ref.
+    int64_t
+    move_to_front(line_ref_entry_t *ref_entry) override
+    {
+        line_ref_node_t *ref = dynamic_cast<line_ref_node_t *>(ref_entry);
+        assert(ref != nullptr);
+
+        ref->total_refs++;
+        if (ref == head_)
+            return 0;
+        // After the splay operation, index of ref is the size of its left child.
+        splay(ref);
+        // Get the reuse distance of ref.
+        int64_t dist = get_size(ref->left);
+
+        if (ref_is_distant(ref)) {
+            ref->distant_refs++;
+            gate_ = get_prev(gate_);
+        } else if (ref == gate_) {
+            // move gate_ if ref is the gate_.
+            gate_ = get_prev(gate_);
+        }
+        if (ref == tail_) {
+            tail_ = get_prev(tail_);
+        }
+        remove(ref);
+        push_front(ref);
+        ref->time_stamp = cur_time_++;
+        IF_DEBUG_VERBOSE(3, print_list());
+        return dist;
+    }
+
+protected:
+    // Push node to the front of the splay tree.
+    void
+    push_front(line_ref_node_t *ref)
+    {
+        // Link ref to the front of the head.
+        if (head_ != nullptr) {
+            assert(head_->left == nullptr);
+            head_->left = ref;
+        } else {
+            root_ = ref;
+        }
+        ref->parent = head_;
+        line_ref_node_t *parent = ref->parent;
+        // Update sizes of parents
+        while (parent != nullptr) {
+            parent->size++;
+            parent = parent->parent;
+        }
+
+        // Update head
+        head_ = ref;
+        splay(ref);
+    }
+    // Remove the node ref from the splay tree
+    void
+    remove(line_ref_node_t *ref)
+    {
+        splay(ref);
+        // Replace ref with left child and link right child to the tail of left child
+        if (ref->left != nullptr) {
+            ref->left->parent = nullptr;
+            if (ref->right != nullptr) {
+                line_ref_node_t *left_tail = get_tail(ref->left);
+                assert(left_tail->right == nullptr);
+                ref->right->parent = left_tail;
+                left_tail->right = ref->right;
+                // Update sizes of the left child's subtrees
+                do {
+                    left_tail->size += get_size(ref->right);
+                    left_tail = left_tail->parent;
+                } while (left_tail != nullptr);
+            }
+            root_ = ref->left;
+        } else {
+            root_ = ref->right;
+            ref->right->parent = nullptr;
+        }
+        ref->parent = ref->right = ref->left = nullptr;
+        ref->size = 1;
+    }
+
+    // Find the tail of the splay tree.
+    // Returns a pointer to the tail.
+    line_ref_node_t *
+    get_tail(line_ref_node_t *root)
+    {
+        if (root == nullptr) {
+            return nullptr;
+        }
+        // Tail is the far right node in the tree
+        while (root->right != nullptr) {
+            root = root->right;
+        }
+        return root;
+    }
+
+    // Find previous element of ref in the splay tree.
+    // Returns a pointer to the previous node.
+    line_ref_node_t *
+    get_prev(line_ref_node_t *ref)
+    {
+        if (ref == nullptr)
+            return nullptr;
+        // the last visited node
+        line_ref_node_t *last = nullptr;
+        // Walk up by tree while did not found a node to the left of the current
+        while ((ref->left == nullptr || ref->left == last) && ref->parent != nullptr &&
+               is_left_child(ref)) {
+            last = ref;
+            ref = ref->parent;
+        }
+
+        // previous node is the far right node in left subtree
+        if (ref->left != nullptr && ref->left != last) {
+            return get_tail(ref->left);
+        }
+
+        // if the node is right child of another, the parent is the previous node
+        if (ref->parent != nullptr && is_right_child(ref))
+            return ref->parent;
+        return nullptr;
+    }
+
+    // Get size of node
+    // Returns size of node if node exist and 0 else
+    uint64_t
+    get_size(line_ref_node_t *node)
+    {
+        if (node != nullptr)
+            return node->size;
+        return 0;
+    }
+
+    // Recalculate size of node.
+    void
+    recalc_size(line_ref_node_t *node)
+    {
+        node->size = get_size(node->left) + get_size(node->right) + 1;
+    }
+
+    // Check if node is the left child.
+    bool
+    is_left_child(line_ref_node_t *node)
+    {
+        return node->parent != nullptr && node->parent->left == node;
+    }
+
+    // Check if node is the right child.
+    bool
+    is_right_child(line_ref_node_t *node)
+    {
+        return node->parent != nullptr && node->parent->right == node;
+    }
+
+    // Make left rotate of the subtree.
+    void
+    left_rotate(line_ref_node_t *node)
+    {
+        line_ref_node_t *new_parent = node->right;
+        assert(new_parent != nullptr);
+
+        node->right = new_parent->left;
+        if (new_parent->left != nullptr)
+            new_parent->left->parent = node;
+        new_parent->parent = node->parent;
+
+        if (node->parent == nullptr)
+            root_ = new_parent;
+        else if (is_left_child(node))
+            node->parent->left = new_parent;
+        else
+            node->parent->right = new_parent;
+
+        new_parent->left = node;
+        node->parent = new_parent;
+        recalc_size(node);
+        recalc_size(new_parent);
+    }
+
+    // Make right rotate of the subtree.
+    void
+    right_rotate(line_ref_node_t *node)
+    {
+        line_ref_node_t *new_parent = node->left;
+        assert(new_parent != nullptr);
+
+        node->left = new_parent->right;
+        if (new_parent->right != nullptr)
+            new_parent->right->parent = node;
+        new_parent->parent = node->parent;
+
+        if (node->parent == nullptr)
+            root_ = new_parent;
+        else if (is_left_child(node))
+            node->parent->left = new_parent;
+        else
+            node->parent->right = new_parent;
+
+        new_parent->right = node;
+        node->parent = new_parent;
+        recalc_size(node);
+        recalc_size(new_parent);
+    }
+
+    // Move the node to the root using rotate operations.
+    void
+    splay(line_ref_node_t *node)
+    {
+        while (node->parent != nullptr) {
+            if (node->parent->parent == nullptr) {
+                if (is_left_child(node))
+                    right_rotate(node->parent);
+                else
+                    left_rotate(node->parent);
+            } else if (is_left_child(node) && is_left_child(node->parent)) {
+                right_rotate(node->parent->parent);
+                right_rotate(node->parent);
+            } else if (is_right_child(node) && is_right_child(node->parent)) {
+                left_rotate(node->parent->parent);
+                left_rotate(node->parent);
+            } else if (is_left_child(node) && is_right_child(node->parent)) {
+                right_rotate(node->parent);
+                left_rotate(node->parent);
+            } else {
+                left_rotate(node->parent);
+                right_rotate(node->parent);
+            }
+        }
+    }
+
+    line_ref_node_t *root_; // root of the splay
 };
 
 } // namespace drmemtrace

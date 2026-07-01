@@ -828,6 +828,12 @@ droption_t<bool> op_reuse_verify_skip(
     "Verifies every skip list-calculated reuse distance with a full list walk. "
     "This incurs significant additional overhead.  This option is only available "
     "in debug builds.");
+droption_t<bool> op_reuse_use_splay_tree(
+    DROPTION_SCOPE_FRONTEND, "reuse_splay_tree", false,
+    "Use splay tree for reuse distance calculation.",
+    "Uses a splay tree data structure instead of a skip list for tracking reuse "
+    "distances. Splay tree provide better complexity and consume less memory "
+    "per entry.");
 droption_t<double> op_reuse_histogram_bin_multiplier(
     DROPTION_SCOPE_FRONTEND, "reuse_histogram_bin_multiplier", 1.00,
     "When reporting histograms, grow bins geometrically by this multiplier.",
