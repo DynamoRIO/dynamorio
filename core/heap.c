@@ -350,7 +350,7 @@ release_landing_pad_mem(void);
  * DR areas lock first, to retry
  */
 static bool
-safe_to_allocate_or_free_heap_units()
+safe_to_allocate_or_free_heap_units(void)
 {
     return ((!self_owns_recursive_lock(&global_alloc_lock) &&
              !self_owns_recursive_lock(&heap_unit_lock)) ||
@@ -1569,7 +1569,7 @@ vmm_heap_handle_pending_low_on_memory_event_trigger()
 }
 
 static void
-schedule_low_on_memory_event_trigger()
+schedule_low_on_memory_event_trigger(void)
 {
     bool value = true;
     ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
@@ -2471,7 +2471,7 @@ heap_post_exit()
  * need a test for hitting 2GB (or 3GB!) user mode limit.
  */
 static void
-heap_low_on_memory()
+heap_low_on_memory(void)
 {
     /* free some memory! */
     heap_unit_t *u, *next_u;
