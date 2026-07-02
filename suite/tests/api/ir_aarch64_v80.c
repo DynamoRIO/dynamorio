@@ -740,6 +740,52 @@ TEST_INSTR(prfum)
         });
 }
 
+TEST_INSTR(lsl)
+{
+    /* Testing LSL Xd, Xn, #shift */
+    static const uint shift64[6] = {
+        0, 7, 16, 36, 45, 63,
+    };
+    /* lsl is an alias of ubfm:
+     *      lsl Xd, Xn, #shift
+     * maps to
+     *      ubfm Xd, Xn, #(-shift % 64), #(63-shift).
+     */
+    TEST_LOOP_EXPECT(ubfm, 6,
+                     INSTR_CREATE_lsl(dc, opnd_create_reg(Xn_six_offset_0[i]),
+                                      opnd_create_reg(Xn_six_offset_1[i]),
+                                      OPND_CREATE_INT(shift64[i])),
+                     {
+                         EXPECT_DISASSEMBLY("ubfm   %x0 $0x00 $0x3f -> %x0",
+                                            "ubfm   %x6 $0x39 $0x38 -> %x5",
+                                            "ubfm   %x11 $0x30 $0x2f -> %x10",
+                                            "ubfm   %x16 $0x1c $0x1b -> %x15",
+                                            "ubfm   %x21 $0x13 $0x12 -> %x20",
+                                            "ubfm   %x30 $0x01 $0x00 -> %x30", );
+                     });
+
+    static const uint shift32[6] = {
+        0, 7, 16, 24, 27, 31,
+    };
+    /* lsl is an alias of ubfm:
+     *      lsl Wd, Wn, #shift
+     * maps to
+     *      ubfm Wd, Wn, #(-shift % 32), #(31-shift).
+     */
+    TEST_LOOP_EXPECT(ubfm, 6,
+                     INSTR_CREATE_lsl(dc, opnd_create_reg(Wn_six_offset_0[i]),
+                                      opnd_create_reg(Wn_six_offset_1[i]),
+                                      OPND_CREATE_INT(shift32[i])),
+                     {
+                         EXPECT_DISASSEMBLY("ubfm   %w0 $0x00 $0x1f -> %w0",
+                                            "ubfm   %w6 $0x19 $0x18 -> %w5",
+                                            "ubfm   %w11 $0x10 $0x0f -> %w10",
+                                            "ubfm   %w16 $0x08 $0x07 -> %w15",
+                                            "ubfm   %w21 $0x05 $0x04 -> %w20",
+                                            "ubfm   %w30 $0x01 $0x00 -> %w30", );
+                     });
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -769,6 +815,8 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(prfm);
     RUN_INSTR_TEST(prfum);
+
+    RUN_INSTR_TEST(lsl);
 
     print("All v8.0 tests complete.\n");
 #ifndef STANDALONE_DECODER
