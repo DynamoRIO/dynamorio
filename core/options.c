@@ -2446,7 +2446,7 @@ check_dynamic_option_compatibility(void)
 
 /* initialize dynamo options */
 int
-options_init()
+options_init(void)
 {
     int ret = 0, retval;
 
@@ -2476,14 +2476,14 @@ options_init()
  * options_detach() for that.
  */
 void
-options_exit()
+options_exit(void)
 {
     DELETE_READWRITE_LOCK(options_lock);
 }
 
 /* Reset dynamo options to defaults. */
 void
-options_detach()
+options_detach(void)
 {
     /* We do not use options_make_writable() as locks are already gone at this point. */
     SELF_UNPROTECT_OPTIONS();
@@ -2493,7 +2493,7 @@ options_detach()
 
 /* this function returns holding the options lock */
 void
-options_make_writable()
+options_make_writable(void)
 {
     ASSERT_DO_NOT_OWN_WRITE_LOCK(true, &options_lock);
     d_r_write_lock(&options_lock);
@@ -2504,7 +2504,7 @@ options_make_writable()
  * options_make_writable() beforehand
  */
 void
-options_restore_readonly()
+options_restore_readonly(void)
 {
     ASSERT_OWN_WRITE_LOCK(true, &options_lock);
     SELF_PROTECT_OPTIONS();
@@ -2513,7 +2513,7 @@ options_restore_readonly()
 
 /* updates dynamic options and returns if any were changed */
 int
-synchronize_dynamic_options()
+synchronize_dynamic_options(void)
 {
     int updated, retval;
 

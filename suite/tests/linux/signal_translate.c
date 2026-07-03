@@ -124,7 +124,7 @@ try(int *adjust, unsigned long long param, void *arg)
 }
 
 int
-main()
+main(void)
 {
     /* This test relies on SIGPIPE, delivered by a timer, being
      * treated as a synchronous signal, like a fault, and may become

@@ -325,7 +325,7 @@ proc_init_arch(void)
 }
 
 void
-enable_all_test_cpu_features()
+enable_all_test_cpu_features(void)
 {
     const feature_bit_t features[] = {
         FEATURE_LSE,        FEATURE_RDM,         FEATURE_FP16,          FEATURE_DotProd,
