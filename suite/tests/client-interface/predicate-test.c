@@ -35,7 +35,7 @@
 
 /* asm routines */
 void
-test_asm(main);
+test_asm(void);
 
 int
 main(int argc, const char *argv[])

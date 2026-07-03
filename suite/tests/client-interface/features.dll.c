@@ -75,7 +75,7 @@ read_hw_features(char *feat_str)
  * are being checked correctly.
  */
 static void
-check_for_pauth()
+check_for_pauth(void)
 {
     if (pauth_indicated_by_isa_registers())
         ASSERT(proc_has_feature(FEATURE_PAUTH));
