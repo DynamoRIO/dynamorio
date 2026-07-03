@@ -1082,15 +1082,15 @@ fcache_enter_shared_routine(dcontext_t *dcontext);
 /* the fcache_return routines are queried by get_direct_exit_target and need more
  * direct control than the dcontext
  */
-cache_pc fcache_return_shared_routine(IF_X86_64(gencode_mode_t mode));
+cache_pc fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
 
 /* coarse-grain generated code */
 byte *
 emit_fcache_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc);
 byte *
 emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc);
-cache_pc fcache_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
-cache_pc trace_head_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
+cache_pc fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
+cache_pc trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
 
 /* shared clean call context switch */
 bool
