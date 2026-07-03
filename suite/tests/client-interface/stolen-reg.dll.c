@@ -85,7 +85,7 @@ static ptr_int_t orig_value = 0;
 static ptr_int_t test_value = 7;
 
 static void
-read_and_restore_stolen_reg_value()
+read_and_restore_stolen_reg_value(void)
 {
     dr_fprintf(STDERR, "%s entered\n", __FUNCTION__);
     void *drcontext = dr_get_current_drcontext();
@@ -111,7 +111,7 @@ read_and_restore_stolen_reg_value()
 }
 
 static void
-change_stolen_reg_value()
+change_stolen_reg_value(void)
 {
     dr_fprintf(STDERR, "%s entered\n", __FUNCTION__);
 
