@@ -35,7 +35,7 @@
 #include <stdio.h>
 
 int
-main()
+main(void)
 {
     printf("Hello world!\n");
     return 0;

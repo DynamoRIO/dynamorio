@@ -71,7 +71,7 @@ test_flag(uint nzcv, uint pos, bool set)
 }
 
 int
-main()
+main(void)
 {
     uint i;
     INIT();
