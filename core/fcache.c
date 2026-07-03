@@ -764,7 +764,7 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
  * options, returns true if modified the value of any options to make them
  * compatible.  This is called while the options are writable. */
 bool
-fcache_check_option_compatibility()
+fcache_check_option_compatibility(void)
 {
     bool ret = false;
     uint i;
@@ -863,7 +863,7 @@ fcache_reset_init(void)
 
 /* initialization -- needs no locks */
 void
-fcache_init()
+fcache_init(void)
 {
     ASSERT(offsetof(fragment_t, flags) == offsetof(empty_slot_t, flags));
     DOCHECK(1, {
@@ -984,7 +984,7 @@ fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
 #ifdef DEBUG
 /* needs to be called before fragment_exit */
 void
-fcache_stats_exit()
+fcache_stats_exit(void)
 {
     if (DYNAMO_OPTION(shared_bbs)) {
         fcache_t *cache = shared_cache_bb;
@@ -1079,7 +1079,7 @@ fcache_reset_free(void)
 
 /* atexit cleanup -- needs no locks */
 void
-fcache_exit()
+fcache_exit(void)
 {
     fcache_unit_t *u, *next_u;
 
@@ -1115,7 +1115,7 @@ fcache_exit()
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
 /* for fast exit path only, normal path taken care of in free unit*/
 void
-fcache_profile_exit()
+fcache_profile_exit(void)
 {
     fcache_unit_t *u;
     d_r_mutex_lock(&allunits_lock);
@@ -4087,7 +4087,7 @@ fcache_mark_units_for_free(dcontext_t *dcontext, fcache_t *cache)
  * XXX: should add -stress_flush_units N parameter
  */
 void
-fcache_flush_all_caches()
+fcache_flush_all_caches(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
@@ -4497,7 +4497,7 @@ fcache_reset_cache(dcontext_t *dcontext, fcache_t *cache)
  * caches.
  */
 void
-fcache_low_on_memory()
+fcache_low_on_memory(void)
 {
     fcache_unit_t *u, *next_u;
     DEBUG_DECLARE(size_t freed = 0;)
