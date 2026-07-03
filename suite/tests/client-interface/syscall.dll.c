@@ -44,7 +44,7 @@ static app_pc stop_pc = NULL;
 static bool monitoring = false;
 
 static void
-at_syscall()
+at_syscall(void)
 {
     if (monitoring) {
         dr_mcontext_t mcontext;

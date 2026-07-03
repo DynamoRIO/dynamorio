@@ -78,7 +78,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 }
 
 static void
-suspend_test_1_func()
+suspend_test_1_func(void)
 {
 #ifdef X86_64
     void **drcontexts = NULL;
@@ -119,7 +119,7 @@ suspend_test_1_func()
 }
 
 static void
-suspend_test_2_func()
+suspend_test_2_func(void)
 {
 #ifdef X86_64
     void **drcontexts = NULL;

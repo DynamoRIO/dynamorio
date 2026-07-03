@@ -36,9 +36,9 @@
 #include "dr_api.h"
 
 extern size_t
-get_dynamorio_sizeof_instr_t();
+get_dynamorio_sizeof_instr_t(void);
 extern size_t
-get_dynamorio_sizeof_opnd_t();
+get_dynamorio_sizeof_opnd_t(void);
 
 DR_EXPORT void
 dr_init(client_id_t id)

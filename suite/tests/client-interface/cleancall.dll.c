@@ -55,7 +55,7 @@ print_error_on_fail(bool check)
 }
 
 static void
-set_gpr()
+set_gpr(void)
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
@@ -75,7 +75,7 @@ set_gpr()
 }
 
 static void
-check_gpr()
+check_gpr(void)
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
@@ -93,7 +93,7 @@ check_gpr()
 }
 
 static void
-set_xmm()
+set_xmm(void)
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
@@ -113,7 +113,7 @@ set_xmm()
 }
 
 static void
-check_xmm()
+check_xmm(void)
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
@@ -131,7 +131,7 @@ check_xmm()
 }
 
 static void
-set_ymm()
+set_ymm(void)
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
@@ -153,7 +153,7 @@ set_ymm()
 }
 
 static void
-check_ymm()
+check_ymm(void)
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
@@ -174,7 +174,7 @@ check_ymm()
 
 #    ifdef __AVX512F__
 static void
-set_zmm()
+set_zmm(void)
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
@@ -199,7 +199,7 @@ set_zmm()
 }
 
 static void
-check_zmm()
+check_zmm(void)
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
@@ -252,7 +252,7 @@ bar(reg_t a1, reg_t a2)
 }
 
 static void
-save_test()
+save_test(void)
 {
     check_stack_alignment();
     int i;

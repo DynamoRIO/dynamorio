@@ -56,10 +56,10 @@ volatile bool test_suspend = false;
 volatile int loop_inc = 1;
 
 void
-test_1_asm();
+test_1_asm(void);
 
 void
-test_2_asm();
+test_2_asm(void);
 
 static void *
 suspend_thread_1_routine(void *arg)

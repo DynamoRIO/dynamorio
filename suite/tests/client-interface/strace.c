@@ -38,7 +38,7 @@
 #endif
 
 int
-main()
+main(void)
 {
 #ifdef WINDOWS
     /* Though stderr and stdout go to the same place, we want two

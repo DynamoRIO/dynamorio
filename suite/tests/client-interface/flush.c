@@ -39,7 +39,7 @@ marker(void); /* in asm code */
 int test = 1;
 
 int
-main()
+main(void)
 {
     int i = 0;
     int count = 0;

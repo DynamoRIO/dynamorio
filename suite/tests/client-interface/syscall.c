@@ -58,13 +58,13 @@ get_systemroot(char **env)
 
 EXPORT
 void
-start_monitor()
+start_monitor(void)
 {
 }
 
 EXPORT
 void
-stop_monitor()
+stop_monitor(void)
 {
 }
 

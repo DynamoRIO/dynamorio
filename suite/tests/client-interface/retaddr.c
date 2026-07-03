@@ -43,11 +43,11 @@ callee(void)
 
 /* asm routines */
 void *
-test_ret();
+test_ret(void);
 void *
-test_iret();
+test_iret(void);
 void *
-test_far_ret();
+test_far_ret(void);
 
 int
 main(int argc, char *argv[])

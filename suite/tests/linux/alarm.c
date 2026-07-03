@@ -35,13 +35,13 @@
 #include <unistd.h>
 
 void
-handler()
+handler(int sig)
 {
     print("wake up by alarm\n");
 }
 
 int
-main()
+main(void)
 {
     signal(SIGALRM, handler);
     /* test alarm to wake up sleep */

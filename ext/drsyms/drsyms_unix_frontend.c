@@ -206,8 +206,8 @@ drsym_init(int shmid_in)
          */
     } else {
         hashtable_init_ex(&modtable, MODTABLE_HASH_BITS, HASH_STRING, true /*strdup*/,
-                          false /*!synch: using symbol_lock*/,
-                          (generic_func_t)drsym_unix_unload, NULL, NULL);
+                          false /*!synch: using symbol_lock*/, drsym_unix_unload, NULL,
+                          NULL);
     }
     return DRSYM_SUCCESS;
 }

@@ -72,12 +72,13 @@ dummy2(void)
 static void *child_started;
 
 void *
-thread(void)
+thread(void *unused)
 {
     signal_cond_var(child_started);
     for (int i = 0; i < 100000; i++) {
         dummy2();
     }
+    return NULL;
 }
 
 int

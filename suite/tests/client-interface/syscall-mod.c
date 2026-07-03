@@ -44,7 +44,7 @@
 #define STRINGIFY(x) EXPANDSTR(x)
 
 int
-main()
+main(void)
 {
     int pid;
     fprintf(stderr, "starting\n");

@@ -58,7 +58,7 @@ am_I_last_thread(void)
 #endif
 
 int
-main()
+main(void)
 {
 #ifdef WINDOWS
     HANDLE lib = LoadLibrary("client.thread.appdll.dll");
