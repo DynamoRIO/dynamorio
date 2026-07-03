@@ -260,7 +260,7 @@ mangle_trace_at_end(void)
 /* Initialization */
 /* thread-shared init does nothing, thread-private init does it all */
 void
-d_r_monitor_init()
+d_r_monitor_init(void)
 {
     /* to reduce memory, we use ushorts for some offsets in fragment bodies,
      * so we have to stop a trace at that size
@@ -294,7 +294,7 @@ trace_abort_and_delete(dcontext_t *dcontext)
 }
 
 void
-d_r_monitor_exit()
+d_r_monitor_exit(void)
 {
     LOG(GLOBAL, LOG_MONITOR | LOG_STATS, 1, "Trace fragments generated: %d\n",
         GLOBAL_STAT(num_traces));
