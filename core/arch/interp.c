@@ -368,7 +368,7 @@ check_for_image_entry(app_pc bb_start)
 }
 
 void
-set_reached_image_entry()
+set_reached_image_entry(void)
 {
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     reached_image_entry = true;
@@ -376,7 +376,7 @@ set_reached_image_entry()
 }
 
 bool
-reached_image_entry_yet()
+reached_image_entry_yet(void)
 {
     return reached_image_entry;
 }
