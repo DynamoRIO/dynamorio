@@ -2831,7 +2831,7 @@ set_fcache_target(dcontext_t *dcontext, cache_pc value)
  * we use this for are ok w/ int (i.e., we don't need a sys{call,enter} version).
  */
 byte *
-get_global_do_syscall_entry()
+get_global_do_syscall_entry(void)
 {
     int method = get_syscall_method();
     if (method == SYSCALL_METHOD_INT) {
@@ -3401,7 +3401,7 @@ should_syscall_method_be_sysenter(void)
 /* returns the address of the first app syscall instruction we saw (see hack
  * in win32/os.c that uses this for PRE_SYSCALL_PC, not for general use */
 byte *
-get_app_sysenter_addr()
+get_app_sysenter_addr(void)
 {
     /* XXX : would like to assert that this has been initialized, but interp
      * bb_process_convertible_indcall() will use it before we initialize it. */
