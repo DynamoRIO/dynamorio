@@ -2407,7 +2407,7 @@ get_num_client_threads(void)
 #ifdef WINDOWS
 /* wait for all nudges to finish */
 void
-wait_for_outstanding_nudges(void)
+wait_for_outstanding_nudges()
 {
     /* block any new nudge threads from starting */
     d_r_mutex_lock(&client_thread_count_lock);
@@ -5639,7 +5639,7 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
 }
 
 DR_API dr_spill_slot_t
-dr_max_opnd_accessible_spill_slot(void)
+dr_max_opnd_accessible_spill_slot()
 {
     if (SCRATCH_ALWAYS_TLS())
         return SPILL_SLOT_TLS_MAX;
@@ -7606,7 +7606,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr, reg_
 
 DR_API
 reg_id_t
-dr_get_stolen_reg(void)
+dr_get_stolen_reg()
 {
     return IF_X86_ELSE(DR_REG_NULL, dr_reg_stolen);
 }
