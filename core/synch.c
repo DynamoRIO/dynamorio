@@ -889,7 +889,7 @@ set_synched_thread_context(thread_record_t *trec,
 
 /* for use by synch_with_* routines to wait for thread(s) */
 static void
-synch_thread_yield()
+synch_thread_yield(void)
 {
     /* xref 9400, 9488 - os_thread_yield() works ok on an UP machine, but on an MP machine
      * yield might not actually do anything (in which case we burn through to the max
@@ -2329,7 +2329,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 
 #ifdef LINUX
 void
-detach_externally_on_new_stack()
+detach_externally_on_new_stack(void)
 {
     dcontext_t *my_dcontext;
     priv_mcontext_t my_mcontext;
