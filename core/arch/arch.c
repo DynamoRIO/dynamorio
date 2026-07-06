@@ -911,7 +911,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 }
 
 void
-arch_profile_exit()
+arch_profile_exit(void)
 {
     if (USE_SHARED_GENCODE()) {
         arch_extract_profile(GLOBAL_DCONTEXT _IF_X64(GENCODE_X64));
@@ -3922,7 +3922,7 @@ set_tp_reg_val(priv_mcontext_t *mc, reg_t newval)
 /* This only works on Pentium I or later */
 #    ifdef UNIX
 __inline__ uint64
-get_time()
+get_time(void)
 {
     uint64 res;
     RDTSC_LL(res);
@@ -3930,7 +3930,7 @@ get_time()
 }
 #    else /* WINDOWS */
 uint64
-get_time()
+get_time(void)
 {
     return __rdtsc(); /* compiler intrinsic */
 }

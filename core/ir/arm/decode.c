@@ -3066,7 +3066,7 @@ decode_debug_checks_arch(void)
 #    include "instr_create_shared.h"
 
 int
-main()
+main(void)
 {
     bool res = true;
     standalone_init();

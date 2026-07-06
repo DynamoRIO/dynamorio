@@ -64,7 +64,8 @@ foo(int n)
     return 0;
 }
 
-main()
+int
+main(void)
 {
     int i, t = 0;
 

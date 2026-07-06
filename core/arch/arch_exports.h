@@ -411,7 +411,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch);
 #    ifdef UNIX
 /* This only works on Pentium I or later */
 __inline__ uint64
-get_time();
+get_time(void);
 #    else /* WINDOWS */
 /* This only works on Pentium I or later */
 uint64

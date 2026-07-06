@@ -104,7 +104,7 @@ ThreadProcBusyBuild(LPVOID param)
 /* see win32/tls.c test for alt. method of starting a detach, this way is preferable
  * since we may at some point disallow the process from detaching itself */
 void
-detach()
+detach(void)
 {
     char buf[2 * MAX_PATH] = "\"";
     char *tools = getenv("DYNAMORIO_WINTOOLS");
@@ -267,7 +267,7 @@ window_func(void *arg)
 }
 
 int
-main()
+main(void)
 {
     HANDLE ht_selfsuspend, ht_exit, ht_window;
     DWORD tid, res;

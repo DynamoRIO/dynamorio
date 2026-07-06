@@ -97,7 +97,7 @@ bar(int a, fmult_t f)
 fmult_t farr[2] = { f2, f7 };
 
 static void
-test_indcalls()
+test_indcalls(void)
 {
     EXPECT(foo('a', true), 'a');
     EXPECT(foo('a', false), 'A');
@@ -120,7 +120,7 @@ test_switch_helper(char c)
 }
 
 static void
-test_switch()
+test_switch(void)
 {
     EXPECT(test_switch_helper('a'), 'j');
     EXPECT(test_switch_helper('z'), 'z');
@@ -407,7 +407,7 @@ test_rct_ind_branch_check(void)
  * TODO: LoadLibrary(kernel32) and work on that
  */
 static void
-test_loaddll()
+test_loaddll(void)
 {
     /* TODO: LoadLibrary/GetProcAddress */
     /* and dlopen/dlsym */
@@ -424,19 +424,19 @@ test_loaddll()
 #if TEST_MULTI_SECTIONS /* NYI */
 #    pragma code_seg(".my_code1")
 void
-func2()
+func2(void)
 {
 }
 
 #    pragma code_seg(push, r1, ".my_code2")
 void
-func3()
+func3(void)
 {
 }
 
 #    pragma code_seg(pop, r1) /* back to my_code1 */
 void
-func4()
+func4(void)
 {
 }
 #    pragma code_seg /* back in .text */

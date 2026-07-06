@@ -498,7 +498,7 @@ record_fragment_size(int size, bool is_trace)
 }
 
 void
-print_size_results()
+print_size_results(void)
 {
     LOG(GLOBAL, LOG_ALL, 1, "Basic block sizes (bytes):\n");
     print_statistics(bb_sizes, num_bb);

@@ -2852,7 +2852,7 @@ decode_debug_checks_arch(void)
  * XXX: beef up to check if something went wrong
  */
 static bool
-unit_check_decode_ff_opcode()
+unit_check_decode_ff_opcode(void)
 {
     static int do_once = 0;
     instr_t instr;
@@ -2900,7 +2900,7 @@ unit_check_decode_ff_opcode()
 
 /* XXX: case 8212: add checks for every single instr type */
 static bool
-unit_check_sse3()
+unit_check_sse3(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     byte buf[32];
@@ -2934,7 +2934,7 @@ unit_check_sse3()
 }
 
 int
-main()
+main(void)
 {
     bool res;
     standalone_init();

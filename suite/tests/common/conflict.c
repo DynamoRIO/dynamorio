@@ -40,13 +40,13 @@
 static int a[ITERS];
 
 void
-arch_init()
+arch_init(void)
 {
     printf("in conflict's arch init\n");
 }
 
 int
-main()
+main(void)
 {
     double res = 0.;
     int i, j;

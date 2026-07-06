@@ -44,7 +44,7 @@
 
 /* two different checks: GetModuleFileNameA and VirtualQuery */
 BOOL
-ensure_no_preinject()
+ensure_no_preinject(void)
 {
     int len;
     char name[MAX_PATH];
@@ -71,7 +71,7 @@ ensure_no_preinject()
 }
 
 BOOL
-load_preinject()
+load_preinject(void)
 {
     HKEY hk;
     HMODULE hlib;
@@ -106,7 +106,7 @@ load_preinject()
 }
 
 int
-main()
+main(void)
 {
     HANDLE hlib;
     INIT();
