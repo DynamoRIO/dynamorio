@@ -79899,10 +79899,10 @@ test_s:
  90                   nop
  90                   nop
  90                   nop
- f3 0f ae f0          mfence
- 67 f3 0f ae f1       addr16 mfence
- f2 0f ae f1          mfence
- 66 0f ae f1          data16 mfence
+ f3 0f ae f0          umonitor %eax
+ 67 f3 0f ae f1       umonitor %cx
+ f2 0f ae f1          umwait %ecx
+ 66 0f ae f1          tpause %ecx
  90                   nop
  90                   nop
  90                   nop

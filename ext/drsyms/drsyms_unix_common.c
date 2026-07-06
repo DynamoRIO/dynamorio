@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -130,8 +130,16 @@ load_module(const char *modpath)
     mod->file_size = (size_t)file_size; /* XXX: ignoring truncation */
 
     mod->map_size = mod->file_size;
+    int map_prot = DR_MEMPROT_READ;
+#ifndef WINDOWS
+    /* Map as copy-on-write so that elfutils can directly write for cases like
+     * compressed sections. This avoids requiring a separate allocation (and
+     * patching elfutils to support that use case).
+     */
+    map_prot |= DR_MEMPROT_WRITE;
+#endif
     mod->map_base =
-        dr_map_file(mod->fd, &mod->map_size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
+        dr_map_file(mod->fd, &mod->map_size, 0, NULL, map_prot, DR_MAP_PRIVATE);
     /* map_size can be larger than file_size */
     if (mod->map_base == NULL || mod->map_size < mod->file_size) {
         NOTIFY("%s: unable to map %s\n", __FUNCTION__, modpath);
@@ -191,13 +199,13 @@ load_module(const char *modpath)
         dwarf_lib_handle_t dbg;
         /* If there is no .gnu_debuglink, initialize parsing. */
 #ifdef WINDOWS
-        /* i#1395: support switching to expots-only for MinGW, for which we
+        /* i#1395: support switching to exports-only for MinGW, for which we
          * need an image mapping.  We don't need the file mapping anymore.
          */
         if (drsym_obj_remap_as_image(mod->obj_info)) {
             dr_unmap_file(mod->map_base, mod->map_size);
             mod->map_size = 0;
-            mod->map_base = dr_map_file(mod->fd, &mod->map_size, 0, NULL, DR_MEMPROT_READ,
+            mod->map_base = dr_map_file(mod->fd, &mod->map_size, 0, NULL, map_prot,
                                         DR_MAP_PRIVATE | DR_MAP_IMAGE);
             if (mod->map_base == NULL || mod->map_size < mod->file_size) {
                 NOTIFY("%s: unable to map %s\n", __FUNCTION__, modpath);

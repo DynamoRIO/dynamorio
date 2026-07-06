@@ -26,6 +26,7 @@ Total counts:
            0 total physical address unavailable markers
            0 total system call number markers
            0 total blocking system call markers
+           0 total skipped memref markers
           16 total other markers
         8426 total encodings
 Thread 552306 counts:
@@ -49,6 +50,7 @@ Thread 552306 counts:
            0 physical address unavailable markers
            0 system call number markers
            0 blocking system call markers
+           0 skipped memref markers
            8 other markers
         6390 encodings
 Thread 552323 counts:
@@ -72,6 +74,7 @@ Thread 552323 counts:
            0 physical address unavailable markers
            0 system call number markers
            0 blocking system call markers
+           0 skipped memref markers
            4 other markers
         1028 encodings
 Thread 552324 counts:
@@ -95,6 +98,7 @@ Thread 552324 counts:
            0 physical address unavailable markers
            0 system call number markers
            0 blocking system call markers
+           0 skipped memref markers
            4 other markers
         1008 encodings
 #else

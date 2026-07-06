@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -439,16 +439,17 @@ typedef enum {
  * proc_get_cache_size_str().
  */
 typedef enum {
-    CACHE_SIZE_8_KB,   /**< L1 or L2 cache size of 8 KB. */
-    CACHE_SIZE_16_KB,  /**< L1 or L2 cache size of 16 KB. */
-    CACHE_SIZE_32_KB,  /**< L1 or L2 cache size of 32 KB. */
-    CACHE_SIZE_64_KB,  /**< L1 or L2 cache size of 64 KB. */
-    CACHE_SIZE_128_KB, /**< L1 or L2 cache size of 128 KB. */
-    CACHE_SIZE_256_KB, /**< L1 or L2 cache size of 256 KB. */
-    CACHE_SIZE_512_KB, /**< L1 or L2 cache size of 512 KB. */
-    CACHE_SIZE_1_MB,   /**< L1 or L2 cache size of 1 MB. */
-    CACHE_SIZE_2_MB,   /**< L1 or L2 cache size of 2 MB. */
-    CACHE_SIZE_UNKNOWN /**< Unknown L1 or L2 cache size. */
+    CACHE_SIZE_8_KB,    /**< L1 or L2 cache size of 8 KB. */
+    CACHE_SIZE_16_KB,   /**< L1 or L2 cache size of 16 KB. */
+    CACHE_SIZE_32_KB,   /**< L1 or L2 cache size of 32 KB. */
+    CACHE_SIZE_64_KB,   /**< L1 or L2 cache size of 64 KB. */
+    CACHE_SIZE_128_KB,  /**< L1 or L2 cache size of 128 KB. */
+    CACHE_SIZE_256_KB,  /**< L1 or L2 cache size of 256 KB. */
+    CACHE_SIZE_512_KB,  /**< L1 or L2 cache size of 512 KB. */
+    CACHE_SIZE_1_MB,    /**< L1 or L2 cache size of 1 MB. */
+    CACHE_SIZE_2_MB,    /**< L1 or L2 cache size of 2 MB. */
+    CACHE_SIZE_UNKNOWN, /**< Unknown L1 or L2 cache size. */
+    CACHE_SIZE_48_KB,   /**< L1 or L2 cache size of 48 KB. */
 } cache_size_t;
 
 DR_API

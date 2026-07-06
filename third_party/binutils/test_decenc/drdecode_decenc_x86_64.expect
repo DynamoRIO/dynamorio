@@ -39196,17 +39196,17 @@ test_x86_64_s:
  12 00 00 7b
  c4 63 35 44 92 e0 0f vpclmulqdq %ymm9, 0x00000fe0(%rdx), $0x7b, %ymm10
  00 00 7b
- f3 0f ae f0          mfence
- f3 41 0f ae f2       mfence
- 67 f3 41 0f ae f2    addr32 mfence
- f2 0f ae f1          mfence
- f2 0f ae f1          mfence
- f2 41 0f ae f2       mfence
- f2 41 0f ae f2       mfence
- 66 0f ae f1          data16 mfence
- 66 0f ae f1          data16 mfence
- 66 41 0f ae f2       data16 mfence
- 66 41 0f ae f2       data16 mfence
+ f3 0f ae f0          umonitor %rax
+ f3 41 0f ae f2       umonitor %r10
+ 67 f3 41 0f ae f2    umonitor %r10d
+ f2 0f ae f1          umwait %ecx
+ f2 0f ae f1          umwait %ecx
+ f2 41 0f ae f2       umwait %r10d
+ f2 41 0f ae f2       umwait %r10d
+ 66 0f ae f1          tpause %ecx
+ 66 0f ae f1          tpause %ecx
+ 66 41 0f ae f2       tpause %r10d
+ 66 41 0f ae f2       tpause %r10d
  f3 0f 09             wbinvd
  8f 69 78 81 fa       vfrczpd %xmm2, %xmm15
  8f 69 78 81 e0       vfrczpd %xmm0, %xmm12

@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
+ * Copyright (c) 2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -14,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -31,60 +30,46 @@
  * DAMAGE.
  */
 
-#ifndef _OUTPUT_
-#define _OUTPUT_
+/* Like pthreads_exit.c, this stresses exiting, but uses a barrier to ensure
+ * contention on the initstack_mutex in cleanup_and_terminate.
+ * This is based on the reproducer at
+ * https://github.com/DynamoRIO/dynamorio/issues/7939#issuecomment-4686861688.
+ */
 
-#include "dr_api.h"
-#include "tracer.h"
+#include <pthread.h>
+#include <stdio.h>
 
-namespace dynamorio {
-namespace drmemtrace {
+/* We use a barrier to exit in lockstep. */
+static pthread_barrier_t barrier;
 
-void
-open_new_window_dir(ptr_int_t window_num);
-
-int
-append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window);
-
-void
-process_and_output_buffer(void *drcontext, bool skip_size_cap,
-                          bool at_thread_exit = false);
-
-void
-init_thread_io(void *drcontext);
-
-void
-exit_thread_io(void *drcontext);
-
-void
-init_buffers(per_thread_t *data);
-
-void
-init_io();
-
-void
-exit_io();
-
-// Returns true for an empty new (non-initial) buffer for a tracing window
-// with no instructions traced yet in the window.
-inline bool
-is_new_window_buffer_empty(per_thread_t *data)
+static void *
+thread_func(void *arg)
 {
-    // Since it's non-initial we do not add init_header_size.
-    return has_tracing_windows() &&
-        BUF_PTR(data->seg_base) == data->buf_base + buf_hdr_slots_size &&
-        data->cur_window_instr_count == 0;
+    pthread_barrier_wait(&barrier);
+    return arg;
 }
 
-#ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
-// write_syscall_record() is a per-syscall callback function. The syscall_record_buffer
-// is used to batch records and defer I/O to improve performance by reducing the the
-// frequency of file writes.
-size_t
-write_syscall_record(void *drcontext, char *buf, size_t size);
+int
+main(void)
+{
+#define NUM_THREADS 16
+#ifdef REDUCED_ITERS
+    /* The test is too slow in debug build for 1000 iterations. Debug build doesn't
+     * reproduce the i#7939 crash in any case.
+     */
+    const int NUM_RUNS = 50;
+#else
+    const int NUM_RUNS = 1000;
 #endif
-
-} // namespace drmemtrace
-} // namespace dynamorio
-
-#endif /* _OUTPUT_ */
+    for (int run = 0; run < NUM_RUNS; run++) {
+        pthread_t thread[NUM_THREADS];
+        pthread_barrier_init(&barrier, NULL, NUM_THREADS);
+        for (int i = 0; i < NUM_THREADS; i++)
+            pthread_create(&thread[i], NULL, thread_func, NULL);
+        for (int i = 0; i < NUM_THREADS; i++)
+            pthread_join(thread[i], NULL);
+        pthread_barrier_destroy(&barrier);
+    }
+    fprintf(stderr, "all done\n");
+    return 0;
+}

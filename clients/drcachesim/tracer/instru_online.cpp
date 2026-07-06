@@ -487,6 +487,15 @@ online_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
 }
 
 int
+online_instru_t::instrument_gather_base(void *drcontext, instrlist_t *ilist,
+                                        instr_t *where, reg_id_t reg_ptr, int adjust,
+                                        opnd_t ref)
+{
+    // Skipped memrefs are not supported in online mode.
+    return adjust;
+}
+
+int
 online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                                     reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
                                     int num_delay_instrs)

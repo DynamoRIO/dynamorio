@@ -833,6 +833,28 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
         shard->saw_syscall_trace_.insert(static_cast<int>(memref.marker.marker_value));
     }
+
+    bool at_syscall_trace_end = false;
+    bool at_context_switch_trace_end = false;
+    bool at_outermost_hardware_event_trace_end = false;
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_EVENT) {
+        ++shard->hardware_event_context_depth_;
+        // Sanity check to ensure we catch missing endpoints.
+        assert(shard->hardware_event_context_depth_ < 30);
+        report_if_false(shard, shard->hardware_event_context_depth_ < 30,
+                        "Possibly missing hardware_context_return markers.");
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN) {
+        --shard->hardware_event_context_depth_;
+        if (shard->hardware_event_context_depth_ < 0) {
+            // Allow the trace to start in the middle of an interrupt handler.
+            shard->hardware_event_context_depth_ = 0;
+        } else if (shard->hardware_event_context_depth_ == 0) {
+            at_outermost_hardware_event_trace_end = true;
+        }
+    }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) {
         shard->expect_syscall_trace_ = false;
@@ -876,6 +898,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->context_stack_depth_at_syscall_trace_start_ = -1;
 #endif
             shard->between_kernel_syscall_trace_markers_ = false;
+            at_syscall_trace_end = true;
             // Pretend the prev instruction to be the last user-space instruction,
             // so that later PC continuity checks properly verify the user-space view
             // of the trace.
@@ -935,6 +958,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->prev_instr_.memref.instr.indirect_branch_target;
 
         shard->between_kernel_context_switch_markers_ = false;
+        at_context_switch_trace_end = true;
 #ifdef UNIX
         // Forget any prior instruction existed, because this is a core-sharded
         // trace and now we're going to see instructions from the new context.
@@ -944,9 +968,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
     }
     if (!is_a_unit_test(shard)) {
+        // TODO i#7854: Run the invariant checker on a checked-in whole_system
+        // trace for coverage of the hardware_event related conditions below.
         report_if_false(shard,
                         (shard->between_kernel_syscall_trace_markers_ ||
-                         shard->between_kernel_context_switch_markers_) ==
+                         shard->between_kernel_context_switch_markers_ ||
+                         shard->hardware_event_context_depth_ > 0 ||
+                         at_syscall_trace_end || at_context_switch_trace_end ||
+                         at_outermost_hardware_event_trace_end) ==
                             shard->stream->is_record_kernel(),
                         "Stream is_record_kernel() inaccurate");
     }

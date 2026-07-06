@@ -10139,6 +10139,290 @@ test_canonicalize()
 #endif
 }
 
+static void
+test_whole_system_invalid_options()
+{
+    std::cerr << "\n----------------\nTesting whole-system invalid options\n";
+    static constexpr memref_tid_t TID = 42;
+    static constexpr addr_t PC = 0x1000;
+
+    std::vector<trace_entry_t> refs = {
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID),
+        test_util::make_pid(1),
+        // Filetype marker with WHOLE_SYSTEM bit.
+        test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE,
+                               OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_timestamp(10),
+        test_util::make_instr(PC),
+        test_util::make_exit(TID),
+    };
+
+    auto make_workload = [&](const std::vector<trace_entry_t> &input_refs) {
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<test_util::mock_reader_t>(
+                new test_util::mock_reader_t(input_refs)),
+            std::unique_ptr<test_util::mock_reader_t>(new test_util::mock_reader_t()),
+            TID);
+        sched_inputs.emplace_back(std::move(readers));
+        return sched_inputs;
+    };
+
+    // Test 1: MAP_TO_ANY_OUTPUT (default) -> should fail.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+
+    // Test 2: MAP_TO_CONSISTENT_OUTPUT + DEPENDENCY_TIMESTAMPS -> should fail.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_CONSISTENT_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    }
+
+    // Test 3: MAP_TO_CONSISTENT_OUTPUT + DEPENDENCY_IGNORE -> should succeed.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_CONSISTENT_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_SUCCESS);
+    }
+
+    // Test 3b: make_scheduler_parallel_options -> should succeed.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops =
+            scheduler_t::make_scheduler_parallel_options(/*verbosity=*/1);
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_SUCCESS);
+    }
+
+    // Test 4: MAP_TO_ANY_OUTPUT (default) + read_inputs_in_init(false) -> init succeeds,
+    // but reading fails.
+    {
+        std::vector<scheduler_t::input_workload_t> sched_inputs = make_workload(refs);
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+            scheduler_t::SCHEDULER_DEFAULTS, /*verbosity=*/1);
+        sched_ops.read_inputs_in_init = false;
+        scheduler_t::scheduler_status_t status =
+            scheduler.init(sched_inputs, 1, std::move(sched_ops));
+        assert(status == scheduler_t::STATUS_SUCCESS);
+
+        auto *stream = scheduler.get_stream(0);
+        memref_t res_entry;
+        scheduler_t::stream_status_t read_status;
+        int count = 0;
+        do {
+            read_status = stream->next_record(res_entry);
+            if (read_status == scheduler_t::STATUS_INVALID)
+                break;
+            assert(read_status == scheduler_t::STATUS_OK);
+            if (++count > 10)
+                break;
+        } while (true);
+        assert(read_status == scheduler_t::STATUS_INVALID);
+    }
+}
+
+// Helpers to get type and marker type in a templated way.
+template <typename RecordType>
+static trace_type_t
+get_record_type(const RecordType &record);
+
+template <>
+trace_type_t
+get_record_type<memref_t>(const memref_t &record)
+{
+    return record.marker.type;
+}
+
+template <>
+trace_type_t
+get_record_type<trace_entry_t>(const trace_entry_t &record)
+{
+    return static_cast<trace_type_t>(record.type);
+}
+
+template <typename RecordType>
+static trace_marker_type_t
+get_marker_type(const RecordType &record);
+
+template <>
+trace_marker_type_t
+get_marker_type<memref_t>(const memref_t &record)
+{
+    return record.marker.marker_type;
+}
+
+template <>
+trace_marker_type_t
+get_marker_type<trace_entry_t>(const trace_entry_t &record)
+{
+    return static_cast<trace_marker_type_t>(record.size);
+}
+
+template <typename RecordType, typename ReaderType>
+static void
+assert_kernel_and_next_tmpl(
+    scheduler_tmpl_t<RecordType, ReaderType> &scheduler,
+    typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
+    RecordType &record)
+{
+    using SchedType = scheduler_tmpl_t<RecordType, ReaderType>;
+    assert(stream->is_record_kernel());
+    // Also check the underlying reader_t or record_reader_t.
+    assert(scheduler.get_input_stream_interface(0)->is_record_kernel());
+    typename SchedType::stream_status_t status = stream->next_record(record);
+    assert(status == SchedType::STATUS_OK);
+}
+
+template <typename RecordType, typename ReaderType>
+static void
+assert_user_and_next_tmpl(
+    scheduler_tmpl_t<RecordType, ReaderType> &scheduler,
+    typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
+    RecordType &record)
+{
+    using SchedType = scheduler_tmpl_t<RecordType, ReaderType>;
+    assert(!stream->is_record_kernel());
+    // Also check the underlying reader_t or record_reader_t.
+    assert(!scheduler.get_input_stream_interface(0)->is_record_kernel());
+    typename SchedType::stream_status_t status = stream->next_record(record);
+    assert(status == SchedType::STATUS_OK);
+}
+
+template <typename RecordType, typename ReaderType, typename MockReaderType>
+static void
+test_hardware_event_kernel_regions_tmpl()
+{
+    using SchedType = scheduler_tmpl_t<RecordType, ReaderType>;
+    static constexpr memref_tid_t TID = 42;
+    static constexpr addr_t PC_USER = 0x1000;
+    static constexpr addr_t PC_KERNEL = 0x2000;
+    static constexpr addr_t SYSNUM = 42;
+    std::vector<trace_entry_t> inputs = {
+        /* clang-format off */
+        test_util::make_header(TRACE_ENTRY_VERSION),
+        test_util::make_thread(TID),
+        test_util::make_pid(TID),
+        test_util::make_version(TRACE_ENTRY_VERSION),
+        test_util::make_marker(TRACE_MARKER_TYPE_FILETYPE,
+                               OFFLINE_FILE_TYPE_WHOLE_SYSTEM),
+        test_util::make_timestamp(10),
+        test_util::make_instr(PC_USER),
+
+        // Syscall with a hardware event nested in it.
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START, SYSNUM),
+        test_util::make_instr(PC_KERNEL + 100),
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_EVENT, PC_KERNEL + 104),
+        test_util::make_instr(PC_KERNEL + 200),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, PC_KERNEL + 204),
+        test_util::make_instr(PC_KERNEL + 104),
+        test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END, SYSNUM),
+
+        test_util::make_instr(PC_USER + 4),
+
+        // Hardware event nested within another.
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_EVENT, PC_USER + 8),
+        test_util::make_instr(PC_KERNEL + 100),
+        test_util::make_marker(TRACE_MARKER_TYPE_HARDWARE_EVENT, PC_KERNEL + 104),
+        test_util::make_instr(PC_KERNEL + 200),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, PC_KERNEL + 204),
+        test_util::make_instr(PC_KERNEL + 104),
+        test_util::make_marker(
+            TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, PC_KERNEL + 108),
+
+        test_util::make_exit(TID),
+        /* clang-format on */
+    };
+
+    std::vector<typename SchedType::input_workload_t> sched_inputs;
+    std::vector<typename SchedType::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<MockReaderType>(new MockReaderType(inputs)),
+                         std::unique_ptr<MockReaderType>(new MockReaderType()), TID);
+    sched_inputs.emplace_back(std::move(readers));
+
+    typename SchedType::scheduler_options_t sched_ops(SchedType::MAP_TO_CONSISTENT_OUTPUT,
+                                                      SchedType::DEPENDENCY_IGNORE,
+                                                      SchedType::SCHEDULER_DEFAULTS,
+                                                      /*verbosity=*/3);
+    SchedType scheduler;
+    if (scheduler.init(sched_inputs, /*outputs=*/1, std::move(sched_ops)) !=
+        SchedType::STATUS_SUCCESS) {
+        std::cerr << scheduler.get_error_string() << "\n";
+        assert(false);
+    }
+
+    auto *stream = scheduler.get_stream(0);
+    RecordType record;
+    typename SchedType::stream_status_t status;
+    status = stream->next_record(record);
+    assert(status == SchedType::STATUS_OK);
+
+    do {
+        assert_user_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
+               get_marker_type(record) == TRACE_MARKER_TYPE_SYSCALL_TRACE_START));
+
+    do {
+        assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
+               get_marker_type(record) == TRACE_MARKER_TYPE_SYSCALL_TRACE_END));
+    assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+
+    do {
+        assert_user_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    } while (!(get_record_type(record) == TRACE_TYPE_MARKER &&
+               get_marker_type(record) == TRACE_MARKER_TYPE_HARDWARE_EVENT));
+
+    do {
+        assert_kernel_and_next_tmpl<RecordType, ReaderType>(scheduler, stream, record);
+    } while (get_record_type(record) != TRACE_TYPE_THREAD_EXIT);
+
+    assert(!stream->is_record_kernel());
+    status = stream->next_record(record);
+    assert(status == SchedType::STATUS_EOF);
+}
+
+static void
+test_hardware_event_kernel_regions()
+{
+    test_hardware_event_kernel_regions_tmpl<memref_t, reader_t,
+                                            test_util::mock_reader_t>();
+}
+
+static void
+test_record_hardware_event_kernel_regions()
+{
+    test_hardware_event_kernel_regions_tmpl<trace_entry_t, record_reader_t,
+                                            test_util::mock_record_reader_t>();
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -10183,6 +10467,9 @@ test_main(int argc, const char *argv[])
     test_unscheduled();
     test_kernel_switch_sequences();
     test_kernel_syscall_sequences();
+    test_hardware_event_kernel_regions();
+    test_record_hardware_event_kernel_regions();
+    test_whole_system_invalid_options();
     test_random_schedule();
     test_record_scheduler();
     test_record_scheduler_i7574();

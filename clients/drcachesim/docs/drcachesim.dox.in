@@ -566,6 +566,7 @@ Total counts:
            0 total physical address unavailable markers
           75 total system call number markers
            0 total blocking system call markers
+           0 total skipped memref markers
           12 total other markers
            0 total encodings
 Thread 64951 counts:
@@ -589,6 +590,7 @@ Thread 64951 counts:
            0 physical address unavailable markers
           56 system call number markers
            0 blocking system call markers
+           0 skipped memref markers
            4 other markers
            0 encodings
 Thread 64958 counts:
@@ -612,6 +614,7 @@ Thread 64958 counts:
            0 physical address unavailable markers
            9 system call number markers
            0 blocking system call markers
+           0 skipped memref markers
            4 other markers
            0 encodings
 Thread 64959 counts:
@@ -635,6 +638,7 @@ Thread 64959 counts:
            0 physical address unavailable markers
           10 system call number markers
            0 blocking system call markers
+           0 skipped memref markers
            4 other markers
            0 encodings
 \endcode
@@ -1401,6 +1405,18 @@ format is identical.
 
 For details on the offline trace format and how to diagnose problems
 with offline traces, see \ref page_debug_memtrace.
+
+********************
+\section sec_drcachesim_overhead Offline Overhead
+
+Offline tracing overhead is dominated by writing out the raw trace data.  Pick the
+fastest destination possible in order to reduce overhead.  If enough memory is available,
+use a ramdisk to store the entire raw trace in memory.
+
+Select the -raw_compress scheme best suited to your output destination.  Faster storage,
+such as a ramdisk or SSD, should use lz4 or snappy_nocrc, as gzip or other
+higher-compression schemes are too slow.  If you must write to a spinning disk, gzip may
+be a net win.  Experimentation can help in selecting the best tradeoff here.
 
 ****************************************************************************
 \page sec_drcachesim_filter Filtered Traces

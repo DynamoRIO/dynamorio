@@ -292,7 +292,8 @@ suppress_memory_size_annotations(instr_t *instr)
     switch (instr_get_opcode(instr)) {
     case OP_movdir64b:
     case OP_enqcmd:
-    case OP_enqcmds: return true;
+    case OP_enqcmds:
+    case OP_umonitor: return true;
     default: return false;
     }
 }

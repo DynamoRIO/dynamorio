@@ -115,6 +115,7 @@ public:
             phys_unavail_markers += rhs.phys_unavail_markers;
             syscall_number_markers += rhs.syscall_number_markers;
             syscall_blocking_markers += rhs.syscall_blocking_markers;
+            skipped_memref_markers += rhs.skipped_memref_markers;
             other_markers += rhs.other_markers;
             icache_flushes += rhs.icache_flushes;
             dcache_flushes += rhs.dcache_flushes;
@@ -151,6 +152,7 @@ public:
             phys_unavail_markers -= rhs.phys_unavail_markers;
             syscall_number_markers -= rhs.syscall_number_markers;
             syscall_blocking_markers -= rhs.syscall_blocking_markers;
+            skipped_memref_markers -= rhs.skipped_memref_markers;
             other_markers -= rhs.other_markers;
             icache_flushes -= rhs.icache_flushes;
             dcache_flushes -= rhs.dcache_flushes;
@@ -187,6 +189,7 @@ public:
                 phys_unavail_markers == rhs.phys_unavail_markers &&
                 syscall_number_markers == rhs.syscall_number_markers &&
                 syscall_blocking_markers == rhs.syscall_blocking_markers &&
+                skipped_memref_markers == rhs.skipped_memref_markers &&
                 other_markers == rhs.other_markers &&
                 icache_flushes == rhs.icache_flushes &&
                 dcache_flushes == rhs.dcache_flushes && encodings == rhs.encodings &&
@@ -215,6 +218,7 @@ public:
         int64_t phys_unavail_markers = 0;
         int64_t syscall_number_markers = 0;
         int64_t syscall_blocking_markers = 0;
+        int64_t skipped_memref_markers = 0;
         int64_t other_markers = 0;
         int64_t icache_flushes = 0;
         int64_t dcache_flushes = 0;
@@ -265,11 +269,8 @@ protected:
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
         memref_tid_t last_tid_ = INVALID_THREAD_ID;
-        /* Indicates whether we're currently in the kernel region of the trace, which
-         * means we've seen a TRACE_MARKER_TYPE_SYSCALL_TRACE_START without its matching
-         * TRACE_MARKER_TYPE_SYSCALL_TRACE_STOP.
-         */
-        bool is_kernel = false;
+        // Indicates whether we're currently in the kernel region of the trace.
+        kernel_tracker_t kernel_tracker_;
     };
     // Records a snapshot of counts for a trace interval.
     struct count_snapshot_t : public interval_state_snapshot_t {

@@ -1575,10 +1575,12 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
                  reg_rm_selectable(opnd_get_reg(opnd))));
     case TYPE_G:
     case TYPE_R:
-    case TYPE_B:
+    case TYPE_B: {
+        bool addr = optype == TYPE_R && opsize == OPSZ_addr;
         return (opnd_is_reg(opnd) &&
-                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false /*!addr*/) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, addr) &&
                 reg_is_gpr(opnd_get_reg(opnd)));
+    }
     case TYPE_P:
     case TYPE_V:
     case TYPE_P_MODRM:

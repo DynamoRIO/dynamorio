@@ -194,6 +194,15 @@ elseif (UNIX)
       endif ()
     endforeach ()
 
+    # Common properties for elfutils libraries.
+    # We want to directly use DR's allocator instead of relying on its private loader
+    # redirecting in order to support static usage with no loader.
+    # ld is not actually used, so we can't use its -wrap=malloc feature.
+    # Instead we rely on the preprocessor.
+    set(elfutils_compile_defs
+      "_GNU_SOURCE;HAVE_CONFIG_H;_FORTIFY_SOURCE=3;PIC;SHARED;SYMBOL_VERSIONING;malloc=__wrap_malloc;calloc=__wrap_calloc;realloc=__wrap_realloc;free=__wrap_free;strdup=__wrap_strdup")
+    set(elfutils_compile_flags "-std=gnu99 -Wall -g -O2 -fPIC")
+
     # Add the elfutils library build rules we need.  We want PIC static libs.
     foreach (lib elf;dw;dwelf;ebl)
       file(GLOB ${lib}_files "${elfutils_dir}/lib${lib}/*.c")
@@ -214,21 +223,29 @@ elseif (UNIX)
         set(extra_dirs
           "${CMAKE_CURRENT_SOURCE_DIR}/elfutils/android-aarch64;${CMAKE_CURRENT_BINARY_DIR}")
       endif (ANDROID64)
-      # We want to directly use DR's allocator instead of relying on its private loader
-      # redirecting in order to support static usage with no loader.
-      # ld is not actually used, so we can't use its -wrap=malloc feature.
-      # Instead we rely on the preprocessor.
       set_target_properties(${lib}_pic PROPERTIES
         # We have a presumably-widely-applicable config.h in drsyms/elfutils.
         INCLUDE_DIRECTORIES
         "${extra_dirs};${CMAKE_CURRENT_SOURCE_DIR}/elfutils;${elfutils_dir}/lib;${elfutils_dir}/libasm;${elfutils_dir}/libebl;${elfutils_dir}/libdwelf;${elfutils_dir}/libdwfl;"
-        COMPILE_DEFINITIONS
-        "_GNU_SOURCE;HAVE_CONFIG_H;_FORTIFY_SOURCE=3;PIC;SHARED;SYMBOL_VERSIONING;malloc=__wrap_malloc;calloc=__wrap_calloc;realloc=__wrap_realloc;free=__wrap_free;strdup=__wrap_strdup"
-        COMPILE_FLAGS "-std=gnu99 -Wall -g -O2 -fPIC")
+        COMPILE_DEFINITIONS "${elfutils_compile_defs}"
+        COMPILE_FLAGS "${elfutils_compile_flags}")
       DR_export_target(${lib}_pic)
       install_exported_target(${lib}_pic ${INSTALL_EXT_LIB})
       copy_target_to_device(${lib}_pic "${location_suffix}")
     endforeach ()
+
+    # elfutils builds this in its internal noinst libeu.a.
+    # We need the helpers referenced by libelf and libdw.
+    add_library(eu_pic STATIC "${elfutils_dir}/lib/eu-search.c")
+    set_target_properties(eu_pic PROPERTIES
+      INCLUDE_DIRECTORIES
+      "${extra_dirs};${CMAKE_CURRENT_SOURCE_DIR}/elfutils;${elfutils_dir}/lib;"
+      COMPILE_DEFINITIONS "${elfutils_compile_defs}"
+      COMPILE_FLAGS "${elfutils_compile_flags}")
+    DR_export_target(eu_pic)
+    install_exported_target(eu_pic ${INSTALL_EXT_LIB})
+    copy_target_to_device(eu_pic "${location_suffix}")
+
     # libdw uses pthread_rwlock_* routines.
     link_with_pthread(dw_pic)
 
@@ -276,6 +293,7 @@ macro(configure_drsyms_target target static_DR)
       target_link_libraries(${target} dwelf_pic elf_pic)
     endif ()
     target_link_libraries(${target} ebl_pic)
+    target_link_libraries(${target} eu_pic)
     if (${static_DR})
       target_link_libraries(${target} ${ZLIB_STATIC_LIBRARIES})
     else ()

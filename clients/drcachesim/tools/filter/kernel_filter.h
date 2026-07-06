@@ -45,7 +45,7 @@ namespace drmemtrace {
 class kernel_filter_t : public record_filter_t::record_filter_func_t {
 public:
     struct shard_data_t {
-        bool in_kernel = false;
+        kernel_tracker_tmpl_t<trace_entry_t> kernel_tracker;
     };
 
     void *
@@ -60,22 +60,8 @@ public:
         record_filter_t::record_filter_info_t &record_filter_info) override
     {
         shard_data_t *data = reinterpret_cast<shard_data_t *>(shard_data);
-        if (entry.type == TRACE_TYPE_MARKER) {
-            switch (entry.size) {
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_START: data->in_kernel = true; break;
-            default: break;
-            }
-        }
-        bool to_return = !data->in_kernel;
-        if (entry.type == TRACE_TYPE_MARKER) {
-            switch (entry.size) {
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-            case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END: data->in_kernel = false; break;
-            default: break;
-            }
-        }
-        return to_return;
+        data->kernel_tracker.update(entry);
+        return !data->kernel_tracker.in_kernel_trace();
     }
     bool
     parallel_shard_exit(void *shard_data) override

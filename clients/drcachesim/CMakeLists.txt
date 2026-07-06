@@ -386,6 +386,7 @@ install_client_nonDR_header(drmemtrace common/utils.h)
 install_client_nonDR_header(drmemtrace common/trace_entry.h)
 install_client_nonDR_header(drmemtrace common/memref.h)
 install_client_nonDR_header(drmemtrace common/memtrace_stream.h)
+install_client_nonDR_header(drmemtrace common/kernel_tracker.h)
 install_client_nonDR_header(drmemtrace common/archive_istream.h)
 install_client_nonDR_header(drmemtrace common/archive_ostream.h)
 install_client_nonDR_header(drmemtrace common/mutex_dbg_owned.h)
@@ -920,7 +921,9 @@ if (BUILD_TESTS)
   add_test(NAME tool.scheduler.unit_tests
     COMMAND tool.scheduler.unit_tests
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
-  set_tests_properties(tool.scheduler.unit_tests PROPERTIES TIMEOUT ${test_seconds})
+  # This test can take much longer than 90s on slower loaded machines: we've
+  # seen 241 seconds when run with "-j 12" on a VM.
+  set_tests_properties(tool.scheduler.unit_tests PROPERTIES TIMEOUT 360)
 
   add_executable(tool.drcacheoff.flexible_queue_tests tests/flexible_queue_tests.cpp)
   add_win32_flags(tool.drcacheoff.flexible_queue_tests ON)

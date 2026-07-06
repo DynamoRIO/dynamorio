@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -455,10 +455,13 @@ test_relative(void)
     if (!dr_get_current_directory(cwd, BUFFER_SIZE_ELEMENTS(cwd)))
         dr_fprintf(STDERR, "failed to get current directory\n");
 
-    test_relative_path("./foo");
-    test_relative_path("../foo");
+    /* Pick a unique name to avoid clashing with a manually created "foo"
+     * directory in the build dir.
+     */
+    test_relative_path("./client.file_io.foo");
+    test_relative_path("../client.file_io.foo");
     /* we should be in <build_dir>/suite/tests, so ok to go up two levels */
-    test_relative_path("../../foo");
+    test_relative_path("../../client.file_io.foo");
 
     ok = dr_create_dir("newdir");
     if (!ok)

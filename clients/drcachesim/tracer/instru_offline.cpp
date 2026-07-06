@@ -855,6 +855,69 @@ offline_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
     return adjust;
 }
 
+int
+offline_instru_t::instrument_gather_base(void *drcontext, instrlist_t *ilist,
+                                         instr_t *where, reg_id_t reg_ptr, int adjust,
+                                         opnd_t ref)
+{
+    int disp = adjust;
+    reg_id_t reg_addr = DR_REG_NULL;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_addr);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+    bool reg_ptr_used_unused;
+    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref,
+                       &reg_ptr_used_unused);
+    // Now set the top bits (we don't care if we lose top bits of non-canonical addrs).
+    // TODO i#7914: Store a different sentinel in valueB when the top bits
+    // in canonical form should be 1's.
+    offline_entry_t entry_top_zero;
+    entry_top_zero.extended.type = 0;
+    entry_top_zero.extended.ext = 0;
+    entry_top_zero.extended.valueB = 0;
+    entry_top_zero.extended.valueA = 0xffffffffffff;
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)entry_top_zero.combined_value,
+                                     opnd_create_reg(reg_ptr), ilist, where, NULL, NULL);
+#ifdef X86
+    MINSERT(
+        ilist, where,
+        INSTR_CREATE_and(drcontext, opnd_create_reg(reg_addr), opnd_create_reg(reg_ptr)));
+#else
+    MINSERT(ilist, where,
+            INSTR_CREATE_and(drcontext, opnd_create_reg(reg_addr),
+                             opnd_create_reg(reg_addr), opnd_create_reg(reg_ptr)));
+#endif
+    offline_entry_t entry_top_set;
+    entry_top_set.extended.type = OFFLINE_TYPE_EXTENDED;
+    entry_top_set.extended.ext = OFFLINE_EXT_TYPE_SCATTER_GATHER_BASE;
+    // We set a bit here to avoid this being confused with an address.
+    entry_top_set.extended.valueB = 1;
+    entry_top_set.extended.valueA = 0;
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)entry_top_set.combined_value,
+                                     opnd_create_reg(reg_ptr), ilist, where, NULL, NULL);
+#ifdef X86
+    MINSERT(
+        ilist, where,
+        INSTR_CREATE_or(drcontext, opnd_create_reg(reg_addr), opnd_create_reg(reg_ptr)));
+#elif defined(AARCH64)
+    MINSERT(ilist, where,
+            INSTR_CREATE_orr(drcontext, opnd_create_reg(reg_addr),
+                             opnd_create_reg(reg_addr), opnd_create_reg(reg_ptr)));
+#else
+    DR_ASSERT(false && "Only x86 and aarch64 are supported for scatter/gather skips");
+    return 0;
+#endif
+    // Re-load because reg_ptr was clobbered.
+    insert_load_buf_ptr_(drcontext, ilist, where, reg_ptr);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
+                               opnd_create_reg(reg_addr)));
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_addr);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+    adjust += sizeof(offline_entry_t);
+    return adjust;
+}
+
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                               instrlist_t *ilist, bool repstr_expanded,

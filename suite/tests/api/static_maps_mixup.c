@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -90,7 +90,12 @@ find_exe_bounds(app_pc *base, app_pc *end)
 }
 
 // Confusing the current logic in get_dynamo_library_bounds is as simple as
-// overwriting our first mapping with an anonymously-mapped version.
+// overwriting our first mapping (which contains the ELF header) with an
+// anonymously-mapped version with different protections.
+//
+// By making it anonymous, the segment loses its filename in /proc/self/maps.
+// DR's heuristic will still try to take a valid ELF header under certain
+// conditions; we add the writable bit to prevent that.
 static void
 copy_and_remap(void *base, size_t offs, size_t size)
 {
@@ -100,8 +105,6 @@ copy_and_remap(void *base, size_t offs, size_t size)
     assert(p != MAP_FAILED);
     void *dst = (byte *)base + offs;
     memcpy(p, dst, size);
-    int res = mprotect(p, size, PROT_EXEC | PROT_READ);
-    assert(res == 0);
     void *loc = mremap(p, size, size, MREMAP_MAYMOVE | MREMAP_FIXED, dst);
     assert(loc == dst);
 }

@@ -317,6 +317,21 @@ private:
         return branch_target_pc_;
     }
 
+    // Returns the vector element size in bytes for a scatter/gather instruction.
+    // Returns 0 for non-scatter-gather instructions.
+    byte
+    scatter_gather_element_size() const
+    {
+        return scatter_gather_element_size_;
+    }
+
+    // Some scatter/gather read from or write to 2, 3, or 4 vector registers at once.
+    byte
+    scatter_gather_vector_count() const
+    {
+        return scatter_gather_vector_count_;
+    }
+
     static const int kReadsMemMask = 0x0001;
     static const int kWritesMemMask = 0x0002;
     static const int kIsPrefetchMask = 0x0004;
@@ -353,6 +368,10 @@ private:
     std::vector<memref_summary_t> mem_srcs_and_dests_;
     uint8_t num_mem_srcs_ = 0;
     byte packed_ = 0;
+
+    byte scatter_gather_element_size_ = 0; // Size in bytes.
+    // Some scatter/gather read from or write to 2, 3, or 4 vector registers at once.
+    byte scatter_gather_vector_count_ = 0;
 };
 
 /**

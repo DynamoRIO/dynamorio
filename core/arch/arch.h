@@ -1772,24 +1772,9 @@ add_patch_entry(patch_list_t *patch, instr_t *instr, ushort patch_flags,
             opnd_create_reg(DR_REG_R10), opnd_create_reg(DR_REG_R11), \
             opnd_create_reg(DR_REG_R12)
 
-#    ifdef X64
-#        define DR_REG_LIST_LENGTH_ARM 32
-#        define DR_REG_LIST_ARM                                                         \
-            DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_X14), \
-                opnd_create_reg(DR_REG_X15), opnd_create_reg(DR_REG_X16),               \
-                opnd_create_reg(DR_REG_X17), opnd_create_reg(DR_REG_X18),               \
-                opnd_create_reg(DR_REG_X19), opnd_create_reg(DR_REG_X20),               \
-                opnd_create_reg(DR_REG_X21), opnd_create_reg(DR_REG_X22),               \
-                opnd_create_reg(DR_REG_X23), opnd_create_reg(DR_REG_X24),               \
-                opnd_create_reg(DR_REG_X25), opnd_create_reg(DR_REG_X26),               \
-                opnd_create_reg(DR_REG_X27), opnd_create_reg(DR_REG_X28),               \
-                opnd_create_reg(DR_REG_X29), opnd_create_reg(DR_REG_X30),               \
-                opnd_create_reg(DR_REG_X31)
-#    else
-#        define DR_REG_LIST_LENGTH_ARM 15 /* no R15 (pc) */
-#        define DR_REG_LIST_ARM \
-            DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_R14)
-#    endif
+#    define DR_REG_LIST_LENGTH_ARM 15 /* no R15 (pc) */
+#    define DR_REG_LIST_ARM \
+        DR_REG_LIST_HEAD, opnd_create_reg(DR_REG_R13), opnd_create_reg(DR_REG_R14)
 #    define DR_REG_LIST_LENGTH_T32 13 /* no R13+ (sp, lr, pc) */
 #    define DR_REG_LIST_T32 DR_REG_LIST_HEAD
 

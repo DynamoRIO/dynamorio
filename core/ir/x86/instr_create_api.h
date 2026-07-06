@@ -622,6 +622,7 @@
 #define INSTR_CREATE_wrfsbase(dc, s) instr_create_0dst_1src((dc), OP_wrfsbase, (s))
 #define INSTR_CREATE_wrgsbase(dc, s) instr_create_0dst_1src((dc), OP_wrgsbase, (s))
 #define INSTR_CREATE_llwpcb(dc, s) instr_create_0dst_1src((dc), OP_llwpcb, (s))
+#define INSTR_CREATE_umonitor(dc, s) instr_create_0dst_1src((dc), OP_umonitor, (s))
 /**
  * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -982,6 +983,22 @@
 #define INSTR_CREATE_wrpkru(dc)                                          \
     instr_create_0dst_3src((dc), OP_wrpkru, opnd_create_reg(DR_REG_ECX), \
                            opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX))
+/** @} */ /* end doxygen group */
+
+/** @name No destination, 3 sources, 2 implicit */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the #instr_t.
+ * \param s The opnd_t explicit source operand for the instruction.
+ */
+#define INSTR_CREATE_tpause(dc, s)                                            \
+    instr_create_0dst_3src((dc), OP_tpause, (s), opnd_create_reg(DR_REG_EDX), \
+                           opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_umwait(dc, s)                                            \
+    instr_create_0dst_3src((dc), OP_umwait, (s), opnd_create_reg(DR_REG_EDX), \
+                           opnd_create_reg(DR_REG_EAX))
 /** @} */ /* end doxygen group */
 
 /** @name No destination, 3 sources: 1 implicit */

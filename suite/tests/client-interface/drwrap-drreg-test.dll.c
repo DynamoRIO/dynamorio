@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,10 @@
 
 static int load_count;
 static app_pc addr_two_args;
+static app_pc app_module_start;
+static app_pc app_module_end;
+static bool found_3_nops;
+static bool found_4_nops;
 
 static void
 wrap_pre(void *wrapcxt, DR_PARAM_OUT void **user_data)
@@ -72,6 +76,10 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
     if (strstr(dr_module_preferred_name(mod), "client.drwrap-drreg-test.appdll.") !=
         NULL) {
+        CHECK(app_module_start == NULL && app_module_end == NULL,
+              "app module already loaded");
+        app_module_start = mod->start;
+        app_module_end = mod->end;
         load_count++;
         if (load_count == 2) {
             /* test no-frills */
@@ -90,6 +98,10 @@ module_unload_event(void *drcontext, const module_data_t *mod)
 {
     if (strstr(dr_module_preferred_name(mod), "client.drwrap-drreg-test.appdll.") !=
         NULL) {
+        CHECK(app_module_start != NULL && app_module_end != NULL,
+              "app module not loaded");
+        app_module_start = NULL;
+        app_module_end = NULL;
         bool ok = drwrap_unwrap(addr_two_args, wrap_pre, wrap_post);
         CHECK(ok, "unwrap failed");
     }
@@ -153,6 +165,15 @@ static dr_emit_flags_t
 event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                bool translating, DR_PARAM_OUT void **user_data)
 {
+    app_pc pc = dr_fragment_app_pc(tag);
+    /* We only want to instrument the test's own module. Instrumenting other
+     * modules (like ld.so or libc.so) is unnecessary and can cause false positives
+     * if they happen to have the nop pattern we're looking for.
+     */
+    if (app_module_start == NULL || pc < app_module_start || pc >= app_module_end) {
+        *user_data = NULL;
+        return DR_EMIT_DEFAULT;
+    }
     int *nop_count = (int *)dr_thread_alloc(drcontext, sizeof(*nop_count));
     *user_data = nop_count;
     *nop_count = 0;
@@ -339,6 +360,13 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data)
 {
+    app_pc pc = dr_fragment_app_pc(tag);
+    /* Guard to only instrument the test's own module to avoid false positives
+     * if other modules happen to have the nop pattern we're looking for.
+     */
+    if (app_module_start == NULL || pc < app_module_start || pc >= app_module_end)
+        return DR_EMIT_DEFAULT;
+
     /* We want to have tool values in registers to test drreg restoring app values.
      * Rather than finding the location of all the drwrap clean calls, we simply
      * reserve and clobber several registers in every block.
@@ -353,8 +381,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             ++(*nop_count);
         } else {
             if (*nop_count == 3) {
+                found_3_nops = true;
                 insert_rw_call(drcontext, bb, inst);
             } else if (*nop_count == 4) {
+                found_4_nops = true;
                 insert_multipath_call(drcontext, bb, inst);
             }
             *nop_count = 0;
@@ -369,6 +399,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 static void
 event_exit(void)
 {
+    CHECK(found_3_nops, "3-nop pattern not found");
+    CHECK(found_4_nops, "4-nop pattern not found");
     drreg_exit();
     drwrap_exit();
     if (!drmgr_unregister_bb_instrumentation_event(event_analysis) ||

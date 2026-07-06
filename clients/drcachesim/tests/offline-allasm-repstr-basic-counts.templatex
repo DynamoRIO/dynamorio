@@ -31,6 +31,7 @@ Total counts:
            0 total physical address unavailable markers
           14 total system call number markers
           12 total blocking system call markers
+           0 total skipped memref markers
            5 total other markers
           38 total encodings
 Thread [0-9]* counts:
@@ -54,5 +55,6 @@ Thread [0-9]* counts:
            0 physical address unavailable markers
           14 system call number markers
           12 blocking system call markers
+           0 skipped memref markers
            5 other markers
           38 encodings
