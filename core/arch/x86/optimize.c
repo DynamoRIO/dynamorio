@@ -276,7 +276,7 @@ static struct {
   that wants to keep them in opt_stats_t and put appropriate code below*/
 
 void
-print_optimization_stats()
+print_optimization_stats(void)
 {
     if (dynamo_options.rlr) {
         uint top, bottom;

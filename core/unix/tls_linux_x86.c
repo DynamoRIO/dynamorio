@@ -582,7 +582,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 }
 
 bool
-tls_thread_preinit()
+tls_thread_preinit(void)
 {
 #ifdef X64
     /* i#3356: Write a non-zero value to the gs base to work around an AMD bug
