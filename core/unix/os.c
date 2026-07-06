@@ -1152,7 +1152,7 @@ get_application_pid_helper(bool ignore_cache)
 
 /* get application pid, (cached), used for event logging */
 char *
-get_application_pid()
+get_application_pid(void)
 {
     return get_application_pid_helper(false);
 }
@@ -1275,7 +1275,7 @@ set_app_args(DR_PARAM_IN int *app_argc_in, DR_PARAM_IN char **app_argv_in)
 
 /* Returns the number of application's command-line arguments. */
 int
-num_app_args()
+num_app_args(void)
 {
     if (!DYNAMO_OPTION(early_inject)) {
         set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
@@ -1356,7 +1356,7 @@ get_timer_frequency_cpuinfo(void)
 }
 
 timestamp_t
-get_timer_frequency()
+get_timer_frequency(void)
 {
 #ifdef VMX86_SERVER
     if (os_in_vmkernel_userworld()) {
@@ -1407,7 +1407,7 @@ query_time_seconds(void)
 
 /* milliseconds since 1601 */
 uint64
-query_time_millis()
+query_time_millis(void)
 {
     struct timeval current_time;
 #if !(defined(MACOS) && defined(AARCH64))
@@ -1442,7 +1442,7 @@ query_time_millis()
 
 /* microseconds since 1601 */
 uint64
-query_time_micros()
+query_time_micros(void)
 {
     struct timeval current_time;
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
@@ -2211,7 +2211,7 @@ get_app_segment_base(uint seg)
 }
 
 local_state_extended_t *
-get_local_state_extended()
+get_local_state_extended(void)
 {
     os_local_state_t *os_tls = NULL;
     ASSERT(is_thread_tls_initialized());
@@ -2220,7 +2220,7 @@ get_local_state_extended()
 }
 
 local_state_t *
-get_local_state()
+get_local_state(void)
 {
 #ifdef HAVE_TLS
     return (local_state_t *)get_local_state_extended();
@@ -3788,7 +3788,7 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
 
 /* yield the current thread */
 void
-os_thread_yield()
+os_thread_yield(void)
 {
 #ifdef MACOS
     /* XXX i#1291: use raw syscall instead */
@@ -10058,7 +10058,7 @@ get_application_end(void)
 }
 
 app_pc
-get_image_entry()
+get_image_entry(void)
 {
     static app_pc image_entry_point = NULL;
     if (image_entry_point == NULL && executable_start != NULL) {
@@ -10101,7 +10101,7 @@ is_in_dynamo_dll(app_pc pc)
 }
 
 app_pc
-get_dynamorio_dll_start()
+get_dynamorio_dll_start(void)
 {
     if (dynamo_dll_start == NULL)
         get_dynamo_library_bounds();
@@ -10110,7 +10110,7 @@ get_dynamorio_dll_start()
 }
 
 app_pc
-get_dynamorio_dll_end()
+get_dynamorio_dll_end(void)
 {
     if (dynamo_dll_end == NULL)
         get_dynamo_library_bounds();
@@ -10119,7 +10119,7 @@ get_dynamorio_dll_end()
 }
 
 app_pc
-get_dynamorio_dll_preferred_base()
+get_dynamorio_dll_preferred_base(void)
 {
     /* on Linux there is no preferred base if we're PIC,
      * therefore is always equal to dynamo_dll_start  */
@@ -11746,7 +11746,7 @@ aslr_possible_preferred_address(app_pc target_addr)
 }
 
 void
-take_over_primary_thread()
+take_over_primary_thread(void)
 {
     /* nothing to do here */
 }

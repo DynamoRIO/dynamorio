@@ -658,7 +658,7 @@ d_r_signal_init(void)
 }
 
 void
-d_r_signal_exit()
+d_r_signal_exit(void)
 {
     DELETE_READWRITE_LOCK(detached_sigact_lock);
     IF_LINUX(signalfd_exit());
