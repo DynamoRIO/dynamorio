@@ -1472,7 +1472,7 @@ query_time_micros(void)
    and should be used only in well known points for release build.
 */
 static app_pc
-find_stack_bottom()
+find_stack_bottom(void)
 {
     app_pc retaddr = 0;
     int depth = 0;
@@ -2079,7 +2079,7 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
  * allocate a temporary TLS region until os_tls_init.
  */
 void *
-os_tls_thread_init_temp()
+os_tls_thread_init_temp(void)
 {
     void *temp_tls = NULL;
     if (!read_thread_register(TLS_REG_LIB)) {
@@ -10079,7 +10079,7 @@ get_image_entry(void)
 
 #ifdef DEBUG
 void
-mem_stats_snapshot()
+mem_stats_snapshot(void)
 {
     /* TODO: NYI */
 }
@@ -11696,7 +11696,7 @@ rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src))
 
 #ifdef HOT_PATCHING_INTERFACE
 void *
-get_drmarker_hotp_policy_status_table()
+get_drmarker_hotp_policy_status_table(void)
 {
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
