@@ -209,10 +209,6 @@ _tmain(int argc, const TCHAR *targv[])
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
-    if (op_filter_kernel.get_value() && op_filter_kernel_except_syscalls.get_value()) {
-        FATAL_ERROR("Usage error: cannot specify both -filter_kernel and "
-                    "-filter_kernel_except_syscalls.");
-    }
 
     auto record_filter = std::unique_ptr<record_analysis_tool_t>(
         dynamorio::drmemtrace::record_filter_tool_create(

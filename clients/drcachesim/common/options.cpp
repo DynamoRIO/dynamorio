@@ -1331,8 +1331,8 @@ droption_t<bool> op_filter_kernel_except_syscalls(
     "removes the kernel context switch trace content between "
     "TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END "
     "and the kernel content between TRACE_MARKER_TYPE_HARDWARE_EVENT and "
-    "TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers unless nested within a system call "
-    "trace.");
+    "TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers unless nested within a system "
+    "call trace.");
 
 droption_t<bool> op_abort_on_invariant_error(
     DROPTION_SCOPE_ALL, "abort_on_invariant_error", true,

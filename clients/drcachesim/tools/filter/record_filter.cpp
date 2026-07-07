@@ -127,6 +127,11 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           const std::string &modify_marker_value, bool filter_kernel,
                           bool filter_kernel_except_syscalls, unsigned int verbose)
 {
+    if (filter_kernel && filter_kernel_except_syscalls) {
+        ERRMSG("Usage error: cannot specify both -filter_kernel and "
+               "-filter_kernel_except_syscalls.\n");
+        return nullptr;
+    }
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
         filter_funcs;

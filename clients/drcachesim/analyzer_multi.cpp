@@ -345,12 +345,6 @@ record_analysis_tool_t *
 record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
 {
     if (tool == RECORD_FILTER) {
-        if (op_filter_kernel.get_value() &&
-            op_filter_kernel_except_syscalls.get_value()) {
-            ERRMSG("Usage error: cannot specify both -filter_kernel and "
-                   "-filter_kernel_except_syscalls.\n");
-            return nullptr;
-        }
         return record_filter_tool_create(
             op_outdir.get_value(), op_filter_stop_timestamp.get_value(),
             op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
