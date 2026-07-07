@@ -82,7 +82,8 @@ namespace drmemtrace {
  *  TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers, and also update the trace file type
  *  to remove the OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.
  * @param[in] filter_kernel_except_syscalls A bool denoting whether to filter out kernel
- *  trace content except system call trace content.
+ *  trace content except system call trace content and any hardware events nested within
+ *  system calls.
  * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *

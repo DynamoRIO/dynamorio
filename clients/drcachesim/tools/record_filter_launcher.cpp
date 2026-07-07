@@ -183,7 +183,8 @@ droption_t<bool> op_filter_kernel_except_syscalls(
     "removes the kernel context switch trace content between "
     "TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END "
     "and the kernel content between TRACE_MARKER_TYPE_HARDWARE_EVENT and "
-    "TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers.");
+    "TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers unless nested within a system "
+    "call trace.");
 
 } // namespace
 
