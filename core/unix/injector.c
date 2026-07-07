@@ -1925,7 +1925,9 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
         }
     }
 
-    /* Open libdynamorio.so as readonly in the child. */
+    /* Open libdynamorio.so as readonly in the child.
+     * Use O_CLOEXEC so the fd does not leak to the app on exec.
+     */
     dr_fd = injectee_open(info, library_path, O_RDONLY | O_CLOEXEC, 0);
     if (dr_fd < 0) {
         if (verbose) {
