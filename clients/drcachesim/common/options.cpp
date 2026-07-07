@@ -1310,13 +1310,28 @@ droption_t<uint64_t> op_trim_after_instr(
 
 droption_t<bool> op_filter_kernel(
     DROPTION_SCOPE_FRONTEND, "filter_kernel", false,
-    "Removes the kernel system call and context switch content from the trace.",
+    "Removes the kernel system call, context switch, and hardware event content from the "
+    "trace.",
     "This option is for -tool " RECORD_FILTER ". When present, it removes the kernel "
     "system call trace content between TRACE_MARKER_TYPE_SYSCALL_TRACE_START and "
     "TRACE_MARKER_TYPE_SYSCALL_TRACE_END, the kernel context switch trace content "
     "between TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and "
-    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, and also updates the trace file type to "
-    "remove the OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.");
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, and the kernel content between "
+    "TRACE_MARKER_TYPE_HARDWARE_EVENT and TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN "
+    "markers. It also updates the trace file type to remove the "
+    "OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.");
+
+droption_t<bool> op_filter_kernel_except_syscalls(
+    DROPTION_SCOPE_FRONTEND, "filter_kernel_except_syscalls", false,
+    "Removes the kernel context switch and hardware event content from the trace while "
+    "keeping system call content.",
+    "This option is for -tool " RECORD_FILTER ". When present, it removes kernel trace "
+    "content except system call trace content between "
+    "TRACE_MARKER_TYPE_SYSCALL_TRACE_START and TRACE_MARKER_TYPE_SYSCALL_TRACE_END. It "
+    "removes the kernel context switch trace content between "
+    "TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END "
+    "and the kernel content between TRACE_MARKER_TYPE_HARDWARE_EVENT and "
+    "TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers.");
 
 droption_t<bool> op_abort_on_invariant_error(
     DROPTION_SCOPE_ALL, "abort_on_invariant_error", true,

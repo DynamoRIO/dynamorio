@@ -78,7 +78,11 @@ namespace drmemtrace {
  *  content between TRACE_MARKER_TYPE_SYSCALL_TRACE_START and
  *  TRACE_MARKER_TYPE_SYSCALL_TRACE_END, the kernel context switch trace content between
  *  TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, and
- *  also update the trace file type to remove the OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.
+ *  the kernel content between TRACE_MARKER_TYPE_HARDWARE_EVENT and
+ *  TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN markers, and also update the trace file type
+ *  to remove the OFFLINE_FILE_TYPE_KERNEL_SYSCALLS bit.
+ * @param[in] filter_kernel_except_syscalls A bool denoting whether to filter out kernel
+ *  trace content except system call trace content.
  * @param[in] verbose  Verbosity level for notifications.
  */
 record_analysis_tool_t *
@@ -89,7 +93,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           uint64_t trim_before_instr, uint64_t trim_after_instr,
                           bool encodings2regdeps, const std::string &keep_func_ids,
                           const std::string &modify_marker_value, bool filter_kernel,
-                          unsigned int verbose);
+                          bool filter_kernel_except_syscalls, unsigned int verbose);
 
 } // namespace drmemtrace
 } // namespace dynamorio

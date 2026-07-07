@@ -345,6 +345,12 @@ record_analysis_tool_t *
 record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &tool)
 {
     if (tool == RECORD_FILTER) {
+        if (op_filter_kernel.get_value() &&
+            op_filter_kernel_except_syscalls.get_value()) {
+            ERRMSG("Usage error: cannot specify both -filter_kernel and "
+                   "-filter_kernel_except_syscalls.\n");
+            return nullptr;
+        }
         return record_filter_tool_create(
             op_outdir.get_value(), op_filter_stop_timestamp.get_value(),
             op_filter_cache_size.get_value(), op_filter_trace_types.get_value(),
@@ -352,7 +358,8 @@ record_analyzer_multi_t::create_analysis_tool_from_options(const std::string &to
             op_trim_after_timestamp.get_value(), op_trim_before_instr.get_value(),
             op_trim_after_instr.get_value(), op_encodings2regdeps.get_value(),
             op_filter_func_ids.get_value(), op_modify_marker_value.get_value(),
-            op_filter_kernel.get_value(), op_verbose.get_value());
+            op_filter_kernel.get_value(), op_filter_kernel_except_syscalls.get_value(),
+            op_verbose.get_value());
     } else if (tool == SCHEDULE_STATS) {
         return record_schedule_stats_tool_create(
             op_schedule_stats_print_every.get_value(), op_verbose.get_value());

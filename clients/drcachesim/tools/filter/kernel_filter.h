@@ -42,8 +42,14 @@ namespace drmemtrace {
 // kernel execution: for syscalls (TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
 // TRACE_MARKER_TYPE_SYSCALL_TRACE_END), and context switches
 // (TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END).
+// If keep_syscalls is true, removes kernel execution entries except system call entries.
 class kernel_filter_t : public record_filter_t::record_filter_func_t {
 public:
+    kernel_filter_t(bool keep_syscalls = false)
+        : keep_syscalls_(keep_syscalls)
+    {
+    }
+
     struct shard_data_t {
         kernel_tracker_tmpl_t<trace_entry_t> kernel_tracker;
     };
@@ -61,6 +67,10 @@ public:
     {
         shard_data_t *data = reinterpret_cast<shard_data_t *>(shard_data);
         data->kernel_tracker.update(entry);
+        if (keep_syscalls_) {
+            return !data->kernel_tracker.in_kernel_trace() ||
+                data->kernel_tracker.in_syscall_trace();
+        }
         return !data->kernel_tracker.in_kernel_trace();
     }
     bool
@@ -72,9 +82,13 @@ public:
     uint64_t
     update_filetype(uint64_t filetype) override
     {
-        filetype &= ~OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
+        if (!keep_syscalls_)
+            filetype &= ~OFFLINE_FILE_TYPE_KERNEL_SYSCALLS;
         return filetype;
     }
+
+private:
+    bool keep_syscalls_ = false;
 };
 
 } // namespace drmemtrace

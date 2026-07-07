@@ -125,7 +125,7 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                           uint64_t trim_before_instr, uint64_t trim_after_instr,
                           bool encodings2regdeps, const std::string &keep_func_ids,
                           const std::string &modify_marker_value, bool filter_kernel,
-                          unsigned int verbose)
+                          bool filter_kernel_except_syscalls, unsigned int verbose)
 {
     std::vector<
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
@@ -176,10 +176,11 @@ record_filter_tool_create(const std::string &output_dir, uint64_t stop_timestamp
                 new dynamorio::drmemtrace::modify_marker_value_filter_t(
                     modify_marker_value_pairs_list)));
     }
-    if (filter_kernel) {
+    if (filter_kernel || filter_kernel_except_syscalls) {
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::kernel_filter_t()));
+                new dynamorio::drmemtrace::kernel_filter_t(
+                    /*keep_syscalls=*/filter_kernel_except_syscalls)));
     }
     // TODO i#5675: Add other filters.
 
