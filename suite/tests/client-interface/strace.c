@@ -38,7 +38,7 @@
 #endif
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
 #ifdef WINDOWS
     /* Though stderr and stdout go to the same place, we want two

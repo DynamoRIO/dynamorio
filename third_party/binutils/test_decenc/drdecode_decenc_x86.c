@@ -77,7 +77,7 @@ test_s(byte *subtest_asm)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     dr_printf("test_s:\n");
     test_s((byte *)test_s_asm);

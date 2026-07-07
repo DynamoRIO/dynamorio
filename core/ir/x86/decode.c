@@ -2934,7 +2934,7 @@ unit_check_sse3(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     bool res;
     standalone_init();

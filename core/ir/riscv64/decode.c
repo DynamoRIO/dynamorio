@@ -236,7 +236,7 @@ decode_debug_checks_arch(void)
 #    include "instr_create_shared.h"
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     bool res = true;
     standalone_init();

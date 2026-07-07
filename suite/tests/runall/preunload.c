@@ -106,7 +106,7 @@ load_preinject(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     HANDLE hlib;
     INIT();

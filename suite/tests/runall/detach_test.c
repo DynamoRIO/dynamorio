@@ -267,7 +267,7 @@ window_func(void *arg)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     HANDLE ht_selfsuspend, ht_exit, ht_window;
     DWORD tid, res;

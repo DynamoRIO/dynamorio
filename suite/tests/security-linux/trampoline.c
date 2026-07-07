@@ -60,7 +60,7 @@ outer(int x)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     outer(4);
     return 0;

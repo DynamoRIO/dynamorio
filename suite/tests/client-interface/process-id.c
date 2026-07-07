@@ -46,7 +46,7 @@ thread(void *unused)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     pthread_t t;
     pthread_create(&t, NULL, thread, NULL);

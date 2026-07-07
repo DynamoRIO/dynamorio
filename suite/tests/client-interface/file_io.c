@@ -67,7 +67,7 @@ sys_prlimit(pid_t pid, int resource, const struct rlimit64 *new_limit,
 #endif
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
 #ifdef UNIX
     /* Test -steal_fds (i#357). */

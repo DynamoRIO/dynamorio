@@ -145,7 +145,7 @@ run_avx512_all_tests(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     run_avx512_all_tests();
     return 0;

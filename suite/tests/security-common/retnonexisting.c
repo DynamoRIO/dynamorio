@@ -128,7 +128,7 @@ invalid_ret(int x)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     INIT();
 

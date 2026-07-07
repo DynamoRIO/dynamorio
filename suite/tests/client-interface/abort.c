@@ -33,7 +33,7 @@
 #include <stdio.h>
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     fprintf(stderr, "ERROR: this shouldn't print\n");
 }

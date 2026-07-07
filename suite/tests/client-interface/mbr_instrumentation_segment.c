@@ -58,7 +58,7 @@ test_func(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
 #ifdef __i386__
     void *seg = mmap(NULL, getpagesize(), PROT_WRITE | PROT_READ,

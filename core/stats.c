@@ -442,7 +442,7 @@ kstat_test(void)
     KSTOP(measured);
 }
 int
-main(void)
+main(int argc, const char *argv[])
 {
     kstat_init();
     kstat_thread_init();

@@ -46,7 +46,7 @@ arch_init(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     double res = 0.;
     int i, j;

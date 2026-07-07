@@ -41,7 +41,7 @@ handler(int sig)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     signal(SIGALRM, handler);
     /* test alarm to wake up sleep */

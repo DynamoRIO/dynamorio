@@ -83,7 +83,7 @@ bad_trace4(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     INIT();
     print("Start\n");

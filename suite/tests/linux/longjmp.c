@@ -46,7 +46,7 @@ foo(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     int jmpret;
     /* Save stack environment for return in case of error. First

@@ -66,7 +66,7 @@ test_flag(uint eflags, uint pos, bool set)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     uint i;
     INIT();

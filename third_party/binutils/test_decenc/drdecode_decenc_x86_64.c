@@ -123,7 +123,7 @@ test_encode_decode(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     dr_printf("test_x86_64_s:\n");
     test_s((byte *)test_x86_64_s_asm);

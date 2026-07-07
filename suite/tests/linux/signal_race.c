@@ -96,7 +96,7 @@ try(uint64_t time)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     int counts[2] = { 0, 0 };
     uint64_t time = 1;

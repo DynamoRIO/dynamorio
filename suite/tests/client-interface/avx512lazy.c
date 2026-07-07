@@ -56,7 +56,7 @@ run_avx512(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     run_avx512();
     return 0;

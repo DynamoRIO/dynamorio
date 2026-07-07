@@ -341,7 +341,7 @@ test_isa_features(void)
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     test_disasm();
 

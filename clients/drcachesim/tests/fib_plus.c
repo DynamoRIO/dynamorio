@@ -81,7 +81,7 @@ static
 }
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
     thread_t thread1 = create_thread(thread_func, NULL);
     thread_t thread2 = create_thread(thread_func, NULL);
