@@ -1935,6 +1935,7 @@ test_kernel_filter_except_syscalls()
         { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
 
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL, { 1 } }, true, { true } },
+        // Syscall trace - preserved.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
           true,
           { true } },
@@ -1946,6 +1947,7 @@ test_kernel_filter_except_syscalls()
 
         { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
 
+        // Context switch trace - removed.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, { 1 } },
           true,
           { false } },
@@ -1956,7 +1958,8 @@ test_kernel_filter_except_syscalls()
           { false } },
         { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
 
-        // Kernel trace between hardware_event and hardware_context_return markers.
+        // Kernel trace between hardware_event and hardware_context_return markers -
+        // removed.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
           true,
           { false } },
@@ -1968,7 +1971,8 @@ test_kernel_filter_except_syscalls()
 
         { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
 
-        // Kernel trace between syscall markers and nested hardware_event markers.
+        // Kernel trace between syscall markers and nested hardware_event markers -
+        // preserved.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
           true,
           { true } },
