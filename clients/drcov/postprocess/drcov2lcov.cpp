@@ -1005,7 +1005,7 @@ read_drcov_file(const char *input)
      * it does when merging separate per-process files.
      */
     ptr = map;
-    map_end = map + (size_t)file_size;
+    map_end = map + static_cast<size_t>(file_size);
     while (ptr < map_end) {
         const char *hdr = read_file_header(ptr);
         if (hdr == NULL) {
@@ -1034,7 +1034,7 @@ read_drcov_file(const char *input)
             return false;
         }
         ptr = move_to_next_line(ptr);
-        if ((size_t)(ptr - map) + (size_t)num_bbs * sizeof(bb_entry_t) > map_size) {
+        if (static_cast<size_t>(ptr - map) + static_cast<size_t>(num_bbs) * sizeof(bb_entry_t) > map_size) {
             WARN(1, "Wrong number of bbs, corrupt log file %s\n", input);
             free(tables);
             close_input_file(log, map, map_size);
@@ -1043,7 +1043,7 @@ read_drcov_file(const char *input)
         /* read_bb_list() frees tables. */
         if (read_bb_list(ptr, tables, num_mods, num_bbs))
             any_bb = true;
-        ptr += (size_t)num_bbs * sizeof(bb_entry_t);
+        ptr += static_cast<size_t>(num_bbs) * sizeof(bb_entry_t);
         num_dumps++;
     }
 
