@@ -1007,8 +1007,8 @@ read_drcov_file(const char *input)
     ptr = map;
     map_end = map + static_cast<size_t>(file_size);
     while (ptr < map_end) {
-        const char *hdr = read_file_header(ptr);
-        if (hdr == NULL) {
+        ptr = read_file_header(ptr);
+        if (ptr == NULL) {
             if (num_dumps == 0) {
                 WARN(1, "Invalid version or bitwidth in drcov log file %s\n", input);
                 close_input_file(log, map, map_size);
@@ -1021,7 +1021,7 @@ read_drcov_file(const char *input)
             break;
         }
 
-        ptr = read_module_list(hdr, &tables, &num_mods);
+        ptr = read_module_list(ptr, &tables, &num_mods);
         if (ptr == NULL) {
             close_input_file(log, map, map_size);
             return false;
