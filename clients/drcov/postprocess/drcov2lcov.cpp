@@ -1041,14 +1041,16 @@ read_drcov_file(const char *input)
             return false;
         }
         /* read_bb_list() frees tables. */
-        if (read_bb_list(ptr, tables, num_mods, num_bbs))
+        if (read_bb_list(ptr, tables, num_mods, num_bbs)) {
             any_bb = true;
+        }
         ptr += static_cast<size_t>(num_bbs) * sizeof(bb_entry_t);
         num_dumps++;
     }
 
-    if (any_bb && set_log != INVALID_FILE)
+    if (any_bb && set_log != INVALID_FILE) {
         dr_fprintf(set_log, "%s\n", input);
+    }
     close_input_file(log, map, map_size);
     return true;
 }
