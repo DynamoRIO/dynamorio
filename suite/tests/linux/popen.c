@@ -52,8 +52,7 @@ main(void)
 
     print("before\n");
     f = popen("echo hello", "r");
-    if (f != NULL)
-        pclose(f);
+    if (f != NULL) pclose(f);
     print("after\n");
 
     return 0;
