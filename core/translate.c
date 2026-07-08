@@ -1508,7 +1508,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app at fragment prefix => using fragment app start pc %p\n",
                 mcontext->pc);
-            return RECREATE_SUCCESS_PC;
+            res = RECREATE_SUCCESS_PC;
+            goto recreate_app_state_done;
         }
 
         /* if pc is in an exit stub, we find the corresponding exit instr */
