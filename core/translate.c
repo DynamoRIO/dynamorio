@@ -119,9 +119,9 @@ instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
 {
     if (!instr_is_our_mangling(inst))
         return false;
-    /* Not bothering to check whether there's a nearby syscall instr:
-     * any label-targeting short jump should be fine to ignore.
-     */
+        /* Not bothering to check whether there's a nearby syscall instr:
+         * any label-targeting short jump should be fine to ignore.
+         */
 #    ifdef X86
     return (instr_get_opcode(inst) == OP_jmp_short &&
             opnd_is_instr(instr_get_target(inst)));
