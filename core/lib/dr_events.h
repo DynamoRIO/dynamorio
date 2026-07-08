@@ -686,7 +686,7 @@ typedef struct _dr_fault_fragment_info_t {
      * The tag of the code fragment inside the code cache at the
      * exception/signal/translation interruption point. NULL for
      * interruption not in the code cache. Use dr_fragment_app_pc() to convert
-     * to an application address.
+     * to the corresponding application address.
      */
     void *tag;
     /**
