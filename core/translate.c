@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -982,6 +982,12 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
 
     DOLOG(5, LOG_INTERP, { instrlist_disassemble(tdcontext, 0, ilist, THREAD_GET); });
 
+    /* The caller should have already handled prefix instructions. */
+    if (target_cache < start_cache) {
+        ASSERT_NOT_REACHED();
+        return RECREATE_FAILURE;
+    }
+
     /* walk ilist, incrementing cache pc by each instr's length until
      * cache pc equals target, then look at original address of
      * current instr, which is set by routines in mangle except for
@@ -1042,31 +1048,6 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
             cpc = target_cache;
         }
         if (cpc >= target_cache) {
-            if (cpc > target_cache) {
-                if (cpc == start_cache) {
-                    /* Prefix instructions are not added to recreate_fragment_ilist()
-                     * XXX: we should do so, and then we can at least restore
-                     * our spills, just in case.
-                     */
-                    LOG(THREAD_GET, LOG_INTERP, 2,
-                        "recreate_app -- cache pc " PFX " != " PFX ", "
-                        "assuming a prefix instruction\n",
-                        cpc, target_cache);
-                    res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
-                    /* Should only happen for thread synch, not a fault. Checking whether
-                     * tdcontext is the same as this thread's private dcontext is a weak
-                     * indicator of xl8 due to a fault. */
-                    ASSERT_CURIOSITY(tdcontext != get_thread_private_dcontext() ||
-                                     INTERNAL_OPTION(stress_recreate_pc) ||
-                                     tdcontext->client_data->is_translating);
-                } else {
-                    LOG(THREAD_GET, LOG_INTERP, 2,
-                        "recreate_app -- WARNING: cache pc " PFX " != " PFX ", "
-                        "probably prefix instruction\n",
-                        cpc, target_cache);
-                    res = RECREATE_FAILURE; /* try to restore, but return false */
-                }
-            }
             if (instr_get_translation(inst) == NULL) {
                 /* Clients are supposed to leave their meta instrs with
                  * NULL translations.  (DR may hit this assert for
@@ -1511,6 +1492,25 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             }
         });
 
+        if (mcontext->pc < FCACHE_ENTRY_PC(f)) {
+            /* Should only happen for thread synch, not a fault. Checking whether
+             * tdcontext is the same as this thread's private dcontext is a weak
+             * indicator of xl8 due to a fault. */
+            ASSERT_CURIOSITY(tdcontext != get_thread_private_dcontext() ||
+                             INTERNAL_OPTION(stress_recreate_pc) ||
+                             tdcontext->client_data->is_translating);
+            /* XXX i#7971: Support restoring our spilled registers when the pc is in a
+             * fragment prefix (maybe by adding prefixes to recreate_fragment_ilist()).
+             * For now, we bail on state and succeed on pc. Thus, we do not call
+             * instrument_restore_nonfcache_state_prealloc().
+             */
+            mcontext->pc = dr_fragment_app_pc(f->tag);
+            LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
+                "recreate_app at fragment prefix => using fragment app start pc %p\n",
+                mcontext->pc);
+            return RECREATE_SUCCESS_PC;
+        }
+
         /* if pc is in an exit stub, we find the corresponding exit instr */
         cti_pc = NULL;
         for (l = FRAGMENT_EXIT_STUBS(f); l; l = LINKSTUB_NEXT_EXIT(l)) {
@@ -1582,6 +1582,11 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             client_info.mcontext = &xl8_mcontext;
             client_info.fragment_info.tag = (void *)f->tag;
             client_info.fragment_info.cache_start_pc = FCACHE_ENTRY_PC(f);
+            /* We should not ask the client to translate a cache PC that's not inside
+             * the fragment proper: we shouldn't get here in that case.
+             */
+            ASSERT(client_info.raw_mcontext->pc >=
+                   client_info.fragment_info.cache_start_pc);
             client_info.fragment_info.is_trace = TEST(FRAG_IS_TRACE, f->flags);
             client_info.fragment_info.app_code_consistent =
                 !TESTANY(FRAG_WAS_DELETED | FRAG_SELFMOD_SANDBOXED, f->flags);
