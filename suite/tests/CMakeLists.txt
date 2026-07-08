@@ -3918,6 +3918,14 @@ if (BUILD_CLIENTS)
       set(tool.drcov.eintr_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
       set(tool.drcov.eintr_expectbase "tool.drcov.eintr")
       DynamoRIO_get_full_path(tool.drcov.eintr_postcmd drcov2lcov "${location_suffix}")
+
+      # Test an app that calls popen() for i#1390-c#9: the vfork-style child's
+      # execve dump lands in the parent's still-open log file, followed by the
+      # parent's own exit dump, so drcov2lcov must read every dump in the file.
+      torunonly_ci(tool.drcov.popen linux.popen drcov linux/popen.c "" "" "")
+      set(tool.drcov.popen_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
+      set(tool.drcov.popen_expectbase "tool.drcov.popen")
+      DynamoRIO_get_full_path(tool.drcov.popen_postcmd drcov2lcov "${location_suffix}")
     endif ()
   endif ()
 
@@ -6091,6 +6099,9 @@ if (UNIX)
   tobuild(linux.eintr linux/eintr.c)
   link_with_pthread(linux.eintr)
   torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
+
+  # i#1390-c#9: test an app that calls popen(), used by tool.drcov.popen.
+  tobuild(linux.popen linux/popen.c)
 
   if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: get working on Android
     # TODO i#3544: Port tests to RISC-V 64
