@@ -1034,7 +1034,9 @@ read_drcov_file(const char *input)
             return false;
         }
         ptr = move_to_next_line(ptr);
-        if (static_cast<size_t>(ptr - map) + static_cast<size_t>(num_bbs) * sizeof(bb_entry_t) > map_size) {
+        if (static_cast<size_t>(ptr - map) +
+                static_cast<size_t>(num_bbs) * sizeof(bb_entry_t) >
+            map_size) {
             WARN(1, "Wrong number of bbs, corrupt log file %s\n", input);
             free(tables);
             close_input_file(log, map, map_size);
