@@ -38,11 +38,16 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-// Removes all entries between and including the pairs of markers representing
-// kernel execution: for syscalls (TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-// TRACE_MARKER_TYPE_SYSCALL_TRACE_END), and context switches
-// (TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and TRACE_MARKER_TYPE_CONTEXT_SWITCH_END).
-// If keep_syscalls is true, removes kernel execution entries except system call entries.
+/**
+ * Removes all entries between and including the pairs of markers representing
+ * kernel execution: for syscalls (#TRACE_MARKER_TYPE_SYSCALL_TRACE_START and
+ * #TRACE_MARKER_TYPE_SYSCALL_TRACE_END), context switches
+ * (#TRACE_MARKER_TYPE_CONTEXT_SWITCH_START and #TRACE_MARKER_TYPE_CONTEXT_SWITCH_END),
+ * and hardware events (#TRACE_MARKER_TYPE_HARDWARE_EVENT and
+ * #TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN).
+ * If keep_syscalls is true, removes kernel execution entries except system call
+ * entries (including the other kernel execution nested within it).
+ */
 class kernel_filter_t : public record_filter_t::record_filter_func_t {
 public:
     kernel_filter_t(bool keep_syscalls = false)

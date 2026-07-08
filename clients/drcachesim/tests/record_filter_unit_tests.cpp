@@ -1973,6 +1973,8 @@ test_kernel_filter_except_syscalls()
 
         // Kernel trace between syscall markers and nested hardware_event markers -
         // preserved.
+        // This is the only nesting of kernel trace marker pairs that's currently
+        // expected.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
           true,
           { true } },

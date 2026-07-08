@@ -287,6 +287,9 @@ Further non-compatibility-affecting changes include:
    instruction ISA_FEAT_ constant.
  - Added instr_get_isa_feature_name() which returns the string name of an ISA_FEAT_
    constant.
+ - Added -filter_kernel and -filter_kernel_except_syscalls to the drmemtrace
+   analyzer that invokes #dynamorio::drmemtrace::kernel_filter_t to remove kernel
+   content from a trace.
 
 **************************************************
 <hr>
