@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -685,7 +685,8 @@ typedef struct _dr_fault_fragment_info_t {
     /**
      * The tag of the code fragment inside the code cache at the
      * exception/signal/translation interruption point. NULL for
-     * interruption not in the code cache.
+     * interruption not in the code cache. Use dr_fragment_app_pc() to convert
+     * to an application address.
      */
     void *tag;
     /**
