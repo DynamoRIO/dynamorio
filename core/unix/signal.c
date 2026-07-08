@@ -3294,7 +3294,7 @@ thread_set_self_context(void *cxt, bool is_detach_external)
     /* i#2632: recent clang for 32-bit annoyingly won't do the right thing for
      * "jmp dynamorio_sigreturn" and leaves relocs so we ensure it's PIC:
      */
-    app_pc asm_jmp_tgt = (app_pc)dynamorio_sigreturn;
+    void (*asm_jmp_tgt)(void) = dynamorio_sigreturn;
     asm("mov  %0, %%" ASM_XCX : : "m"(asm_jmp_tgt));
     asm("jmp  *%" ASM_XCX);
 #    endif /* MACOS/LINUX */
@@ -6775,7 +6775,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
 #ifdef DR_HOST_NOT_TARGET
         ASSERT_NOT_REACHED();
 #elif defined(X86_64) || defined(AARCH64)
-        app_pc asm_jmp_tgt = (app_pc)SIGACT_PRIMARY_HANDLER(&sigact_struct);
+        void *asm_jmp_tgt = (void *)SIGACT_PRIMARY_HANDLER(&sigact_struct);
         kernel_siginfo_t *siginfo_var = &our_frame->info;
         kernel_ucontext_t *ucontext_var = &our_frame->uc;
 #    ifdef X86_64
@@ -8515,7 +8515,7 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
          * "jmp dynamorio_condvar_wake_and_jmp" and leaves relocs so we ensure it's PIC.
          * We do this first as it may end up clobbering a scratch reg like xax.
          */
-        app_pc asm_jmp_tgt = (app_pc)dynamorio_condvar_wake_and_jmp;
+        void (*asm_jmp_tgt)(KSYNCH_TYPE *, byte *) = dynamorio_condvar_wake_and_jmp;
         asm("mov  %0, %%" ASM_XDX : : "m"(asm_jmp_tgt));
 #    endif
         asm("mov %0, %%" ASM_XAX : : "m"(notify_var));
