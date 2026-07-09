@@ -98,7 +98,7 @@ no method for accomplishing the desired task using the current API?
 Do you have any implementation in mind for this feature?
 ```
 
-### Guidelines for AI-assisted contributions
+## Guidelines for AI-assisted contributions
 
 We do not accept automated submissions from bots. While you are welcome to
 use AI tools to assist your development, a human must always be in charge.
