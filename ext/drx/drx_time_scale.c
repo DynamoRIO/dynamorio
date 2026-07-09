@@ -784,7 +784,7 @@ event_post_syscall(void *drcontext, int sysnum)
     switch (sysnum) {
     case SYS_timer_settime:
         dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
-        /* Deliberate fallthrough. */
+        DR_FALLTHROUGH;
     case SYS_timer_gettime: {
         size_t wrote;
         if (!info.succeeded) {
@@ -832,7 +832,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #endif
     case SYS_setitimer:
         dr_syscall_set_param(drcontext, 1, (reg_t)data->app_set_timer_param);
-        /* Deliberate fallthrough. */
+        DR_FALLTHROUGH;
     case SYS_getitimer: {
         size_t wrote;
         if (!info.succeeded) {
@@ -859,8 +859,8 @@ event_post_syscall(void *drcontext, int sysnum)
          * want to restore the pre-syscall value.
          */
         dr_syscall_set_param(drcontext, 0, (reg_t)data->app_set_timer_param);
+        DR_FALLTHROUGH;
 #endif
-        /* Deliberate fallthrough. */
     case SYS_clock_nanosleep: {
         if (sysnum == SYS_clock_nanosleep)
             dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
