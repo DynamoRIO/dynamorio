@@ -1052,6 +1052,12 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
          * happen, or if it doesn't happen can we return failure if cpc > target_cache?
          */
         if (cpc >= target_cache) {
+            if (cpc > target_cache) {
+                LOG(THREAD_GET, LOG_INTERP, 2,
+                    "recreate_app -- cache pc %p overshot target %p\n", cpc,
+                    target_cache);
+                res = RECREATE_FAILURE; /* Try to restore, but return failure. */
+            }
             if (instr_get_translation(inst) == NULL) {
                 /* Clients are supposed to leave their meta instrs with
                  * NULL translations.  (DR may hit this assert for
