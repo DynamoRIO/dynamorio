@@ -426,6 +426,7 @@ signal_is_process_wide(dcontext_t *dcontext, kernel_siginfo_t *info, byte *pc, b
                 return false;
             }
         }
+        DR_FALLTHROUGH;
     case SI_QUEUE:
         if (is_at_do_syscall(dcontext, pc, xsp) &&
             dcontext->sys_num == SYS_rt_tgsigqueueinfo)
@@ -7717,7 +7718,9 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     switch (type) {
     case ILLEGAL_INSTRUCTION_EXCEPTION: sig = SIGILL; break;
     case UNREADABLE_MEMORY_EXECUTION_EXCEPTION: sig = SIGSEGV; break;
-    case SINGLE_STEP_EXCEPTION: ASSERT_NOT_IMPLEMENTED(false); /* TODO: i#2144 */
+    case SINGLE_STEP_EXCEPTION:
+        ASSERT_NOT_IMPLEMENTED(false); /* TODO: i#2144 */
+        DR_FALLTHROUGH;
     case IN_PAGE_ERROR_EXCEPTION: /* fall-through: Windows only */
     default:
         ASSERT_NOT_REACHED();
