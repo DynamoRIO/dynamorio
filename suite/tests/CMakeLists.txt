@@ -2365,14 +2365,18 @@ if (X86) # XXX i#1551, i#1569: port asm to ARM and AArch64
       # sepaparate build.  Until someone really focuses on hybrid mode again
       # (in which case a new build param should be added to re-enable libdl),
       # we leave the tests here as regression tests but w/ private loader in place.
+      set(kstats_flag "")
+      if (KSTATS)
+        set(kstats_flag "-no_kstats")
+      endif()
       torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
-        "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
+        "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt ${kstats_flag}" "")
       # No swap TLS and no kstats for optimized native_exec
       torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec_exenative.c
-        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
+        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt ${kstats_flag}" "")
       torunonly(common.nativeexec_bindnow_opt common.nativeexec
         common/nativeexec_exenative.c
-        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
+        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt ${kstats_flag}" "-bind_now")
     endif ()
   endif ()
 
