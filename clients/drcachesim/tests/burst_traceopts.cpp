@@ -141,7 +141,7 @@ test_arrays()
     // test suite builds).  The code below does trigger i#4403 on my machine
     // and contains further patterns which hopefully gives more confidence to
     // our optimizations.
-    register int *ptr = array + 1;
+    int *ptr = array + 1;
     for (int i = 1; i < size - 1; ++i) {
         *ptr += *(ptr - 1) + *(ptr + 1);
         ptr++;
