@@ -225,6 +225,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
             reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", "");
             return true;
         }
+        DR_FALLTHROUGH;
     case TYPE_Y:
     case TYPE_FLOATCONST:
     case TYPE_XREG:
@@ -332,6 +333,7 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "d";
             else if (sz == 8)
                 return "q";
+            DR_FALLTHROUGH;
         }
         case OP_pusha:
         case OP_popa: {
@@ -340,6 +342,7 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "w";
             else if (sz == 32)
                 return "d";
+            DR_FALLTHROUGH;
         }
         case OP_iret: {
             uint sz = instr_memory_reference_size(instr);
