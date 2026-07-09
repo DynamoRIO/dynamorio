@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2025 Arm Limited  All rights reserved.
  * **********************************************************/
 
@@ -524,10 +524,17 @@ check_xsp(ptr_uint_t *xsp)
 }
 #    endif
 
+/* This needs to be larger than the distance from the PC of the call to
+ * MAKE_WRITEABLE to the selfmod-modified PC.
+ * Currently AArch64's distance is 1316.
+ */
+#    define CODE_SIZE_MAKE_WRITABLE_TO_SELFMOD 2048
+
 void
 make_mem_writable(ptr_uint_t pc)
 {
-    protect_mem((void *)pc, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
+    protect_mem((void *)pc, CODE_SIZE_MAKE_WRITABLE_TO_SELFMOD,
+                ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
 }
 
 void
@@ -536,7 +543,7 @@ make_mem_non_writeable(ptr_uint_t pc)
     /* Reset self-modifying test page permissions so later non-self-modifying
      * fragment cache tests do not inherit RWX, violating DR's ASSERT() checks.
      */
-    protect_mem((void *)pc, 1024, ALLOW_READ | ALLOW_EXEC);
+    protect_mem((void *)pc, CODE_SIZE_MAKE_WRITABLE_TO_SELFMOD, ALLOW_READ | ALLOW_EXEC);
 }
 
 #else /* asm code *************************************************************/
