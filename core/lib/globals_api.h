@@ -172,6 +172,19 @@ typedef _Bool bool;
 #    define NOINLINE __attribute__((noinline))
 #endif
 
+/* Annotates intentional switch case fallthroughs to satisfy
+ * -Wimplicit-fallthrough compiler warnings.
+ */
+#ifdef __has_attribute
+#    if __has_attribute(__fallthrough__)
+#        define DR_FALLTHROUGH __attribute__((__fallthrough__))
+#    else
+#        define DR_FALLTHROUGH ((void)0)
+#    endif
+#else
+#    define DR_FALLTHROUGH ((void)0)
+#endif
+
 /* We want a consistent size so we stay away from MAX_PATH.
  * MAX_PATH is 260 on Windows, but 4096 on Linux: should up this.
  * XXX: should undef MAX_PATH and define it to an error-producing value
