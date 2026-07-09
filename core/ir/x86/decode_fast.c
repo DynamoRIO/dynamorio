@@ -536,6 +536,7 @@ decode_sizeof_ex(void *drcontext, byte *start_pc, int *num_prefixes, uint *rip_r
                     evex_prefix = true;
                 }
                 /* Fall-through is deliberate, EVEX is handled through VEX below */
+                DR_FALLTHROUGH;
             }
             case VEX_3BYTE_PREFIX_OPCODE:
             case VEX_2BYTE_PREFIX_OPCODE: {
