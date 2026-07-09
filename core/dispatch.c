@@ -100,6 +100,7 @@ static void
 handle_callback_return(dcontext_t *dcontext);
 #endif
 
+#if defined(UNIX) && !defined(X64)
 /* PR 356503: detect clients making syscalls via sysenter */
 static inline void
 found_client_sysenter(void)
@@ -109,6 +110,7 @@ found_client_sysenter(void)
                   "While such behavior is not recommended and can create problems, "
                   "it may work with the -sysenter_is_int80 runtime option.");
 }
+#endif
 
 static bool
 exited_due_to_ni_syscall(dcontext_t *dcontext)
@@ -1369,6 +1371,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
     if (dcontext->last_exit == get_syscall_linkstub()) {
         LOG(THREAD, LOG_DISPATCH, 2, "Exit from system call\n");
         STATS_INC(num_exits_syscalls);
+#    if defined(UNIX) && !defined(X64)
         /* PR 356503: clients using libraries that make syscalls, invoked from
          * a clean call, will not trigger the whereami check below: so we
          * locate here via mismatching kstat top-of-stack.
@@ -1378,6 +1381,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
                 found_client_sysenter();
             }
         });
+#    endif
         KSTOP_NOT_PROPAGATED(syscall_fcache);
         return;
     } else if (dcontext->last_exit == get_selfmod_linkstub()) {
