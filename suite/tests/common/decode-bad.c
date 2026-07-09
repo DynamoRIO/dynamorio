@@ -189,9 +189,9 @@ main(int argc, char *argv[])
     count = 0;
     i = SIGSETJMP(mark);
     switch (i) {
-    case 0: test_priv_0();
-    case 1: test_priv_1();
-    case 2: test_priv_2();
+    case 0: test_priv_0(); DR_FALLTHROUGH;
+    case 1: test_priv_1(); DR_FALLTHROUGH;
+    case 2: test_priv_2(); DR_FALLTHROUGH;
     case 3: test_priv_3();
     }
 
@@ -216,13 +216,13 @@ main(int argc, char *argv[])
         /* note that we decode until a CTI, so for every case the suffix is decoded
          * and changes in later cases may fail even the earlier ones.
          */
-    case 0: test_inval_0();
-    case 1: test_inval_1();
-    case 2: test_inval_2();
-    case 3: test_inval_3();
-    case 4: test_inval_4();
-    case 5: test_inval_5();
-    case 6: test_inval_6();
+    case 0: test_inval_0(); DR_FALLTHROUGH;
+    case 1: test_inval_1(); DR_FALLTHROUGH;
+    case 2: test_inval_2(); DR_FALLTHROUGH;
+    case 3: test_inval_3(); DR_FALLTHROUGH;
+    case 4: test_inval_4(); DR_FALLTHROUGH;
+    case 5: test_inval_5(); DR_FALLTHROUGH;
+    case 6: test_inval_6(); DR_FALLTHROUGH;
     case 7: test_inval_7();
     default:;
     }
