@@ -2187,7 +2187,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         if (di->mod != 3) {
             return decode_modrm(di, optype, opsize, NULL, opnd);
         }
-        /* fall through*/
+        DR_FALLTHROUGH;
     }
     case TYPE_K_MODRM_R: {
         /* part of AVX-512: modrm.rm selects opmask register */
