@@ -743,7 +743,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
 #if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
         print_to_buffer(buf, bufsz, sofar, "<rel> ");
-        /* fall-through */
+        DR_FALLTHROUGH;
 #    ifdef X64
     case ABS_ADDR_kind:
 #    endif
