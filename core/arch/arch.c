@@ -911,7 +911,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 }
 
 void
-arch_profile_exit()
+arch_profile_exit(void)
 {
     if (USE_SHARED_GENCODE()) {
         arch_extract_profile(GLOBAL_DCONTEXT _IF_X64(GENCODE_X64));
@@ -2831,7 +2831,7 @@ set_fcache_target(dcontext_t *dcontext, cache_pc value)
  * we use this for are ok w/ int (i.e., we don't need a sys{call,enter} version).
  */
 byte *
-get_global_do_syscall_entry()
+get_global_do_syscall_entry(void)
 {
     int method = get_syscall_method();
     if (method == SYSCALL_METHOD_INT) {
@@ -2881,7 +2881,7 @@ get_global_do_syscall_entry()
 /* used only by cleanup_and_terminate to avoid the sysenter
  * sygate hack version */
 byte *
-get_cleanup_and_terminate_global_do_syscall_entry()
+get_cleanup_and_terminate_global_do_syscall_entry(void)
 {
     /* see note above: for 32-bit linux apps we use int.
      * xref PR 332427 as well where sysenter causes a crash
@@ -3401,7 +3401,7 @@ should_syscall_method_be_sysenter(void)
 /* returns the address of the first app syscall instruction we saw (see hack
  * in win32/os.c that uses this for PRE_SYSCALL_PC, not for general use */
 byte *
-get_app_sysenter_addr()
+get_app_sysenter_addr(void)
 {
     /* XXX : would like to assert that this has been initialized, but interp
      * bb_process_convertible_indcall() will use it before we initialize it. */
@@ -3922,7 +3922,7 @@ set_tp_reg_val(priv_mcontext_t *mc, reg_t newval)
 /* This only works on Pentium I or later */
 #    ifdef UNIX
 __inline__ uint64
-get_time()
+get_time(void)
 {
     uint64 res;
     RDTSC_LL(res);
@@ -3930,7 +3930,7 @@ get_time()
 }
 #    else /* WINDOWS */
 uint64
-get_time()
+get_time(void)
 {
     return __rdtsc(); /* compiler intrinsic */
 }
@@ -3986,7 +3986,7 @@ test_thread_func(void *arg)
 }
 
 static void
-do_parallel_updates()
+do_parallel_updates(void)
 {
     int i;
 #    ifdef UNIX

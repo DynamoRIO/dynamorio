@@ -565,7 +565,7 @@ os_loader_init_prologue(void);
  * will release privload_lock.
  */
 void
-os_loader_init_epilogue();
+os_loader_init_epilogue(void);
 
 void
 os_loader_exit(void);

@@ -37,7 +37,7 @@
  * easily be used by the CMake script as a code fragment.
  */
 static bool
-pauth_indicated_by_isa_registers()
+pauth_indicated_by_isa_registers(void)
 {
     long long id_aa64isar1_el1 = 0;
     long long id_aa64isar2_el1 = 0;

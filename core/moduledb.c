@@ -242,7 +242,7 @@ static const char *const exempt_list_names[MODULEDB_EXEMPT_NUM_LISTS] = { "rct",
                                                                           "dll2stack" };
 
 void
-moduledb_init()
+moduledb_init(void)
 {
     uint exempt_array_size = (MODULEDB_EXEMPT_NUM_LISTS) * sizeof(char *);
     ASSERT(exemption_lists == NULL);
@@ -257,7 +257,7 @@ moduledb_init()
 }
 
 void
-moduledb_exit()
+moduledb_exit(void)
 {
     int i;
     ASSERT(exemption_lists != NULL);

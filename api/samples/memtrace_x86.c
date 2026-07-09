@@ -187,7 +187,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 
 static void
-event_exit()
+event_exit(void)
 {
 #ifdef SHOW_RESULTS
     char msg[512];

@@ -701,6 +701,26 @@
 #define INSTR_CREATE_ubfm(dc, rd, rn, immr, imms) \
     instr_create_1dst_3src(dc, OP_ubfm, rd, rn, immr, imms)
 
+/**
+ * Creates a LSL (immediate) instruction with one output and two inputs.
+ *
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param rd    The output register.
+ * \param rn    The input register.
+ * \param shift The left-shift immediate.
+ */
+static inline instr_t *
+INSTR_CREATE_lsl(void *dc, opnd_t rd, opnd_t rn, opnd_t shift)
+{
+    const ptr_int_t shift_amount = opnd_get_immed_int(shift);
+    const bool is_32bit = reg_is_32bit(opnd_get_reg(rd));
+    const opnd_t immr = opnd_create_immed_int(
+        is_32bit ? (32 - shift_amount) & 31 : (64 - shift_amount) & 63, OPSZ_6b);
+    const opnd_t imms =
+        opnd_create_immed_int((is_32bit ? 31 : 63) - shift_amount, OPSZ_6b);
+    return INSTR_CREATE_ubfm(dc, rd, rn, immr, imms);
+}
+
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))

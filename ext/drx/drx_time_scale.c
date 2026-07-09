@@ -1197,7 +1197,7 @@ drx_register_time_scaling(drx_time_scale_t *options)
 
 DR_EXPORT
 bool
-drx_unregister_time_scaling()
+drx_unregister_time_scaling(void)
 {
     int count = dr_atomic_add32_return_sum(&init_count, -1);
     if (count != 0)

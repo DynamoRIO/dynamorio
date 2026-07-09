@@ -44,7 +44,7 @@
 #define STRINGIFY(x) EXPANDSTR(x)
 
 int
-main()
+main(int argc, const char *argv[])
 {
     int pid;
     fprintf(stderr, "starting\n");

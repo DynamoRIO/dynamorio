@@ -83,7 +83,7 @@ static volatile bool child_done[NUM_THREADS];
 static struct timespec sleeptime;
 
 int
-main()
+main(int argc, const char *argv[])
 {
     int i;
     sleeptime.tv_sec = 0;

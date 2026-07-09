@@ -55,7 +55,7 @@ static file_t record_file;
 static char buffer[WRITE_BUFFER_SIZE];
 
 static inline uint64_t
-get_microsecond_timestamp()
+get_microsecond_timestamp(void)
 {
     static uint64_t fake_timestamp = 10000;
     return ++fake_timestamp;
@@ -101,7 +101,7 @@ write_file(void *drcontext, char *buf, size_t size)
 }
 
 static size_t
-flush_file()
+flush_file(void)
 {
     if (offset > 0) {
         write(record_file, buffer, offset);

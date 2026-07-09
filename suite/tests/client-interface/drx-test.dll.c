@@ -194,7 +194,7 @@ test_unique_files(void)
 }
 
 static void
-test_instrlist()
+test_instrlist(void)
 {
 
     void *drcontext;

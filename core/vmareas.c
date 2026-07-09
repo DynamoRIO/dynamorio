@@ -688,7 +688,7 @@ vm_make_unwritable(byte *pc, size_t size)
  * once this method is called stale code could be executed out of the
  * code cache */
 void
-revert_memory_regions()
+revert_memory_regions(void)
 {
     int i;
 
@@ -1595,13 +1595,13 @@ vm_areas_reset_init(void)
 }
 
 void
-dynamo_vm_areas_init()
+dynamo_vm_areas_init(void)
 {
     VMVECTOR_ALLOC_VECTOR(dynamo_areas, GLOBAL_DCONTEXT, VECTOR_SHARED, dynamo_areas);
 }
 
 void
-dynamo_vm_areas_exit()
+dynamo_vm_areas_exit(void)
 {
     vmvector_delete_vector(GLOBAL_DCONTEXT, dynamo_areas);
     dynamo_areas = NULL;
@@ -1612,7 +1612,7 @@ dynamo_vm_areas_exit()
  * N.B.: this is called after vm_areas_thread_init()
  */
 int
-vm_areas_init()
+vm_areas_init(void)
 {
     int areas;
 
@@ -1687,7 +1687,7 @@ vm_areas_init()
 }
 
 static void
-vm_areas_statistics()
+vm_areas_statistics(void)
 {
 #ifdef PROGRAM_SHEPHERDING
     DOLOG(1, LOG_VMAREAS | LOG_STATS, {
@@ -1726,7 +1726,7 @@ vm_areas_reset_free(void)
 }
 
 int
-vm_areas_exit()
+vm_areas_exit(void)
 {
     vm_areas_exited = true;
     vm_areas_statistics();
@@ -1837,7 +1837,7 @@ vm_areas_exit()
 }
 
 void
-vm_areas_post_exit()
+vm_areas_post_exit(void)
 {
     vm_areas_exited = false;
 }
@@ -2893,7 +2893,7 @@ vm_area_delay_load_coarse_units(void)
  * executable areas lock, which the caller must hold.
  */
 bool
-free_nonexec_coarse_and_unlock()
+free_nonexec_coarse_and_unlock(void)
 {
     bool freed_any = false;
     coarse_info_t *info = NULL;
@@ -3564,7 +3564,7 @@ are_dynamo_vm_areas_stale(void)
  * modifying the heap lists.
  */
 void
-mark_dynamo_vm_areas_stale()
+mark_dynamo_vm_areas_stale(void)
 {
     /* ok to ask for locks or mark stale before dynamo_areas is allocated */
     ASSERT(
@@ -3575,7 +3575,7 @@ mark_dynamo_vm_areas_stale()
 
 /* HACK to get recursive write lock for internal and external use */
 void
-dynamo_vm_areas_lock()
+dynamo_vm_areas_lock(void)
 {
     all_memory_areas_lock();
     /* ok to ask for locks or mark stale before dynamo_areas is allocated,
@@ -3596,7 +3596,7 @@ dynamo_vm_areas_lock()
 }
 
 void
-dynamo_vm_areas_unlock()
+dynamo_vm_areas_unlock(void)
 {
     /* ok to ask for locks or mark stale before dynamo_areas is allocated,
      * during heap init and before we can allocate it.  no lock needed then.
@@ -3613,7 +3613,7 @@ dynamo_vm_areas_unlock()
 }
 
 bool
-self_owns_dynamo_vm_area_lock()
+self_owns_dynamo_vm_area_lock(void)
 {
     /* heap inits before dynamo_areas (which now needs heap to init) so
      * we ignore the lock prior to dynamo_areas init, assuming single-DR-thread.
@@ -3626,7 +3626,7 @@ self_owns_dynamo_vm_area_lock()
  * to hold read lock with no updates pending
  */
 static void
-dynamo_vm_areas_start_reading()
+dynamo_vm_areas_start_reading(void)
 {
     d_r_read_lock(&dynamo_areas->lock);
     while (!dynamo_areas_uptodate) {
@@ -3649,7 +3649,7 @@ dynamo_vm_areas_start_reading()
 }
 
 static void
-dynamo_vm_areas_done_reading()
+dynamo_vm_areas_done_reading(void)
 {
     d_r_read_unlock(&dynamo_areas->lock);
 }
@@ -3736,7 +3736,7 @@ is_dynamo_area_buffer(byte *heap_unit_start_pc)
 
 /* assumes caller holds dynamo_areas->lock */
 void
-remove_dynamo_heap_areas()
+remove_dynamo_heap_areas(void)
 {
     int i;
     /* remove_vm_area will assert that write lock is held, but let's make
@@ -3845,13 +3845,13 @@ executable_vm_area_overlap(app_pc start, app_pc end, bool have_writelock)
 }
 
 void
-executable_areas_lock()
+executable_areas_lock(void)
 {
     d_r_write_lock(&executable_areas->lock);
 }
 
 void
-executable_areas_unlock()
+executable_areas_unlock(void)
 {
     ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
     d_r_write_unlock(&executable_areas->lock);
@@ -9148,7 +9148,7 @@ print_lazy_deletion_list(dcontext_t *dcontext, const char *msg)
 
 #ifdef DEBUG
 static void
-check_lazy_deletion_list_consistency()
+check_lazy_deletion_list_consistency(void)
 {
     uint i = 0;
     fragment_t *f;
@@ -10230,7 +10230,7 @@ vm_area_allsynch_flush_fragments(dcontext_t *dcontext, dcontext_t *del_dcontext,
 
 /* Deletes all coarse units */
 void
-vm_area_coarse_units_reset_free()
+vm_area_coarse_units_reset_free(void)
 {
     vm_area_vector_t *v = executable_areas;
     int i;
@@ -11684,7 +11684,7 @@ check_vec(vm_area_vector_t *v, int i, app_pc start, app_pc end, uint vm_flags,
 }
 
 void
-vmvector_tests()
+vmvector_tests(void)
 {
     vm_area_vector_t v = { 0, 0, 0, VECTOR_SHARED | VECTOR_NEVER_MERGE,
                            INIT_READWRITE_LOCK(thread_vm_areas) };

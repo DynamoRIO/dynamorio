@@ -327,7 +327,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment);
 
 /* Sets a non-zero value for unknown threads on attach (see i#3356). */
 bool
-tls_thread_preinit();
+tls_thread_preinit(void);
 
 void
 tls_thread_free(tls_type_t tls_type, int index);

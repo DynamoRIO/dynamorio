@@ -350,7 +350,7 @@ release_landing_pad_mem(void);
  * DR areas lock first, to retry
  */
 static bool
-safe_to_allocate_or_free_heap_units()
+safe_to_allocate_or_free_heap_units(void)
 {
     return ((!self_owns_recursive_lock(&global_alloc_lock) &&
              !self_owns_recursive_lock(&heap_unit_lock)) ||
@@ -1552,7 +1552,7 @@ reached_beyond_vmm(which_vmm_t which)
 }
 
 void
-vmm_heap_handle_pending_low_on_memory_event_trigger()
+vmm_heap_handle_pending_low_on_memory_event_trigger(void)
 {
     bool trigger = false;
 
@@ -1569,7 +1569,7 @@ vmm_heap_handle_pending_low_on_memory_event_trigger()
 }
 
 static void
-schedule_low_on_memory_event_trigger()
+schedule_low_on_memory_event_trigger(void)
 {
     bool value = true;
     ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
@@ -1923,7 +1923,7 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_
 
 /* virtual memory manager initialization */
 void
-vmm_heap_init()
+vmm_heap_init(void)
 {
     IF_WINDOWS(ASSERT(ALIGNED(OS_ALLOC_GRANULARITY, DYNAMO_OPTION(vmm_block_size))));
 #ifdef X64
@@ -2022,7 +2022,7 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
 }
 
 void
-vmm_heap_exit()
+vmm_heap_exit(void)
 {
     /* virtual memory manager exit */
     if (DYNAMO_OPTION(vm_reserve)) {
@@ -2209,7 +2209,7 @@ vmm_heap_fork_init_failed:
  * modified the value of any options to make them compatible
  */
 bool
-heap_check_option_compatibility()
+heap_check_option_compatibility(void)
 {
     bool ret = false;
 
@@ -2250,7 +2250,7 @@ heap_check_option_compatibility()
 
 /* thread-shared initialization that should be repeated after a reset */
 void
-heap_reset_init()
+heap_reset_init(void)
 {
     threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_nonpersistent_units,
                      GLOBAL_UNIT_MIN_SIZE, false);
@@ -2258,7 +2258,7 @@ heap_reset_init()
 
 /* initialization */
 void
-d_r_heap_init()
+d_r_heap_init(void)
 {
     int i;
     DEBUG_DECLARE(uint prev_sz = 0;)
@@ -2338,7 +2338,7 @@ really_free_unit(heap_unit_t *u)
  * heap_reset_init() will be called before continuing.
  */
 void
-heap_reset_free()
+heap_reset_free(void)
 {
     heap_unit_t *u, *next_u;
     /* XXX: share some code w/ heap_exit -- currently only called by reset */
@@ -2379,7 +2379,7 @@ heap_reset_free()
 
 /* atexit cleanup */
 void
-d_r_heap_exit()
+d_r_heap_exit(void)
 {
     heap_unit_t *u, *next_u;
     heap_management_t *temp;
@@ -2460,7 +2460,7 @@ d_r_heap_exit()
 }
 
 void
-heap_post_exit()
+heap_post_exit(void)
 {
     heap_exiting = false;
 }
@@ -2471,7 +2471,7 @@ heap_post_exit()
  * need a test for hitting 2GB (or 3GB!) user mode limit.
  */
 static void
-heap_low_on_memory()
+heap_low_on_memory(void)
 {
     /* free some memory! */
     heap_unit_t *u, *next_u;
@@ -2653,7 +2653,7 @@ update_dynamo_areas_on_release(app_pc start, app_pc end, bool remove_vm)
 }
 
 bool
-lockwise_safe_to_allocate_memory()
+lockwise_safe_to_allocate_memory(void)
 {
     /* check whether it's safe to hold a lock that normally can be held
      * for memory allocation -- i.e., check whether we hold the
@@ -3373,7 +3373,7 @@ d_r_unmap_file(byte *map, size_t size)
  * The caller is assumed to hold the dynamo vm areas write lock.
  */
 void
-heap_vmareas_synch_units()
+heap_vmareas_synch_units(void)
 {
     heap_unit_t *u, *next;
     /* we again have circular dependence w/ vmareas if it happens to need a
@@ -3883,7 +3883,7 @@ print_tu_heap_statistics(thread_units_t *tu, file_t logfile, const char *prefix)
 }
 
 void
-print_heap_statistics()
+print_heap_statistics(void)
 {
     /* just do cur thread, don't try to walk all threads */
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -4970,7 +4970,7 @@ get_special_heap_header_size(void)
 
 #ifdef WINDOWS_PC_SAMPLE
 static inline bool
-special_heap_profile_enabled()
+special_heap_profile_enabled(void)
 {
     return (dynamo_options.profile_pcs && dynamo_options.prof_pcs_stubs >= 2 &&
             dynamo_options.prof_pcs_stubs <= 32);
@@ -5293,7 +5293,7 @@ special_heap_profile_stop(special_heap_unit_t *u)
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
 /* for fast exit path only, normal path taken care of */
 void
-special_heap_profile_exit()
+special_heap_profile_exit(void)
 {
     special_heap_unit_t *u;
     special_units_t *su;

@@ -796,7 +796,7 @@ set_dr_platform(dr_platform_t platform)
 }
 
 dr_platform_t
-get_dr_platform()
+get_dr_platform(void)
 {
     if (registry_view ==
         DR_PLATFORM_64BIT IF_X64(|| registry_view == DR_PLATFORM_DEFAULT))

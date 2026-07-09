@@ -63,7 +63,7 @@
 
 /* asm routines */
 void
-signal_handler_asm();
+signal_handler_asm(int sig, siginfo_t *siginfo, ucontext_t *ucxt);
 void
 test_signal_midbb(void);
 void

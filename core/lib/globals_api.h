@@ -216,7 +216,7 @@ typedef signed char sbyte;
 #endif
 typedef byte *app_pc;
 
-typedef void (*generic_func_t)();
+typedef void (*generic_func_t)(void);
 
 #ifdef DR_DEFINE_FOR_uint64
 #    undef DR_DO_NOT_DEFINE_uint64

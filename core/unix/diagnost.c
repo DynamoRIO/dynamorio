@@ -51,12 +51,12 @@ append_diagnostics(file_t diagnostics_file, const char *message, const char *nam
 }
 
 void
-diagnost_exit()
+diagnost_exit(void)
 {
 }
 
 bool
-check_for_unsupported_modules()
+check_for_unsupported_modules(void)
 {
     return false;
 }

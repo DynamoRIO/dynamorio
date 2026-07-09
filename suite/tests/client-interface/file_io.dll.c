@@ -109,7 +109,7 @@ static file_t file;
 static client_id_t client_id;
 
 bool
-dummy_func()
+dummy_func(void)
 {
     return true;
 }

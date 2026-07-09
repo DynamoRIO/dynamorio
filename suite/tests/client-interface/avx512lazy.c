@@ -34,14 +34,14 @@
 #    include "tools.h"
 
 NOINLINE void
-before_marker();
+before_marker(void);
 NOINLINE void
-after_marker();
+after_marker(void);
 NOINLINE void
-avx512_instr();
+avx512_instr(void);
 
 void
-run_avx512()
+run_avx512(void)
 {
 #    ifndef __AVX512F__
 #        error "Build error, should only be added with AVX-512 support."
@@ -56,7 +56,7 @@ run_avx512()
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     run_avx512();
     return 0;

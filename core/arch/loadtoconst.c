@@ -498,7 +498,7 @@ get_mem_val(dcontext_t *dcontext, opnd_t mem_access, int address)
 
 #    ifdef SIDELINE
 void
-LTC_examine_traces()
+LTC_examine_traces(void)
 {
     fragment_t *curfrag;
     trace_only_t *t_curfrag;

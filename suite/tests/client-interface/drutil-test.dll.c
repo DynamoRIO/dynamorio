@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -229,7 +229,10 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
              * bytes for the x87 + SSE user state components, or up to 2688 if AVX-512
              * is enabled.
              */
-            CHECK(size >= 576 && size <= 2688, "xsave area size unexpected");
+            if (!(size >= 576 && size <= 2688)) {
+                dr_fprintf(STDERR, "unexpected xsave area size %d bytes\n", size);
+                CHECK(false, "xsave area size unexpected");
+            }
         }
 #endif
     }

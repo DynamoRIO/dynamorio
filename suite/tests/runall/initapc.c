@@ -57,7 +57,7 @@
 __declspec(dllimport) import_me(int x);
 
 int
-main()
+main(int argc, const char *argv[])
 {
     INIT();
 

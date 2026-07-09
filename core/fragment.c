@@ -468,7 +468,7 @@ print_shared_table_stats(shared_entry_t **table, mutex_t *lock, const char *name
 }
 
 void
-print_shared_stats()
+print_shared_stats(void)
 {
     print_shared_table_stats(shared_blocks, &shared_blocks_lock, "basic block");
     print_shared_table_stats(shared_traces, &shared_traces_lock, "trace");
@@ -498,7 +498,7 @@ record_fragment_size(int size, bool is_trace)
 }
 
 void
-print_size_results()
+print_size_results(void)
 {
     LOG(GLOBAL, LOG_ALL, 1, "Basic block sizes (bytes):\n");
     print_statistics(bb_sizes, num_bb);
@@ -1402,7 +1402,7 @@ fragment_reset_init(void)
 
 /* thread-shared initialization */
 void
-fragment_init()
+fragment_init(void)
 {
     /* case 7966: don't initialize at all for hotp_only & thin_client
      * XXX: could set initial sizes to 0 for all configurations, instead
@@ -1575,7 +1575,7 @@ fragment_reset_free(void)
 
 /* free all state */
 void
-fragment_exit()
+fragment_exit(void)
 {
     /* case 7966: don't initialize at all for hotp_only & thin_client
      * XXX: could set initial sizes to 0 for all configurations, instead
@@ -5482,7 +5482,7 @@ check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed)
  * so use is_self_allsynch_flushing() instead.
  */
 bool
-is_self_flushing()
+is_self_flushing(void)
 {
     /* race condition w/ flusher being updated -- but since only testing vs self,
      * if flusher update is atomic, should be safe
@@ -5491,7 +5491,7 @@ is_self_flushing()
 }
 
 bool
-is_self_allsynch_flushing()
+is_self_allsynch_flushing(void)
 {
     /* race condition w/ allsynch_flusher being updated -- but since only testing
      * vs self, if flusher update is atomic, should be safe
@@ -5502,7 +5502,7 @@ is_self_allsynch_flushing()
 
 /* N.B.: only accurate if called on self (else a race condition) */
 bool
-is_self_couldbelinking()
+is_self_couldbelinking(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     /* if no dcontext yet then can't be couldbelinking */
@@ -5815,7 +5815,7 @@ enter_threadexit(dcontext_t *dcontext)
 
 /* caller must hold shared_cache_flush_lock */
 void
-increment_global_flushtime()
+increment_global_flushtime(void)
 {
     ASSERT_OWN_MUTEX(true, &shared_cache_flush_lock);
     /* reset will turn flushtime_global back to 0, so we schedule one
@@ -6869,7 +6869,7 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
  * fcache_reset_all_caches_proactively().
  */
 void
-invalidate_code_cache()
+invalidate_code_cache(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     LOG(GLOBAL, LOG_FRAGMENT, 2, "invalidate_code_cache()\n");

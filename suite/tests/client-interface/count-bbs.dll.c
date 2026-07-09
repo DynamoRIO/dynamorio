@@ -50,13 +50,13 @@ bbcount1(reg_t r1)
 }
 
 static void
-bbcount0_fp()
+bbcount0_fp(void)
 {
     bbcnt0_fp++;
 }
 
 static void
-bbcount0()
+bbcount0(void)
 {
     bbcnt0++;
 }

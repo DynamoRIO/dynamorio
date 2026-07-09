@@ -62,7 +62,7 @@ static
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     /* Make some threads to help test client and private loader TLS. */
     thread_t thread = create_thread(do_work, NULL);
