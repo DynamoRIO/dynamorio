@@ -1077,7 +1077,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                     }
                 });
                 if (prev_ok == NULL) {
-                    answer = start_app;
+                    answer = dr_fragment_app_pc(start_app);
                     LOG(THREAD_GET, LOG_INTERP, 2,
                         "recreate_app -- WARNING: guessing start pc " PFX "\n", answer);
                 } else {
@@ -1273,12 +1273,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             /* no translation needed, ignoring sysenter stack hacks */
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app no translation needed (at vsyscall)\n");
-            if (!just_pc)
+            if (!just_pc) {
                 restore_stolen_register(tdcontext, mcontext);
-            if (dr_xl8_hook_exists()) {
-                if (!instrument_restore_nonfcache_state_prealloc(
-                        tdcontext, restore_memory, mcontext, &xl8_mcontext))
-                    return RECREATE_FAILURE;
+                if (dr_xl8_hook_exists()) {
+                    if (!instrument_restore_nonfcache_state_prealloc(
+                            tdcontext, restore_memory, mcontext, &xl8_mcontext))
+                        return RECREATE_FAILURE;
+                }
             }
             return res;
         } else {
@@ -1330,12 +1331,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             mcontext->xdx = tdcontext->app_xdx;
         }
 #    endif
-        if (!just_pc)
+        if (!just_pc) {
             restore_stolen_register(tdcontext, mcontext);
-        if (dr_xl8_hook_exists()) {
-            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
-                                                             mcontext, &xl8_mcontext))
-                return RECREATE_FAILURE;
+            if (dr_xl8_hook_exists()) {
+                if (!instrument_restore_nonfcache_state_prealloc(
+                        tdcontext, restore_memory, mcontext, &xl8_mcontext))
+                    return RECREATE_FAILURE;
+            }
         }
         return res;
     }
@@ -1374,16 +1376,17 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 #else
         if (is_after_syscall_that_rets(tdcontext, mcontext->pc + INT_LENGTH)) {
             /* i#1145: preserve syscall re-start point */
-            mcontext->pc = POST_SYSCALL_PC(tdcontext) - INT_LENGTH;
+            mcontext->pc = dr_fragment_app_pc(POST_SYSCALL_PC(tdcontext)) - INT_LENGTH;
         } else
 #endif
-        mcontext->pc = POST_SYSCALL_PC(tdcontext);
-        if (!just_pc)
+        mcontext->pc = dr_fragment_app_pc(POST_SYSCALL_PC(tdcontext));
+        if (!just_pc) {
             restore_stolen_register(tdcontext, mcontext);
-        if (dr_xl8_hook_exists()) {
-            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
-                                                             mcontext, &xl8_mcontext))
-                return RECREATE_FAILURE;
+            if (dr_xl8_hook_exists()) {
+                if (!instrument_restore_nonfcache_state_prealloc(
+                        tdcontext, restore_memory, mcontext, &xl8_mcontext))
+                    return RECREATE_FAILURE;
+            }
         }
         return res;
     } else if (mcontext->pc == get_reset_exit_stub(tdcontext)) {
@@ -1391,13 +1394,14 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             "recreate_app at reset exit stub => using next_tag " PFX "\n",
             tdcontext->next_tag);
         /* Context is completely native except the pc and the stolen register. */
-        mcontext->pc = tdcontext->next_tag;
-        if (!just_pc)
+        mcontext->pc = dr_fragment_app_pc(tdcontext->next_tag);
+        if (!just_pc) {
             restore_stolen_register(tdcontext, mcontext);
-        if (dr_xl8_hook_exists()) {
-            if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
-                                                             mcontext, &xl8_mcontext))
-                return RECREATE_FAILURE;
+            if (dr_xl8_hook_exists()) {
+                if (!instrument_restore_nonfcache_state_prealloc(
+                        tdcontext, restore_memory, mcontext, &xl8_mcontext))
+                    return RECREATE_FAILURE;
+            }
         }
         return res;
     } else if (in_generated_routine(tdcontext, mcontext->pc)) {
@@ -1859,8 +1863,9 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
     cpc = (byte *)FCACHE_ENTRY_PC(f);
     if (fragment_prefix_size(f->flags) > 0) {
         ASSERT(f->start_pc < cpc);
-        set_translation(dcontext, &entries, &num_entries, i, 0, f->tag,
-                        true /*identical*/, true /*our mangling*/, false /*!call*/);
+        set_translation(dcontext, &entries, &num_entries, i, 0,
+                        dr_fragment_app_pc(f->tag), true /*identical*/,
+                        true /*our mangling*/, false /*!call*/);
         last_translation = f->tag;
         last_contig = false;
         i++;
