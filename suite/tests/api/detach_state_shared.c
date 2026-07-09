@@ -524,7 +524,7 @@ check_xsp(ptr_uint_t *xsp)
 }
 #    endif
 
-/* This needs to be larger than the distance from the PC of the call to
+/* This needs to be larger than the distance from the PC of the call in
  * MAKE_WRITEABLE to the selfmod-modified PC in SELFMOD, whereever those
  * macros are instantiated.
  * Currently AArch64's distance is 1316.
