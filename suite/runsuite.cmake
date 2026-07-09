@@ -98,8 +98,6 @@ endif ()
 
 set(build_tests "BUILD_TESTS:BOOL=ON")
 
-set(extra_ctest_args INCLUDE_LABEL TMATE_DEBUG) # TEMPORARY
-
 if (arg_automated_ci)
   # XXX i#1801, i#1962: under clang we have several failing tests.  Until those are
   # fixed, our CI clang suite only builds and does not run tests.
