@@ -1047,6 +1047,10 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                 cpc + len);
             cpc = target_cache;
         }
+        /* XXX: Identify in which cases we have cpc > target_cache: there is a comment
+         * below about "if we pass up the target" we "want the pc after": when does that
+         * happen, or if it doesn't happen can we return failure if cpc > target_cache?
+         */
         if (cpc >= target_cache) {
             if (instr_get_translation(inst) == NULL) {
                 /* Clients are supposed to leave their meta instrs with
@@ -1497,9 +1501,12 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         });
 
         if (mcontext->pc < FCACHE_ENTRY_PC(f)) {
+            /* The pc is in the fragment prefix. */
+            ASSERT(mcontext->pc >= f->start_pc);
             /* Should only happen for thread synch, not a fault. Checking whether
              * tdcontext is the same as this thread's private dcontext is a weak
-             * indicator of xl8 due to a fault. */
+             * indicator of xl8 due to a fault.
+             */
             ASSERT_CURIOSITY(tdcontext != get_thread_private_dcontext() ||
                              INTERNAL_OPTION(stress_recreate_pc) ||
                              tdcontext->client_data->is_translating);
