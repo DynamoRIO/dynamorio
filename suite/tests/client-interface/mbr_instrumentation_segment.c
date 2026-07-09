@@ -52,13 +52,13 @@ int
 arch_prctl(int code, unsigned long addr);
 
 static int
-test_func()
+test_func(void)
 {
     return (42);
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
 #ifdef __i386__
     void *seg = mmap(NULL, getpagesize(), PROT_WRITE | PROT_READ,
@@ -109,7 +109,7 @@ main()
                      : "m"(val)
                      : "eax");
 #else
-    void (*funcs[10])();
+    void (*funcs[10])(void);
     void *old_fs;
 
     funcs[0x10 / sizeof(void *)] = (void *)&test_func;

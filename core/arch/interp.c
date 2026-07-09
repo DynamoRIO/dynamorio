@@ -129,7 +129,7 @@ DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
 
 /* initialization */
 void
-interp_init()
+interp_init(void)
 {
     if (INTERNAL_OPTION(bbdump_tags)) {
         bbdump_file = open_log_file("bbs", NULL, 0);
@@ -146,7 +146,7 @@ static int num_rets_removed;
 
 /* cleanup */
 void
-interp_exit()
+interp_exit(void)
 {
     if (INTERNAL_OPTION(bbdump_tags)) {
         close_log_file(bbdump_file);
@@ -368,7 +368,7 @@ check_for_image_entry(app_pc bb_start)
 }
 
 void
-set_reached_image_entry()
+set_reached_image_entry(void)
 {
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     reached_image_entry = true;
@@ -376,7 +376,7 @@ set_reached_image_entry()
 }
 
 bool
-reached_image_entry_yet()
+reached_image_entry_yet(void)
 {
     return reached_image_entry;
 }

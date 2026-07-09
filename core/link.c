@@ -307,14 +307,14 @@ link_reset_free(void)
 }
 
 void
-d_r_link_init()
+d_r_link_init(void)
 {
     link_reset_init();
     coarse_stubs_init();
 }
 
 void
-d_r_link_exit()
+d_r_link_exit(void)
 {
     coarse_stubs_free();
     link_reset_free();
@@ -710,68 +710,68 @@ get_deleted_linkstub(dcontext_t *dcontext)
 }
 
 const linkstub_t *
-get_starting_linkstub()
+get_starting_linkstub(void)
 {
     return &linkstub_starting;
 }
 
 const linkstub_t *
-get_reset_linkstub()
+get_reset_linkstub(void)
 {
     return &linkstub_reset;
 }
 
 const linkstub_t *
-get_syscall_linkstub()
+get_syscall_linkstub(void)
 {
     return &linkstub_syscall;
 }
 
 const linkstub_t *
-get_selfmod_linkstub()
+get_selfmod_linkstub(void)
 {
     return &linkstub_selfmod;
 }
 
 const linkstub_t *
-get_ibl_deleted_linkstub()
+get_ibl_deleted_linkstub(void)
 {
     return &linkstub_ibl_deleted;
 }
 
 const linkstub_t *
-get_asynch_linkstub()
+get_asynch_linkstub(void)
 {
     return &linkstub_asynch;
 }
 
 const linkstub_t *
-get_native_exec_linkstub()
+get_native_exec_linkstub(void)
 {
     return &linkstub_native_exec;
 }
 
 const linkstub_t *
-get_native_exec_syscall_linkstub()
+get_native_exec_syscall_linkstub(void)
 {
     return &linkstub_native_exec_syscall;
 }
 
 #ifdef WINDOWS
 const linkstub_t *
-get_shared_syscalls_unlinked_linkstub()
+get_shared_syscalls_unlinked_linkstub(void)
 {
     return &linkstub_shared_syscall_unlinked;
 }
 
 const linkstub_t *
-get_shared_syscalls_trace_linkstub()
+get_shared_syscalls_trace_linkstub(void)
 {
     return &linkstub_shared_syscall_trace;
 }
 
 const linkstub_t *
-get_shared_syscalls_bb_linkstub()
+get_shared_syscalls_bb_linkstub(void)
 {
     return &linkstub_shared_syscall_bb;
 }
@@ -779,14 +779,14 @@ get_shared_syscalls_bb_linkstub()
 
 #ifdef HOT_PATCHING_INTERFACE
 const linkstub_t *
-get_hot_patch_linkstub()
+get_hot_patch_linkstub(void)
 {
     return &linkstub_hot_patch;
 }
 #endif
 
 const linkstub_t *
-get_client_linkstub()
+get_client_linkstub(void)
 {
     return &linkstub_client;
 }
@@ -841,14 +841,14 @@ get_special_ibl_linkstub(ibl_branch_type_t ibl_type, bool is_trace)
 
 /* Direct exit not targeting a trace head */
 const linkstub_t *
-get_coarse_exit_linkstub()
+get_coarse_exit_linkstub(void)
 {
     return &linkstub_coarse_exit;
 }
 
 /* Direct exit targeting a trace head */
 const linkstub_t *
-get_coarse_trace_head_exit_linkstub()
+get_coarse_trace_head_exit_linkstub(void)
 {
     return &linkstub_coarse_trace_head_exit;
 }
@@ -2324,14 +2324,14 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
 static vm_area_vector_t *coarse_stub_areas;
 
 static void
-coarse_stubs_init()
+coarse_stubs_init(void)
 {
     VMVECTOR_ALLOC_VECTOR(coarse_stub_areas, GLOBAL_DCONTEXT,
                           VECTOR_SHARED | VECTOR_NEVER_MERGE, coarse_stub_areas);
 }
 
 static void
-coarse_stubs_free()
+coarse_stubs_free(void)
 {
     ASSERT(coarse_stub_areas != NULL);
     /* should be empty from special_heap_exit(), from vm_area_coarse_units_reset_free() */

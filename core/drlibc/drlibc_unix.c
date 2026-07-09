@@ -66,7 +66,7 @@
 #endif
 
 process_id_t
-get_process_id()
+get_process_id(void)
 {
     return dynamorio_syscall(SYS_getpid, 0);
 }

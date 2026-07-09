@@ -37,13 +37,13 @@
 #include "dr_api.h"
 
 DR_EXPORT size_t
-get_dynamorio_sizeof_instr_t()
+get_dynamorio_sizeof_instr_t(void)
 {
     return sizeof(instr_t);
 }
 
 DR_EXPORT size_t
-get_dynamorio_sizeof_opnd_t()
+get_dynamorio_sizeof_opnd_t(void)
 {
     return sizeof(opnd_t);
 }

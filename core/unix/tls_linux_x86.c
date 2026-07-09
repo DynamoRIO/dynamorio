@@ -215,7 +215,7 @@ print_all_ldt(void)
 
 /* returns -1 if all indices are in use */
 static int
-find_unused_ldt_index()
+find_unused_ldt_index(void)
 {
     int i, bytes;
     /* N.B.: we don't have 64K of stack for the full LDT_ENTRIES
@@ -582,7 +582,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 }
 
 bool
-tls_thread_preinit()
+tls_thread_preinit(void)
 {
 #ifdef X64
     /* i#3356: Write a non-zero value to the gs base to work around an AMD bug

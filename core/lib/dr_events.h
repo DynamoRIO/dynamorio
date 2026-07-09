@@ -1479,7 +1479,7 @@ DR_API
  * whenever virtual memory is tight and enables the client to help free space.
  */
 void
-dr_register_low_on_memory_event(void (*func)());
+dr_register_low_on_memory_event(void (*func)(void));
 
 DR_API
 /**
@@ -1488,7 +1488,7 @@ DR_API
  * (e.g., the function was not registered).
  */
 bool
-dr_unregister_low_on_memory_event(void (*func)());
+dr_unregister_low_on_memory_event(void (*func)(void));
 
 DR_API
 /**

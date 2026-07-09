@@ -182,7 +182,7 @@ test_isa_features(void)
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     test_LSB();
 

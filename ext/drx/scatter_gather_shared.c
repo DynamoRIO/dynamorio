@@ -170,7 +170,7 @@ static ptr_uint_t note_base;
 #define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
 
 bool
-drx_scatter_gather_init()
+drx_scatter_gather_init(void)
 {
     drmgr_priority_t fault_priority = { sizeof(fault_priority),
                                         DRMGR_PRIORITY_NAME_DRX_FAULT, NULL, NULL,
@@ -198,7 +198,7 @@ drx_scatter_gather_init()
 }
 
 void
-drx_scatter_gather_exit()
+drx_scatter_gather_exit(void)
 {
     drmgr_unregister_tls_field(drx_scatter_gather_tls_idx);
     IF_AARCH64(drmgr_unregister_signal_event(drx_event_signal);)

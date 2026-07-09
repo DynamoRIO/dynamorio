@@ -258,7 +258,7 @@ free_annotation_handler(void *p);
  */
 
 void
-annotation_init()
+annotation_init(void)
 {
     handlers = strhash_hash_create(
         GLOBAL_DCONTEXT, 8, 80, /* favor a small table */
@@ -278,7 +278,7 @@ annotation_init()
     vg_router.args = &vg_router_arg;
     vg_router.symbol_name = NULL; /* No symbols in Valgrind annotations. */
     vg_router.receiver_list = &vg_receiver;
-    vg_receiver.instrumentation.callback = (void *)(void (*)())handle_vg_annotation;
+    vg_receiver.instrumentation.callback = (void *)(void (*)(void))handle_vg_annotation;
     vg_receiver.save_fpstate = false;
     vg_receiver.next = NULL;
 #    endif
@@ -302,7 +302,7 @@ annotation_init()
 }
 
 void
-annotation_exit()
+annotation_exit(void)
 {
 #    if !(defined(WINDOWS) && defined(X64))
     uint i;

@@ -1230,7 +1230,7 @@ get_private_library_bounds(DR_PARAM_IN app_pc modbase, DR_PARAM_OUT byte **start
  */
 /* If we fail to relocate dynamorio, print the error msg and abort. */
 static void
-privload_report_relocate_error()
+privload_report_relocate_error(void)
 {
     /* The problem is that we can't call any normal routines here, or
      * even reference global vars like string literals.  We thus use
@@ -1507,10 +1507,10 @@ redirect_dlsym(void *handle, const char *symbol);
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
-redirect___tls_get_addr();
+redirect___tls_get_addr(void);
 
 void *
-redirect____tls_get_addr();
+redirect____tls_get_addr(void);
 #endif
 
 #ifdef LINUX

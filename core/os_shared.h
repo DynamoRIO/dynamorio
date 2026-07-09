@@ -302,7 +302,7 @@ char *
 get_application_name(void);
 
 int
-num_app_args();
+num_app_args(void);
 int
 get_app_args(DR_PARAM_OUT dr_app_arg_t *args_array, int args_count);
 const char *
@@ -418,7 +418,7 @@ os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
  * XXX: we're duplicating these types above as dr_auxlib*
  */
 typedef void *shlib_handle_t;
-typedef void (*shlib_routine_ptr_t)();
+typedef void (*shlib_routine_ptr_t)(void);
 
 shlib_handle_t
 load_shared_library(const char *name, bool reachable);
@@ -1010,7 +1010,7 @@ query_time_millis(void);
 
 /* microseconds since 1601 */
 uint64
-query_time_micros();
+query_time_micros(void);
 
 /* gives a good but not necessarily crypto-strength random seed */
 uint

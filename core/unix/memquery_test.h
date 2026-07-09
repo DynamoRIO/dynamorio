@@ -76,7 +76,7 @@ run_single_memquery_test(const memquery_library_bounds_test *test);
  * unit_tests.c
  */
 void
-unit_test_memquery()
+unit_test_memquery(void)
 {
 #    ifndef X64
     /* Instead of putting effort into generating test cases which work under both

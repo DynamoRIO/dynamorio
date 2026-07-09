@@ -102,7 +102,7 @@ at_ret(app_pc src, app_pc dst)
 }
 
 static void
-at_nops()
+at_nops(void)
 {
 #if defined(AARCH64)
     /* Enter or exit region of interest. */

@@ -86,7 +86,7 @@ strip_pac(uintptr_t ptr);
 
 /* Dummy function just used as a branch target for the blr* tests */
 bool
-dummy_func()
+dummy_func(void)
 {
     return true;
 }

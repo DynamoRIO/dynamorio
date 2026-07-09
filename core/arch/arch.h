@@ -293,7 +293,7 @@ extern bool d_r_client_avx512_code_in_use;
 
 /* This routine determines whether zmm registers should be saved. */
 static inline bool
-d_r_is_avx512_code_in_use()
+d_r_is_avx512_code_in_use(void)
 {
     return *d_r_avx512_code_in_use;
 }
@@ -325,13 +325,13 @@ d_r_set_avx512_code_in_use(bool in_use, app_pc pc)
 }
 
 static inline bool
-d_r_is_client_avx512_code_in_use()
+d_r_is_client_avx512_code_in_use(void)
 {
     return d_r_client_avx512_code_in_use;
 }
 
 static inline void
-d_r_set_client_avx512_code_in_use()
+d_r_set_client_avx512_code_in_use(void)
 {
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     ATOMIC_1BYTE_WRITE(&d_r_client_avx512_code_in_use, (bool)true, false);
@@ -648,7 +648,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
 
 /* Returns the number of bytes the stack pointer has to be aligned to. */
 static inline uint
-get_ABI_stack_alignment()
+get_ABI_stack_alignment(void)
 {
     return ABI_STACK_ALIGNMENT;
 }
@@ -1082,19 +1082,19 @@ fcache_enter_shared_routine(dcontext_t *dcontext);
 /* the fcache_return routines are queried by get_direct_exit_target and need more
  * direct control than the dcontext
  */
-cache_pc fcache_return_shared_routine(IF_X86_64(gencode_mode_t mode));
+cache_pc fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
 
 /* coarse-grain generated code */
 byte *
 emit_fcache_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc);
 byte *
 emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc);
-cache_pc fcache_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
-cache_pc trace_head_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
+cache_pc fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
+cache_pc trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void));
 
 /* shared clean call context switch */
 bool
-client_clean_call_is_thread_private();
+client_clean_call_is_thread_private(void);
 cache_pc
 get_clean_call_save(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 cache_pc

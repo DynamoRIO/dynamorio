@@ -266,7 +266,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 }
 
 bool
-tls_thread_preinit()
+tls_thread_preinit(void)
 {
     return true;
 }

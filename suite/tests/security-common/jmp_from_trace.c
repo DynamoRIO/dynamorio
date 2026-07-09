@@ -44,7 +44,7 @@
 
 /* totally random dummy function */
 int
-dummycall()
+dummycall(void)
 {
     int i = 1, j = 2;
 
@@ -56,11 +56,11 @@ dummycall()
 
 int badtarget = 10; /* .B */
 int
-bad_trace4()
+bad_trace4(void)
 {
     int i, j;
     int a = 1, b = 100, c = 1000;
-    int (*fnptr)();
+    int (*fnptr)(void);
     fnptr = dummycall;
     for (i = 0; i < NUM_TIMES; i++) {
         for (j = 0; j < NUM_TIMES; j++) {
@@ -83,7 +83,7 @@ bad_trace4()
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     INIT();
     print("Start\n");

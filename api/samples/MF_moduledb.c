@@ -145,9 +145,9 @@ event_exit(void);
 static table_entry_t *
 get_entry_for_address(app_pc addr);
 static void
-read_table();
+read_table(void);
 static void
-free_table();
+free_table(void);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -276,7 +276,7 @@ event_security_violation(void *drcontext, void *source_tag, app_pc source_pc,
 }
 
 static void
-read_table()
+read_table(void)
 {
     file_t file;
     bool read_entry = true;
@@ -328,7 +328,7 @@ read_table()
 }
 
 static void
-free_table()
+free_table(void)
 {
     /* Free all table entries */
     table_entry_t *next;

@@ -211,7 +211,7 @@ delete_thread(thread_t thread, void *stack);
 
 /* initialization */
 void
-sideline_init()
+sideline_init(void)
 {
 #    ifdef WINDOWS
     int res;
@@ -288,7 +288,7 @@ sideline_init()
 
 /* atexit cleanup */
 void
-sideline_exit()
+sideline_exit(void)
 {
     uint i;
     sample_entry_t *sample;
@@ -413,7 +413,7 @@ remove_sideline_profiling(dcontext_t *dcontext, instrlist_t *trace)
 }
 
 void
-sideline_start()
+sideline_start(void)
 {
     if (child_sleep) {
         LOG(logfile, LOG_SIDELINE, VERB_3, "sideline: in sideline_start()\n");
@@ -423,7 +423,7 @@ sideline_start()
 }
 
 void
-sideline_stop()
+sideline_stop(void)
 {
     if (!child_sleep) {
         LOG(logfile, LOG_SIDELINE, VERB_3, "SIDELINE: in sideline_stop()\n");
@@ -483,7 +483,7 @@ optimize_trace_wrapper(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trac
 }
 
 static void
-sideline_sample()
+sideline_sample(void)
 {
     sample_entry_t *e;
     fragment_t *sample = (fragment_t *)sideline_trace; /* the sample! */
@@ -518,7 +518,7 @@ sideline_sample()
 }
 
 static void
-sideline_examine_traces()
+sideline_examine_traces(void)
 {
     sample_entry_t *e;
     fragment_t *f;
@@ -784,7 +784,7 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
 }
 
 static sample_entry_t *
-find_hottest_entry()
+find_hottest_entry(void)
 {
     uint i;
     sample_entry_t *e, *max = NULL;

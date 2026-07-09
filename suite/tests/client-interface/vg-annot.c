@@ -57,7 +57,7 @@
 #define MEMORY_BLOCK_C 89
 
 int
-main()
+main(int argc, const char *argv[])
 {
 #ifdef _MSC_VER /* WINDOWS */
     unsigned int i, j, k;

@@ -179,7 +179,7 @@ kstats_thread_logfile_name(void)
 #    endif
 
 void
-kstat_init()
+kstat_init(void)
 {
     kstat_frequency_per_msec = get_timer_frequency();
     kstat_ignore_context_switch = KSTAT_OUTLIER_THRESHOLD_MS * kstat_frequency_per_msec;
@@ -206,7 +206,7 @@ kstat_init()
 }
 
 void
-kstat_exit()
+kstat_exit(void)
 {
     if (!DYNAMO_OPTION(kstats))
         return;
@@ -225,7 +225,7 @@ kstat_exit()
 }
 
 static void
-kstat_calibrate()
+kstat_calibrate(void)
 {
     uint i;
     static bool kstats_calibrated = false;
@@ -380,7 +380,7 @@ kstat_thread_exit(dcontext_t *dcontext)
 
 #ifdef KSTAT_UNIT_TEST
 uint
-kstat_test()
+kstat_test(void)
 {
     KSTART(measured);
     printf("test %d\n", __LINE__);
@@ -442,7 +442,7 @@ kstat_test()
     KSTOP(measured);
 }
 int
-main()
+main(int argc, const char *argv[])
 {
     kstat_init();
     kstat_thread_init();

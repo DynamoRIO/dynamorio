@@ -40,7 +40,7 @@ void
 test_jecxz(int *x);
 
 int
-main()
+main(int argc, const char *argv[])
 {
     int x = 0;
     test_jecxz(&x);

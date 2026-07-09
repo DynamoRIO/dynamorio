@@ -1360,7 +1360,7 @@ static void
 build_profile_call_buffer(void);
 
 uint
-profile_call_size()
+profile_call_size(void)
 {
     /* XXX i#1566: For -satisfy_w_xor_x we'd need to change the
      * instr_encode calls and possibly more.  Punting for now.
@@ -1448,7 +1448,7 @@ insert_profile_call(cache_pc start_pc)
  * before calling this function.
  */
 static void
-build_profile_call_buffer()
+build_profile_call_buffer(void)
 {
     byte *pc, *nxt_pc;
     instrlist_t ilist;

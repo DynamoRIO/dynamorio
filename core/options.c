@@ -2427,7 +2427,7 @@ check_option_compatibility_helper(int recurse_count)
 
 /* returns true if changed any options */
 static bool
-check_option_compatibility()
+check_option_compatibility(void)
 {
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
@@ -2436,7 +2436,7 @@ check_option_compatibility()
 
 /* returns true if changed any options */
 static bool
-check_dynamic_option_compatibility()
+check_dynamic_option_compatibility(void)
 {
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
     /* NOTE : use non-synch form of USAGE_ERROR  in here to avoid
@@ -2446,7 +2446,7 @@ check_dynamic_option_compatibility()
 
 /* initialize dynamo options */
 int
-options_init()
+options_init(void)
 {
     int ret = 0, retval;
 
@@ -2476,14 +2476,14 @@ options_init()
  * options_detach() for that.
  */
 void
-options_exit()
+options_exit(void)
 {
     DELETE_READWRITE_LOCK(options_lock);
 }
 
 /* Reset dynamo options to defaults. */
 void
-options_detach()
+options_detach(void)
 {
     /* We do not use options_make_writable() as locks are already gone at this point. */
     SELF_UNPROTECT_OPTIONS();
@@ -2493,7 +2493,7 @@ options_detach()
 
 /* this function returns holding the options lock */
 void
-options_make_writable()
+options_make_writable(void)
 {
     ASSERT_DO_NOT_OWN_WRITE_LOCK(true, &options_lock);
     d_r_write_lock(&options_lock);
@@ -2504,7 +2504,7 @@ options_make_writable()
  * options_make_writable() beforehand
  */
 void
-options_restore_readonly()
+options_restore_readonly(void)
 {
     ASSERT_OWN_WRITE_LOCK(true, &options_lock);
     SELF_PROTECT_OPTIONS();
@@ -2513,7 +2513,7 @@ options_restore_readonly()
 
 /* updates dynamic options and returns if any were changed */
 int
-synchronize_dynamic_options()
+synchronize_dynamic_options(void)
 {
     int updated, retval;
 
@@ -2715,7 +2715,7 @@ show_dynamo_options(bool minimal)
 
 /* USAGE Show descriptions of all available options */
 static void
-show_dynamo_option_descriptions()
+show_dynamo_option_descriptions(void)
 {
 #    define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
                            description, flag, pcache)                                 \
