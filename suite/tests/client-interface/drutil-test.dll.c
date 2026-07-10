@@ -227,9 +227,13 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 (ushort)drutil_opnd_mem_size_in_bytes(instr_get_dst(instr, 0), instr);
             /* We're checking for a reasonable xsave area size which is at least 576
              * bytes for the x87 + SSE user state components, or up to 2688 if AVX-512
-             * is enabled.
+             * is enabled, or 11008 if AMX is enabled.
+             * Hardcoding known values is useful as a sanity check for new xsave
+             * extensions which typically include new instructions we need to
+             * support as well, so we view the potential fragility of this check
+             * as a feature.
              */
-            if (!(size >= 576 && size <= 2688)) {
+            if (!(size >= 576 && size <= 11008)) {
                 dr_fprintf(STDERR, "unexpected xsave area size %d bytes\n", size);
                 CHECK(false, "xsave area size unexpected");
             }
