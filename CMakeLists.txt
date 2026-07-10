@@ -408,19 +408,17 @@ option(TEST_SUITE "we are running a series of builds for official purposes")
 if (INTERNAL OR DEBUG)
   set(KSTATS_DEFAULT ON)
 else (INTERNAL OR DEBUG)
-  set(KSTATS_DEFAULT 0FF)
+  set(KSTATS_DEFAULT OFF)
 endif (INTERNAL OR DEBUG)
 
 # no KSTATS for caller profiling: we want to be as close to release
 # build as we can, but w/o optimizations
 if (CALLPROF)
-  set(KSTATS_DEFAULT 0FF)
+  set(KSTATS_DEFAULT OFF)
 endif (CALLPROF)
 
 set(KSTATS "" CACHE STRING "internal kstat profiling: ON or OFF overrides default")
-# XXX i#170: once CMake 2.8 is released we can detect whether 2.8 is
-# in use, and if so use a value-enum to get drop-down of possible values, like so:
-#   set_property(CACHE KSTATS PROPERTY STRINGS "" "ON" "OFF")
+set_property(CACHE KSTATS PROPERTY STRINGS "" "ON" "OFF")
 if ("${KSTATS}" STREQUAL "")
     set(KSTATS ${KSTATS_DEFAULT})
 endif()
