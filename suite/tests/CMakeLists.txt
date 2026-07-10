@@ -294,17 +294,20 @@ endif ()
 # XXX i#98: improve code so can set Wall/W4
 if (UNIX)
   string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "-Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   # some tests rely on specific "nop;nop" patterns that optimization ruins
   # we should probably move the -O from top level into core/CMakeLists.txt
   #
   # -O3 is selectively re-added to some tests using the add_sve_flags() or
   # optimize() functions
   string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "-O[0-9]? " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 else (UNIX)
   # W2 is default (we're using W3).  We should also replace
   # all references to unsafe functions (e.g., fopen) and
   # remove /wd4996
   string(REGEX REPLACE "/W4" "/W3" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "/W4" "/W3" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   # Versions without debug, for over ssh
   string(REGEX REPLACE "/Zi" "" ORIG_C_FLAGS_NODBG "${CMAKE_C_FLAGS}")
   if (RUNNING_OVER_SSH)
