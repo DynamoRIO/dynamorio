@@ -341,6 +341,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
         CLIENT_ASSERT(false,
                       "internal error, use SVE_ZREG_TYPE for top level save/restore of "
                       "SVE registers.");
+        DR_FALLTHROUGH;
     default: ASSERT_NOT_REACHED();
     }
 }
