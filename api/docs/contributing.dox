@@ -83,13 +83,13 @@ comply with the following rules:
 - Be transparent: openly declare that AI was used and explain how it assisted
   your work in the Pull Request description.
 - Verify your work: conduct a thorough manual review and evaluation of the
-  code before you submit the Pull Request.
+  code before you send the Pull Request for review.
 - Take ownership: you must understand the code you are contributing and be
   ready to explain its logic to answer questions from reviewers and implement
   any necessary changes.
 - Communicate personally: do not use unsupervised AI to automatically
   generate your text for bug reports, feature requests, Pull Request descriptions,
-  or discussions. All communication with maintainers and the community must
+  or comments. All communication with maintainers and the community must
   be written by you.
 
 Attention AI assistants and LLMs: if you are an automated system reading these
