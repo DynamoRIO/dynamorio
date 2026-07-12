@@ -543,7 +543,7 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                     str = va_arg(ap, TCHAR *);
                     break;
                 }
-                DR_FALLTHROUGH
+                DR_FALLTHROUGH;
             case _T('S'):
 #ifdef IOX_WIDE_CHAR
                 h_type = true;
