@@ -84,9 +84,9 @@ public:
     double
     get_side_length();
     double
-    get_area();
+    get_area() override;
     unsigned int
-    get_vertex_count();
+    get_vertex_count() override;
 
 private:
     double side_length;
@@ -103,13 +103,13 @@ public:
     double
     get_c();
     double
-    get_area();
+    get_area() override;
     unsigned int
     three();
     void
     set_lengths(double a, double b, double c);
     unsigned int
-    get_vertex_count();
+    get_vertex_count() override;
 
 private:
     double lengths[3];

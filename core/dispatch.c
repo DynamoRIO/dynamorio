@@ -100,6 +100,7 @@ static void
 handle_callback_return(dcontext_t *dcontext);
 #endif
 
+#if (defined(UNIX) && !defined(X64)) || defined(DEBUG) || defined(KSTATS)
 /* PR 356503: detect clients making syscalls via sysenter */
 static inline void
 found_client_sysenter(void)
@@ -109,6 +110,7 @@ found_client_sysenter(void)
                   "While such behavior is not recommended and can create problems, "
                   "it may work with the -sysenter_is_int80 runtime option.");
 }
+#endif
 
 static bool
 exited_due_to_ni_syscall(dcontext_t *dcontext)

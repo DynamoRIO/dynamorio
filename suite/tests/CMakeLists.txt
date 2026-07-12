@@ -294,17 +294,20 @@ endif ()
 # XXX i#98: improve code so can set Wall/W4
 if (UNIX)
   string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "-Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   # some tests rely on specific "nop;nop" patterns that optimization ruins
   # we should probably move the -O from top level into core/CMakeLists.txt
   #
   # -O3 is selectively re-added to some tests using the add_sve_flags() or
   # optimize() functions
   string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "-O[0-9]? " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 else (UNIX)
   # W2 is default (we're using W3).  We should also replace
   # all references to unsafe functions (e.g., fopen) and
   # remove /wd4996
   string(REGEX REPLACE "/W4" "/W3" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "/W4" "/W3" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   # Versions without debug, for over ssh
   string(REGEX REPLACE "/Zi" "" ORIG_C_FLAGS_NODBG "${CMAKE_C_FLAGS}")
   if (RUNNING_OVER_SSH)
@@ -432,39 +435,35 @@ if (WIN32)
     PROPERTIES COMPILE_DEFINITIONS "RC_IS_TEST")
 endif (WIN32)
 
-function (set_cflags source)
-  if ("${source}" MATCHES "^security-win32/except-execution.c")
+function (set_compile_flags source)
+  if ("${source}" MATCHES ".cpp$")
+    set(flags "${ORIG_CMAKE_CXX_FLAGS}")
+  elseif ("${source}" MATCHES "^security-win32/except-execution.c")
     # PR 229292: we want over-ssh and local builds to match the template so
     # we always build w/o pdbs.  We put this check here as it's simpler
     # than passing args all the way through, and needing extra explicit
     # sets for PARENT_SCOPE due to new helper routine layers.
-    set(cflags "${ORIG_C_FLAGS_NODBG}")
+    set(flags "${ORIG_C_FLAGS_NODBG}")
   else ()
-    set(cflags "${ORIG_CMAKE_C_FLAGS}")
+    set(flags "${ORIG_CMAKE_C_FLAGS}")
   endif ()
   # Alpine Linux enables "-Wtrampolines" by default, breaking
   # security-linux/trampoline.c.
   if (MUSL)
-    set(cflags "${cflags} -Wno-trampolines")
+    set(flags "${flags} -Wno-trampolines")
   endif ()
-  if ("${source}" MATCHES ".cpp$")
-    # Our C files need -std=gnu99, but that's an invalid flag for C++.
-    # configure_DynamoRIO_global removes unfavorable options for clients,
-    # re-adding -std=c++17.
-    string(REGEX REPLACE "-std=gnu99" "-std=c++17" cflags "${cflags}")
-    if (WIN32)
-      set(cflags "${cflags} /EHsc")
-    endif (WIN32)
+  if ("${source}" MATCHES ".cpp$" AND WIN32)
+    set(flags "${flags} /EHsc")
   endif ()
   if ("${source}" MATCHES ".dll.(c|cpp)$")
     # do nothing
   else ("${source}" MATCHES ".dll.(c|cpp)$")
     # We only do it for the executable, not the dll
     # Xref i#230, removes "-fvisibility=internal" option.
-    string(REGEX REPLACE "-fvisibility=internal" "" cflags "${cflags}")
+    string(REGEX REPLACE "-fvisibility=internal" "" flags "${flags}")
     # Xref i#331, removes "/O2" to avoid optimization on the executable
     if (WIN32)
-      string(REGEX REPLACE "/O2" "" cflags "${cflags}")
+      string(REGEX REPLACE "/O2" "" flags "${flags}")
     endif (WIN32)
   endif ("${source}" MATCHES ".dll.(c|cpp)$")
   # We can't set the target properties COMPILE_FLAGS as that will
@@ -477,7 +476,7 @@ function (set_cflags source)
     # Ensure the ConditionVariable routines are pulled in when using >VS2010.
     # Because dr_api.h includes windows.h and must be included before tools.h we do
     # this via command line flags.
-    set(cflags "${cflags} -D_WIN32_WINNT=0x0600")
+    set(flags "${flags} -D_WIN32_WINNT=0x0600")
   endif ()
   # We support a test either getting defines from configure.h or
   # needing them passed in on cmd line.
@@ -485,12 +484,12 @@ function (set_cflags source)
       "${srccode}" MATCHES "configure\\.h")
     # getting defines from configure.h
     set_source_files_properties(${source} PROPERTIES
-      COMPILE_FLAGS "${cflags} ${test_defs}")
+      COMPILE_FLAGS "${flags} ${test_defs}")
   else ()
     set_source_files_properties(${source} PROPERTIES
-      COMPILE_FLAGS "${platform_defs} ${cflags}")
+      COMPILE_FLAGS "${platform_defs} ${flags}")
   endif ()
-endfunction (set_cflags)
+endfunction (set_compile_flags)
 
 function(append_link_flags target newflags)
   get_target_property(cur_ldflags ${target} LINK_FLAGS)
@@ -505,7 +504,7 @@ endfunction(append_link_flags)
 # support it.
 # This was investigated and proved to be non trivial as the client tests
 # use _DR_set_compile_flags() to set the compile flags whereas the core
-# tests use set_cflags(). _DR_set_compile_flags() is a public function and we
+# tests use set_compile_flags(). _DR_set_compile_flags() is a public function and we
 # didn't want to add a blocklist in there.
 # For now we create a list of tests that can be built with -O3.
 # This is for AARCH64 UNIX only.
@@ -607,7 +606,7 @@ function(add_exe test source)
   endif (WINDOWS)
 
   set(test_srcs ${source} ${rc_srcs})
-  set_cflags(${source}) # sets srccode var
+  set_compile_flags(${source}) # sets srccode var
 
   # Some files use asm code, which must be separate for x64, but it's much
   # more convenient to have it in the same source file and auto-split.
@@ -704,7 +703,7 @@ function(tobuild_dll test source dr_ops)
   set_target_properties(${test} PROPERTIES SKIP_BUILD_RPATH OFF)
 
   set(lib_srcs ${dll_source})
-  set_cflags(${dll_source}) # sets srccode var
+  set_compile_flags(${dll_source}) # sets srccode var
   add_library(${test}.dll SHARED ${lib_srcs})
   set_target_properties(${test}.dll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
   copy_target_to_device(${test}.dll "${location_suffix}")
@@ -865,7 +864,7 @@ function(tobuild_appdll test source)
   if (EXISTS "${dll_srcpath}")
     string(REGEX REPLACE "\\.(c|cpp)$" ".appdll.\\1" dll_source "${source}")
     set(lib_srcs ${dll_source})
-    set_cflags(${dll_source}) # sets srccode var
+    set_compile_flags(${dll_source}) # sets srccode var
 
     if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
       # we rely on the asm rule doing preprocessing for us, so we just make
@@ -2365,14 +2364,18 @@ if (X86) # XXX i#1551, i#1569: port asm to ARM and AArch64
       # sepaparate build.  Until someone really focuses on hybrid mode again
       # (in which case a new build param should be added to re-enable libdl),
       # we leave the tests here as regression tests but w/ private loader in place.
+      set(kstats_flag "")
+      if (KSTATS)
+        set(kstats_flag "-no_kstats")
+      endif()
       torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
-        "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
+        "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt ${kstats_flag}" "")
       # No swap TLS and no kstats for optimized native_exec
       torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec_exenative.c
-        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
+        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt ${kstats_flag}" "")
       torunonly(common.nativeexec_bindnow_opt common.nativeexec
         common/nativeexec_exenative.c
-        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
+        "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt ${kstats_flag}" "-bind_now")
     endif ()
   endif ()
 
@@ -3527,7 +3530,7 @@ if (LINUX AND X64 AND NOT RISCV64) # Will take extra work to port to 32-bit.
     generate_detach_state_shared_asm "_asm" "${asm_defs}" "${asm_deps}")
   add_library(detach_state_shared STATIC
     ${detach_state_shared_c} ${detach_state_shared_asm})
-  set_cflags("${detach_state_shared_c}")
+  set_compile_flags("${detach_state_shared_c}")
   set_sve_flags(detach_state_shared)
   set_avx_flags(detach_state_shared)
 
@@ -6418,7 +6421,7 @@ else (UNIX)
       tobuild(security-win32.codemod-threads_FLAKY security-win32/codemod-threads.c)
     endif (TEST_SUITE)
 
-    # we tweak cflags in set_cflags() rather than passing extra param all
+    # we tweak flags in set_compile_flags() rather than passing extra param all
     # the way through: adding helper func layers gets awkward w/ PARENT_SCOPE
     tobuild(security-win32.except-execution security-win32/except-execution.c)
     # we match exe addresses in output so no ASLR
