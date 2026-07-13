@@ -988,9 +988,7 @@ uint
 opnd_size_to_shift_amount(opnd_size_t size)
 {
     switch (size) {
-    default:
-        ASSERT(false);
-        DR_FALLTHROUGH;
+    default: ASSERT(false); DR_FALLTHROUGH;
     case OPSZ_1: return 0;
     case OPSZ_2: return 1;
     case OPSZ_4: return 2;
