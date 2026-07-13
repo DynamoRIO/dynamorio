@@ -768,7 +768,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         case REG_kind:
             if (!opnd_is_reg_partial(opnd))
                 break;
-            /* fall-through */
+            DR_FALLTHROUGH;
         default: {
             opnd_size_t opnd_sz = opnd_get_size(opnd);
             const char *size_str = opnd_size_suffix_dr(opnd_sz);
