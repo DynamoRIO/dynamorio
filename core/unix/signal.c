@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -573,7 +573,7 @@ os_itimers_thread_shared(void)
     if (!cached) {
         file_t f = os_open("/proc/version", OS_OPEN_READ);
         if (f != INVALID_FILE) {
-            char buf[128];
+            char buf[128] = { 0 };
             int major, minor, rel;
             os_read(f, buf, BUFFER_SIZE_ELEMENTS(buf));
             NULL_TERMINATE_BUFFER(buf);
