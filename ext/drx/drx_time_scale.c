@@ -808,7 +808,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifndef X64
     case SYS_timer_settime64:
         dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
-        /* Deliberate fallthrough. */
+        DR_FALLTHROUGH;
     case SYS_timer_gettime64: {
         size_t wrote;
         if (!info.succeeded) {
