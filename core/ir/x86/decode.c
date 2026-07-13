@@ -1989,7 +1989,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         /* ensure referencing memory */
         if (di->mod >= 3)
             return false;
-        /* fall through */
+        DR_FALLTHROUGH;
     case TYPE_E:
     case TYPE_Q:
     case TYPE_W: return decode_modrm(di, optype, opsize, NULL, opnd);
