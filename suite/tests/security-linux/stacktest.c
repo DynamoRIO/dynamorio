@@ -109,7 +109,7 @@ main(int argc, char **argv)
     switch (argv[1][1]) {
     case 't': do_trampoline(); break;
 
-    case 'b': do_trampoline();
+    case 'b': do_trampoline(); __attribute__((__fallthrough__));
 
     case 'e': do_exploit(); break;
 
