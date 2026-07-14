@@ -1702,11 +1702,13 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         if (!opnd_decoders[info->info.dst2_type](dcontext, inst, info->info.dst2_size, pc,
                                                  orig_pc, 1, instr))
             goto decode_failure;
+        DR_FALLTHROUGH;
     case 1:
         CLIENT_ASSERT(info->info.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
         if (!opnd_decoders[info->info.dst1_type](dcontext, inst, info->info.dst1_size, pc,
                                                  orig_pc, 0, instr))
             goto decode_failure;
+        DR_FALLTHROUGH;
     case 0: break;
     default: ASSERT_NOT_REACHED();
     }
@@ -1716,21 +1718,25 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         if (!opnd_decoders[info->info.dst2_type](dcontext, inst, info->info.dst2_size, pc,
                                                  orig_pc, 3, instr))
             goto decode_failure;
+        DR_FALLTHROUGH;
     case 3:
         CLIENT_ASSERT(info->info.src3_type < RISCV64_FLD_CNT, "Invalid src3_type.");
         if (!opnd_decoders[info->info.src3_type](dcontext, inst, info->info.src3_size, pc,
                                                  orig_pc, 2, instr))
             goto decode_failure;
+        DR_FALLTHROUGH;
     case 2:
         CLIENT_ASSERT(info->info.src2_type < RISCV64_FLD_CNT, "Invalid src2_type.");
         if (!opnd_decoders[info->info.src2_type](dcontext, inst, info->info.src2_size, pc,
                                                  orig_pc, 1, instr))
             goto decode_failure;
+        DR_FALLTHROUGH;
     case 1:
         CLIENT_ASSERT(info->info.src1_type < RISCV64_FLD_CNT, "Invalid src1_type.");
         if (!opnd_decoders[info->info.src1_type](dcontext, inst, info->info.src1_size, pc,
                                                  orig_pc, 0, instr))
             goto decode_failure;
+        DR_FALLTHROUGH;
     case 0: break;
     default: ASSERT_NOT_REACHED();
     }
@@ -2932,10 +2938,12 @@ encode_common(byte *pc, instr_t *instr, decode_info_t *di)
         CLIENT_ASSERT(info->info.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");
         if (!opnd_encoders[info->info.dst2_type](instr, pc, 1, &inst, di))
             goto encode_failure;
+        DR_FALLTHROUGH;
     case 1:
         CLIENT_ASSERT(info->info.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
         if (!opnd_encoders[info->info.dst1_type](instr, pc, 0, &inst, di))
             goto encode_failure;
+        DR_FALLTHROUGH;
     case 0: break;
     default: ASSERT_NOT_REACHED();
     }
@@ -2944,18 +2952,22 @@ encode_common(byte *pc, instr_t *instr, decode_info_t *di)
         CLIENT_ASSERT(info->info.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");
         if (!opnd_encoders[info->info.dst2_type](instr, pc, 3, &inst, di))
             goto encode_failure;
+        DR_FALLTHROUGH;
     case 3:
         CLIENT_ASSERT(info->info.src3_type < RISCV64_FLD_CNT, "Invalid src3_type.");
         if (!opnd_encoders[info->info.src3_type](instr, pc, 2, &inst, di))
             goto encode_failure;
+        DR_FALLTHROUGH;
     case 2:
         CLIENT_ASSERT(info->info.src2_type < RISCV64_FLD_CNT, "Invalid src2_type.");
         if (!opnd_encoders[info->info.src2_type](instr, pc, 1, &inst, di))
             goto encode_failure;
+        DR_FALLTHROUGH;
     case 1:
         CLIENT_ASSERT(info->info.src1_type < RISCV64_FLD_CNT, "Invalid src1_type.");
         if (!opnd_encoders[info->info.src1_type](instr, pc, 0, &inst, di))
             goto encode_failure;
+        DR_FALLTHROUGH;
     case 0: break;
     default: ASSERT_NOT_REACHED();
     }
