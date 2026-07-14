@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -741,10 +741,9 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         break;
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
 #if defined(X64) || defined(ARM)
-    case REL_ADDR_kind:
-        print_to_buffer(buf, bufsz, sofar, "<rel> ");
-        /* fall-through */
+    case REL_ADDR_kind: print_to_buffer(buf, bufsz, sofar, "<rel> ");
 #    ifdef X64
+        DR_FALLTHROUGH;
     case ABS_ADDR_kind:
 #    endif
         opnd_mem_disassemble_prefix(buf, bufsz, sofar, opnd);
@@ -770,7 +769,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT,
         case REG_kind:
             if (!opnd_is_reg_partial(opnd))
                 break;
-            /* fall-through */
+            DR_FALLTHROUGH;
         default: {
             opnd_size_t opnd_sz = opnd_get_size(opnd);
             const char *size_str = opnd_size_suffix_dr(opnd_sz);

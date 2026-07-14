@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -172,7 +172,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
             /* if has implicit st0 then don't print it */
             (opnd_get_reg(opnd) == REG_ST0 && instr_memory_reference_size(instr) > 0))
             return false;
-        /* else fall through */
+        DR_FALLTHROUGH;
     case TYPE_A:
     case TYPE_B:
     case TYPE_C:
@@ -225,6 +225,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
             reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", "");
             return true;
         }
+        DR_FALLTHROUGH;
     case TYPE_Y:
     case TYPE_FLOATCONST:
     case TYPE_XREG:
@@ -332,6 +333,7 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "d";
             else if (sz == 8)
                 return "q";
+            break;
         }
         case OP_pusha:
         case OP_popa: {
@@ -340,6 +342,7 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "w";
             else if (sz == 32)
                 return "d";
+            break;
         }
         case OP_iret: {
             uint sz = instr_memory_reference_size(instr);
@@ -349,6 +352,7 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "d";
             else if (sz == 40)
                 return "q";
+            break;
         }
         }
     }

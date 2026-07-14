@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -341,6 +341,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
         CLIENT_ASSERT(false,
                       "internal error, use SVE_ZREG_TYPE for top level save/restore of "
                       "SVE registers.");
+        break;
     default: ASSERT_NOT_REACHED();
     }
 }

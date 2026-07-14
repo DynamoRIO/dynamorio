@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -170,6 +170,20 @@ typedef _Bool bool;
 #    define INLINE_FORCED inline
 #    define WEAK __attribute__((weak))
 #    define NOINLINE __attribute__((noinline))
+#endif
+
+/* Annotates intentional switch case fallthroughs to satisfy
+ * -Wimplicit-fallthrough compiler warnings.
+ * XXX i#8001: Share with drcachesim's ANNOTATE_FALLTHROUGH.
+ */
+#ifdef __has_attribute
+#    if __has_attribute(__fallthrough__)
+#        define DR_FALLTHROUGH __attribute__((__fallthrough__))
+#    else
+#        define DR_FALLTHROUGH ((void)0)
+#    endif
+#else
+#    define DR_FALLTHROUGH ((void)0)
 #endif
 
 /* We want a consistent size so we stay away from MAX_PATH.

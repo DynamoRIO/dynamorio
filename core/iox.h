@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -479,7 +479,7 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                                                decimal, false);
                     break;
                 }
-                /* note no break */
+                DR_FALLTHROUGH;
             case _T('x'):
             case _T('X'):
             case _T('o'):
@@ -543,7 +543,7 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                     str = va_arg(ap, TCHAR *);
                     break;
                 }
-                /* fall-through */
+                DR_FALLTHROUGH;
             case _T('S'):
 #ifdef IOX_WIDE_CHAR
                 h_type = true;
@@ -557,7 +557,7 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             case _T('G'):
                 if (decimal == 0 || decimal == -1)
                     decimal = 1; /* default */
-                /* no break */
+                DR_FALLTHROUGH;
             case _T('e'):
             case _T('E'):
             case _T('f'): {

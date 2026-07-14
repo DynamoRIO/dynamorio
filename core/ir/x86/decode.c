@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1989,7 +1989,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         /* ensure referencing memory */
         if (di->mod >= 3)
             return false;
-        /* fall through */
+        DR_FALLTHROUGH;
     case TYPE_E:
     case TYPE_Q:
     case TYPE_W: return decode_modrm(di, optype, opsize, NULL, opnd);
@@ -2187,7 +2187,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         if (di->mod != 3) {
             return decode_modrm(di, optype, opsize, NULL, opnd);
         }
-        /* fall through*/
+        DR_FALLTHROUGH;
     }
     case TYPE_K_MODRM_R: {
         /* part of AVX-512: modrm.rm selects opmask register */

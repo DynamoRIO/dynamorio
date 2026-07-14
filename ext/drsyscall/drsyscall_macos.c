@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -256,12 +256,12 @@ drsyscall_os_get_sysparam_location(cls_syscall_t *pt, uint argnum, drsys_arg_t *
 {
 #ifdef X64
     switch (argnum) {
-    case 0: arg->reg = DR_REG_RDI;
-    case 1: arg->reg = DR_REG_RSI;
-    case 2: arg->reg = DR_REG_RDX;
-    case 3: arg->reg = DR_REG_R10; /* rcx = retaddr for OP_syscall */
-    case 4: arg->reg = DR_REG_R8;
-    case 5: arg->reg = DR_REG_R9;
+    case 0: arg->reg = DR_REG_RDI; break;
+    case 1: arg->reg = DR_REG_RSI; break;
+    case 2: arg->reg = DR_REG_RDX; break;
+    case 3: arg->reg = DR_REG_R10; break; /* rcx = retaddr for OP_syscall */
+    case 4: arg->reg = DR_REG_R8; break;
+    case 5: arg->reg = DR_REG_R9; break;
     default: arg->reg = DR_REG_NULL; /* error */
     }
     arg->start_addr = NULL;

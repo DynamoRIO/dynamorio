@@ -9648,8 +9648,8 @@ post_system_call(dcontext_t *dcontext)
             if ((cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC))
                 signal_handle_dup(dcontext, fd, (file_t)result);
         }
-        break;
 #endif
+        break;
     }
 
     case IF_MACOS_ELSE(SYS_getrlimit, IF_X64_ELSE(SYS_getrlimit, SYS_ugetrlimit)): {

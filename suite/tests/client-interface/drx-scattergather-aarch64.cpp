@@ -2457,6 +2457,7 @@ struct scalar_plus_vector_store_test_case_t : public scalar_plus_vector_test_cas
                                           scaled_);
                     break;
                 }
+                break;
             }
             case element_size_t::DOUBLE: {
                 std::array<const void *, 2> base_ptrs { base_ptr_, base_ptr_ };
@@ -2478,6 +2479,7 @@ struct scalar_plus_vector_store_test_case_t : public scalar_plus_vector_test_cas
                                           scaled_);
                     break;
                 }
+                break;
             }
             }
         }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -663,7 +663,7 @@ handle_pre_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
                                 NULL))
             return;
         break;
-    case SYS_BIND: id = "bind";
+    case SYS_BIND: id = "bind"; DR_FALLTHROUGH;
     case SYS_CONNECT:
         id = (id == NULL) ? "connect" : id;
         if (!report_memarg_type(ii, SOCK_ARRAY_ARG, SYSARG_READ, (app_pc)arg,
@@ -676,16 +676,16 @@ handle_pre_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
                 return;
         }
         break;
-    case SYS_SHUTDOWN: id = "shutdown";
+    case SYS_SHUTDOWN: id = "shutdown"; DR_FALLTHROUGH;
     case SYS_LISTEN:
         id = (id == NULL) ? "listen" : id;
         if (!report_memarg_type(ii, SOCK_ARRAY_ARG, SYSARG_READ, (app_pc)arg,
                                 2 * sizeof(ptr_uint_t), id, DRSYS_TYPE_STRUCT, NULL))
             return;
         break;
-    case SYS_ACCEPT: id = "accept";
-    case SYS_GETSOCKNAME: id = (id == NULL) ? "getsockname" : id;
-    case SYS_GETPEERNAME: id = (id == NULL) ? "getpeername" : id;
+    case SYS_ACCEPT: id = "accept"; DR_FALLTHROUGH;
+    case SYS_GETSOCKNAME: id = (id == NULL) ? "getsockname" : id; DR_FALLTHROUGH;
+    case SYS_GETPEERNAME: id = (id == NULL) ? "getpeername" : id; DR_FALLTHROUGH;
     case SYS_ACCEPT4:
         if (!report_memarg_type(ii, SOCK_ARRAY_ARG, SYSARG_READ, (app_pc)arg,
                                 3 * sizeof(ptr_uint_t), id, DRSYS_TYPE_STRUCT, NULL))
@@ -721,7 +721,7 @@ handle_pre_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
                 return;
         }
         break;
-    case SYS_SEND: id = "send";
+    case SYS_SEND: id = "send"; DR_FALLTHROUGH;
     case SYS_RECV:
         id = (id == NULL) ? "recv" : id;
         if (!report_memarg_type(ii, SOCK_ARRAY_ARG, SYSARG_READ, (app_pc)arg,
@@ -865,9 +865,9 @@ handle_post_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
     if (result < 0)
         return;
     switch (request) {
-    case SYS_ACCEPT: id = "accept";
-    case SYS_GETSOCKNAME: id = (id == NULL) ? "getsockname" : id;
-    case SYS_GETPEERNAME: id = (id == NULL) ? "getpeername" : id;
+    case SYS_ACCEPT: id = "accept"; DR_FALLTHROUGH;
+    case SYS_GETSOCKNAME: id = (id == NULL) ? "getsockname" : id; DR_FALLTHROUGH;
+    case SYS_GETPEERNAME: id = (id == NULL) ? "getpeername" : id; DR_FALLTHROUGH;
     case SYS_ACCEPT4:
         if (pt->sysarg[3] /*pre-addrlen*/ > 0 && pt->sysarg[2] /*sockaddr*/ != 0 &&
             /* re-read to see size returned by kernel */

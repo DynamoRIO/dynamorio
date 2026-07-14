@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -988,9 +988,7 @@ uint
 opnd_size_to_shift_amount(opnd_size_t size)
 {
     switch (size) {
-    default:
-        ASSERT(false);
-        /* fall-through */
+    default: ASSERT(false); return 0;
     case OPSZ_1: return 0;
     case OPSZ_2: return 1;
     case OPSZ_4: return 2;
