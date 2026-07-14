@@ -426,7 +426,7 @@ signal_is_process_wide(dcontext_t *dcontext, kernel_siginfo_t *info, byte *pc, b
                 return false;
             }
         }
-        DR_FALLTHROUGH;
+        return true;
     case SI_QUEUE:
         if (is_at_do_syscall(dcontext, pc, xsp) &&
             dcontext->sys_num == SYS_rt_tgsigqueueinfo)
