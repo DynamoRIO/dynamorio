@@ -90,6 +90,7 @@ protected:
         statistics_t stats;
         std::string error;
         int last_sysnum = -1;
+        int current_syscall_trace_num = -1;
     };
 
     std::unordered_map<int, shard_data_t *> shard_map_;

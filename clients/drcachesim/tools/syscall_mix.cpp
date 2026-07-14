@@ -112,7 +112,9 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (type_is_instr(memref.instr.type)) {
-        ++shard->stats.syscall_instrs[shard->last_sysnum];
+        if (shard->current_syscall_trace_num != -1) {
+            ++shard->stats.syscall_instrs[shard->current_syscall_trace_num];
+        }
         return true;
     }
     if (memref.marker.type != TRACE_TYPE_MARKER)
@@ -133,9 +135,12 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
         ++shard->stats.syscall_trace_counts[syscall_num];
-        shard->last_sysnum = syscall_num;
+        shard->current_syscall_trace_num = syscall_num;
         break;
     }
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+        shard->current_syscall_trace_num = -1;
+        break;
     case TRACE_MARKER_TYPE_SYSCALL_FAILED:
         ++shard->stats.syscall_errno_counts[shard->last_sysnum]
                                            [static_cast<int>(memref.marker.marker_value)];
