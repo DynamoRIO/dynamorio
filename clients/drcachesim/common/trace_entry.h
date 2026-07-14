@@ -1238,7 +1238,7 @@ typedef enum {
      *
      * The file may also include a "default" trace that can be used for system calls that
      * do not have any trace specified in this file. The default trace has the sysnum
-     * set to #DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM in the enclosing markers in the
+     * set to #DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM in the enclosing markers in the
      * trace template file. When this trace is injected by the scheduler for some
      * syscall, the value in the enclosing markers will be changed to that syscall num.
      *
@@ -1728,7 +1728,7 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
  * on any platform, and also differ from other possible sentinels
  * like -1 on 32-bit.
  */
-constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM = 0x0fffffff;
+constexpr int DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM = 0x0fffffff;
 
 /**
  * The name of the file in -offline mode where module data is written.

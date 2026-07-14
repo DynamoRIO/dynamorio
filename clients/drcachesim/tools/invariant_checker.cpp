@@ -194,7 +194,7 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
         bool has_switch_templates = !shard->saw_switch_trace_.empty();
         bool has_syscall_templates = !shard->saw_syscall_trace_.empty();
         bool has_default_syscall_template =
-            shard->saw_syscall_trace_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM) !=
+            shard->saw_syscall_trace_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM) !=
             shard->saw_syscall_trace_.end();
         report_if_false(shard,
                         (!has_switch_templates && has_syscall_templates) ||

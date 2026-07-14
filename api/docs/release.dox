@@ -156,6 +156,8 @@ changes:
  - Added #drvector_t.config field which contains additional configuration parameters for
    a #drvector_t. It currently contains #drvector_config_t.zero_alloc that when set to
    true sets every entry pointer of the drvector's storage to 0 using memset().
+ - Renamed DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM in trace_entry.h to
+   #dynamorio::drmemtrace::DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM.
 
 The changes between version \DR_VERSION and 11.3.0 include the following minor
 compatibility changes:
