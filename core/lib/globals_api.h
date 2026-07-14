@@ -174,6 +174,7 @@ typedef _Bool bool;
 
 /* Annotates intentional switch case fallthroughs to satisfy
  * -Wimplicit-fallthrough compiler warnings.
+ * XXX i#8001: Share with drcachesim's ANNOTATE_FALLTHROUGH.
  */
 #ifdef __has_attribute
 #    if __has_attribute(__fallthrough__)
