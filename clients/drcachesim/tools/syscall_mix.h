@@ -71,6 +71,7 @@ public:
     struct statistics_t {
         std::unordered_map<int, int64_t> syscall_counts;
         std::unordered_map<int, int64_t> syscall_trace_counts;
+        std::unordered_map<int, int64_t> syscall_instrs;
         // First map translates syscall number to a map that translates
         // failure codes to counts. This is only tracked for system calls traced
         // with -record_syscall where TRACE_MARKER_TYPE_SYSCALL_FAILED

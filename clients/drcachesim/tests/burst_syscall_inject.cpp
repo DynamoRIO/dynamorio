@@ -146,6 +146,10 @@ check_syscall_stats(syscall_mix_t::statistics_t &syscall_stats)
     assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction].size() == 2);
     assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EINVAL] == 2);
     assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EFAULT] == 1);
+    assert(syscall_stats.syscall_instrs[SYS_membarrier] > 0);
+    assert(syscall_stats.syscall_instrs[SYS_gettid] > 0);
+    assert(syscall_stats.syscall_instrs[SYS_getpid] > 0);
+    assert(syscall_stats.syscall_instrs[SYS_rt_sigaction] > 0);
 }
 
 static void
@@ -700,6 +704,9 @@ test_template_with_repstr(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
+    assert(syscall_stats.syscall_instrs[SYS_gettid] == SYSCALL_INSTR_COUNT);
+    assert(syscall_stats.syscall_instrs[DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM] ==
+           DEFAULT_INSTR_COUNT);
     int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT + DEFAULT_INSTR_COUNT;
     if (!(template_counts.instrs == distinct_instrs_in_tmpl &&
           template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
@@ -747,6 +754,10 @@ test_trace_templates(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
+    assert(syscall_stats.syscall_instrs[SYS_membarrier] == SYSCALL_INSTR_COUNT);
+    assert(syscall_stats.syscall_instrs[SYS_gettid] == SYSCALL_INSTR_COUNT);
+    assert(syscall_stats.syscall_instrs[DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM] ==
+           DEFAULT_INSTR_COUNT);
 
     // We have two templates of two instrs each, and one default template with
     // just one instr.
