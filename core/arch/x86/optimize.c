@@ -2363,9 +2363,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                     state->hint = make_imm_store(state, inst, immed3);
                 break;
             }
-            case 2: {
-                // mul divide xchg xadd
-            }
+            case 2: /* mul divide xchg xadd */
             default: {
                 // unable to simlify this instruction
             }
