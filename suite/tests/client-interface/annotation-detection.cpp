@@ -414,6 +414,7 @@ main(void)
             a = b;
             if (b > 0)
                 goto test_goto_label;
+            DR_FALLTHROUGH;
         }
         case 8:
         case 9:
