@@ -197,9 +197,8 @@ syscall_mix_t::print_results()
             int64_t instrs = total.syscall_instrs[keyvals.first];
             // XXX: It would be nicer to print the system call name string instead
             // of its number.
-            std::cerr << std::setw(20) << keyvals.second << " : "
-                      << std::setw(20) << instrs << " : "
-                      << std::setw(9) << keyvals.first << "\n";
+            std::cerr << std::setw(20) << keyvals.second << " : " << std::setw(20)
+                      << instrs << " : " << std::setw(9) << keyvals.first << "\n";
         }
     }
     if (!total.syscall_errno_counts.empty()) {
