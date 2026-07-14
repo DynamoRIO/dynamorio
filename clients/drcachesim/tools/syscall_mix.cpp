@@ -69,8 +69,8 @@ syscall_mix_t::syscall_mix_t(unsigned int verbose)
 
 syscall_mix_t::~syscall_mix_t()
 {
-    for (auto &iter : shard_map_) {
-        delete iter.second;
+    for (auto &[_, shard] : shard_map_) {
+        delete shard;
     }
 }
 
@@ -186,11 +186,11 @@ syscall_mix_t::print_results()
     std::vector<std::pair<int, int64_t>> sorted(total.syscall_counts.begin(),
                                                 total.syscall_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_second_val);
-    for (const auto &keyvals : sorted) {
+    for (const auto &[sysnum, syscall_count] : sorted) {
         // XXX: It would be nicer to print the system call name string instead of
         // its number.
-        std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
-                  << keyvals.first << "\n";
+        std::cerr << std::setw(15) << syscall_count << " : " << std::setw(9) << sysnum
+                  << "\n";
     }
     if (!total.syscall_trace_counts.empty()) {
         std::cerr << std::setw(20) << "syscall trace count"
@@ -208,17 +208,16 @@ syscall_mix_t::print_results()
         }
     }
     if (!total.syscall_errno_counts.empty()) {
-        for (const auto &keyvals : total.syscall_errno_counts) {
-            std::cerr << std::setw(15) << "Failures for syscall " << keyvals.first
-                      << ":\n";
+        for (const auto &[sysnum, errno_counts] : total.syscall_errno_counts) {
+            std::cerr << std::setw(15) << "Failures for syscall " << sysnum << ":\n";
             std::cerr << std::setw(15) << "failure count"
                       << " : " << std::setw(9) << "failure code\n";
-            std::vector<std::pair<int, int64_t>> sort_errno(keyvals.second.begin(),
-                                                            keyvals.second.end());
+            std::vector<std::pair<int, int64_t>> sort_errno(errno_counts.begin(),
+                                                            errno_counts.end());
             std::sort(sort_errno.begin(), sort_errno.end(), cmp_second_val);
-            for (const auto &keyvals2 : sort_errno) {
-                std::cerr << std::setw(15) << keyvals2.second << " : " << std::setw(9)
-                          << keyvals2.first << "\n";
+            for (const auto &[err_code, failure_count] : sort_errno) {
+                std::cerr << std::setw(15) << failure_count << " : " << std::setw(9)
+                          << err_code << "\n";
             }
         }
     }
@@ -232,20 +231,19 @@ syscall_mix_t::get_total_statistics() const
     if (shard_map_.empty()) {
         total = serial_shard_.stats;
     } else {
-        for (const auto &shard : shard_map_) {
-            for (const auto &keyvals : shard.second->stats.syscall_counts) {
-                total.syscall_counts[keyvals.first] += keyvals.second;
+        for (const auto &[_, shard] : shard_map_) {
+            for (const auto &[sysnum, count] : shard->stats.syscall_counts) {
+                total.syscall_counts[sysnum] += count;
             }
-            for (const auto &keyvals : shard.second->stats.syscall_trace_counts) {
-                total.syscall_trace_counts[keyvals.first] += keyvals.second;
+            for (const auto &[sysnum, count] : shard->stats.syscall_trace_counts) {
+                total.syscall_trace_counts[sysnum] += count;
             }
-            for (const auto &[sysnum, instrs] : shard.second->stats.syscall_instrs) {
+            for (const auto &[sysnum, instrs] : shard->stats.syscall_instrs) {
                 total.syscall_instrs[sysnum] += instrs;
             }
-            for (const auto &keyvals : shard.second->stats.syscall_errno_counts) {
-                for (const auto &keyvals2 : keyvals.second) {
-                    total.syscall_errno_counts[keyvals.first][keyvals2.first] +=
-                        keyvals2.second;
+            for (const auto &[sysnum, errno_counts] : shard->stats.syscall_errno_counts) {
+                for (const auto &[err_code, count] : errno_counts) {
+                    total.syscall_errno_counts[sysnum][err_code] += count;
                 }
             }
         }
