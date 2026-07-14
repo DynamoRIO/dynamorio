@@ -352,6 +352,7 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "d";
             else if (sz == 40)
                 return "q";
+            break;
         }
         }
     }
