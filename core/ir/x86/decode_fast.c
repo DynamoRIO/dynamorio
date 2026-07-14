@@ -511,9 +511,7 @@ decode_sizeof_ex(void *drcontext, byte *start_pc, int *num_prefixes, uint *rip_r
                 sz += 1;
                 break;
             case REPNE_PREFIX_OPCODE:
-            case REP_PREFIX_OPCODE: /* REP */
-                rep_prefix = true;
-                DR_FALLTHROUGH;
+            case REP_PREFIX_OPCODE: /* REP */ rep_prefix = true; DR_FALLTHROUGH;
             case RAW_PREFIX_lock: /* LOCK */
             case CS_SEG_OPCODE:   /* segment overrides */
             case DS_SEG_OPCODE:
