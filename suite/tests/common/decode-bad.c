@@ -223,7 +223,7 @@ main(int argc, char *argv[])
     case 4: test_inval_4(); DR_FALLTHROUGH;
     case 5: test_inval_5(); DR_FALLTHROUGH;
     case 6: test_inval_6(); DR_FALLTHROUGH;
-    case 7: test_inval_7();
+    case 7: test_inval_7(); DR_FALLTHROUGH;
     default:;
     }
 
