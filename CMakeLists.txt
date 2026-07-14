@@ -837,10 +837,6 @@ if (UNIX)
   set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -std=gnu99")
   # i#7975: required by our style guide and Kbuild
   set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -Wstrict-prototypes")
-  CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough" implicit_fallthrough_avail)
-  if (implicit_fallthrough_avail)
-    set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -Wimplicit-fallthrough")
-  endif (implicit_fallthrough_avail)
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
   # Ensure DR is interoperable with other toolchains: do not assume char is signed
@@ -852,6 +848,10 @@ if (UNIX)
   if (no_stack_protector_avail)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
   endif (no_stack_protector_avail)
+  CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough" implicit_fallthrough_avail)
+  if (implicit_fallthrough_avail)
+    set(BASE_CFLAGS "${BASE_CFLAGS} -Wimplicit-fallthrough")
+  endif (implicit_fallthrough_avail)
   # Prefer the new 'override' keyword.
   CHECK_CXX_COMPILER_FLAG("-Wsuggest-override" suggest_override_avail)
   if (suggest_override_avail)
