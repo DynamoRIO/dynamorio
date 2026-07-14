@@ -199,12 +199,12 @@ syscall_mix_t::print_results()
         std::vector<std::pair<int, int64_t>> sorted_trace(
             total.syscall_trace_counts.begin(), total.syscall_trace_counts.end());
         std::sort(sorted_trace.begin(), sorted_trace.end(), cmp_second_val);
-        for (const auto &keyvals : sorted_trace) {
-            int64_t instrs = total.syscall_instrs[keyvals.first];
+        for (const auto &[sysnum, syscall_count] : sorted_trace) {
+            int64_t instrs = total.syscall_instrs[sysnum];
             // XXX: It would be nicer to print the system call name string instead
             // of its number.
-            std::cerr << std::setw(20) << keyvals.second << " : " << std::setw(20)
-                      << instrs << " : " << std::setw(9) << keyvals.first << "\n";
+            std::cerr << std::setw(20) << syscall_count << " : " << std::setw(20)
+                      << instrs << " : " << std::setw(9) << sysnum << "\n";
         }
     }
     if (!total.syscall_errno_counts.empty()) {
