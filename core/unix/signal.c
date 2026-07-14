@@ -7720,7 +7720,8 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     case UNREADABLE_MEMORY_EXECUTION_EXCEPTION: sig = SIGSEGV; break;
     case SINGLE_STEP_EXCEPTION:
         ASSERT_NOT_IMPLEMENTED(false); /* TODO: i#2144 */
-        DR_FALLTHROUGH;
+        sig = SIGTRAP;
+        break;
     case IN_PAGE_ERROR_EXCEPTION: /* fall-through: Windows only */
     default:
         ASSERT_NOT_REACHED();
