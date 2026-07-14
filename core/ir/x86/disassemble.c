@@ -172,7 +172,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
             /* if has implicit st0 then don't print it */
             (opnd_get_reg(opnd) == REG_ST0 && instr_memory_reference_size(instr) > 0))
             return false;
-        /* else fall through */
+        DR_FALLTHROUGH;
     case TYPE_A:
     case TYPE_B:
     case TYPE_C:
