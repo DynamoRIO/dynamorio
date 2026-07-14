@@ -39,6 +39,7 @@
 #include <iomanip>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -112,8 +113,8 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (type_is_instr(memref.instr.type)) {
-        if (shard->current_syscall_trace_num != -1) {
-            ++shard->stats.syscall_instrs[shard->current_syscall_trace_num];
+        if (shard->current_syscall_trace_sysnum.has_value()) {
+            ++shard->stats.syscall_instrs[*shard->current_syscall_trace_sysnum];
         }
         return true;
     }
@@ -135,11 +136,11 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
         ++shard->stats.syscall_trace_counts[syscall_num];
-        shard->current_syscall_trace_num = syscall_num;
+        shard->current_syscall_trace_sysnum = syscall_num;
         break;
     }
     case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
-        shard->current_syscall_trace_num = -1;
+        shard->current_syscall_trace_sysnum = std::nullopt;
         break;
     case TRACE_MARKER_TYPE_SYSCALL_FAILED:
         ++shard->stats.syscall_errno_counts[shard->last_sysnum]
@@ -193,7 +194,7 @@ syscall_mix_t::print_results()
     }
     if (!total.syscall_trace_counts.empty()) {
         std::cerr << std::setw(20) << "syscall trace count"
-                  << " : " << std::setw(20) << "instr count"
+                  << " : " << std::setw(20) << "total instr count"
                   << " : " << std::setw(9) << "syscall_num\n";
         std::vector<std::pair<int, int64_t>> sorted_trace(
             total.syscall_trace_counts.begin(), total.syscall_trace_counts.end());
