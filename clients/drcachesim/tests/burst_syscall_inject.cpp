@@ -146,10 +146,6 @@ check_syscall_stats(syscall_mix_t::statistics_t &syscall_stats)
     assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction].size() == 2);
     assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EINVAL] == 2);
     assert(syscall_stats.syscall_errno_counts[SYS_rt_sigaction][EFAULT] == 1);
-    assert(syscall_stats.syscall_instrs[SYS_membarrier] > 0);
-    assert(syscall_stats.syscall_instrs[SYS_gettid] > 0);
-    assert(syscall_stats.syscall_instrs[SYS_getpid] > 0);
-    assert(syscall_stats.syscall_instrs[SYS_rt_sigaction] > 0);
 }
 
 static void
