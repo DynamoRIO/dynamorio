@@ -109,6 +109,7 @@ main(int argc, char **argv)
     switch (argv[1][1]) {
     case 't': do_trampoline(); break;
 
+    /* XXX i#8001: Provide DR_FALLTHROUGH via top level header. */
     case 'b': do_trampoline(); __attribute__((__fallthrough__));
 
     case 'e': do_exploit(); break;
