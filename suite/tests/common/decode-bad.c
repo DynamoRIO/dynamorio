@@ -189,10 +189,11 @@ main(int argc, char *argv[])
     count = 0;
     i = SIGSETJMP(mark);
     switch (i) {
-    case 0: test_priv_0(); DR_FALLTHROUGH;
-    case 1: test_priv_1(); DR_FALLTHROUGH;
-    case 2: test_priv_2(); DR_FALLTHROUGH;
-    case 3: test_priv_3();
+    case 0: test_priv_0(); assert(false && "Won't reach due to fault"); break;
+    case 1: test_priv_1(); assert(false && "Won't reach due to fault"); break;
+    case 2: test_priv_2(); assert(false && "Won't reach due to fault"); break;
+    case 3: test_priv_3(); assert(false && "Won't reach due to fault"); break;
+    default:;
     }
 
     /* prefix tests */
@@ -216,14 +217,14 @@ main(int argc, char *argv[])
         /* note that we decode until a CTI, so for every case the suffix is decoded
          * and changes in later cases may fail even the earlier ones.
          */
-    case 0: test_inval_0(); DR_FALLTHROUGH;
-    case 1: test_inval_1(); DR_FALLTHROUGH;
-    case 2: test_inval_2(); DR_FALLTHROUGH;
-    case 3: test_inval_3(); DR_FALLTHROUGH;
-    case 4: test_inval_4(); DR_FALLTHROUGH;
-    case 5: test_inval_5(); DR_FALLTHROUGH;
-    case 6: test_inval_6(); DR_FALLTHROUGH;
-    case 7: test_inval_7(); DR_FALLTHROUGH;
+    case 0: test_inval_0(); assert(false && "Won't reach due to fault"); break;
+    case 1: test_inval_1(); assert(false && "Won't reach due to fault"); break;
+    case 2: test_inval_2(); assert(false && "Won't reach due to fault"); break;
+    case 3: test_inval_3(); assert(false && "Won't reach due to fault"); break;
+    case 4: test_inval_4(); assert(false && "Won't reach due to fault"); break;
+    case 5: test_inval_5(); assert(false && "Won't reach due to fault"); break;
+    case 6: test_inval_6(); assert(false && "Won't reach due to fault"); break;
+    case 7: test_inval_7(); assert(false && "Won't reach due to fault"); break;
     default:;
     }
 
