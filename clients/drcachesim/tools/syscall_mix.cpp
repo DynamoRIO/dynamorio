@@ -39,6 +39,7 @@
 #include <iomanip>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -111,6 +112,12 @@ bool
 syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    if (type_is_instr(memref.instr.type)) {
+        if (shard->current_syscall_trace_sysnum.has_value()) {
+            ++shard->stats.syscall_instrs[*shard->current_syscall_trace_sysnum];
+        }
+        return true;
+    }
     if (memref.marker.type != TRACE_TYPE_MARKER)
         return true;
     switch (memref.marker.marker_type) {
@@ -129,8 +136,12 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         assert(static_cast<uintptr_t>(syscall_num) == memref.marker.marker_value);
 #endif
         ++shard->stats.syscall_trace_counts[syscall_num];
+        shard->current_syscall_trace_sysnum = syscall_num;
         break;
     }
+    case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+        shard->current_syscall_trace_sysnum = std::nullopt;
+        break;
     case TRACE_MARKER_TYPE_SYSCALL_FAILED:
         ++shard->stats.syscall_errno_counts[shard->last_sysnum]
                                            [static_cast<int>(memref.marker.marker_value)];
@@ -183,15 +194,17 @@ syscall_mix_t::print_results()
     }
     if (!total.syscall_trace_counts.empty()) {
         std::cerr << std::setw(20) << "syscall trace count"
+                  << " : " << std::setw(20) << "total instr count"
                   << " : " << std::setw(9) << "syscall_num\n";
         std::vector<std::pair<int, int64_t>> sorted_trace(
             total.syscall_trace_counts.begin(), total.syscall_trace_counts.end());
         std::sort(sorted_trace.begin(), sorted_trace.end(), cmp_second_val);
-        for (const auto &keyvals : sorted_trace) {
+        for (const auto &[sysnum, syscall_count] : sorted_trace) {
+            int64_t instrs = total.syscall_instrs[sysnum];
             // XXX: It would be nicer to print the system call name string instead
             // of its number.
-            std::cerr << std::setw(20) << keyvals.second << " : " << std::setw(9)
-                      << keyvals.first << "\n";
+            std::cerr << std::setw(20) << syscall_count << " : " << std::setw(20)
+                      << instrs << " : " << std::setw(9) << sysnum << "\n";
         }
     }
     if (!total.syscall_errno_counts.empty()) {
@@ -225,6 +238,9 @@ syscall_mix_t::get_total_statistics() const
             }
             for (const auto &keyvals : shard.second->stats.syscall_trace_counts) {
                 total.syscall_trace_counts[keyvals.first] += keyvals.second;
+            }
+            for (const auto &[sysnum, instrs] : shard.second->stats.syscall_instrs) {
+                total.syscall_instrs[sysnum] += instrs;
             }
             for (const auto &keyvals : shard.second->stats.syscall_errno_counts) {
                 for (const auto &keyvals2 : keyvals.second) {
