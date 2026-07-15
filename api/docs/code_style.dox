@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -133,6 +133,12 @@ local variables of the same name: choose a distinct name for the local variable.
 
 -# Template parameters in C++ should have a descriptive CamelCase identifier.
 
+-# Do not use `_` as a name (using it implies the language treats it specially, as some other languages do, yet it is not special-cased in C++; leading underscores are not supposed to be used in regular code per the language specification; other project code styles discourage `_`): use `unused` or something similar when a variable is not used, as in C++ structured bindings:
+ ```
+  for (auto &[unused, shard] : shard_map_) {
+ ```
+
+
 # Types
 
 
@@ -233,6 +239,10 @@ simple scalar type function parameters as `const`.
   ```
 
 -# Do not assume that `char` is signed: use our `sbyte` typedef for a signed one-byte type.
+
+-# Only use `auto` when it aids readability, when the type is already clear from the context: do not use it to save typing.  In practice, `auto` should only be used for range-based for loops, iterators, and cases where an assignment includes the type such as casts or smart pointer creation.
+
+-# Only fully qualify namespaces (i.e., use a leading `::`) in aliases and using declarations.  In all other uses, do not fully qualify, as collisions are very rare and the extra characters hinder readability.
 
 
 # Commenting Conventions
