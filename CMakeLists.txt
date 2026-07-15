@@ -1555,6 +1555,7 @@ endif (EXISTS ${defines_file})
 include_directories(BEFORE
   ${PROJECT_BINARY_DIR} # for configure.h, configure_defines.h, events.h, and event_strings.h
   )
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/common)
 
 # Export targets for importing by clients.
 # We include DynamoRIO and all Extensions in the same file for simplicity,

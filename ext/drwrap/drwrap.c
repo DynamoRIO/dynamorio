@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,8 +68,6 @@ static uint verbose = 0;
 #else
 #    define NOTIFY(...) /* nothing */
 #endif
-
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
 /* We rely on being able to clobber this register at call sites. */
 /* At return, we assume we can clobber caller-saved regs not used for return values. */

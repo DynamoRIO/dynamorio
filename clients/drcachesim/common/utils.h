@@ -52,6 +52,8 @@
 #    include <sys/time.h>
 #endif
 
+#include "dr_project_wide_defines.h"
+
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -88,10 +90,6 @@ namespace drmemtrace {
 #else
 #    define IF_REL_ADDRS(x)
 #endif
-
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
 
 #define NOTIFY(level, ...)                     \
     do {                                       \
