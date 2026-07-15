@@ -57,7 +57,7 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-// XXX: DR should export this
+// TODO i#8001: Unify with DR's defines and move to dr_project_wide_defines.h.
 #define INVALID_THREAD_ID 0
 // We avoid collisions with DR's INVALID_PROCESS_ID by using our own name.
 #define INVALID_PID -1
