@@ -492,11 +492,12 @@ get_mock_syscall_sequence(int syscall_base, addr_t syscall_pc_start = 0xfeed101)
                 TRACE_MARKER_TYPE_SYSCALL_TRACE_END, syscall_base + 1),
             test_util::make_marker(
                 TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+                DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
             test_util::make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, DONT_CARE),
             test_util::make_instr(syscall_pc_start + 20, TRACE_TYPE_INSTR_INDIRECT_JUMP),
             test_util::make_marker(
-                TRACE_MARKER_TYPE_SYSCALL_TRACE_END, DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+                TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
             test_util::make_exit(TID_IN_SYSCALLS),
             test_util::make_footer(),
         /* clang-format on */
