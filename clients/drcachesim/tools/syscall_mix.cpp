@@ -69,7 +69,7 @@ syscall_mix_t::syscall_mix_t(unsigned int verbose)
 
 syscall_mix_t::~syscall_mix_t()
 {
-    for (auto &[_, shard] : shard_map_) {
+    for (auto &[unused, shard] : shard_map_) {
         delete shard;
     }
 }
@@ -231,7 +231,7 @@ syscall_mix_t::get_total_statistics() const
     if (shard_map_.empty()) {
         total = serial_shard_.stats;
     } else {
-        for (const auto &[_, shard] : shard_map_) {
+        for (const auto &[unused, shard] : shard_map_) {
             for (const auto &[sysnum, count] : shard->stats.syscall_counts) {
                 total.syscall_counts[sysnum] += count;
             }
