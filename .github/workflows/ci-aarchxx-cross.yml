@@ -76,7 +76,7 @@ jobs:
     # packages so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
-        wget https://llvm.org
+        wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 21
         sudo apt-get update
@@ -132,7 +132,7 @@ jobs:
     # packages so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
-        wget https://llvm.org
+        wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 21
         sudo apt-get update
@@ -186,7 +186,7 @@ jobs:
     # Fetch the Android NDK for Android cross-compile build.
     - name: Create Build Environment
       run: |
-        wget https://llvm.org
+        wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 21
         sudo apt-get update
@@ -235,7 +235,7 @@ jobs:
 
     - name: Create Build Environment
       run: |
-        wget https://llvm.org
+        wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 21
         sudo apt-get update

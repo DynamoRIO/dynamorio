@@ -75,7 +75,7 @@ jobs:
 
     - name: Create Build Environment
       run: |
-        wget https://llvm.org
+        wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 21
         sudo apt update

@@ -85,7 +85,7 @@ jobs:
     # Install multilib for non-cross-compiling Linux build.
     - name: Create Build Environment
       run: |
-        wget https://llvm.org
+        wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 21
         sudo apt update
@@ -128,7 +128,7 @@ jobs:
     # so we manually install the i386 packages we need.
     - name: Create Build Environment
       run: |
-        wget https://llvm.org
+        wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 21
         sudo apt update
