@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020-2026 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2025 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,12 +28,13 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Github Actions workflow for clang-format Continuous Integration testing.
+# Github Actions workflow for RISCV64 Continuous Integration testing.
 #
-# When adding a new job, remember to add it to the send-failure-notification
-# job to ensure failure notifications are set up properly.
+# Each test suite is a separate job. When adding a new test suite job,
+# remember to add it to the send-failure-notification job to ensure failure
+# notifications are set up properly.
 
-name: ci-clang-format
+name: ci-riscv64
 on:
   # Run on pushes to master and on pull request changes, including from a
   # forked repo with no "push" trigger, while avoiding duplicate triggers.
@@ -52,13 +53,11 @@ defaults:
     shell: bash
 
 jobs:
-  # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
-  # install and require clang-format.
-  # We used to build 32-bit with clang but have decided that is not worth
-  # the CI resources: 64-bit hits most clang-only warnings and 64-bit
-  # is the primary target these days.
-  clang-format:
-    runs-on: ubuntu-22.04
+  # RISCV64 cross-compile with gcc
+  # We use ubuntu 24.04 because the compilition here need libunwind-riscv64 and
+  # it's a stable source.
+  riscv64-cross-compile:
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v4
@@ -73,14 +72,29 @@ jobs:
 
     - run: git fetch --no-tags --depth=1 origin master
 
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there are no libunwind or compression cross-compile
+    # packages so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
-        wget https://apt.llvm.org/llvm.sh
-        chmod +x llvm.sh
-        sudo ./llvm.sh 21
-        sudo apt update
-        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev clang-format-21 libunwind-dev
+        sudo apt-get update
+        sudo apt-get -y install doxygen vera++ cmake crossbuild-essential-riscv64 git  \
+          qemu-user qemu-user-binfmt
+        # We cannot use the following command here, because it will download the
+        # x86_64 binaries due to some known issue of DEB822.
+        # sudo add-apt-repository 'deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports noble main'
+        echo 'deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports noble main' | sudo tee -a /etc/apt/sources.list
+        sudo apt-get update
+        apt download libunwind8:riscv64 libunwind-dev:riscv64 liblzma5:riscv64 \
+          zlib1g:riscv64 zlib1g-dev:riscv64 libsnappy1v5:riscv64 libsnappy-dev:riscv64 \
+          liblz4-1:riscv64 liblz4-dev:riscv64
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/riscv64-linux-gnu/include/
+        if test -e "../extract/lib/riscv64-linux-gnu/"; then \
+          sudo rsync -av ../extract/lib/riscv64-linux-gnu/ /usr/riscv64-linux-gnu/lib/; \
+        fi
 
     - name: Check if format checks are disabled
       id: are_format_checks_disabled
@@ -88,24 +102,23 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      if: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks !=  'yes' }}
-      run: ./suite/runsuite_wrapper.pl automated_ci 64_only require_format
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
       env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        DYNAMORIO_CLANG: yes
+        DYNAMORIO_CROSS_RISCV64_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
+        QEMU_LD_PREFIX: /usr/riscv64-linux-gnu/
+        DISABLE_FORMAT_CHECKS: ${{ steps.are_format_checks_disabled.outputs.disable_format_checks }}
 
   send-failure-notification:
       uses: ./.github/workflows/failure-notification.yml
-      needs: [clang-format]
+      needs: [riscv64-cross-compile]
       # By default, a failure in a job skips the jobs that need it. The
       # following expression ensures that failure-notification.yml is
       # always invoked.
       if: ${{ always() }}
       with:
         test_suite_status: ${{ format('{0} {1}',
-                                      'clang-format', needs.clang-format.result) }}
+                                      'riscv64-cross-compile', needs.riscv64-cross-compile.result) }}
         test_suite_results_only: ${{ join(needs.*.result, ',') }}
       secrets: inherit
