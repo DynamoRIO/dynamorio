@@ -1108,6 +1108,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->syscall_trace_num_after_last_userspace_instr_ = -1;
             report_if_false(shard, !shard->expect_syscall_trace_,
                             "Missing system call trace");
+            // Reset state to prevent reporting the same error instance multiple times.
+            shard->expect_syscall_trace_ = false;
         }
         // We'd prefer to report this error at the syscall instr but it is easier
         // to wait until here:
@@ -1115,6 +1117,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         !TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) ||
                             !shard->expect_syscall_marker_,
                         "Syscall marker missing after syscall instruction");
+        // Reset state to prevent reporting the same error instance multiple times.
+        shard->expect_syscall_marker_ = false;
 
         per_shard_t::instr_info_t cur_instr_info;
         const bool expect_encoding =
