@@ -121,7 +121,8 @@ sort()
 #endif
 }
 
-unsigned int __stdcall executor(void *arg)
+unsigned int __stdcall
+executor(void *arg)
 {
     int w;
     sort(); /* do some work */

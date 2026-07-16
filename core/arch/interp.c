@@ -3510,9 +3510,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (bb->eflags != EFLAGS_WRITE_ARITH IF_X86(&&bb->eflags != EFLAGS_READ_OF))
                 bb->eflags = eflags_analysis(bb->instr, bb->eflags, &eflags_6);
 
-                /* stop decoding at an invalid instr (tested above) or a cti
-                 *(== opcode valid) or a possible SEH frame push (if
-                 * -process_SEH_push). */
+            /* stop decoding at an invalid instr (tested above) or a cti
+             *(== opcode valid) or a possible SEH frame push (if
+             * -process_SEH_push). */
 #ifdef WINDOWS
             if (DYNAMO_OPTION(process_SEH_push) &&
                 instr_get_prefix_flag(bb->instr, PREFIX_SEG_FS)) {

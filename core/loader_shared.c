@@ -522,7 +522,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     mod->ref_count = 1;
     mod->externally_loaded = false;
     mod->is_top_level_client = false; /* up to caller to set later */
-    mod->is_client = false; /* up to caller to set later */
+    mod->is_client = false;           /* up to caller to set later */
     mod->called_proc_entry = false;
     mod->called_proc_exit = false;
     /* do not add non-heap struct to list: in init() we'll move array to list */

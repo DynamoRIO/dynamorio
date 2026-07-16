@@ -2084,8 +2084,8 @@ encode_immed(decode_info_t *di, byte *pc)
             if (di->immed_shift > 0)
                 val >>= di->immed_shift;
 #ifdef X64
-                /* we auto-truncate below to the proper size rather than complaining
-                 */
+            /* we auto-truncate below to the proper size rather than complaining
+             */
 #endif
         } else {
             val = di->immed;

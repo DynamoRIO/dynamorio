@@ -532,7 +532,7 @@ redirect_VirtualProtect(__in LPVOID lpAddress, __in SIZE_T dwSize,
 SIZE_T
 WINAPI
 redirect_VirtualQuery(__in_opt LPCVOID lpAddress,
-                      __out_bcount_part(dwLength, return )
+                      __out_bcount_part(dwLength, return)
                           PMEMORY_BASIC_INFORMATION lpBuffer,
                       __in SIZE_T dwLength)
 {
@@ -542,7 +542,7 @@ redirect_VirtualQuery(__in_opt LPCVOID lpAddress,
 SIZE_T
 WINAPI
 redirect_VirtualQueryEx(__in HANDLE hProcess, __in_opt LPCVOID lpAddress,
-                        __out_bcount_part(dwLength, return )
+                        __out_bcount_part(dwLength, return)
                             PMEMORY_BASIC_INFORMATION lpBuffer,
                         __in SIZE_T dwLength)
 {

@@ -72,7 +72,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             prev_was_mov_const = false;
     }
 #else
-        /* XXX i#3329: port to ARM if possible. */
+    /* XXX i#3329: port to ARM if possible. */
 #endif
     return DR_EMIT_DEFAULT;
 }

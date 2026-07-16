@@ -150,7 +150,7 @@ LONGLONG total_kernel = 0;
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 #define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-#define NULL_TERMINATE_SIZED_BUFFER(buf, size) (buf)[(size)-1] = 0
+#define NULL_TERMINATE_SIZED_BUFFER(buf, size) (buf)[(size) - 1] = 0
 
 static void
 generate_process_name(process_info_t *pi, WCHAR *name_buf /* OUT */,

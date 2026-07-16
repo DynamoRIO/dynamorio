@@ -197,7 +197,7 @@ thread_synch_check_state(dcontext_t *dcontext, thread_synch_permission_t desired
     }
     if (!THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm))
         return false;
-        /* barrier to keep the 1st check above on this side of the lock below */
+    /* barrier to keep the 1st check above on this side of the lock below */
 #ifdef WINDOWS
     MemoryBarrier();
 #else

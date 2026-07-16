@@ -641,7 +641,7 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
 #        endif
 #    endif
 
-        /* XXX i#95: should we add an instrument_thread_detach_event()? */
+    /* XXX i#95: should we add an instrument_thread_detach_event()? */
 
 #    ifdef DR_APP_EXPORTS
     /* not_under will be called by dynamo_shared_exit so skip it here. */

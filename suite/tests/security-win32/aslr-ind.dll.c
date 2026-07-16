@@ -59,13 +59,15 @@ over:
     }
 }
 
-fiptr __declspec(dllexport) giveme_target(int arg)
+fiptr __declspec(dllexport)
+giveme_target(int arg)
 {
     print("ready to go %d\n", arg);
     return funny_target;
 }
 
-void __declspec(dllexport) precious(void)
+void __declspec(dllexport)
+precious(void)
 {
     print("PRECIOUS in a DLL, ATTACK SUCCESSFUL!\n");
     /* stack not clean have to stop here */

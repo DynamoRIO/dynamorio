@@ -1927,8 +1927,8 @@ run_individual_canary_test(FILE *file, WCHAR *logbase, WCHAR *dr_options, int ex
     return canary_code;
 }
 
-#        pragma warning( \
-            disable : 4127) // conditional expression is constant i.e while (FALSE)
+#        pragma warning(disable \
+                        : 4127) // conditional expression is constant i.e while (FALSE)
 
 /* see utils.h for description */
 BOOL

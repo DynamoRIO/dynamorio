@@ -1305,7 +1305,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
         copy_up_to_max(process_name, MAXIMUM_PATH, proc_policy->name);
     }
 #else
-        /* up to caller to fill in! */
+    /* up to caller to fill in! */
 #endif
 
     if (dr_root_dir != NULL &&

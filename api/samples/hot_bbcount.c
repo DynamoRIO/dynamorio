@@ -121,7 +121,7 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     *enable_dynamic_handling = false;
 
     /* Register the case encoding for counting the execution of hot basic blocks. */
-    drbbdup_register_case_encoding(drbbdup_ctx, (uintptr_t) true /* hot */);
+    drbbdup_register_case_encoding(drbbdup_ctx, (uintptr_t)true /* hot */);
 
     /* Set the default case encoding for tracking the hit count of basic blocks. */
     return 0; /* cold */

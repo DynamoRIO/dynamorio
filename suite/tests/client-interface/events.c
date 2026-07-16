@@ -165,7 +165,8 @@ extern "C"
 #else
 __attribute__((visibility("default")))
 #endif
-        void redirect(void)
+    void
+    redirect(void)
 {
     print("Redirect success!\n");
     exit(0);

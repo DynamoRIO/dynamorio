@@ -50,7 +50,8 @@
 jmp_buf mark; /* Address for long jump to jump to */
 int fperr;    /* Global error number */
 
-void __cdecl fphandler(int sig, int num); /* Prototypes */
+void __cdecl
+fphandler(int sig, int num); /* Prototypes */
 void
 fpcheck(void);
 

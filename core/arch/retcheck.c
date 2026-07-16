@@ -695,7 +695,7 @@ check_debug(dcontext_t *dcontext, volatile int errno, volatile reg_t eflags,
     if (d_r_stats->loglevel >= 3) {
         int i, j;
         byte xmm[8][16]; /* each sse2 is 128 bits = 16 bytes */
-        /* move from registers into memory where we can work with it */
+                         /* move from registers into memory where we can work with it */
 #            ifdef UNIX
         asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
         asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
@@ -1064,7 +1064,7 @@ check_return_ra_mangled(dcontext_t *dcontext, volatile int errno, volatile reg_t
     if (d_r_stats->loglevel >= 3) {
         int idx, i, j;
         byte xmm[8][16]; /* each sse2 is 128 bits = 16 bytes */
-        /* move from registers into memory where we can work with it */
+                         /* move from registers into memory where we can work with it */
 #            ifdef UNIX
         asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
         asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));

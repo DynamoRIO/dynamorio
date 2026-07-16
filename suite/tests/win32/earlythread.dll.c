@@ -48,7 +48,8 @@ run_func(void *arg)
     return 0;
 }
 
-int __declspec(dllexport) in_lib(int arg)
+int __declspec(dllexport)
+in_lib(int arg)
 {
     print("in lib\n");
     return 4;

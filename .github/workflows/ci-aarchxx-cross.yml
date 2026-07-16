@@ -76,9 +76,12 @@ jobs:
     # packages so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
+        wget https://llvm.org
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ g++-aarch64-linux-gnu \
-          qemu-user qemu-user-binfmt
+          qemu-user qemu-user-binfmt clang-format-21
         sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64 \
           zlib1g:arm64 zlib1g-dev:arm64 libsnappy1v5:arm64 libsnappy-dev:arm64 \
@@ -129,9 +132,12 @@ jobs:
     # packages so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
+        wget https://llvm.org
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ g++-arm-linux-gnueabihf \
-          qemu-user qemu-user-binfmt
+          qemu-user qemu-user-binfmt clang-format-21
         sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf \
           zlib1g:armhf zlib1g-dev:armhf libsnappy1v5:armhf libsnappy-dev:armhf \
@@ -180,8 +186,11 @@ jobs:
     # Fetch the Android NDK for Android cross-compile build.
     - name: Create Build Environment
       run: |
+        wget https://llvm.org
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++
+        sudo apt-get -y install doxygen vera++ clang-format-21
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
         unzip -q android-ndk-r27c-linux.zip
@@ -226,9 +235,12 @@ jobs:
 
     - name: Create Build Environment
       run: |
+        wget https://llvm.org
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev
+          liblz4-dev clang-format-21
 
     - name: Setup cmake
       uses: lukka/get-cmake@latest

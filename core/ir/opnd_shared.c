@@ -717,13 +717,13 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                                     "opnd_create_*base_disp*: invalid base");
     CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
                                     "opnd_create_*base_disp*: invalid index");
-    IF_X86_ELSE({ opnd.aux.segment = seg; },
-                {
-                    opnd.aux.flags = 0;
-                    CLIENT_ASSERT(
-                        disp == 0 || index_reg == REG_NULL,
-                        "opnd_create_*base_disp*: cannot have both disp and index");
-                });
+    IF_X86_ELSE(
+        { opnd.aux.segment = seg; },
+        {
+            opnd.aux.flags = 0;
+            CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
+                          "opnd_create_*base_disp*: cannot have both disp and index");
+        });
     opnd_set_disp_helper(&opnd, disp);
     opnd.value.base_disp.base_reg = base_reg;
 #ifdef X86

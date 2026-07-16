@@ -779,7 +779,7 @@ get_proc_address_ex(module_base_t lib, const char *name,
         } else if (res != NULL) {
             if (is_ifunc) {
                 TRY_EXCEPT_ALLOW_NO_DCONTEXT(
-                    get_thread_private_dcontext(), { res = ((app_pc(*)(void))(res))(); },
+                    get_thread_private_dcontext(), { res = ((app_pc (*)(void))(res))(); },
                     { /* EXCEPT */
                       ASSERT_CURIOSITY(false && "crashed while executing ifunc");
                       res = NULL;
@@ -1117,7 +1117,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
     if (res != NULL) {
         if (is_ifunc) {
             TRY_EXCEPT_ALLOW_NO_DCONTEXT(
-                dcontext, { res = ((app_pc(*)(void))(res))(); },
+                dcontext, { res = ((app_pc (*)(void))(res))(); },
                 { /* EXCEPT */
                   ASSERT_CURIOSITY(false && "crashed while executing ifunc");
                   res = NULL;
@@ -1172,7 +1172,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
         if (res != NULL) {
             if (is_ifunc) {
                 TRY_EXCEPT_ALLOW_NO_DCONTEXT(
-                    dcontext, { res = ((app_pc(*)(void))(res))(); },
+                    dcontext, { res = ((app_pc (*)(void))(res))(); },
                     { /* EXCEPT */
                       ASSERT_CURIOSITY(false && "crashed while executing ifunc");
                       res = NULL;
@@ -1482,7 +1482,7 @@ resolve_ifunc(app_pc resolver_pc)
     /* TODO i#7392: glibc 2.41 passes hwcap to ifunc resolvers on AArch32, and
      * hwcap and __ifunc_arg_t structure to ifunc resolvers on AArch64.
      */
-    addr = ((ELF_ADDR(*)(void))resolver_pc)();
+    addr = ((ELF_ADDR (*)(void))resolver_pc)();
 #    endif
 
     return addr;

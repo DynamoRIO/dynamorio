@@ -60,7 +60,7 @@ struct _instrlist_t {
 #ifdef ARM
     dr_pred_type_t auto_pred;
 #endif /* ARM */
-};     /* instrlist_t */
+}; /* instrlist_t */
 
 /* basic instrlist_t functions */
 

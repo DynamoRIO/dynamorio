@@ -62,12 +62,12 @@
 #    pragma warning(disable : 4100) // 'envp' : unreferenced formal parameter
 #    pragma warning(disable : 4127) // conditional expr is constant (majority of warnings)
 #    pragma warning(disable : 4189) // local variable is initialized but not referenced
-#    pragma warning( \
-        disable : 4204) // nonstd extension: non-constant aggregate initializer
+#    pragma warning(disable \
+                    : 4204) // nonstd extension: non-constant aggregate initializer
 #    pragma warning(disable : 4210) // nonstd extension: function given file scope
 #    pragma warning(disable : 4505) // unreferenced local function has been removed
-#    pragma warning( \
-        disable : 4702) // unreachable code (DEBUG=0, for INTERNAL_OPTION test)
+#    pragma warning(disable \
+                    : 4702) // unreachable code (DEBUG=0, for INTERNAL_OPTION test)
 #    pragma warning(disable : 4324) // structure was padded due to __declspec(align())
 #    pragma warning(disable : 4709) // comma operator within array index expression
 #    pragma warning(disable : 4214) // nonstd extension: bit field types other than int
@@ -78,8 +78,8 @@
 /* shows up in buildtools/VC/8.0/dist/VC/include/vadefs.h
  * supposed to include identifier in the pop pragma and they don't
  */
-#    pragma warning( \
-        disable : 4159) // #pragma pack has popped previously pushed identifier
+#    pragma warning(disable \
+                    : 4159) // #pragma pack has popped previously pushed identifier
 
 /* XXX case 191729: this is coming from our own code.  We could
  * switch to the _s versions when on Windows.

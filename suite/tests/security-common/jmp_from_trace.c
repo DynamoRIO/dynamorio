@@ -74,7 +74,7 @@ bad_trace4(void)
                 fnptr();
             }
             if (c < SWITCH_AFTER) {
-                fnptr = (int (*)()) & badtarget;
+                fnptr = (int (*)())&badtarget;
                 print("Next time around jump to data section\n");
             }
         }

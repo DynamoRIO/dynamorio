@@ -517,10 +517,9 @@ insert_inlined_ibl(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, byte *pc,
     } else {
         insert_relative_target(start_pc + ibl_code->inline_linkedjmp_offs,
                                linked_exit_target, NOT_HOT_PATCHABLE);
-        insert_relative_target(
-            start_pc + ibl_code->inline_unlink_offs +
-                1 /* skip jmp opcode: see emit_inline_ibl_stub XXX */,
-            unlinked_exit_target, NOT_HOT_PATCHABLE);
+        insert_relative_target(start_pc + ibl_code->inline_unlink_offs +
+                                   1 /* skip jmp opcode: see emit_inline_ibl_stub XXX */,
+                               unlinked_exit_target, NOT_HOT_PATCHABLE);
     }
 
     return start_pc + ibl_code->inline_stub_length;
@@ -941,7 +940,7 @@ entrance_stub_jmp(cache_pc stub)
 #ifdef X64
     if (*stub == 0x65)
         return (stub + STUB_COARSE_DIRECT_SIZE64 - JMP_LONG_LENGTH);
-        /* else, 32-bit stub */
+    /* else, 32-bit stub */
 #endif
     return (stub + STUB_COARSE_DIRECT_SIZE32 - JMP_LONG_LENGTH);
 }

@@ -184,10 +184,7 @@ enum option_is_internal {
 
 /* for all other option uses */
 #define OPTION_STRING(x) x
-#define EMPTY_STRING \
-    {                \
-        0            \
-    } /* fills the constant char structure with zeroes */
+#define EMPTY_STRING { 0 } /* fills the constant char structure with zeroes */
 
 /* the Option struct typedef */
 #ifdef EXPOSE_INTERNAL_OPTIONS

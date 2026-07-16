@@ -137,7 +137,7 @@ struct _module_data_t {
     union {
         app_pc start;           /**< starting address of this module */
         module_handle_t handle; /**< module_handle for use with dr_get_proc_address() */
-    };                          /* anonymous union of start address and module handle */
+    }; /* anonymous union of start address and module handle */
     /**
      * Ending address of this module.  If the module is not contiguous
      * (which is common on MacOS, and can happen on Linux), this is the

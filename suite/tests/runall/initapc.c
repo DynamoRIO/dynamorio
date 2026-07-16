@@ -54,7 +54,8 @@
 #include "tools.h"
 
 /* from initapc-dll.dll */
-__declspec(dllimport) import_me(int x);
+__declspec(dllimport)
+import_me(int x);
 
 int
 main(int argc, const char *argv[])

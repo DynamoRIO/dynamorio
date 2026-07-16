@@ -193,7 +193,7 @@ load_module(const char *modpath)
                     mod = newmod;
                 }
             } /* else stick with mod */
-        }     /* else stick with mod */
+        } /* else stick with mod */
     }
     if (newmod == NULL) {
         dwarf_lib_handle_t dbg;

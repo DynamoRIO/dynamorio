@@ -327,7 +327,7 @@ main(int argc, char **argv)
         for (i = 0; i < matrix_size; i++)
             x_old[i] = x_new[i];
 
-            /* Load the shared library */
+        /* Load the shared library */
 #ifdef WINDOWS
         jacobi_module = LoadLibrary(lib_name);
         if (jacobi_module == NULL) {

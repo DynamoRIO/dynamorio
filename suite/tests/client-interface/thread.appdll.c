@@ -36,7 +36,8 @@
 #ifdef WINDOWS
 /* test client thread transparency wrt DllMain (PR 210591) */
 
-int __declspec(dllexport) import_me(int x)
+int __declspec(dllexport)
+import_me(int x)
 {
     print("in import %d\n", x);
     return 2 * x;

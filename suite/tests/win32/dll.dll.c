@@ -32,7 +32,8 @@
 
 #include "tools.h"
 
-int __declspec(dllexport) import_me(int x)
+int __declspec(dllexport)
+import_me(int x)
 {
     print("in import\n");
     return 2 * x;

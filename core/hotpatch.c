@@ -2546,10 +2546,10 @@ hotp_process_image_exit:
     /* TODO: or does this go after flush? */
     if (!own_hot_patch_lock)
         d_r_write_unlock(&hotp_vul_table_lock);
-        /* TODO: also there are some race conditions with nudging & policy lookup/
-         *       injection; sort those out; flushing before or after reading the
-         *       policy plays a role too.
-         */
+    /* TODO: also there are some race conditions with nudging & policy lookup/
+     *       injection; sort those out; flushing before or after reading the
+     *       policy plays a role too.
+     */
 #    ifdef WINDOWS
     if (num_threads == HOTP_ONLY_NUM_THREADS_AT_INIT) {
         ASSERT(DYNAMO_OPTION(hotp_only));
@@ -5523,10 +5523,10 @@ hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
     if (!DYNAMO_OPTION(hotp_only) IF_WINDOWS(|| !doing_detach))
         return false;
 
-        /* Today memory debug checks for special heap units only do heap accouting,
-         * but not memcmp, both of which are done for regular heaps.  Special heaps
-         * are where the leaked trampolines are located.  If we do implement that
-         * check then this code in #if 0 would be needed.  Case 10434. */
+    /* Today memory debug checks for special heap units only do heap accouting,
+     * but not memcmp, both of which are done for regular heaps.  Special heaps
+     * are where the leaked trampolines are located.  If we do implement that
+     * check then this code in #if 0 would be needed.  Case 10434. */
 #        if 0
     for (i = 0; i < hotp_only_num_tramps_leaked; i++) {
         if (hotp_only_tramps_leaked[i] >= pc &&

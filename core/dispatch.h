@@ -77,6 +77,6 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
     } while (0);
 
 /* magic value to set next_tag to, to indicate a return to native_exec */
-#define BACK_TO_NATIVE_AFTER_SYSCALL ((app_pc)(ptr_uint_t)-1)
+#define BACK_TO_NATIVE_AFTER_SYSCALL ((app_pc)(ptr_uint_t) - 1)
 
 #endif /* _DISPATCH_H_ */

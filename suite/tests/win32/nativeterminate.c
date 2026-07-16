@@ -40,8 +40,10 @@
 #include "thread.h"
 
 /* from nativeterminate.dll.dll */
-__declspec(dllimport) __stdcall import_me1(int x);
-__declspec(dllimport) __stdcall import_me_die(int x);
+__declspec(dllimport) __stdcall
+import_me1(int x);
+__declspec(dllimport) __stdcall
+import_me_die(int x);
 
 int
 main()

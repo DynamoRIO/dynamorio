@@ -77,10 +77,10 @@ foo(int iters)
         call next_inst
       next_inst:
         pop  edx
-            /* add to retaddr: 1 == pop
-             *                 3 == mov ecx into target
-             *                 1 == opcode of target movl
-             */
+                /* add to retaddr: 1 == pop
+                 *                 3 == mov ecx into target
+                 *                 1 == opcode of target movl
+                 */
         mov  dword ptr [edx + 0x5], ecx /* the modifying store */
         mov  eax,0x12345678 /* this instr's immed gets overwritten */
         mov  ecx,0x0 /* counter for diagnostics */

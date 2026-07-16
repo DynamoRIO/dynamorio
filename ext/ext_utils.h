@@ -47,9 +47,9 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
 #define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
+    ((((ptr_uint_t)x) + ((alignment) - 1)) & (~((alignment) - 1)))
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment) - 1)))
 
 #endif /* EXT_UTILS_H */

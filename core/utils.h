@@ -216,21 +216,21 @@ external_error(const char *file, int line, const char *msg);
     CLIENT_ASSERT((val) < (1 << ((width) + 1)), msg);
 
 /* alignment helpers, alignment must be power of 2 */
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
 #define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
+    ((((ptr_uint_t)x) + ((alignment) - 1)) & (~((ptr_uint_t)(alignment) - 1)))
 #define ALIGN_FORWARD_UINT(x, alignment) \
-    ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
+    ((((uint)x) + ((alignment) - 1)) & (~((alignment) - 1)))
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment) - 1)))
 #define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
 #define ALIGN_MOD(addr, size, alignment) \
-    ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
+    ((((ptr_uint_t)addr) + (size) - 1) & ((alignment) - 1))
 #define CROSSES_ALIGNMENT(addr, size, alignment) \
-    (ALIGN_MOD(addr, size, alignment) < (size)-1)
+    (ALIGN_MOD(addr, size, alignment) < (size) - 1)
 /* number of bytes you need to shift addr forward so that it's !CROSSES_ALIGNMENT */
-#define ALIGN_SHIFT_SIZE(addr, size, alignment)          \
-    (CROSSES_ALIGNMENT(addr, size, alignment)            \
-         ? ((size)-1 - ALIGN_MOD(addr, size, alignment)) \
+#define ALIGN_SHIFT_SIZE(addr, size, alignment)            \
+    (CROSSES_ALIGNMENT(addr, size, alignment)              \
+         ? ((size) - 1 - ALIGN_MOD(addr, size, alignment)) \
          : 0)
 
 /****************************************************************************
@@ -270,10 +270,7 @@ typedef struct _mac_synch_t {
     volatile int value;
 } mac_synch_t;
 #    define KSYNCH_TYPE mac_synch_t
-#    define KSYNCH_TYPE_STATIC_INIT \
-        {                           \
-            0, 0                    \
-        }
+#    define KSYNCH_TYPE_STATIC_INIT { 0, 0 }
 #else
 #    error Unknown operating system
 #endif
@@ -681,10 +678,7 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
         }
 #else
 /* Ignore the arguments */
-#    define INIT_LOCK_NO_TYPE(name, rank)            \
-        {                                            \
-            LOCK_FREE_STATE, KSYNCH_TYPE_STATIC_INIT \
-        }
+#    define INIT_LOCK_NO_TYPE(name, rank) { LOCK_FREE_STATE, KSYNCH_TYPE_STATIC_INIT }
 #endif /* DEADLOCK_AVOIDANCE */
 
 /* Structure assignments and initialization don't work the same in gcc and cl
@@ -722,14 +716,12 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
 #define ASSIGN_INIT_SPINMUTEX_FREE(var, spinmutex) \
     ASSIGN_INIT_LOCK_FREE((var).lock, spinmutex)
 
-#define INIT_RECURSIVE_LOCK(lock)                                     \
-    STRUCTURE_TYPE(recursive_lock_t)                                  \
-    {                                                                 \
-        INIT_LOCK_NO_TYPE(#lock "(recursive)"                         \
-                                "@" __FILE__ ":" STRINGIFY(__LINE__), \
-                          LOCK_RANK(lock)),                           \
-            INVALID_THREAD_ID, 0                                      \
-    }
+#define INIT_RECURSIVE_LOCK(lock)                                                       \
+    STRUCTURE_TYPE(recursive_lock_t) { INIT_LOCK_NO_TYPE(#lock "(recursive)"            \
+                                                               "@" __FILE__             \
+                                                               ":" STRINGIFY(__LINE__), \
+                                                         LOCK_RANK(lock)),              \
+                                       INVALID_THREAD_ID, 0 }
 
 #define INIT_READWRITE_LOCK(lock)                                                     \
     STRUCTURE_TYPE(read_write_lock_t)                                                 \
@@ -1105,7 +1097,7 @@ hashtable_num_bits(uint size);
 
 #define MAX_LOW_2GB ((byte *)(ptr_uint_t)INT_MAX)
 
-#define IS_POWER_OF_2(x) ((x) == 0 || ((x) & ((x)-1)) == 0)
+#define IS_POWER_OF_2(x) ((x) == 0 || ((x) & ((x) - 1)) == 0)
 
 /* C standard has pointer overflow as undefined so cast to unsigned
  * (i#14 and drmem i#302)
@@ -1130,7 +1122,7 @@ typedef bitmap_element_t bitmap_t[];
 #define BITMAP_DENSITY 32
 #define BITMAP_MASK(i) (1 << ((i) % BITMAP_DENSITY))
 #define BITMAP_INDEX(i) ((i) / BITMAP_DENSITY)
-#define BITMAP_NOT_FOUND ((uint)-1)
+#define BITMAP_NOT_FOUND ((uint) - 1)
 
 /* bitmap_t primitives */
 
@@ -1510,7 +1502,7 @@ extern mutex_t do_threshold_mutex;
         /* rollback first */                                     \
         POP_TRY_BLOCK(try_pointer, try__state);                  \
         statement;                                               \
-        /* XXX: stop unwinding */                              \
+        /* XXX: stop unwinding */                                \
     }
 
 /* XXX: should be called only nested within another TRY/EXCEPT
@@ -1540,7 +1532,7 @@ extern mutex_t do_threshold_mutex;
         /* executed for both normal execution, or exception */        \
         statement;                                                    \
         if ((try_pointer)->unwinding_exception) {                     \
-            /* XXX: on nested exception must keep UNWINDing */      \
+            /* XXX: on nested exception must keep UNWINDing */        \
             /* and give control to the previous nested handler */     \
             /* until an EXCEPT handler resumes to normal execution */ \
             /* we don't keep any exception context */                 \

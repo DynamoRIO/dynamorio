@@ -102,7 +102,7 @@ privload_tls_init(void *app_tls, bool use_safe_read)
 #if defined(AARCH64)
     void **cur_tls = (void **)read_thread_register(TLS_REG_LIB);
     if (cur_tls != NULL && pthread_ptr_munge_token == 0) {
-        pthread_ptr_munge_token = (uintptr_t) * (cur_tls + TSD_PTR_MUNGE);
+        pthread_ptr_munge_token = (uintptr_t)*(cur_tls + TSD_PTR_MUNGE);
     }
 
     byte *pthread = NULL;

@@ -518,7 +518,7 @@ drutil_insert_get_mem_addr_risc(void *drcontext, instrlist_t *bb, instr_t *where
     }
     return true;
 }
-#endif /* X86/AARCHXX/RISCV64 */
+#endif     /* X86/AARCHXX/RISCV64 */
 
 DR_EXPORT
 uint

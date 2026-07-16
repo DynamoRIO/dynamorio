@@ -138,7 +138,7 @@ test_PLT_with_indcalls(int table_index)
         add eax, table_index
 
         call eax // THIS indirect call should succeed at going only to the first
-                     // instruction in this pseudo jump-table
+                    // instruction in this pseudo jump-table
         jmp after_plt_call
     plt_ind_call_table:
         jmp good // label address taken
@@ -146,7 +146,7 @@ test_PLT_with_indcalls(int table_index)
         jmp good2 //  this address is not address taken
 
     after_plt_call:
-        add esp,4            // arg
+        add esp,4   // arg
     }
 }
 
@@ -168,20 +168,21 @@ test_PLT_with_indjumps(int table_index)
                  * offset'
                  */
         jmp eax // THIS indirect call should succeed at going only to the
-                        // first instruction in this pseudo jump-table
+                       // first instruction in this pseudo jump-table
     plt_ind_call_table:
         jmp good
         jmp precious
         jmp good2
 
     after_plt_call:
-        add esp,4               // arg
+        add esp,4      // arg
     }
 }
 
 /* TODO: need to add a test that a jump instead of a return is OK */
 
-__declspec(naked) int jmp_instead_of_ret()
+__declspec(naked) int
+jmp_instead_of_ret()
 {
     __asm {
         mov eax, 42

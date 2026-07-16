@@ -145,7 +145,8 @@ usage(char *us)
 /* we must be a console application in order to have the process
  * we launch NOT get a brand new console window!
  */
-int __cdecl main(int argc, char *argv[], char *envp[])
+int __cdecl
+main(int argc, char *argv[], char *envp[])
 {
     LPTSTR app_name = NULL;
     TCHAR app_cmdline[MAX_CMDLINE];

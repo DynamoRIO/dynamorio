@@ -86,21 +86,24 @@ enum class element_size_t {
 const std::map<element_size_t, std::vector<predicate_reg_value128_t>> ALL_PREDICATES {
     { element_size_t::BYTE,
       {
-          0x0000,         // All inactive
-          0xFFFF,         // All active
-          0x5555, 0xaaaa, // Checkerboard pattern
+          0x0000, // All inactive
+          0xFFFF, // All active
+          0x5555,
+          0xaaaa, // Checkerboard pattern
       } },
     { element_size_t::HALF,
       {
-          0x0000,         // All inactive
-          0x5555,         // All active
-          0x1111, 0x4444, // Checkerboard pattern
+          0x0000, // All inactive
+          0x5555, // All active
+          0x1111,
+          0x4444, // Checkerboard pattern
       } },
     { element_size_t::SINGLE,
       {
-          0x0000,         // All inactive
-          0x1111,         // All active
-          0x0101, 0x1010, // Checkerboard pattern
+          0x0000, // All inactive
+          0x1111, // All active
+          0x0101,
+          0x1010, // Checkerboard pattern
       } },
     { element_size_t::DOUBLE, { 0x0000, 0x0001, 0x0100, 0x0101 } },
 };

@@ -166,7 +166,7 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
  */
 #define HEADER_SIZE HEAP_ALIGNMENT
 /* VARIABLE_SIZE is assignable */
-#define VARIABLE_SIZE(p) (*(size_t *)((p)-HEADER_SIZE))
+#define VARIABLE_SIZE(p) (*(size_t *)((p) - HEADER_SIZE))
 #define MEMSET_HEADER(p, value)                                             \
     do {                                                                    \
         ASSERT(HEADER_SIZE % sizeof(VARIABLE_SIZE(p)) == 0);                \
@@ -4593,7 +4593,7 @@ common_heap_free(thread_units_t *tu, void *p_void,
             tu->top_unit = u->next_local;
         else
             prev->next_local = u->next_local;
-            /* just retire the unit # */
+        /* just retire the unit # */
 #ifdef DEBUG_MEMORY
         LOG(THREAD, LOG_HEAP, 3, "\tFreeing oversized heap unit %d (%d KB)\n", u->id,
             size / 1024);

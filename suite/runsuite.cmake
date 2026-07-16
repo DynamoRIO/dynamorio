@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2025 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -255,11 +255,11 @@ endif ()
 # However, there's no simple way to do that.  For now we punt until someone
 # changes one of those.
 #
-# Prefer named version 14.0 from apt.llvm.org.
+# Prefer named version 21 from apt.llvm.org.
 if (DEFINED ENV{DISABLE_FORMAT_CHECKS} AND "$ENV{DISABLE_FORMAT_CHECKS}" STREQUAL "yes")
   message("format check disabled")
 else ()
-  find_program(CLANG_FORMAT_DIFF clang-format-diff-14 DOC "clang-format-diff")
+  find_program(CLANG_FORMAT_DIFF clang-format-diff-21 DOC "clang-format-diff")
   if (NOT CLANG_FORMAT_DIFF)
     find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
   endif ()

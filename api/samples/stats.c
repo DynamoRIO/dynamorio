@@ -60,7 +60,7 @@
 #    error WINDOWS-only!
 #endif
 
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
 
 /* We export a set of stats in shared memory.
  * drstats.exe reads and displays them.

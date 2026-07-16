@@ -73,7 +73,7 @@ typedef pid_t thread_t;
 #    include "../fcache.h"
 
 #    define OPTVERB_3 4
-//#define VERB_3 3
+// #define VERB_3 3
 #    define VERB_3 4
 #    define VERB_2 2
 
@@ -645,12 +645,12 @@ sideline_optimize(fragment_t *f,
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
 
-        /* XXX: separate always-do-online optimizations from
-         * sideline optimizations
-         * for now, we do all online or all sideline
-         * XXX: our ilist is already fully decoded, so we could avoid the
-         * full decode pass in optimize_trace
-         */
+    /* XXX: separate always-do-online optimizations from
+     * sideline optimizations
+     * for now, we do all online or all sideline
+     * XXX: our ilist is already fully decoded, so we could avoid the
+     * full decode pass in optimize_trace
+     */
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nbefore optimization:\n");
     if (d_r_stats->loglevel >= OPTVERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)

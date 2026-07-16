@@ -68,7 +68,7 @@
 #    ifndef byte
 typedef unsigned char byte;
 #    endif
-#    define PAGE_START(x) (((ptr_uint_t)(x)) & ~((PAGE_SIZE)-1))
+#    define PAGE_START(x) (((ptr_uint_t)(x)) & ~((PAGE_SIZE) - 1))
 #    define PAGE_SIZE (4 * 1024)
 #    define READ_FUNC ReadProcessMemory
 #endif

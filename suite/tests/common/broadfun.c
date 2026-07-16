@@ -61,8 +61,8 @@
 #    define ITER 400 * 100000 // *100
 #endif
 
-//#define MORE  more fanout
-//#define TOO_MUCH or more depth and more work
+// #define MORE  more fanout
+// #define TOO_MUCH or more depth and more work
 
 int
 compare(const void *arg1, const void *arg2)

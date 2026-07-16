@@ -100,13 +100,13 @@ ret_SEH(int level)
                 /* retaddr */
         push offset myretpt
     myhandler:
-                    /* some amount of code in here */
+        /* some amount of code in here */
         nop
         jmp foo
-                        /* make ret point not be the next instr */
+            /* make ret point not be the next instr */
         nop
     myretpt:
-                            /* clean up arg to foo */
+        /* clean up arg to foo */
         pop eax
     }
 }

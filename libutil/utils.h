@@ -442,10 +442,10 @@ show_all_events();
 #endif /* DEBUG */
 
 /* alignment helpers, alignment must be power of 2 */
-#define ALIGNED(x, alignment) ((((INT_PTR)x) & ((alignment)-1)) == 0)
-#define ALIGN_BACKWARD(x, alignment) (((INT_PTR)x) & (~((alignment)-1)))
+#define ALIGNED(x, alignment) ((((INT_PTR)x) & ((alignment) - 1)) == 0)
+#define ALIGN_BACKWARD(x, alignment) (((INT_PTR)x) & (~((alignment) - 1)))
 #define ALIGN_FORWARD(x, alignment) \
-    ((((INT_PTR)x) + ((alignment)-1)) & (~((alignment)-1)))
+    ((((INT_PTR)x) + ((alignment) - 1)) & (~((alignment) - 1)))
 
 #ifdef __cplusplus
 }

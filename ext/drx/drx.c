@@ -746,7 +746,7 @@ GET_NTDLL(NtQueryInformationJobObject,
 
 #    define STATUS_BUFFER_OVERFLOW ((NTSTATUS)0x80000005L)
 
-#    define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t)-1)
+#    define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t) - 1)
 
 typedef LONG KPRIORITY;
 

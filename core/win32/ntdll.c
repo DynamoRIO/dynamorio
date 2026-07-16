@@ -1052,9 +1052,9 @@ get_peb32(HANDLE process, HANDLE thread)
     NTSTATUS res = query_thread_info(thread, &info);
     if (!NT_SUCCESS(res))
         return 0;
-        /* Bizarrely, info.TebBaseAddress points 2 pages too low!  We do sanity
-         * checks to confirm we have a TEB by looking at its self pointer.
-         */
+    /* Bizarrely, info.TebBaseAddress points 2 pages too low!  We do sanity
+     * checks to confirm we have a TEB by looking at its self pointer.
+     */
 #    define TEB32_QUERY_OFFS 0x2000
     byte *teb32 = (byte *)info.TebBaseAddress;
     uint ptr32;

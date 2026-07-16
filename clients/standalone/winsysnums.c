@@ -106,8 +106,11 @@ static const char *const usercall_imp_names[] = {
      * I bailed on further investigation as we assume the numbers are
      * the same across bitwidths.
      */
-    "_imp__NtUserCallOneParam", "_imp__NtUserCallHwnd", "_imp__NtUserCallHwndOpt",
-    "_imp__NtUserCallHwndParam", "_imp__NtUserCallHwndLock",
+    "_imp__NtUserCallOneParam",
+    "_imp__NtUserCallHwnd",
+    "_imp__NtUserCallHwndOpt",
+    "_imp__NtUserCallHwndParam",
+    "_imp__NtUserCallHwndLock",
     "_imp__NtUserCallHwndParamLock",
     "_imp__NtUserCallTwoParam", /* For 32-bit we use ALT_TWOPARAM */
 };

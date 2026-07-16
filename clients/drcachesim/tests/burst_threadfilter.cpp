@@ -135,7 +135,7 @@ unsigned int __stdcall
 #else
 void *
 #endif
-    thread_func(void *arg)
+thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     static const int reattach_iters = 4;

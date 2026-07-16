@@ -55,7 +55,7 @@ evil_copy(void *start, int count, ptr_int_t value);
 
 #    define VERBOSE 0
 
-#    define EXPANDSTR(x) #    x
+#    define EXPANDSTR(x) #x
 #    define STRINGIFY(x) EXPANDSTR(x)
 
 /* bottom page is a guard page, so ignore it -- consider only top 8KB */

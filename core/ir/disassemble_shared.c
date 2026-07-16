@@ -1028,14 +1028,15 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
     for (i = 0; i < num; i++) {
         bool printing = false;
         opnd = dsts_first() ? instr_get_dst(instr, i) : instr_get_src(instr, i);
-        IF_X86_ELSE({ optype = instr_info_opnd_type(info, !dsts_first(), i); },
-                    {
-                        /* XXX i#1683: -syntax_arm currently fails here on register lists
-                         * and will trigger the assert in instr_info_opnd_type().  We
-                         * don't use the optype on ARM yet though.
-                         */
-                        optype = 0;
-                    });
+        IF_X86_ELSE(
+            { optype = instr_info_opnd_type(info, !dsts_first(), i); },
+            {
+                /* XXX i#1683: -syntax_arm currently fails here on register lists
+                 * and will trigger the assert in instr_info_opnd_type().  We
+                 * don't use the optype on ARM yet though.
+                 */
+                optype = 0;
+            });
         bool is_evex_mask = optype_is_evex_mask_arch(optype);
         CLIENT_ASSERT(!is_evex_mask || opmask_with_dsts(),
                       "Anything here with evex mask should be opmask_with_dsts()");
@@ -1059,11 +1060,12 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PAR
     for (i = 0; i < num; i++) {
         bool print = true;
         opnd = dsts_first() ? instr_get_src(instr, i) : instr_get_dst(instr, i);
-        IF_X86_ELSE({ optype = instr_info_opnd_type(info, dsts_first(), i); },
-                    {
-                        /* XXX i#1683: see comment above */
-                        optype = 0;
-                    });
+        IF_X86_ELSE(
+            { optype = instr_info_opnd_type(info, dsts_first(), i); },
+            {
+                /* XXX i#1683: see comment above */
+                optype = 0;
+            });
         IF_X86({
             /* PR 312458: still not matching Intel-style tools like windbg or udis86:
              * we need to suppress certain implicit operands, such as:

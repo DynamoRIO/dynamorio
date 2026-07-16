@@ -2256,8 +2256,8 @@ const char *
 get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brtype_name)
 {
 #if defined(X86) && defined(X64)
-    static const char
-        *const ibl_routine_names[3][IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
+    static const char *const
+        ibl_routine_names[3][IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
             {
                 { "shared_unlinked_bb_ibl", "shared_delete_bb_ibl", "shared_bb_far",
                   "shared_bb_far_unlinked", "shared_bb_cmp", "shared_bb_cmp_unlinked",
@@ -2340,8 +2340,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
             }
         };
 #else
-    static const char
-        *const ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
+    static const char *const
+        ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
             { "shared_unlinked_bb_ibl", "shared_delete_bb_ibl", "shared_bb_far",
               "shared_bb_far_unlinked", "shared_bb_ibl", "shared_bb_ibl_template" },
             { "shared_unlinked_trace_ibl", "shared_delete_trace_ibl", "shared_trace_far",

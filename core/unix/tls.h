@@ -165,23 +165,25 @@ read_thread_register(reg_id_t reg)
 #elif defined(AARCHXX)
     ptr_uint_t sel;
     if (reg == DR_REG_TPIDRURO) {
-        IF_X64_ELSE({ asm volatile("mrs %0, tpidrro_el0"
-                                   : "=r"(sel)); },
-                    {
-                        /* read thread register from CP15 (coprocessor 15)
-                         * c13 (software thread ID registers) with opcode 3 (user RO)
-                         */
-                        asm volatile("mrc  p15, 0, %0, c13, c0, 3" : "=r"(sel));
-                    });
+        IF_X64_ELSE(
+            { asm volatile("mrs %0, tpidrro_el0"
+                           : "=r"(sel)); },
+            {
+                /* read thread register from CP15 (coprocessor 15)
+                 * c13 (software thread ID registers) with opcode 3 (user RO)
+                 */
+                asm volatile("mrc  p15, 0, %0, c13, c0, 3" : "=r"(sel));
+            });
     } else if (reg == DR_REG_TPIDRURW) {
-        IF_X64_ELSE({ asm volatile("mrs %0, tpidr_el0"
-                                   : "=r"(sel)); },
-                    {
-                        /* read thread register from CP15 (coprocessor 15)
-                         * c13 (software thread ID registers) with opcode 2 (user RW)
-                         */
-                        asm volatile("mrc  p15, 0, %0, c13, c0, 2" : "=r"(sel));
-                    });
+        IF_X64_ELSE(
+            { asm volatile("mrs %0, tpidr_el0"
+                           : "=r"(sel)); },
+            {
+                /* read thread register from CP15 (coprocessor 15)
+                 * c13 (software thread ID registers) with opcode 2 (user RW)
+                 */
+                asm volatile("mrc  p15, 0, %0, c13, c0, 2" : "=r"(sel));
+            });
     } else {
         ASSERT_NOT_REACHED();
         return 0;

@@ -39,23 +39,16 @@
 
 #include "tools.h"
 
-#define initialize_registry_context() /* stick to a known value */ \
-    __asm { push 0 }                                               \
-    __asm                                                          \
-    {                                                              \
-        popfd                                                      \
-    }                                                              \
-    __asm { mov  ebx, 0xbbcdcdcd }                                  \
-    __asm                                                          \
-    {                                                              \
-        mov ecx, 0xcccdcdcd                                        \
-    }                                                              \
-    __asm { mov  edx, 0xddcdcdcd }                                  \
-    __asm                                                          \
-    {                                                              \
-        mov edi, 0xeecdcdcd                                        \
-    }                                                              \
-    __asm { mov  esi, 0xffcdcdcd }
+#define initialize_registry_context() /* stick to a known value */      \
+    __asm { push 0 }                                                      \
+    __asm                                                               \
+    {                                                                   \
+        popfd                                                           \
+    }                                                                   \
+    __asm { mov  ebx, 0xbbcdcdcd }                                          \
+    __asm { mov ecx, 0xcccdcdcd } __asm { mov edx, 0xddcdcdcd } __asm { \
+        mov edi, 0xeecdcdcd                                             \
+    } __asm { mov esi, 0xffcdcdcd }
 
 #define NO_DEBUG_REGISTERS /* We shouldn't be messing with these registers, \
                               so diffs here maybe not our fault (VMware's?) */
