@@ -1870,9 +1870,10 @@ enum {
  * data, or another thread during synchall.
  */
 static generic_table_t *takeover_table;
-#    define INIT_HTABLE_SIZE_TAKEOVER 6               /* should remain small */
-#    define INVALID_PAYLOAD ((void *)(ptr_int_t) - 2) /* NULL and -1 are used by table \
-                                                       */
+#    define INIT_HTABLE_SIZE_TAKEOVER 6 /* should remain small */
+#    define INVALID_PAYLOAD                                        \
+        ((void *)(ptr_int_t) - 2) /* NULL and -1 are used by table \
+                                   */
 
 static void
 takeover_table_entry_free(dcontext_t *dcontext, void *e)
