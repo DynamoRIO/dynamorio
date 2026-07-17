@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -5261,7 +5261,7 @@ decode_syscall_num(dcontext_t *dcontext, byte *entry)
                  */
                 if (!is_syscall_trampoline(opnd_get_pc(instr_get_target(&instr)), &pc)) {
                     break; /* give up gracefully */
-                }          /* else, carry on at pc */
+                } /* else, carry on at pc */
             } else
 #endif
                 break; /* give up gracefully */
@@ -5711,7 +5711,7 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     if (GENCODE_IS_X86(code->gencode_mode))
         instrlist_convert_to_x86(&ilist);
 #endif
-        /* do not add new instrs that need conversion to x86 below here! */
+    /* do not add new instrs that need conversion to x86 below here! */
 
 #ifdef X86
     /* to support patching the 4-byte pc-rel tgt we must ensure it doesn't

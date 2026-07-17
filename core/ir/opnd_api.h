@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1017,9 +1017,9 @@ enum {
     DR_REG_SPSR_FIQ,        /**< The "spsr_fiq" register. */
 /* Be sure to update reg_get_size() in opnd_shared.c if you add a register. */
 #    else
-    DR_REG_CPSR,                  /**< The "cpsr" register. */
-    DR_REG_SPSR,                  /**< The "spsr" register. */
-    DR_REG_FPSCR,                 /**< The "fpscr" register. */
+    DR_REG_CPSR,  /**< The "cpsr" register. */
+    DR_REG_SPSR,  /**< The "spsr" register. */
+    DR_REG_FPSCR, /**< The "fpscr" register. */
 #    endif
 
     /* AArch32 Thread Registers */
@@ -1110,13 +1110,13 @@ enum {
     DR_REG_SP = DR_REG_XSP,  /**< The stack pointer register. */
     DR_REG_LR = DR_REG_X30,  /**< The link register. */
 #    else
-    DR_REG_SP = DR_REG_R13,       /**< The stack pointer register. */
-    DR_REG_LR = DR_REG_R14,       /**< The link register. */
-    DR_REG_PC = DR_REG_R15,       /**< The program counter register. */
+    DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
+    DR_REG_LR = DR_REG_R14, /**< The link register. */
+    DR_REG_PC = DR_REG_R15, /**< The program counter register. */
 #    endif
-    DR_REG_SL = DR_REG_R10,  /**< Alias for the r10 register. */
-    DR_REG_FP = DR_REG_R11,  /**< Alias for the r11 register. */
-    DR_REG_IP = DR_REG_R12,  /**< Alias for the r12 register. */
+    DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
+    DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
+    DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
 #    ifndef AARCH64
     /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
     DR_REG_APSR = DR_REG_CPSR,

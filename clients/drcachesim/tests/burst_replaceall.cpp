@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -256,7 +256,7 @@ unsigned int __stdcall
 #    else
 void *
 #    endif
-    thread_func(void *arg)
+thread_func(void *arg)
 {
     uintptr_t i = reinterpret_cast<uintptr_t>(arg);
     signal_cond_var(started[i]);

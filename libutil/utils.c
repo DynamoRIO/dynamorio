@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1927,8 +1927,8 @@ run_individual_canary_test(FILE *file, WCHAR *logbase, WCHAR *dr_options, int ex
     return canary_code;
 }
 
-#        pragma warning( \
-            disable : 4127) // conditional expression is constant i.e while (FALSE)
+#        pragma warning(disable \
+                        : 4127) // conditional expression is constant i.e while (FALSE)
 
 /* see utils.h for description */
 BOOL

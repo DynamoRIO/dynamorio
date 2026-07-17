@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,9 +58,10 @@ static int verbose = 1;
 #define WARN(...) INFO(0, __VA_ARGS__)
 
 /* alignment helpers */
-#define ALIGNED(x, alignment) ((((uint)x) & ((alignment)-1)) == 0)
-#define ALIGN_FORWARD(x, alignment) ((((uint)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((uint)x) & (~((alignment)-1)))
+#define ALIGNED(x, alignment) ((((uint)x) & ((alignment) - 1)) == 0)
+#define ALIGN_FORWARD(x, alignment) \
+    ((((uint)x) + ((alignment) - 1)) & (~((alignment) - 1)))
+#define ALIGN_BACKWARD(x, alignment) (((uint)x) & (~((alignment) - 1)))
 #define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
 
 /* check if all bits in mask are set in var */
@@ -1036,7 +1037,8 @@ usage(const char *msg)
  * used to generate the .ldmp file, prints out a mapping of thread_ids from
  * the dump to the new process.
  * ldmp.exe <.ldmp file> <windows path to dummy.exe (absolute, local drive)> */
-DWORD __cdecl main(DWORD argc, char *argv[], char *envp[])
+DWORD __cdecl
+main(DWORD argc, char *argv[], char *envp[])
 {
     FILE *file;
     HANDLE hProc;

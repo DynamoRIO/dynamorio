@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2411,11 +2411,10 @@ add_executable_vm_area_check_IAT(app_pc *start /*IN/OUT*/, app_pc *end /*IN/OUT*
          * to post-IAT even if the IAT is in the middle, if it's toward the front
          */
         (*start >= IAT_start || (IAT_start - *start < *end - IAT_end)) &&
-        *start<IAT_end &&
-               /* be paranoid: multi-page IAT where hooker fooled our loader matching
-                * could add just 1st page of IAT? */
-               * end>
-            IAT_end /* for == avoid an empty region */) {
+        *start < IAT_end &&
+        /* be paranoid: multi-page IAT where hooker fooled our loader matching
+         * could add just 1st page of IAT? */
+        *end > IAT_end /* for == avoid an empty region */) {
         /* If a pre-IAT region exists, split if off separately (case 10945).
          * We want to keep as coarse, but we need the post-IAT region to be the
          * primary coarse and the one we try to load a pcache for: so we delay

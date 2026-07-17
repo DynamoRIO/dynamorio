@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -194,7 +194,8 @@ usage(char *us)
     return 0;
 }
 
-int __cdecl main(int argc, char *argv[], char *envp[])
+int __cdecl
+main(int argc, char *argv[], char *envp[])
 {
     LPTSTR app_name = NULL;
     TCHAR full_app_name[2 * MAX_PATH];

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1870,8 +1870,10 @@ enum {
  * data, or another thread during synchall.
  */
 static generic_table_t *takeover_table;
-#    define INIT_HTABLE_SIZE_TAKEOVER 6             /* should remain small */
-#    define INVALID_PAYLOAD ((void *)(ptr_int_t)-2) /* NULL and -1 are used by table */
+#    define INIT_HTABLE_SIZE_TAKEOVER 6 /* should remain small */
+#    define INVALID_PAYLOAD                                        \
+        ((void *)(ptr_int_t) - 2) /* NULL and -1 are used by table \
+                                   */
 
 static void
 takeover_table_entry_free(dcontext_t *dcontext, void *e)
@@ -8104,11 +8106,11 @@ os_dump_core_internal(const char *msg, bool live_only, char *path DR_PARAM_OUT,
     if (current_id == current_dumping_thread_id)
         return false; /* avoid infinite loop */
 
-        /* XXX : A failure in the mutex_lock or mutex_unlock of the
-         * dump_core_lock could lead to an infinite recursion, also a failure while
-         * holding the eventlog_lock would lead to a deadlock at the syslog in
-         * livedump (but we would likely deadlock later anyways), all other
-         * recursion/deadlock cases should be handled by the above check */
+    /* XXX : A failure in the mutex_lock or mutex_unlock of the
+     * dump_core_lock could lead to an infinite recursion, also a failure while
+     * holding the eventlog_lock would lead to a deadlock at the syslog in
+     * livedump (but we would likely deadlock later anyways), all other
+     * recursion/deadlock cases should be handled by the above check */
 
 #    ifdef DEADLOCK_AVOIDANCE
     /* first turn off deadlock avoidance for this thread (needed for live dump

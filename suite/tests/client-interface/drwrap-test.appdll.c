@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -332,7 +332,8 @@ DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
     return TRUE;
 }
 #    else
-int __attribute__((constructor)) so_init(void)
+int __attribute__((constructor))
+so_init(void)
 {
     run_tests();
     return 0;

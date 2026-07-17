@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -828,12 +828,20 @@ instr_is_wow64_syscall(instr_t *instr)
 #        ifdef DEBUG
         /* We still pattern match in debug to provide a sanity check */
         static const byte WOW64_SYSSVC[] = {
-            0x64, 0x8b, 0x15, 0x30, 0x00, 0x00, 0x00, /* mov edx,dword ptr fs:[30h] */
+            0x64,
+            0x8b,
+            0x15,
+            0x30,
+            0x00,
+            0x00,
+            0x00, /* mov edx,dword ptr fs:[30h] */
             /* The offset here varies across updates so we do do not check it */
-            0x8b, 0x92, /* mov edx,dword ptr [edx+254h] */
+            0x8b,
+            0x92, /* mov edx,dword ptr [edx+254h] */
         };
         static const byte WOW64_SYSSVC_1609[] = {
-            0xff, 0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
+            0xff,
+            0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
         };
         byte tgt_code[sizeof(WOW64_SYSSVC)];
 #        endif

@@ -40,7 +40,8 @@
 // #define VERBOSE
 typedef int (*fiptr)(void);
 
-fiptr __declspec(dllexport) giveme_target(int arg);
+fiptr __declspec(dllexport)
+giveme_target(int arg);
 
 fiptr go_where;
 
@@ -54,7 +55,8 @@ get_module_preferred_base(void *module_base)
     return (void *)nt->OptionalHeader.ImageBase;
 }
 
-void __declspec(dllimport) precious(void);
+void __declspec(dllimport)
+precious(void);
 
 /* from retexisting.c */
 int

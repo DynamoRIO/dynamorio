@@ -136,7 +136,8 @@ GetProcNameFromId(int pid, TCHAR *pName)
 }
 // eof a.s.
 
-int __cdecl _tmain(int argc, TCHAR **argv)
+int __cdecl
+_tmain(int argc, TCHAR **argv)
 {
     HQUERY hQuery;
     HCOUNTER *pCounterHandle;

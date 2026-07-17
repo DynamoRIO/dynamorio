@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -155,10 +155,10 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG3_OFFS R3_OFFSET
 #    define SCRATCH_REG4_OFFS R4_OFFSET
 #    define SCRATCH_REG5_OFFS R5_OFFSET
-#    define REG_OFFSET(reg) (R0_OFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t))
+#    define REG_OFFSET(reg) (R0_OFFSET + ((reg) - DR_REG_R0) * sizeof(reg_t))
 #    define Z_REG_OFFSET(reg) \
         ((MC_OFFS) +          \
-         (offsetof(priv_mcontext_t, simd) + ((reg)-DR_REG_Z0) * sizeof(dr_simd_t)))
+         (offsetof(priv_mcontext_t, simd) + ((reg) - DR_REG_Z0) * sizeof(dr_simd_t)))
 #    define CALL_SCRATCH_REG DR_REG_R11
 #    define MC_IBL_REG r2
 #    define MC_RETVAL_REG r0
@@ -190,11 +190,11 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG3_OFFS REG3_OFFSET
 #    define SCRATCH_REG4_OFFS REG4_OFFSET
 #    define SCRATCH_REG5_OFFS REG5_OFFSET
-#    define REG_OFFSET(reg) (X0_OFFSET + ((reg)-DR_REG_X0) * sizeof(reg_t))
-#    define FREG_OFFSET(reg) (F0_OFFSET + ((reg)-DR_REG_F0) * sizeof(reg_t))
+#    define REG_OFFSET(reg) (X0_OFFSET + ((reg) - DR_REG_X0) * sizeof(reg_t))
+#    define FREG_OFFSET(reg) (F0_OFFSET + ((reg) - DR_REG_F0) * sizeof(reg_t))
 #    define VREG_OFFSET(reg) \
         ((MC_OFFS) +         \
-         (offsetof(priv_mcontext_t, simd) + ((reg)-DR_REG_VR0) * sizeof(dr_simd_t)))
+         (offsetof(priv_mcontext_t, simd) + ((reg) - DR_REG_VR0) * sizeof(dr_simd_t)))
 #    define CALL_SCRATCH_REG DR_REG_T6
 #    define MC_IBL_REG a2
 #    define MC_RETVAL_REG a0

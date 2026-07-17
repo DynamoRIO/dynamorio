@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -501,7 +501,7 @@ instr_num_dsts(instr_t *instr)
         (MAKE_OPNDS_VALID(instr),                            \
          CLIENT_ASSERT_(pos >= 0 && pos < (instr)->num_srcs, \
                         "instr_get_src: ordinal invalid")(   \
-             (pos) == 0 ? (instr)->src0 : (instr)->srcs[(pos)-1]))
+             (pos) == 0 ? (instr)->src0 : (instr)->srcs[(pos) - 1]))
 
 #    define INSTR_GET_DST(instr, pos)                            \
         (MAKE_OPNDS_VALID(instr),                                \

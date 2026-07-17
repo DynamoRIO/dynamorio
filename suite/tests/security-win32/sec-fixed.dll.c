@@ -42,7 +42,8 @@
 /* unlike secalign-fixed.dll.c we don't use /fixed as a pragma comment */
 
 /* our Makefile expects a .lib */
-int __declspec(dllexport) make_a_lib(int arg)
+int __declspec(dllexport)
+make_a_lib(int arg)
 {
     return 1;
 }

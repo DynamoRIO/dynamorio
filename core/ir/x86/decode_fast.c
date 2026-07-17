@@ -497,7 +497,7 @@ decode_sizeof_ex(void *drcontext, byte *start_pc, int *num_prefixes, uint *rip_r
                 qword_operands = true;
                 if (word_operands)
                     word_operands = false; /* rex.w trumps data16 */
-            }                              /* else, doesn't affect instr size */
+            } /* else, doesn't affect instr size */
             opc = (uint) * (++pc);
             sz += 1;
         } else {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4285,24 +4285,23 @@ aslr_experiment_with_section_handle(DR_PARAM_IN HANDLE file_handle,
     /* most likely places to experiment with flags are marked with CHANGEME */
 
     /* XXX: doublecheck flags and privileges with what smss does */
-    res = nt_create_section(&new_published_handle,
-                            SECTION_ALL_ACCESS, /* XXX: maybe less privileges needed */
-                            NULL,               /* full file size */
-                            PAGE_EXECUTE_READWRITE,
-                            /* PAGE_EXECUTE_READWRITE - gives us true overwrite ability */
-                            /* PAGE_EXECUTE gives us COW but not sharing */
-                            /* PAGE_EXECUTE_WRITECOPY is still COW,
-                             * though it needs FILE_READ_DATA
-                             * privileges to at all create a section,
-                             * CHANGEME */
-                            SEC_COMMIT,  /* CHANGEME SEC_IMAGE or SEC_COMMIT (default) */
-                            file_handle, /* CHANGEME */
-                            /* NULL for page file backed */
-                            /* file_handle for file backed */
+    res = nt_create_section(
+        &new_published_handle, SECTION_ALL_ACCESS, /* XXX: maybe less privileges needed */
+        NULL,                                      /* full file size */
+        PAGE_EXECUTE_READWRITE,
+        /* PAGE_EXECUTE_READWRITE - gives us true overwrite ability */
+        /* PAGE_EXECUTE gives us COW but not sharing */
+        /* PAGE_EXECUTE_WRITECOPY is still COW,
+         * though it needs FILE_READ_DATA
+         * privileges to at all create a section,
+         * CHANGEME */
+        SEC_COMMIT,  /* CHANGEME SEC_IMAGE or SEC_COMMIT (default) */
+        file_handle, /* CHANGEME */
+        /* NULL for page file backed */
+        /* file_handle for file backed */
 
-                            /* object name attributes */
-                            mostly_unique_name, (permanent ? OBJ_PERMANENT : 0),
-                            object_directory, dacl);
+        /* object name attributes */
+        mostly_unique_name, (permanent ? OBJ_PERMANENT : 0), object_directory, dacl);
 
     /* XXX: is SEC_BASED supported - and what good does that do to
      * us?  For sure a convenient place to keep our current
@@ -5945,7 +5944,7 @@ static const gbop_hook_desc_t gbop_hooks[] = { GBOP_ALL_HOOKS };
 #    undef GBOP_DEFINE_HOOK
 #    undef GBOP_DEFINE_HOOK_MODULE
 
-#    define GBOP_HOOK_LIST_END_SENTINEL ((uint)-1)
+#    define GBOP_HOOK_LIST_END_SENTINEL ((uint) - 1)
 
 /* way too hacky linearization of a two dimensional array */
 /* via templates: expands each set to a list of +1+1 = 2 which would

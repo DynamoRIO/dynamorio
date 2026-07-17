@@ -39,7 +39,8 @@ int sleep_under_ldrlock = 100;
  * of course it will run only once we let go of the LdrLock)
  */
 
-int __declspec(dllexport) import_me(int x)
+int __declspec(dllexport)
+import_me(int x)
 {
     print("in import\n");
     return 2 * x;

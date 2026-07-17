@@ -148,7 +148,8 @@ test_sid(void)
     }
 }
 
-int __declspec(dllexport) make_a_lib(int arg)
+int __declspec(dllexport)
+make_a_lib(int arg)
 {
     test_sid();
     return 0;

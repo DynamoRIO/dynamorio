@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -691,9 +691,8 @@ HTNAME(hashtable_, NAME_KEY, _lookup)(dcontext_t *dcontext, ptr_uint_t tag,
     ASSERT_TABLE_SYNCHRONIZED(htable, READWRITE); /* requires read (or write) lock */
     e = htable->table[hindex];
 
-    DODEBUG({
-        HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, hindex);
-    });
+    DODEBUG(
+        { HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, hindex); });
     while (!ENTRY_IS_EMPTY(e)) {
         DODEBUG({
             HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, hindex);
@@ -867,18 +866,17 @@ HTNAME(hashtable_, NAME_KEY, _add)(dcontext_t *dcontext, ENTRY_TYPE e,
         uint max_cluster_len =
             HASHTABLE_SIZE((1 + table->hash_bits) / 2 + 1 /* double */) + 64;
         if (!(cluster_len <= max_cluster_len)) {
-            DO_ONCE({ /* once reach this may fire many times in a row */
-                      /* always want to know which table this is */
-                      SYSLOG_INTERNAL_WARNING(
-                          "cluster length assert: %s cluster=%d vs %d,"
-                          " cap=%d, entries=%d",
-                          table->name, cluster_len, max_cluster_len, table->capacity,
-                          table->entries);
-                      DOLOG(3, LOG_HTABLE, {
-                          HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table);
-                      });
-                      ASSERT_CURIOSITY(false && "table collision cluster is too large");
-            });
+            DO_ONCE(
+                { /* once reach this may fire many times in a row */
+                  /* always want to know which table this is */
+                  SYSLOG_INTERNAL_WARNING("cluster length assert: %s cluster=%d vs %d,"
+                                          " cap=%d, entries=%d",
+                                          table->name, cluster_len, max_cluster_len,
+                                          table->capacity, table->entries);
+                  DOLOG(3, LOG_HTABLE,
+                        { HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table); });
+                  ASSERT_CURIOSITY(false && "table collision cluster is too large");
+                });
         }
     }
 #    endif
@@ -1138,9 +1136,8 @@ HTNAME(hashtable_, NAME_KEY, _check_size)(dcontext_t *dcontext,
              */
             HTNAME(hashtable_, NAME_KEY, _study)(dcontext, table, add_now);
 
-            DOLOG(3, LOG_HTABLE, {
-                HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table);
-            });
+            DOLOG(3, LOG_HTABLE,
+                  { HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext, table); });
         });
 
         /* Shared IBT tables are resized at safe points, not here, since
@@ -1436,9 +1433,8 @@ HTNAME(hashtable_, NAME_KEY, _clear)(dcontext_t *dcontext,
     if (TEST(HASHTABLE_READ_ONLY, table->table_flags))
         return;
     LOG(THREAD, LOG_HTABLE, 2, "hashtable_" KEY_STRING "_clear\n");
-    DOLOG(2, LOG_HTABLE | LOG_STATS, {
-        HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table);
-    });
+    DOLOG(2, LOG_HTABLE | LOG_STATS,
+          { HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table); });
 
     for (i = 0; i < table->capacity; i++) {
         e = table->table[i];
@@ -1490,9 +1486,8 @@ HTNAME(hashtable_, NAME_KEY, _range_remove)(dcontext_t *dcontext,
     if (TEST(HASHTABLE_READ_ONLY, table->table_flags))
         return 0;
     LOG(THREAD, LOG_HTABLE, 2, "hashtable_" KEY_STRING "_range_remove\n");
-    DOLOG(2, LOG_HTABLE | LOG_STATS, {
-        HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table);
-    });
+    DOLOG(2, LOG_HTABLE | LOG_STATS,
+          { HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table); });
     DODEBUG({
         HTNAME(hashtable_, NAME_KEY, _study)(dcontext, table, 0 /*table consistent*/);
         /* ensure write lock is held if the table is shared, unless exiting */
@@ -1548,9 +1543,8 @@ HTNAME(hashtable_, NAME_KEY, _unlinked_remove)(dcontext_t *dcontext,
     /* body based on hashtable_range_remove() */
 
     ASSERT(TEST(HASHTABLE_LOCKLESS_ACCESS, table->table_flags));
-    DOLOG(2, LOG_HTABLE | LOG_STATS, {
-        HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table);
-    });
+    DOLOG(2, LOG_HTABLE | LOG_STATS,
+          { HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, table); });
     DODEBUG({
         /* ensure write lock is held if the table is shared, unless exiting */
         if (!dynamo_exited)
@@ -1723,9 +1717,8 @@ HTNAME(hashtable_, NAME_KEY,
 
     for (i = 0; i < table->capacity; i++) {
         e = table->table[i];
-        DODEBUG({
-            HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, table, i);
-        });
+        DODEBUG(
+            { HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, table, i); });
 
         if (ENTRY_IS_EMPTY(e))
             continue;
@@ -1856,9 +1849,8 @@ HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
     entry_size = sizeof(ENTRY_TYPE);
 #        endif
 
-    DOLOG(1, LOG_HTABLE | LOG_STATS, {
-        HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, htable);
-    });
+    DOLOG(1, LOG_HTABLE | LOG_STATS,
+          { HTNAME(hashtable_, NAME_KEY, _load_statistics)(dcontext, htable); });
     LOG(THREAD, LOG_HTABLE, 1, "  i      tag     coll     hits  age %s dump\n",
         htable->name);
     /* need read lock to traverse the table */
@@ -1908,9 +1900,8 @@ HTNAME(hashtable_, NAME_KEY, _dump_table)(dcontext_t *dcontext,
                 LOG(THREAD, LOG_HTABLE, 1, "----cache line----\n");
             }
         });
-        DODEBUG({
-            HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, i);
-        });
+        DODEBUG(
+            { HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, i); });
     }
     if (track_cache_lines) {
         if (cache_line_in_use)
@@ -1989,9 +1980,8 @@ HTNAME(hashtable_, NAME_KEY, _dump_entry_stats)(dcontext_t *dcontext,
         } else {
             /* skip null_fragment entries */
         }
-        DODEBUG({
-            HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, i);
-        });
+        DODEBUG(
+            { HTNAME(hashtable_, NAME_KEY, _check_consistency)(dcontext, htable, i); });
     }
     if (max_age > 0) {
         LOG(THREAD, LOG_HTABLE, 1,

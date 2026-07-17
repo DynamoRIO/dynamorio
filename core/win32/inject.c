@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -850,7 +850,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     PUSH_IMMEDIATE((int)(ptr_int_t)NT_CURRENT_PROCESS); /* arg ProcessHandle */     \
     IF_X64(MOV_TOS_TO_PARAM_0());                                                   \
     CALL(NtProtectVirtualMemory); /* 8 pushes => still aligned to 16 */             \
-    /* no error checking, can't really do anything about it, XXX */               \
+    /* no error checking, can't really do anything about it, XXX */                 \
     /* stdcall so just the three slots we made for the ptr arguments                \
      * left on the stack for 32-bit */                                              \
     IF_X64(ADD_IMM8_TO_ESP(5 * XSP_SZ)); /* clean up 5 slots */                     \

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -91,7 +91,7 @@ unsigned int __stdcall
 #else
 void *
 #endif
-    thread_func(void *arg)
+thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     // We need the other threads to do enough work to be still executing
@@ -171,7 +171,7 @@ unsigned int __stdcall
 #else
 void *
 #endif
-    idle_thread_func(void *arg)
+idle_thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     signal_cond_var(idle_thread_started[idx]);

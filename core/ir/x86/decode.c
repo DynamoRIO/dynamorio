@@ -2894,7 +2894,7 @@ unit_check_decode_ff_opcode(void)
         instr_encode(dcontext, instr, pc);                               \
         instr_reset(dcontext, instr);                                    \
         decode(dcontext, pc, instr);                                     \
-        /* XXX: use EXPECT */                                          \
+        /* XXX: use EXPECT */                                            \
         CLIENT_ASSERT(instr_get_opcode(instr) == OP_##opc, "unit test"); \
         instr_destroy(dcontext, instr);
 

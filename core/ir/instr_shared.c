@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4071,9 +4071,9 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
         *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/) &&
         *(pc + 4) == 0x25 && *((uint *)(pc + 5)) == (uint)os_tls_offset(offs))
         return true;
-        /* we also check for 32-bit.  we could take in flags and only check for one
-         * version, but we're not worried about false positives.
-         */
+    /* we also check for 32-bit.  we could take in flags and only check for one
+     * version, but we're not worried about false positives.
+     */
 #        endif
     /* looking for:   67 64 89 1e e4 0e    addr16 mov    %ebx -> %fs:0xee4   */
     /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed */

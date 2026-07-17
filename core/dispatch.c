@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -641,7 +641,7 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
 #        endif
 #    endif
 
-        /* XXX i#95: should we add an instrument_thread_detach_event()? */
+    /* XXX i#95: should we add an instrument_thread_detach_event()? */
 
 #    ifdef DR_APP_EXPORTS
     /* not_under will be called by dynamo_shared_exit so skip it here. */

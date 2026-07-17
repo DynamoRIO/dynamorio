@@ -88,7 +88,8 @@ unsigned char datacode2[] =
     "\xe9\x00\x00\x00\x00"                     /* jmp     image_target2+10 */
     ;
 
-static __declspec(naked) void image_target()
+static __declspec(naked) void
+image_target()
 {
     __asm {
             jmp  offset datacode
@@ -97,7 +98,8 @@ static __declspec(naked) void image_target()
     }
 }
 
-static __declspec(naked) void image_target2()
+static __declspec(naked) void
+image_target2()
 {
     __asm {
             jmp  offset datacode2
