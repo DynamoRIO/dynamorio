@@ -291,7 +291,7 @@ page_size(void)
 #else /* UNIX */
 #    define EXPORT __attribute__((visibility("default")))
 #    define IMPORT extern
-#    define NOINLINE __attribute__((noinline))
+#    define NOINLINE __attribute__((__noinline__))
 #endif
 
 /* convenience macros for secure string buffer operations */
