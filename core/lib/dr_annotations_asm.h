@@ -242,7 +242,7 @@
 #        define ANNOT_LBL(annot, base) #annot "_label@GOT(%" base ")"
 #    endif
 #    define DR_ANNOTATION_ATTRIBUTES \
-        __attribute__((noinline, visibility("hidden") _CALL_TYPE))
+        __attribute__((__noinline__, visibility("hidden") _CALL_TYPE))
 #    define DR_WEAK_DECLARATION __attribute__((weak))
 /* GCC extension "__label__" confines the named label to the block scope. */
 #    define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \

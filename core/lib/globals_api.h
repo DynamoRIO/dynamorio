@@ -169,7 +169,7 @@ typedef _Bool bool;
 #    define ALIGN_VAR(x) __attribute__((aligned(x)))
 #    define INLINE_FORCED inline
 #    define WEAK __attribute__((weak))
-#    define NOINLINE __attribute__((noinline))
+#    define NOINLINE __attribute__((__noinline__))
 #endif
 
 /* Annotates intentional switch case fallthroughs to satisfy
