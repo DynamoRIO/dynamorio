@@ -1,0 +1,44 @@
+name: ci-kernel-module
+on:
+  # Run on pushes to master and on pull request changes, including from a
+  # forked repo with no "push" trigger, while avoiding duplicate triggers.
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, reopened, synchronize]
+  merge_group:
+
+jobs:
+  x86-64:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Setup build environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt update
+          sudo apt install -y cmake doxygen g++ g++-multilib libelf-dev make vera++
+
+      - name: Download and extract kernel source
+        run: |
+          VERSION="6.6.130"
+          wget --quiet https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$VERSION.tar.xz
+          tar -xf linux-$VERSION.tar.xz
+          echo "KERNEL_DIR=linux-$VERSION" >> $GITHUB_ENV
+
+      - name: Generate kernel headers
+        working-directory: ${{ env.KERNEL_DIR }}
+        run: |
+          make defconfig
+          make -j$(nproc) modules_prepare
+
+      - name: Build DynamoRIO Kernel Module
+        run: |
+          cmake -B build -DBUILD_KERNEL_MODULE=ON -DKERNEL_DIR=$GITHUB_WORKSPACE/$KERNEL_DIR
+          cmake --build build --parallel $(nproc) --target dynamorio_module
