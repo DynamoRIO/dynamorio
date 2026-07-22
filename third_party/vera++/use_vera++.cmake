@@ -116,7 +116,9 @@ function(add_vera_targets_for_dynamorio)
         NOT s MATCHES ${CMAKE_CURRENT_BINARY_DIR} AND
         NOT s MATCHES "/install/" AND
         # We check out drmemory for package builds.
-        NOT s MATCHES "/drmemory/")
+        NOT s MATCHES "/drmemory/" AND
+        # Kbuild intermediate files generated during kernel module build.
+        NOT s MATCHES "\\.mod\\.c$")
       get_filename_component(d ${s} PATH)
       if(NOT "${d}" STREQUAL "${currentDir}")
         # this is a new dir - lets generate everything needed for the previous dir
