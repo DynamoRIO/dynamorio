@@ -1694,34 +1694,6 @@ option(BUILD_CLIENTS "build client tools" ON)
 
 option(BUILD_KERNEL_MODULE "build DynamoRIO as a kernel module (experimental)" OFF)
 
-if (BUILD_KERNEL_MODULE)
-  if (NOT LINUX)
-    message(FATAL_ERROR "BUILD_KERNEL_MODULE is only supported on Linux")
-  endif()
-
-  # TODO: support AARCH64
-  if (NOT X86 OR NOT X64)
-    message(FATAL_ERROR "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
-  endif()
-
-  set(KERNEL_DIR "/lib/modules/${CMAKE_SYSTEM_VERSION}/build" CACHE PATH "Path to the kernel build directory")
-
-  find_program(MAKE_PROGRAM NAMES make DOC "make utility for driving the kernel's Kbuild system")
-  if (NOT MAKE_PROGRAM)
-    message(FATAL_ERROR "BUILD_KERNEL_MODULE requires 'make' to drive the kernel's Kbuild system")
-  endif()
-
-  if (NOT IS_DIRECTORY "${KERNEL_DIR}" OR NOT EXISTS "${KERNEL_DIR}/Makefile")
-    message(FATAL_ERROR
-      "Kernel build headers not found at ${KERNEL_DIR}.\n"
-      "Please install kernel headers or specify -DKERNEL_DIR=/path/to/kernel/sources"
-    )
-  endif()
-
-  message(STATUS "DynamoRIO Linux kernel module enabled using KERNEL_DIR=${KERNEL_DIR}")
-  add_subdirectory(core/kernel_linux)
-endif()
-
 if (ANDROID)
   # TODO i#1874: Android does not build drcachesim or drcpusim, which have
   # references spread throughout the docs.
@@ -1747,6 +1719,38 @@ endif (BUILD_TESTS)
 if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)
+
+if (BUILD_KERNEL_MODULE)
+  if (NOT LINUX)
+    message(FATAL_ERROR "BUILD_KERNEL_MODULE is only supported on Linux")
+  endif()
+
+  # TODO: support AARCH64
+  if (NOT X86 OR NOT X64)
+    message(FATAL_ERROR "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
+  endif()
+
+  if (NOT BUILD_CORE)
+    message(FATAL_ERROR "BUILD_KERNEL_MODULE requires BUILD_CORE")
+  endif()
+
+  set(KERNEL_DIR "/lib/modules/${CMAKE_SYSTEM_VERSION}/build" CACHE PATH "Path to the kernel build directory")
+
+  find_program(MAKE_PROGRAM NAMES make DOC "make utility for driving the kernel's Kbuild system")
+  if (NOT MAKE_PROGRAM)
+    message(FATAL_ERROR "BUILD_KERNEL_MODULE requires 'make' to drive the kernel's Kbuild system")
+  endif()
+
+  if (NOT IS_DIRECTORY "${KERNEL_DIR}" OR NOT EXISTS "${KERNEL_DIR}/Makefile")
+    message(FATAL_ERROR
+      "Kernel build headers not found at ${KERNEL_DIR}.\n"
+      "Please install kernel headers or specify -DKERNEL_DIR=/path/to/kernel/sources"
+    )
+  endif()
+
+  message(STATUS "DynamoRIO Linux kernel module enabled using KERNEL_DIR=${KERNEL_DIR}")
+  add_subdirectory(core/kernel_linux)
+endif()
 
 add_subdirectory(libutil)
 
