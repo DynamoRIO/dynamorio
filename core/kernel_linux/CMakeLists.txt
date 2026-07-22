@@ -32,7 +32,8 @@ list(TRANSFORM dynamorio_module_sources PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
 
 add_custom_command(
   OUTPUT ${dynamorio_module_ko}
-  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_SOURCE_DIR} modules
+  # TODO: turn off KBUILD_MODPOST_WARN
+  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_SOURCE_DIR} KBUILD_MODPOST_WARN=1 modules
   DEPENDS ${dynamorio_module_sources} ${dynamorio_module_makefile}
   COMMENT "Building DynamoRIO Linux kernel module (${dynamorio_module_name}.ko) against KERNEL_DIR=${KERNEL_DIR}"
   VERBATIM
