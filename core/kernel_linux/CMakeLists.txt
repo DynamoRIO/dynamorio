@@ -44,29 +44,37 @@ set(dynamorio_module_name dynamorio_module)
 # Kbuild composite targets cannot share a name with a component object file.
 set(dynamorio_module_sources dynamorio_module_main.c)
 
-set(dynamorio_module_ko "${CMAKE_CURRENT_SOURCE_DIR}/${dynamorio_module_name}.ko")
-set(dynamorio_module_makefile "${CMAKE_CURRENT_SOURCE_DIR}/Makefile")
+set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko")
+set(dynamorio_module_kbuildfile "${CMAKE_CURRENT_BINARY_DIR}/Kbuild")
 
-list(TRANSFORM dynamorio_module_sources REPLACE "\\.c$" ".o"
-     OUTPUT_VARIABLE dynamorio_module_objs)
+set(dynamorio_module_objs "")
+foreach (src ${dynamorio_module_sources})
+  get_filename_component(abs_src "${CMAKE_CURRENT_SOURCE_DIR}/${src}" ABSOLUTE)
+  file(RELATIVE_PATH rel_src "${PROJECT_SOURCE_DIR}" "${abs_src}")
+  set(mirrored_src "${CMAKE_CURRENT_BINARY_DIR}/${rel_src}")
+  get_filename_component(mirrored_dir "${mirrored_src}" DIRECTORY)
+  file(MAKE_DIRECTORY "${mirrored_dir}")
+  file(CREATE_LINK "${abs_src}" "${mirrored_src}" SYMBOLIC)
+  string(REGEX REPLACE "\\.c$" ".o" rel_obj "${rel_src}")
+  list(APPEND dynamorio_module_objs "${rel_obj}")
+endforeach()
+
 string(REPLACE ";" " " dynamorio_module_objs "${dynamorio_module_objs}")
 set(dynamorio_module_kbuild_extra
   "${dynamorio_module_name}-y := ${dynamorio_module_objs}")
 
 configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/Makefile.in
-  ${dynamorio_module_makefile}
+  ${CMAKE_CURRENT_SOURCE_DIR}/Kbuild.in
+  ${dynamorio_module_kbuildfile}
   @ONLY
 )
-
-list(TRANSFORM dynamorio_module_sources PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
 
 add_custom_command(
   OUTPUT ${dynamorio_module_ko}
   # TODO i#8021: turn off KBUILD_MODPOST_WARN.
-  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_SOURCE_DIR}
+  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR}
     KBUILD_MODPOST_WARN=1 modules
-  DEPENDS ${dynamorio_module_sources} ${dynamorio_module_makefile}
+  DEPENDS ${dynamorio_module_sources} ${dynamorio_module_kbuildfile}
   COMMENT "Building DynamoRIO Linux kernel module (${dynamorio_module_name}.ko) against \
 KERNEL_DIR=${KERNEL_DIR}"
   VERBATIM
@@ -77,5 +85,5 @@ add_custom_target(dynamorio_module ALL DEPENDS ${dynamorio_module_ko})
 # Standard `make clean` cannot remove Kbuild bookkeeping files.
 # Run `make clean_dynamorio_module` to invoke Kbuild's clean target.
 add_custom_target(clean_dynamorio_module
-  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_SOURCE_DIR} clean
+  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_BINARY_DIR} clean
 )
