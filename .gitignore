@@ -16,6 +16,7 @@ cscope.out
 /core/kernel_linux/Makefile
 
 # Kbuild intermediate output for the core/kernel_linux/ kernel module.
+# XXX: these can be removed if the kernel module build moves from in-tree to out-of-tree.
 /core/kernel_linux/*.o
 /core/kernel_linux/*.cmd
 /core/kernel_linux/*.mod

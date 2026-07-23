@@ -118,6 +118,8 @@ function(add_vera_targets_for_dynamorio)
         # We check out drmemory for package builds.
         NOT s MATCHES "/drmemory/" AND
         # Kbuild intermediate files generated during kernel module build.
+        # XXX: this exclusion can be removde if the kernel module build moves from
+        # in-tree to out-of-tree.
         NOT s MATCHES "\\.mod\\.c$")
       get_filename_component(d ${s} PATH)
       if(NOT "${d}" STREQUAL "${currentDir}")
