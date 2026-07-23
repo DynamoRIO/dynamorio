@@ -1727,18 +1727,22 @@ if (BUILD_KERNEL_MODULE)
 
   # TODO i#8021: support AARCH64.
   if (NOT X86 OR NOT X64)
-    message(FATAL_ERROR "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
+    message(FATAL_ERROR
+      "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
   endif()
 
   if (NOT BUILD_CORE)
     message(FATAL_ERROR "BUILD_KERNEL_MODULE requires BUILD_CORE")
   endif()
 
-  set(KERNEL_DIR "/lib/modules/${CMAKE_SYSTEM_VERSION}/build" CACHE PATH "Path to the kernel build directory")
+  set(KERNEL_DIR "/lib/modules/${CMAKE_SYSTEM_VERSION}/build" CACHE PATH
+    "Path to the kernel build directory")
 
-  find_program(MAKE_PROGRAM NAMES make DOC "make utility for driving the kernel's Kbuild system")
+  find_program(MAKE_PROGRAM NAMES make DOC
+    "make utility for driving the kernel's Kbuild system")
   if (NOT MAKE_PROGRAM)
-    message(FATAL_ERROR "BUILD_KERNEL_MODULE requires 'make' to drive the kernel's Kbuild system")
+    message(FATAL_ERROR
+      "BUILD_KERNEL_MODULE requires 'make' to drive the kernel's Kbuild system")
   endif()
 
   if (NOT IS_DIRECTORY "${KERNEL_DIR}" OR NOT EXISTS "${KERNEL_DIR}/Makefile")

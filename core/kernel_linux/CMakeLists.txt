@@ -50,7 +50,8 @@ set(dynamorio_module_makefile "${CMAKE_CURRENT_SOURCE_DIR}/Makefile")
 list(TRANSFORM dynamorio_module_sources REPLACE "\\.c$" ".o"
      OUTPUT_VARIABLE dynamorio_module_objs)
 string(REPLACE ";" " " dynamorio_module_objs "${dynamorio_module_objs}")
-set(dynamorio_module_kbuild_extra "${dynamorio_module_name}-y := ${dynamorio_module_objs}")
+set(dynamorio_module_kbuild_extra
+  "${dynamorio_module_name}-y := ${dynamorio_module_objs}")
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/Makefile.in
@@ -63,9 +64,11 @@ list(TRANSFORM dynamorio_module_sources PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
 add_custom_command(
   OUTPUT ${dynamorio_module_ko}
   # TODO i#8021: turn off KBUILD_MODPOST_WARN.
-  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_SOURCE_DIR} KBUILD_MODPOST_WARN=1 modules
+  COMMAND ${MAKE_PROGRAM} -C ${KERNEL_DIR} M=${CMAKE_CURRENT_SOURCE_DIR}
+    KBUILD_MODPOST_WARN=1 modules
   DEPENDS ${dynamorio_module_sources} ${dynamorio_module_makefile}
-  COMMENT "Building DynamoRIO Linux kernel module (${dynamorio_module_name}.ko) against KERNEL_DIR=${KERNEL_DIR}"
+  COMMENT "Building DynamoRIO Linux kernel module (${dynamorio_module_name}.ko) against \
+KERNEL_DIR=${KERNEL_DIR}"
   VERBATIM
 )
 
