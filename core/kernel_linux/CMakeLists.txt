@@ -95,9 +95,16 @@ set(dynamorio_module_include_dirs
   "${core_dir}"
 )
 
+set(dynamorio_module_defines
+  LINUX_KERNEL
+)
+
 set(dynamorio_module_kbuild_ccflags "ccflags-y +=")
 foreach (dir ${dynamorio_module_include_dirs})
   string(APPEND dynamorio_module_kbuild_ccflags " -I${dir}")
+endforeach ()
+foreach (define ${dynamorio_module_defines})
+  string(APPEND dynamorio_module_kbuild_ccflags " -D${define}")
 endforeach ()
 
 configure_file(
