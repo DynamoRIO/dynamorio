@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -127,7 +127,7 @@
 #cmakedefine DR_DO_NOT_DEFINE_uint64
 #cmakedefine DR_DO_NOT_DEFINE_ushort
 #cmakedefine DR__Bool_EXISTS
-#if defined(UNIX) && !defined(CPP2ASM)
+#if defined(UNIX) && !defined(CPP2ASM) && !defined(LINUX_KERNEL)
 /* i#1812: our check for these types searches sys/types.h, which we include in
  * globals_shared.h, but some tests do not include that.  To get everything to
  * work consistently we include it here.
