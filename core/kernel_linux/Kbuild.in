@@ -6,4 +6,5 @@
 # Driven by CMake; not meant to be invoked directly.
 
 obj-m += @dynamorio_module_name@.o
-@dynamorio_module_kbuild_extra@
+@dynamorio_module_kbuild_objs@
+@dynamorio_module_kbuild_ccflags@

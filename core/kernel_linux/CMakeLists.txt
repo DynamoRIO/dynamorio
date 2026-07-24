@@ -86,8 +86,19 @@ foreach (src ${dynamorio_module_sources})
 endforeach ()
 
 string(REPLACE ";" " " dynamorio_module_objs "${dynamorio_module_objs}")
-set(dynamorio_module_kbuild_extra
+set(dynamorio_module_kbuild_objs
   "${dynamorio_module_name}-y := ${dynamorio_module_objs}")
+
+get_filename_component(core_dir "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+set(dynamorio_module_include_dirs
+  "${CMAKE_BINARY_DIR}"
+  "${core_dir}"
+)
+
+set(dynamorio_module_kbuild_ccflags "ccflags-y +=")
+foreach (dir ${dynamorio_module_include_dirs})
+  string(APPEND dynamorio_module_kbuild_ccflags " -I${dir}")
+endforeach ()
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/Kbuild.in
