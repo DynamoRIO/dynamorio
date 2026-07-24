@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -440,8 +440,8 @@ CDynamoRIOView::PrintClientStats(TCHAR *c, TCHAR *max)
 #define CLIENTSTAT_NAME_MAX_SHOW CLIENTSTAT_NAME_MAX_LEN
     uint i;
     TCHAR *start = c;
-    char(*names)[CLIENTSTAT_NAME_MAX_LEN] =
-        (char(*)[CLIENTSTAT_NAME_MAX_LEN])m_clientStats->data;
+    char (*names)[CLIENTSTAT_NAME_MAX_LEN] =
+        (char (*)[CLIENTSTAT_NAME_MAX_LEN])m_clientStats->data;
     stats_int_t *vals = (stats_int_t *)((char *)m_clientStats->data +
                                         m_clientStats->num_stats *
                                             CLIENTSTAT_NAME_MAX_LEN * sizeof(char));

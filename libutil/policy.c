@@ -39,7 +39,7 @@
 #ifndef UNIT_TEST
 
 WCHAR *msg_id_keys[] = {
-#    define MSG_FIELD(x) L#    x,
+#    define MSG_FIELD(x) L#x,
     POLICY_DEF_KEYS
 #    undef MSG_FIELD
     L"<invalid message field>"
@@ -628,7 +628,8 @@ main()
     }
 
     /* validate policy tests */
-    {}
+    {
+    }
 
     /* import policy tests */
     {

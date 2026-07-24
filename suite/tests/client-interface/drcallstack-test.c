@@ -33,7 +33,7 @@
 #include "tools.h"
 
 #ifdef LINUX
-#    define NOINLINE __attribute__((noinline))
+#    define NOINLINE __attribute__((__noinline__))
 #else
 #    error NYI
 #endif

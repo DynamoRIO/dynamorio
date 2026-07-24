@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1801,9 +1801,9 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
     if (trace_callbacks.num == 0)
         return DR_EMIT_DEFAULT;
 
-        /* do not expand or up-decode the instrlist, client gets to choose
-         * whether and how to do that
-         */
+    /* do not expand or up-decode the instrlist, client gets to choose
+     * whether and how to do that
+     */
 
 #ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\ninstrument_trace ******************\n");
@@ -1812,9 +1812,9 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #endif
 
-        /* We always pass Level 3 instrs to the client, since we no longer
-         * expose the expansion routines.
-         */
+    /* We always pass Level 3 instrs to the client, since we no longer
+     * expose the expansion routines.
+     */
 #ifdef UNSUPPORTED_API
     for (instr = instrlist_first_expanded(dcontext, trace); instr != NULL;
          instr = instr_get_next_expanded(dcontext, trace, instr)) {
@@ -2203,7 +2203,7 @@ instrument_signal(dcontext_t *dcontext, dr_siginfo_t *siginfo)
      * registrant should own the signal (xref i#424).
      */
     call_all_ret(ret, = ret == DR_SIGNAL_DELIVER ?, : ret, signal_callbacks,
-                 dr_signal_action_t(*)(void *, dr_siginfo_t *), (void *)dcontext,
+                 dr_signal_action_t (*)(void *, dr_siginfo_t *), (void *)dcontext,
                  siginfo);
     return ret;
 }
@@ -5336,7 +5336,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         for (i = 0; i < cci.num_opmask_skip; i++)
             cci.opmask_skip[i] = true;
 #endif
-            /* now remove those used for param/retval */
+        /* now remove those used for param/retval */
 #ifdef X64
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
             /* xmm0-3 (-7 for linux) are used for params */
@@ -6201,10 +6201,10 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
 
     app_flags_ok = instr_get_prev(instr);
     if (has_fallthrough) {
-        ptr_uint_t fallthrough = address + instr_length(drcontext, instr);
+        ptr_uint_t fallthrough_addr = address + instr_length(drcontext, instr);
         CLIENT_ASSERT(!opnd_uses_reg(user_data, DR_REG_XBX),
                       "register ebx should not be used");
-        CLIENT_ASSERT(fallthrough > address, "wrong fallthrough address");
+        CLIENT_ASSERT(fallthrough_addr > address, "wrong fallthrough address");
         dr_insert_clean_call_ex(
             drcontext, ilist, instr, callee,
             /* Many users will ask for mcontexts; some will set; it doesn't seem worth
@@ -6217,7 +6217,7 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
             /* target is 2nd parameter */
             OPND_CREATE_INTPTR(target),
             /* fall-throug is 3rd parameter */
-            OPND_CREATE_INTPTR(fallthrough),
+            OPND_CREATE_INTPTR(fallthrough_addr),
             /* branch direction (put in ebx below) is 4th parameter */
             opnd_create_reg(REG_XBX),
             /* user defined data is 5th parameter */
@@ -6503,8 +6503,8 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
     }
 
     if (has_fallthrough) {
-        ptr_uint_t fallthrough = address + instr_length(drcontext, instr);
-        CLIENT_ASSERT(fallthrough > address, "wrong fallthrough address");
+        ptr_uint_t fallthrough_addr = address + instr_length(drcontext, instr);
+        CLIENT_ASSERT(fallthrough_addr > address, "wrong fallthrough address");
         dr_insert_clean_call_ex(
             drcontext, ilist, instr, callee,
             /* Many users will ask for mcontexts; some will set; it doesn't seem worth
@@ -6517,7 +6517,7 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
             /* Target is 2nd parameter. */
             OPND_CREATE_INTPTR(target),
             /* Fall-through is 3rd parameter. */
-            OPND_CREATE_INTPTR(fallthrough),
+            OPND_CREATE_INTPTR(fallthrough_addr),
             /* Branch direction is 4th parameter. */
             opnd_create_reg(dir),
             /* User defined data is 5th parameter. */
@@ -7838,7 +7838,7 @@ instrument_persist_ro_size(dcontext_t *dcontext, void *perscxt, size_t file_offs
      */
     if (persist_ro_size_callbacks.num > 0) {
         call_all_ret(sz, +=, , persist_ro_size_callbacks,
-                     size_t(*)(void *, void *, size_t, void **), (void *)dcontext,
+                     size_t (*)(void *, void *, size_t, void **), (void *)dcontext,
                      perscxt, file_offs + sz, &persist_user_data[idx]);
     }
     /* using size_t for API w/ clients in case we want to widen in future */
@@ -7916,7 +7916,7 @@ instrument_persist_rx_size(dcontext_t *dcontext, void *perscxt, size_t file_offs
     if (persist_rx_size_callbacks.num == 0)
         return 0;
     call_all_ret(sz, +=, , persist_rx_size_callbacks,
-                 size_t(*)(void *, void *, size_t, void **), (void *)dcontext, perscxt,
+                 size_t (*)(void *, void *, size_t, void **), (void *)dcontext, perscxt,
                  file_offs + sz, &persist_user_data[idx]);
     /* using size_t for API w/ clients in case we want to widen in future */
     CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");
@@ -7960,7 +7960,7 @@ instrument_persist_rw_size(dcontext_t *dcontext, void *perscxt, size_t file_offs
     if (persist_rw_size_callbacks.num == 0)
         return 0;
     call_all_ret(sz, +=, , persist_rw_size_callbacks,
-                 size_t(*)(void *, void *, size_t, void **), (void *)dcontext, perscxt,
+                 size_t (*)(void *, void *, size_t, void **), (void *)dcontext, perscxt,
                  file_offs + sz, &persist_user_data[idx]);
     /* using size_t for API w/ clients in case we want to widen in future */
     CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(sz), "persisted cache size too large");

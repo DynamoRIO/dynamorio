@@ -157,9 +157,9 @@
     GBOP_DEFINE_HOOK(module, SetEndOfFile)                           \
     /* interesting if a handle is open */                            \
     GBOP_DEFINE_HOOK(module, WriteFile)                              \
-    /* XXX: performance, interesting if a handle is open */        \
+    /* XXX: performance, interesting if a handle is open */          \
     GBOP_DEFINE_HOOK(module, WriteFileEx)                            \
-    /* XXX: performance, interesting if a handle is open */        \
+    /* XXX: performance, interesting if a handle is open */          \
     /* KERNEL32 presumed to be complete */
 
 #define GBOP_DEFINE_WININET_BASE_HOOKS(module) /* "WININET.dll" */ \

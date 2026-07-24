@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -564,8 +564,7 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only)
     if (under_internal_exception()) {
         pmod = NULL;
     } else {
-        d_r_mutex_lock(
-            &process_module_vector.lock); /* XXX: can be a shared read lock */
+        d_r_mutex_lock(&process_module_vector.lock); /* XXX: can be a shared read lock */
         {
             pmod = lookup_module_info(&process_module_vector, tag);
             if (pmod) {
@@ -3769,8 +3768,7 @@ bool
 rct_is_exported_function(app_pc tag)
 {
     module_info_t mod = { 0 }, *pmod;
-    d_r_mutex_lock(
-        &process_module_vector.lock); /* XXX: this can be a shared read lock */
+    d_r_mutex_lock(&process_module_vector.lock); /* XXX: this can be a shared read lock */
     {
         pmod = lookup_module_info(&process_module_vector, tag);
         if (pmod) {

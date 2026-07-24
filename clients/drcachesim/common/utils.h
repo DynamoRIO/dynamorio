@@ -67,7 +67,7 @@ namespace drmemtrace {
 #define ERRMSG(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
 
 // XXX: can we share w/ core DR?
-#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
+#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
 // XXX i#4399: DR should define a DEBUG-only assert.
 #ifdef DEBUG
@@ -102,7 +102,7 @@ namespace drmemtrace {
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif

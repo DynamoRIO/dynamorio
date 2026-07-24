@@ -31,7 +31,7 @@
  */
 
 #ifndef _CONFIG_READER_HELPERS_H_
-#define _CONFIG_READER_HELPERS_H_ 1
+#define _CONFIG_READER_HELPERS_H_
 
 #ifndef WINDOWS
 #    include "cxxabi.h"

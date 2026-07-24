@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -1636,7 +1636,7 @@ find_first_file_common(
     if (find_next_file_common(dir, fname /*==NULL for plain dir */, lpFindFileData,
                               info)) {
         ans = dir; /* success */
-    }              /* else, last errror was already set */
+    } /* else, last errror was already set */
 
 find_first_file_error:
     if (dirname != NULL) {

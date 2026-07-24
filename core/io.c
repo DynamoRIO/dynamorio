@@ -922,13 +922,13 @@ typedef void (*memset_t)(void *dst, int src, size_t n);
 
 /* Force compiler to not optimize away our own memcpy and memset.
  */
-__attribute__((noinline)) static void *
+static NOINLINE void *
 our_memcpy(void *dst, const void *src, size_t n)
 {
     return memcpy(dst, src, n);
 }
 
-__attribute__((noinline)) static void *
+static NOINLINE void *
 our_memset(void *dst, int src, size_t n)
 {
     return memset(dst, src, n);

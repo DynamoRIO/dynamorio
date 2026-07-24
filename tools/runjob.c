@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2026-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -121,10 +122,10 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline, SIZE_T pagefile_limi
     // Second, set some UI restrictions
     jobuir.UIRestrictionsClass = JOB_OBJECT_UILIMIT_NONE; // A fancy 0
 
-    // The process can’t logoff the system
+    // The process can't logoff the system
     jobuir.UIRestrictionsClass |= JOB_OBJECT_UILIMIT_EXITWINDOWS;
 
-    // The process can’t access USER object (like other windows) in the system
+    // The process can't access USER object (like other windows) in the system
     jobuir.UIRestrictionsClass |= JOB_OBJECT_UILIMIT_HANDLES;
 
     ok = SetInformationJobObject(hjob, JobObjectBasicUIRestrictions, &jobuir,
@@ -158,11 +159,11 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline, SIZE_T pagefile_limi
     //        automatically associated with the same job
     AssignProcessToJobObject(hjob, pi.hProcess);
 
-    // Now, we can allow the child process’s thread to execute code.
+    // Now, we can allow the child process's thread to execute code.
     ResumeThread(pi.hThread);
     CloseHandle(pi.hThread);
 
-    // Wait for the process to terminate or for all the job’s allotted CPU time to be used
+    // Wait for the process to terminate or for all the job's allotted CPU time to be used
     {
         DWORD dw;
         HANDLE h[2];
@@ -193,7 +194,8 @@ usage(char *us)
     return 0;
 }
 
-int __cdecl main(int argc, char *argv[], char *envp[])
+int __cdecl
+main(int argc, char *argv[], char *envp[])
 {
     LPTSTR app_name = NULL;
     TCHAR full_app_name[2 * MAX_PATH];

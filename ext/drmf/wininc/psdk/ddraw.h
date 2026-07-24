@@ -673,7 +673,7 @@ extern "C" {
 
 #define GET_WHQL_YEAR (dwWHQLLevel)((dwWHQLLevel) / 0x10000)
 #define GET_WHQL_MONTH (dwWHQLLevel)(((dwWHQLLevel) / 0x100) & 0x00ff)
-#define GET_WHQL_DAY (dwWHQLLevel)((dwWHQLLevel)&0xff)
+#define GET_WHQL_DAY (dwWHQLLevel)((dwWHQLLevel) & 0xff)
 
 #ifndef MAKEFOURCC
 #    define MAKEFOURCC(c0, c1, c2, c3)                                              \

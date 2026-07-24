@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1899,68 +1899,68 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
     if (nt_wrapper == NULL || sysnum == SYSCALL_NOT_PRESENT)
         goto exit_clean_syscall_wrapper;
 
-        /* syscall wrapper should look like
-         * For NT/2000
-         * mov eax, sysnum         {5 bytes}
-         * lea edx, [esp+4]        {4 bytes}
-         * int 2e                  {2 bytes}
-         * ret arg_bytes           {1 byte (0 args) or 3 bytes}
-         *
-         * For XPsp0/XPsp1/2003sp0
-         * mov eax, sysnum         {5 bytes}
-         * mov edx, VSYSCALL_ADDR  {5 bytes}
-         * call edx                {2 bytes}
-         * ret arg_bytes           {1 byte (0 args) or 3 bytes}
-         *
-         * For XPsp2/2003sp1/Vista
-         * mov eax, sysnum         {5 bytes}
-         * mov edx, VSYSCALL_ADDR  {5 bytes}
-         * call [edx]              {2 bytes}
-         * ret arg_bytes           {1 byte (0 args) or 3 bytes}
-         *
-         * For WOW64 (case 3922), there are two types: if setting ecx to 0, xor is used.
-         *   mov eax, sysnum         {5 bytes}
-         *   mov ecx, wow_index      {5 bytes}  --OR--   xor ecx,ecx  {2 bytes}
-         *   lea edx, [esp+4]        {4 bytes}
-         *   call fs:0xc0            {7 bytes}
-         * On Win7 WOW64 after the call we have an add:
-         *   add esp,0x4             {3 bytes}
-         *   ret arg_bytes           {1 byte (0 args) or 3 bytes}
-         * On Win8 WOW64 we have no ecx (and no post-syscall add):
-         *   777311bc b844000100      mov     eax,10044h
-         *   777311c1 64ff15c0000000  call    dword ptr fs:[0C0h]
-         *   777311c8 c3              ret
-         * Win10 WOW64:
-         *   77cda610 b8a3010200      mov     eax,201A3h
-         *   77cda615 bab0d5ce77      mov     edx,offset ntdll!Wow64SystemServiceCall
-         *   77cda61a ffd2            call    edx
-         *   77cda61c c3              ret
-         *
-         * For win8 sysenter we have a co-located "inlined" callee:
-         *   77d7422c b801000000      mov     eax,1
-         *   77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
-         *   77d74236 c3              ret
-         *   77d74237 8bd4            mov     edx,esp
-         *   77d74239 0f34            sysenter
-         *   77d7423b c3              ret
-         * But we instead do the equivalent call to KiFastSystemCall.
-         *
-         * x64 syscall (PR 215398):
-         *   mov r10, rcx          {3 bytes}
-         *   mov eax, sysnum       {5 bytes}
-         *   syscall               {2 bytes}
-         *   ret                   {1 byte}
-         *
-         * win10-TH2(1511) x64:
-         *   4c8bd1          mov     r10,rcx
-         *   b843000000      mov     eax,43h
-         *   f604250803fe7f01 test    byte ptr [SharedUserData+0x308
-         * (00000000`7ffe0308)],1 7503            jne     ntdll!NtContinue+0x15
-         * (00007ff9`13185645) 0f05            syscall c3              ret cd2e int 2Eh c3
-         * ret
-         */
+    /* syscall wrapper should look like
+     * For NT/2000
+     * mov eax, sysnum         {5 bytes}
+     * lea edx, [esp+4]        {4 bytes}
+     * int 2e                  {2 bytes}
+     * ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     *
+     * For XPsp0/XPsp1/2003sp0
+     * mov eax, sysnum         {5 bytes}
+     * mov edx, VSYSCALL_ADDR  {5 bytes}
+     * call edx                {2 bytes}
+     * ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     *
+     * For XPsp2/2003sp1/Vista
+     * mov eax, sysnum         {5 bytes}
+     * mov edx, VSYSCALL_ADDR  {5 bytes}
+     * call [edx]              {2 bytes}
+     * ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     *
+     * For WOW64 (case 3922), there are two types: if setting ecx to 0, xor is used.
+     *   mov eax, sysnum         {5 bytes}
+     *   mov ecx, wow_index      {5 bytes}  --OR--   xor ecx,ecx  {2 bytes}
+     *   lea edx, [esp+4]        {4 bytes}
+     *   call fs:0xc0            {7 bytes}
+     * On Win7 WOW64 after the call we have an add:
+     *   add esp,0x4             {3 bytes}
+     *   ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     * On Win8 WOW64 we have no ecx (and no post-syscall add):
+     *   777311bc b844000100      mov     eax,10044h
+     *   777311c1 64ff15c0000000  call    dword ptr fs:[0C0h]
+     *   777311c8 c3              ret
+     * Win10 WOW64:
+     *   77cda610 b8a3010200      mov     eax,201A3h
+     *   77cda615 bab0d5ce77      mov     edx,offset ntdll!Wow64SystemServiceCall
+     *   77cda61a ffd2            call    edx
+     *   77cda61c c3              ret
+     *
+     * For win8 sysenter we have a co-located "inlined" callee:
+     *   77d7422c b801000000      mov     eax,1
+     *   77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
+     *   77d74236 c3              ret
+     *   77d74237 8bd4            mov     edx,esp
+     *   77d74239 0f34            sysenter
+     *   77d7423b c3              ret
+     * But we instead do the equivalent call to KiFastSystemCall.
+     *
+     * x64 syscall (PR 215398):
+     *   mov r10, rcx          {3 bytes}
+     *   mov eax, sysnum       {5 bytes}
+     *   syscall               {2 bytes}
+     *   ret                   {1 byte}
+     *
+     * win10-TH2(1511) x64:
+     *   4c8bd1          mov     r10,rcx
+     *   b843000000      mov     eax,43h
+     *   f604250803fe7f01 test    byte ptr [SharedUserData+0x308
+     * (00000000`7ffe0308)],1 7503            jne     ntdll!NtContinue+0x15
+     * (00007ff9`13185645) 0f05            syscall c3              ret cd2e int 2Eh c3
+     * ret
+     */
 
-        /* build correct instr list */
+    /* build correct instr list */
 #define APP(list, inst) instrlist_append((list), (inst))
 #define WIN1511_SHUSRDATA_SYS 0x7ffe0308
 #define WIN1511_JNE_OFFS 0x15
@@ -3207,33 +3207,33 @@ intercept_new_thread(CONTEXT *cxt)
         if (DYNAMO_OPTION(thin_client))
             return true /* exit intercept function and let go */;
 
-            /* In fact the apc_target is ntdll!LdrInitializeThunk
-             * (for all threads not only the first one).
-             * Note for vista that threads do not start with an apc, but rather
-             * directly show up at ntdll!LdrInitializeThunk (which we hook on
-             * vista to call this routine).  Note that the thunk will return via
-             * an NtContinue to a context on the stack so really we see the same
-             * behavior as before except we don't go through the apc dispatcher.
-             *
-             * For threads created by kernel32!CreateRemoteThread pre vista
-             * the cxt->Xip then is kernel32!Base{Process,Thread}StartThunk (not
-             * exported), while the cxt->Xax is the user thread procedure and cxt->Xbx
-             * is the arg. On vista it's the same except cxt->Xip is set to
-             * ntdll!RtlUserThreadStart (which is exported in ntdll.dll) by the
-             * kernel.
-             *
-             * kernel32!BaseProcessStartThunk, or kernel32!BaseThreadStartThunk
-             * on all versions I've tested start with
-             * 0xed33  xor ebp,ebp
-             *
-             * Note, of course, that direct NtCreateThread calls
-             * can go anywhere they want (including on Vista).  For example toolhelp
-             * uses NTDLL!RtlpQueryProcessDebugInformationRemote
-             * as the xip so shouldn't count much on this. NtCreateThreadEx threads
-             * (vista only) will, however, always have xip=ntdll!RtlUserThreadStart
-             * since the kernel sets that.
-             */
-            /* keep in mind this is a 16-bit match */
+        /* In fact the apc_target is ntdll!LdrInitializeThunk
+         * (for all threads not only the first one).
+         * Note for vista that threads do not start with an apc, but rather
+         * directly show up at ntdll!LdrInitializeThunk (which we hook on
+         * vista to call this routine).  Note that the thunk will return via
+         * an NtContinue to a context on the stack so really we see the same
+         * behavior as before except we don't go through the apc dispatcher.
+         *
+         * For threads created by kernel32!CreateRemoteThread pre vista
+         * the cxt->Xip then is kernel32!Base{Process,Thread}StartThunk (not
+         * exported), while the cxt->Xax is the user thread procedure and cxt->Xbx
+         * is the arg. On vista it's the same except cxt->Xip is set to
+         * ntdll!RtlUserThreadStart (which is exported in ntdll.dll) by the
+         * kernel.
+         *
+         * kernel32!BaseProcessStartThunk, or kernel32!BaseThreadStartThunk
+         * on all versions I've tested start with
+         * 0xed33  xor ebp,ebp
+         *
+         * Note, of course, that direct NtCreateThread calls
+         * can go anywhere they want (including on Vista).  For example toolhelp
+         * uses NTDLL!RtlpQueryProcessDebugInformationRemote
+         * as the xip so shouldn't count much on this. NtCreateThreadEx threads
+         * (vista only) will, however, always have xip=ntdll!RtlUserThreadStart
+         * since the kernel sets that.
+         */
+        /* keep in mind this is a 16-bit match */
 #define BASE_THREAD_START_THUNK_USHORT 0xed33
 
         /* see comments in os.c pre_system_call CreateThread, Xax holds

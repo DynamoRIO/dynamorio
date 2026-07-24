@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,7 +52,7 @@ main(int argc, char **argv)
           "mov $0, %%ecx\n\t"
           "rep movsq\n\t"
           :
-          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2)
+          : [buf1] "m"(buf1), [buf2] "m"(buf2)
           : "ecx", "rdi", "rsi", "memory");
 #        else
     __asm("lea %[buf1], %%edi\n\t"
@@ -60,7 +60,7 @@ main(int argc, char **argv)
           "mov $0, %%ecx\n\t"
           "rep movsd\n\t"
           :
-          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2)
+          : [buf1] "m"(buf1), [buf2] "m"(buf2)
           : "ecx", "edi", "esi", "memory");
 #        endif
 #    endif

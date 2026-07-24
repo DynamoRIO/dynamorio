@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3510,9 +3510,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (bb->eflags != EFLAGS_WRITE_ARITH IF_X86(&&bb->eflags != EFLAGS_READ_OF))
                 bb->eflags = eflags_analysis(bb->instr, bb->eflags, &eflags_6);
 
-                /* stop decoding at an invalid instr (tested above) or a cti
-                 *(== opcode valid) or a possible SEH frame push (if
-                 * -process_SEH_push). */
+            /* stop decoding at an invalid instr (tested above) or a cti
+             *(== opcode valid) or a possible SEH frame push (if
+             * -process_SEH_push). */
 #ifdef WINDOWS
             if (DYNAMO_OPTION(process_SEH_push) &&
                 instr_get_prefix_flag(bb->instr, PREFIX_SEG_FS)) {
@@ -6906,7 +6906,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
 {
     instr_t *inst, *next_inst, *start_instr, *jmp;
     uint blk, num_exits_deleted;
-    app_pc fallthrough = NULL;
+    app_pc fallthrough_pc = NULL;
     bool found_syscall = false, found_int = false;
 
     /* We don't assert that mangle_trace_at_end() is true b/c the client
@@ -6974,7 +6974,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
             /* Do not call instr_length() on this inst: use length
              * of translation! (i#509)
              */
-            fallthrough = decode_next_pc(dcontext, xl8);
+            fallthrough_pc = decode_next_pc(dcontext, xl8);
         }
 
         /* PR 299808: identify bb boundaries.  We can't go by translations alone, as
@@ -7056,7 +7056,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
             return false;
         }
         /* must have been no final exit cti: add final fall-through jmp */
-        jmp = create_exit_jmp(dcontext, fallthrough, fallthrough, 0);
+        jmp = create_exit_jmp(dcontext, fallthrough_pc, fallthrough_pc, 0);
         /* XXX PR 307284: support client modifying, replacing, or adding
          * syscalls and ints: need to re-analyze.  Then we wouldn't
          * need the md->final_exit_flags field anymore.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -451,7 +451,7 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
  */
 
 /* SYMBOL_INFO.Name has 1 char in the struct */
-#define NAME_EXTRA_SZ(full_sz) ((full_sz)-1)
+#define NAME_EXTRA_SZ(full_sz) ((full_sz) - 1)
 
 enum {
     /* MAX_SYM_NAME comes from dbghelp.h and is equal to 2000 */

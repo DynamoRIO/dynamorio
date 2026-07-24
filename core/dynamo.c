@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -439,9 +439,9 @@ dynamorio_app_init_part_one_options(void)
             post_execve = false;
 #endif
 
-            /* default non-zero dynamo settings (options structure is
-             * initialized to 0 automatically)
-             */
+        /* default non-zero dynamo settings (options structure is
+         * initialized to 0 automatically)
+         */
 #ifdef DEBUG
 #    ifndef INTERNAL
         nonshared_stats.logmask = LOG_ALL_RELEASE;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -112,7 +112,7 @@ typedef struct _reg_info_t {
 /* We use this in per_thread_t.slot_use[] and other places */
 #define DR_REG_EFLAGS DR_REG_INVALID
 
-#define GPR_IDX(reg) ((reg)-DR_REG_START_GPR)
+#define GPR_IDX(reg) ((reg) - DR_REG_START_GPR)
 
 typedef struct _per_thread_t {
     instr_t *cur_instr;
@@ -1270,8 +1270,8 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
         *restore_needed = (res == DRREG_SUCCESS);
     if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
         return res;
-        /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
-         */
+    /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
+     */
 #ifdef X86
     if (res != DRREG_ERROR_NO_APP_VALUE && reg != DR_REG_NULL && pt->aflags.xchg == reg) {
         ASSERT(reg == DR_REG_XAX, "xax is the only x86 reg that may have spilled aflags");

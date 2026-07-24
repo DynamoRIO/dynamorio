@@ -251,7 +251,8 @@ DWORD func1_buf[BUF_SIZE];
 DWORD func2_buf[BUF_SIZE];
 DWORD ntflushwritebuffer_buf[BUF_SIZE];
 
-int __declspec(dllexport) hookit(int arg)
+int __declspec(dllexport)
+hookit(int arg)
 {
     print("ready to hook %d\n", arg);
 
@@ -274,7 +275,8 @@ int __declspec(dllexport) hookit(int arg)
     return 0;
 }
 
-int __declspec(dllexport) unhookit(int arg)
+int __declspec(dllexport)
+unhookit(int arg)
 {
     print("ready to unhook %d\n", arg);
 

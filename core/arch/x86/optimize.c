@@ -861,9 +861,9 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (opnd_get_pc(instr_get_target(branch)) != tag)
         return;
 
-        /* eflags: for simplicity require that eflags be written before read
-         * only need to look at arith flags
-         */
+    /* eflags: for simplicity require that eflags be written before read
+     * only need to look at arith flags
+     */
 #    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "\nunroll loop -- checking eflags on:\n");
     if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_OPTS) != 0)

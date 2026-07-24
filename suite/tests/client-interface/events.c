@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -165,7 +165,8 @@ extern "C"
 #else
 __attribute__((visibility("default")))
 #endif
-        void redirect(void)
+    void
+    redirect(void)
 {
     print("Redirect success!\n");
     exit(0);

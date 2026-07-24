@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited.  All rights reserved.
  * **********************************************************/
 
@@ -90,7 +90,7 @@ test_mov_instr_addr(void)
     __builtin___clear_cache((char *)generated_code,
                             (char *)generated_code + gencode_max_size);
 
-    uint written = ((uint(*)(void))generated_code)();
+    uint written = ((uint (*)(void))generated_code)();
     ASSERT(written == 0xdeadbeef);
 
     instrlist_clear_and_destroy(GD, ilist);

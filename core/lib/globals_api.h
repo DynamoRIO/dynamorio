@@ -169,7 +169,7 @@ typedef _Bool bool;
 #    define ALIGN_VAR(x) __attribute__((aligned(x)))
 #    define INLINE_FORCED inline
 #    define WEAK __attribute__((weak))
-#    define NOINLINE __attribute__((noinline))
+#    define NOINLINE __attribute__((__noinline__))
 #endif
 
 /* Annotates intentional switch case fallthroughs to satisfy
@@ -310,7 +310,7 @@ typedef size_t app_rva_t;
 
 #define PTR_UINT_0 ((ptr_uint_t)0U)
 #define PTR_UINT_1 ((ptr_uint_t)1U)
-#define PTR_UINT_MINUS_1 ((ptr_uint_t)-1)
+#define PTR_UINT_MINUS_1 ((ptr_uint_t) - 1)
 
 #ifdef WINDOWS
 typedef ptr_uint_t thread_id_t;

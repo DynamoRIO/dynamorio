@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -80,7 +80,7 @@ typedef DWORD cxt_seg_t;
  */
 #    define FXSAVE_XMM0_OFFSET 160
 #    define CXT_XMM(cxt, idx) \
-        ((dr_xmm_t *)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
+        ((dr_xmm_t *)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx) * 16]))
 #endif
 
 #endif /* _OS_PUBLIC_H_ */

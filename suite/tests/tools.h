@@ -292,7 +292,7 @@ page_size(void)
 #else /* UNIX */
 #    define EXPORT __attribute__((visibility("default")))
 #    define IMPORT extern
-#    define NOINLINE __attribute__((noinline))
+#    define NOINLINE __attribute__((__noinline__))
 #endif
 
 /* TODO i#8001: Move these to dr_project_wide_defines.h. */
