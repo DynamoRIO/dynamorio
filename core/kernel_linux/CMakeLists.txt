@@ -42,7 +42,33 @@ set(dynamorio_module_name dynamorio_module)
 #
 # Note: No source file may be named "${dynamorio_module_name}.c" because
 # Kbuild composite targets cannot share a name with a component object file.
-set(dynamorio_module_sources dynamorio_module_main.c)
+set(dynamorio_module_sources
+  dynamorio_module_main.c
+  ../buildmark.c
+  ../config.c
+  ../dispatch.c
+  ../dynamo.c
+  ../emit.c
+  ../fcache.c
+  ../fragment.c
+  ../hashtable.c
+  ../heap.c
+  ../io.c
+  ../link.c
+  ../loader_shared.c
+  ../module_list.c
+  ../moduledb.c
+  ../monitor.c
+  ../nudge.c
+  ../options.c
+  ../perscache.c
+  ../stats.c
+  ../string.c
+  ../synch.c
+  ../translate.c
+  ../utils.c
+  ../vmareas.c
+)
 
 set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko")
 set(dynamorio_module_kbuildfile "${CMAKE_CURRENT_BINARY_DIR}/Kbuild")
