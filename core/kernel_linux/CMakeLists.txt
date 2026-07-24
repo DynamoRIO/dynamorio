@@ -57,7 +57,7 @@ foreach (src ${dynamorio_module_sources})
   file(CREATE_LINK "${abs_src}" "${mirrored_src}" SYMBOLIC)
   string(REGEX REPLACE "\\.c$" ".o" rel_obj "${rel_src}")
   list(APPEND dynamorio_module_objs "${rel_obj}")
-endforeach()
+endforeach ()
 
 string(REPLACE ";" " " dynamorio_module_objs "${dynamorio_module_objs}")
 set(dynamorio_module_kbuild_extra
