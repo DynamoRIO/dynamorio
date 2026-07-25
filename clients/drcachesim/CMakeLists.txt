@@ -385,7 +385,7 @@ link_with_pthread(drmemtrace_analyzer)
 # START_PACKED_STRUCTURE); even then, we expose utils.h, which includes it.
 # So we export it here. It's currently not exported in the DR API headers;
 # even if we add it there, it's ok to be in both.
-install_client_nonDR_header(drmemtrace
+install_client_nonDR_header(.
   ${PROJECT_SOURCE_DIR}/common/dr_project_wide_defines.h)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.
