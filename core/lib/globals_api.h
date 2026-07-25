@@ -55,7 +55,14 @@
 #    include <stdio.h>
 #    include <stdlib.h>
 #endif
-#include "stdarg_wrapper.h" /* for varargs */
+/* Inlined rather than using stdarg_wrapper.h: this file is exported as
+ * dr_defines.h and stdarg_wrapper.h is not part of the exported headers.
+ */
+#ifdef LINUX_KERNEL
+#    include <linux/stdarg.h>
+#else
+#    include <stdarg.h> /* for varargs */
+#endif
 
 #ifndef DYNAMORIO_INTERNAL
 #    include <stdbool.h> /* for bool */
