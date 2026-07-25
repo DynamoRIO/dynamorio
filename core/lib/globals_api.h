@@ -51,11 +51,11 @@
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
 #    include <winbase.h>
-#else
+#elif !defined(LINUX_KERNEL)
 #    include <stdio.h>
 #    include <stdlib.h>
 #endif
-#include <stdarg.h> /* for varargs */
+#include "stdarg_wrapper.h" /* for varargs */
 
 #ifndef DYNAMORIO_INTERNAL
 #    include <stdbool.h> /* for bool */
@@ -114,7 +114,7 @@
  * behave properly.  It indents the guard.  There seems to be no workaround.
  */
 /* clang-format off */
-#    ifndef __cplusplus
+#    if !defined(__cplusplus) && !defined(LINUX_KERNEL)
 #        ifdef WINDOWS
 #            define inline __inline
 #        else
@@ -136,7 +136,11 @@ typedef _Bool bool;
 #    endif
 
 #    ifdef UNIX
-#        include <sys/types.h> /* for pid_t (non-glibc, e.g. musl) */
+#        ifdef LINUX_KERNEL
+#            include <linux/types.h>
+#        else
+#            include <sys/types.h> /* for pid_t (non-glibc, e.g. musl) */
+#        endif
 #    endif
 #    ifdef WINDOWS
 /* allow nameless struct/union */
