@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2026 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,6 +32,7 @@
 
 #include "config_reader.h"
 #include "config_reader_helpers.h"
+#include "utils.h"
 #include <sstream>
 #include <set>
 

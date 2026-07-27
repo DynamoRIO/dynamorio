@@ -57,7 +57,6 @@ namespace drmemtrace {
                       dr_abort(), 0)                                                 \
                    : 0))
 #define ASSERT_NOT_REACHED() ASSERT_MSG(false, "Shouldn't be reached")
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
 
 /*******************************************************************************
  * Begin application code.

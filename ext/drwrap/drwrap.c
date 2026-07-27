@@ -69,8 +69,6 @@ static uint verbose = 0;
 #    define NOTIFY(...) /* nothing */
 #endif
 
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
-
 /* We rely on being able to clobber this register at call sites. */
 /* At return, we assume we can clobber caller-saved regs not used for return values. */
 #ifdef ARM

@@ -23,6 +23,8 @@
 #ifndef _UTILS_H_
 #define _UTILS_H_
 
+#include "dr_project_wide_defines.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -177,15 +179,6 @@ extern "C" {
 #    define IF_DRHEAP(x) x
 #    define IF_DRMEM_ELSE(x, y) y
 #endif
-
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment) - 1)))
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment) - 1)) & (~((alignment) - 1)))
-#define ALIGN_MOD(addr, size, alignment) \
-    ((((ptr_uint_t)addr) + (size) - 1) & ((alignment) - 1))
-#define CROSSES_ALIGNMENT(addr, size, alignment) \
-    (ALIGN_MOD(addr, size, alignment) < (size) - 1)
 
 #ifndef TESTANY
 #    define TEST(mask, var) (((mask) & (var)) != 0)

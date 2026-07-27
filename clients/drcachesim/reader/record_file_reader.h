@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,7 @@
 #include "memtrace_stream.h"
 #include "reader_base.h"
 #include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

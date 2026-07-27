@@ -42,6 +42,8 @@
 #ifndef _UTILS_H_
 #define _UTILS_H_
 
+#include "dr_project_wide_defines.h"
+
 #ifdef assert
 #    undef assert
 #endif
@@ -214,24 +216,6 @@ external_error(const char *file, int line, const char *msg);
     ASSERT((val) < (1 << ((width) + 1)) && "truncating to " #width " bits");
 #define CLIENT_ASSERT_BITFIELD_TRUNCATE(width, val, msg) \
     CLIENT_ASSERT((val) < (1 << ((width) + 1)), msg);
-
-/* alignment helpers, alignment must be power of 2 */
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment) - 1)) & (~((ptr_uint_t)(alignment) - 1)))
-#define ALIGN_FORWARD_UINT(x, alignment) \
-    ((((uint)x) + ((alignment) - 1)) & (~((alignment) - 1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment) - 1)))
-#define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
-#define ALIGN_MOD(addr, size, alignment) \
-    ((((ptr_uint_t)addr) + (size) - 1) & ((alignment) - 1))
-#define CROSSES_ALIGNMENT(addr, size, alignment) \
-    (ALIGN_MOD(addr, size, alignment) < (size) - 1)
-/* number of bytes you need to shift addr forward so that it's !CROSSES_ALIGNMENT */
-#define ALIGN_SHIFT_SIZE(addr, size, alignment)            \
-    (CROSSES_ALIGNMENT(addr, size, alignment)              \
-         ? ((size) - 1 - ALIGN_MOD(addr, size, alignment)) \
-         : 0)
 
 /****************************************************************************
  * Synchronization
