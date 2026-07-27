@@ -154,8 +154,10 @@
 
 #define INLINE_ONCE inline
 
-#include <stdlib.h>
-#include <stdio.h>
+#ifndef LINUX_KERNEL
+#    include <stdlib.h>
+#    include <stdio.h>
+#endif
 
 /* N.B.: some of these typedefs and defines are duplicated in
  * lib/globals_shared.h!
@@ -186,7 +188,7 @@ typedef HANDLE file_t;
 #    if defined(MACOS) || defined(ANDROID)
 typedef unsigned long ulong;
 #    endif
-#    include <sys/types.h> /* for wait */
+#    include "types_wrapper.h" /* for wait */
 #    define DIRSEP '/'
 #    define ALT_DIRSEP DIRSEP
 #endif
