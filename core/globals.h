@@ -1095,7 +1095,7 @@ enum { DUMP_XML = true, DUMP_NOT_XML = false };
 
 /* io.c */
 /* to avoid transparency problems we must have our own vnsprintf and sscanf */
-#include <stdarg.h> /* for va_list */
+#include "stdarg_wrapper.h" /* for va_list */
 int
 d_r_snprintf(char *s, size_t max, const char *fmt, ...);
 int
