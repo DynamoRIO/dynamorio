@@ -89,8 +89,10 @@ dispatch_exit_fcache(dcontext_t *dcontext);
 static void
 dispatch_exit_fcache_stats(dcontext_t *dcontext);
 
+#ifndef LINUX_KERNEL
 static void
 handle_post_system_call(dcontext_t *dcontext);
+#endif
 
 static void
 handle_special_tag(dcontext_t *dcontext);
@@ -901,8 +903,10 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     KSTART_DC(dcontext, dispatch_num_exits);
 
     if (wherewasi != DR_WHERE_APP) { /* if not first entrance */
+#ifndef LINUX_KERNEL
         if (get_at_syscall(dcontext))
             handle_post_system_call(dcontext);
+#endif
 
 #ifdef X86
         /* If the next basic block starts at a debug register value,
@@ -915,6 +919,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         }
 #endif
 
+#ifndef LINUX_KERNEL
         /* A non-ignorable syscall or cb return ending a bb must be acted on
          * We do it here to avoid becoming couldbelinking twice.
          *
@@ -933,6 +938,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                  */
             }
         }
+#endif
 #ifdef WINDOWS
         else if (TEST(LINK_CALLBACK_RETURN, dcontext->last_exit->flags)) {
             handle_callback_return(dcontext);
@@ -1855,6 +1861,7 @@ adjust_syscall_continuation(dcontext_t *dcontext)
 }
 #endif
 
+#ifndef LINUX_KERNEL
 /* used to execute a system call instruction in the code cache
  * dcontext->next_tag is store elsewhere and restored after the system call
  * for resumption of execution post-syscall
@@ -1869,23 +1876,23 @@ handle_system_call(dcontext_t *dcontext)
     int sysnum = os_normalized_sysnum((int)MCXT_SYSNUM_REG(mc), NULL, dcontext);
     app_pc saved_next_tag = dcontext->next_tag;
     bool repeat = false;
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* make sure to ask about syscall before pre_syscall, which will swap new mc in! */
     bool use_prev_dcontext = is_cb_return_syscall(dcontext);
-#elif defined(X86)
+#    elif defined(X86)
     if (TEST(LINK_NI_SYSCALL_INT, dcontext->last_exit->flags)) {
         LOG(THREAD, LOG_SYSCALLS, 2, "Using do_int_syscall\n");
         do_syscall = (app_pc)get_do_int_syscall_entry(dcontext);
         /* last_exit will be for the syscall so set a flag (could alternatively
          * set up a separate exit stub but this is simpler) */
         dcontext->sys_was_int = true;
-#    ifdef VMX86_SERVER
+#        ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(mc->xax)) {
             /* Even w/ syscall # shift int80 => ENOSYS */
             do_syscall = get_do_vmkuw_syscall_entry(dcontext);
             LOG(THREAD, LOG_SYSCALLS, 2, "Using do_vmkuw_syscall\n");
         }
-#    endif
+#        endif
     } else if (TEST(LINK_SPECIAL_EXIT, dcontext->last_exit->flags)) {
         if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_NI_SYSCALL_INT_0x81)
             do_syscall = (app_pc)get_do_int81_syscall_entry(dcontext);
@@ -1899,7 +1906,7 @@ handle_system_call(dcontext_t *dcontext)
         dcontext->sys_was_int = false;
         IF_NOT_X64(IF_VMX86(ASSERT(!is_vmkuw_sysnum(mc->xax))));
     }
-#endif
+#    endif
 
     /* We invoke here rather than inside pre_syscall() primarily so we can
      * set use_prev_dcontext(), but also b/c the windows and linux uses
@@ -1922,10 +1929,10 @@ handle_system_call(dcontext_t *dcontext)
         LOG(THREAD, LOG_SYSCALLS, 2, "skipping syscall %d on client request\n",
             MCXT_SYSNUM_REG(mc));
     }
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* re-set in case client changed the number */
     use_prev_dcontext = is_cb_return_syscall(dcontext);
-#endif
+#    endif
 
     /* some syscalls require modifying local memory
      * XXX: move this unprot down to those syscalls to avoid unprot-prot-unprot-prot
@@ -1938,10 +1945,10 @@ handle_system_call(dcontext_t *dcontext)
 
     LOG(THREAD, LOG_SYSCALLS, 2,
         "Entry into do_syscall to execute a non-ignorable system call\n");
-#ifdef SIDELINE
+#    ifdef SIDELINE
     /* clear cur-trace field so we don't think cur trace is still running */
     sideline_trace = NULL;
-#endif
+#    endif
 
     /* our flushing design assumes our syscall handlers are nolinking,
      * to avoid multiple-flusher deadlocks
@@ -1959,14 +1966,14 @@ handle_system_call(dcontext_t *dcontext)
      */
     dcontext->asynch_target = get_fcache_target(dcontext);
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
         /* kernel sends control directly to 0x7ffe0304 so we need
          * to mangle the return address
          */
         /* Ref case 5461 - edx will become top of stack post-syscall */
         ASSERT(get_mcontext(dcontext)->xsp == get_mcontext(dcontext)->xdx);
-#    ifdef HOT_PATCHING_INTERFACE
+#        ifdef HOT_PATCHING_INTERFACE
         /* For hotp_only, vsyscall_syscall_end_pc can be NULL as dr will never
          * interp a system call.  Also, for hotp_only, control can came here
          * from native only to do a syscall that was hooked.
@@ -1974,9 +1981,9 @@ handle_system_call(dcontext_t *dcontext)
         ASSERT(!DYNAMO_OPTION(hotp_only) ||
                (DYNAMO_OPTION(hotp_only) &&
                 dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL));
-#    else
+#        else
         ASSERT(vsyscall_syscall_end_pc != NULL || get_os_version() >= WINDOWS_VERSION_8);
-#    endif
+#        endif
         /* NOTE - the stack mangling must match that of intercept_nt_continue()
          * and shared_syscall as not all routines looking at the stack
          * differentiate. */
@@ -1984,10 +1991,10 @@ handle_system_call(dcontext_t *dcontext)
             /* win8 x86 syscalls have inlined sysenter routines */
             (get_os_version() >= WINDOWS_VERSION_8 &&
              dcontext->thread_record->under_dynamo_control)) {
-#    ifdef HOT_PATCHING_INTERFACE
+#        ifdef HOT_PATCHING_INTERFACE
             /* Don't expect to be here for -hotp_only */
             ASSERT_CURIOSITY(!DYNAMO_OPTION(hotp_only));
-#    endif
+#        endif
             ASSERT(dcontext->next_tag != BACK_TO_NATIVE_AFTER_SYSCALL);
             /* currently pc is the ret after sysenter, we need it to be the return point
              * (the ret after the call to the vsyscall sysenter)
@@ -2033,9 +2040,9 @@ handle_system_call(dcontext_t *dcontext)
             *((app_pc *)get_mcontext(dcontext)->xsp) = after_do_syscall_code(dcontext);
         }
     }
-#endif
+#    endif
 
-#if defined(MACOS) && defined(X86)
+#    if defined(MACOS) && defined(X86)
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && !dcontext->sys_was_int) {
         /* The kernel returns control to whatever user-mode places in edx.
          * We want to put this in even if we skip the syscall as we'll still call
@@ -2046,12 +2053,12 @@ handle_system_call(dcontext_t *dcontext)
         dcontext->app_xdx = mc->xdx;
         mc->xdx = (reg_t)post_sysenter;
     }
-#endif
+#    endif
 
     /* first do the pre-system-call */
     if (execute_syscall && pre_system_call(dcontext)) {
         /* now do the actual syscall instruction */
-#ifdef UNIX
+#    ifdef UNIX
         /* XXX: move into some routine inside unix/?
          * if so, move #include of sys/syscall.h too
          */
@@ -2080,7 +2087,7 @@ handle_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, 3, "for sigreturn, set sys_param1 to " PFX "\n",
                 dcontext->sys_param1);
         }
-#else
+#    else
         if (use_prev_dcontext) {
             /* get the current, but now swapped out, dcontext */
             dcontext_t *tmp_dcontext = dcontext;
@@ -2097,7 +2104,7 @@ handle_system_call(dcontext_t *dcontext)
              */
             tmp_dcontext->whereami = DR_WHERE_FCACHE;
         }
-#endif
+#    endif
 
         SELF_PROTECT_LOCAL(dcontext, READONLY);
 
@@ -2105,7 +2112,7 @@ handle_system_call(dcontext_t *dcontext)
         KSTART_DC(dcontext, syscall_fcache); /* stopped in dispatch_exit_fcache_stats */
         bool is_ignorable = ignorable_system_call(sysnum, NULL, dcontext);
         do {
-#ifdef UNIX
+#    ifdef UNIX
             /* It is difficult to undo some pre-syscall handling, especially for
              * sigreturn's signal mask and clone syscalls.  We go ahead and run the
              * syscall before we deliver the signal for all non-ignorable syscalls.
@@ -2122,21 +2129,21 @@ handle_system_call(dcontext_t *dcontext)
                    !is_ignorable);
             if (!is_ignorable && dcontext->signals_pending > 0)
                 dcontext->signals_pending = -1;
-#endif
+#    endif
             enter_fcache(dcontext,
                          (fcache_enter_func_t)
                          /* DEFAULT_ISA_MODE as we want the ISA mode of our gencode */
                          convert_data_to_function(
                              PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
                          PC_AS_JMP_TGT(DEFAULT_ISA_MODE, do_syscall));
-#ifdef UNIX
+#    ifdef UNIX
             if (!is_ignorable && dcontext->signals_pending > 0)
                 repeat = true;
             else
                 break;
-#endif
+#    endif
         } while (repeat);
-#ifdef UNIX
+#    ifdef UNIX
         if (dcontext->signals_pending != 0) {
             /* i#2019: see comments in dispatch_enter_fcache() */
             KSTOP(syscall_fcache);
@@ -2156,7 +2163,7 @@ handle_system_call(dcontext_t *dcontext)
             trace_abort(dcontext);
             receive_pending_signal(dcontext);
         } else
-#endif
+#    endif
             /* will handle post processing in handle_post_system_call */
             ASSERT_NOT_REACHED();
     } else {
@@ -2167,7 +2174,7 @@ handle_system_call(dcontext_t *dcontext)
         if (execute_syscall) {
             instrument_post_syscall(dcontext, dcontext->sys_num);
         }
-#ifdef WINDOWS
+#    ifdef WINDOWS
         if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
             /* decided to skip syscall -- pop retaddr, restore sysenter storage
              * (if applicable) and set next target */
@@ -2183,10 +2190,10 @@ handle_system_call(dcontext_t *dcontext)
              */
             get_mcontext(dcontext)->xsp -= XSP_SZ;
         }
-#else
+#    else
         adjust_syscall_continuation(dcontext);
         set_fcache_target(dcontext, dcontext->asynch_target);
-#endif
+#    endif
     }
     SELF_PROTECT_LOCAL(dcontext, READONLY);
 }
@@ -2205,7 +2212,7 @@ handle_post_system_call(dcontext_t *dcontext)
     /* some syscalls require modifying local memory */
     SELF_PROTECT_LOCAL(dcontext, WRITABLE);
 
-#ifdef UNIX
+#    ifdef UNIX
     /* restore mcontext values prior to invoking instrument_post_syscall() */
     if (was_sigreturn_syscall(dcontext)) {
         /* restore app xax/r0 */
@@ -2214,16 +2221,16 @@ handle_post_system_call(dcontext_t *dcontext)
             dcontext->sys_param1, dcontext->asynch_target);
         /* XXX i#3544: Check if this is a proper register to use */
         mc->IF_X86_ELSE(xax, IF_RISCV64_ELSE(a0, r0)) = dcontext->sys_param1;
-#    ifdef MACOS
+#        ifdef MACOS
         /* We need to skip the use app_xdx, as we've changed the context.
          * We can't just set app_xdx from handle_sigreturn() as the
          * pre-sysenter code clobbers app_xdx, and we want to handle
          * a failed SYS_sigreturn.
          */
         skip_adjust = true;
-#    endif
+#        endif
     }
-#endif
+#    endif
     /* i#1661: ensure we set the right pc for dr_get_mcontext() */
     get_mcontext(dcontext)->pc = dcontext->asynch_target;
 
@@ -2233,7 +2240,7 @@ handle_post_system_call(dcontext_t *dcontext)
     /* XXX: need to handle syscall failure -- those that clobbered asynch_target
      * need to restore it to its previous value, which has to be stored somewhere!
      */
-#ifdef WINDOWS
+#    ifdef WINDOWS
     if (DYNAMO_OPTION(sygate_sysenter) &&
         get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
         /* restore sysenter_storage, note stack was popped twice for
@@ -2241,25 +2248,26 @@ handle_post_system_call(dcontext_t *dcontext)
         get_mcontext(dcontext)->xsp -= XSP_SZ;
         *((app_pc *)get_mcontext(dcontext)->xsp) = dcontext->sysenter_storage;
     }
-#else
+#    else
     if (!skip_adjust)
         adjust_syscall_continuation(dcontext);
-#endif
+#    endif
     set_fcache_target(dcontext, dcontext->asynch_target);
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* We no longer need asynch_target so zero it out. Other pieces of DR
      * -- callback & APC handling, detach -- test asynch_target to determine
      * where the next app pc to execute is stored. If asynch_target != 0,
      * it holds the value, else it's in the esi slot.
      */
     dcontext->asynch_target = 0;
-#endif
+#    endif
 
     LOG(THREAD, LOG_SYSCALLS, 3, "finished handling system call\n");
 
     SELF_PROTECT_LOCAL(dcontext, READONLY);
     /* caller will go back to couldbelinking status */
 }
+#endif /* !LINUX_KERNEL */
 
 #ifdef WINDOWS
 /* in callback.c */

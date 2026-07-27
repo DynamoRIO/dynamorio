@@ -625,8 +625,10 @@ entering_dynamorio(void);
 void
 exiting_dynamorio(void);
 
+#ifndef LINUX_KERNEL
 void
 handle_system_call(dcontext_t *dcontext);
+#endif
 
 /* self-protection */
 void
