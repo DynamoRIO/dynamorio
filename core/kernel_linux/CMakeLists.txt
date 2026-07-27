@@ -99,6 +99,7 @@ set(dynamorio_module_include_dirs
 set(dynamorio_module_defines
   LINUX_KERNEL
   DYNAMORIO_INTERNAL
+  DR_DO_NOT_DEFINE_MAX_MIN
 )
 
 set(dynamorio_module_kbuild_ccflags "ccflags-y +=")
