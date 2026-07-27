@@ -79,7 +79,11 @@
 #include "../limits_wrapper.h" /* for USHRT_MAX */
 
 #ifdef UNIX
-#    include <signal.h>
+#    ifdef LINUX_KERNEL
+#        include <asm/sigcontext.h>
+#    else
+#        include <signal.h>
+#    endif
 #endif
 
 #include "c_defines.h" // IWYU pragma: export
