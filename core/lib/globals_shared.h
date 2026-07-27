@@ -76,7 +76,8 @@
 
 #include "globals_api.h" // IWYU pragma: export
 
-#include <limits.h> /* for USHRT_MAX */
+#include "../limits_wrapper.h" /* for USHRT_MAX */
+
 #ifdef UNIX
 #    include <signal.h>
 #endif
