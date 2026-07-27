@@ -40,7 +40,7 @@
  *
  */
 
-#include <stddef.h>
+#include "stddef_wrapper.h"
 
 #ifndef NOT_DYNAMORIO_CORE
 #    include "globals.h"

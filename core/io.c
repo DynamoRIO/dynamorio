@@ -50,7 +50,7 @@ typedef unsigned long ulong;
 void
 dr_fpu_exception_init(void);
 #endif
-#include <stdarg.h> /* for varargs */
+#include "stdarg_wrapper.h" /* for varargs */
 
 #ifdef UNIX
 #    ifdef MACOS

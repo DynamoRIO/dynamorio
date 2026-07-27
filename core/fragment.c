@@ -46,8 +46,8 @@
 #include "emit.h"
 #include "monitor.h"
 #include "instrument.h"
-#include <stddef.h> /* for offsetof */
-#include <limits.h> /* UINT_MAX */
+#include "stddef_wrapper.h" /* for offsetof */
+#include "limits_wrapper.h" /* UINT_MAX */
 #include "perscache.h"
 #include "synch.h"
 #ifdef UNIX
