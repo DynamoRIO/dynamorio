@@ -56,7 +56,21 @@
 #    include "dr_ir_instr.h" // IWYU pragma: export
 #    include "dr_ir_utils.h" // IWYU pragma: export
 #endif
-#include <limits.h> /* For SCHAR_MAX, SCHAR_MIN. */
+
+/* Inlined rather than using limits_wrapper.h: this file is exported as
+ * dr_ir_macros.h and limits_wrapper.h is not part of the exported headers.
+ */
+#ifdef LINUX_KERNEL
+#    include <linux/kernel.h>
+#    ifndef SCHAR_MAX
+#        define SCHAR_MAX 127
+#    endif
+#    ifndef SCHAR_MIN
+#        define SCHAR_MIN (-128)
+#    endif
+#else
+#    include <limits.h> /* For SCHAR_MAX, SCHAR_MIN. */
+#endif
 
 /**
  * Set the translation field for an instruction. For example:
