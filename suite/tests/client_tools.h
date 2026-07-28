@@ -76,18 +76,6 @@
 #define POINTER_UNDERFLOW_ON_SUB(ptr, sub) \
     (((ptr_uint_t)(ptr)) - (sub) > ((ptr_uint_t)(ptr)))
 
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
-
 #ifdef WINDOWS
 #    define IF_WINDOWS_ELSE(x, y) x
 #    define IF_WINDOWS(x) x

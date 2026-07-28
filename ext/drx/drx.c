@@ -35,7 +35,7 @@
 #include "dr_api.h"
 #include "drx.h"
 #include "hashtable.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include <stddef.h> /* for offsetof */
 #include <string.h>
 

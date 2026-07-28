@@ -162,13 +162,6 @@ extern "C" {
 #define DR_DO_NOT_DEFINE_bool
 #include "c_defines.h"
 
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
-
 #ifdef USE_DYNAMO
 /* to avoid non-api tests depending on dr_api headers we rely on test
  * including dr_api.h before tools.h (though then must include
@@ -294,15 +287,6 @@ page_size(void)
 #    define IMPORT extern
 #    define NOINLINE __attribute__((__noinline__))
 #endif
-
-/* TODO i#8001: Move these to dr_project_wide_defines.h. */
-/* convenience macros for secure string buffer operations */
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-#define BUFFER_ROOM_LEFT_W(wbuf) (BUFFER_SIZE_ELEMENTS(wbuf) - wcslen(wbuf) - 1)
-#define BUFFER_ROOM_LEFT(abuf) (BUFFER_SIZE_ELEMENTS(abuf) - strlen(abuf) - 1)
 
 #define PUSHF_MASK 0x00fcffff
 

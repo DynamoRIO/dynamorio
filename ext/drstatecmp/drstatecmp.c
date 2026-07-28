@@ -32,7 +32,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drstatecmp.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include <string.h>
 #include <stdint.h>
 

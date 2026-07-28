@@ -38,7 +38,7 @@
 #include "drmgr.h"
 #include "drmgr_priv.h"
 #include "hashtable.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #ifdef UNIX
 #    include <string.h>
 #endif

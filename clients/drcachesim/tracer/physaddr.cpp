@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,10 +58,6 @@ namespace drmemtrace {
 #else
 #    define IF_X64_ELSE(x, y) x
 #endif
-
-// XXX: can we share w/ core DR?
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
 
 #ifdef LINUX
 #    define PAGEMAP_VALID 0x8000000000000000
