@@ -46,13 +46,13 @@
 
 #include "configure.h"
 #if defined(NOT_DYNAMORIO_CORE)
+#    include "dr_project_wide_defines.h"
 #    define ASSERT(x)
 #    define ASSERT_NOT_REACHED()
 #    define ASSERT_NOT_IMPLEMENTED(x)
 #    define DODEBUG(x)
 #    define DOCHECK(n, x)
 #    define DECLARE_NEVERPROT_VAR(var, ...) var = __VA_ARGS__;
-#    define ALIGN_BACKWARD(x, alignment) (((ULONG_PTR)x) & (~((alignment) - 1)))
 #    define PAGE_SIZE 4096
 #else
 /* we include globals.h mainly for ASSERT, even though we're

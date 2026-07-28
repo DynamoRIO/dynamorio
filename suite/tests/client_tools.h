@@ -36,6 +36,8 @@
 
 /* Common definitions for test suite clients. */
 
+#include "dr_project_wide_defines.h"
+
 /* Ignore any PAGE_SIZE provided by the tool chain and define a new version
  * using dr_api.h.
  */
@@ -67,13 +69,6 @@
 #undef DR_ASSERT
 #define DR_ASSERT_MSG ASSERT_MSG
 #define DR_ASSERT ASSERT
-
-/* Standard pointer-width integer alignment macros.  Not provided by dr_api.h.
- */
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment) - 1)))
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + (((ptr_uint_t)alignment) - 1)) & (~(((ptr_uint_t)alignment) - 1)))
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
 
 /* Xref i#302 */
 #define POINTER_OVERFLOW_ON_ADD(ptr, add) \

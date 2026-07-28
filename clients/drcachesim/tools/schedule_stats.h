@@ -48,6 +48,7 @@
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

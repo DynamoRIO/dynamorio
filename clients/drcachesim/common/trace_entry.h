@@ -47,11 +47,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "utils.h"
-
 #if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 #    include "drpttracer_shared.h"
 #endif
+
+#include "utils.h"
 
 /**
  * @file drmemtrace/trace_entry.h

@@ -34,6 +34,7 @@
 #ifndef _DETERMINA_SHAREUTILS_H_
 #define _DETERMINA_SHAREUTILS_H_
 
+#include "dr_project_wide_defines.h"
 #include "share.h"
 #include "dr_config.h"
 #include "our_tchar.h"
@@ -440,12 +441,6 @@ show_all_events();
         }
 
 #endif /* DEBUG */
-
-/* alignment helpers, alignment must be power of 2 */
-#define ALIGNED(x, alignment) ((((INT_PTR)x) & ((alignment) - 1)) == 0)
-#define ALIGN_BACKWARD(x, alignment) (((INT_PTR)x) & (~((alignment) - 1)))
-#define ALIGN_FORWARD(x, alignment) \
-    ((((INT_PTR)x) + ((alignment) - 1)) & (~((alignment) - 1)))
 
 #ifdef __cplusplus
 }

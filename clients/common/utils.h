@@ -34,6 +34,7 @@
 #define CLIENTS_COMMON_UTILS_H_
 
 #include "dr_api.h"
+#include "dr_project_wide_defines.h"
 
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
@@ -48,7 +49,6 @@
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
 #define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 #define TEST TESTANY
 

@@ -42,6 +42,7 @@
 #define _WIN32_WINNT 0x0600
 
 #define _GNU_SOURCE 1 /* for REG_RIP, etc. */
+#include "dr_project_wide_defines.h"
 #include "configure.h"
 #include "drlibc.h"
 #include <stdarg.h>
@@ -294,6 +295,7 @@ page_size(void)
 #    define NOINLINE __attribute__((__noinline__))
 #endif
 
+/* TODO i#8001: Move these to dr_project_wide_defines.h. */
 /* convenience macros for secure string buffer operations */
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
@@ -318,11 +320,6 @@ typedef enum {
     COPY_NORMAL,
     COPY_CROSS_PAGE,
 } Copy_Mode;
-
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment) - 1)))
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + (((ptr_uint_t)alignment) - 1)) & (~(((ptr_uint_t)alignment) - 1)))
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment) - 1)) == 0)
 
 #ifdef UNIX
 #    ifndef MAP_ANONYMOUS

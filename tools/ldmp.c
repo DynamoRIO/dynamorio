@@ -35,6 +35,7 @@
 #    error 64-bit not yet supported (issue #118)
 #endif
 
+#include "dr_project_wide_defines.h"
 #include <windows.h>
 #include <stdio.h>
 #include <assert.h>
@@ -56,13 +57,6 @@ static int verbose = 1;
     } while (0)
 
 #define WARN(...) INFO(0, __VA_ARGS__)
-
-/* alignment helpers */
-#define ALIGNED(x, alignment) ((((uint)x) & ((alignment) - 1)) == 0)
-#define ALIGN_FORWARD(x, alignment) \
-    ((((uint)x) + ((alignment) - 1)) & (~((alignment) - 1)))
-#define ALIGN_BACKWARD(x, alignment) (((uint)x) & (~((alignment) - 1)))
-#define PAD(length, alignment) (ALIGN_FORWARD((length), (alignment)) - (length))
 
 /* check if all bits in mask are set in var */
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
