@@ -43,7 +43,9 @@
  * assert or logging defines, but we share other cross-domain utilities here.
  */
 
-#include <stdint.h>
+#ifndef LINUX_KERNEL
+#    include <stdint.h>
+#endif
 
 /* Alignment helpers.  The alignment must be a power of 2. */
 #define ALIGNED(x, alignment) ((((uintptr_t)x) & ((alignment) - 1)) == 0)
