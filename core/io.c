@@ -89,6 +89,7 @@ const static double zerof = 0.0;
 #    define neg_inf (-1.0 / zerof)
 #endif
 
+#ifndef LINUX_KERNEL
 /* assumes that d > 0 */
 long /* exported to utils.c */
 double2int_trunc(double d)
@@ -116,6 +117,7 @@ double2int(double d)
     else
         return i;
 }
+#endif
 
 #ifdef WINDOWS
 /*****************************************************************************
