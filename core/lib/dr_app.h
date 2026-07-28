@@ -47,7 +47,7 @@
 #        define DR_APP_API __declspec(dllimport)
 #    endif
 #else /* UNIX */
-#    if defined(DR_APP_EXPORTS) && defined(USE_VISIBILITY_ATTRIBUTES)
+#    if defined(DR_APP_EXPORTS) && defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
 #        define DR_APP_API __attribute__((visibility("default")))
 #    else
 #        define DR_APP_API

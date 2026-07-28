@@ -97,7 +97,7 @@
 
 #ifdef WINDOWS
 #    define DYNAMORIO_EXPORT __declspec(dllexport)
-#elif defined(USE_VISIBILITY_ATTRIBUTES)
+#elif defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
 /* PR 262804: we use "protected" instead of "default" to ensure our
  * own uses won't be preempted.  Note that for DR_APP_API in
  * lib/dr_app.h we get a link error trying to use "protected": but we

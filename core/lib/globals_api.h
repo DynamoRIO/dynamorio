@@ -171,7 +171,7 @@ typedef _Bool bool;
  * (in gcc >= 3.4) to not export symbols by default, setting
  * USE_VISIBILITY_ATTRIBUTES will properly export.
  */
-#    ifdef USE_VISIBILITY_ATTRIBUTES
+#    if defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
 #        define DR_EXPORT __attribute__((visibility("default")))
 #    else
 #        define DR_EXPORT
