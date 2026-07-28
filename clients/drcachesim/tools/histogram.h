@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,7 @@
 #include <stdint.h>
 
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -78,6 +79,12 @@ public:
     reduce_results(uint64_t *unique_icache_lines = nullptr,
                    uint64_t *unique_dcache_lines = nullptr);
 
+    virtual std::optional<std::unordered_map<addr_t, uint64_t>>
+    get_icache_counts();
+
+    virtual std::optional<std::unordered_map<addr_t, uint64_t>>
+    get_dcache_counts();
+
 protected:
     struct shard_data_t {
         std::unordered_map<addr_t, uint64_t> icache_map;
@@ -96,6 +103,7 @@ protected:
     shard_data_t serial_shard_;
     // The combined data from all the shards.
     shard_data_t reduced_;
+    bool results_are_reduced_ = false;
 };
 
 } // namespace drmemtrace
