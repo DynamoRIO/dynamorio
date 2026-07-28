@@ -50,7 +50,9 @@
  * the instr_shrink_to_16_bits() routine.
  */
 
-#include <math.h> /* for floating-point math constants */
+#ifndef LINUX_KERNEL
+#    include <math.h> /* for floating-point math constants */
+#endif
 
 /* instruction modification convenience routines */
 /**

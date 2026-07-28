@@ -45,7 +45,10 @@
 #include "dr_tools.h"
 #include "utils.h"
 #include "module_shared.h"
-#include <math.h>
+
+#ifndef LINUX_KERNEL
+#    include <math.h>
+#endif
 
 #ifdef PROCESS_CONTROL
 #    include "moduledb.h" /* for process control macros */
