@@ -277,7 +277,7 @@ else ()
       RESULT_VARIABLE format_result
       ERROR_VARIABLE format_err
       OUTPUT_VARIABLE format_out)
-    if (format_result OR format_err)
+    if (format_err)
       message(FATAL_ERROR
         "Error (${format_result}) running clang-format-diff: ${format_err}")
     endif ()
@@ -288,6 +288,9 @@ else ()
         "Changes are not formatted properly:\n${format_out}")
       message(FATAL_ERROR
         "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+    elseif (format_result)
+      message(FATAL_ERROR
+        "Error (${format_result}) running clang-format-diff")
     else ()
       message("clang-format check passed")
     endif ()

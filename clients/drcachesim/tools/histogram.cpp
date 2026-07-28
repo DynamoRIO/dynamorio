@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -141,6 +141,7 @@ histogram_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     for (addr_t addr = back_align(start_addr, knob_line_size_);
          addr < start_addr + size && addr < addr + knob_line_size_ /* overflow */;
          addr += knob_line_size_) {
+        // XXX i#8026: Remove this shift to simplify storage.
         ++(*cache_map)[addr >> line_size_bits_];
     }
     return true;
@@ -172,6 +173,11 @@ cmp(const std::pair<addr_t, uint64_t> &l, const std::pair<addr_t, uint64_t> &r)
 bool
 histogram_t::reduce_results(uint64_t *unique_icache_lines, uint64_t *unique_dcache_lines)
 {
+    // This is called from a single thread in the analyzer infrastructure, so we do
+    // not need a lock.
+    if (results_are_reduced_)
+        return true;
+
     if (shard_map_.empty()) {
         reduced_ = serial_shard_;
     } else {
@@ -188,7 +194,25 @@ histogram_t::reduce_results(uint64_t *unique_icache_lines, uint64_t *unique_dcac
         *unique_icache_lines = reduced_.icache_map.size();
     if (unique_dcache_lines != nullptr)
         *unique_dcache_lines = reduced_.dcache_map.size();
+
+    results_are_reduced_ = true;
     return true;
+}
+
+std::optional<std::unordered_map<addr_t, uint64_t>>
+histogram_t::get_icache_counts()
+{
+    if (!reduce_results(nullptr, nullptr))
+        return std::nullopt;
+    return reduced_.icache_map;
+}
+
+std::optional<std::unordered_map<addr_t, uint64_t>>
+histogram_t::get_dcache_counts()
+{
+    if (!reduce_results(nullptr, nullptr))
+        return std::nullopt;
+    return reduced_.dcache_map;
 }
 
 bool

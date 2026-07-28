@@ -1106,6 +1106,8 @@ if (BUILD_TESTS)
       tools/histogram.cpp tests/histogram_test.cpp)
     target_link_libraries(tool.drcachesim.histogram_test
       drmemtrace_static drmemtrace_analyzer test_helpers)
+    # Ensure we have /std:c++17 for std::optional.
+    restore_nonclient_flags(tool.drcachesim.histogram_test OFF)
     add_win32_flags(tool.drcachesim.histogram_test ON)
     add_test(NAME tool.drcachesim.histogram_test
              COMMAND tool.drcachesim.histogram_test)
