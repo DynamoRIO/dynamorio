@@ -410,7 +410,9 @@ typedef struct _client_data_t {
     bool suspended;
     /* 2 other ways to point at a context for dr_{g,s}et_mcontext() */
     priv_mcontext_t *cur_mc;
+#ifndef LINUX_KERNEL
     os_cxt_ptr_t os_cxt;
+#endif
 
     /* The error code of last failed API routine. Not updated on successful API calls
      * but only upon failures.

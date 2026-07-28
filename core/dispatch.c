@@ -114,6 +114,7 @@ found_client_sysenter(void)
 }
 #endif
 
+#if !defined(LINUX_KERNEL) || defined(DEBUG) || defined(KSTATS)
 static bool
 exited_due_to_ni_syscall(dcontext_t *dcontext)
 {
@@ -125,6 +126,7 @@ exited_due_to_ni_syscall(dcontext_t *dcontext)
         return true;
     return false;
 }
+#endif
 
 /* This is the central hub of control management in DynamoRIO.
  * It is entered with a clean dstack at startup and after every cache
@@ -139,7 +141,7 @@ d_r_dispatch(dcontext_t *dcontext)
     fragment_t coarse_f;
 
 #ifdef HAVE_TLS
-#    if defined(UNIX) && defined(X86)
+#    if defined(UNIX) && defined(X86) && !defined(LINUX_KERNEL)
     /* i#2089: the parent of a new thread has TLS in an unstable state
      * and needs to restore it prior to invoking get_thread_private_dcontext().
      */
@@ -474,7 +476,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
         check_filter("linux.thread;linux.clone", get_short_name(get_application_name())));
 #endif
 
-#if defined(UNIX) && !defined(DGC_DIAGNOSTICS) && defined(X86)
+#if defined(UNIX) && !defined(DGC_DIAGNOSTICS) && defined(X86) && !defined(LINUX_KERNEL)
     /* i#107: handle segment register usage conflicts between app and dr:
      * if the target fragment has an instr that updates the segment selector,
      * update the corresponding information maintained by DR.
@@ -506,7 +508,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
         PC_AS_JMP_TGT(FRAG_ISA_MODE(targetf->flags), FCACHE_ENTRY_PC(targetf))
 #endif
     );
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
     if (dcontext->signals_pending > 0) {
         /* i#2019: the fcache_enter generated code starts with a check for pending
          * signals, allowing the signal handling code to simply queue signals that
@@ -735,6 +737,7 @@ dispatch_enter_native(dcontext_t *dcontext)
     ASSERT_NOT_REACHED();
 }
 
+#ifndef LINUX_KERNEL
 static void
 set_next_tag_to_prior_syscall(dcontext_t *dcontext)
 {
@@ -752,6 +755,7 @@ set_next_tag_to_prior_syscall(dcontext_t *dcontext)
                                         : FRAG_ISA_MODE(dcontext->last_fragment->flags));
     ASSERT(is_syscall_at_pc(dcontext, dcontext->next_tag));
 }
+#endif
 
 static void
 dispatch_enter_dynamorio(dcontext_t *dcontext)
@@ -824,6 +828,10 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      */
 
     if (wherewasi == DR_WHERE_APP) { /* first entrance */
+#ifdef LINUX_KERNEL
+        ASSERT(dcontext->last_exit == get_starting_linkstub() ||
+               IS_KERNEL_ENTRY_LINKSTUB(dcontext->last_exit));
+#else
         if (dcontext->last_exit == get_syscall_linkstub()) {
             /* i#813: the app hit our post-sysenter hook while native.
              * XXX: should we try to process ni syscalls here?  But we're only
@@ -841,6 +849,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                    /* new thread */
                    IF_WINDOWS_ELSE_0(dcontext->last_exit == get_asynch_linkstub()));
         }
+#endif
     } else {
         /* MUST be set, if only to a fake linkstub_t */
         ASSERT(dcontext->last_exit != NULL);
@@ -1000,7 +1009,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 ASSERT_NOT_REACHED();
             } else if (dcontext->upcontext.upcontext.exit_reason ==
                        EXIT_REASON_RSEQ_ABORT) {
-#ifdef LINUX
+#if defined(LINUX) && !defined(LINUX_KERNEL)
                 rseq_process_native_abort(dcontext);
 #else
                 ASSERT_NOT_REACHED();
@@ -1233,7 +1242,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
     }
 #endif
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
     if (dcontext->signals_pending != 0) {
         /* XXX: We can overflow the app stack if we stack up too many signals
          * by interrupting prev handlers -- exacerbated by RAC lack of
@@ -1801,7 +1810,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
  * SYSTEM CALLS
  */
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
 static void
 adjust_syscall_continuation(dcontext_t *dcontext)
 {
@@ -1859,7 +1868,7 @@ adjust_syscall_continuation(dcontext_t *dcontext)
         }
     }
 }
-#endif
+#endif /* UNIX && !LINUX_KERNEL */
 
 #ifndef LINUX_KERNEL
 /* used to execute a system call instruction in the code cache
