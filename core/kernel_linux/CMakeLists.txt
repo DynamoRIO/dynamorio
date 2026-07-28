@@ -44,6 +44,8 @@ set(dynamorio_module_name dynamorio_module)
 # Kbuild composite targets cannot share a name with a component object file.
 set(dynamorio_module_sources
   dynamorio_module_main.c
+  kernel_interface.c
+  os.c
   ../buildmark.c
   ../config.c
   ../dispatch.c

@@ -1,5 +1,8 @@
 #include "kernel_interface.h"
 
+#include <linux/smp.h>
+#include <linux/string.h>
+
 int
 kernel_get_cpu_id(void)
 {
