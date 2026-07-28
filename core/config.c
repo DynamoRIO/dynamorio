@@ -45,6 +45,10 @@
 #        include "ntdll.h"
 #    endif
 
+#    ifdef LINUX_KERNEL
+#        include "kernel_interface.h"
+#    endif
+
 /* DYNAMORIO_VAR_CONFIGDIR is searched first, and then these: */
 #    ifdef UNIX
 #        define GLOBAL_CONFIG_DIR "/etc/dynamorio"
@@ -192,7 +196,9 @@ static config_vals_t *config_reread_vals;
 const char *
 my_getenv(IF_WINDOWS_ELSE_NP(const wchar_t *, const char *) var, char *buf, size_t bufsz)
 {
-#    ifdef UNIX
+#    ifdef LINUX_KERNEL
+    return kernel_getenv(var);
+#    elif defined(UNIX)
     return getenv(var);
 #    else
     wchar_t wbuf[MAX_CONFIG_VALUE];
