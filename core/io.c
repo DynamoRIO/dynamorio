@@ -58,7 +58,9 @@ dr_fpu_exception_init(void);
 #        define _EXTERNALIZE_CTYPE_INLINES_TOP_
 #        define _EXTERNALIZE_CTYPE_INLINES_
 #    endif
-#    include <wchar.h>
+#    ifndef LINUX_KERNEL
+#        include <wchar.h>
+#    endif
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
