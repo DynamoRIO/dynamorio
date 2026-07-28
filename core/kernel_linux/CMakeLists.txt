@@ -89,6 +89,7 @@ set(dynamorio_module_kbuild_objs
 get_filename_component(core_dir "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 set(dynamorio_module_include_dirs
   "${CMAKE_BINARY_DIR}"
+  "${PROJECT_SOURCE_DIR}/common"
   "${core_dir}"
   "${core_dir}/kernel_linux"
   "${core_dir}/arch"
