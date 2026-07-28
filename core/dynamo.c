@@ -407,7 +407,7 @@ dynamorio_app_init_part_one_options(void)
         }
     } else /* we do enter if nullcalls is on */ {
 
-#if defined(UNIX) && !defined(LINUX)
+#if defined(UNIX) && !defined(LINUX_KERNEL)
         os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #endif
 #ifdef WINDOWS
