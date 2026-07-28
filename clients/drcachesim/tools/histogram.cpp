@@ -141,6 +141,7 @@ histogram_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     for (addr_t addr = back_align(start_addr, knob_line_size_);
          addr < start_addr + size && addr < addr + knob_line_size_ /* overflow */;
          addr += knob_line_size_) {
+        // XXX i#8026: Remove this shift to simplify storage.
         ++(*cache_map)[addr >> line_size_bits_];
     }
     return true;
