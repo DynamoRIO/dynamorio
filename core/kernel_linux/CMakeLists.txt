@@ -112,6 +112,7 @@ endforeach ()
 foreach (define ${dynamorio_module_defines})
   string(APPEND dynamorio_module_kbuild_ccflags " -D${define}")
 endforeach ()
+string(APPEND dynamorio_module_kbuild_ccflags " -Wframe-larger-than=4096")
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/Kbuild.in
