@@ -84,9 +84,9 @@ foreach (src ${dynamorio_module_sources})
   list(APPEND dynamorio_module_objs "${rel_obj}")
 endforeach ()
 
-string(REPLACE ";" " " dynamorio_module_objs "${dynamorio_module_objs}")
+string(REPLACE ";" " \\\n  " dynamorio_module_objs "${dynamorio_module_objs}")
 set(dynamorio_module_kbuild_objs
-  "${dynamorio_module_name}-y := ${dynamorio_module_objs}")
+  "${dynamorio_module_name}-y := \\\n  ${dynamorio_module_objs}")
 
 get_filename_component(core_dir "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 set(dynamorio_module_include_dirs
@@ -108,14 +108,14 @@ set(dynamorio_module_defines
   DR_DO_NOT_DEFINE_MAX_MIN
 )
 
-set(dynamorio_module_kbuild_ccflags "ccflags-y +=")
+set(dynamorio_module_kbuild_ccflags "ccflags-y += \\")
 foreach (dir ${dynamorio_module_include_dirs})
-  string(APPEND dynamorio_module_kbuild_ccflags " -I${dir}")
+  string(APPEND dynamorio_module_kbuild_ccflags "\n  -I${dir} \\")
 endforeach ()
 foreach (define ${dynamorio_module_defines})
-  string(APPEND dynamorio_module_kbuild_ccflags " -D${define}")
+  string(APPEND dynamorio_module_kbuild_ccflags "\n  -D${define} \\")
 endforeach ()
-string(APPEND dynamorio_module_kbuild_ccflags " -Wframe-larger-than=4096")
+string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/Kbuild.in
