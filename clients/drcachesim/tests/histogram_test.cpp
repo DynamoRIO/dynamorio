@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2026 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,7 @@
  */
 
 #include <iostream>
+#include <optional>
 #include <vector>
 
 #include "../tools/histogram.h"
@@ -50,7 +51,7 @@ bool
 check_cross_line()
 {
     static constexpr unsigned int LINE_SIZE = 64;
-    histogram_t tool(LINE_SIZE, 0, 0);
+    histogram_t tool(LINE_SIZE, 5, 0);
     std::vector<memref_t> memrefs = {
         gen_instr(1, 20 * LINE_SIZE),
         gen_data(1, /*load=*/true, 10 * LINE_SIZE, 8),
@@ -79,10 +80,72 @@ check_cross_line()
     return true;
 }
 
+bool
+check_parallel_reduce()
+{
+    static constexpr unsigned int LINE_SIZE = 64;
+    // XXX i#8026: Remove this shift to simplify storage.
+    static constexpr unsigned int LINE_SHIFT = 6;
+    histogram_t tool(LINE_SIZE, 5, 0);
+    std::vector<memref_t> memrefs = {
+        gen_instr(1, 20 * LINE_SIZE),
+        gen_data(1, /*load=*/true, 10 * LINE_SIZE, 8),
+        gen_instr(1, 21 * LINE_SIZE),
+        gen_data(1, /*load=*/true, 11 * LINE_SIZE, 8),
+        gen_instr(1, 22 * LINE_SIZE),
+        gen_data(1, /*load=*/true, 12 * LINE_SIZE, 8),
+        // Test repeated lines: should not affect unique.
+        gen_instr(1, 20 * LINE_SIZE),
+        gen_data(1, /*load=*/true, 10 * LINE_SIZE, 8),
+        // Test crossing a cache line.
+        gen_data(1, /*load=*/false, 30 * LINE_SIZE - 4, 8),
+        gen_data(1, /*load=*/false, 40 * LINE_SIZE - 4, LINE_SIZE + 5),
+        gen_instr(1, 50 * LINE_SIZE - 3, 4),
+    };
+    void *worker_data = tool.parallel_worker_init(0);
+    void *shard_data = tool.parallel_shard_init(0, worker_data);
+    for (const auto &memref : memrefs) {
+        if (!tool.parallel_shard_memref(shard_data, memref)) {
+            std::cerr << "parallel_shard_memref failed\n";
+            return false;
+        }
+    }
+    tool.parallel_shard_exit(shard_data);
+    tool.parallel_worker_exit(worker_data);
+
+    auto check_icache = [&tool]() {
+        std::optional<std::unordered_map<addr_t, uint64_t>> icache_res =
+            tool.get_icache_counts();
+        if (!icache_res.has_value()) {
+            std::cerr << "failed to obtain icache counts\n";
+            return false;
+        }
+        // XXX i#8026: Remove this shift to simplify storage.
+        if ((*icache_res)[(20 * LINE_SIZE) >> LINE_SHIFT] != 2 ||
+            (*icache_res)[(21 * LINE_SIZE) >> LINE_SHIFT] != 1) {
+            std::cerr << "incorrect icache counts: got "
+                      << (*icache_res)[(20 * LINE_SIZE) >> LINE_SHIFT] << ","
+                      << (*icache_res)[(21 * LINE_SIZE) >> LINE_SHIFT]
+                      << " instead of 2,1\n";
+            return false;
+        }
+        return true;
+    };
+    if (!check_icache())
+        return false;
+    // Do another reduce inside print_results, testing that multiple reduces
+    // do not change the result. The get_icache_counts() will also do another
+    // reduce.
+    tool.print_results();
+    if (!check_icache())
+        return false;
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
-    if (check_cross_line()) {
+    if (check_cross_line() && check_parallel_reduce()) {
         std::cerr << "histogram_test passed\n";
         return 0;
     }
