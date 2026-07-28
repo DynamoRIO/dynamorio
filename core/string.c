@@ -42,7 +42,7 @@
 
 #include "globals.h"
 
-#include <limits.h>
+#include "limits_wrapper.h"
 
 /* We used to include <string.h> here to make sure our prototypes match, but
  * string.h often uses macros, intrinsics, and always_inline annotations to

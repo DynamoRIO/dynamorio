@@ -38,7 +38,7 @@
  * iox.h: i/o routines for both Linux and Windows
  */
 
-#include <limits.h> /* for UCHAR_MAX */
+#include "limits_wrapper.h" /* for UCHAR_MAX */
 
 #ifdef IOX_WIDE_CHAR
 #    define TCHAR wchar_t
