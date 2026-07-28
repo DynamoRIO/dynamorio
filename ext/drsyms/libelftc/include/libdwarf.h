@@ -316,7 +316,7 @@ typedef struct Dwarf_Relocation_Data_s {
     unsigned char drd_length;
     Dwarf_Unsigned drd_offset;
     Dwarf_Unsigned drd_symbol_index;
-} * Dwarf_Relocation_Data;
+} *Dwarf_Relocation_Data;
 
 #define DWARF_DRD_BUFFER_VERSION 2
 
@@ -424,7 +424,7 @@ typedef void (*Dwarf_Handler)(Dwarf_Error, Dwarf_Ptr);
 #define DW_DLV_OK 0
 #define DW_DLV_ERROR 1
 #define DW_DLV_BADADDR NULL
-#define DW_DLV_NOCOUNT ((Dwarf_Signed)-1)
+#define DW_DLV_NOCOUNT ((Dwarf_Signed) - 1)
 
 /*
  * Access modes.

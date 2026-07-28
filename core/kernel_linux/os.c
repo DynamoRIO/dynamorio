@@ -17,7 +17,6 @@ os_get_app_tls_reg_offset(reg_id_t reg)
     return 0;
 }
 
-
 thread_id_t
 get_thread_id(void)
 {
