@@ -90,8 +90,13 @@ get_filename_component(core_dir "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 set(dynamorio_module_include_dirs
   "${CMAKE_BINARY_DIR}"
   "${core_dir}"
+  "${core_dir}/kernel_linux"
   "${core_dir}/arch"
+  "${core_dir}/drlibc"
+  "${core_dir}/ir"
+  "${core_dir}/ir/x86"
   "${core_dir}/lib"
+  "${core_dir}/unix"
 )
 
 set(dynamorio_module_defines
