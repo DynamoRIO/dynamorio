@@ -51,7 +51,7 @@ bool
 check_cross_line()
 {
     static constexpr unsigned int LINE_SIZE = 64;
-    histogram_t tool(LINE_SIZE, 5, 0);
+    histogram_t tool(LINE_SIZE, /*report_top=*/0, /*verbose=*/0);
     std::vector<memref_t> memrefs = {
         gen_instr(1, 20 * LINE_SIZE),
         gen_data(1, /*load=*/true, 10 * LINE_SIZE, 8),
@@ -86,7 +86,7 @@ check_parallel_reduce()
     static constexpr unsigned int LINE_SIZE = 64;
     // XXX i#8026: Remove this shift to simplify storage.
     static constexpr unsigned int LINE_SHIFT = 6;
-    histogram_t tool(LINE_SIZE, 5, 0);
+    histogram_t tool(LINE_SIZE, /*report_top=*/5, /*verbose=*/0);
     std::vector<memref_t> memrefs = {
         gen_instr(1, 20 * LINE_SIZE),
         gen_data(1, /*load=*/true, 10 * LINE_SIZE, 8),

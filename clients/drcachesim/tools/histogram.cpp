@@ -177,7 +177,6 @@ histogram_t::reduce_results(uint64_t *unique_icache_lines, uint64_t *unique_dcac
     // not need a lock.
     if (results_are_reduced_)
         return true;
-    results_are_reduced_ = true;
 
     if (shard_map_.empty()) {
         reduced_ = serial_shard_;
@@ -195,6 +194,8 @@ histogram_t::reduce_results(uint64_t *unique_icache_lines, uint64_t *unique_dcac
         *unique_icache_lines = reduced_.icache_map.size();
     if (unique_dcache_lines != nullptr)
         *unique_dcache_lines = reduced_.dcache_map.size();
+
+    results_are_reduced_ = true;
     return true;
 }
 
