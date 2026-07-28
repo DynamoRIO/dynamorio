@@ -112,6 +112,9 @@ found_client_sysenter(void)
 }
 #endif
 
+
+
+
 static bool
 exited_due_to_ni_syscall(dcontext_t *dcontext)
 {
