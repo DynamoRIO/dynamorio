@@ -23,7 +23,7 @@ const char *
 kernel_getenv(const char *name)
 {
     for (int i = 0; i < env_count; i++) {
-        if (strcmp(name, env_vars[i].name) == 0) {
+        if (strncmp(name, env_vars[i].name, KERNEL_ENV_NAME_MAX) == 0) {
             return (const char *)env_vars[i].value;
         }
     }
