@@ -93,6 +93,7 @@ set(dynamorio_module_include_dirs
   "${CMAKE_BINARY_DIR}"
   "${PROJECT_SOURCE_DIR}/common"
   "${core_dir}"
+  "${core_dir}/include"
   "${core_dir}/kernel_linux"
   "${core_dir}/arch"
   "${core_dir}/drlibc"
