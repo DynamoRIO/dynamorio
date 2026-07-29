@@ -87,6 +87,7 @@ macro(configure_extension target is_static static_DR)
   else ()
     # For version info we need global_shared.h included in resources.rc.
     # The extension must add core/win32/resources.rc as a source.
+    include_directories(${PROJECT_SOURCE_DIR}/core/include)
     include_directories(${PROJECT_SOURCE_DIR}/core/lib)
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "RC_IS_${target}")
   endif ()
