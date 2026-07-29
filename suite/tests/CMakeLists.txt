@@ -376,6 +376,7 @@ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
 # We need this for Windows resources.rc to include globals_shared.h, and
 # for tools.c to include drlibc.h.
 include_directories(AFTER
+  ${PROJECT_SOURCE_DIR}/core/include
   ${PROJECT_SOURCE_DIR}/core/drlibc # drlibc.h
   ${PROJECT_SOURCE_DIR}/core/lib) # c_defines.h
 

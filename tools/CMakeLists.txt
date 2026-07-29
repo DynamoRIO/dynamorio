@@ -45,9 +45,10 @@ if (UNIX)
   add_executable(drloader drloader.c)
 
   include_directories(
-   ${PROJECT_SOURCE_DIR}/libutil
-   ${PROJECT_SOURCE_DIR}/core
-   ${PROJECT_SOURCE_DIR}/core/lib
+    ${PROJECT_SOURCE_DIR}/libutil
+    ${PROJECT_SOURCE_DIR}/core
+    ${PROJECT_SOURCE_DIR}/core/include
+    ${PROJECT_SOURCE_DIR}/core/lib
   )
 
   add_definitions(-DNOT_DYNAMORIO_CORE -DDYNAMORIO_INTERNAL)
@@ -126,6 +127,7 @@ else (UNIX)
   include_directories(
     ${PROJECT_SOURCE_DIR}/libutil
     ${PROJECT_SOURCE_DIR}/core
+    ${PROJECT_SOURCE_DIR}/core/include
     ${PROJECT_SOURCE_DIR}/core/lib
     )
 
