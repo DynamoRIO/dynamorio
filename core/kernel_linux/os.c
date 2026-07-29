@@ -73,3 +73,8 @@ os_wait_thread_terminated(dcontext_t *dcontext)
     ASSERT_NOT_PORTED(false);
     return true;
 }
+
+uint query_time_seconds(void)
+{
+    return kernel_query_time_seconds();
+}

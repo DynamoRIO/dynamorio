@@ -459,7 +459,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
     dcontext->asynch_target = dcontext->next_tag;
 #endif
 
-#if defined(UNIX) && defined(DEBUG)
+#if defined(UNIX) && !defined(LINUX_KERNEL) && defined(DEBUG)
     /* i#238/PR 499179: check that libc errno hasn't changed.  It's
      * not worth actually saving+restoring since to we'd also need to
      * preserve on clean calls, a perf hit.  Better to catch all libc
@@ -802,7 +802,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      */
     ASSERT_OWN_NO_LOCKS();
 
-#if defined(UNIX) && defined(DEBUG)
+#if defined(UNIX) && !defined(LINUX_KERNEL) && defined(DEBUG)
     /* i#238/PR 499179: check that libc errno hasn't changed */
     /* w/ private loader, our errno is disjoint from app's */
     if (!INTERNAL_OPTION(private_loader))

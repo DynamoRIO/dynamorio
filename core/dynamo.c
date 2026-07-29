@@ -238,12 +238,10 @@ data_section_exit(void);
 
 #ifdef DEBUG /*************************/
 
-#    include <time.h>
-
 /* XXX: not all dynamo_options references are #ifdef DEBUG
  * are we trying to hardcode the options for a release build?
  */
-#    ifdef UNIX
+#    if defined(UNIX) && !defined(LINUX_KERNEL)
 /* linux include files for mmap stuff*/
 #        include <sys/ipc.h>
 #        include <sys/types.h>

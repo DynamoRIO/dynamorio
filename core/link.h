@@ -546,6 +546,16 @@ get_shared_syscalls_bb_linkstub(void);
 #    define IS_SHARED_SYSCALLS_TRACE_LINKSTUB(l) false
 #endif
 
+#ifdef LINUX_KERNEL
+const linkstub_t *
+get_syscall_entry_linkstub(void);
+const linkstub_t *
+get_user_interrupt_entry_linkstub(void);
+#    define IS_KERNEL_ENTRY_LINKSTUB(l)         \
+        ((l) == get_syscall_entry_linkstub() || \
+         (l) == get_user_interrupt_entry_linkstub())
+#endif
+
 bool
 should_separate_stub(dcontext_t *dcontext, app_pc target, uint fragment_flags);
 int
