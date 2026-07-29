@@ -688,9 +688,9 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
 
 #ifdef LINUX_KERNEL
     /* To stay within the 4096-byte compiler frame limit (-Wframe-larger-than=4096),
-     * use static buffers (safe under options_lock). */
-    static char badopt[MAX_OPTION_LENGTH];
-    static char wordbuffer[MAX_OPTION_LENGTH];
+     * use static buffers in .nspdata (safe under options_lock). */
+    DECLARE_NEVERPROT_VAR(static char badopt[MAX_OPTION_LENGTH], { 0 });
+    DECLARE_NEVERPROT_VAR(static char wordbuffer[MAX_OPTION_LENGTH], { 0 });
 #else
     char badopt[MAX_OPTION_LENGTH];
     char wordbuffer[MAX_OPTION_LENGTH];
