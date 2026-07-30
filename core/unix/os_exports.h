@@ -42,7 +42,7 @@
 #ifndef _OS_EXPORTS_H_
 #define _OS_EXPORTS_H_
 
-#include <stdarg.h>
+#include "stdarg_wrapper.h"
 #include "../os_shared.h" // IWYU pragma: export
 #include "os_public.h"    // IWYU pragma: export
 /* arch_exports.h exports opnd.h, but relies on kernel_sigset_t from this header.

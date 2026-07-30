@@ -99,11 +99,10 @@ is_thread_terminated(dcontext_t *dcontext)
     return true;
 }
 
-bool
+void
 os_wait_thread_terminated(dcontext_t *dcontext)
 {
     ASSERT_NOT_PORTED(false);
-    return true;
 }
 
 uint
