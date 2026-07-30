@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2025 Foundation of Research and Technology, Hellas.
  * **********************************************************/
@@ -921,8 +921,8 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define SIZE32_MOV_PTR_IMM_TO_TLS 10
 
 #    ifdef X64
-#        define FRAG_IS_32(flags) (TEST(FRAG_32_BIT, (flags)))
-#        define FRAG_IS_X86_TO_X64(flags) (TEST(FRAG_X86_TO_X64, (flags)))
+#        define FRAG_IS_32(flags) (TESTANY(FRAG_32_BIT, (flags)))
+#        define FRAG_IS_X86_TO_X64(flags) (TESTANY(FRAG_X86_TO_X64, (flags)))
 #    else
 #        define FRAG_IS_32(flags) true
 #        define FRAG_IS_X86_TO_X64(flags) false
@@ -947,7 +947,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /* size of restore ecx prefix */
 #    define XCX_IN_TLS(flags) \
-        (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
+        (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, (flags)))
 #    define FRAGMENT_BASE_PREFIX_SIZE(flags)                          \
         ((FRAG_IS_X86_TO_X64(flags) &&                                \
           IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false))      \
@@ -1015,7 +1015,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #        define FRAG_IS_THUMB(flags) false
 #        define FRAG_IS_32(flags) false
 #    else
-#        define FRAG_IS_THUMB(flags) (TEST(FRAG_THUMB, (flags)))
+#        define FRAG_IS_THUMB(flags) (TESTANY(FRAG_THUMB, (flags)))
 #        define FRAG_IS_32(flags) true
 #    endif
 
@@ -1152,14 +1152,14 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 #define STATS_PAD_JMPS_ADD(flags, stat, val)                  \
     DOSTATS({                                                 \
-        if (TEST(FRAG_SHARED, (flags))) {                     \
-            if (TEST(FRAG_IS_TRACE, (flags)))                 \
+        if (TESTANY(FRAG_SHARED, (flags))) {                  \
+            if (TESTANY(FRAG_IS_TRACE, (flags)))              \
                 STATS_ADD(pad_jmps_shared_trace_##stat, val); \
             else                                              \
                 STATS_ADD(pad_jmps_shared_bb_##stat, val);    \
-        } else if (TEST(FRAG_IS_TRACE, (flags)))              \
+        } else if (TESTANY(FRAG_IS_TRACE, (flags)))           \
             STATS_ADD(pad_jmps_trace_##stat, val);            \
-        else if (TEST(FRAG_TEMP_PRIVATE, (flags)))            \
+        else if (TESTANY(FRAG_TEMP_PRIVATE, (flags)))         \
             STATS_ADD(pad_jmps_temp_##stat, val);             \
         else                                                  \
             STATS_ADD(pad_jmps_bb_##stat, val);               \
@@ -1596,11 +1596,11 @@ print_optimization_stats(void);
 static inline ibl_branch_type_t
 extract_branchtype(ushort linkstub_flags)
 {
-    if (TEST(LINK_RETURN, linkstub_flags))
+    if (TESTANY(LINK_RETURN, linkstub_flags))
         return IBL_RETURN;
     if (EXIT_IS_CALL(linkstub_flags))
         return IBL_INDCALL;
-    if (TEST(LINK_JMP, linkstub_flags)) /* plain JMP or IND_JMP_PLT */
+    if (TESTANY(LINK_JMP, linkstub_flags)) /* plain JMP or IND_JMP_PLT */
         return IBL_INDJMP;
     ASSERT_NOT_REACHED();
     return IBL_GENERIC;

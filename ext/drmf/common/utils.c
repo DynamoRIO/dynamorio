@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -167,7 +167,7 @@ lookup_has_fast_search(const module_data_t *mod)
 {
     drsym_debug_kind_t kind;
     drsym_error_t res = drsym_get_module_debug_kind(mod->full_path, &kind);
-    return res == DRSYM_SUCCESS && TEST(DRSYM_PDB, kind);
+    return res == DRSYM_SUCCESS && TESTANY(DRSYM_PDB, kind);
 }
 
 /* default cb used when we want first match */

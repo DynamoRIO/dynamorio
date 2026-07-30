@@ -1867,7 +1867,7 @@ instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags)
      * are jumps to the interception buffer, so we'll hide them here
      * as well.
      */
-    if (!TEST(FRAG_IS_TRACE, flags) && hide_tag_from_client(tag))
+    if (!TESTANY(FRAG_IS_TRACE, flags) && hide_tag_from_client(tag))
         return;
 #endif
 
@@ -1981,7 +1981,7 @@ instrument_module_load_trigger(app_pc pc)
         module_data_t *client_data = NULL;
         os_get_module_info_lock();
         ma = module_pc_lookup(pc);
-        if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
+        if (ma != NULL && !TESTANY(MODULE_LOAD_EVENT, ma->flags)) {
             /* switch to write lock */
             os_get_module_info_unlock();
 #ifdef LINUX
@@ -1999,7 +1999,7 @@ instrument_module_load_trigger(app_pc pc)
 #endif
             os_get_module_info_write_lock();
             ma = module_pc_lookup(pc);
-            if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
+            if (ma != NULL && !TESTANY(MODULE_LOAD_EVENT, ma->flags)) {
                 ma->flags |= MODULE_LOAD_EVENT;
                 client_data = copy_module_area_to_module_data(ma);
                 os_get_module_info_write_unlock();
@@ -2244,7 +2244,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
      * should be okay since we already have the overhead of calling
      * into the client. */
     last = dcontext->last_fragment;
-    if (!TEST(FRAG_FAKE, last->flags)) {
+    if (!TESTANY(FRAG_FAKE, last->flags)) {
         cache_pc pc = EXIT_CTI_PC(last, dcontext->last_exit);
         source_pc = recreate_app_pc(dcontext, pc, last);
     }
@@ -2472,7 +2472,7 @@ DR_API
 void
 dr_abort(void)
 {
-    if (TEST(DUMPCORE_DR_ABORT, dynamo_options.dumpcore_mask))
+    if (TESTANY(DUMPCORE_DR_ABORT, dynamo_options.dumpcore_mask))
         os_dump_core("dr_abort");
     os_terminate(NULL, TERMINATE_PROCESS);
 }
@@ -2481,7 +2481,7 @@ DR_API
 void
 dr_abort_with_code(int exit_code)
 {
-    if (TEST(DUMPCORE_DR_ABORT, dynamo_options.dumpcore_mask))
+    if (TESTANY(DUMPCORE_DR_ABORT, dynamo_options.dumpcore_mask))
         os_dump_core("dr_abort");
     os_terminate_with_code(NULL, TERMINATE_PROCESS, exit_code);
 }
@@ -2528,12 +2528,12 @@ dr_create_memory_dump(dr_memory_dump_spec_t *spec)
     if (spec->size != sizeof(dr_memory_dump_spec_t))
         return false;
 #ifdef WINDOWS
-    if (TEST(DR_MEMORY_DUMP_LDMP, spec->flags))
+    if (TESTANY(DR_MEMORY_DUMP_LDMP, spec->flags))
         return os_dump_core_live(spec->label, spec->ldmp_path, spec->ldmp_path_size);
 /* XXX i#2154: Add Android AArch64 support. */
 #elif defined(LINUX) && \
     ((defined(X64) && defined(X86)) || (defined(AARCH64) && !defined(ANDROID64)))
-    if (TEST(DR_MEMORY_DUMP_ELF, spec->flags)) {
+    if (TESTANY(DR_MEMORY_DUMP_ELF, spec->flags)) {
         return os_dump_core_live(get_thread_private_dcontext(),
                                  spec->elf_output_directory, spec->elf_path,
                                  spec->elf_path_size);
@@ -2569,18 +2569,19 @@ DR_API
 void
 dr_set_process_exit_behavior(dr_exit_flags_t flags)
 {
-    if ((!DYNAMO_OPTION(multi_thread_exit) && TEST(DR_EXIT_MULTI_THREAD, flags)) ||
-        (DYNAMO_OPTION(multi_thread_exit) && !TEST(DR_EXIT_MULTI_THREAD, flags))) {
+    if ((!DYNAMO_OPTION(multi_thread_exit) && TESTANY(DR_EXIT_MULTI_THREAD, flags)) ||
+        (DYNAMO_OPTION(multi_thread_exit) && !TESTANY(DR_EXIT_MULTI_THREAD, flags))) {
         options_make_writable();
-        dynamo_options.multi_thread_exit = TEST(DR_EXIT_MULTI_THREAD, flags);
+        dynamo_options.multi_thread_exit = TESTANY(DR_EXIT_MULTI_THREAD, flags);
         options_restore_readonly();
     }
     if ((!DYNAMO_OPTION(skip_thread_exit_at_exit) &&
-         TEST(DR_EXIT_SKIP_THREAD_EXIT, flags)) ||
+         TESTANY(DR_EXIT_SKIP_THREAD_EXIT, flags)) ||
         (DYNAMO_OPTION(skip_thread_exit_at_exit) &&
-         !TEST(DR_EXIT_SKIP_THREAD_EXIT, flags))) {
+         !TESTANY(DR_EXIT_SKIP_THREAD_EXIT, flags))) {
         options_make_writable();
-        dynamo_options.skip_thread_exit_at_exit = TEST(DR_EXIT_SKIP_THREAD_EXIT, flags);
+        dynamo_options.skip_thread_exit_at_exit =
+            TESTANY(DR_EXIT_SKIP_THREAD_EXIT, flags);
         options_restore_readonly();
     }
 }
@@ -3013,19 +3014,19 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
     heap_error_code_t error_code;
 
     CLIENT_ASSERT(ALIGNED(addr, PAGE_SIZE), "addr is not page size aligned");
-    if (!TEST(DR_ALLOC_NON_DR, flags)) {
+    if (!TESTANY(DR_ALLOC_NON_DR, flags)) {
         /* memory alloc/dealloc and updating DR list must be atomic */
         dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
     }
     addr = (void *)ALIGN_BACKWARD(addr, PAGE_SIZE);
     size = ALIGN_FORWARD(size, PAGE_SIZE);
 #ifdef WINDOWS
-    if (TEST(DR_ALLOC_LOW_2GB, flags)) {
-        CLIENT_ASSERT(!TEST(DR_ALLOC_COMMIT_ONLY, flags),
+    if (TESTANY(DR_ALLOC_LOW_2GB, flags)) {
+        CLIENT_ASSERT(!TESTANY(DR_ALLOC_COMMIT_ONLY, flags),
                       "cannot combine commit-only and low-2GB");
         p = os_heap_reserve_in_region(NULL, (byte *)(ptr_uint_t)0x80000000, size,
-                                      &error_code, TEST(DR_MEMPROT_EXEC, flags));
-        if (p != NULL && !TEST(DR_ALLOC_RESERVE_ONLY, flags)) {
+                                      &error_code, TESTANY(DR_MEMPROT_EXEC, flags));
+        if (p != NULL && !TESTANY(DR_ALLOC_RESERVE_ONLY, flags)) {
             if (!os_heap_commit(p, size, prot, &error_code)) {
                 os_heap_free(p, size, &error_code);
                 p = NULL;
@@ -3038,13 +3039,13 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
          * ok that the Linux kernel will ignore MAP_32BIT for 32-bit.
          */
 #ifdef UNIX
-        uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? RAW_ALLOC_32BIT : 0;
+        uint os_flags = TESTANY(DR_ALLOC_LOW_2GB, flags) ? RAW_ALLOC_32BIT : 0;
 #else
-        uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags)
+        uint os_flags = TESTANY(DR_ALLOC_RESERVE_ONLY, flags)
             ? RAW_ALLOC_RESERVE_ONLY
-            : (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
+            : (TESTANY(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
 #endif
-        if (IF_WINDOWS(TEST(DR_ALLOC_COMMIT_ONLY, flags) &&) addr != NULL &&
+        if (IF_WINDOWS(TESTANY(DR_ALLOC_COMMIT_ONLY, flags) &&) addr != NULL &&
             !app_memory_pre_alloc(get_thread_private_dcontext(), addr, size, prot, false,
                                   true /*update*/, false /*!image*/)) {
             p = NULL;
@@ -3054,7 +3055,7 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
     }
 
     if (p != NULL) {
-        if (TEST(DR_ALLOC_NON_DR, flags)) {
+        if (TESTANY(DR_ALLOC_NON_DR, flags)) {
             all_memory_areas_lock();
             update_all_memory_areas(p, p + size, prot, DR_MEMTYPE_DATA);
             all_memory_areas_unlock();
@@ -3065,7 +3066,7 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
         }
         RSTATS_ADD_PEAK(client_raw_mmap_size, size);
     }
-    if (!TEST(DR_ALLOC_NON_DR, flags))
+    if (!TESTANY(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
     return p;
 }
@@ -3077,14 +3078,14 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     heap_error_code_t error_code;
     byte *p = addr;
 #ifdef UNIX
-    uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? RAW_ALLOC_32BIT : 0;
+    uint os_flags = TESTANY(DR_ALLOC_LOW_2GB, flags) ? RAW_ALLOC_32BIT : 0;
 #else
-    uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags)
+    uint os_flags = TESTANY(DR_ALLOC_RESERVE_ONLY, flags)
         ? RAW_ALLOC_RESERVE_ONLY
-        : (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
+        : (TESTANY(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
 #endif
     size = ALIGN_FORWARD(size, PAGE_SIZE);
-    if (TEST(DR_ALLOC_NON_DR, flags)) {
+    if (TESTANY(DR_ALLOC_NON_DR, flags)) {
         /* use lock to avoid racy update on parallel memory allocation,
          * e.g. allocation from another thread at p happens after os_heap_free
          * but before remove_from_all_memory_areas
@@ -3095,14 +3096,14 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
         dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
     }
     res = os_raw_mem_free(p, size, os_flags, &error_code);
-    if (TEST(DR_ALLOC_NON_DR, flags)) {
+    if (TESTANY(DR_ALLOC_NON_DR, flags)) {
         remove_from_all_memory_areas(p, p + size);
         all_memory_areas_unlock();
     } else {
         /* this routine updates allmem for us: */
         remove_dynamo_vm_area((app_pc)addr, ((app_pc)addr) + size);
     }
-    if (!TEST(DR_ALLOC_NON_DR, flags))
+    if (!TESTANY(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
     if (res)
         RSTATS_SUB(client_raw_mmap_size, size);
@@ -3132,34 +3133,34 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
     CLIENT_ASSERT(alloc || addr != NULL, "cannot free NULL");
     CLIENT_ASSERT(!TESTALL(DR_ALLOC_NON_DR | DR_ALLOC_CACHE_REACHABLE, flags),
                   "dr_custom_alloc: cannot combine non-DR and cache-reachable");
-    CLIENT_ASSERT(!alloc || TEST(DR_ALLOC_FIXED_LOCATION, flags) || addr == NULL,
+    CLIENT_ASSERT(!alloc || TESTANY(DR_ALLOC_FIXED_LOCATION, flags) || addr == NULL,
                   "dr_custom_alloc: address only honored for fixed location");
 #ifdef WINDOWS
     CLIENT_ASSERT(!TESTANY(DR_ALLOC_RESERVE_ONLY | DR_ALLOC_COMMIT_ONLY, flags) ||
                       TESTALL(DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR, flags),
                   "dr_custom_alloc: reserve/commit-only are only for non-DR non-heap");
-    CLIENT_ASSERT(!TEST(DR_ALLOC_RESERVE_ONLY, flags) ||
-                      !TEST(DR_ALLOC_COMMIT_ONLY, flags),
+    CLIENT_ASSERT(!TESTANY(DR_ALLOC_RESERVE_ONLY, flags) ||
+                      !TESTANY(DR_ALLOC_COMMIT_ONLY, flags),
                   "dr_custom_alloc: cannot combine reserve-only + commit-only");
 #endif
-    CLIENT_ASSERT(!TEST(DR_ALLOC_CACHE_REACHABLE, flags) ||
+    CLIENT_ASSERT(!TESTANY(DR_ALLOC_CACHE_REACHABLE, flags) ||
                       !DYNAMO_OPTION(satisfy_w_xor_x),
                   "dr_custom_alloc: DR_ALLOC_CACHE_REACHABLE memory is not "
                   "supported with -satisfy_w_xor_x");
-    if (TEST(DR_ALLOC_NON_HEAP, flags)) {
+    if (TESTANY(DR_ALLOC_NON_HEAP, flags)) {
         CLIENT_ASSERT(drcontext == NULL,
                       "dr_custom_alloc: drcontext must be NULL for non-heap");
-        CLIENT_ASSERT(!TEST(DR_ALLOC_THREAD_PRIVATE, flags),
+        CLIENT_ASSERT(!TESTANY(DR_ALLOC_THREAD_PRIVATE, flags),
                       "dr_custom_alloc: non-heap cannot be thread-private");
         CLIENT_ASSERT(!TESTALL(DR_ALLOC_CACHE_REACHABLE | DR_ALLOC_LOW_2GB, flags),
                       "dr_custom_alloc: cannot combine low-2GB and cache-reachable");
 #ifdef WINDOWS
-        CLIENT_ASSERT(addr != NULL || !TEST(DR_ALLOC_COMMIT_ONLY, flags),
+        CLIENT_ASSERT(addr != NULL || !TESTANY(DR_ALLOC_COMMIT_ONLY, flags),
                       "dr_custom_alloc: commit-only requires non-NULL addr");
 #endif
-        if (TEST(DR_ALLOC_LOW_2GB, flags)) {
+        if (TESTANY(DR_ALLOC_LOW_2GB, flags)) {
 #ifdef WINDOWS
-            CLIENT_ASSERT(!TEST(DR_ALLOC_COMMIT_ONLY, flags),
+            CLIENT_ASSERT(!TESTANY(DR_ALLOC_COMMIT_ONLY, flags),
                           "dr_custom_alloc: cannot combine commit-only and low-2GB");
 #endif
             CLIENT_ASSERT(!alloc || addr == NULL,
@@ -3169,20 +3170,20 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                 return raw_mem_alloc(size, prot, addr, flags);
             else
                 *free_res = raw_mem_free(addr, size, flags);
-        } else if (TEST(DR_ALLOC_NON_DR, flags)) {
+        } else if (TESTANY(DR_ALLOC_NON_DR, flags)) {
             /* ok for addr to be NULL */
             if (alloc)
                 return raw_mem_alloc(size, prot, addr, flags);
             else
                 *free_res = raw_mem_free(addr, size, flags);
         } else { /* including DR_ALLOC_CACHE_REACHABLE */
-            CLIENT_ASSERT(!alloc || !TEST(DR_ALLOC_CACHE_REACHABLE, flags) ||
+            CLIENT_ASSERT(!alloc || !TESTANY(DR_ALLOC_CACHE_REACHABLE, flags) ||
                               addr == NULL,
                           "dr_custom_alloc: cannot ask for addr and cache-reachable");
             /* This flag is here solely so we know which version of free to call */
-            if (TEST(DR_ALLOC_FIXED_LOCATION, flags) ||
-                !TEST(DR_ALLOC_CACHE_REACHABLE, flags)) {
-                CLIENT_ASSERT(addr != NULL || !TEST(DR_ALLOC_FIXED_LOCATION, flags),
+            if (TESTANY(DR_ALLOC_FIXED_LOCATION, flags) ||
+                !TESTANY(DR_ALLOC_CACHE_REACHABLE, flags)) {
+                CLIENT_ASSERT(addr != NULL || !TESTANY(DR_ALLOC_FIXED_LOCATION, flags),
                               "dr_custom_alloc: fixed location requires an address");
                 if (alloc)
                     return raw_mem_alloc(size, prot, addr, 0);
@@ -3202,14 +3203,14 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
             *free_res = true;
         CLIENT_ASSERT(!alloc || addr == NULL,
                       "dr_custom_alloc: cannot pass an addr for heap memory");
-        CLIENT_ASSERT(drcontext == NULL || TEST(DR_ALLOC_THREAD_PRIVATE, flags),
+        CLIENT_ASSERT(drcontext == NULL || TESTANY(DR_ALLOC_THREAD_PRIVATE, flags),
                       "dr_custom_alloc: drcontext must be NULL for global heap");
-        CLIENT_ASSERT(!TEST(DR_ALLOC_LOW_2GB, flags),
+        CLIENT_ASSERT(!TESTANY(DR_ALLOC_LOW_2GB, flags),
                       "dr_custom_alloc: cannot ask for heap in low 2GB");
-        CLIENT_ASSERT(!TEST(DR_ALLOC_NON_DR, flags),
+        CLIENT_ASSERT(!TESTANY(DR_ALLOC_NON_DR, flags),
                       "dr_custom_alloc: cannot ask for non-DR heap memory");
-        if (TEST(DR_ALLOC_CACHE_REACHABLE, flags)) {
-            if (TEST(DR_ALLOC_THREAD_PRIVATE, flags)) {
+        if (TESTANY(DR_ALLOC_CACHE_REACHABLE, flags)) {
+            if (TESTANY(DR_ALLOC_THREAD_PRIVATE, flags)) {
                 if (alloc)
                     return dr_thread_alloc(drcontext, size);
                 else
@@ -3221,7 +3222,7 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                     dr_global_free(addr, size);
             }
         } else {
-            if (TEST(DR_ALLOC_THREAD_PRIVATE, flags)) {
+            if (TESTANY(DR_ALLOC_THREAD_PRIVATE, flags)) {
                 if (alloc)
                     return heap_alloc(dcontext, size HEAPACCT(ACCT_CLIENT));
                 else
@@ -3992,7 +3993,7 @@ dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
     return NULL;
 #else
     modload_flags_t mflags = MODLOAD_NOT_PRIVLIB;
-    if (TEST(DR_MAPEXE_SKIP_WRITABLE, flags))
+    if (TESTANY(DR_MAPEXE_SKIP_WRITABLE, flags))
         mflags |= MODLOAD_SKIP_WRITABLE;
     if (filename == NULL)
         return NULL;
@@ -4058,29 +4059,29 @@ dr_open_file(const char *fname, uint mode_flags)
 {
     uint flags = 0;
 
-    if (TEST(DR_FILE_WRITE_REQUIRE_NEW, mode_flags)) {
+    if (TESTANY(DR_FILE_WRITE_REQUIRE_NEW, mode_flags)) {
         flags |= OS_OPEN_WRITE | OS_OPEN_REQUIRE_NEW;
     }
-    if (TEST(DR_FILE_WRITE_APPEND, mode_flags)) {
+    if (TESTANY(DR_FILE_WRITE_APPEND, mode_flags)) {
         CLIENT_ASSERT((flags == 0), "dr_open_file: multiple write modes selected");
         flags |= OS_OPEN_WRITE | OS_OPEN_APPEND;
     }
-    if (TEST(DR_FILE_WRITE_OVERWRITE, mode_flags)) {
+    if (TESTANY(DR_FILE_WRITE_OVERWRITE, mode_flags)) {
         CLIENT_ASSERT((flags == 0), "dr_open_file: multiple write modes selected");
         flags |= OS_OPEN_WRITE;
     }
-    if (TEST(DR_FILE_WRITE_ONLY, mode_flags)) {
+    if (TESTANY(DR_FILE_WRITE_ONLY, mode_flags)) {
         CLIENT_ASSERT((flags == 0), "dr_open_file: multiple write modes selected");
         flags |= OS_OPEN_WRITE_ONLY;
     }
-    if (TEST(DR_FILE_READ, mode_flags))
+    if (TESTANY(DR_FILE_READ, mode_flags))
         flags |= OS_OPEN_READ;
     CLIENT_ASSERT((flags != 0), "dr_open_file: no mode selected");
 
-    if (TEST(DR_FILE_ALLOW_LARGE, mode_flags))
+    if (TESTANY(DR_FILE_ALLOW_LARGE, mode_flags))
         flags |= OS_OPEN_ALLOW_LARGE;
 
-    if (TEST(DR_FILE_CLOSE_ON_FORK, mode_flags))
+    if (TESTANY(DR_FILE_CLOSE_ON_FORK, mode_flags))
         flags |= OS_OPEN_CLOSE_ON_FORK;
 
     /* all client-opened files are protected */
@@ -4202,10 +4203,10 @@ dr_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uin
 {
     return (void *)d_r_map_file(
         f, size, offs, addr, prot,
-        (TEST(DR_MAP_PRIVATE, flags) ? MAP_FILE_COPY_ON_WRITE : 0) |
-            IF_WINDOWS((TEST(DR_MAP_IMAGE, flags) ? MAP_FILE_IMAGE : 0) |)
-                IF_UNIX((TEST(DR_MAP_FIXED, flags) ? MAP_FILE_FIXED : 0) |)(
-                    TEST(DR_MAP_CACHE_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
+        (TESTANY(DR_MAP_PRIVATE, flags) ? MAP_FILE_COPY_ON_WRITE : 0) |
+            IF_WINDOWS((TESTANY(DR_MAP_IMAGE, flags) ? MAP_FILE_IMAGE : 0) |)
+                IF_UNIX((TESTANY(DR_MAP_FIXED, flags) ? MAP_FILE_FIXED : 0) |)(
+                    TESTANY(DR_MAP_CACHE_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
 }
 
 DR_API
@@ -4884,7 +4885,7 @@ dr_suspend_all_other_threads_ex(DR_PARAM_OUT void ***drcontexts,
                 if (!thread_synch_successful(threads[i])) {
                     out_unsuspended++;
                 } else if (is_thread_currently_native(threads[i]) &&
-                           !TEST(DR_SUSPEND_NATIVE, flags)) {
+                           !TESTANY(DR_SUSPEND_NATIVE, flags)) {
                     out_unsuspended++;
                 } else if (thread_synch_state_no_xfer(dcontext)) {
                     /* XXX: for all other synchall callers, the app
@@ -5253,7 +5254,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     uint dstack_offs, pad = 0;
     size_t buf_sz = 0;
     clean_call_info_t cci; /* information for clean call insertion. */
-    bool save_fpstate = TEST(DR_CLEANCALL_SAVE_FLOAT, save_flags);
+    bool save_fpstate = TESTANY(DR_CLEANCALL_SAVE_FLOAT, save_flags);
     meta_call_flags_t call_flags = META_CALL_CLEAN | META_CALL_RETURNS;
     byte *encode_pc;
     instr_t *label = INSTR_CREATE_label(drcontext);
@@ -5294,9 +5295,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 #endif
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, insert_at, callee, save_fpstate,
-                           TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags), num_args,
+                           TESTANY(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags), num_args,
                            args) &&
-        !TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags)) {
+        !TESTANY(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags)) {
         /* we can perform the inline optimization and return. */
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee " PFX "\n", callee);
@@ -5306,7 +5307,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         return;
     }
     /* honor requests from caller */
-    if (TEST(DR_CLEANCALL_NOSAVE_FLAGS, save_flags)) {
+    if (TESTANY(DR_CLEANCALL_NOSAVE_FLAGS, save_flags)) {
         /* even if we remove flag saves we want to keep mcontext shape */
         cci.preserve_mcontext = true;
         cci.skip_save_flags = true;
@@ -5338,13 +5339,13 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 #endif
         /* now remove those used for param/retval */
 #ifdef X64
-        if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
+        if (TESTANY(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
             /* xmm0-3 (-7 for linux) are used for params */
             for (i = 0; i < IF_UNIX_ELSE(7, 3); i++)
                 cci.simd_skip[i] = false;
             cci.num_simd_skip -= i;
         }
-        if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONRET, save_flags)) {
+        if (TESTANY(DR_CLEANCALL_NOSAVE_XMM_NONRET, save_flags)) {
             /* xmm0 (and xmm1 for linux) are used for retvals */
             cci.simd_skip[0] = false;
             cci.num_simd_skip--;
@@ -5355,7 +5356,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         }
 #endif
     }
-    if (TEST(DR_CLEANCALL_INDIRECT, save_flags))
+    if (TESTANY(DR_CLEANCALL_INDIRECT, save_flags))
         encode_pc = vmcode_unreachable_pc();
     else
         encode_pc = vmcode_get_start();
@@ -5389,7 +5390,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
      * flag will disappear and translation will fail.
      */
     instrlist_set_our_mangling(ilist, true);
-    if (TEST(DR_CLEANCALL_RETURNS_TO_NATIVE, save_flags))
+    if (TESTANY(DR_CLEANCALL_RETURNS_TO_NATIVE, save_flags))
         call_flags |= META_CALL_RETURNS_TO_NATIVE;
     insert_meta_call_vargs(dcontext, ilist, insert_at, call_flags, encode_pc, callee,
                            num_args, args);
@@ -5494,7 +5495,7 @@ dr_swap_to_clean_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
          * work right.  XXX - the dcontext accessing routines are a mess of shared
          * vs. no shared support, separate context vs. no separate context support etc. */
-        ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+        ASSERT_NOT_IMPLEMENTED(!TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
         MINSERT(ilist, where,
                 instr_create_restore_from_dc_via_reg(dcontext, SCRATCH_REG0, REG_XSP,
                                                      DSTACK_OFFSET));
@@ -5937,7 +5938,7 @@ dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag)
     uint sahf = (saved_xflag & 0xff00) >> 8;
     cur_xflags &= ~(EFLAGS_ARITH);
     cur_xflags |= sahf;
-    if (TEST(1, saved_xflag)) /* seto */
+    if (TESTANY(1, saved_xflag)) /* seto */
         cur_xflags |= EFLAGS_OF;
 #endif
 
@@ -6641,7 +6642,7 @@ bool
 dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc)
 {
     priv_mcontext_t *state;
-    CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
+    CLIENT_ASSERT(!TESTANY(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     if (mc == NULL) {
         CLIENT_ASSERT(dmc != NULL, "invalid context");
@@ -6729,11 +6730,11 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     /* esp is a dstack value -- get the app stack's esp from the dcontext */
     if (mc != NULL)
         mc->xsp = get_mcontext(dcontext)->xsp;
-    else if (TEST(DR_MC_CONTROL, dmc->flags))
+    else if (TESTANY(DR_MC_CONTROL, dmc->flags))
         dmc->xsp = get_mcontext(dcontext)->xsp;
 
 #if defined(AARCHXX) || defined(RISCV64)
-    if (mc != NULL || TEST(DR_MC_INTEGER, dmc->flags)) {
+    if (mc != NULL || TESTANY(DR_MC_INTEGER, dmc->flags)) {
         /* get the stolen register's app value */
         if (mc != NULL) {
             set_stolen_reg_val(mc,
@@ -6774,7 +6775,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     IF_AARCHXX_OR_RISCV64(reg_t stolen_reg_val = 0 /* silence the compiler warning */;)
     IF_RISCV64(reg_t tp_reg_val = 0;)
-    CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
+    CLIENT_ASSERT(!TESTANY(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
     CLIENT_ASSERT(context->flags != 0 && (context->flags & ~(DR_MC_ALL)) == 0,
@@ -6805,7 +6806,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
      */
     state = get_priv_mcontext_from_dstack(dcontext);
 #if defined(AARCHXX) || defined(RISCV64)
-    if (TEST(DR_MC_INTEGER, context->flags)) {
+    if (TESTANY(DR_MC_INTEGER, context->flags)) {
         /* Set the stolen register's app value in TLS, not on stack (we rely
          * on our stolen reg retaining its value on the stack)
          */
@@ -6821,7 +6822,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
 #if defined(AARCHXX) || defined(RISCV64)
-    if (TEST(DR_MC_INTEGER, context->flags)) {
+    if (TESTANY(DR_MC_INTEGER, context->flags)) {
         /* restore the reg val on the stack clobbered by the copy above */
         set_stolen_reg_val(state, stolen_reg_val);
 #    ifdef RISCV64
@@ -6830,7 +6831,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
     }
 #endif
 
-    if (TEST(DR_MC_CONTROL, context->flags)) {
+    if (TESTANY(DR_MC_CONTROL, context->flags)) {
         /* esp will be restored from a field in the dcontext */
         get_mcontext(dcontext)->xsp = context->xsp;
     }
@@ -7282,7 +7283,7 @@ dr_bb_exists_at(void *drcontext, void *tag)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f = fragment_lookup(dcontext, tag);
-    if (f != NULL && !TEST(FRAG_IS_TRACE, f->flags)) {
+    if (f != NULL && !TESTANY(FRAG_IS_TRACE, f->flags)) {
         return true;
     }
 
@@ -7484,11 +7485,11 @@ dr_mark_trace_head(void *drcontext, void *tag)
         }
     } else {
         /* check precluding conditions */
-        if (TEST(FRAG_IS_TRACE, f->flags)) {
+        if (TESTANY(FRAG_IS_TRACE, f->flags)) {
             success = false;
-        } else if (TEST(FRAG_CANNOT_BE_TRACE, f->flags)) {
+        } else if (TESTANY(FRAG_CANNOT_BE_TRACE, f->flags)) {
             success = false;
-        } else if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
+        } else if (TESTANY(FRAG_IS_TRACE_HEAD, f->flags)) {
             success = true;
         } else {
             mark_trace_head(dcontext, f, NULL, NULL);

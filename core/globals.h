@@ -756,7 +756,7 @@ struct _dcontext_t {
      */
     union {
         /* we use separate_upcontext if
-         *    (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+         *    (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
          * else we use the inlined upcontext
          */
         unprotected_context_t *separate_upcontext;
@@ -1079,7 +1079,7 @@ struct _dcontext_t {
 static INLINE_FORCED priv_mcontext_t *
 get_mcontext(dcontext_t *dcontext)
 {
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
         return &(dcontext->upcontext.separate_upcontext->mcontext);
     else
         return &(dcontext->upcontext.upcontext.mcontext);

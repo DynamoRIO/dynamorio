@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -143,25 +143,25 @@ int
 get_os_prot_word(int prot)
 {
 #    ifdef UNIX
-    return ((TEST(ALLOW_READ, prot) ? PROT_READ : 0) |
-            (TEST(ALLOW_WRITE, prot) ? PROT_WRITE : 0) |
-            (TEST(ALLOW_EXEC, prot) ? PROT_EXEC : 0));
+    return ((TESTANY(ALLOW_READ, prot) ? PROT_READ : 0) |
+            (TESTANY(ALLOW_WRITE, prot) ? PROT_WRITE : 0) |
+            (TESTANY(ALLOW_EXEC, prot) ? PROT_EXEC : 0));
 #    else
-    if (TEST(ALLOW_WRITE, prot)) {
-        if (TEST(ALLOW_EXEC, prot)) {
+    if (TESTANY(ALLOW_WRITE, prot)) {
+        if (TESTANY(ALLOW_EXEC, prot)) {
             return PAGE_EXECUTE_READWRITE;
         } else {
             return PAGE_READWRITE;
         }
     } else {
-        if (TEST(ALLOW_READ, prot)) {
-            if (TEST(ALLOW_EXEC, prot)) {
+        if (TESTANY(ALLOW_READ, prot)) {
+            if (TESTANY(ALLOW_EXEC, prot)) {
                 return PAGE_EXECUTE_READ;
             } else {
                 return PAGE_READONLY;
             }
         } else {
-            if (TEST(ALLOW_EXEC, prot)) {
+            if (TESTANY(ALLOW_EXEC, prot)) {
                 return PAGE_EXECUTE;
             } else {
                 return PAGE_NOACCESS;
@@ -177,7 +177,7 @@ allocate_mem(size_t size, int prot)
 #    ifdef UNIX
     int flags = MAP_PRIVATE | MAP_ANON;
 #        if defined(MACOS) && defined(AARCH64)
-    if (TEST(ALLOW_EXEC, prot)) {
+    if (TESTANY(ALLOW_EXEC, prot)) {
         flags |= MAP_JIT;
         pthread_jit_write_protect_np(0);
     }
@@ -213,7 +213,7 @@ protect_mem(void *start, size_t len, int prot)
     int page_len = (len + ((ptr_int_t)start - (ptr_int_t)page_start) + PAGE_SIZE - 1) &
         ~(PAGE_SIZE - 1);
 #        if defined(MACOS) && defined(AARCH64)
-    if (TEST(ALLOW_EXEC, prot) && !TEST(ALLOW_WRITE, prot)) {
+    if (TESTANY(ALLOW_EXEC, prot) && !TESTANY(ALLOW_WRITE, prot)) {
         pthread_jit_write_protect_np(1);
         return;
     }

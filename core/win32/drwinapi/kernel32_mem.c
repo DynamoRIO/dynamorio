@@ -212,7 +212,7 @@ redirect_LocalAlloc(__in UINT uFlags, __in SIZE_T uBytes)
     HANDLE heap = redirect_GetProcessHeap();
     /* for back-compat, LocalAlloc asks for +x */
     uint rtl_flags = HEAP_NO_SERIALIZE | HEAP_CREATE_ENABLE_EXECUTE;
-    if (TEST(LMEM_ZEROINIT, uFlags))
+    if (TESTANY(LMEM_ZEROINIT, uFlags))
         rtl_flags |= HEAP_ZERO_MEMORY;
 
     /* flags should be in ushort range */
@@ -250,7 +250,7 @@ redirect_LocalFree(__deref HLOCAL hMem)
     d_r_mutex_lock(&localheap_lock);
     /* XXX: supposed to raise debug msg + bp if freeing locked object */
     if (hdr->alloc != NULL) {
-        ASSERT(TEST(LMEM_MOVEABLE, hdr->flags));
+        ASSERT(TESTANY(LMEM_MOVEABLE, hdr->flags));
         redirect_RtlFreeHeap(heap, HEAP_NO_SERIALIZE, hdr->alloc);
     }
     redirect_RtlFreeHeap(heap, HEAP_NO_SERIALIZE, hdr);
@@ -266,14 +266,14 @@ redirect_LocalReAlloc(__in HLOCAL hMem, __in SIZE_T uBytes, __in UINT uFlags)
     HANDLE heap = redirect_GetProcessHeap();
     local_header_t *hdr = local_header_from_handle(hMem);
     uint rtl_flags = HEAP_NO_SERIALIZE | HEAP_CREATE_ENABLE_EXECUTE;
-    if (TEST(LMEM_ZEROINIT, uFlags))
+    if (TESTANY(LMEM_ZEROINIT, uFlags))
         rtl_flags |= HEAP_ZERO_MEMORY;
     d_r_mutex_lock(&localheap_lock);
-    if (TEST(LMEM_MODIFY, uFlags)) {
+    if (TESTANY(LMEM_MODIFY, uFlags)) {
         /* no realloc, just update flags */
         if ((uFlags & 0xffff0000) != 0 || /* flags should be in ushort range */
             /* we don't allow turning moveable w/ sep alloc into fixed */
-            (!TEST(LMEM_MOVEABLE, uFlags) && hdr->alloc != NULL)) {
+            (!TESTANY(LMEM_MOVEABLE, uFlags) && hdr->alloc != NULL)) {
             set_last_error(ERROR_INVALID_PARAMETER);
             res = NULL;
             goto redirect_LocalReAlloc_done;
@@ -282,10 +282,10 @@ redirect_LocalReAlloc(__in HLOCAL hMem, __in SIZE_T uBytes, __in UINT uFlags)
         res = hMem;
     } else {
         /* if fixed or locked and LMEM_MOVEABLE is not specified, must realloc in-place */
-        if (!TEST(LMEM_MOVEABLE, uFlags) &&
-            (!TEST(LMEM_MOVEABLE, hdr->flags) || hdr->lock_count > 0))
+        if (!TESTANY(LMEM_MOVEABLE, uFlags) &&
+            (!TESTANY(LMEM_MOVEABLE, hdr->flags) || hdr->lock_count > 0))
             rtl_flags |= HEAP_REALLOC_IN_PLACE_ONLY;
-        else if (TEST(LMEM_MOVEABLE, hdr->flags) && hdr->alloc == NULL) {
+        else if (TESTANY(LMEM_MOVEABLE, hdr->flags) && hdr->alloc == NULL) {
             size_t copy_sz =
                 redirect_RtlSizeHeap(heap, 0, (byte *)hdr) - sizeof(local_header_t);
             copy_sz = MIN(copy_sz, uBytes);
@@ -339,7 +339,7 @@ redirect_LocalLock(__in HLOCAL hMem)
     LPVOID res = NULL;
     local_header_t *hdr = local_header_from_handle(hMem);
     d_r_mutex_lock(&localheap_lock);
-    if (TEST(LMEM_MOVEABLE, hdr->flags))
+    if (TESTANY(LMEM_MOVEABLE, hdr->flags))
         hdr->lock_count++;
     if (hdr->alloc != NULL)
         res = (LPVOID)(hdr->alloc + 1);
@@ -354,7 +354,7 @@ WINAPI
 redirect_LocalHandle(__in LPCVOID pMem)
 {
     local_header_t *hdr = local_header_from_handle((PVOID)pMem);
-    if (TEST(LMEM_INVALID_HANDLE, hdr->flags)) {
+    if (TESTANY(LMEM_INVALID_HANDLE, hdr->flags)) {
         /* separate alloc stores the original header */
         hdr = hdr->alloc;
     }
@@ -391,7 +391,7 @@ redirect_LocalSize(__in HLOCAL hMem)
     HANDLE heap = redirect_GetProcessHeap();
     d_r_mutex_lock(&localheap_lock);
     if (hdr->alloc != NULL) {
-        ASSERT(TEST(LMEM_MOVEABLE, hdr->flags));
+        ASSERT(TESTANY(LMEM_MOVEABLE, hdr->flags));
         res = redirect_RtlSizeHeap(heap, 0, (byte *)hdr->alloc);
     } else
         res = redirect_RtlSizeHeap(heap, 0, (byte *)hdr);
@@ -456,11 +456,11 @@ __bcount(dwSize) LPVOID WINAPI
     /* XXX: are MEM_* values beyond MEM_RESERVE and MEM_COMMIT passed to the kernel? */
     PVOID base = lpAddress;
     NTSTATUS res;
-    if (TEST(MEM_COMMIT, flAllocationType) &&
+    if (TESTANY(MEM_COMMIT, flAllocationType) &&
         /* Any overlap when asking for MEM_RESERVE (even when combined w/ MEM_COMMIT)
          * will fail anyway, so we only have to worry about overlap on plain MEM_COMMIT
          */
-        !TEST(MEM_RESERVE, flAllocationType) && lpAddress != NULL) {
+        !TESTANY(MEM_RESERVE, flAllocationType) && lpAddress != NULL) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         if (!app_memory_pre_alloc(get_thread_private_dcontext(), lpAddress, dwSize,
                                   osprot_to_memprot(flProtect), false, true /*update*/,
@@ -485,7 +485,7 @@ BOOL WINAPI
 redirect_VirtualFree(__in LPVOID lpAddress, __in SIZE_T dwSize, __in DWORD dwFreeType)
 {
     NTSTATUS res;
-    if (TEST(MEM_DECOMMIT, dwFreeType))
+    if (TESTANY(MEM_DECOMMIT, dwFreeType))
         res = nt_decommit_virtual_memory(lpAddress, dwSize);
     else {
         if (dwSize != 0) {
@@ -599,7 +599,7 @@ test_local(void)
     loc = redirect_LocalReAlloc(loc, 26, LMEM_MOVEABLE | LMEM_ZEROINIT);
     EXPECT(*(int *)loc == 0, true);
     EXPECT(redirect_LocalSize(loc), 26);
-    EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), false);
+    EXPECT(TESTANY(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), false);
 
     /* locking should do nothing since fixed */
     EXPECT(redirect_LocalLock(loc) == (LPVOID)loc, true);
@@ -609,7 +609,7 @@ test_local(void)
 
     loc = redirect_LocalReAlloc(loc, 0, LMEM_MOVEABLE | LMEM_ZEROINIT);
     EXPECT(redirect_LocalSize(loc), 0);
-    EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), true);
+    EXPECT(TESTANY(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), true);
 
     /* test LMEM_MODIFY */
     loc = redirect_LocalReAlloc(loc, 0 /*ignored*/, LMEM_MODIFY | LMEM_MOVEABLE);
@@ -632,7 +632,7 @@ test_local(void)
     EXPECT(p != NULL, true);
     EXPECT(*(int *)p == 0, true);
     EXPECT(redirect_LocalSize(loc), 6);
-    EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), false);
+    EXPECT(TESTANY(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), false);
 
     ok = redirect_LocalUnlock(loc);
     EXPECT(ok, FALSE);
@@ -650,7 +650,7 @@ test_local(void)
 
     loc = redirect_LocalReAlloc(loc, 0, LMEM_MOVEABLE | LMEM_ZEROINIT);
     EXPECT(redirect_LocalSize(loc), 0);
-    EXPECT(TEST(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), true);
+    EXPECT(TESTANY(LMEM_DISCARDABLE, redirect_LocalFlags(loc)), true);
     loc = redirect_LocalFree(loc);
     EXPECT(loc == NULL, true);
 }

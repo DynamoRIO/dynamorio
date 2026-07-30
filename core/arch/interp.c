@@ -263,7 +263,7 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->record_translation = record_translation;
     bb->outf = outf;
     bb->overlap_info = overlap_info;
-    bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
+    bb->follow_direct = !TESTANY(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
 #ifdef ARM
@@ -882,7 +882,7 @@ bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
          * types of invalid instructions (for ex. STATUS_INVALID_LOCK
          * _SEQUENCE for lock prefix on a jmp instruction).
          */
-        if (TEST(DUMPCORE_FORGE_ILLEGAL_INST, DYNAMO_OPTION(dumpcore_mask)))
+        if (TESTANY(DUMPCORE_FORGE_ILLEGAL_INST, DYNAMO_OPTION(dumpcore_mask)))
             os_dump_core("Warning: Encountered Illegal Instruction");
         os_forge_exception(bb->instr_start, ILLEGAL_INSTRUCTION_EXCEPTION);
         ASSERT_NOT_REACHED();
@@ -1082,7 +1082,7 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
         return true; /* keep bb going, w/o inlining call */
     } else {
         if (DYNAMO_OPTION(coarse_split_calls) && DYNAMO_OPTION(coarse_units) &&
-            TEST(FRAG_COARSE_GRAIN, bb->flags)) {
+            TESTANY(FRAG_COARSE_GRAIN, bb->flags)) {
             if (instrlist_first(bb->ilist) != bb->instr) {
                 /* have call be in its own bb */
                 bb_stop_prior_to_instr(dcontext, bb, true /*appended already*/);
@@ -1157,7 +1157,7 @@ instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter)
     /* Did we find a "call (%xdx) or "call %xdx" that's already marked
      * for ind->direct call conversion? */
     instr = call;
-    if (!(instr != NULL && TEST(INSTR_IND_CALL_DIRECT, instr->flags) &&
+    if (!(instr != NULL && TESTANY(INSTR_IND_CALL_DIRECT, instr->flags) &&
           instr_is_call_indirect(instr) &&
           /* The 2nd src operand should always be %xsp. */
           opnd_is_reg(instr_get_src(instr, 1)) &&
@@ -1914,7 +1914,7 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
     if (bb->pass_to_client && !bb->post_client)
         return false;
 #ifdef DGC_DIAGNOSTICS
-    if (TEST(FRAG_DYNGEN, bb->flags) && !is_dyngen_vsyscall(bb->instr_start)) {
+    if (TESTANY(FRAG_DYNGEN, bb->flags) && !is_dyngen_vsyscall(bb->instr_start)) {
         LOG(THREAD, LOG_INTERP, 1, "WARNING: syscall @ " PFX " in dyngen code!\n",
             bb->instr_start);
     }
@@ -2077,7 +2077,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
     /* If there's no CTI in the BB, we can check if there are 5+ preceding
      * bytes and if they could hold a "mov" instruction.
      */
-    if (!TEST(FRAG_HAS_DIRECT_CTI, bb->flags) && bb->instr_start - 5 >= bb->start_pc) {
+    if (!TESTANY(FRAG_HAS_DIRECT_CTI, bb->flags) && bb->instr_start - 5 >= bb->start_pc) {
 
         byte opcode = *((byte *)bb->instr_start - 5);
 
@@ -2217,7 +2217,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
             /* As a flag to allow our xfer from now-non-coarse to coarse
              * (for vsyscall-in-ntdll) we pre-emptively mark as has-syscall.
              */
-            ASSERT(!TEST(FRAG_HAS_SYSCALL, bb->flags));
+            ASSERT(!TESTANY(FRAG_HAS_SYSCALL, bb->flags));
             bb->flags |= FRAG_HAS_SYSCALL;
         }
         if (check_new_page_jmp(dcontext, bb, callee)) {
@@ -2679,7 +2679,7 @@ client_check_syscall(instrlist_t *ilist, instr_t *inst, bool *found_syscall,
          * we assert on ignorable also?  Probably we'd have to have
          * an exception for the middle of a trace?
          */
-        if (IF_UNIX(TEST(INSTR_NI_SYSCALL, inst->flags))
+        if (IF_UNIX(TESTANY(INSTR_NI_SYSCALL, inst->flags))
             /* PR 243391: only block-ending interrupt 2b matters */
             IF_WINDOWS(instr_is_syscall(inst) ||
                        ((instr_get_opcode(inst) == OP_int &&
@@ -2751,7 +2751,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     app_pc tag = bb->pretend_pc == NULL ? bb->start_pc : bb->pretend_pc;
 
 #ifdef LINUX
-    if (TEST(FRAG_STARTS_RSEQ_REGION, bb->flags)) {
+    if (TESTANY(FRAG_STARTS_RSEQ_REGION, bb->flags)) {
         rseq_insert_start_label(dcontext, tag, bb->ilist);
         /* This is a temporary flag, as it overlaps with another used later. */
         bb->flags &= ~FRAG_STARTS_RSEQ_REGION;
@@ -2763,7 +2763,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                                 &emitflags)) {
         /* although no callback was called we must process syscalls/ints (PR 307284) */
     }
-    if (bb->for_cache && TEST(DR_EMIT_GO_NATIVE, emitflags)) {
+    if (bb->for_cache && TESTANY(DR_EMIT_GO_NATIVE, emitflags)) {
         LOG(THREAD, LOG_INTERP, 2, "client requested that we go native\n");
         SYSLOG_INTERNAL_INFO("thread " TIDFMT " is going native at client request",
                              d_r_get_thread_id());
@@ -2922,10 +2922,10 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                  * xref case 10846 and i#198
                  */
                 CLIENT_ASSERT(
-                    !TEST(~(LINK_DIRECT | LINK_INDIRECT | LINK_CALL | LINK_RETURN |
-                            LINK_JMP | LINK_NI_SYSCALL_ALL |
-                            LINK_SPECIAL_EXIT IF_WINDOWS(| LINK_CALLBACK_RETURN)),
-                          bb->exit_type) &&
+                    !TESTANY(~(LINK_DIRECT | LINK_INDIRECT | LINK_CALL | LINK_RETURN |
+                               LINK_JMP | LINK_NI_SYSCALL_ALL |
+                               LINK_SPECIAL_EXIT IF_WINDOWS(| LINK_CALLBACK_RETURN)),
+                             bb->exit_type) &&
                         !EXIT_IS_IND_JMP_PLT(bb->exit_type),
                     "client unsupported block exit type internal error");
 
@@ -2977,7 +2977,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                  * we can check for post-cti code
                  */
                 if (inst != instrlist_last(bb->ilist)) {
-                    if (TEST(FRAG_COARSE_GRAIN, bb->flags)) {
+                    if (TESTANY(FRAG_COARSE_GRAIN, bb->flags)) {
                         /* PR 213005: coarse can't handle code beyond ctis */
                         bb->flags &= ~FRAG_COARSE_GRAIN;
                         STATS_INC(coarse_prevent_client);
@@ -3006,7 +3006,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     DYNAMO_OPTION(max_elide_call) == 0)
                     bb->flags |= FRAG_CANNOT_BE_TRACE;
                 /* our cti check above should have already turned off coarse */
-                ASSERT(!TEST(FRAG_COARSE_GRAIN, bb->flags));
+                ASSERT(!TESTANY(FRAG_COARSE_GRAIN, bb->flags));
             }
         }
     }
@@ -3016,9 +3016,9 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
      */
     ASSERT(!DYNAMO_OPTION(inline_ignored_syscalls));
 
-    ASSERT((TEST(FRAG_HAS_SYSCALL, bb->flags) && found_syscall) ||
-           (!TEST(FRAG_HAS_SYSCALL, bb->flags) && !found_syscall));
-    IF_WINDOWS(ASSERT(!TEST(LINK_CALLBACK_RETURN, bb->exit_type) || found_int));
+    ASSERT((TESTANY(FRAG_HAS_SYSCALL, bb->flags) && found_syscall) ||
+           (!TESTANY(FRAG_HAS_SYSCALL, bb->flags) && !found_syscall));
+    IF_WINDOWS(ASSERT(!TESTANY(LINK_CALLBACK_RETURN, bb->exit_type) || found_int));
 
     /* Note that we do NOT remove, or set, FRAG_HAS_DIRECT_CTI based on
      * client modifications: setting it for a selfmod fragment could
@@ -3110,7 +3110,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             forward_eflags_analysis(dcontext, bb->ilist, instrlist_first(bb->ilist));
     }
 
-    if (TEST(DR_EMIT_STORE_TRANSLATIONS, emitflags)) {
+    if (TESTANY(DR_EMIT_STORE_TRANSLATIONS, emitflags)) {
         /* PR 214962: let client request storage instead of recreation */
         bb->flags |= FRAG_HAS_TRANSLATION_INFO;
         /* if we didn't have record on from start, can't store translation info */
@@ -3125,13 +3125,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
          * so we avoid undoing savings from -opt_memory with a tool that
          * doesn't support persistence.
          */
-        if (!TEST(DR_EMIT_PERSISTABLE, emitflags)) {
+        if (!TESTANY(DR_EMIT_PERSISTABLE, emitflags)) {
             bb->flags &= ~FRAG_COARSE_GRAIN;
             STATS_INC(coarse_prevent_client);
         }
     }
 
-    if (TEST(DR_EMIT_MUST_END_TRACE, emitflags)) {
+    if (TESTANY(DR_EMIT_MUST_END_TRACE, emitflags)) {
         /* i#848: let client terminate traces */
         bb->flags |= FRAG_MUST_END_TRACE;
     }
@@ -3355,11 +3355,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     /* avoid discrepancy in finding invalid instructions between fast decode
      * and the full decode of sandboxing by doing full decode up front
      */
-    if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
         bb->full_decode = true;
         bb->follow_direct = false;
     }
-    if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags)) {
+    if (TESTANY(FRAG_HAS_TRANSLATION_INFO, bb->flags)) {
         bb->full_decode = true;
         bb->record_translation = true;
     }
@@ -3449,8 +3449,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                     stop_bb_on_fallthrough = true;
                     break;
                 }
-                if (!TEST(FRAG_SELFMOD_SANDBOXED, old_flags) &&
-                    TEST(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
+                if (!TESTANY(FRAG_SELFMOD_SANDBOXED, old_flags) &&
+                    TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
                     /* Restart the decode loop with full_decode and
                      * !follow_direct, which are needed for sandboxing.  This
                      * can't happen more than once because sandboxing is now on.
@@ -3597,7 +3597,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                  */
                 bb->follow_direct = false;
                 DOSTATS({
-                    if (TEST(FRAG_HAS_DIRECT_CTI, bb->flags))
+                    if (TESTANY(FRAG_HAS_DIRECT_CTI, bb->flags))
                         STATS_INC(hotp_num_frag_direct_cti);
                 });
             }
@@ -3605,7 +3605,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif
 
         if (bb->full_decode) {
-            if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags) && instr_valid(bb->instr) &&
+            if (TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags) && instr_valid(bb->instr) &&
                 instr_writes_memory(bb->instr)) {
                 /* to allow tailing non-writes, end prior to the write beyond the max */
                 total_writes++;
@@ -3747,7 +3747,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef X64
         /* must be prior to mbr check since mbr location could be rip-rel */
         if (DYNAMO_OPTION(coarse_split_riprel) && DYNAMO_OPTION(coarse_units) &&
-            TEST(FRAG_COARSE_GRAIN, bb->flags) &&
+            TESTANY(FRAG_COARSE_GRAIN, bb->flags) &&
             instr_has_rel_addr_reference(bb->instr)) {
             if (instrlist_first(bb->ilist) != bb->instr) {
                 /* have ref be in its own bb */
@@ -3788,7 +3788,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 STATS_INC(num_indirect_calls);
 
                 if (DYNAMO_OPTION(coarse_split_calls) && DYNAMO_OPTION(coarse_units) &&
-                    TEST(FRAG_COARSE_GRAIN, bb->flags)) {
+                    TESTANY(FRAG_COARSE_GRAIN, bb->flags)) {
                     if (instrlist_first(bb->ilist) != bb->instr) {
                         /* have call be in its own bb */
                         bb_stop_prior_to_instr(dcontext, bb, true /*appended already*/);
@@ -3984,7 +3984,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     BBPRINT(bb, 3, "end_pc = " PFX "\n\n", bb->end_pc);
 
 #ifdef LINUX
-    if (TEST(FRAG_HAS_RSEQ_ENDPOINT, bb->flags)) {
+    if (TESTANY(FRAG_HAS_RSEQ_ENDPOINT, bb->flags)) {
         instr_t *label = INSTR_CREATE_label(dcontext);
         instr_set_note(label, (void *)DR_NOTE_REG_BARRIER);
         /* We want the label after the final rseq instruction.  We've
@@ -4050,7 +4050,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
     STATS_TRACK_MAX(max_instrs_in_a_bb, total_instrs);
 
-    if (stop_bb_on_fallthrough && TEST(FRAG_HAS_DIRECT_CTI, bb->flags)) {
+    if (stop_bb_on_fallthrough && TESTANY(FRAG_HAS_DIRECT_CTI, bb->flags)) {
         /* If we followed a direct cti to an instruction straddling a vmarea
          * boundary, we can't actually do the elision.  See the
          * sandbox_last_byte() test case in security-common/sandbox.c.  Restart
@@ -4085,10 +4085,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         return;
     }
 
-    if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
         ASSERT(bb->full_decode);
         ASSERT(!bb->follow_direct);
-        ASSERT(!TEST(FRAG_HAS_DIRECT_CTI, bb->flags));
+        ASSERT(!TESTANY(FRAG_HAS_DIRECT_CTI, bb->flags));
     }
 
 #ifdef HOT_PATCHING_INTERFACE
@@ -4198,8 +4198,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      * for cache management, both consistency and capacity)
      * bbs injected with hot patches are also not shared (see case 5272).
      */
-    if (DYNAMO_OPTION(shared_bbs) && !TEST(FRAG_SELFMOD_SANDBOXED, bb->flags) &&
-        !TEST(FRAG_TEMP_PRIVATE, bb->flags)
+    if (DYNAMO_OPTION(shared_bbs) && !TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags) &&
+        !TESTANY(FRAG_TEMP_PRIVATE, bb->flags)
 #ifdef HOT_PATCHING_INTERFACE
         && !hotp_injected
 #endif
@@ -4210,21 +4210,21 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
          * We don't support ignorable syscalls in shared fragments, as they
          * don't set at_syscall and so are incompatible w/ -syscalls_synch_flush.
          */
-        if (!TEST(FRAG_HAS_SYSCALL, bb->flags) ||
+        if (!TESTANY(FRAG_HAS_SYSCALL, bb->flags) ||
             TESTANY(LINK_NI_SYSCALL_ALL, bb->exit_type) ||
-            TEST(LINK_SPECIAL_EXIT, bb->exit_type))
+            TESTANY(LINK_SPECIAL_EXIT, bb->exit_type))
             bb->flags |= FRAG_SHARED;
 #ifdef WINDOWS
         /* A fragment can be shared if it contains a syscall that will be
          * executed via the version of shared syscall that can be targetted by
          * shared frags.
          */
-        else if (TEST(FRAG_HAS_SYSCALL, bb->flags) &&
+        else if (TESTANY(FRAG_HAS_SYSCALL, bb->flags) &&
                  DYNAMO_OPTION(shared_fragment_shared_syscalls) &&
                  bb->exit_target == shared_syscall_routine(dcontext))
             bb->flags |= FRAG_SHARED;
         else {
-            ASSERT((TEST(FRAG_HAS_SYSCALL, bb->flags) &&
+            ASSERT((TESTANY(FRAG_HAS_SYSCALL, bb->flags) &&
                     (DYNAMO_OPTION(ignore_syscalls) ||
                      (!DYNAMO_OPTION(shared_fragment_shared_syscalls) &&
                       bb->exit_target == shared_syscall_routine(dcontext)))) &&
@@ -4236,40 +4236,41 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         bb->exit_type |= LINK_SPECIAL_EXIT;
     }
 
-    if (TEST(FRAG_COARSE_GRAIN, bb->flags) &&
-        (!TEST(FRAG_SHARED, bb->flags) ||
+    if (TESTANY(FRAG_COARSE_GRAIN, bb->flags) &&
+        (!TESTANY(FRAG_SHARED, bb->flags) ||
          /* Ignorable syscalls on linux are mangled w/ intra-fragment jmps, which
           * decode_fragment() cannot handle -- and on win32 this overlaps w/
           * FRAG_MUST_END_TRACE and LINK_NI_SYSCALL
           */
-         TEST(FRAG_HAS_SYSCALL, bb->flags) || TEST(FRAG_MUST_END_TRACE, bb->flags) ||
-         TEST(FRAG_CANNOT_BE_TRACE, bb->flags) ||
-         TEST(FRAG_SELFMOD_SANDBOXED, bb->flags) ||
+         TESTANY(FRAG_HAS_SYSCALL, bb->flags) ||
+         TESTANY(FRAG_MUST_END_TRACE, bb->flags) ||
+         TESTANY(FRAG_CANNOT_BE_TRACE, bb->flags) ||
+         TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags) ||
          /* PR 214142: coarse units does not support storing translations */
-         TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags) ||
+         TESTANY(FRAG_HAS_TRANSLATION_INFO, bb->flags) ||
     /* FRAG_HAS_DIRECT_CTI: we never elide (assert is below);
      * not-inlined call/jmp: we turn off FRAG_COARSE_GRAIN up above
      */
 #ifdef WINDOWS
-         TEST(LINK_CALLBACK_RETURN, bb->exit_type) ||
+         TESTANY(LINK_CALLBACK_RETURN, bb->exit_type) ||
 #endif
          TESTANY(LINK_NI_SYSCALL_ALL, bb->exit_type))) {
         /* Currently not supported in a coarse unit */
         STATS_INC(num_fine_in_coarse);
         DOSTATS({
-            if (!TEST(FRAG_SHARED, bb->flags))
+            if (!TESTANY(FRAG_SHARED, bb->flags))
                 STATS_INC(coarse_prevent_private);
-            else if (TEST(FRAG_HAS_SYSCALL, bb->flags))
+            else if (TESTANY(FRAG_HAS_SYSCALL, bb->flags))
                 STATS_INC(coarse_prevent_syscall);
-            else if (TEST(FRAG_MUST_END_TRACE, bb->flags))
+            else if (TESTANY(FRAG_MUST_END_TRACE, bb->flags))
                 STATS_INC(coarse_prevent_end_trace);
-            else if (TEST(FRAG_CANNOT_BE_TRACE, bb->flags))
+            else if (TESTANY(FRAG_CANNOT_BE_TRACE, bb->flags))
                 STATS_INC(coarse_prevent_no_trace);
-            else if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags))
+            else if (TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags))
                 STATS_INC(coarse_prevent_selfmod);
-            else if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags))
+            else if (TESTANY(FRAG_HAS_TRANSLATION_INFO, bb->flags))
                 STATS_INC(coarse_prevent_translation);
-            else if (IF_WINDOWS_ELSE_0(TEST(LINK_CALLBACK_RETURN, bb->exit_type)))
+            else if (IF_WINDOWS_ELSE_0(TESTANY(LINK_CALLBACK_RETURN, bb->exit_type)))
                 STATS_INC(coarse_prevent_cbret);
             else if (TESTANY(LINK_NI_SYSCALL_ALL, bb->exit_type))
                 STATS_INC(coarse_prevent_syscall);
@@ -4278,10 +4279,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         });
         bb->flags &= ~FRAG_COARSE_GRAIN;
     }
-    ASSERT(!TEST(FRAG_COARSE_GRAIN, bb->flags) || !TEST(FRAG_HAS_DIRECT_CTI, bb->flags));
+    ASSERT(!TESTANY(FRAG_COARSE_GRAIN, bb->flags) ||
+           !TESTANY(FRAG_HAS_DIRECT_CTI, bb->flags));
 
     /* now that we know whether shared, ensure we have the right ibl routine */
-    if (!TEST(FRAG_SHARED, bb->flags) && TEST(LINK_INDIRECT, bb->exit_type)) {
+    if (!TESTANY(FRAG_SHARED, bb->flags) && TESTANY(LINK_INDIRECT, bb->exit_type)) {
         ASSERT(bb->exit_target ==
                get_ibl_routine(dcontext, get_ibl_entry_type(bb->exit_type),
                                DEFAULT_IBL_BB(), bb->ibl_branch_type));
@@ -4348,17 +4350,17 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     /* set flags */
 #ifdef DGC_DIAGNOSTICS
     /* no traces in dyngen code, that would mess up our exit tracking */
-    if (TEST(FRAG_DYNGEN, bb->flags))
+    if (TESTANY(FRAG_DYNGEN, bb->flags))
         bb->flags |= FRAG_CANNOT_BE_TRACE;
 #endif
     if (!INTERNAL_OPTION(unsafe_ignore_eflags_prefix)
             IF_X64(|| !INTERNAL_OPTION(unsafe_ignore_eflags_trace))) {
         bb->flags |= instr_eflags_to_fragment_eflags(bb->eflags);
-        if (TEST(FRAG_WRITES_EFLAGS_OF, bb->flags)) {
+        if (TESTANY(FRAG_WRITES_EFLAGS_OF, bb->flags)) {
             LOG(THREAD, LOG_INTERP, 4, "fragment writes OF prior to reading it!\n");
             STATS_INC(bbs_eflags_writes_of);
-        } else if (TEST(FRAG_WRITES_EFLAGS_6, bb->flags)) {
-            IF_X86(ASSERT(TEST(FRAG_WRITES_EFLAGS_OF, bb->flags)));
+        } else if (TESTANY(FRAG_WRITES_EFLAGS_6, bb->flags)) {
+            IF_X86(ASSERT(TESTANY(FRAG_WRITES_EFLAGS_OF, bb->flags)));
             LOG(THREAD, LOG_INTERP, 4,
                 "fragment writes all 6 flags prior to reading any\n");
             STATS_INC(bbs_eflags_writes_6);
@@ -4372,7 +4374,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                     STATS_INC(bbs_eflags_reads);
                 } else {
                     STATS_INC(bbs_eflags_writes_none);
-                    if (TEST(LINK_INDIRECT, bb->exit_type))
+                    if (TESTANY(LINK_INDIRECT, bb->exit_type))
                         STATS_INC(bbs_eflags_writes_none_ind);
                 }
             });
@@ -4380,7 +4382,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     }
 
     /* can only have proactive translation info if flag was set from the beginning */
-    if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags) &&
+    if (TESTANY(FRAG_HAS_TRANSLATION_INFO, bb->flags) &&
         (!bb->record_translation || !bb->full_decode))
         bb->flags &= ~FRAG_HAS_TRANSLATION_INFO;
 
@@ -4473,12 +4475,12 @@ static bool
 mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 {
 #ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
-    if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
         byte *selfmod_start, *selfmod_end;
         /* sandbox requires that bb have no direct cti followings!
          * check_thread_vm_area should have ensured this for us
          */
-        ASSERT(!TEST(FRAG_HAS_DIRECT_CTI, bb->flags));
+        ASSERT(!TESTANY(FRAG_HAS_DIRECT_CTI, bb->flags));
         LOG(THREAD, LOG_INTERP, 2,
             "fragment overlaps selfmod area, inserting sandboxing\n");
         /* only reason can't be trace is don't have mechanism set up
@@ -4604,7 +4606,7 @@ decode_trace(void *drcontext, void *tag)
     if (get_thread_private_dcontext() != dcontext)
         return NULL;
 
-    if (frag != NULL && TEST(FRAG_IS_TRACE, frag->flags)) {
+    if (frag != NULL && TESTANY(FRAG_IS_TRACE, frag->flags)) {
         instrlist_t *ilist;
         bool alloc_res;
         /* Support being called from bb/trace hook (couldbelinking) or
@@ -4706,7 +4708,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     ASSERT(bb->start_pc != NULL);
     /* vmlist must start out empty (or N/A).  For clients it may have started early. */
     ASSERT(bb->vmlist == NULL || !bb->record_vmlist || bb->checked_start_vmarea);
-    if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags))
+    if (TESTANY(FRAG_HAS_TRANSLATION_INFO, bb->flags))
         bb->flags &= ~FRAG_HAS_TRANSLATION_INFO;
     bb->native_exec = true;
 
@@ -4800,7 +4802,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     instrlist_append(bb->ilist,
                      XINST_CREATE_jump(dcontext, opnd_create_pc(bb->start_pc)));
 
-    if (DYNAMO_OPTION(shared_bbs) && !TEST(FRAG_TEMP_PRIVATE, bb->flags))
+    if (DYNAMO_OPTION(shared_bbs) && !TESTANY(FRAG_TEMP_PRIVATE, bb->flags))
         bb->flags |= FRAG_SHARED;
 
     /* Can't be coarse-grain since has non-exit cti */
@@ -4824,7 +4826,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
      * happens while native before coming back out.  While the former does not
      * depend on the target at all, unfortunately we cannot verify the latter.
      */
-    if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags))
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags))
         bb->flags &= ~FRAG_SELFMOD_SANDBOXED;
     DEBUG_DECLARE(ok =) mangle_bb_ilist(dcontext, bb);
     ASSERT(ok);
@@ -4875,7 +4877,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start,
 
     if (DYNAMO_OPTION(native_exec) && !vmvector_empty(native_exec_areas)) {
         /* do we KNOW that we came from an indirect call? */
-        if (TEST(LINK_CALL /*includes IND_JMP_PLT*/, dcontext->last_exit->flags) &&
+        if (TESTANY(LINK_CALL /*includes IND_JMP_PLT*/, dcontext->last_exit->flags) &&
             /* only check direct calls if native_exec_dircalls is on */
             (DYNAMO_OPTION(native_exec_dircalls) ||
              LINKSTUB_INDIRECT(dcontext->last_exit->flags))) {
@@ -4972,7 +4974,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start,
         /* Is this a return from a non-native module into a native module? */
         if (!native_exec_bb && DYNAMO_OPTION(native_exec_retakeover) &&
             LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
-            TEST(LINK_RETURN, dcontext->last_exit->flags)) {
+            TESTANY(LINK_RETURN, dcontext->last_exit->flags)) {
             if (is_native_pc(start)) {
                 /* XXX: check that this is the return address of a known native
                  * callsite where we took over on a module transition.
@@ -5023,7 +5025,7 @@ static inline void
 init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
                      uint initial_flags, bool for_trace, instrlist_t **unmangled_ilist)
 {
-    ASSERT_OWN_MUTEX(USE_BB_BUILDING_LOCK() && !TEST(FRAG_TEMP_PRIVATE, initial_flags),
+    ASSERT_OWN_MUTEX(USE_BB_BUILDING_LOCK() && !TESTANY(FRAG_TEMP_PRIVATE, initial_flags),
                      &bb_building_lock);
     /* We need to set up for abort prior to native exec and other checks
      * that can crash */
@@ -5038,7 +5040,7 @@ init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
         initial_flags |
             (INTERNAL_OPTION(store_translations) ? FRAG_HAS_TRANSLATION_INFO : 0),
         NULL /*no overlap*/);
-    if (!TEST(FRAG_TEMP_PRIVATE, initial_flags))
+    if (!TESTANY(FRAG_TEMP_PRIVATE, initial_flags))
         bb->has_bb_building_lock = true;
     /* We avoid races where there is no hook when we start building a
      * bb (and hence we don't record translation or do full decode) yet
@@ -5163,7 +5165,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
 
     if (DYNAMO_OPTION(opt_jit) && visible && is_jit_managed_area(bb.start_pc)) {
         ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
-        jitopt_add_dgc_bb(bb.start_pc, bb.end_pc, TEST(FRAG_IS_TRACE_HEAD, bb.flags));
+        jitopt_add_dgc_bb(bb.start_pc, bb.end_pc, TESTANY(FRAG_IS_TRACE_HEAD, bb.flags));
     }
 
     /* emit fragment into fcache */
@@ -5186,7 +5188,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     DOLOG(2, LOG_INTERP,
           { disassemble_fragment(dcontext, f, d_r_stats->loglevel <= 3); });
     DOLOG(4, LOG_INTERP, {
-        if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
+        if (TESTANY(FRAG_SELFMOD_SANDBOXED, f->flags)) {
             LOG(THREAD, LOG_INTERP, 4, "\nXXXX sandboxed fragment!  original code:\n");
             disassemble_app_bb(dcontext, f->tag, THREAD);
             LOG(THREAD, LOG_INTERP, 4, "code cache code:\n");
@@ -5354,7 +5356,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
          * the memory might have changed.  caller should use the stored
          * translation info instead.
          */
-        if (f == NULL || TEST(FRAG_WAS_DELETED, f->flags)) {
+        if (f == NULL || TESTANY(FRAG_WAS_DELETED, f->flags)) {
             ASSERT(f != NULL || !alloc); /* alloc shouldn't be set if no f */
             ilist = NULL;
             goto recreate_fragment_done;
@@ -5501,7 +5503,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
                     f->id);
 #    ifdef SIDELINE
                 if (dynamo_options.sideline) {
-                    if (!TEST(FRAG_DO_NOT_SIDELINE, f->flags))
+                    if (!TESTANY(FRAG_DO_NOT_SIDELINE, f->flags))
                         optimize_trace(dcontext, f->tag, ilist);
                     /* else, never optimized */
                 } else
@@ -6173,9 +6175,9 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
 #    ifdef X64
     if (X64_CACHE_MODE_DC(dcontext)) {
         LOG(THREAD, LOG_INTERP, 4, "next_flags for post-ibl-cmp: 0x%x\n", next_flags);
-        if (!TEST(FRAG_WRITES_EFLAGS_6, next_flags) &&
+        if (!TESTANY(FRAG_WRITES_EFLAGS_6, next_flags) &&
             !INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
-            if (!TEST(FRAG_WRITES_EFLAGS_OF, next_flags) && /* OF was saved */
+            if (!TESTANY(FRAG_WRITES_EFLAGS_OF, next_flags) && /* OF was saved */
                 !INTERNAL_OPTION(unsafe_ignore_overflow)) {
                 /* restore OF using add that overflows if OF was on when we did seto */
                 added_size +=
@@ -6791,7 +6793,7 @@ extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l)
     /* if you want to re-add the ability to add traces, revive
      * CUSTOM_TRACES_ADD_TRACE from the attic
      */
-    ASSERT(!TEST(FRAG_IS_TRACE, f->flags)); /* expecting block fragments */
+    ASSERT(!TESTANY(FRAG_IS_TRACE, f->flags)); /* expecting block fragments */
 
     if (prev_l != NULL) {
         ASSERT(!LINKSTUB_FAKE(prev_l) ||
@@ -7069,14 +7071,14 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
              * survives to here if the instr is not clobbered,
              * and does not come from md->final_exit_flags
              */
-            if (TEST(INSTR_SHARED_SYSCALL, instrlist_last(ilist)->flags)) {
+            if (TESTANY(INSTR_SHARED_SYSCALL, instrlist_last(ilist)->flags)) {
                 instr_set_target(jmp, opnd_create_pc(shared_syscall_routine(dcontext)));
                 instr_set_our_mangling(jmp, true); /* undone by target set */
             }
             /* XXX: test for linux too, but allowing ignorable syscalls */
             if (!TESTANY(LINK_NI_SYSCALL_ALL IF_WINDOWS(| LINK_CALLBACK_RETURN),
                          md->final_exit_flags) &&
-                !TEST(INSTR_SHARED_SYSCALL, instrlist_last(ilist)->flags)) {
+                !TESTANY(INSTR_SHARED_SYSCALL, instrlist_last(ilist)->flags)) {
                 CLIENT_ASSERT(false,
                               "client modified or added a syscall or int: unsupported");
                 return false;
@@ -7089,7 +7091,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
         CLIENT_ASSERT((!found_syscall && !found_int)
                       /* On linux we allow ignorable syscalls in middle.
                        * XXX PR 307284: see notes above. */
-                      IF_UNIX(|| !TEST(LINK_NI_SYSCALL, md->final_exit_flags)),
+                      IF_UNIX(|| !TESTANY(LINK_NI_SYSCALL, md->final_exit_flags)),
                       "client changed exit target where unsupported\n"
                       "check if trace ends in a syscall or int");
     }
@@ -7107,7 +7109,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
     /* We do not need to remove nops since we never emitted */
     d_r_mangle(dcontext, ilist, &md->trace_flags, true /*mangle calls*/,
                /* we're post-client so we don't need translations unless storing */
-               TEST(FRAG_HAS_TRANSLATION_INFO, md->trace_flags));
+               TESTANY(FRAG_HAS_TRANSLATION_INFO, md->trace_flags));
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "trace ilist after mangling:\n");
         instrlist_disassemble(dcontext, md->trace_tag, ilist, THREAD);
@@ -7133,7 +7135,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
                     next_flags);
                 fixup_last_cti(dcontext, ilist, md->blk_info[blk + 1].info.tag,
                                next_flags, md->trace_flags, NULL, NULL,
-                               TEST(FRAG_HAS_TRANSLATION_INFO, md->trace_flags),
+                               TESTANY(FRAG_HAS_TRANSLATION_INFO, md->trace_flags),
                                &num_exits_deleted,
                                /* Only walk ilist between these instrs */
                                start_instr, inst);
@@ -7266,13 +7268,13 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
     uint num_dir = 0, num_indir = 0;
     bool tls_to_dc;
     bool shared_to_private =
-        TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_SHARED, target_flags);
+        TESTANY(FRAG_SHARED, f->flags) && !TESTANY(FRAG_SHARED, target_flags);
 #ifdef WINDOWS
     /* The fragment could contain an ignorable sysenter instruction if
      * the following conditions are satisfied. */
     bool possible_ignorable_sysenter = DYNAMO_OPTION(ignore_syscalls) &&
         (get_syscall_method() == SYSCALL_METHOD_SYSENTER) &&
-        TEST(FRAG_HAS_SYSCALL, f->flags);
+        TESTANY(FRAG_HAS_SYSCALL, f->flags);
 #endif
     instrlist_t intra_ctis;
     coarse_info_t *info = NULL;
@@ -7308,12 +7310,12 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
      * Handle coarse-grain fake fragment_t by discovering exits as we go, with
      * l being NULL the whole time.
      */
-    if (TEST(FRAG_FAKE, f->flags)) {
-        ASSERT(TEST(FRAG_COARSE_GRAIN, f->flags));
+    if (TESTANY(FRAG_FAKE, f->flags)) {
+        ASSERT(TESTANY(FRAG_COARSE_GRAIN, f->flags));
         info = get_fragment_coarse_info(f);
         ASSERT(info != NULL);
         coarse_elided_ubrs =
-            (info->persisted && TEST(PERSCACHE_ELIDED_UBR, info->flags)) ||
+            (info->persisted && TESTANY(PERSCACHE_ELIDED_UBR, info->flags)) ||
             (!info->persisted && DYNAMO_OPTION(coarse_freeze_elide_ubr));
         /* Assumption: coarse-grain fragments have no ctis w/ off-fragment targets
          * that are not exit ctis
@@ -7326,7 +7328,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
         cti = NULL;
         if (l != NULL) {
             stop_pc = EXIT_CTI_PC(f, l);
-        } else if (TEST(FRAG_FAKE, f->flags)) {
+        } else if (TESTANY(FRAG_FAKE, f->flags)) {
             /* we don't know the size of f */
             stop_pc = (cache_pc)UNIVERSAL_REGION_END;
         } else {
@@ -7346,14 +7348,14 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                 stop_pc = raw_start_pc;
             }
         }
-        IF_X64(ASSERT(TEST(FRAG_FAKE, f->flags) /* no copy made */ ||
+        IF_X64(ASSERT(TESTANY(FRAG_FAKE, f->flags) /* no copy made */ ||
                       CHECK_TRUNCATE_TYPE_uint((stop_pc - raw_start_pc))));
         num_bytes = (uint)(stop_pc - raw_start_pc);
         LOG(THREAD, LOG_MONITOR, DF_LOGLEVEL(dcontext),
             "decoding fragment from " PFX " to " PFX "\n", raw_start_pc, stop_pc);
         if (num_bytes > 0) {
             if (buf != NULL) {
-                if (TEST(FRAG_FAKE, f->flags)) {
+                if (TESTANY(FRAG_FAKE, f->flags)) {
                     /* we don't know the size of f, so we copy later, though
                      * we do point instrs into buf before we copy!
                      */
@@ -7531,7 +7533,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                         d_r_loginst(dcontext, 4, instr,
                                     "decode_fragment: found non-exit cti");
                     });
-                    if (TEST(FRAG_FAKE, f->flags)) {
+                    if (TESTANY(FRAG_FAKE, f->flags)) {
                         /* Case 8711: we don't know the size so we can't even
                          * distinguish off-fragment from intra-fragment targets.
                          * Thus we have to assume that any cti is an exit cti, and
@@ -7720,7 +7722,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
             });
             ASSERT(pc == stop_pc);
             cache_pc next_pc = pc;
-            if (l != NULL && TEST(LINK_PADDED, l->flags) && instr_is_nop(instr)) {
+            if (l != NULL && TESTANY(LINK_PADDED, l->flags) && instr_is_nop(instr)) {
                 /* Throw away our padding nop. */
                 LOG(THREAD, LOG_MONITOR, DF_LOGLEVEL(dcontext) - 1,
                     "%s: removing padding nop @" PFX "\n", __FUNCTION__, prev_pc);
@@ -7738,7 +7740,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                     instrlist_append(ilist, instr);
                     cur_buf += offset;
                 }
-                if (buf != NULL && TEST(FRAG_FAKE, f->flags)) {
+                if (buf != NULL && TESTANY(FRAG_FAKE, f->flags)) {
                     /* Now that we know the size we can copy into buf.
                      * We have been incrementing cur_buf all along, though
                      * we didn't have contents there.
@@ -7765,7 +7767,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
             pc = next_pc;
         }
 
-        if (l == NULL && !TEST(FRAG_FAKE, f->flags))
+        if (l == NULL && !TESTANY(FRAG_FAKE, f->flags))
             break;
 
         /* decode the exit branch */
@@ -7788,7 +7790,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
             if (instr_is_cti_short_rewrite(instr, stop_pc))
                 remangle_short_rewrite(dcontext, instr, stop_pc, 0 /*same target*/);
             instr_tgt = opnd_get_pc(instr_get_target(instr));
-            ASSERT(TEST(FRAG_COARSE_GRAIN, f->flags));
+            ASSERT(TESTANY(FRAG_COARSE_GRAIN, f->flags));
             if (cti == NULL && coarse_is_entrance_stub(instr_tgt)) {
                 target_tag = entrance_stub_target_tag(instr_tgt, info);
                 l_flags = LINK_DIRECT;
@@ -7861,15 +7863,15 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                 DODEBUG({
                     LOG(THREAD, LOG_MONITOR, DF_LOGLEVEL(dcontext) - 1,
                         "%s: %s ibl_routine " PFX " with %s_target=" PFX "\n",
-                        TEST(FRAG_IS_TRACE, target_flags) ? "extend_trace"
-                                                          : "decode_fragment",
+                        TESTANY(FRAG_IS_TRACE, target_flags) ? "extend_trace"
+                                                             : "decode_fragment",
                         new_target == old_target ? "maintaining" : "replacing",
                         old_target, new_target == old_target ? "old" : "new", new_target);
                     STATS_INC(num_traces_ibl_extended);
                 });
 #ifdef WINDOWS
                 DOSTATS({
-                    if (TEST(FRAG_IS_TRACE, target_flags) &&
+                    if (TESTANY(FRAG_IS_TRACE, target_flags) &&
                         old_target == shared_syscall_routine(dcontext))
                         STATS_INC(num_traces_shared_syscall_extended);
                 });
@@ -7887,7 +7889,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
         }
         instrlist_append(ilist, instr);
 
-        if (TEST(FRAG_FAKE, f->flags)) {
+        if (TESTANY(FRAG_FAKE, f->flags)) {
             /* Assumption: coarse-grain bbs have 1 ind exit or 2 direct,
              * and no code beyond the last exit!  Of course frozen bbs
              * can have their final jmp elided, which we handle above.
@@ -8047,7 +8049,7 @@ copy_fragment(dcontext_t *dcontext, fragment_t *f, bool replace)
 
     /* emit as invisible fragment */
     /* We don't support shared fragments, where vm_area_add_to_list can fail */
-    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_SHARED, f->flags));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(FRAG_SHARED, f->flags));
     DEBUG_DECLARE(ok =)
     vm_area_add_to_list(dcontext, f->tag, &vmlist, f->flags, f, false /*no locks*/);
     ASSERT(ok); /* should never fail for private fragments */
@@ -8108,7 +8110,7 @@ shift_ctis_in_fragment(dcontext_t *dcontext, fragment_t *f, ssize_t shift,
         (get_syscall_method() == SYSCALL_METHOD_SYSENTER) &&
         /* XXX Traces don't have FRAG_HAS_SYSCALL set so we can't filter on
          * that flag for all fragments. */
-        (TEST(FRAG_HAS_SYSCALL, f->flags) || TEST(FRAG_IS_TRACE, f->flags));
+        (TESTANY(FRAG_HAS_SYSCALL, f->flags) || TESTANY(FRAG_IS_TRACE, f->flags));
 #endif
     instr_t instr;
     instr_init(dcontext, &instr);
@@ -8262,7 +8264,7 @@ d_r_emulate_instr(dcontext_t *dcontext, instr_t *inst, priv_mcontext_t *mc)
         DOCHECK(1, {
             uint prot = 0;
             ASSERT(get_memory_info((app_pc)target, NULL, NULL, &prot));
-            ASSERT(TEST(MEMPROT_WRITE, prot));
+            ASSERT(TESTANY(MEMPROT_WRITE, prot));
         });
         LOG(THREAD, LOG_INTERP, 2, "\temulating store by writing " PFX " to " PFX "\n",
             val, target);
@@ -8286,7 +8288,7 @@ d_r_emulate_instr(dcontext_t *dcontext, instr_t *inst, priv_mcontext_t *mc)
         DOCHECK(1, {
             uint prot = 0;
             ASSERT(get_memory_info((app_pc)target, NULL, NULL, &prot));
-            ASSERT(TEST(MEMPROT_WRITE, prot));
+            ASSERT(TESTANY(MEMPROT_WRITE, prot));
         });
         LOG(THREAD, LOG_INTERP, 2, "\temulating %s to " PFX "\n",
             opc == IF_X86_ELSE(OP_inc, OP_add) ? "inc" : "dec", target);

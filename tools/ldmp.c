@@ -62,8 +62,6 @@ static int verbose = 1;
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 /* check if any bit in mask is set in var */
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
@@ -543,7 +541,7 @@ print_descriptor(DESCRIPTOR_TABLE_ENTRY *entry)
 
     /* The definition for LDT_ENTRY combines the S and type fields
      * into a five bit field. */
-    if (TEST(0x10, descr->HighWord.Bits.Type)) {
+    if (TESTANY(0x10, descr->HighWord.Bits.Type)) {
         PRINT("%s ", types[descr->HighWord.Bits.Type & 0xf]);
     } else {
         PRINT("System               ");
@@ -855,7 +853,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                      * is guard! (why?), post rc1 should check
                      * MEM_COMMIT && !guard && is_readable */
                     assert(mbi.State == MEM_COMMIT);
-                    if (!TEST(PAGE_GUARD, mbi.Protect)) {
+                    if (!TESTANY(PAGE_GUARD, mbi.Protect)) {
                         res = fseek(file, mbi.RegionSize, SEEK_CUR);
                         assert(res == 0);
                     } else {
@@ -958,7 +956,8 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 } else {
                     uint old_prot;
                     assert(mbi.State = MEM_COMMIT);
-                    if (!TEST(PAGE_GUARD, mbi.Protect) && prot_is_readable(mbi.Protect)) {
+                    if (!TESTANY(PAGE_GUARD, mbi.Protect) &&
+                        prot_is_readable(mbi.Protect)) {
                         uint i;
                         /* copy over memory */
                         res = VirtualProtectEx(hProc, TARGET_ADDR, mbi.RegionSize,

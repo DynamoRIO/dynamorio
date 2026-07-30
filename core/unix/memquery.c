@@ -145,7 +145,7 @@ memquery_library_bounds_by_iterator_internal(
                 !funcs->module_is_header(iter.vm_start, iter.vm_end - iter.vm_start))
                 last_lib_base = prev_base;
             /* last_lib_end is used to know what's readable beyond last_lib_base */
-            if (TEST(MEMPROT_READ, iter.prot))
+            if (TESTANY(MEMPROT_READ, iter.prot))
                 last_lib_end = iter.vm_end;
             else
                 last_lib_end = last_lib_base;

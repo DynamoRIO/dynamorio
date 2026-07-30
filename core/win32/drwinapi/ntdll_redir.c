@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -306,7 +306,7 @@ wrapped_dr_alloc(ULONG flags, SIZE_T size)
         ASSERT_NOT_REACHED();
         return NULL;
     }
-    if (TEST(HEAP_ZERO_MEMORY, flags))
+    if (TESTANY(HEAP_ZERO_MEMORY, flags))
         memset(mem, 0, size);
     return mem;
 }
@@ -358,7 +358,7 @@ redirect_RtlReAllocateHeap(HANDLE heap, ULONG flags, byte *ptr, SIZE_T size)
         return NULL;
     if (redirect_heap_call(heap) && is_dynamo_address(ptr)) {
         byte *buf = NULL;
-        if (TEST(HEAP_REALLOC_IN_PLACE_ONLY, flags)) {
+        if (TESTANY(HEAP_REALLOC_IN_PLACE_ONLY, flags)) {
             ASSERT_NOT_IMPLEMENTED(false);
             return NULL;
         }
@@ -561,7 +561,7 @@ redirect_RtlInitializeCriticalSectionEx(RTL_CRITICAL_SECTION *crit, ULONG spinco
            standalone_library);
     if (crit == NULL)
         return STATUS_INVALID_PARAMETER;
-    if (TEST(RTL_CRITICAL_SECTION_FLAG_STATIC_INIT, flags)) {
+    if (TESTANY(RTL_CRITICAL_SECTION_FLAG_STATIC_INIT, flags)) {
         /* We're supposed to use a memory pool but it's not
          * clear whether it really matters so we ignore this flag.
          */
@@ -575,7 +575,7 @@ redirect_RtlInitializeCriticalSectionEx(RTL_CRITICAL_SECTION *crit, ULONG spinco
     else
         crit->SpinCount = (spincount & ~0x80000000);
 
-    if (TEST(RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO, flags))
+    if (TESTANY(RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO, flags))
         crit->DebugInfo = NULL;
     else {
         crit->DebugInfo = wrapped_dr_alloc(0, sizeof(*crit->DebugInfo));

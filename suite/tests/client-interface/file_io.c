@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -155,7 +155,7 @@ main(int argc, const char *argv[])
 #        endif
     }
     /* Mark one FD as close-on-exec. */
-    assert(!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)));
+    assert(!TESTANY(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)));
 #        ifdef CLOSE_RANGE_CLOEXEC
     /* CLOSE_RANGE_CLOEXEC is available only on kernel version >= 5.11 */
     if (syscall(__NR_close_range, rlimit.rlim_max - 1, rlimit.rlim_max - 1,
@@ -166,7 +166,7 @@ main(int argc, const char *argv[])
     assert(fcntl(rlimit.rlim_max - 1, F_SETFD,
                  fcntl(rlimit.rlim_max - 1, F_GETFD) | FD_CLOEXEC) == 0);
 #        endif
-    if (!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)))
+    if (!TESTANY(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)))
         print("close_range failed to set the close-on-exec flag\n");
     /* close_range should close the open FDs, and not return any error for
      * any unopen or DR-private FDs.

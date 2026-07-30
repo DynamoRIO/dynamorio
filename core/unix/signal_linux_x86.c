@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -130,7 +130,7 @@ twd_fxsr_to_i387(struct i387_fxsave_struct *fxsave)
     uint ret = 0xffff0000;
     int i;
     for (i = 0; i < 8; i++) {
-        if (TEST(0x1, twd)) {
+        if (TESTANY(0x1, twd)) {
             st = (kernel_fpxreg_t *)&fxsave->st_space[i * 4];
 
             switch (st->exponent & 0x7fff) {
@@ -146,7 +146,7 @@ twd_fxsr_to_i387(struct i387_fxsave_struct *fxsave)
                 }
                 break;
             default:
-                if (TEST(0x8000, st->significand[3])) {
+                if (TESTANY(0x8000, st->significand[3])) {
                     tag = 0; /* Valid */
                 } else {
                     tag = 2; /* Special */
@@ -447,7 +447,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
              * is obtained via cpuid, which is the xstate size of 64-bit arch.
              */
             ASSERT(fp->sw_reserved.extended_size >= sizeof(*xstate));
-            ASSERT(TEST(XCR0_AVX, fp->sw_reserved.xstate_bv));
+            ASSERT(TESTANY(XCR0_AVX, fp->sw_reserved.xstate_bv));
             LOG(THREAD, LOG_ASYNCH, 1, "\txstate_bv = 0x" HEX64_FORMAT_STRING "\n",
                 xstate->xstate_hdr.xstate_bv);
             for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
@@ -528,7 +528,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                  * is obtained via cpuid, which is the xstate size of 64-bit arch.
                  */
                 ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
-                ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                     memcpy(&mc->simd[i].u32[4], &xstate->ymmh.ymmh_space[i * 4],
                            YMMH_REG_SIZE);
@@ -542,9 +542,9 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                 /* The following three XCR0 bits should have been checked already
                  * in ZMM_ENABLED().
                  */
-                ASSERT(TEST(XCR0_ZMM_HI256, sc->fpstate->sw_reserved.xstate_bv));
-                ASSERT(TEST(XCR0_HI16_ZMM, sc->fpstate->sw_reserved.xstate_bv));
-                ASSERT(TEST(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_ZMM_HI256, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_HI16_ZMM, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                     memcpy(&mc->simd[i].u32[8],
                            (byte *)xstate + proc_xstate_area_zmm_hi256_offs() +
@@ -557,7 +557,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                                i * ZMM_REG_SIZE,
                            ZMM_REG_SIZE);
                 }
-                ASSERT(TEST(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_opmask_registers(); i++) {
                     memcpy(&mc->opmask[i],
                            (byte *)xstate + proc_xstate_area_kmask_offs() +
@@ -591,7 +591,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                  * is obtained via cpuid, which is the xstate size of 64-bit arch.
                  */
                 ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
-                ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                     memcpy(&xstate->ymmh.ymmh_space[i * 4], &mc->simd[i].u32[4],
                            YMMH_REG_SIZE);
@@ -622,9 +622,9 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                 /* The following three XCR0 bits should have been checked already
                  * in ZMM_ENABLED().
                  */
-                ASSERT(TEST(XCR0_ZMM_HI256, sc->fpstate->sw_reserved.xstate_bv));
-                ASSERT(TEST(XCR0_HI16_ZMM, sc->fpstate->sw_reserved.xstate_bv));
-                ASSERT(TEST(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_ZMM_HI256, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_HI16_ZMM, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_simd_sse_avx_registers(); i++) {
                     memcpy((byte *)xstate + proc_xstate_area_zmm_hi256_offs() +
                                i * ZMMH_REG_SIZE,
@@ -636,7 +636,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                            &mc->simd[i + proc_num_simd_sse_avx_registers()],
                            ZMM_REG_SIZE);
                 }
-                ASSERT(TEST(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
+                ASSERT(TESTANY(XCR0_OPMASK, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_opmask_registers(); i++) {
                     memcpy((byte *)xstate + proc_xstate_area_kmask_offs() +
                                i * OPMASK_AVX512BW_REG_SIZE,

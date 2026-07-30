@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,7 +58,7 @@
 
 #define STATS_FCACHE_ADD(flags, stat, val)                  \
     DOSTATS({                                               \
-        if (TEST(FRAG_SHARED, (flags))) {                   \
+        if (TESTANY(FRAG_SHARED, (flags))) {                \
             if (IN_TRACE_CACHE(flags))                      \
                 STATS_ADD(fcache_shared_trace_##stat, val); \
             else                                            \
@@ -144,7 +144,7 @@ bool
 final_exit_shares_prev_stub(dcontext_t *dcontext, instrlist_t *ilist, uint frag_flags)
 {
     /* if a cbr is final exit pair, should they share a stub? */
-    if (INTERNAL_OPTION(cbr_single_stub) && !TEST(FRAG_COARSE_GRAIN, frag_flags)) {
+    if (INTERNAL_OPTION(cbr_single_stub) && !TESTANY(FRAG_COARSE_GRAIN, frag_flags)) {
         /* don't need to expand since is_exit_cti will rule out level 0 */
         instr_t *inst = instrlist_last(ilist);
         /* XXX: we could support code after the last cti (this is ubr so
@@ -160,9 +160,9 @@ final_exit_shares_prev_stub(dcontext_t *dcontext, instrlist_t *ilist, uint frag_
                  * our disambiguation to know which state to look at */
                 && instr_is_cbr(prev_cti)
                 /* no separate freeing */
-                && ((TEST(FRAG_SHARED, frag_flags) &&
+                && ((TESTANY(FRAG_SHARED, frag_flags) &&
                      !DYNAMO_OPTION(unsafe_free_shared_stubs)) ||
-                    (!TEST(FRAG_SHARED, frag_flags) &&
+                    (!TESTANY(FRAG_SHARED, frag_flags) &&
                      !DYNAMO_OPTION(free_private_stubs)))) {
                 return true;
             }
@@ -313,10 +313,10 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 /* ensure LINK_ flags were transferred via instr_exit_branch_type */
                 if (instr_branch_special_exit(inst)) {
                     ASSERT(!LINKSTUB_INDIRECT(l->flags) &&
-                           TEST(LINK_SPECIAL_EXIT, l->flags));
+                           TESTANY(LINK_SPECIAL_EXIT, l->flags));
                 }
                 if (instr_branch_is_padded(inst)) {
-                    ASSERT(TEST(LINK_PADDED, l->flags));
+                    ASSERT(TESTANY(LINK_PADDED, l->flags));
                 }
             });
 
@@ -339,14 +339,14 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 instr_exit_branch_type(inst), target, l->flags);
 
             DOCHECK(1, {
-                if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+                if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
                     ASSERT(!frag_offs_at_end);
                     /* XXX: indirect stubs should be separated
                      * eventually, but right now no good place to put them
                      * so keeping inline
                      */
                     ASSERT(LINKSTUB_INDIRECT(l->flags) ||
-                           TEST(LINK_SEPARATE_STUB, l->flags));
+                           TESTANY(LINK_SEPARATE_STUB, l->flags));
                 }
             });
 
@@ -406,7 +406,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     SELF_PROTECT_CACHE(dcontext, NULL, WRITABLE);
 
     /* ensure some higher-level lock is held if f is shared */
-    ASSERT(!TEST(FRAG_SHARED, flags) || INTERNAL_OPTION(single_thread_in_DR) ||
+    ASSERT(!TESTANY(FRAG_SHARED, flags) || INTERNAL_OPTION(single_thread_in_DR) ||
            !USE_BB_BUILDING_LOCK() || OWN_MUTEX(&bb_building_lock) ||
            OWN_MUTEX(&trace_building_lock));
 
@@ -443,7 +443,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
         }
         if (instr_ok_to_emit(inst))
             offset += instr_length(dcontext, inst);
-        ASSERT_NOT_IMPLEMENTED(!TEST(INSTR_HOT_PATCHABLE, inst->flags));
+        ASSERT_NOT_IMPLEMENTED(!TESTANY(INSTR_HOT_PATCHABLE, inst->flags));
         if (instr_is_exit_cti(inst)) {
             target = instr_get_branch_target_pc(inst);
             len = exit_stub_size(dcontext, (cache_pc)target, flags);
@@ -476,7 +476,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
                 num_indirect_stubs++;
                 STATS_INC(num_indirect_exit_stubs);
                 LOG(THREAD, LOG_EMIT, 3, "emit_fragment: %s use ibl <" PFX ">\n",
-                    TEST(FRAG_IS_TRACE, flags) ? "trace" : "bb", target);
+                    TESTANY(FRAG_IS_TRACE, flags) ? "trace" : "bb", target);
                 stub_size_total += len;
                 STATS_FCACHE_ADD(flags, indirect_stubs, len);
             } else {
@@ -511,7 +511,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
 #endif
 
     DOSTATS({
-        if (!TEST(FRAG_IS_TRACE, flags)) {
+        if (!TESTANY(FRAG_IS_TRACE, flags)) {
             if (num_indirect_stubs > 0) {
                 if (num_indirect_stubs == 1 && num_direct_stubs == 0)
                     STATS_INC(num_bb_one_indirect_exit);
@@ -525,7 +525,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
                 else
                     STATS_INC(num_bb_many_direct_exits);
             }
-            if (TEST(FRAG_HAS_DIRECT_CTI, flags))
+            if (TESTANY(FRAG_HAS_DIRECT_CTI, flags))
                 STATS_INC(num_bb_has_elided);
             if (linkstub_frag_offs_at_end(flags, num_direct_stubs, num_indirect_stubs))
                 STATS_INC(num_bb_fragment_offset);
@@ -538,7 +538,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     STATS_FCACHE_ADD(flags, bodies, offset);
     STATS_FCACHE_ADD(flags, prefixes, fragment_prefix_size(flags));
 
-    if (TEST(FRAG_SELFMOD_SANDBOXED, flags)) {
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, flags)) {
         /* We need a copy of the original app code at bottom of
          * fragment.  We count it as part of the fragment body size,
          * and use a size field stored at the very end (whose storage
@@ -604,7 +604,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
 
     /* emit the exit stub code */
     for (l = FRAGMENT_EXIT_STUBS(f); l; l = LINKSTUB_NEXT_EXIT(l)) {
-        if (TEST(FRAG_COARSE_GRAIN, flags) && LINKSTUB_DIRECT(l->flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, flags) && LINKSTUB_DIRECT(l->flags)) {
             /* Coarse-grain fragments do not have direct exit stubs.
              * Instead they have entrance stubs, created when linking.
              */
@@ -618,7 +618,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
 
         if (final_cbr_single_stub && LINKSTUB_FINAL(l)) {
             no_stub = true;
-            if (!TEST(LINK_SEPARATE_STUB, l->flags)) {
+            if (!TESTANY(LINK_SEPARATE_STUB, l->flags)) {
                 /* still need to patch the cti, so set pc back to prev stub pc */
                 pc = prev_stub_pc;
             }
@@ -626,7 +626,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
                 prev_stub_pc);
         }
 
-        if (TEST(LINK_SEPARATE_STUB, l->flags)) {
+        if (TESTANY(LINK_SEPARATE_STUB, l->flags)) {
             if (no_stub) {
                 if (LINKSTUB_NORMAL_DIRECT(l->flags)) {
                     direct_linkstub_t *dl = (direct_linkstub_t *)l;
@@ -704,7 +704,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
         fcache_return_extra_space(dcontext, f, f->size - (pc - f->start_pc) - copy_sz);
     }
 
-    if (TEST(FRAG_SELFMOD_SANDBOXED, flags)) {
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, flags)) {
         /* put copy of the original app code at bottom of fragment */
         cache_pc copy_pc;
 
@@ -761,8 +761,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     vm_area_add_fragment(dcontext, f, vmlist);
 
     /* store translation info, if requested */
-    if (TEST(FRAG_HAS_TRANSLATION_INFO, f->flags)) {
-        ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    if (TESTANY(FRAG_HAS_TRANSLATION_INFO, f->flags)) {
+        ASSERT(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
         fragment_record_translation_info(dcontext, f, ilist);
     }
 
@@ -794,13 +794,13 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
     }
 
     if (add_to_htable) {
-        if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
             /* added in link_new_fragment */
         } else
             fragment_add(dcontext, f);
 
         DOCHECK(1, {
-            if (TEST(FRAG_SHARED, flags))
+            if (TESTANY(FRAG_SHARED, flags))
                 ASSERT(fragment_lookup_future(dcontext, tag) == NULL);
             else
                 ASSERT(fragment_lookup_private_future(dcontext, tag) == NULL);

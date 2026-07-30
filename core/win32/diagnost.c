@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -207,7 +207,7 @@ print_memory_buffer(file_t diagnostics_file, byte *address, uint length,
 {
     byte *start, *end;
 
-    if (TEST(PRINT_MEM_BUF_START, flags)) {
+    if (TESTANY(PRINT_MEM_BUF_START, flags)) {
         start = address;
         end = address + length;
     } else {
@@ -215,7 +215,7 @@ print_memory_buffer(file_t diagnostics_file, byte *address, uint length,
         end = address + length / 2;
     }
 
-    if (!TEST(PRINT_MEM_BUF_NO_ALIGN, flags)) {
+    if (!TESTANY(PRINT_MEM_BUF_NO_ALIGN, flags)) {
         /* Align macros require power of 2 */
         ASSERT((DUMP_PER_LINE_DEFAULT & (DUMP_PER_LINE_DEFAULT - 1)) == 0);
         start = (byte *)ALIGN_BACKWARD(start, DUMP_PER_LINE_DEFAULT);
@@ -230,8 +230,8 @@ print_memory_buffer(file_t diagnostics_file, byte *address, uint length,
             dump_buffer_as_bytes(
                 diagnostics_file, start, cur_end - start,
                 DUMP_RAW | DUMP_ADDRESS |
-                    (TEST(PRINT_MEM_BUF_BYTE, flags) ? 0 : DUMP_DWORD) |
-                    (TEST(PRINT_MEM_BUF_ASCII, flags) ? DUMP_APPEND_ASCII : 0));
+                    (TESTANY(PRINT_MEM_BUF_BYTE, flags) ? 0 : DUMP_DWORD) |
+                    (TESTANY(PRINT_MEM_BUF_ASCII, flags) ? DUMP_APPEND_ASCII : 0));
             print_file(diagnostics_file, "\n");
         } else {
             print_file(diagnostics_file, "Can\'t print 0x%.8x-0x%.8x (unreadable)\n",
@@ -299,7 +299,7 @@ report_src_info(file_t diagnostics_file, dcontext_t *dcontext)
                "\t\t<cache-content\n"
                "\t\t\tflags= \"0x%0x\"",
                f->flags);
-    if (TEST(FRAG_IS_TRACE, f->flags)) {
+    if (TESTANY(FRAG_IS_TRACE, f->flags)) {
         uint i = 0;
         trace_only_t *t = TRACE_FIELDS(f);
         if (t != NULL) {

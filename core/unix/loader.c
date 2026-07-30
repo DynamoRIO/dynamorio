@@ -462,7 +462,8 @@ privload_map_flags(modload_flags_t init_flags)
     /* XXX: Keep this condition matching the check in privload_unmap_file()
      * (minus MODLOAD_NOT_PRIVLIB since non-privlibs don't reach our unmap).
      */
-    if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, init_flags)) {
+    if (INTERNAL_OPTION(separate_private_bss) &&
+        !TESTANY(MODLOAD_NOT_PRIVLIB, init_flags)) {
         /* place an extra no-access page after .bss */
         /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
         /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
@@ -495,7 +496,7 @@ overlap_map_file_func(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc
     /* This works only if the user wants the new mapping only at the given addr,
      * and it is acceptable to unmap any mapping already existing there.
      */
-    ASSERT(TEST(MAP_FILE_FIXED, map_flags));
+    ASSERT(TESTANY(MAP_FILE_FIXED, map_flags));
     if (DYNAMO_OPTION(vm_reserve) && is_vmm_reserved_address(addr, *size, NULL, NULL)) {
         /* If the initially reserved address was from our vmm range, we need to
          * use os_unmap_file to make sure we perform our heap bookkeeping.
@@ -526,7 +527,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
     app_pc base = NULL;
     elf_loader_t loader;
 
-    ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(!TESTANY(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
     /* get appropriate function */
     /* NOTE: all but the client lib will be added to DR areas list b/c using
      * d_r_map_file()
@@ -555,7 +556,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
          */
         ELF_HEADER_TYPE *elf_header = (ELF_HEADER_TYPE *)loader.buf;
         ELF_ALTARCH_HEADER_TYPE *altarch = (ELF_ALTARCH_HEADER_TYPE *)elf_header;
-        if (!TEST(MODLOAD_NOT_PRIVLIB, flags) && elf_header->e_version == 1 &&
+        if (!TESTANY(MODLOAD_NOT_PRIVLIB, flags) && elf_header->e_version == 1 &&
             altarch->e_ehsize == sizeof(ELF_ALTARCH_HEADER_TYPE) &&
             altarch->e_machine ==
                 IF_X64_ELSE(IF_AARCHXX_ELSE(EM_ARM, EM_386),
@@ -575,8 +576,8 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
         if (size != NULL)
             *size = loader.image_size;
 
-        if (!TEST(MODLOAD_NOT_PRIVLIB, flags))
-            privload_add_gdb_cmd(&loader, filename, TEST(MODLOAD_REACHABLE, flags));
+        if (!TESTANY(MODLOAD_NOT_PRIVLIB, flags))
+            privload_add_gdb_cmd(&loader, filename, TESTANY(MODLOAD_REACHABLE, flags));
     }
     elf_loader_destroy(&loader);
 
@@ -1322,13 +1323,13 @@ privload_relocate_relr(os_privmod_data_t *opd, const ELF_WORD *relr, size_t size
     ELF_ADDR *r_addr = NULL;
 
     for (; size != 0; relr++, size -= sizeof(ELF_WORD)) {
-        if (!TEST(1, relr[0])) {
+        if (!TESTANY(1, relr[0])) {
             r_addr = (ELF_ADDR *)(relr[0] + opd->load_delta);
             *r_addr++ += opd->load_delta;
         } else {
             int i = 0;
             for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1) != 0; i++) {
-                if (TEST(1, bitmap))
+                if (TESTANY(1, bitmap))
                     r_addr[i] += opd->load_delta;
             }
             r_addr += CHAR_BIT * sizeof(ELF_WORD) - 1;

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -287,7 +287,8 @@ memcache_update(app_pc start, app_pc end_in, uint prot, int type)
                      * write => COW => no longer shareable (i#669)
                      */
                     shareable = info->shareable;
-                    if (TEST(MEMPROT_WRITE, prot) != TEST(MEMPROT_WRITE, info->prot))
+                    if (TESTANY(MEMPROT_WRITE, prot) !=
+                        TESTANY(MEMPROT_WRITE, info->prot))
                         shareable = false;
                     /* re-add so we can merge w/ adjacent non-shareable */
                 } else {

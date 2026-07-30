@@ -222,18 +222,18 @@ static const fragment_t unlinked_fragment = {
     (!TABLE_NEEDS_LOCK(ptable) || READWRITE_LOCK_HELD(&(ptable)->rwlock))
 
 /* everything except the invisible table is in here */
-#define GET_FTABLE_HELPER(pt, flags, otherwise)                               \
-    (TEST(FRAG_IS_TRACE, (flags))                                             \
-         ? (TEST(FRAG_SHARED, (flags)) ? shared_trace : &pt->trace)           \
-         : (TEST(FRAG_SHARED, (flags))                                        \
-                ? (TEST(FRAG_IS_FUTURE, (flags)) ? shared_future : shared_bb) \
-                : (TEST(FRAG_IS_FUTURE, (flags)) ? &pt->future : (otherwise))))
+#define GET_FTABLE_HELPER(pt, flags, otherwise)                                  \
+    (TESTANY(FRAG_IS_TRACE, (flags))                                             \
+         ? (TESTANY(FRAG_SHARED, (flags)) ? shared_trace : &pt->trace)           \
+         : (TESTANY(FRAG_SHARED, (flags))                                        \
+                ? (TESTANY(FRAG_IS_FUTURE, (flags)) ? shared_future : shared_bb) \
+                : (TESTANY(FRAG_IS_FUTURE, (flags)) ? &pt->future : (otherwise))))
 
 #define GET_FTABLE(pt, flags) GET_FTABLE_HELPER(pt, (flags), &pt->bb)
 
 /* indirect branch table per target type (bb vs trace) and indirect branch type */
 #define GET_IBT_TABLE(pt, flags, branch_type)                                       \
-    (TEST(FRAG_IS_TRACE, (flags))                                                   \
+    (TESTANY(FRAG_IS_TRACE, (flags))                                                \
          ? (DYNAMO_OPTION(shared_trace_ibt_tables)                                  \
                 ? &shared_pt->trace_ibt[(branch_type)]                              \
                 : &(pt)->trace_ibt[(branch_type)])                                  \
@@ -268,8 +268,8 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
 static void
 init_trace_file(per_thread_t *pt);
 
-#define SHOULD_OUTPUT_FRAGMENT(flags)                                     \
-    (TEST(FRAG_IS_TRACE, (flags)) && !TEST(FRAG_TRACE_OUTPUT, (flags)) && \
+#define SHOULD_OUTPUT_FRAGMENT(flags)                                           \
+    (TESTANY(FRAG_IS_TRACE, (flags)) && !TESTANY(FRAG_TRACE_OUTPUT, (flags)) && \
      TRACEDUMP_ENABLED())
 
 #define FRAGMENT_COARSE_WRAPPER_FLAGS                                    \
@@ -721,16 +721,16 @@ hashtable_ibl_init_internal_custom(dcontext_t *dcontext, ibl_table_t *table)
     ASSERT(sentinel_fragment.start_pc == HASHLOOKUP_SENTINEL_START_PC);
     ASSERT(HASHLOOKUP_SENTINEL_START_PC != HASHLOOKUP_NULL_START_PC);
 
-    ASSERT(TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags));
-    ASSERT(TEST(FRAG_TABLE_INCLUSIVE_HIERARCHY, table->table_flags));
+    ASSERT(TESTANY(FRAG_TABLE_IBL_TARGETED, table->table_flags));
+    ASSERT(TESTANY(FRAG_TABLE_INCLUSIVE_HIERARCHY, table->table_flags));
 
     /* every time we resize a table we reset the flush threshold,
      * since it is cleared in place after one flush
      */
-    table->groom_factor_percent = TEST(FRAG_TABLE_TRACE, table->table_flags)
+    table->groom_factor_percent = TESTANY(FRAG_TABLE_TRACE, table->table_flags)
         ? DYNAMO_OPTION(trace_ibt_groom)
         : DYNAMO_OPTION(bb_ibt_groom);
-    table->max_capacity_bits = TEST(FRAG_TABLE_TRACE, table->table_flags)
+    table->max_capacity_bits = TESTANY(FRAG_TABLE_TRACE, table->table_flags)
         ? DYNAMO_OPTION(private_trace_ibl_targets_max)
         : DYNAMO_OPTION(private_bb_ibl_targets_max);
 
@@ -743,16 +743,17 @@ hashtable_ibl_init_internal_custom(dcontext_t *dcontext, ibl_table_t *table)
     }
 #endif /* HASHTABLE_STATISTICS */
 
-    if (SHARED_IB_TARGETS() && !TEST(FRAG_TABLE_SHARED, table->table_flags)) {
+    if (SHARED_IB_TARGETS() && !TESTANY(FRAG_TABLE_SHARED, table->table_flags)) {
         /* currently we don't support a mixture */
-        ASSERT(TEST(FRAG_TABLE_TARGET_SHARED, table->table_flags));
-        ASSERT(TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags));
+        ASSERT(TESTANY(FRAG_TABLE_TARGET_SHARED, table->table_flags));
+        ASSERT(TESTANY(FRAG_TABLE_IBL_TARGETED, table->table_flags));
         ASSERT(table->branch_type != IBL_NONE);
         /* Only data for one set of tables is stored in TLS -- for the trace
          * tables in the default config OR the BB tables in shared BBs
          * only mode.
          */
-        if ((TEST(FRAG_TABLE_TRACE, table->table_flags) || SHARED_BB_ONLY_IB_TARGETS()) &&
+        if ((TESTANY(FRAG_TABLE_TRACE, table->table_flags) ||
+             SHARED_BB_ONLY_IB_TARGETS()) &&
             DYNAMO_OPTION(ibl_table_in_tls))
             update_lookuptable_tls(dcontext, table);
     }
@@ -766,7 +767,7 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
                      uint table_flags _IF_DEBUG(const char *table_name))
 {
     uint flags = table_flags;
-    ASSERT(dcontext != GLOBAL_DCONTEXT || TEST(FRAG_TABLE_SHARED, flags));
+    ASSERT(dcontext != GLOBAL_DCONTEXT || TESTANY(FRAG_TABLE_SHARED, flags));
     /* flags shared by all ibl tables */
     flags |= FRAG_TABLE_INCLUSIVE_HIERARCHY;
     flags |= FRAG_TABLE_IBL_TARGETED;
@@ -813,7 +814,7 @@ hashtable_ibl_myfree(dcontext_t *dcontext, ibl_table_t *table)
 {
 #ifdef HASHTABLE_STATISTICS
     if (INTERNAL_OPTION(hashtable_ibl_stats)) {
-        ASSERT(TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags));
+        ASSERT(TESTANY(FRAG_TABLE_IBL_TARGETED, table->table_flags));
         DEALLOC_UNPROT_STATS(dcontext, table);
     }
 #endif /* HASHTABLE_STATISTICS */
@@ -824,10 +825,10 @@ static void
 hashtable_fragment_free_entry(dcontext_t *dcontext, fragment_table_t *table,
                               fragment_t *f)
 {
-    if (TEST(FRAG_TABLE_INCLUSIVE_HIERARCHY, table->table_flags)) {
+    if (TESTANY(FRAG_TABLE_INCLUSIVE_HIERARCHY, table->table_flags)) {
         ASSERT_NOT_REACHED(); /* case 7691 */
     } else {
-        if (TEST(FRAG_IS_FUTURE, f->flags))
+        if (TESTANY(FRAG_IS_FUTURE, f->flags))
             fragment_free_future(dcontext, (future_fragment_t *)f);
         else
             fragment_free(dcontext, f);
@@ -856,9 +857,9 @@ fragment_add_to_hashtable(dcontext_t *dcontext, fragment_t *e, fragment_table_t 
      * thread in the process.
      */
     DOCHECK(1, {
-        if (TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags) &&
+        if (TESTANY(FRAG_TABLE_IBL_TARGETED, table->table_flags) &&
             d_r_get_num_threads() == 1)
-            ASSERT(!TEST(FRAG_IS_TRACE_HEAD, e->flags));
+            ASSERT(!TESTANY(FRAG_IS_TRACE_HEAD, e->flags));
     });
 
     return hashtable_fragment_add(dcontext, e, table);
@@ -995,7 +996,7 @@ hashtable_ibl_resized_custom(dcontext_t *dcontext, ibl_table_t *table, uint old_
     per_thread_t *pt = GET_PT(dcontext);
     bool shared_ibt_table =
         TESTALL(FRAG_TABLE_TARGET_SHARED | FRAG_TABLE_SHARED, table->table_flags);
-    ASSERT(TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags));
+    ASSERT(TESTANY(FRAG_TABLE_IBL_TARGETED, table->table_flags));
 
     /* If we change an ibl-targeted table, must patch up every
      * inlined indirect exit stub that targets it.
@@ -1049,11 +1050,11 @@ hashtable_ibl_resized_custom(dcontext_t *dcontext, ibl_table_t *table, uint old_
                                    old_ref_count, table->table_flags);
         }
         /* Update the resizing thread's private ptr. */
-        update_private_ptr_to_shared_ibt_table(dcontext, table->branch_type,
-                                               TEST(FRAG_TABLE_TRACE, table->table_flags),
-                                               false, /* no adjust
-                                                       * old ref-count */
-                                               false /* already hold lock */);
+        update_private_ptr_to_shared_ibt_table(
+            dcontext, table->branch_type, TESTANY(FRAG_TABLE_TRACE, table->table_flags),
+            false, /* no adjust
+                    * old ref-count */
+            false /* already hold lock */);
         ASSERT(table->ref_count == 1);
     }
 
@@ -1076,7 +1077,7 @@ hashtable_ibl_study_custom(dcontext_t *dcontext, ibl_table_t *table,
 {
 #    ifdef HASHTABLE_STATISTICS
     /* For trace table(s) only, use stats from emitted ibl routines */
-    if (TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags) &&
+    if (TESTANY(FRAG_TABLE_IBL_TARGETED, table->table_flags) &&
         INTERNAL_OPTION(hashtable_ibl_stats)) {
         per_thread_t *pt = GET_PT(dcontext);
         ibl_branch_type_t branch_type;
@@ -1122,12 +1123,12 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
     fragment_t *f;
 
     /* case 7691: we now use separate ibl table types */
-    ASSERT(!TEST(FRAG_TABLE_INCLUSIVE_HIERARCHY, table->table_flags));
+    ASSERT(!TESTANY(FRAG_TABLE_INCLUSIVE_HIERARCHY, table->table_flags));
     LOG(THREAD, LOG_FRAGMENT, 2, "hashtable_fragment_reset\n");
     DOLOG(1, LOG_FRAGMENT | LOG_STATS,
           { hashtable_fragment_load_statistics(dcontext, table); });
-    if (TEST(FRAG_TABLE_SHARED, table->table_flags) &&
-        TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags)) {
+    if (TESTANY(FRAG_TABLE_SHARED, table->table_flags) &&
+        TESTANY(FRAG_TABLE_IBL_TARGETED, table->table_flags)) {
         DOLOG(5, LOG_FRAGMENT, { hashtable_fragment_dump_table(dcontext, table); });
     }
     DODEBUG({
@@ -1178,7 +1179,7 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
              * if shared traces is false so we don't need to conditionalize
              * the assert.
              */
-            ASSERT(!TEST(FRAG_TRACE_BUILDING, f->flags));
+            ASSERT(!TESTANY(FRAG_TRACE_BUILDING, f->flags));
             hashtable_fragment_remove_helper(table, i, &table->table[i]);
             if (!REAL_FRAGMENT(f))
                 continue;
@@ -1187,9 +1188,9 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
              * the per-thread IBL tables contain pointers to shared fragments
              * and are OK
              */
-            ASSERT(dynamo_exited || !TEST(FRAG_SHARED, f->flags) || dynamo_resetting);
+            ASSERT(dynamo_exited || !TESTANY(FRAG_SHARED, f->flags) || dynamo_resetting);
 
-            if (TEST(FRAG_IS_FUTURE, f->flags)) {
+            if (TESTANY(FRAG_IS_FUTURE, f->flags)) {
                 DODEBUG({ ((future_fragment_t *)f)->incoming_stubs = NULL; });
                 fragment_free_future(dcontext, (future_fragment_t *)f);
             } else {
@@ -1632,8 +1633,8 @@ fragment_exit(void)
      * would just have to build them all back up again in order to
      * continue execution
      */
-    if ((TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-         TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
+    if ((TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+         TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
         rct_global_table.live_table != NULL) {
         DODEBUG({
             DOLOG(1, LOG_FRAGMENT | LOG_STATS, {
@@ -1731,7 +1732,7 @@ dec_table_ref_count(dcontext_t *dcontext, ibl_table_t *table, bool could_be_live
              * during the compare and hold the lock during the ref-count dec to
              * prevent a race with it being moved to the dead list.
              */
-            ibl_table_t *sh_table_ptr = TEST(FRAG_TABLE_TRACE, table->table_flags)
+            ibl_table_t *sh_table_ptr = TESTANY(FRAG_TABLE_TRACE, table->table_flags)
                 ? &shared_pt->trace_ibt[branch_type]
                 : &shared_pt->bb_ibt[branch_type];
             TABLE_RWLOCK(sh_table_ptr, write, lock);
@@ -2225,7 +2226,7 @@ static uint
 fragment_heap_size(uint flags, int direct_exits, int indirect_exits)
 {
     uint total_sz;
-    ASSERT((direct_exits + indirect_exits > 0) || TEST(FRAG_COARSE_GRAIN, flags));
+    ASSERT((direct_exits + indirect_exits > 0) || TESTANY(FRAG_COARSE_GRAIN, flags));
     total_sz = FRAGMENT_STRUCT_SIZE(flags) +
         linkstubs_heap_size(flags, direct_exits, indirect_exits);
     /* we rely on a small heap size for our ushort offset at the end */
@@ -2245,7 +2246,7 @@ fragment_create_heap(dcontext_t *dcontext, int direct_exits, int indirect_exits,
     /* linkstubs are in an array immediately after the fragment_t/trace_t struct */
     fragment_t *f = (fragment_t *)nonpersistent_heap_alloc(
         alloc_dc,
-        heapsz HEAPACCT(TEST(FRAG_IS_TRACE, flags) ? ACCT_TRACE : ACCT_FRAGMENT));
+        heapsz HEAPACCT(TESTANY(FRAG_IS_TRACE, flags) ? ACCT_TRACE : ACCT_FRAGMENT));
     LOG(THREAD, LOG_FRAGMENT, 5,
         "fragment heap size for flags 0x%08x, exits %d %d, is %d => " PFX "\n", flags,
         direct_exits, indirect_exits, heapsz, f);
@@ -2284,7 +2285,7 @@ fragment_init_heap(fragment_t *f, app_pc tag, int direct_exits, int indirect_exi
 #endif
 
     /* trace-only fields */
-    if (TEST(FRAG_IS_TRACE, flags)) {
+    if (TESTANY(FRAG_IS_TRACE, flags)) {
         trace_only_t *t = TRACE_FIELDS(f);
         t->bbs = NULL;
         /* real num_bbs won't be set until after the trace is emitted,
@@ -2321,11 +2322,11 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
     /* ensure no races during a reset */
     ASSERT(!dynamo_resetting);
 
-    if (TEST(FRAG_COARSE_GRAIN, flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, flags)) {
         ASSERT(DYNAMO_OPTION(coarse_units));
         ASSERT_OWN_MUTEX(USE_BB_BUILDING_LOCK(), &bb_building_lock);
-        ASSERT(!TEST(FRAG_IS_TRACE, flags));
-        ASSERT(TEST(FRAG_SHARED, flags));
+        ASSERT(!TESTANY(FRAG_IS_TRACE, flags));
+        ASSERT(TESTANY(FRAG_SHARED, flags));
         ASSERT(fragment_prefix_size(flags) == 0);
         ASSERT((direct_exits == 0 && indirect_exits == 1) ||
                (indirect_exits == 0 && (direct_exits == 1 || direct_exits == 2)));
@@ -2357,14 +2358,14 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
     IF_X64(ASSERT_TRUNCATE(f->id, int, next_id));
     DOSTATS({ f->id = (int)next_id; });
     DO_GLOBAL_STATS({
-        if (!TEST(FRAG_IS_TRACE, f->flags)) {
+        if (!TESTANY(FRAG_IS_TRACE, f->flags)) {
             RSTATS_INC(num_bbs);
             IF_X64(if (FRAG_IS_32(f->flags)) { STATS_INC(num_32bit_bbs); })
         }
     });
     DOSTATS({
         /* avoid double-counting for adaptive working set */
-        if (!fragment_lookup_deleted(dcontext, tag) && !TEST(FRAG_COARSE_GRAIN, flags))
+        if (!fragment_lookup_deleted(dcontext, tag) && !TESTANY(FRAG_COARSE_GRAIN, flags))
             STATS_INC(num_unique_fragments);
     });
     if (GLOBAL_STATS_ON() &&
@@ -2406,11 +2407,11 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
 
     /* after fcache_add_fragment so we can call get_fragment_coarse_info */
     DOSTATS({
-        if (TEST(FRAG_SHARED, flags)) {
+        if (TESTANY(FRAG_SHARED, flags)) {
             STATS_INC(num_shared_fragments);
-            if (TEST(FRAG_IS_TRACE, flags))
+            if (TESTANY(FRAG_IS_TRACE, flags))
                 STATS_INC(num_shared_traces);
-            else if (TEST(FRAG_COARSE_GRAIN, flags)) {
+            else if (TESTANY(FRAG_COARSE_GRAIN, flags)) {
                 coarse_info_t *info = get_fragment_coarse_info(f);
                 if (get_executable_area_coarse_info(f->tag) != info)
                     STATS_INC(num_coarse_secondary);
@@ -2419,7 +2420,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
                 STATS_INC(num_shared_bbs);
         } else {
             STATS_INC(num_private_fragments);
-            if (TEST(FRAG_IS_TRACE, flags))
+            if (TESTANY(FRAG_IS_TRACE, flags))
                 STATS_INC(num_private_traces);
             else
                 STATS_INC(num_private_bbs);
@@ -2481,7 +2482,7 @@ fragment_recreate_with_linkstubs(dcontext_t *dcontext, fragment_t *f_src)
      * slot -- need to mark that?
      */
     uint flags = (f_src->flags & ~FRAG_FAKE);
-    ASSERT_CURIOSITY(TEST(FRAG_COARSE_GRAIN, f_src->flags)); /* only use so far */
+    ASSERT_CURIOSITY(TESTANY(FRAG_COARSE_GRAIN, f_src->flags)); /* only use so far */
     /* XXX case 9325: build from tag here?  Need to exactly re-mangle + re-instrument.
      * We use _exact to get any elided final jmp not counted in size
      */
@@ -2504,10 +2505,10 @@ fragment_recreate_with_linkstubs(dcontext_t *dcontext, fragment_t *f_src)
     }
     ASSERT_TRUNCATE(f_tgt->size, ushort, size);
     f_tgt->size = (ushort)size;
-    ASSERT(TEST(FRAG_FAKE, f_src->flags) || size == f_src->size);
+    ASSERT(TESTANY(FRAG_FAKE, f_src->flags) || size == f_src->size);
     ASSERT_TRUNCATE(f_tgt->prefix_size, byte, fragment_prefix_size(f_src->flags));
     f_tgt->prefix_size = (byte)fragment_prefix_size(f_src->flags);
-    ASSERT(TEST(FRAG_FAKE, f_src->flags) || f_src->prefix_size == f_tgt->prefix_size);
+    ASSERT(TESTANY(FRAG_FAKE, f_src->flags) || f_src->prefix_size == f_tgt->prefix_size);
     f_tgt->fcache_extra = f_src->fcache_extra;
 
     instrlist_clear_and_destroy(dcontext, ilist);
@@ -2568,7 +2569,7 @@ fragment_free(dcontext_t *dcontext, fragment_t *f)
 cache_pc
 fragment_stubs_end_pc(fragment_t *f)
 {
-    if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags))
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, f->flags))
         return FRAGMENT_SELFMOD_COPY_PC(f);
     else
         return f->start_pc + f->size;
@@ -2625,14 +2626,14 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
     fragment_t *f;
 
     LOG(THREAD, LOG_MONITOR, 6, "fragment_lookup_type " PFX " 0x%x\n", tag, lookup_flags);
-    if (dcontext != GLOBAL_DCONTEXT && TEST(LOOKUP_PRIVATE, lookup_flags)) {
+    if (dcontext != GLOBAL_DCONTEXT && TESTANY(LOOKUP_PRIVATE, lookup_flags)) {
         /* XXX: add a hashtablex.h wrapper that checks #entries and
          * grabs lock for us for all lookups?
          */
         /* look at private tables */
         per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
         /* case 147: traces take precedence over bbs */
-        if (PRIVATE_TRACES_ENABLED() && TEST(LOOKUP_TRACE, lookup_flags)) {
+        if (PRIVATE_TRACES_ENABLED() && TESTANY(LOOKUP_TRACE, lookup_flags)) {
             /* now try trace table */
             f = hashtable_fragment_lookup(dcontext, (ptr_uint_t)tag, &pt->trace);
             if (f->tag != NULL) {
@@ -2652,7 +2653,7 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
                 return f;
             }
         }
-        if (TEST(LOOKUP_BB, lookup_flags) && pt->bb.entries > 0) {
+        if (TESTANY(LOOKUP_BB, lookup_flags) && pt->bb.entries > 0) {
             /* basic block table last */
             f = hashtable_fragment_lookup(dcontext, (ptr_uint_t)tag, &pt->bb);
             if (f->tag != NULL) {
@@ -2667,7 +2668,7 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
                         sf = hashtable_fragment_lookup(dcontext, (ptr_uint_t)tag,
                                                        shared_bb);
                         d_r_read_unlock(&shared_bb->rwlock);
-                        ASSERT(sf->tag == NULL || TEST(FRAG_TEMP_PRIVATE, f->flags));
+                        ASSERT(sf->tag == NULL || TESTANY(FRAG_TEMP_PRIVATE, f->flags));
                     }
                 });
                 ASSERT(!TESTANY(FRAG_FAKE | FRAG_COARSE_GRAIN, f->flags));
@@ -2676,8 +2677,8 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
         }
     }
 
-    if (TEST(LOOKUP_SHARED, lookup_flags)) {
-        if (DYNAMO_OPTION(shared_traces) && TEST(LOOKUP_TRACE, lookup_flags)) {
+    if (TESTANY(LOOKUP_SHARED, lookup_flags)) {
+        if (DYNAMO_OPTION(shared_traces) && TESTANY(LOOKUP_TRACE, lookup_flags)) {
             /* MUST look at shared trace table before shared bb table,
              * since a shared trace can shadow a shared trace head
              */
@@ -2691,7 +2692,7 @@ fragment_lookup_type(dcontext_t *dcontext, app_pc tag, uint lookup_flags)
             }
         }
 
-        if (DYNAMO_OPTION(shared_bbs) && TEST(LOOKUP_BB, lookup_flags)) {
+        if (DYNAMO_OPTION(shared_bbs) && TESTANY(LOOKUP_BB, lookup_flags)) {
             /* MUST look at private trace table before shared bb table,
              * since a private trace can shadow a shared trace head
              */
@@ -2756,7 +2757,7 @@ fragment_lookup_same_sharing(dcontext_t *dcontext, app_pc tag, uint flags)
     return fragment_lookup_type(
         dcontext, tag,
         LOOKUP_TRACE | LOOKUP_BB |
-            (TEST(FRAG_SHARED, flags) ? LOOKUP_SHARED : LOOKUP_PRIVATE));
+            (TESTANY(FRAG_SHARED, flags) ? LOOKUP_SHARED : LOOKUP_PRIVATE));
 }
 
 #ifdef DEBUG /*currently only used for debugging */
@@ -2884,7 +2885,7 @@ fragment_pclookup_with_linkstubs(dcontext_t *dcontext, cache_pc pc,
     fragment_t wrapper;
     fragment_t *f = fragment_pclookup(dcontext, pc, &wrapper);
     ASSERT(alloc != NULL);
-    if (f != NULL && TEST(FRAG_COARSE_GRAIN, f->flags)) {
+    if (f != NULL && TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
         ASSERT(f == &wrapper);
         f = fragment_recreate_with_linkstubs(dcontext, f);
         *alloc = true;
@@ -2900,22 +2901,23 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
     per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
     fragment_table_t *table = GET_FTABLE(pt, f->flags);
     /* no future frags! */
-    ASSERT(!TEST(FRAG_IS_FUTURE, f->flags));
+    ASSERT(!TESTANY(FRAG_IS_FUTURE, f->flags));
 
     DOCHECK(1, {
         fragment_t *existing = fragment_lookup(dcontext, f->tag);
-        ASSERT(existing == NULL ||
-               /* For custom traces, we create and persist shadowed trace heads. */
-               TEST(FRAG_IS_TRACE_HEAD, f->flags) ||
-               TEST(FRAG_IS_TRACE_HEAD, existing->flags) ||
-               /* private trace or temp can shadow shared bb */
-               (TESTANY(FRAG_IS_TRACE | FRAG_TEMP_PRIVATE, f->flags) &&
-                TEST(FRAG_SHARED, f->flags) != TEST(FRAG_SHARED, existing->flags)) ||
-               /* shared trace can shadow shared trace head, even with
-                * -remove_shared_trace_heads */
-               (TESTALL(FRAG_IS_TRACE | FRAG_SHARED, f->flags) &&
-                !TEST(FRAG_IS_TRACE, existing->flags) &&
-                TESTALL(FRAG_SHARED | FRAG_IS_TRACE_HEAD, existing->flags)));
+        ASSERT(
+            existing == NULL ||
+            /* For custom traces, we create and persist shadowed trace heads. */
+            TESTANY(FRAG_IS_TRACE_HEAD, f->flags) ||
+            TESTANY(FRAG_IS_TRACE_HEAD, existing->flags) ||
+            /* private trace or temp can shadow shared bb */
+            (TESTANY(FRAG_IS_TRACE | FRAG_TEMP_PRIVATE, f->flags) &&
+             TESTANY(FRAG_SHARED, f->flags) != TESTANY(FRAG_SHARED, existing->flags)) ||
+            /* shared trace can shadow shared trace head, even with
+             * -remove_shared_trace_heads */
+            (TESTALL(FRAG_IS_TRACE | FRAG_SHARED, f->flags) &&
+             !TESTANY(FRAG_IS_TRACE, existing->flags) &&
+             TESTALL(FRAG_SHARED | FRAG_IS_TRACE_HEAD, existing->flags)));
     });
 
     /* We'd like the shared fragment table synch to be independent of the
@@ -2942,7 +2944,7 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
 
 #ifdef SHARING_STUDY
     if (INTERNAL_OPTION(fragment_sharing_study)) {
-        if (TEST(FRAG_IS_TRACE, f->flags))
+        if (TESTANY(FRAG_IS_TRACE, f->flags))
             add_shared_block(shared_traces, &shared_traces_lock, f);
         else
             add_shared_block(shared_blocks, &shared_blocks_lock, f);
@@ -2968,7 +2970,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     bool acquired_fragdel_lock = false;
     LOG(THREAD, LOG_FRAGMENT, 3,
         "fragment_delete: *" PFX " F%d(" PFX ")." PFX " %s 0x%x\n", f, f->id, f->tag,
-        f->start_pc, TEST(FRAG_IS_TRACE, f->flags) ? "trace" : "bb", actions);
+        f->start_pc, TESTANY(FRAG_IS_TRACE, f->flags) ? "trace" : "bb", actions);
     DOLOG(1, LOG_FRAGMENT, {
         if ((f->flags & FRAG_CANNOT_DELETE) != 0) {
             LOG(THREAD, LOG_FRAGMENT, 2,
@@ -2982,7 +2984,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     /* ensure the actual free of a shared fragment is done only
      * after a multi-stage flush or a reset
      */
-    ASSERT(!TEST(FRAG_SHARED, f->flags) || TEST(FRAG_WAS_DELETED, f->flags) ||
+    ASSERT(!TESTANY(FRAG_SHARED, f->flags) || TESTANY(FRAG_WAS_DELETED, f->flags) ||
            dynamo_exited || dynamo_resetting || is_self_allsynch_flushing());
 
     /* need to protect ability to reference frag fields and fcache space */
@@ -2997,32 +2999,32 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
      * look at fragments after that is set?  If so need to resolve rank order
      * w/ shared_cache_lock.
      */
-    if (!TEST(FRAG_WAS_DELETED, f->flags) &&
-        (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions))) {
+    if (!TESTANY(FRAG_WAS_DELETED, f->flags) &&
+        (!TESTANY(FRAGDEL_NO_HEAP, actions) || !TESTANY(FRAGDEL_NO_FCACHE, actions))) {
         acquired_fragdel_lock = true;
         fragment_get_fragment_delete_mutex(dcontext);
     }
 
-    if (!TEST(FRAGDEL_NO_OUTPUT, actions)) {
-        if (TEST(FRAGDEL_NEED_CHLINK_LOCK, actions) && TEST(FRAG_SHARED, f->flags))
+    if (!TESTANY(FRAGDEL_NO_OUTPUT, actions)) {
+        if (TESTANY(FRAGDEL_NEED_CHLINK_LOCK, actions) && TESTANY(FRAG_SHARED, f->flags))
             acquire_recursive_lock(&change_linking_lock);
         else {
-            ASSERT(!TEST(FRAG_SHARED, f->flags) ||
+            ASSERT(!TESTANY(FRAG_SHARED, f->flags) ||
                    self_owns_recursive_lock(&change_linking_lock));
         }
         fragment_output(dcontext, f);
-        if (TEST(FRAGDEL_NEED_CHLINK_LOCK, actions) && TEST(FRAG_SHARED, f->flags))
+        if (TESTANY(FRAGDEL_NEED_CHLINK_LOCK, actions) && TESTANY(FRAG_SHARED, f->flags))
             release_recursive_lock(&change_linking_lock);
     }
 
-    if (!TEST(FRAGDEL_NO_MONITOR, actions))
+    if (!TESTANY(FRAGDEL_NO_MONITOR, actions))
         monitor_remove_fragment(dcontext, f);
 
-    if (!TEST(FRAGDEL_NO_UNLINK, actions)) {
-        if (TEST(FRAGDEL_NEED_CHLINK_LOCK, actions) && TEST(FRAG_SHARED, f->flags))
+    if (!TESTANY(FRAGDEL_NO_UNLINK, actions)) {
+        if (TESTANY(FRAGDEL_NEED_CHLINK_LOCK, actions) && TESTANY(FRAG_SHARED, f->flags))
             acquire_recursive_lock(&change_linking_lock);
         else {
-            ASSERT(!TEST(FRAG_SHARED, f->flags) ||
+            ASSERT(!TESTANY(FRAG_SHARED, f->flags) ||
                    self_owns_recursive_lock(&change_linking_lock));
         }
         if ((f->flags & FRAG_LINKED_INCOMING) != 0)
@@ -3030,22 +3032,22 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         if ((f->flags & FRAG_LINKED_OUTGOING) != 0)
             unlink_fragment_outgoing(dcontext, f);
         incoming_remove_fragment(dcontext, f);
-        if (TEST(FRAGDEL_NEED_CHLINK_LOCK, actions) && TEST(FRAG_SHARED, f->flags))
+        if (TESTANY(FRAGDEL_NEED_CHLINK_LOCK, actions) && TESTANY(FRAG_SHARED, f->flags))
             release_recursive_lock(&change_linking_lock);
     }
 
 #ifdef LINUX
-    if (TEST(FRAG_HAS_RSEQ_ENDPOINT, f->flags))
+    if (TESTANY(FRAG_HAS_RSEQ_ENDPOINT, f->flags))
         rseq_remove_fragment(dcontext, f);
 #endif
 
-    if (!TEST(FRAGDEL_NO_HTABLE, actions))
+    if (!TESTANY(FRAGDEL_NO_HTABLE, actions))
         fragment_remove(dcontext, f);
 
-    if (!TEST(FRAGDEL_NO_VMAREA, actions))
+    if (!TESTANY(FRAGDEL_NO_VMAREA, actions))
         vm_area_remove_fragment(dcontext, f);
 
-    if (!TEST(FRAGDEL_NO_FCACHE, actions)) {
+    if (!TESTANY(FRAGDEL_NO_FCACHE, actions)) {
         fcache_remove_fragment(dcontext, f);
     }
 
@@ -3058,13 +3060,13 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
      * be invoked we should keep the two calls in synch.
      */
     if (dr_fragment_deleted_hook_exists() &&
-        (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions)))
+        (!TESTANY(FRAGDEL_NO_HEAP, actions) || !TESTANY(FRAGDEL_NO_FCACHE, actions)))
         instrument_fragment_deleted(dcontext, f->tag, f->flags);
 #ifdef UNIX
     if (INTERNAL_OPTION(profile_pcs))
         pcprofile_fragment_deleted(dcontext, f);
 #endif
-    if (!TEST(FRAGDEL_NO_HEAP, actions)) {
+    if (!TESTANY(FRAGDEL_NO_HEAP, actions)) {
         fragment_free(dcontext, f);
     }
     if (acquired_fragdel_lock)
@@ -3093,13 +3095,13 @@ fragment_record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_
      * set, indicating that there is a special appended field pointing
      * to the translation info.
      */
-    if (TEST(FRAG_HAS_TRANSLATION_INFO, f->flags)) {
-        ASSERT(!TEST(FRAG_WAS_DELETED, f->flags));
+    if (TESTANY(FRAG_HAS_TRANSLATION_INFO, f->flags)) {
+        ASSERT(!TESTANY(FRAG_WAS_DELETED, f->flags));
         *(FRAGMENT_TRANSLATION_INFO_ADDR(f)) =
             record_translation_info(dcontext, f, ilist);
         ASSERT(FRAGMENT_TRANSLATION_INFO(f) != NULL);
         STATS_INC(num_fragment_translation_stored);
-    } else if (TEST(FRAG_WAS_DELETED, f->flags)) {
+    } else if (TESTANY(FRAG_WAS_DELETED, f->flags)) {
         ASSERT(f->in_xlate.incoming_stubs == NULL);
         if (INTERNAL_OPTION(safe_translate_flushed)) {
             f->in_xlate.translation_info = record_translation_info(dcontext, f, ilist);
@@ -3127,11 +3129,11 @@ fragment_record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_
 void
 fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
 {
-    DEBUG_DECLARE(bool shared_ibt_table_used = !TEST(FRAG_IS_TRACE, f->flags)
+    DEBUG_DECLARE(bool shared_ibt_table_used = !TESTANY(FRAG_IS_TRACE, f->flags)
                       ? DYNAMO_OPTION(shared_bb_ibt_tables)
                       : DYNAMO_OPTION(shared_trace_ibt_tables);)
 
-    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
 
     LOG(GLOBAL, LOG_FRAGMENT, 4, "Remove shared %s " PFX " (@" PFX ")\n",
         fragment_type_name(f), f->tag, f->start_pc);
@@ -3142,20 +3144,20 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
      * XXX: There are still risks that the fragment's link state may change
      */
     LOG(THREAD, LOG_FRAGMENT, 3, "fragment_remove_shared_no_flush: F%d\n", f->id);
-    ASSERT(TEST(FRAG_SHARED, f->flags));
-    if (TEST(FRAG_IS_TRACE, f->flags)) {
+    ASSERT(TESTANY(FRAG_SHARED, f->flags));
+    if (TESTANY(FRAG_IS_TRACE, f->flags)) {
         d_r_mutex_lock(&trace_building_lock);
     }
     /* grab bb building lock even for traces to further prevent link changes */
     d_r_mutex_lock(&bb_building_lock);
 
-    if (TEST(FRAG_WAS_DELETED, f->flags)) {
+    if (TESTANY(FRAG_WAS_DELETED, f->flags)) {
         /* since caller can't grab locks, we can have a race where someone
          * else deletes first -- in that case nothing to do
          */
         STATS_INC(shared_delete_noflush_race);
         d_r_mutex_unlock(&bb_building_lock);
-        if (TEST(FRAG_IS_TRACE, f->flags))
+        if (TESTANY(FRAG_IS_TRACE, f->flags))
             d_r_mutex_unlock(&trace_building_lock);
         return;
     }
@@ -3171,9 +3173,9 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     /* XXX: share all this code w/ vm_area_unlink_fragments()
      * The work there is just different enough to make that hard, though.
      */
-    if (TEST(FRAG_LINKED_OUTGOING, f->flags))
+    if (TESTANY(FRAG_LINKED_OUTGOING, f->flags))
         unlink_fragment_outgoing(GLOBAL_DCONTEXT, f);
-    if (TEST(FRAG_LINKED_INCOMING, f->flags))
+    if (TESTANY(FRAG_LINKED_INCOMING, f->flags))
         unlink_fragment_incoming(GLOBAL_DCONTEXT, f);
     incoming_remove_fragment(GLOBAL_DCONTEXT, f);
 
@@ -3201,15 +3203,15 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     /* if a flush occurs, this fragment will be ignored -- so we must store
      * translation info now, just in case
      */
-    if (!TEST(FRAG_HAS_TRANSLATION_INFO, f->flags))
+    if (!TESTANY(FRAG_HAS_TRANSLATION_INFO, f->flags))
         fragment_record_translation_info(dcontext, f, NULL);
 
     /* try to catch any potential races */
-    ASSERT(!TEST(FRAG_LINKED_OUTGOING, f->flags));
-    ASSERT(!TEST(FRAG_LINKED_INCOMING, f->flags));
+    ASSERT(!TESTANY(FRAG_LINKED_OUTGOING, f->flags));
+    ASSERT(!TESTANY(FRAG_LINKED_INCOMING, f->flags));
 
     d_r_mutex_unlock(&bb_building_lock);
-    if (TEST(FRAG_IS_TRACE, f->flags)) {
+    if (TESTANY(FRAG_IS_TRACE, f->flags)) {
         d_r_mutex_unlock(&trace_building_lock);
     }
 
@@ -3226,14 +3228,14 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
 void
 fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
 {
-    ASSERT(!TEST(FRAG_SHARED, f->flags) ||
+    ASSERT(!TESTANY(FRAG_SHARED, f->flags) ||
            self_owns_recursive_lock(&change_linking_lock));
     /* this is not an error since fcache unit flushing puts lazily-deleted
      * fragments onto its list to ensure they are in the same pending
      * delete entry as the normal fragments -- so this routine becomes
      * a nop for them
      */
-    if (TEST(FRAG_WAS_DELETED, f->flags)) {
+    if (TESTANY(FRAG_WAS_DELETED, f->flags)) {
         LOG(THREAD, LOG_FRAGMENT | LOG_VMAREAS, 5,
             "NOT unlinking F%d(" PFX ") for deletion\n", f->id, f->start_pc);
         STATS_INC(deleted_frags_re_deleted);
@@ -3245,9 +3247,9 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
      * of traces after source modules are unloaded
      */
     fragment_output(dcontext, f);
-    if (TEST(FRAG_LINKED_OUTGOING, f->flags))
+    if (TESTANY(FRAG_LINKED_OUTGOING, f->flags))
         unlink_fragment_outgoing(dcontext, f);
-    if (TEST(FRAG_LINKED_INCOMING, f->flags))
+    if (TESTANY(FRAG_LINKED_INCOMING, f->flags))
         unlink_fragment_incoming(dcontext, f);
     /* need to remove outgoings from others' incoming and
      * redirect others' outgoing to a future.  former must be
@@ -3259,7 +3261,7 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
      */
     incoming_remove_fragment(dcontext, f);
 
-    if (TEST(FRAG_SHARED, f->flags)) {
+    if (TESTANY(FRAG_SHARED, f->flags)) {
         /* we shouldn't need to worry about someone else changing the
          * link status, since nobody else is allowed to be in DR now,
          * and afterward they all must invalidate any ptrs they hold
@@ -3295,7 +3297,7 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
     /* the original app code cannot be used to recreate state, so we must
      * store translation info now
      */
-    if (!TEST(FRAG_HAS_TRANSLATION_INFO, f->flags))
+    if (!TESTANY(FRAG_HAS_TRANSLATION_INFO, f->flags))
         fragment_record_translation_info(dcontext, f, NULL);
 
     STATS_INC(fragments_unlinked_for_deletion);
@@ -3311,11 +3313,11 @@ update_private_ibt_table_ptrs(
 {
     bool table_change = false;
 
-    if (TEST(FRAG_TABLE_SHARED, ftable->table_flags)) {
+    if (TESTANY(FRAG_TABLE_SHARED, ftable->table_flags)) {
 
         per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
 
-        if (TEST(FRAG_TABLE_TRACE, ftable->table_flags) &&
+        if (TESTANY(FRAG_TABLE_TRACE, ftable->table_flags) &&
             ftable->table != pt->trace_ibt[ftable->branch_type].table) {
             DODEBUG({
                 if (orig_table != NULL) {
@@ -3324,7 +3326,7 @@ update_private_ibt_table_ptrs(
             });
             table_change = true;
         } else if (DYNAMO_OPTION(bb_ibl_targets) &&
-                   !TEST(FRAG_TABLE_TRACE, ftable->table_flags) &&
+                   !TESTANY(FRAG_TABLE_TRACE, ftable->table_flags) &&
                    ftable->table != pt->bb_ibt[ftable->branch_type].table) {
             DODEBUG({
                 if (orig_table != NULL) {
@@ -3336,8 +3338,8 @@ update_private_ibt_table_ptrs(
         if (table_change) {
             update_private_ptr_to_shared_ibt_table(
                 dcontext, ftable->branch_type,
-                TEST(FRAG_TABLE_TRACE, ftable->table_flags), true, /* adjust old
-                                                                    * ref-count */
+                TESTANY(FRAG_TABLE_TRACE, ftable->table_flags), true, /* adjust old
+                                                                       * ref-count */
                 true /* lock */);
             DODEBUG({
                 if (orig_table != NULL)
@@ -3548,7 +3550,7 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
         ftable->unlinked_entries++;
         ftable->entries--;
         TABLE_RWLOCK(ftable, write, unlock);
-        ASSERT(!TEST(FRAG_CANNOT_DELETE, f->flags));
+        ASSERT(!TESTANY(FRAG_CANNOT_DELETE, f->flags));
         return true;
     }
     TABLE_RWLOCK(ftable, write, unlock);
@@ -3572,7 +3574,7 @@ fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f)
         return false;
     }
 
-    ASSERT(TEST(FRAG_SHARED, f->flags) || dcontext != GLOBAL_DCONTEXT);
+    ASSERT(TESTANY(FRAG_SHARED, f->flags) || dcontext != GLOBAL_DCONTEXT);
     /* We need a real per_thread_t & context below so make sure we have one. */
     if (dcontext == GLOBAL_DCONTEXT) {
         dcontext = get_thread_private_dcontext();
@@ -3590,7 +3592,7 @@ fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f)
          * and sometimes put traces into BB tables also. We never put
          * BBs into a trace table.
          */
-        if (TEST(FRAG_IS_TRACE, f->flags)) {
+        if (TESTANY(FRAG_IS_TRACE, f->flags)) {
             if (DYNAMO_OPTION(shared_trace_ibt_tables))
                 local_pt = shared_pt;
             if (fragment_prepare_for_removal_from_table(
@@ -3598,7 +3600,7 @@ fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f)
                 prepared = true;
         }
         if (DYNAMO_OPTION(bb_ibl_targets) &&
-            (!TEST(FRAG_IS_TRACE, f->flags) ||
+            (!TESTANY(FRAG_IS_TRACE, f->flags) ||
              DYNAMO_OPTION(bb_ibt_table_includes_traces))) {
             if (DYNAMO_OPTION(shared_bb_ibt_tables))
                 local_pt = shared_pt;
@@ -3631,7 +3633,7 @@ fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f)
 static inline void
 fragment_ibl_stat_account(uint flags, uint ibls_targeted)
 {
-    if (TEST(FRAG_IS_TRACE, flags)) {
+    if (TESTANY(FRAG_IS_TRACE, flags)) {
         switch (ibls_targeted) {
         case 0: break; /* doesn't have to be a target of any IBL routine */
         case 1: STATS_INC(num_traces_in_1_ibl_tables); break;
@@ -3660,8 +3662,8 @@ void
 fragment_remove_from_ibt_tables(dcontext_t *dcontext, fragment_t *f, bool from_shared)
 {
     bool shared_ibt_table =
-        (!TEST(FRAG_IS_TRACE, f->flags) && DYNAMO_OPTION(shared_bb_ibt_tables)) ||
-        (TEST(FRAG_IS_TRACE, f->flags) && DYNAMO_OPTION(shared_trace_ibt_tables));
+        (!TESTANY(FRAG_IS_TRACE, f->flags) && DYNAMO_OPTION(shared_bb_ibt_tables)) ||
+        (TESTANY(FRAG_IS_TRACE, f->flags) && DYNAMO_OPTION(shared_trace_ibt_tables));
     fragment_entry_t fe = FRAGENTRY_FROM_FRAGMENT(f);
 
     ASSERT(!from_shared || !shared_ibt_table || !IS_IBL_TARGET(f->flags) ||
@@ -3680,19 +3682,19 @@ fragment_remove_from_ibt_tables(dcontext_t *dcontext, fragment_t *f, bool from_s
         ibl_branch_type_t branch_type;
         per_thread_t *pt = GET_PT(dcontext);
 
-        ASSERT(TEST(FRAG_IS_TRACE, f->flags) || DYNAMO_OPTION(bb_ibl_targets));
+        ASSERT(TESTANY(FRAG_IS_TRACE, f->flags) || DYNAMO_OPTION(bb_ibl_targets));
         for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END;
              branch_type++) {
             /* assuming a single tag can't be both a trace and bb */
             ibl_table_t *ibtable = GET_IBT_TABLE(pt, f->flags, branch_type);
 
-            ASSERT(!TEST(FRAG_TABLE_SHARED, ibtable->table_flags) ||
+            ASSERT(!TESTANY(FRAG_TABLE_SHARED, ibtable->table_flags) ||
                    dynamo_all_threads_synched);
             TABLE_RWLOCK(ibtable, write, lock); /* satisfy asserts, even if allsynch */
             if (hashtable_ibl_remove(fe, ibtable)) {
                 LOG(THREAD, LOG_FRAGMENT, 2, "  removed F%d(" PFX ") from IBT table %s\n",
                     f->id, f->tag,
-                    TEST(FRAG_TABLE_TRACE, ibtable->table_flags)
+                    TESTANY(FRAG_TABLE_TRACE, ibtable->table_flags)
                         ? ibl_trace_table_type_names[branch_type]
                         : ibl_bb_table_type_names[branch_type]);
 
@@ -3713,7 +3715,7 @@ fragment_remove_ibl_entries_in_region(dcontext_t *dcontext, app_pc start, app_pc
     per_thread_t *pt = GET_PT(dcontext);
     ibl_branch_type_t branch_type;
     ASSERT(pt != NULL);
-    ASSERT(TEST(FRAG_IS_TRACE, frag_flags) || DYNAMO_OPTION(bb_ibl_targets));
+    ASSERT(TESTANY(FRAG_IS_TRACE, frag_flags) || DYNAMO_OPTION(bb_ibl_targets));
     ASSERT(dcontext == get_thread_private_dcontext() || dynamo_all_threads_synched);
     for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END;
          branch_type++) {
@@ -3733,7 +3735,7 @@ fragment_remove_ibl_entries_in_region(dcontext_t *dcontext, app_pc start, app_pc
         LOG(THREAD, LOG_FRAGMENT, 2,
             "  removed %d entries (%d left) in " PFX "-" PFX " from IBT table %s\n",
             removed, ibtable->entries, start, end,
-            TEST(FRAG_TABLE_TRACE, ibtable->table_flags)
+            TESTANY(FRAG_TABLE_TRACE, ibtable->table_flags)
                 ? ibl_trace_table_type_names[branch_type]
                 : ibl_bb_table_type_names[branch_type]);
         TABLE_RWLOCK(ibtable, write, unlock);
@@ -3775,7 +3777,7 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f)
     per_thread_t *pt = GET_PT(dcontext);
     fragment_table_t *table = GET_FTABLE(pt, f->flags);
 
-    ASSERT(TEST(FRAG_SHARED, f->flags) || dcontext != GLOBAL_DCONTEXT);
+    ASSERT(TESTANY(FRAG_SHARED, f->flags) || dcontext != GLOBAL_DCONTEXT);
     /* For consistency we remove entries from the IBT
      * tables before we remove them from the trace table.
      */
@@ -3800,7 +3802,7 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f)
      */
     ASSERT(cur_trace_tag(dcontext) == f->tag
            /* PR 299808: we have invisible temp trace bbs */
-           || TEST(FRAG_TEMP_PRIVATE, f->flags));
+           || TESTANY(FRAG_TEMP_PRIVATE, f->flags));
 }
 
 /* Remove f from ftable, replacing it in the hashtable with new_f,
@@ -3831,7 +3833,7 @@ fragment_replace(dcontext_t *dcontext, fragment_t *f, fragment_t *new_f)
                 /* currently we don't have shared ib target tables,
                  * otherwise a write lock would come in the picture here
                  */
-                ASSERT(!TEST(FRAG_TABLE_SHARED, ibtable->table_flags));
+                ASSERT(!TESTANY(FRAG_TABLE_SHARED, ibtable->table_flags));
                 hashtable_ibl_replace(fe, new_fe, ibtable);
             }
         }
@@ -3863,7 +3865,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
     LOG(THREAD, LOG_FRAGMENT, 2, "fragment_shift_fcache_pointers: F%d + " SSZFMT "\n",
         f->id, shift);
 
-    ASSERT(!TEST(FRAG_IS_FUTURE, f->flags)); /* only in-cache frags */
+    ASSERT(!TESTANY(FRAG_IS_FUTURE, f->flags)); /* only in-cache frags */
 
     f->start_pc += shift;
 
@@ -3889,7 +3891,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
             TABLE_RWLOCK(ibtable, read, unlock);
             LOG(THREAD, LOG_FRAGMENT, 2,
                 "fragment_table_shift_fcache_pointers: %s ibt %s shifted by %d\n",
-                TEST(FRAG_IS_TRACE, f->flags) ? "trace" : "BB", ibtable->name, shift);
+                TESTANY(FRAG_IS_TRACE, f->flags) ? "trace" : "BB", ibtable->name, shift);
         }
     }
 
@@ -3902,7 +3904,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
     });
 
 #ifdef X86
-    if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, f->flags)) {
         /* just re-finalize to update */
         finalize_selfmod_sandbox(dcontext, f);
     }
@@ -4018,8 +4020,8 @@ fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
     fragment_entry_t fe = FRAGENTRY_FROM_FRAGMENT(f);
 
     /* Never add a BB to a trace table. */
-    ASSERT(!(!TEST(FRAG_IS_TRACE, f->flags) &&
-             TEST(FRAG_TABLE_TRACE, ibl_table->table_flags)));
+    ASSERT(!(!TESTANY(FRAG_IS_TRACE, f->flags) &&
+             TESTANY(FRAG_TABLE_TRACE, ibl_table->table_flags)));
 
     /* adding is a write operation */
     TABLE_RWLOCK(ibl_table, write, lock);
@@ -4028,14 +4030,14 @@ fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
      * FRAG_IS_TRACE_HEAD check in add_ibl_target() and now. We never add trace
      * heads to an IBT target table.
      */
-    if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
+    if (TESTANY(FRAG_IS_TRACE_HEAD, f->flags)) {
         TABLE_RWLOCK(ibl_table, write, unlock);
         STATS_INC(num_th_bb_ibt_add_race);
         return;
     }
     /* For shared tables, check again in case another thread snuck in
      * before the preceding lock and added the target. */
-    if (TEST(FRAG_TABLE_SHARED, ibl_table->table_flags)) {
+    if (TESTANY(FRAG_TABLE_SHARED, ibl_table->table_flags)) {
         current = hashtable_ibl_lookup(dcontext, (ptr_uint_t)f->tag, ibl_table);
         if (IBL_ENTRY_IS_EMPTY(current))
             hashtable_ibl_add(dcontext, fe, ibl_table);
@@ -4058,14 +4060,14 @@ fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
     }
     TABLE_RWLOCK(ibl_table, write, unlock);
     DOSTATS({
-        if (!TEST(FRAG_IS_TRACE, f->flags))
+        if (!TESTANY(FRAG_IS_TRACE, f->flags))
             STATS_INC(num_bbs_ibl_targets);
         /* We assume that traces can be added to trace and BB IBT tables but
          * not just to BB tables. We count only traces added to trace tables
          * so that we don't double increment.
          */
-        else if (TEST(FRAG_IS_TRACE, f->flags) &&
-                 TEST(FRAG_TABLE_TRACE, ibl_table->table_flags))
+        else if (TESTANY(FRAG_IS_TRACE, f->flags) &&
+                 TESTANY(FRAG_TABLE_TRACE, ibl_table->table_flags))
             STATS_INC(num_traces_ibl_targets);
     });
 
@@ -4087,7 +4089,7 @@ fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
         dump_lookup_table(dcontext, ibl_table);
     });
     DODEBUG({
-        if (TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_IS_TRACE, f->flags)) {
+        if (TESTANY(FRAG_SHARED, f->flags) && !TESTANY(FRAG_IS_TRACE, f->flags)) {
             LOG(THREAD, LOG_FRAGMENT, 2, "add_ibl_target: shared BB F%d(" PFX ") added\n",
                 f->id, f->tag);
         }
@@ -4108,8 +4110,8 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
             f = fragment_coarse_lookup_wrapper(dcontext, tag, &wrapper);
             if (f != NULL) {
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
-                if (TEST(COARSE_FILL_IBL_MASK(branch_type),
-                         DYNAMO_OPTION(coarse_fill_ibl))) {
+                if (TESTANY(COARSE_FILL_IBL_MASK(branch_type),
+                            DYNAMO_OPTION(coarse_fill_ibl))) {
                     /* On-demand per-type ibl filling from the persisted RAC/RCT
                      * table.  We limit to the first thread to ask for it by
                      * clearing the coarse_info_t pending_table fields.
@@ -4152,8 +4154,8 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
              * removed from the IBT table so we don't needlessly add it.
              */
             if (f != NULL &&
-                (TEST(FRAG_IS_TRACE_HEAD, f->flags) ||
-                 TEST(FRAG_IS_TRACE, dcontext->last_fragment->flags))) {
+                (TESTANY(FRAG_IS_TRACE_HEAD, f->flags) ||
+                 TESTANY(FRAG_IS_TRACE, dcontext->last_fragment->flags))) {
                 /* XXX: change the logic if trace headness becomes a private property */
                 f = NULL;                    /* ignore fragment */
                 STATS_INC(num_ib_th_target); /* counted in num_ibt_cold_misses */
@@ -4164,7 +4166,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
     LOG(THREAD, LOG_FRAGMENT, 3,
         "fragment_add_ibl_target tag " PFX ", branch %d, F%d %s\n", tag, branch_type,
         f != NULL ? f->id : 0,
-        (f != NULL && TEST(FRAG_IS_TRACE, f->flags)) ? "existing trace" : "");
+        (f != NULL && TESTANY(FRAG_IS_TRACE, f->flags)) ? "existing trace" : "");
 
     /* a valid IBT fragment exists */
     if (f != NULL) {
@@ -4197,14 +4199,14 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
          * the shared/private property applies to all IBT tables -- either
          * all are shared or none are.
          */
-        if (TEST(FRAG_TABLE_SHARED, ibl_table->table_flags) &&
-            !TEST(FRAG_SHARED, f->flags)) {
+        if (TESTANY(FRAG_TABLE_SHARED, ibl_table->table_flags) &&
+            !TESTANY(FRAG_SHARED, f->flags)) {
             STATS_INC(num_ibt_shared_private_conflict);
             return;
         }
 
-        ASSERT(TEST(FRAG_IS_TRACE, f->flags) ==
-               TEST(FRAG_TABLE_TRACE, ibl_table->table_flags));
+        ASSERT(TESTANY(FRAG_IS_TRACE, f->flags) ==
+               TESTANY(FRAG_TABLE_TRACE, ibl_table->table_flags));
         /* We can't assert that an IBL target isn't a trace head due to a race
          * between trace head marking and adding to a table. See the comments
          * in fragment_add_to_hashtable().
@@ -4231,13 +4233,13 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
              * table.) We fool the helper routine into using the BB
              * table by passing in a non-trace value for the flags argument.
              */
-            if (TEST(FRAG_IS_TRACE, f->flags) && DYNAMO_OPTION(bb_ibl_targets) &&
+            if (TESTANY(FRAG_IS_TRACE, f->flags) && DYNAMO_OPTION(bb_ibl_targets) &&
                 DYNAMO_OPTION(bb_ibt_table_includes_traces)) {
                 ibl_table_t *ibl_table_too =
                     GET_IBT_TABLE(pt, f->flags & ~FRAG_IS_TRACE, branch_type);
 
                 ASSERT(ibl_table_too != NULL);
-                ASSERT(!TEST(FRAG_TABLE_TRACE, ibl_table_too->table_flags));
+                ASSERT(!TESTANY(FRAG_TABLE_TRACE, ibl_table_too->table_flags));
                 /* Make sure this thread's local ptrs & state is up to
                  * date in case a resize occurred while it was in the cache. */
                 update_private_ibt_table_ptrs(dcontext, ibl_table_too _IF_DEBUG(NULL));
@@ -4249,10 +4251,10 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
             if (is_building_trace(dcontext)) {
                 reason = "trace building";
                 STATS_INC(num_ibt_exit_trace_building);
-            } else if (TEST(FRAG_WAS_DELETED, dcontext->last_fragment->flags)) {
+            } else if (TESTANY(FRAG_WAS_DELETED, dcontext->last_fragment->flags)) {
                 reason = "src unlinked (frag deleted)";
                 STATS_INC(num_ibt_exit_src_unlinked_frag_deleted);
-            } else if (!TEST(LINK_LINKED, dcontext->last_exit->flags) &&
+            } else if (!TESTANY(LINK_LINKED, dcontext->last_exit->flags) &&
                        TESTALL(FRAG_SHARED | FRAG_IS_TRACE_HEAD,
                                dcontext->last_fragment->flags) &&
                        fragment_lookup_type(dcontext, dcontext->last_fragment->tag,
@@ -4266,10 +4268,10 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
                        is_fragment_index_wraparound(dcontext, ibl_table, f)) {
                 reason = "sentinel";
                 STATS_INC(num_ibt_leaks_likely_sentinel);
-            } else if (TEST(FRAG_SELFMOD_SANDBOXED, dcontext->last_fragment->flags)) {
+            } else if (TESTANY(FRAG_SELFMOD_SANDBOXED, dcontext->last_fragment->flags)) {
                 reason = "src sandboxed";
                 STATS_INC(num_ibt_exit_src_sandboxed);
-            } else if (TEST(FRAG_TABLE_SHARED, ibl_table->table_flags) &&
+            } else if (TESTANY(FRAG_TABLE_SHARED, ibl_table->table_flags) &&
                        orig_lookuptable != ibl_table->table) {
                 /* A table resize could cause a miss when the target is
                  * in the new table. */
@@ -4277,10 +4279,12 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
                 STATS_INC(num_ibt_exit_shared_table_resize);
             } else if (DYNAMO_OPTION(bb_ibl_targets) &&
                        IS_SHARED_SYSCALLS_LINKSTUB(dcontext->last_exit) &&
-                       !DYNAMO_OPTION(disable_traces) && !TEST(FRAG_IS_TRACE, f->flags)) {
+                       !DYNAMO_OPTION(disable_traces) &&
+                       !TESTANY(FRAG_IS_TRACE, f->flags)) {
                 reason = "shared syscall exit cannot target BBs";
                 STATS_INC(num_ibt_exit_src_trace_shared_syscall);
-            } else if (DYNAMO_OPTION(bb_ibl_targets) && TEST(FRAG_IS_TRACE, f->flags) &&
+            } else if (DYNAMO_OPTION(bb_ibl_targets) &&
+                       TESTANY(FRAG_IS_TRACE, f->flags) &&
                        !DYNAMO_OPTION(bb_ibt_table_includes_traces)) {
                 reason = "BBs do not target traces";
                 STATS_INC(num_ibt_exit_src_trace_shared_syscall);
@@ -4288,7 +4292,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t bran
                 reason = "-no_link_ibl prevents ibl";
                 STATS_INC(num_ibt_exit_nolink);
             } else if (DYNAMO_OPTION(disable_traces) &&
-                       !TEST(FRAG_LINKED_OUTGOING, dcontext->last_fragment->flags)) {
+                       !TESTANY(FRAG_LINKED_OUTGOING, dcontext->last_fragment->flags)) {
                 reason = "IBL fragment unlinked in signal handler";
                 STATS_INC(num_ibt_exit_src_unlinked_signal);
             } else {
@@ -4336,7 +4340,7 @@ fragment_create_future(dcontext_t *dcontext, app_pc tag, uint flags)
         flags | FRAG_FAKE | FRAG_IS_FUTURE);
     STATS_INC(num_future_fragments);
     DOSTATS({
-        if (TEST(FRAG_SHARED, flags))
+        if (TESTANY(FRAG_SHARED, flags))
             STATS_INC(num_shared_future_fragments);
     });
     fut->tag = tag;
@@ -4390,7 +4394,7 @@ static bool
 fragment_delete_future_filter(fragment_t *f)
 {
     future_fragment_t *fut = (future_fragment_t *)f;
-    ASSERT(TEST(FRAG_IS_FUTURE, f->flags));
+    ASSERT(TESTANY(FRAG_IS_FUTURE, f->flags));
     return (fut->incoming_stubs == NULL);
 }
 
@@ -4680,7 +4684,7 @@ static void
 rct_table_free_internal(dcontext_t *dcontext, app_pc_table_t *table)
 {
     hashtable_app_pc_free(dcontext, table);
-    ASSERT(TEST(HASHTABLE_PERSISTENT, table->table_flags));
+    ASSERT(TESTANY(HASHTABLE_PERSISTENT, table->table_flags));
     HEAP_TYPE_FREE(dcontext, table, app_pc_table_t, ACCT_AFTER_CALL, PROTECTED);
 }
 
@@ -4843,10 +4847,10 @@ rct_module_table_copy(dcontext_t *dcontext, app_pc modpc, rct_type_t which,
         if (!DYNAMO_OPTION(ret_after_call))
             return NULL;
     } else {
-        ASSERT(TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-               TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump)));
-        if (!TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) &&
-            !TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump)))
+        ASSERT(TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+               TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump)));
+        if (!TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) &&
+            !TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump)))
             return NULL;
     }
     os_get_module_info_lock();
@@ -5024,7 +5028,7 @@ coarse_persisted_fill_ibl(dcontext_t *dcontext, coarse_info_t *info,
     /* Caller must hold info lock */
     ASSERT_OWN_MUTEX(true, &info->lock);
     ASSERT(exists_coarse_ibl_pending_table(dcontext, info, branch_type));
-    ASSERT(TEST(COARSE_FILL_IBL_MASK(branch_type), DYNAMO_OPTION(coarse_fill_ibl)));
+    ASSERT(TESTANY(COARSE_FILL_IBL_MASK(branch_type), DYNAMO_OPTION(coarse_fill_ibl)));
     if (!exists_coarse_ibl_pending_table(dcontext, info, branch_type))
         return;
 
@@ -5218,7 +5222,7 @@ fragment_self_write(dcontext_t *dcontext)
         dcontext->last_fragment->tag,
         EXIT_CTI_PC(dcontext->last_fragment, dcontext->last_exit));
     STATS_INC(num_self_writes);
-    if (TEST(FRAG_WAS_DELETED, dcontext->last_fragment->flags)) {
+    if (TESTANY(FRAG_WAS_DELETED, dcontext->last_fragment->flags)) {
         /* Case 8177: case 3559 unionized fragment_t.in_xlate, so we cannot delete a
          * fragment that has already been unlinked in the first stage of a flush.
          * The flush queue check, which comes after this (b/c we want to be
@@ -5318,8 +5322,8 @@ study_all_hashtables(dcontext_t *dcontext)
     }
 #    endif
 #    if defined(RCT_IND_BRANCH) && defined(UNIX)
-    if ((TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-         TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
+    if ((TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+         TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
         rct_global_table.live_table != NULL) {
         hashtable_app_pc_study(dcontext, rct_global_table.live_table,
                                0 /*table consistent*/);
@@ -5707,7 +5711,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
             SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
             link_fragment_outgoing(dcontext, f, false);
             SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
-            if (TEST(FRAG_HAS_SYSCALL, f->flags)) {
+            if (TESTANY(FRAG_HAS_SYSCALL, f->flags)) {
                 mangle_syscall_code(dcontext, f, EXIT_CTI_PC(f, dcontext->last_exit),
                                     true /*skip exit cti*/);
             }
@@ -6609,7 +6613,7 @@ flush_invalidate_ibl_shared_target(dcontext_t *dcontext, fragment_t *f)
     ASSERT(flush_threads != NULL);
     ASSERT(flush_num_threads > 0);
     ASSERT(flush_last_stage == 2);
-    ASSERT(TEST(FRAG_SHARED, f->flags));
+    ASSERT(TESTANY(FRAG_SHARED, f->flags));
     /*case 7966: has no pt, no flushing either */
     if (RUNNING_WITHOUT_CODE_CACHE()) {
         ASSERT_NOT_REACHED(); /* shouldn't get here */
@@ -6889,7 +6893,7 @@ flush_vmvector_regions(dcontext_t *dcontext, vm_area_vector_t *toflush, bool fre
 {
     vmvector_iterator_t vmvi;
     app_pc start, end;
-    ASSERT(toflush != NULL && !TEST(VECTOR_SHARED, toflush->flags));
+    ASSERT(toflush != NULL && !TESTANY(VECTOR_SHARED, toflush->flags));
     ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
     ASSERT(DYNAMO_OPTION(coarse_units) &&
            DYNAMO_OPTION(use_persisted) IF_HOTP(&&DYNAMO_OPTION(hot_patching)));
@@ -6920,7 +6924,7 @@ flush_vmvector_regions(dcontext_t *dcontext, vm_area_vector_t *toflush, bool fre
 void
 fragment_output(dcontext_t *dcontext, fragment_t *f)
 {
-    ASSERT(!TEST(FRAG_SHARED, f->flags) ||
+    ASSERT(!TESTANY(FRAG_SHARED, f->flags) ||
            self_owns_recursive_lock(&change_linking_lock));
     if (SHOULD_OUTPUT_FRAGMENT(f->flags)) {
         per_thread_t *pt = (dcontext == GLOBAL_DCONTEXT)
@@ -6990,7 +6994,7 @@ output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
         0,
         f->size,
         (INTERNAL_OPTION(tracedump_origins) ? t->num_bbs : 0),
-        IF_X86_64_ELSE(!TEST(FRAG_32_BIT, f->flags), false),
+        IF_X86_64_ELSE(!TESTANY(FRAG_32_BIT, f->flags), false),
     };
     tracedump_stub_data_t stub;
     /* Should we widen the identifier? */
@@ -7047,7 +7051,7 @@ output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
         stub.cti_offs = l->cti_offset;
         stub.stub_pc = stub_pc;
         stub.target = EXIT_TARGET_TAG(dcontext, f, l);
-        stub.linked = TEST(LINK_LINKED, l->flags);
+        stub.linked = TESTANY(LINK_LINKED, l->flags);
         stub.stub_size = EXIT_HAS_STUB(l->flags, f->flags)
             ? DIRECT_EXIT_STUB_SIZE(f->flags)
             : 0 /* no stub neededd: -no_indirect_stubs */;
@@ -7057,7 +7061,7 @@ output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
         memcpy(p, &stub, STUB_DATA_FIXED_SIZE);
         p += STUB_DATA_FIXED_SIZE;
 
-        if (TEST(LINK_SEPARATE_STUB, l->flags) && stub_pc != NULL) {
+        if (TESTANY(LINK_SEPARATE_STUB, l->flags) && stub_pc != NULL) {
             TRACEBUF_MAKE_ROOM(p, buf, DIRECT_EXIT_STUB_SIZE(f->flags));
             ASSERT(stub_pc < f->start_pc || stub_pc >= f->start_pc + f->size);
             memcpy(p, stub_pc, DIRECT_EXIT_STUB_SIZE(f->flags));
@@ -7101,11 +7105,11 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     bool locked_vmareas = false;
     dr_isa_mode_t old_mode;
     ASSERT(SHOULD_OUTPUT_FRAGMENT(f->flags));
-    ASSERT(TEST(FRAG_IS_TRACE, f->flags));
-    ASSERT(!TEST(FRAG_SELFMOD_SANDBOXED, f->flags)); /* no support for selfmod */
+    ASSERT(TESTANY(FRAG_IS_TRACE, f->flags));
+    ASSERT(!TESTANY(FRAG_SELFMOD_SANDBOXED, f->flags)); /* no support for selfmod */
     /* already been output?  caller should check this flag, just like trace flag */
-    ASSERT(!TEST(FRAG_TRACE_OUTPUT, f->flags));
-    ASSERT(!TEST(FRAG_SHARED, f->flags) ||
+    ASSERT(!TESTANY(FRAG_TRACE_OUTPUT, f->flags));
+    ASSERT(!TESTANY(FRAG_SHARED, f->flags) ||
            self_owns_recursive_lock(&change_linking_lock));
     f->flags |= FRAG_TRACE_OUTPUT;
 
@@ -7126,7 +7130,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     }
     trace_num = tcount;
     tcount++;
-    if (!TEST(FRAG_SHARED, f->flags)) {
+    if (!TESTANY(FRAG_SHARED, f->flags)) {
         /* No lock is needed because we use thread-private files.
          * If dumping traces for a different thread (dynamo_other_thread_exit
          * for ex.) caller is responsible for the necessary synchronization. */
@@ -7256,7 +7260,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
 
 output_trace_done:
     dr_set_isa_mode(dcontext, old_mode, NULL);
-    if (TEST(FRAG_SHARED, f->flags) && !dynamo_resetting) {
+    if (TESTANY(FRAG_SHARED, f->flags) && !dynamo_resetting) {
         ASSERT_OWN_MUTEX(true, &tracedump_mutex);
         d_r_mutex_unlock(&tracedump_mutex);
         if (locked_vmareas)
@@ -7776,7 +7780,7 @@ fragment_coarse_add(dcontext_t *dcontext, coarse_info_t *info, app_pc tag, cache
                    fragment_coarse_lookup(dcontext, tag) == NULL);
             f = fragment_lookup(dcontext, tag);
             /* ok for trace to shadow coarse trace head */
-            ASSERT(f == NULL || TEST(FRAG_IS_TRACE, f->flags));
+            ASSERT(f == NULL || TESTANY(FRAG_IS_TRACE, f->flags));
         }
     });
     TABLE_RWLOCK(htable, write, lock);
@@ -8077,7 +8081,8 @@ fragment_lookup_fine_and_coarse(dcontext_t *dcontext, app_pc tag, fragment_t *wr
              * (can have shared trace shadowing shared coarse trace head bb,
              * or private bb with same tag)
              */
-            ASSERT(TEST(FRAG_IS_TRACE, res->flags) || !TEST(FRAG_SHARED, res->flags) ||
+            ASSERT(TESTANY(FRAG_IS_TRACE, res->flags) ||
+                   !TESTANY(FRAG_SHARED, res->flags) ||
                    fragment_coarse_lookup(dcontext, tag) == NULL);
         }
     }
@@ -8095,7 +8100,7 @@ fragment_lookup_fine_and_coarse_sharing(dcontext_t *dcontext, app_pc tag,
                                         uint share_flags)
 {
     fragment_t *res = fragment_lookup_same_sharing(dcontext, tag, share_flags);
-    if (DYNAMO_OPTION(coarse_units) && TEST(FRAG_SHARED, share_flags)) {
+    if (DYNAMO_OPTION(coarse_units) && TESTANY(FRAG_SHARED, share_flags)) {
         ASSERT(wrapper != NULL);
         if (res == NULL) {
             res = fragment_coarse_lookup_wrapper(dcontext, tag, wrapper);
@@ -8116,7 +8121,7 @@ get_fragment_coarse_info(fragment_t *f)
     /* We have multiple potential units per vmarea region, so we use the fcache
      * pc to get the unambiguous owning unit
      */
-    if (!TEST(FRAG_COARSE_GRAIN, f->flags))
+    if (!TESTANY(FRAG_COARSE_GRAIN, f->flags))
         return NULL;
     ASSERT(FCACHE_ENTRY_PC(f) != NULL);
     return get_fcache_coarse_info(FCACHE_ENTRY_PC(f));

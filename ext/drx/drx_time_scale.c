@@ -495,7 +495,7 @@ event_pre_syscall(void *drcontext, int sysnum)
                dr_get_thread_id(drcontext), flags, new_spec, old_spec);
         data->app_set_timer_param = new_spec;
         data->app_read_timer_param = old_spec;
-        if (TEST(TIMER_ABSTIME, flags)) {
+        if (TESTANY(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
@@ -524,7 +524,7 @@ event_pre_syscall(void *drcontext, int sysnum)
                dr_get_thread_id(drcontext), flags, new_spec, old_spec);
         data->app_set_timer_param = new_spec;
         data->app_read_timer_param = old_spec;
-        if (TEST(TIMER_ABSTIME, flags)) {
+        if (TESTANY(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
@@ -611,7 +611,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         data->app_set_timer_param = spec;
         data->app_read_timer_param = remain;
         data->was_zero = false;
-        if (TEST(TIMER_ABSTIME, flags)) {
+        if (TESTANY(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
@@ -643,7 +643,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         data->app_set_timer_param = spec;
         data->app_read_timer_param = remain;
         data->was_zero = false;
-        if (TEST(TIMER_ABSTIME, flags)) {
+        if (TESTANY(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */

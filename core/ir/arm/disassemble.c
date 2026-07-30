@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -265,7 +265,7 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM
 bool
 opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opnd_t opnd)
 {
-    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
+    if (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
         dr_shift_type_t shift = (dr_shift_type_t)opnd_get_immed_int(opnd);
         disassemble_shift(buf, bufsz, sofar, "", "", shift, false, 0);
         return true;
@@ -306,7 +306,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
         opnd_t memop = writes_list ? instr_get_src(instr, 0) : instr_get_dst(instr, 0);
         CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
         if (opnd_get_reg(opnd) == opnd_get_base(memop) &&
-            !TEST(DR_OPND_IN_LIST, opnd_get_flags(opnd)))
+            !TESTANY(DR_OPND_IN_LIST, opnd_get_flags(opnd)))
             return false; /* skip */
     }
     /* Writeback implicit operands for non-list instrs */
@@ -334,11 +334,11 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
                 return false; /* skip */
             type = opnd_get_index_shift(memop, &amount);
             if (opnd_is_immed_int(opnd) &&
-                ((!TEST(DR_OPND_SHIFTED, opnd_get_flags(memop)) &&
+                ((!TESTANY(DR_OPND_SHIFTED, opnd_get_flags(memop)) &&
                   /* rule out disp==0 hiding shift type */
                   max - tostore < 3 &&
                   opnd_get_immed_int(opnd) == opnd_get_disp(memop)) ||
-                 (TEST(DR_OPND_SHIFTED, opnd_get_flags(memop)) &&
+                 (TESTANY(DR_OPND_SHIFTED, opnd_get_flags(memop)) &&
                   (opnd_get_immed_int(opnd) == type ||
                    opnd_get_immed_int(opnd) == amount))))
                 return false; /* skip */
@@ -356,7 +356,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
         CLIENT_ASSERT(opnd_is_base_disp(memop), "internal disasm error");
         last = instr_get_dst(instr, instr_num_dsts(instr) - 1);
         writeback = (opnd_is_reg(last) && opnd_get_reg(last) == opnd_get_base(memop) &&
-                     !TEST(DR_OPND_IN_LIST, opnd_get_flags(last)));
+                     !TESTANY(DR_OPND_IN_LIST, opnd_get_flags(last)));
         reg_disassemble(buf, bufsz, sofar, opnd_get_base(memop), 0, "",
                         writes_list ? (writeback ? "!, " : ", ")
                                     : (writeback ? "!" : ""));
@@ -377,7 +377,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
             opnd_t prior =
                 dst ? instr_get_dst(instr, *idx - 1) : instr_get_src(instr, *idx - 1);
             if (opnd_is_immed_int(prior) &&
-                TEST(DR_OPND_IS_SHIFT, opnd_get_flags(prior))) {
+                TESTANY(DR_OPND_IS_SHIFT, opnd_get_flags(prior))) {
                 if (opnd_get_immed_int(prior) == DR_SHIFT_RRX)
                     return true; /* do not print value, which is always 1 */
                 /* No comma in between */
@@ -390,20 +390,20 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOU
     }
 
     /* Register lists */
-    if (opnd_is_reg(opnd) && TEST(DR_OPND_IN_LIST, opnd_get_flags(opnd))) {
+    if (opnd_is_reg(opnd) && TESTANY(DR_OPND_IN_LIST, opnd_get_flags(opnd))) {
         /* For now we do not print ranges as "r0-r4" but print each reg.
          * This matches some other decoders but not all.
          */
         opnd_t adj = opnd_create_null();
         if (*idx > 0)
             adj = dst ? instr_get_dst(instr, *idx - 1) : instr_get_src(instr, *idx - 1);
-        if (!opnd_is_reg(adj) || !TEST(DR_OPND_IN_LIST, opnd_get_flags(adj)))
+        if (!opnd_is_reg(adj) || !TESTANY(DR_OPND_IN_LIST, opnd_get_flags(adj)))
             print_to_buffer(buf, bufsz, sofar, "{");
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
         adj = opnd_create_null();
         if (*idx + 1 < max)
             adj = dst ? instr_get_dst(instr, *idx + 1) : instr_get_src(instr, *idx + 1);
-        if (!opnd_is_reg(adj) || !TEST(DR_OPND_IN_LIST, opnd_get_flags(adj))) {
+        if (!opnd_is_reg(adj) || !TESTANY(DR_OPND_IN_LIST, opnd_get_flags(adj))) {
             print_to_buffer(buf, bufsz, sofar, "}%s",
                             instr_is_priv_reglist(instr) ? "^" : "");
         }
@@ -469,7 +469,7 @@ print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
                                   opnd_get_immed_int(instr_get_src(instr, 0)));
         for (i = 1 /*1st is implied*/; i < info.num_instrs; i++) {
             print_to_buffer(buf, bufsz, sofar, "%c",
-                            TEST(BITMAP_MASK(i), info.preds) ? 't' : 'e');
+                            TESTANY(BITMAP_MASK(i), info.preds) ? 't' : 'e');
         }
     } else if (instr_is_predicated(instr)) {
         dr_pred_type_t pred = instr_get_predicate(instr);
