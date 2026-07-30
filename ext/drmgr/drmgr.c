@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -1090,7 +1090,7 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
         if (pt->in_emulation_region) {
             pt->emulation_info.flags &= ~DR_EMULATE_IS_FIRST_INSTR;
             if (drmgr_is_emulation_end(inst) ||
-                (TEST(DR_EMULATE_REST_OF_BLOCK, pt->emulation_info.flags) &&
+                (TESTANY(DR_EMULATE_REST_OF_BLOCK, pt->emulation_info.flags) &&
                  drmgr_is_last_instr(drcontext, inst)))
                 pt->in_emulation_region = false;
         }
@@ -3733,7 +3733,7 @@ drmgr_orig_app_instr_for_fetch(void *drcontext)
         return NULL;
     const emulated_instr_t *emulation;
     if (drmgr_in_emulation_region(drcontext, &emulation)) {
-        if (TEST(DR_EMULATE_IS_FIRST_INSTR, emulation->flags)) {
+        if (TESTANY(DR_EMULATE_IS_FIRST_INSTR, emulation->flags)) {
             return emulation->instr;
         } // Else skip further instr fetches until outside emulation region.
     } else if (instr_is_app(pt->insertion_instr)) {
@@ -3751,11 +3751,11 @@ drmgr_orig_app_instr_for_operands(void *drcontext)
         return NULL;
     const emulated_instr_t *emulation;
     if (drmgr_in_emulation_region(drcontext, &emulation)) {
-        if (TEST(DR_EMULATE_IS_FIRST_INSTR, emulation->flags) &&
-            !TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
+        if (TESTANY(DR_EMULATE_IS_FIRST_INSTR, emulation->flags) &&
+            !TESTANY(DR_EMULATE_INSTR_ONLY, emulation->flags))
             return emulation->instr;
         if (instr_is_app(pt->insertion_instr) &&
-            TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
+            TESTANY(DR_EMULATE_INSTR_ONLY, emulation->flags))
             return pt->insertion_instr;
     } else if (instr_is_app(pt->insertion_instr)) {
         return pt->insertion_instr;

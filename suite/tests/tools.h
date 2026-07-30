@@ -166,8 +166,6 @@ extern "C" {
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 /* check if any bit in mask is set in var */
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 #ifdef USE_DYNAMO
 /* to avoid non-api tests depending on dr_api headers we rely on test

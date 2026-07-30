@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -484,12 +484,12 @@ create_remote_thread(HANDLE hProc, PTHREAD_START_ROUTINE pfnThreadRtn, void *arg
     HANDLE hThread = NULL;
     if (remote_stack != NULL)
         *remote_stack = NULL;
-    if (TEST(CREATE_REMOTE_THREAD_USE_NT, flags)) {
+    if (TESTANY(CREATE_REMOTE_THREAD_USE_NT, flags)) {
         /* XXX - should we allow the caller to specify the stack sizes?
          * we already just use defaults if we're using CreateRemoteThread */
         hThread = nt_create_thread(hProc, pfnThreadRtn, arg, arg_buf, arg_buf_size,
                                    STACK_RESERVE, STACK_COMMIT, false, NULL,
-                                   TEST(CREATE_REMOTE_THREAD_TARGET_API, flags),
+                                   TESTANY(CREATE_REMOTE_THREAD_TARGET_API, flags),
                                    false /* !64-bit */, remote_stack);
     } else {
         DO_ASSERT(false && "not tested (not currently used)");
@@ -609,7 +609,7 @@ nudge_dr(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms,
          * As such we are left with two options: free the app stack here (nudgee free) or
          * have the nudge thread creator free the app stack (nudger free). We use
          * nudge flags to specify which we are using. */
-        if (TEST(NUDGE_NUDGER_FREE_STACK, nudge_arg->flags) && remote_stack != NULL) {
+        if (TESTANY(NUDGE_NUDGER_FREE_STACK, nudge_arg->flags) && remote_stack != NULL) {
             VirtualFreeEx(hProcess, remote_stack, 0, MEM_RELEASE);
         }
     }

@@ -181,8 +181,7 @@ extern "C" {
 #endif
 
 #ifndef TESTANY
-#    define TEST(mask, var) (((mask) & (var)) != 0)
-#    define TESTANY TEST
+#    define TESTANY(mask, var) (((mask) & (var)) != 0)
 #    define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #    define TESTONE(mask, var) test_one_bit_set((mask) & (var))
 #endif

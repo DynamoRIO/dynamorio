@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -315,7 +315,7 @@ module_list_remove(app_pc base, size_t view_size)
         /* don't notify for drearlyhelper* or other during-init modules */
         && dynamo_initialized
         /* don't notify for modules that were not executed (i#884) */
-        && TEST(MODULE_LOAD_EVENT, ma->flags)) {
+        && TESTANY(MODULE_LOAD_EVENT, ma->flags)) {
         client_data = copy_module_area_to_module_data(ma);
         inform_client = true;
     }

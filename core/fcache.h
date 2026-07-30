@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,18 +47,18 @@
  * perf hit in speccpu of having separate priv bb cache that's not
  * normally used)
  */
-#define IN_TRACE_CACHE(flags)        \
-    (TEST(FRAG_IS_TRACE, (flags)) || \
-     (!DYNAMO_OPTION(shared_traces) && TEST(FRAG_TEMP_PRIVATE, (flags))))
+#define IN_TRACE_CACHE(flags)           \
+    (TESTANY(FRAG_IS_TRACE, (flags)) || \
+     (!DYNAMO_OPTION(shared_traces) && TESTANY(FRAG_TEMP_PRIVATE, (flags))))
 
 /* Case 8647: we don't need to pad jmps for coarse-grain bbs */
 #define PAD_FRAGMENT_JMPS(flags) \
-    (TEST(FRAG_COARSE_GRAIN, (flags)) ? false : DYNAMO_OPTION(pad_jmps))
+    (TESTANY(FRAG_COARSE_GRAIN, (flags)) ? false : DYNAMO_OPTION(pad_jmps))
 
-#define PAD_JMPS_SHIFT_START(flags)                                              \
-    (PAD_FRAGMENT_JMPS(flags)                                                    \
-         ? (TEST(FRAG_IS_TRACE, (flags)) ? INTERNAL_OPTION(pad_jmps_shift_trace) \
-                                         : INTERNAL_OPTION(pad_jmps_shift_bb))   \
+#define PAD_JMPS_SHIFT_START(flags)                                                 \
+    (PAD_FRAGMENT_JMPS(flags)                                                       \
+         ? (TESTANY(FRAG_IS_TRACE, (flags)) ? INTERNAL_OPTION(pad_jmps_shift_trace) \
+                                            : INTERNAL_OPTION(pad_jmps_shift_bb))   \
          : false)
 
 /* control over what to reset */
@@ -143,11 +143,11 @@ fcache_low_on_memory(void);
 
 /* macros to put mask check outside of function, for efficiency */
 /* when NULL is passed for f then the entire fcache will be affected */
-#define SELF_PROTECT_CACHE(dc, f, w)                             \
-    do {                                                         \
-        if (TEST(SELFPROT_CACHE, dynamo_options.protect_mask) && \
-            ((f) == NULL || (fcache_is_writable(f) != (w))))     \
-            fcache_change_fragment_protection(dc, f, w);         \
+#define SELF_PROTECT_CACHE(dc, f, w)                                \
+    do {                                                            \
+        if (TESTANY(SELFPROT_CACHE, dynamo_options.protect_mask) && \
+            ((f) == NULL || (fcache_is_writable(f) != (w))))        \
+            fcache_change_fragment_protection(dc, f, w);            \
     } while (0);
 
 bool

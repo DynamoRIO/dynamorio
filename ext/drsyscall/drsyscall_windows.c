@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,7 +66,7 @@ static const char *const sysnum_names[] = {
                w8x86, w8wow, w8x64, w81x86, w81wow, w81x64, w10x86, w10wow, w10x64,     \
                w11x86, w11wow, w11x64, w12x86, w12wow, w12x64, w13x86, w13wow, w13x64,  \
                w14x86, w14wow, w14x64, w15x86, w15wow, w15x64)                          \
-#    n,
+    #n,
 #include "drsyscall_numx.h"
 #undef USER32
 };
@@ -651,7 +651,7 @@ check_syscall_entry(void *drcontext, const module_data_t *info, syscall_info_t *
         return;
     if (syslist->num.secondary != 0 && win_ver.version > syslist->num.secondary)
         return;
-    if (TEST(SYSINFO_REQUIRES_PREFIX, syslist->flags))
+    if (TESTANY(SYSINFO_REQUIRES_PREFIX, syslist->flags))
         optional_prefix = NULL;
     if (info != NULL) {
         drsys_sysnum_t num_from_wrapper;
@@ -676,7 +676,7 @@ get_primary_syscall_num(void *drcontext, const module_data_t *info,
         return ok;
     if (syslist->num.secondary != 0 && win_ver.version > syslist->num.secondary)
         return ok;
-    if (TEST(SYSINFO_REQUIRES_PREFIX, syslist->flags))
+    if (TESTANY(SYSINFO_REQUIRES_PREFIX, syslist->flags))
         optional_prefix = NULL;
     /* i#388: we try our name2num table first.  We need it anyway for wrappers that
      * are not exported or when we don't have symbol info.  The table has both
@@ -738,7 +738,7 @@ add_syscall_entry(void *drcontext, const module_data_t *info, syscall_info_t *sy
      * is a pointer to secondary table. So we shouldn't
      * rewrite them here.
      */
-    if (syslist->num_out != NULL && !TEST(SYSINFO_SECONDARY_TABLE, syslist->flags))
+    if (syslist->num_out != NULL && !TESTANY(SYSINFO_SECONDARY_TABLE, syslist->flags))
         *syslist->num_out = syslist->num;
     if (add_name2num) {
         /* Add the Nt variant only if a secondary, which our numx.h table doesn't have */
@@ -974,7 +974,7 @@ drsyscall_os_init(void *drcontext)
         /* check whether syscall has additional entries */
         ok =
             add_syscall_entry(drcontext, data, &syscall_ntdll_info[i], NULL, true, false);
-        if (TEST(SYSINFO_SECONDARY_TABLE, syscall_ntdll_info[i].flags) && ok)
+        if (TESTANY(SYSINFO_SECONDARY_TABLE, syscall_ntdll_info[i].flags) && ok)
             secondary_syscall_setup(drcontext, data, &syscall_ntdll_info[i], NULL);
         DODEBUG({ check_syscall_entry(drcontext, data, &syscall_ntdll_info[i], NULL); });
     }
@@ -1000,7 +1000,7 @@ drsyscall_os_init(void *drcontext)
              */
             ok = add_syscall_entry(drcontext, NULL, &syscall_user32_info[i], "NtUser",
                                    false /*already added*/, false);
-            if (TEST(SYSINFO_SECONDARY_TABLE, syscall_user32_info[i].flags) && ok) {
+            if (TESTANY(SYSINFO_SECONDARY_TABLE, syscall_user32_info[i].flags) && ok) {
                 secondary_syscall_setup(drcontext, data, &syscall_user32_info[i],
                                         wingdi_get_secondary_syscall_num);
             }
@@ -1069,13 +1069,13 @@ drsyscall_os_module_load(void *drcontext, const module_data_t *info, bool loaded
             if (syscall_numbers_unknown) {
                 add_syscall_entry(drcontext, info, &syscall_user32_info[i], "NtUser",
                                   true, false);
-                if (TEST(SYSINFO_SECONDARY_TABLE, syscall_user32_info[i].flags)) {
+                if (TESTANY(SYSINFO_SECONDARY_TABLE, syscall_user32_info[i].flags)) {
                     secondary_syscall_setup(drcontext, info, &syscall_user32_info[i],
                                             wingdi_get_secondary_syscall_num);
                 }
             }
             DODEBUG({
-                if (!TEST(SYSINFO_IMM32_DLL, syscall_user32_info[i].flags)) {
+                if (!TESTANY(SYSINFO_IMM32_DLL, syscall_user32_info[i].flags)) {
                     check_syscall_entry(drcontext, info, &syscall_user32_info[i],
                                         "NtUser");
                 }
@@ -1087,7 +1087,7 @@ drsyscall_os_module_load(void *drcontext, const module_data_t *info, bool loaded
          stri_eq(modname, "win32u.dll"))) {
         DODEBUG({
             for (i = 0; i < num_user32_syscalls(); i++) {
-                if (TEST(SYSINFO_IMM32_DLL, syscall_user32_info[i].flags)) {
+                if (TESTANY(SYSINFO_IMM32_DLL, syscall_user32_info[i].flags)) {
                     check_syscall_entry(drcontext, info, &syscall_user32_info[i],
                                         "NtUser");
                 }
@@ -1180,7 +1180,7 @@ os_syscall_ret_small_write_last(syscall_info_t *info, ptr_int_t res)
     /* i#486, i#932: syscalls that return the capacity needed in an OUT
      * param will still write to it when returning STATUS_BUFFER_TOO_SMALL
      */
-    if (!TEST(SYSINFO_RET_SMALL_WRITE_LAST, info->flags))
+    if (!TESTANY(SYSINFO_RET_SMALL_WRITE_LAST, info->flags))
         return false;
     if (info->return_type == DRSYS_TYPE_NTSTATUS) {
         return (res == STATUS_BUFFER_TOO_SMALL ||
@@ -1235,7 +1235,7 @@ os_syscall_succeeded(drsys_sysnum_t sysnum, syscall_info_t *info, cls_syscall_t 
     if (info != NULL) {
         if (os_syscall_ret_small_write_last(info, res))
             return true;
-        if (TEST(SYSINFO_RET_ZERO_FAIL, info->flags) ||
+        if (TESTANY(SYSINFO_RET_ZERO_FAIL, info->flags) ||
             info->return_type == SYSARG_TYPE_BOOL32 ||
             info->return_type == SYSARG_TYPE_BOOL8 ||
             info->return_type == DRSYS_TYPE_HANDLE ||
@@ -1245,7 +1245,7 @@ os_syscall_succeeded(drsys_sysnum_t sysnum, syscall_info_t *info, cls_syscall_t 
          * also NT_CURRENT_PROCESS, so we rely on any syscalls that return
          * INVALID_HANDLE_VALUE for failure to use SYSINFO_RET_MINUS1_FAIL.
          */
-        if (TEST(SYSINFO_RET_MINUS1_FAIL, info->flags))
+        if (TESTANY(SYSINFO_RET_MINUS1_FAIL, info->flags))
             return (res != -1);
         if (info->return_type != DRSYS_TYPE_NTSTATUS) {
             /* We don't really know, so safest to assume it succeeded */
@@ -1296,8 +1296,8 @@ handle_port_message_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info
 {
     /* variable-length */
     PORT_MESSAGE pm;
-    if (TEST(SYSARG_WRITE, arg_info->flags) && ii->arg->pre &&
-        !TEST(SYSARG_READ, arg_info->flags)) {
+    if (TESTANY(SYSARG_WRITE, arg_info->flags) && ii->arg->pre &&
+        !TESTANY(SYSARG_READ, arg_info->flags)) {
         /* Struct is passed in uninit w/ max-len buffer after it.
          * XXX i#415: There is some ambiguity over the max, hence we choose
          * the lower estimation to avoid false positives.
@@ -1431,7 +1431,7 @@ handle_context_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info, app
             return true;
     }
 #else /* 32-bit X86 */
-    ASSERT(TEST(CONTEXT_i486, context_flags),
+    ASSERT(TESTANY(CONTEXT_i486, context_flags),
            "ContextFlags doesn't have CONTEXT_i486 bit set");
 
     /* CONTEXT structure on x86 consists of the following sections:
@@ -1547,7 +1547,7 @@ handle_security_descriptor_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *a
     const SECURITY_DESCRIPTOR *s = (SECURITY_DESCRIPTOR *)start;
     SECURITY_DESCRIPTOR_CONTROL flags;
     ASSERT(s != NULL, "descriptor must not be NULL"); /* caller should check */
-    ASSERT(!TEST(SYSARG_WRITE, arg_info->flags), "Should only be called for reads");
+    ASSERT(!TESTANY(SYSARG_WRITE, arg_info->flags), "Should only be called for reads");
     if (!ii->arg->pre) {
         /* Handling pre- is enough for reads */
         return true;
@@ -1561,11 +1561,11 @@ handle_security_descriptor_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *a
 
     ASSERT(sizeof(flags) == sizeof(s->Control), "");
     if (safe_read((void *)&s->Control, sizeof(flags), &flags)) {
-        if (TEST(SE_SACL_PRESENT, flags)) {
+        if (TESTANY(SE_SACL_PRESENT, flags)) {
             if (!report_memarg(ii, arg_info, (app_pc)&s->Sacl, sizeof(s->Sacl), NULL))
                 return true;
         }
-        if (TEST(SE_DACL_PRESENT, flags)) {
+        if (TESTANY(SE_DACL_PRESENT, flags)) {
             if (!report_memarg(ii, arg_info, (app_pc)&s->Dacl, sizeof(s->Dacl), NULL))
                 return true;
         }
@@ -1587,7 +1587,7 @@ handle_unicode_string_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_in
 
     /* we assume OUT fields just have their Buffer as OUT */
     if (ii->arg->pre) {
-        if (TEST(SYSARG_READ, arg_info->flags)) {
+        if (TESTANY(SYSARG_READ, arg_info->flags)) {
             if (!report_memarg(ii, arg_info, (byte *)&arg->Length, sizeof(arg->Length),
                                "UNICODE_STRING.Length"))
                 return true;
@@ -1609,7 +1609,7 @@ handle_unicode_string_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_in
             "UNICODE_STRING Buffer=" PFX " Length=%d MaximumLength=%d\n",
             (byte *)us.Buffer, us.Length, us.MaximumLength);
         if (ii->arg->pre) {
-            if (TEST(SYSARG_READ, arg_info->flags)) {
+            if (TESTANY(SYSARG_READ, arg_info->flags)) {
                 /* For IN params, the buffer size is passed as us.Length */
                 ASSERT(!ignore_len, "Length must be defined for IN params");
                 /* XXX i#519: Length doesn't include NULL, but NULL seems
@@ -1718,7 +1718,7 @@ handle_cwstring(sysarg_iter_info_t *ii, const char *id, byte *start,
     size_t maxsz = (size == 0) ? (MAX_PATH * sizeof(wchar_t)) : size;
     if (start == NULL)
         return false; /* nothing to do */
-    if (ii->arg->pre && !TEST(SYSARG_READ, arg_flags)) {
+    if (ii->arg->pre && !TESTANY(SYSARG_READ, arg_flags)) {
         if (!check_addr)
             return false;
         if (size > 0) {
@@ -1729,7 +1729,7 @@ handle_cwstring(sysarg_iter_info_t *ii, const char *id, byte *start,
             return true;
         }
     }
-    if (!ii->arg->pre && !TEST(SYSARG_WRITE, arg_flags))
+    if (!ii->arg->pre && !TESTANY(SYSARG_WRITE, arg_flags))
         return false; /*nothing to do */
     for (i = 0; i < maxsz; i += sizeof(wchar_t)) {
         if (safe != NULL)
@@ -1876,7 +1876,7 @@ handle_alpc_message_attributes_access(sysarg_iter_info_t *ii,
                 sizeof(arg->ValidAttributes), "ALPC_MESSAGE_ATTRIBUTES ValidAttributes",
                 DRSYS_TYPE_ALPC_MESSAGE_ATTRIBUTES, NULL))
             return true;
-        if (TEST(ALPC_MESSAGE_SECURITY_ATTRIBUTE, attributes)) {
+        if (TESTANY(ALPC_MESSAGE_SECURITY_ATTRIBUTE, attributes)) {
             /* Kernel does not write SecurityQos field. */
             if (!report_memarg_type(ii, arg_info->param, SYSARG_WRITE, start + delta,
                                     sizeof(((ALPC_SECURITY_ATTRIBUTES *)0)->Flags),
@@ -1892,7 +1892,7 @@ handle_alpc_message_attributes_access(sysarg_iter_info_t *ii,
                 return true;
             delta = sizeof(ALPC_SECURITY_ATTRIBUTES);
         }
-        if (TEST(ALPC_MESSAGE_VIEW_ATTRIBUTE, attributes)) {
+        if (TESTANY(ALPC_MESSAGE_VIEW_ATTRIBUTE, attributes)) {
             /* XXX: The kernel performs checks for each attribute, however it is checked
              * against AllocatedAttributes masked w/ ALPC_MESSAGE_SECURITY_ATTRIBUTE thus
              * making the additional checks unnecessary. Kernel does not write
@@ -1912,7 +1912,7 @@ handle_alpc_message_attributes_access(sysarg_iter_info_t *ii,
                 return true;
             delta += sizeof(ALPC_DATA_VIEW);
         }
-        if (TEST(ALPC_MESSAGE_CONTEXT_ATTRIBUTE, attributes)) {
+        if (TESTANY(ALPC_MESSAGE_CONTEXT_ATTRIBUTE, attributes)) {
             if (!report_memarg_type(ii, arg_info->param, SYSARG_WRITE, start + delta,
                                     sizeof(ALPC_CONTEXT_ATTRIBUTES),
                                     "exposed ALPC_CONTEXT_ATTRIBUTES", DRSYS_TYPE_STRUCT,
@@ -1920,7 +1920,7 @@ handle_alpc_message_attributes_access(sysarg_iter_info_t *ii,
                 return true;
             delta += sizeof(ALPC_CONTEXT_ATTRIBUTES);
         }
-        if (TEST(ALPC_MESSAGE_HANDLE_ATTRIBUTE, attributes)) {
+        if (TESTANY(ALPC_MESSAGE_HANDLE_ATTRIBUTE, attributes)) {
             if (!report_memarg_type(ii, arg_info->param, SYSARG_WRITE, start + delta,
                                     sizeof(ALPC_HANDLE_ATTRIBUTES),
                                     "exposed ALPC_MESSAGE_HANDLE_ATTRIBUTES",
@@ -1959,7 +1959,7 @@ static bool
 os_handle_syscall_arg_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
                              app_pc start, uint size)
 {
-    if (!TEST(SYSARG_COMPLEX_TYPE, arg_info->flags))
+    if (!TESTANY(SYSARG_COMPLEX_TYPE, arg_info->flags))
         return false;
 
     switch (arg_info->misc) {
@@ -2882,12 +2882,12 @@ handle_AFD_ioctl(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
             AFD_TDI_HANDLE_DATA *info = (AFD_TDI_HANDLE_DATA *)pt->sysarg[8];
             uint flags;
             if (safe_read(inbuf, sizeof(flags), &flags) && outsz == sizeof(*info)) {
-                if (TEST(AFD_ADDRESS_HANDLE, flags)) {
+                if (TESTANY(AFD_ADDRESS_HANDLE, flags)) {
                     MARK_WRITE(ii, (byte *)&info->TdiAddressHandle,
                                sizeof(info->TdiAddressHandle),
                                "AFD_TDI_HANDLE_DATA.TdiAddressHandle");
                 }
-                if (TEST(AFD_CONNECTION_HANDLE, flags)) {
+                if (TESTANY(AFD_CONNECTION_HANDLE, flags)) {
                     MARK_WRITE(ii, (byte *)&info->TdiConnectionHandle,
                                sizeof(info->TdiConnectionHandle),
                                "AFD_TDI_HANDLE_DATA.TdiConnectionHandle");

@@ -82,7 +82,7 @@ also see emit_inline_ibl_stub() below
  * a different memory space with self-protection
  */
 #define UNPROT_OFFS(dcontext, offs)                                            \
-    (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)                      \
+    (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)                   \
          ? (((ptr_uint_t)((dcontext)->upcontext.separate_upcontext)) + (offs)) \
          : (((ptr_uint_t)(dcontext)) + (offs)))
 
@@ -322,13 +322,13 @@ insert_jmp_to_ibl(byte *pc, fragment_t *f, linkstub_t *l, cache_pc exit_target,
          * this exit since it's never referenced.
          */
         LOG(THREAD, LOG_LINKS, 4, "\tF%d using %s shared syscalls link stub\n", f->id,
-            TEST(FRAG_IS_TRACE, f->flags) ? "trace" : "bb");
-        l = (linkstub_t *)(TEST(FRAG_IS_TRACE, f->flags)
+            TESTANY(FRAG_IS_TRACE, f->flags) ? "trace" : "bb");
+        l = (linkstub_t *)(TESTANY(FRAG_IS_TRACE, f->flags)
                                ? get_shared_syscalls_trace_linkstub()
                                : get_shared_syscalls_bb_linkstub());
     }
 #endif
-    if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
         /* XXX: once we separate these we should switch to 15-byte w/
          * store-to-mem instead of in a spilled xbx, to use same
          * slots as coarse direct stubs
@@ -374,7 +374,7 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
 
     for (inst = instrlist_first(ilist); inst != NULL; inst = instr_get_next(inst)) {
         /* don't support non exit cti patchable instructions yet */
-        ASSERT_NOT_IMPLEMENTED(!TEST(INSTR_HOT_PATCHABLE, inst->flags));
+        ASSERT_NOT_IMPLEMENTED(!TESTANY(INSTR_HOT_PATCHABLE, inst->flags));
         if (instr_is_exit_cti(inst)) {
             /* see if we need to be able to patch this instruction */
             if (is_exit_cti_patchable(dcontext, inst, f->flags)) {
@@ -544,7 +544,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 
     /* select the correct exit target */
     if (LINKSTUB_DIRECT(l_flags)) {
-        if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
             /* need to target the fcache return prefix */
             exit_target = fcache_return_coarse_prefix(stub_pc, NULL);
             ASSERT(exit_target != NULL);
@@ -554,7 +554,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         ASSERT(LINKSTUB_INDIRECT(l_flags));
         /* caller shouldn't call us if no stub */
         ASSERT(EXIT_HAS_STUB(l_flags, f->flags));
-        if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
             /* need to target the ibl prefix */
             exit_target =
                 get_coarse_ibl_prefix(dcontext, stub_pc, extract_branchtype(l_flags));
@@ -583,7 +583,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 
     if (indirect) {
         pc = insert_jmp_to_ibl(pc, f, l, exit_target, dcontext);
-    } else if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+    } else if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
         /* This is an entrance stub.  It may be executed even when linked,
          * so we store target info to memory instead of a register.
          * The exact bytes used here are assumed by entrance_stub_target_tag().
@@ -766,7 +766,7 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         pc = EXIT_CTI_PC(f, l);
         /* for x64, or -unsafe_ignore_eflags_trace, a trace may have a jne to the stub */
         if (*pc == JNE_OPCODE_1) {
-            ASSERT(TEST(FRAG_IS_TRACE, f->flags));
+            ASSERT(TESTANY(FRAG_IS_TRACE, f->flags));
 #ifndef X64
             ASSERT(INTERNAL_OPTION(unsafe_ignore_eflags_trace));
 #endif
@@ -798,7 +798,7 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         return NULL;
     /* for x64, or -unsafe_ignore_eflags_trace, a trace may have a jne to the stub */
     if (*cti == JNE_OPCODE_1) {
-        ASSERT(TEST(FRAG_IS_TRACE, f->flags));
+        ASSERT(TESTANY(FRAG_IS_TRACE, f->flags));
 #ifndef X64
         ASSERT(INTERNAL_OPTION(unsafe_ignore_eflags_trace));
 #endif
@@ -808,13 +808,13 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             stub = (cache_pc)PC_RELATIVE_TARGET(cti + 1 /*opcode byte*/);
         } else {
             /* case 6532/10987: frozen coarse has no jmp to stub */
-            ASSERT(TEST(FRAG_COARSE_GRAIN, f->flags));
+            ASSERT(TESTANY(FRAG_COARSE_GRAIN, f->flags));
             ASSERT(coarse_is_indirect_stub(cti));
             stub = cti;
         }
     }
     ASSERT(stub >= cti && (stub - cti) <= MAX_FRAGMENT_SIZE);
-    if (!TEST(LINK_LINKED, l->flags)) {
+    if (!TESTANY(LINK_LINKED, l->flags)) {
         /* the unlink target is not always the start of the stub */
         stub -= linkstub_unlink_entry_offset(dcontext, f, l);
         /* XXX: for -no_indirect_stubs we could point exit cti directly
@@ -857,11 +857,11 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      * state (we do have multi-stage modifications for inlined stubs)
      */
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-    ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
     /* target is always the same, so if it's already unlinked, this is a nop */
-    if (!TEST(LINK_LINKED, l->flags))
+    if (!TESTANY(LINK_LINKED, l->flags))
         return;
 
 #ifdef WINDOWS
@@ -893,7 +893,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             pc = EXIT_CTI_PC(f, l);
             /* for x64, or -unsafe_ignore_eflags_trace, a trace may have a jne */
             if (*pc == JNE_OPCODE_1) {
-                ASSERT(TEST(FRAG_IS_TRACE, f->flags));
+                ASSERT(TESTANY(FRAG_IS_TRACE, f->flags));
 #ifndef X64
                 ASSERT(INTERNAL_OPTION(unsafe_ignore_eflags_trace));
 #endif
@@ -1013,7 +1013,7 @@ coarse_is_entrance_stub(cache_pc stub)
 int
 fragment_ibt_prefix_size(uint flags)
 {
-    bool use_eflags_restore = TEST(FRAG_IS_TRACE, flags)
+    bool use_eflags_restore = TESTANY(FRAG_IS_TRACE, flags)
         ? !DYNAMO_OPTION(trace_single_restore_prefix)
         : !DYNAMO_OPTION(bb_single_restore_prefix);
     /* The common case is !INTERNAL_OPTION(unsafe_ignore_eflags*) so
@@ -1031,9 +1031,9 @@ fragment_ibt_prefix_size(uint flags)
     }
     if (!use_eflags_restore)
         return PREFIX_BASE(flags) - RESTORE_XAX_PREFIX(flags);
-    if (TEST(FRAG_WRITES_EFLAGS_6, flags)) /* no flag restoration needed */
+    if (TESTANY(FRAG_WRITES_EFLAGS_6, flags)) /* no flag restoration needed */
         return PREFIX_BASE(flags);
-    else if (TEST(FRAG_WRITES_EFLAGS_OF, flags)) /* no OF restoration needed */
+    else if (TESTANY(FRAG_WRITES_EFLAGS_OF, flags)) /* no OF restoration needed */
         return (PREFIX_BASE(flags) + PREFIX_SIZE_FIVE_EFLAGS);
     else { /* must restore all 6 flags */
         if (INTERNAL_OPTION(unsafe_ignore_overflow)) {
@@ -1094,7 +1094,7 @@ void
 insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 {
     byte *pc = (byte *)f->start_pc;
-    bool insert_eflags_xax_restore = TEST(FRAG_IS_TRACE, f->flags)
+    bool insert_eflags_xax_restore = TESTANY(FRAG_IS_TRACE, f->flags)
         ? !DYNAMO_OPTION(trace_single_restore_prefix)
         : !DYNAMO_OPTION(bb_single_restore_prefix);
     ASSERT(f->prefix_size == 0); /* shouldn't be any prefixes yet */
@@ -1104,8 +1104,8 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
              !INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) &&
             insert_eflags_xax_restore) {
             if (!INTERNAL_OPTION(unsafe_ignore_eflags_prefix) &&
-                !TEST(FRAG_WRITES_EFLAGS_6, f->flags)) {
-                if (!TEST(FRAG_WRITES_EFLAGS_OF, f->flags) &&
+                !TESTANY(FRAG_WRITES_EFLAGS_6, f->flags)) {
+                if (!TESTANY(FRAG_WRITES_EFLAGS_OF, f->flags) &&
                     !INTERNAL_OPTION(unsafe_ignore_overflow)) {
                     DEBUG_DECLARE(byte *restore_of_prefix_pc = pc;)
                     /* must restore OF
@@ -1183,7 +1183,7 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
                               opnd_create_reg(REG_DCXT)));
 #endif
         APP(ilist, XINST_CREATE_load(dcontext, opnd_create_reg(REG_DCXT), OPND_ARG1));
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+        if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
             APP(ilist, RESTORE_FROM_DC(dcontext, REG_DCXT_PROT, PROT_OFFS));
     }
 #ifdef UNIX
@@ -1380,18 +1380,18 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *    RESTORE_FROM_UPCONTEXT xbx_OFFSET,%xbx
  *    RESTORE_FROM_UPCONTEXT xcx_OFFSET,%xcx
  *    RESTORE_FROM_UPCONTEXT xdx_OFFSET,%xdx
- *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    RESTORE_FROM_UPCONTEXT xdx_OFFSET,%xdx
- *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
  *  endif
- *  if (absolute || TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
  *  endif
  *    RESTORE_FROM_UPCONTEXT xbp_OFFSET,%xbp
  *    RESTORE_FROM_UPCONTEXT xsp_OFFSET,%xsp
  *  if (!absolute)
- *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *      RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
  *    else
  *      RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
@@ -1416,16 +1416,16 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XCX, XCX_OFFSET));
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDX, XDX_OFFSET));
     /* must restore esi last */
-    if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+    if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
         APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSI, XSI_OFFSET));
     /* must restore edi last */
-    if (absolute || TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+    if (absolute || TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
         APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDI, XDI_OFFSET));
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XBP, XBP_OFFSET));
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSP, XSP_OFFSET));
     /* must restore esi last */
     if (!absolute) {
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+        if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
             APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSI, XSI_OFFSET));
         else
             APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDI, XDI_OFFSET));
@@ -1453,7 +1453,7 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  endif
  *    SAVE_TO_UPCONTEXT %xcx,xcx_OFFSET
  *    SAVE_TO_UPCONTEXT %xdx,xdx_OFFSET
- *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    SAVE_TO_UPCONTEXT %xsi,xsi_OFFSET
  *  endif
  *
@@ -1526,7 +1526,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
         APP(ilist, SAVE_TO_DC(dcontext, REG_XCX, XCX_OFFSET));
     }
     APP(ilist, SAVE_TO_DC(dcontext, REG_XDX, XDX_OFFSET));
-    if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+    if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
         APP(ilist, SAVE_TO_DC(dcontext, REG_XSI, XSI_OFFSET));
     if (absolute) /* else xdi saved above */
         APP(ilist, SAVE_TO_DC(dcontext, REG_XDI, XDI_OFFSET));
@@ -1764,7 +1764,7 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uin
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
 
-    if (TEST(FRAG_WRITES_EFLAGS_6, flags)) /* no flag save needed */
+    if (TESTANY(FRAG_WRITES_EFLAGS_6, flags)) /* no flag save needed */
         return;
     /* save the flags */
     /*>>>    SAVE_TO_TLS/UPCONTEXT %xax,xax_tls_slot/xax_OFFSET  */
@@ -1792,7 +1792,7 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, uin
         PRE(ilist, where, SAVE_TO_DC(dcontext, REG_XAX, XAX_OFFSET));
     }
     PRE(ilist, where, INSTR_CREATE_lahf(dcontext));
-    if (!TEST(FRAG_WRITES_EFLAGS_OF, flags) &&
+    if (!TESTANY(FRAG_WRITES_EFLAGS_OF, flags) &&
         !INTERNAL_OPTION(unsafe_ignore_overflow)) { /* OF needs saving */
         /* Move OF flags into the OF flag spill slot. */
         PRE(ilist, where, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
@@ -1812,9 +1812,9 @@ insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
 
-    if (TEST(FRAG_WRITES_EFLAGS_6, flags)) /* no flag save was done */
+    if (TESTANY(FRAG_WRITES_EFLAGS_6, flags)) /* no flag save was done */
         return;
-    if (!TEST(FRAG_WRITES_EFLAGS_OF, flags) && /* OF was saved */
+    if (!TESTANY(FRAG_WRITES_EFLAGS_OF, flags) && /* OF was saved */
         !INTERNAL_OPTION(unsafe_ignore_overflow)) {
         /* restore OF using add that overflows and sets OF
          * if OF was on when we did seto
@@ -2859,7 +2859,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         ASSERT(linkstub != NULL);
     }
 
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         /* in order to write next_tag we must unprotect -- and we don't
          * have safe stack yet!  so we duplicate fcache_return code here,
          * but we keep xcx w/ next tag around until we can store it as next_tag.

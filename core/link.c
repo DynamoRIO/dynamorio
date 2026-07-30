@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,9 +51,9 @@
 /* fragment_t and future_fragment_t are guaranteed to have flags field at same offset,
  * so we use it to find incoming_stubs offset
  */
-#define FRAG_INCOMING_ADDR(f)                                        \
-    ((common_direct_linkstub_t **)(!TEST(FRAG_IS_FUTURE, f->flags)   \
-                                       ? &f->in_xlate.incoming_stubs \
+#define FRAG_INCOMING_ADDR(f)                                         \
+    ((common_direct_linkstub_t **)(!TESTANY(FRAG_IS_FUTURE, f->flags) \
+                                       ? &f->in_xlate.incoming_stubs  \
                                        : &((future_fragment_t *)f)->incoming_stubs))
 
 /* forward decl */
@@ -390,7 +390,7 @@ linkstub_propagatable_flags(uint flags)
 bool
 linkstub_frag_offs_at_end(uint flags, int direct_exits, int indirect_exits)
 {
-    ASSERT((direct_exits + indirect_exits > 0) || TEST(FRAG_COARSE_GRAIN, flags));
+    ASSERT((direct_exits + indirect_exits > 0) || TESTANY(FRAG_COARSE_GRAIN, flags));
     /* common bb types do not have an offset at the end:
      * 1) single indirect exit
      * 2) two direct exits
@@ -402,21 +402,21 @@ linkstub_frag_offs_at_end(uint flags, int direct_exits, int indirect_exits)
      * XXX: make the sizeof calculation dynamic such that the dominant
      * type of bb fragment is the one w/o the post_linkstub_t.
      */
-    return !(!TEST(FRAG_IS_TRACE, flags) && TEST(FRAG_SHARED, flags) &&
+    return !(!TESTANY(FRAG_IS_TRACE, flags) && TESTANY(FRAG_SHARED, flags) &&
              /* We can't tell from the linkstub_t whether there is a
               * translation field.  XXX: we could avoid this problem
               * by storing the translation field after the linkstubs.
               */
-             !TEST(FRAG_HAS_TRANSLATION_INFO, flags) &&
+             !TESTANY(FRAG_HAS_TRANSLATION_INFO, flags) &&
              ((direct_exits == 2 && indirect_exits == 0) ||
               (direct_exits == 0 && indirect_exits == 1))) &&
-        !TEST(FRAG_COARSE_GRAIN, flags);
+        !TESTANY(FRAG_COARSE_GRAIN, flags);
 }
 
 bool
 use_cbr_fallthrough_short(uint flags, int direct_exits, int indirect_exits)
 {
-    ASSERT((direct_exits + indirect_exits > 0) || TEST(FRAG_COARSE_GRAIN, flags));
+    ASSERT((direct_exits + indirect_exits > 0) || TESTANY(FRAG_COARSE_GRAIN, flags));
     if (direct_exits != 2 || indirect_exits != 0)
         return false;
     /* cannot handle instrs inserted between cbr and fall-through jmp */
@@ -428,7 +428,7 @@ uint
 linkstubs_heap_size(uint flags, int direct_exits, int indirect_exits)
 {
     uint offset_sz, linkstub_size;
-    ASSERT((direct_exits + indirect_exits > 0) || TEST(FRAG_COARSE_GRAIN, flags));
+    ASSERT((direct_exits + indirect_exits > 0) || TESTANY(FRAG_COARSE_GRAIN, flags));
     if (use_cbr_fallthrough_short(flags, direct_exits, indirect_exits)) {
         linkstub_size = sizeof(direct_linkstub_t) + sizeof(cbr_fallthrough_linkstub_t);
     } else {
@@ -479,21 +479,21 @@ linkstub_fragment(dcontext_t *dcontext, linkstub_t *l)
      * hacks to distinguish types of structs by their final fields w/o
      * adding secondary flags fields.
      */
-    if (TEST(LINK_FRAG_OFFS_AT_END, l->flags)) {
+    if (TESTANY(LINK_FRAG_OFFS_AT_END, l->flags)) {
         /* For traces and unusual bbs, we store an offset to the
          * fragment_t at the end of the linkstub_t list.
          */
         post_linkstub_t *post;
         for (; !LINKSTUB_FINAL(l); l = LINKSTUB_NEXT_EXIT(l))
             ; /* nothing */
-        ASSERT(l != NULL && TEST(LINK_END_OF_LIST, l->flags));
+        ASSERT(l != NULL && TESTANY(LINK_END_OF_LIST, l->flags));
         post = (post_linkstub_t *)(((byte *)l) + LINKSTUB_SIZE(l));
         return (fragment_t *)(((byte *)post) - post->fragment_offset);
     } else {
         /* Otherwise, we assume this is one of 2 types of basic block! */
         if (LINKSTUB_INDIRECT(l->flags)) {
             /* Option 1: a single indirect exit */
-            ASSERT(TEST(LINK_END_OF_LIST, l->flags));
+            ASSERT(TESTANY(LINK_END_OF_LIST, l->flags));
             return (fragment_t *)(((byte *)l) - sizeof(fragment_t));
         } else {
             ASSERT(LINKSTUB_DIRECT(l->flags));
@@ -502,7 +502,7 @@ linkstub_fragment(dcontext_t *dcontext, linkstub_t *l)
              * (single direct exit is very rare but if later becomes common
              * could add a LINK_ flag to distinguish)
              */
-            if (TEST(LINK_END_OF_LIST, l->flags)) {
+            if (TESTANY(LINK_END_OF_LIST, l->flags)) {
                 return (fragment_t *)(((byte *)l) - sizeof(direct_linkstub_t) -
                                       sizeof(fragment_t));
             } else {
@@ -523,13 +523,13 @@ linkstub_owned_by_fragment(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      * on fake fragments!
      */
     if (LINKSTUB_FAKE(l)) {
-        ASSERT(TEST(FRAG_FAKE, f->flags) ||
+        ASSERT(TESTANY(FRAG_FAKE, f->flags) ||
                /* during emit, coarse-grain has real fragment_t but sometimes fake
                 * linkstubs during linking
                 */
-               TEST(FRAG_COARSE_GRAIN, f->flags));
+               TESTANY(FRAG_COARSE_GRAIN, f->flags));
         /* Coarse-grain temp fragment_t's also have temp fake linkstub_t's */
-        if (TEST(FRAG_COARSE_GRAIN, f->flags))
+        if (TESTANY(FRAG_COARSE_GRAIN, f->flags))
             return true;
         else {
             return (
@@ -616,7 +616,7 @@ last_exit_deleted(dcontext_t *dcontext)
     /* Store which exit this is, for trace building.
      * Our ordinal is the count from the end.
      */
-    if (TEST(FRAG_FAKE, dcontext->last_fragment->flags))
+    if (TESTANY(FRAG_FAKE, dcontext->last_fragment->flags))
         ldata->linkstub_deleted_ordinal = -1; /* invalid */
     else {
         ldata->linkstub_deleted_ordinal = 0;
@@ -803,15 +803,15 @@ is_ibl_sourceless_linkstub(const linkstub_t *l)
 const linkstub_t *
 get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags)
 {
-    if (TEST(FRAG_IS_TRACE, frag_flags)) {
-        if (TEST(LINK_RETURN, link_flags))
+    if (TESTANY(FRAG_IS_TRACE, frag_flags)) {
+        if (TESTANY(LINK_RETURN, link_flags))
             return &linkstub_ibl_trace_ret;
         if (EXIT_IS_JMP(link_flags))
             return &linkstub_ibl_trace_jmp;
         if (EXIT_IS_CALL(link_flags))
             return &linkstub_ibl_trace_call;
     } else {
-        if (TEST(LINK_RETURN, link_flags))
+        if (TESTANY(LINK_RETURN, link_flags))
             return &linkstub_ibl_bb_ret;
         if (EXIT_IS_JMP(link_flags))
             return &linkstub_ibl_bb_jmp;
@@ -870,13 +870,13 @@ local_exit_stub_size(dcontext_t *dcontext, app_pc target, uint fragment_flags)
      */
     int sz = exit_stub_size(dcontext, target, fragment_flags);
     if (((DYNAMO_OPTION(separate_private_stubs) &&
-          !TEST(FRAG_COARSE_GRAIN, fragment_flags) &&
-          !TEST(FRAG_SHARED, fragment_flags)) ||
+          !TESTANY(FRAG_COARSE_GRAIN, fragment_flags) &&
+          !TESTANY(FRAG_SHARED, fragment_flags)) ||
          (DYNAMO_OPTION(separate_shared_stubs) &&
-          !TEST(FRAG_COARSE_GRAIN, fragment_flags) &&
-          TEST(FRAG_SHARED, fragment_flags)) ||
+          !TESTANY(FRAG_COARSE_GRAIN, fragment_flags) &&
+          TESTANY(FRAG_SHARED, fragment_flags)) ||
          /* entrance stubs are always separated */
-         (TEST(FRAG_COARSE_GRAIN, fragment_flags)
+         (TESTANY(FRAG_COARSE_GRAIN, fragment_flags)
           /* XXX: for now we inline ind stubs but eventually we want to separate.
            * We need this check only for coarse since its stubs are the same size
            * as the direct stubs.
@@ -887,7 +887,7 @@ local_exit_stub_size(dcontext_t *dcontext, app_pc target, uint fragment_flags)
          * results in the stub size
          */
         sz ==
-            (TEST(FRAG_COARSE_GRAIN, fragment_flags)
+            (TESTANY(FRAG_COARSE_GRAIN, fragment_flags)
                  ? STUB_COARSE_DIRECT_SIZE(fragment_flags)
                  : DIRECT_EXIT_STUB_SIZE(fragment_flags)))
         return 0;
@@ -911,7 +911,7 @@ separate_stub_create(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(LINKSTUB_DIRECT(l->flags));
     ASSERT(DYNAMO_OPTION(separate_private_stubs) || DYNAMO_OPTION(separate_shared_stubs));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
-    ASSERT(TEST(LINK_SEPARATE_STUB, l->flags));
+    ASSERT(TESTANY(LINK_SEPARATE_STUB, l->flags));
     if (LINKSTUB_CBR_FALLTHROUGH(l->flags)) {
         /* there is no field for the fallthrough of a short cbr -- it assumes
          * the cbr and fallthrough stubs are contiguous, and calculates its
@@ -942,12 +942,12 @@ separate_stub_create(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     DOSTATS({
         size_t alloc_size = SEPARATE_STUB_ALLOC_SIZE(f->flags);
         STATS_INC(num_separate_stubs);
-        if (TEST(FRAG_SHARED, f->flags)) {
-            if (TEST(FRAG_IS_TRACE, f->flags))
+        if (TESTANY(FRAG_SHARED, f->flags)) {
+            if (TESTANY(FRAG_IS_TRACE, f->flags))
                 STATS_ADD(separate_shared_trace_direct_stubs, alloc_size);
             else
                 STATS_ADD(separate_shared_bb_direct_stubs, alloc_size);
-        } else if (TEST(FRAG_IS_TRACE, f->flags))
+        } else if (TESTANY(FRAG_IS_TRACE, f->flags))
             STATS_ADD(separate_trace_direct_stubs, alloc_size);
         else
             STATS_ADD(separate_bb_direct_stubs, alloc_size);
@@ -963,7 +963,7 @@ separate_stub_free(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool dele
     ASSERT(LINKSTUB_DIRECT(l->flags));
     ASSERT(DYNAMO_OPTION(separate_private_stubs) || DYNAMO_OPTION(separate_shared_stubs));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
-    ASSERT(TEST(LINK_SEPARATE_STUB, l->flags));
+    ASSERT(TESTANY(LINK_SEPARATE_STUB, l->flags));
     ASSERT(exit_stub_size(dcontext, EXIT_TARGET_TAG(dcontext, f, l), f->flags) <=
            SEPARATE_STUB_ALLOC_SIZE(f->flags));
     if (LINKSTUB_CBR_FALLTHROUGH(l->flags)) {
@@ -990,13 +990,13 @@ separate_stub_free(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool dele
     }
     DOSTATS({
         size_t alloc_size = SEPARATE_STUB_ALLOC_SIZE(f->flags);
-        if (TEST(FRAG_SHARED, f->flags)) {
-            if (TEST(FRAG_IS_TRACE, f->flags)) {
+        if (TESTANY(FRAG_SHARED, f->flags)) {
+            if (TESTANY(FRAG_IS_TRACE, f->flags)) {
                 STATS_ADD(separate_shared_trace_direct_stubs, -(int)alloc_size);
             } else {
                 STATS_ADD(separate_shared_bb_direct_stubs, -(int)alloc_size);
             }
-        } else if (TEST(FRAG_IS_TRACE, f->flags))
+        } else if (TESTANY(FRAG_IS_TRACE, f->flags))
             STATS_SUB(separate_trace_direct_stubs, alloc_size);
         else
             STATS_SUB(separate_bb_direct_stubs, alloc_size);
@@ -1028,7 +1028,8 @@ linkstub_free_exitstubs(dcontext_t *dcontext, fragment_t *f)
 {
     linkstub_t *l;
     for (l = FRAGMENT_EXIT_STUBS(f); l != NULL; l = LINKSTUB_NEXT_EXIT(l)) {
-        if (TEST(LINK_SEPARATE_STUB, l->flags) && EXIT_STUB_PC(dcontext, f, l) != NULL) {
+        if (TESTANY(LINK_SEPARATE_STUB, l->flags) &&
+            EXIT_STUB_PC(dcontext, f, l) != NULL) {
             linkstub_t *nxt = linkstub_shares_next_stub(dcontext, f, l);
             if (nxt != NULL && !LINKSTUB_CBR_FALLTHROUGH(nxt->flags)) {
                 /* next linkstub shares our stub, so clear his now to avoid
@@ -1054,7 +1055,7 @@ linkstubs_shift(dcontext_t *dcontext, fragment_t *f, ssize_t shift)
          * we also don't need to shift indirect stubs as they do not store
          * an absolute pointer to their stub pc.
          */
-        if (!TEST(LINK_SEPARATE_STUB, l->flags) && LINKSTUB_NORMAL_DIRECT(l->flags)) {
+        if (!TESTANY(LINK_SEPARATE_STUB, l->flags) && LINKSTUB_NORMAL_DIRECT(l->flags)) {
             direct_linkstub_t *dl = (direct_linkstub_t *)l;
             dl->stub_pc += shift;
         } /* else, no change */
@@ -1090,17 +1091,17 @@ is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l,
     if (TESTANY(LINK_NI_SYSCALL_ALL, from_l->flags))
         return false;
 #ifdef WINDOWS
-    if (TEST(LINK_CALLBACK_RETURN, from_l->flags))
+    if (TESTANY(LINK_CALLBACK_RETURN, from_l->flags))
         return false;
 #endif
     /* never link a selfmod or any other unlinkable exit branch */
-    if (TEST(LINK_SPECIAL_EXIT, from_l->flags))
+    if (TESTANY(LINK_SPECIAL_EXIT, from_l->flags))
         return false;
     /* don't link from a non-outgoing-linked fragment, or to a
      * non-incoming-linked fragment, except for self-loops
      */
-    if ((!TEST(FRAG_LINKED_OUTGOING, from_f->flags) ||
-         !TEST(FRAG_LINKED_INCOMING, to_f->flags)) &&
+    if ((!TESTANY(FRAG_LINKED_OUTGOING, from_f->flags) ||
+         !TESTANY(FRAG_LINKED_INCOMING, to_f->flags)) &&
         from_f != to_f)
         return false;
     /* rarely set so we test it last */
@@ -1108,7 +1109,7 @@ is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l,
         return false;
 #if defined(UNIX) && !defined(DGC_DIAGNOSTICS)
     /* i#107, fragment having a OP_mov_seg instr cannot be linked. */
-    if (TEST(FRAG_HAS_MOV_SEG, to_f->flags))
+    if (TESTANY(FRAG_HAS_MOV_SEG, to_f->flags))
         return false;
 #endif
     return true;
@@ -1126,7 +1127,7 @@ link_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targ
 {
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     /* ASSUMPTION: always unlink before linking to somewhere else, so nop if linked */
-    if (INTERNAL_OPTION(nolink) || TEST(LINK_LINKED, l->flags))
+    if (INTERNAL_OPTION(nolink) || TESTANY(LINK_LINKED, l->flags))
         return;
     if (LINKSTUB_DIRECT(l->flags)) {
         LOG(THREAD, LOG_LINKS, 4,
@@ -1135,7 +1136,7 @@ link_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targ
 #ifdef TRACE_HEAD_CACHE_INCR
         {
             common_direct_linkstub_t *cdl = (common_direct_linkstub_t *)l;
-            if (TEST(FRAG_IS_TRACE_HEAD, targetf->flags))
+            if (TESTANY(FRAG_IS_TRACE_HEAD, targetf->flags))
                 cdl->target_fragment = targetf;
             else
                 cdl->target_fragment = NULL;
@@ -1147,11 +1148,11 @@ link_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targ
         } else {
             bool do_not_need_stub =
                 link_direct_exit(dcontext, f, l, targetf, hot_patch) &&
-                TEST(LINK_SEPARATE_STUB, l->flags) &&
-                ((DYNAMO_OPTION(free_private_stubs) && !TEST(FRAG_SHARED, f->flags)) ||
+                TESTANY(LINK_SEPARATE_STUB, l->flags) &&
+                ((DYNAMO_OPTION(free_private_stubs) && !TESTANY(FRAG_SHARED, f->flags)) ||
                  (DYNAMO_OPTION(unsafe_free_shared_stubs) &&
-                  TEST(FRAG_SHARED, f->flags)));
-            ASSERT(!TEST(FRAG_FAKE, f->flags) && !LINKSTUB_FAKE(l));
+                  TESTANY(FRAG_SHARED, f->flags)));
+            ASSERT(!TESTANY(FRAG_FAKE, f->flags) && !LINKSTUB_FAKE(l));
             if (do_not_need_stub)
                 separate_stub_free(dcontext, f, l, false);
         }
@@ -1197,7 +1198,7 @@ unlink_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             ASSERT(!LINKSTUB_FAKE(l));
             /* stub may already exist for TRACE_HEAD_CACHE_INCR */
             if (EXIT_STUB_PC(dcontext, f, l) == NULL &&
-                TEST(LINK_SEPARATE_STUB, l->flags))
+                TESTANY(LINK_SEPARATE_STUB, l->flags))
                 separate_stub_create(dcontext, f, l);
             unlink_direct_exit(dcontext, f, l);
         }
@@ -1236,9 +1237,9 @@ incoming_find_link(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     common_direct_linkstub_t *dl = (common_direct_linkstub_t *)l;
     ASSERT(LINKSTUB_DIRECT(l->flags));
     ASSERT(!LINKSTUB_FAKE(l) ||
-           (LINKSTUB_COARSE_PROXY(l->flags) && TEST(FRAG_COARSE_GRAIN, f->flags) &&
+           (LINKSTUB_COARSE_PROXY(l->flags) && TESTANY(FRAG_COARSE_GRAIN, f->flags) &&
             LINKSTUB_NORMAL_DIRECT(l->flags)));
-    if (TEST(FRAG_COARSE_GRAIN, targetf->flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, targetf->flags)) {
         coarse_incoming_t *e;
         coarse_info_t *info = get_fragment_coarse_info(targetf);
         ASSERT(info != NULL);
@@ -1291,7 +1292,7 @@ incoming_remove_link_nosearch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l
     ASSERT(prevl == NULL || LINKSTUB_DIRECT(prevl->flags));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(!LINKSTUB_FAKE(l) ||
-           (LINKSTUB_COARSE_PROXY(l->flags) && TEST(FRAG_COARSE_GRAIN, f->flags) &&
+           (LINKSTUB_COARSE_PROXY(l->flags) && TESTANY(FRAG_COARSE_GRAIN, f->flags) &&
             LINKSTUB_NORMAL_DIRECT(l->flags)));
     /* no links across caches so only checking f's sharedness is enough */
     ASSERT(!NEED_SHARED_LOCK(f->flags) || self_owns_recursive_lock(&change_linking_lock));
@@ -1309,7 +1310,7 @@ incoming_remove_link_nosearch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l
          */
         if (dl->next_incoming == NULL) {
             if (TESTALL(FRAG_TEMP_PRIVATE | FRAG_IS_FUTURE, targetf->flags) &&
-                !TEST(FRAG_WAS_DELETED, targetf->flags)) {
+                !TESTANY(FRAG_WAS_DELETED, targetf->flags)) {
                 /* this is a future created only as an outgoing link of a private
                  * bb created solely for trace creation.
                  * since it never had a real fragment that was executed, we can
@@ -1352,7 +1353,7 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     ASSERT(LINKSTUB_DIRECT(l->flags));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(!LINKSTUB_FAKE(l) ||
-           (LINKSTUB_COARSE_PROXY(l->flags) && TEST(FRAG_COARSE_GRAIN, f->flags) &&
+           (LINKSTUB_COARSE_PROXY(l->flags) && TESTANY(FRAG_COARSE_GRAIN, f->flags) &&
             LINKSTUB_NORMAL_DIRECT(l->flags)));
     for (s = *inlist, prevs = NULL; s;
          prevs = s, s = (common_direct_linkstub_t *)s->next_incoming) {
@@ -1382,10 +1383,10 @@ incoming_remove_link(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 {
     /* no links across caches so only checking f's sharedness is enough */
     ASSERT(!NEED_SHARED_LOCK(f->flags) || self_owns_recursive_lock(&change_linking_lock));
-    ASSERT(!LINKSTUB_COARSE_PROXY(l->flags) || TEST(FRAG_COARSE_GRAIN, f->flags));
-    ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags) ||
-           !TEST(FRAG_COARSE_GRAIN, targetf->flags));
-    if (TEST(FRAG_COARSE_GRAIN, targetf->flags)) {
+    ASSERT(!LINKSTUB_COARSE_PROXY(l->flags) || TESTANY(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT(!TESTANY(FRAG_COARSE_GRAIN, f->flags) ||
+           !TESTANY(FRAG_COARSE_GRAIN, targetf->flags));
+    if (TESTANY(FRAG_COARSE_GRAIN, targetf->flags)) {
         coarse_remove_incoming(dcontext, f, l, targetf);
     } else {
         if (incoming_remove_link_search(dcontext, f, l, targetf,
@@ -1415,7 +1416,7 @@ add_to_incoming_list(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     ASSERT(!incoming_link_exists(dcontext, f, l, targetf));
     /* no inter-cache incoming entries */
     ASSERT((f->flags & FRAG_SHARED) == (targetf->flags & FRAG_SHARED));
-    if (TEST(FRAG_COARSE_GRAIN, targetf->flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, targetf->flags)) {
         coarse_info_t *info = get_fragment_coarse_info(targetf);
         prepend_new_coarse_incoming(info, NULL, l);
     } else {
@@ -1448,7 +1449,7 @@ add_private_check_shared(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     if (!SHARED_FRAGMENTS_ENABLED())
         return;
-    ASSERT(!TEST(FRAG_SHARED, f->flags));
+    ASSERT(!TESTANY(FRAG_SHARED, f->flags));
     ASSERT(!SHARED_FRAGMENTS_ENABLED() || dynamo_exited ||
            self_owns_recursive_lock(&change_linking_lock));
     targetf = fragment_link_lookup_same_sharing(dcontext, target_tag, l, FRAG_SHARED);
@@ -1459,18 +1460,18 @@ add_private_check_shared(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
                                                                FRAG_SHARED);
     }
 
-    if (!TEST(FRAG_IS_TRACE_HEAD, targetf->flags)) {
+    if (!TESTANY(FRAG_IS_TRACE_HEAD, targetf->flags)) {
         uint th = should_be_trace_head(dcontext, f, l, target_tag, targetf->flags,
                                        true /* have linking lock*/);
-        if (TEST(TRACE_HEAD_YES, th)) {
-            if (TEST(FRAG_IS_FUTURE, targetf->flags)) {
+        if (TESTANY(TRACE_HEAD_YES, th)) {
+            if (TESTANY(FRAG_IS_FUTURE, targetf->flags)) {
                 LOG(THREAD, LOG_LINKS, 4, "    marking future (" PFX ") as trace head\n",
                     target_tag);
                 targetf->flags |= FRAG_IS_TRACE_HEAD;
             } else {
                 mark_trace_head(dcontext, targetf, f, l);
             }
-            ASSERT(!TEST(TRACE_HEAD_OBTAINED_LOCK, th));
+            ASSERT(!TESTANY(TRACE_HEAD_OBTAINED_LOCK, th));
         }
     }
 }
@@ -1487,7 +1488,7 @@ add_future_incoming(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(!SHARED_FRAGMENTS_ENABLED() || !dynamo_exited ||
            self_owns_recursive_lock(&change_linking_lock));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
-    if (!TEST(FRAG_SHARED, f->flags))
+    if (!TESTANY(FRAG_SHARED, f->flags))
         targetf = fragment_lookup_private_future(dcontext, target_tag);
     else
         targetf = fragment_lookup_future(dcontext, target_tag);
@@ -1505,7 +1506,7 @@ add_future_incoming(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     }
     add_to_incoming_list(dcontext, f, l, (fragment_t *)targetf, false);
 
-    if (!TEST(FRAG_SHARED, f->flags)) {
+    if (!TESTANY(FRAG_SHARED, f->flags)) {
         /* private fragments need to ensure a shared fragment/future exists,
          * and need to perform secondary trace head marking on it here!
          */
@@ -1520,13 +1521,13 @@ static void
 add_incoming(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targetf,
              bool linked)
 {
-    ASSERT(TEST(FRAG_SHARED, f->flags) == TEST(FRAG_SHARED, targetf->flags));
+    ASSERT(TESTANY(FRAG_SHARED, f->flags) == TESTANY(FRAG_SHARED, targetf->flags));
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     LOG(THREAD, LOG_LINKS, 4, "    add incoming F%d(" PFX ")." PFX " -> F%d(" PFX ")\n",
         f->id, f->tag, EXIT_CTI_PC(f, l), targetf->id, targetf->tag);
     add_to_incoming_list(dcontext, f, l, targetf, linked);
 
-    if (!TEST(FRAG_SHARED, f->flags)) {
+    if (!TESTANY(FRAG_SHARED, f->flags)) {
         /* private fragments need to ensure a shared fragment/future exists,
          * and need to perform secondary trace head marking on it here!
          */
@@ -1544,7 +1545,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     /* pendel-del frags use fragment_t.in_xlate differently: they should
      * never call this routine once they're marked for deletion
      */
-    ASSERT(!TEST(FRAG_WAS_DELETED, f->flags));
+    ASSERT(!TESTANY(FRAG_WAS_DELETED, f->flags));
 
     /* link data struct change in shared fragment must be synchronized
      * no links across caches so only checking f's sharedness is enough
@@ -1554,7 +1555,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     /* if removing shared trace, move its links back to the shadowed shared trace head */
     /* flags not preserved for coarse so we have to check all coarse bbs */
     if (TESTANY(FRAG_TRACE_LINKS_SHIFTED | FRAG_COARSE_GRAIN, f->flags)) {
-        if (TEST(FRAG_IS_TRACE, f->flags)) {
+        if (TESTANY(FRAG_IS_TRACE, f->flags)) {
             fragment_t wrapper;
             /* XXX case 8600: provide single lookup routine here */
             fragment_t *bb = fragment_lookup_bb(dcontext, f->tag);
@@ -1567,14 +1568,14 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
             }
             if (bb != NULL &&
                 (TESTANY(FRAG_TRACE_LINKS_SHIFTED | FRAG_COARSE_GRAIN, bb->flags))) {
-                ASSERT(TEST(FRAG_IS_TRACE_HEAD, bb->flags) ||
-                       TEST(FRAG_COARSE_GRAIN, bb->flags));
+                ASSERT(TESTANY(FRAG_IS_TRACE_HEAD, bb->flags) ||
+                       TESTANY(FRAG_COARSE_GRAIN, bb->flags));
                 /* XXX: this will mark trace head as FRAG_LINKED_INCOMING --
                  * but then same thing for a new bb marked as a trace head
                  * before linking via its previous future, so not a new problem.
                  * won't actually link incoming since !linkable.
                  */
-                if (TEST(FRAG_COARSE_GRAIN, bb->flags)) {
+                if (TESTANY(FRAG_COARSE_GRAIN, bb->flags)) {
                     /* We assume the coarse-grain bb is a trace head -- our method
                      * of lookup is unable to mark it so we mark it here
                      */
@@ -1585,7 +1586,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
                 ASSERT(f->in_xlate.incoming_stubs == NULL);
                 return NULL;
             }
-        } else if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
+        } else if (TESTANY(FRAG_IS_TRACE_HEAD, f->flags)) {
             fragment_t *trace = fragment_lookup_trace(dcontext, f->tag);
             /* regardless of -remove_shared_trace_heads, a shared trace will
              * at least briefly shadow and shift links from a shared trace head.
@@ -1620,7 +1621,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
                      * future_fragment_t*
                      */
                     /* make sure future is in proper shared/private table */
-                    if (!TEST(FRAG_SHARED, f->flags)) {
+                    if (!TESTANY(FRAG_SHARED, f->flags)) {
                         targetf = (fragment_t *)fragment_lookup_private_future(
                             dcontext, target_tag);
                     } else {
@@ -1638,7 +1639,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
         }
     }
 
-    if (TEST(FRAG_TEMP_PRIVATE, f->flags) && f->in_xlate.incoming_stubs == NULL) {
+    if (TESTANY(FRAG_TEMP_PRIVATE, f->flags) && f->in_xlate.incoming_stubs == NULL) {
         /* if there are incoming stubs, the private displaced a prior future, which
          * does need to be replaced -- if not, we don't need a future
          */
@@ -1655,7 +1656,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     LOG(THREAD, LOG_LINKS, 4, "    adding future fragment for deleted F%d(" PFX ")\n",
         f->id, f->tag);
     DOCHECK(1, {
-        if (TEST(FRAG_SHARED, f->flags))
+        if (TESTANY(FRAG_SHARED, f->flags))
             ASSERT(fragment_lookup_future(dcontext, f->tag) == NULL);
         else
             ASSERT(fragment_lookup_private_future(dcontext, f->tag) == NULL);
@@ -1700,19 +1701,19 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
     ASSERT_OWN_RECURSIVE_LOCK(NEED_SHARED_LOCK(f->flags) ||
                                   (new_fragment && SHARED_FRAGMENTS_ENABLED()),
                               &change_linking_lock);
-    ASSERT(!TEST(FRAG_LINKED_INCOMING, f->flags));
+    ASSERT(!TESTANY(FRAG_LINKED_INCOMING, f->flags));
     f->flags |= FRAG_LINKED_INCOMING;
 
     /* link incoming links */
     for (l = f->in_xlate.incoming_stubs; l != NULL; l = LINKSTUB_NEXT_INCOMING(l)) {
         bool local_trace_head = false;
         fragment_t *in_f = linkstub_fragment(dcontext, l);
-        if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
             /* Case 8907: remove trace headness markings, as each fine source
              * should only consider this a trace head considering its own
              * path to it.
              */
-            local_trace_head = TEST(FRAG_IS_TRACE_HEAD, f->flags);
+            local_trace_head = TESTANY(FRAG_IS_TRACE_HEAD, f->flags);
             f->flags &= ~FRAG_IS_TRACE_HEAD;
         }
         /* only direct branches are marked on targets' incoming */
@@ -1731,7 +1732,7 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                 in_f->id, in_f->tag, EXIT_CTI_PC(in_f, l), f->id, f->tag);
         }
         /* Restore trace headness, if present before and not set in is_linkable */
-        if (local_trace_head && !TEST(FRAG_IS_TRACE_HEAD, f->flags))
+        if (local_trace_head && !TESTANY(FRAG_IS_TRACE_HEAD, f->flags))
             f->flags |= FRAG_IS_TRACE_HEAD;
     }
 }
@@ -1753,7 +1754,7 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
     ASSERT_OWN_RECURSIVE_LOCK(NEED_SHARED_LOCK(f->flags) ||
                                   (new_fragment && SHARED_FRAGMENTS_ENABLED()),
                               &change_linking_lock);
-    ASSERT(!TEST(FRAG_LINKED_OUTGOING, f->flags));
+    ASSERT(!TESTANY(FRAG_LINKED_OUTGOING, f->flags));
     f->flags |= FRAG_LINKED_OUTGOING;
 
     /* new_fragment: already protected
@@ -1833,13 +1834,13 @@ unlink_fragment_incoming(dcontext_t *dcontext, fragment_t *f)
      */
     ASSERT(TESTANY(FRAG_LINKED_INCOMING | FRAG_IS_TRACE_HEAD, f->flags));
     /* unlink incoming branches */
-    ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
     for (prevl = NULL, l = f->in_xlate.incoming_stubs; l != NULL; l = nextl) {
         fragment_t *in_f = linkstub_fragment(dcontext, l);
         bool keep = true;
         nextl = LINKSTUB_NEXT_INCOMING(l);
         /* not all are linked (e.g., to trace head) */
-        if (TEST(LINK_LINKED, l->flags)) {
+        if (TESTANY(LINK_LINKED, l->flags)) {
             /* unprotect on demand, caller will re-protect */
             SELF_PROTECT_CACHE(dcontext, in_f, WRITABLE);
             keep = unlink_branch(dcontext, in_f, l);
@@ -1867,7 +1868,7 @@ unlink_fragment_outgoing(dcontext_t *dcontext, fragment_t *f)
      * no links across caches so only checking f's sharedness is enough
      */
     ASSERT(!NEED_SHARED_LOCK(f->flags) || self_owns_recursive_lock(&change_linking_lock));
-    ASSERT(TEST(FRAG_LINKED_OUTGOING, f->flags));
+    ASSERT(TESTANY(FRAG_LINKED_OUTGOING, f->flags));
     /* unprotect on demand, caller will re-protect */
     SELF_PROTECT_CACHE(dcontext, f, WRITABLE);
     /* unlink outgoing direct & indirect branches */
@@ -1893,7 +1894,7 @@ void
 link_new_fragment(dcontext_t *dcontext, fragment_t *f)
 {
     future_fragment_t *future;
-    if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
         link_new_coarse_grain_fragment(dcontext, f);
         return;
     }
@@ -1904,7 +1905,7 @@ link_new_fragment(dcontext_t *dcontext, fragment_t *f)
     ASSERT(!NEED_SHARED_LOCK(f->flags) || self_owns_recursive_lock(&change_linking_lock));
 
     /* transfer existing future incoming links to this fragment */
-    if (!TEST(FRAG_SHARED, f->flags))
+    if (!TESTANY(FRAG_SHARED, f->flags))
         future = fragment_lookup_private_future(dcontext, f->tag);
     else
         future = fragment_lookup_future(dcontext, f->tag);
@@ -1923,7 +1924,7 @@ link_new_fragment(dcontext_t *dcontext, fragment_t *f)
         /* we only expect certain flags on future fragments */
         ASSERT_CURIOSITY((futflags & ~(FUTURE_FLAGS_ALLOWED)) == 0);
         /* sharedness must match */
-        ASSERT(TEST(FRAG_SHARED, f->flags) == TEST(FRAG_SHARED, futflags));
+        ASSERT(TESTANY(FRAG_SHARED, f->flags) == TESTANY(FRAG_SHARED, futflags));
         f->flags |= (futflags & (FUTURE_FLAGS_TRANSFER));
         /* make sure existing flags and flags from build are compatible */
         /* trace head and frag cannot be trace head incompatible */
@@ -1950,7 +1951,7 @@ link_new_fragment(dcontext_t *dcontext, fragment_t *f)
         fragment_delete_future(dcontext, future);
     }
     DOCHECK(1, {
-        if (TEST(FRAG_SHARED, f->flags))
+        if (TESTANY(FRAG_SHARED, f->flags))
             ASSERT(fragment_lookup_future(dcontext, f->tag) == NULL);
         else
             ASSERT(fragment_lookup_private_future(dcontext, f->tag) == NULL);
@@ -1976,7 +1977,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
 {
     linkstub_t *l;
     bool have_link_lock =
-        (TEST(FRAG_SHARED, old_f->flags) || TEST(FRAG_SHARED, new_f->flags)) &&
+        (TESTANY(FRAG_SHARED, old_f->flags) || TESTANY(FRAG_SHARED, new_f->flags)) &&
         !INTERNAL_OPTION(single_thread_in_DR);
     cache_pc old_stub = NULL;
     cache_pc old_body = NULL;
@@ -2005,7 +2006,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
     /* remove old outgoing links from others' incoming lists */
     LOG(THREAD, LOG_LINKS, 4, "  removing outgoing links for F%d(" PFX ")\n", old_f->id,
         old_f->tag);
-    if (TEST(FRAG_COARSE_GRAIN, old_f->flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, old_f->flags)) {
         /* XXX: we could implement full non-fake fragment_t recovery, and
          * engineer the normal link paths to do the right thing for coarse
          * fragments, to avoid all the coarse checks in this routine
@@ -2028,7 +2029,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
          * in target incoming lists.  Plus, this means we don't have to do
          * anything if we later delete the trace.
          */
-        ASSERT(!TEST(FRAG_COARSE_GRAIN, new_f->flags)); /* ensure distinct incomings */
+        ASSERT(!TESTANY(FRAG_COARSE_GRAIN, new_f->flags)); /* ensure distinct incomings */
     } else {
         for (l = FRAGMENT_EXIT_STUBS(old_f); l; l = LINKSTUB_NEXT_EXIT(l)) {
             if (LINKSTUB_DIRECT(l->flags)) {
@@ -2041,7 +2042,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
                      * future_fragment_t*
                      */
                     /* make sure future is in proper shared/private table */
-                    if (!TEST(FRAG_SHARED, old_f->flags)) {
+                    if (!TESTANY(FRAG_SHARED, old_f->flags)) {
                         targetf = (fragment_t *)fragment_lookup_private_future(
                             dcontext, target_tag);
                     } else {
@@ -2058,7 +2059,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
                  * and leave the link there since not in incoming) we also unlink
                  * everything else.
                  */
-                if (TEST(LINK_LINKED, l->flags)) {
+                if (TESTANY(LINK_LINKED, l->flags)) {
                     DEBUG_DECLARE(keep =) unlink_branch(dcontext, old_f, l);
                     ASSERT(keep);
                 }
@@ -2068,7 +2069,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
                 incoming_remove_link(dcontext, old_f, l, targetf);
             } else {
                 ASSERT(LINKSTUB_INDIRECT(l->flags));
-                if (TEST(LINK_LINKED, l->flags)) {
+                if (TESTANY(LINK_LINKED, l->flags)) {
                     DEBUG_DECLARE(keep =) unlink_branch(dcontext, old_f, l);
                     ASSERT(keep);
                 }
@@ -2079,11 +2080,12 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
 
     /* We copy prior to link-outgoing as that can add to incoming for self-links */
     ASSERT(new_f->in_xlate.incoming_stubs == NULL);
-    ASSERT(!TEST(FRAG_COARSE_GRAIN, old_f->flags) ||
+    ASSERT(!TESTANY(FRAG_COARSE_GRAIN, old_f->flags) ||
            old_f->in_xlate.incoming_stubs == NULL);
     new_f->in_xlate.incoming_stubs = old_f->in_xlate.incoming_stubs;
     old_f->in_xlate.incoming_stubs = NULL;
-    if (TEST(FRAG_COARSE_GRAIN, new_f->flags) && new_f->in_xlate.incoming_stubs != NULL) {
+    if (TESTANY(FRAG_COARSE_GRAIN, new_f->flags) &&
+        new_f->in_xlate.incoming_stubs != NULL) {
         if (info == NULL)
             info = get_fragment_coarse_info(new_f);
         prepend_new_coarse_incoming(info, NULL, new_f->in_xlate.incoming_stubs);
@@ -2099,10 +2101,10 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
      * rather than unlinking we mark them as not linked and put the proper
      * link in with one cache write rather than two
      */
-    if (!TEST(FRAG_COARSE_GRAIN, new_f->flags)) {
-        if (TEST(FRAG_LINKED_OUTGOING, new_f->flags)) {
+    if (!TESTANY(FRAG_COARSE_GRAIN, new_f->flags)) {
+        if (TESTANY(FRAG_LINKED_OUTGOING, new_f->flags)) {
             for (l = FRAGMENT_EXIT_STUBS(new_f); l; l = LINKSTUB_NEXT_EXIT(l)) {
-                if (LINKSTUB_DIRECT(l->flags) && TEST(LINK_LINKED, l->flags)) {
+                if (LINKSTUB_DIRECT(l->flags) && TESTANY(LINK_LINKED, l->flags)) {
                     l->flags &= ~LINK_LINKED; /* leave inconsistent briefly */
                 }
             }
@@ -2115,7 +2117,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
          * a shared trace -- and that we never did unlink the trace head's outgoing
          */
     }
-    ASSERT(TEST(FRAG_LINKED_OUTGOING, new_f->flags));
+    ASSERT(TESTANY(FRAG_LINKED_OUTGOING, new_f->flags));
 
     /* now shift incoming links from old fragment to new one */
     LOG(THREAD, LOG_LINKS, 4, "  transferring incoming links from F%d to F%d\n",
@@ -2123,11 +2125,11 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
     old_f->flags &= ~FRAG_LINKED_INCOMING;
     LOG(THREAD, LOG_LINKS, 4, "  linking incoming links for F%d(" PFX ")\n", new_f->id,
         new_f->tag);
-    if (TEST(FRAG_COARSE_GRAIN, old_f->flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, old_f->flags)) {
         coarse_incoming_t *e, *prev_e = NULL, *next_e;
         bool remove_entry;
         /* We don't yet support coarse to coarse shifts (see above for one reason) */
-        ASSERT(!TEST(FRAG_COARSE_GRAIN, new_f->flags));
+        ASSERT(!TESTANY(FRAG_COARSE_GRAIN, new_f->flags));
         /* Change the entrance stub to point to the trace, which redirects
          * all incoming from inside the unit.
          */
@@ -2164,7 +2166,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
                 for (l = e->in.fine_l; l != NULL; l = next_l) {
                     fragment_t *in_f = linkstub_fragment(dcontext, l);
                     next_l = LINKSTUB_NEXT_INCOMING(l);
-                    ASSERT(!TEST(LINK_FAKE, l->flags));
+                    ASSERT(!TESTANY(LINK_FAKE, l->flags));
                     if (tgt == NULL) {
                         tgt = EXIT_TARGET_TAG(dcontext, in_f, l);
                     } else {
@@ -2234,7 +2236,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
         }
         d_r_mutex_unlock(&info->incoming_lock);
 
-    } else if (TEST(FRAG_COARSE_GRAIN, new_f->flags)) {
+    } else if (TESTANY(FRAG_COARSE_GRAIN, new_f->flags)) {
         /* Change the entrance stub to point to the trace head routine again
          * (we only shift to coarse trace heads).
          */
@@ -2258,7 +2260,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
          */
         new_f->flags &= ~FRAG_LINKED_INCOMING; /* wrapper is marked as linked */
         link_fragment_incoming(dcontext, new_f, true /*new*/);
-        ASSERT(TEST(FRAG_LINKED_INCOMING, new_f->flags));
+        ASSERT(TESTANY(FRAG_LINKED_INCOMING, new_f->flags));
     } else {
         new_f->flags |= FRAG_LINKED_INCOMING;
         for (l = new_f->in_xlate.incoming_stubs; l != NULL;
@@ -2270,7 +2272,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
                 /* used to check to make sure was linked but no reason to? */
                 /* already did self-links */
                 if (in_f != new_f) {
-                    if (TEST(LINK_LINKED, l->flags))
+                    if (TESTANY(LINK_LINKED, l->flags))
                         l->flags &= ~LINK_LINKED; /* else, link_branch is a nop */
                     link_branch(dcontext, in_f, l, new_f, HOT_PATCHABLE);
                 } else {
@@ -2301,7 +2303,8 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
      * when we delete the head we don't complain that we're
      * missing links.
      */
-    if (TEST(FRAG_IS_TRACE, new_f->flags) && TEST(FRAG_IS_TRACE_HEAD, old_f->flags)) {
+    if (TESTANY(FRAG_IS_TRACE, new_f->flags) &&
+        TESTANY(FRAG_IS_TRACE_HEAD, old_f->flags)) {
         ASSERT((!NEED_SHARED_LOCK(new_f->flags) && !NEED_SHARED_LOCK(old_f->flags)) ||
                self_owns_recursive_lock(&change_linking_lock));
         LOG(THREAD, LOG_LINKS, 4, "Marking old and new as FRAG_TRACE_LINKS_SHIFTED\n");
@@ -2515,7 +2518,7 @@ entrance_stub_create(dcontext_t *dcontext, coarse_info_t *info, fragment_t *f,
     ASSERT(DYNAMO_OPTION(coarse_units));
     ASSERT(info != NULL && info->stubs != NULL);
     ASSERT(LINKSTUB_DIRECT(l->flags));
-    ASSERT(TEST(LINK_SEPARATE_STUB, l->flags));
+    ASSERT(TESTANY(LINK_SEPARATE_STUB, l->flags));
     ASSERT(exit_stub_size(dcontext, EXIT_TARGET_TAG(dcontext, f, l), f->flags) <=
            (ssize_t)stub_size);
     /* We hot-patch our stubs and we assume that aligning them to 16 is enough */
@@ -2597,7 +2600,7 @@ prepend_new_coarse_incoming(coarse_info_t *info, cache_pc coarse, linkstub_t *fi
         DOCHECK(1, {
             linkstub_t *l;
             for (l = fine; l != NULL; l = LINKSTUB_NEXT_INCOMING(l))
-                ASSERT(!TEST(LINK_FAKE, l->flags));
+                ASSERT(!TESTANY(LINK_FAKE, l->flags));
         });
     }
     ASSERT(info != NULL);
@@ -2635,7 +2638,8 @@ fragment_link_lookup_same_sharing(dcontext_t *dcontext, app_pc tag, linkstub_t *
      * Else need to grab the lock when linking private fragments
      * (in particular, temps for trace building)
      */
-    ASSERT(!TEST(FRAG_SHARED, flags) || self_owns_recursive_lock(&change_linking_lock));
+    ASSERT(!TESTANY(FRAG_SHARED, flags) ||
+           self_owns_recursive_lock(&change_linking_lock));
     return fragment_lookup_fine_and_coarse_sharing(dcontext, tag, &temp_targetf,
                                                    last_exit, flags);
 }
@@ -2714,7 +2718,7 @@ coarse_link_direct(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     /* Since we leave shadowed trace heads visible we must first look in the
      * fine tables
      */
-    ASSERT(TEST(FRAG_SHARED, f->flags));
+    ASSERT(TESTANY(FRAG_SHARED, f->flags));
     target_f = fragment_lookup_same_sharing(dcontext, target_tag, FRAG_SHARED);
     if (target_f == NULL) {
         if (local_tgt_in == NULL) {
@@ -2736,7 +2740,7 @@ coarse_link_direct(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         } else
             coarse_tgt = local_tgt;
     } else
-        ASSERT(!TEST(FRAG_COARSE_GRAIN, target_f->flags));
+        ASSERT(!TESTANY(FRAG_COARSE_GRAIN, target_f->flags));
     if (coarse_tgt != NULL || target_f != NULL) {
         if (target_f == NULL) {
             /* No fine-grain fragment_t so make a fake one to use for the
@@ -2756,7 +2760,7 @@ coarse_link_direct(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                 /* Target is outside this unit, either a fine fragment_t
                  * or another unit's coarse fragment
                  */
-                if (!TEST(FRAG_COARSE_GRAIN, target_f->flags)) {
+                if (!TESTANY(FRAG_COARSE_GRAIN, target_f->flags)) {
                     if (!entrance_stub_linked(stub, src_info))
                         coarse_link_to_fine(dcontext, stub, f, target_f, true /*link*/);
                     else {
@@ -2809,9 +2813,9 @@ coarse_link_direct(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             /* We should have converted the entrance stub to a trace head
              * stub in mark_trace_head()
              */
-            ASSERT((!TEST(FRAG_COARSE_GRAIN, target_f->flags) &&
-                    (TEST(FRAG_IS_TRACE_HEAD, target_f->flags) ||
-                     !TEST(FRAG_SHARED, target_f->flags))) ||
+            ASSERT((!TESTANY(FRAG_COARSE_GRAIN, target_f->flags) &&
+                    (TESTANY(FRAG_IS_TRACE_HEAD, target_f->flags) ||
+                     !TESTANY(FRAG_SHARED, target_f->flags))) ||
                    coarse_is_trace_head(stub));
             ASSERT(!entrance_stub_linked(stub, src_info));
             LOG(THREAD, LOG_LINKS, 4,
@@ -2856,7 +2860,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
         /* we only expect certain flags on future fragments */
         ASSERT_CURIOSITY((futflags & ~(FUTURE_FLAGS_ALLOWED)) == 0);
         /* sharedness must match */
-        ASSERT(TEST(FRAG_SHARED, f->flags) == TEST(FRAG_SHARED, futflags));
+        ASSERT(TESTANY(FRAG_SHARED, f->flags) == TESTANY(FRAG_SHARED, futflags));
         /* XXX: we will discard all of these flags, which right now only include
          * secondary shared trace heads from private traces, fortunately, and
          * we'll use that by converting to a trace head below.
@@ -2864,7 +2868,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
         f->flags |= (futflags & (FUTURE_FLAGS_TRANSFER));
         /* we shouldn't have any of the incompatibilites a new fine fragment does */
         ASSERT(!TESTANY(FRAG_CANNOT_BE_TRACE | FRAG_IS_TRACE, f->flags));
-        if (TEST(FRAG_IS_TRACE_HEAD, f->flags))
+        if (TESTANY(FRAG_IS_TRACE_HEAD, f->flags))
             mark_trace_head(dcontext, f, f, NULL);
 
         if (future->incoming_stubs != NULL) {
@@ -2918,7 +2922,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
         self_stub = orig_stub;
     if (self_stub != NULL) {
         ASSERT(coarse_is_entrance_stub(self_stub));
-        if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) { /* from future or incoming */
+        if (TESTANY(FRAG_IS_TRACE_HEAD, f->flags)) { /* from future or incoming */
             if (orig_stub == NULL) {
                 /* mark_trace_head didn't know where stub is -- so we must unlink: */
                 ASSERT(!entrance_stub_linked(self_stub, info) ||
@@ -3034,7 +3038,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
             fragment_coarse_th_unlink_and_add(dcontext, f->tag, self_stub,
                                               FCACHE_ENTRY_PC(f));
         }
-        if (!TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
+        if (!TESTANY(FRAG_IS_TRACE_HEAD, f->flags)) {
             LOG(THREAD, LOG_LINKS, 4,
                 "    linking coarse entrance stub to self " PFX "->" PFX "." PFX "\n",
                 self_stub, f->tag, FCACHE_ENTRY_PC(f));
@@ -3070,9 +3074,9 @@ coarse_remove_incoming(dcontext_t *dcontext, fragment_t *src_f, linkstub_t *src_
 {
     coarse_info_t *info = get_fragment_coarse_info(targetf);
     coarse_incoming_t *e, *prev_e;
-    ASSERT(!TEST(FRAG_COARSE_GRAIN, src_f->flags));
+    ASSERT(!TESTANY(FRAG_COARSE_GRAIN, src_f->flags));
     ASSERT(!LINKSTUB_FAKE(src_l));
-    ASSERT(TEST(FRAG_COARSE_GRAIN, targetf->flags));
+    ASSERT(TESTANY(FRAG_COARSE_GRAIN, targetf->flags));
     LOG(THREAD, LOG_LINKS, 4, "coarse_remove_incoming %s " PFX " to " PFX "\n",
         info->module, src_f->tag, targetf->tag);
 
@@ -3358,9 +3362,9 @@ coarse_lazy_link(dcontext_t *dcontext, fragment_t *targetf)
     ASSERT(dcontext->next_tag == targetf->tag);
     if (dcontext->last_exit == get_coarse_exit_linkstub() &&
         /* rule out !is_linkable targets now to avoid work and assert below */
-        TEST(FRAG_SHARED, targetf->flags) &&
-        (!TEST(FRAG_IS_TRACE_HEAD, targetf->flags) ||
-         TEST(FRAG_COARSE_GRAIN, targetf->flags) || DYNAMO_OPTION(disable_traces))) {
+        TESTANY(FRAG_SHARED, targetf->flags) &&
+        (!TESTANY(FRAG_IS_TRACE_HEAD, targetf->flags) ||
+         TESTANY(FRAG_COARSE_GRAIN, targetf->flags) || DYNAMO_OPTION(disable_traces))) {
         /* Source is coarse */
         fragment_t temp_sourcef;
         cache_pc stub;
@@ -3416,12 +3420,12 @@ coarse_lazy_link(dcontext_t *dcontext, fragment_t *targetf)
             }
             release_recursive_lock(&change_linking_lock);
         }
-    } else if (TEST(FRAG_COARSE_GRAIN, targetf->flags)) {
+    } else if (TESTANY(FRAG_COARSE_GRAIN, targetf->flags)) {
         /* Target is coarse */
         linkstub_t *l = dcontext->last_exit;
         fragment_t *f = dcontext->last_fragment;
         if (dcontext->next_tag != EXIT_TARGET_TAG(dcontext, f, l) ||
-            !TEST(FRAG_SHARED, f->flags)) {
+            !TESTANY(FRAG_SHARED, f->flags)) {
             /* Rule out syscall-skip and other cases where we cannot link.
              * is_linkable() should catch, but this way we avoid work and avoid
              * the incoming_link_exists() assert below.
@@ -3430,10 +3434,10 @@ coarse_lazy_link(dcontext_t *dcontext, fragment_t *targetf)
         }
         /* May already be linked (we may have just built its target) */
         if (LINKSTUB_DIRECT(l->flags) && !LINKSTUB_FAKE(l) &&
-            !TEST(FRAG_FAKE, f->flags) && !TEST(LINK_LINKED, l->flags)) {
+            !TESTANY(FRAG_FAKE, f->flags) && !TESTANY(LINK_LINKED, l->flags)) {
             acquire_recursive_lock(&change_linking_lock);
             /* XXX: provide common routine for this: dup of link_fragment_outgoing */
-            if (!TEST(LINK_LINKED, l->flags) /* case 8825: test w/ lock! */ &&
+            if (!TESTANY(LINK_LINKED, l->flags) /* case 8825: test w/ lock! */ &&
                 is_linkable(dcontext, f, l, targetf, true /*have change_linking_lock*/,
                             true /*mark new trace heads*/)) {
                 LOG(THREAD, LOG_LINKS, 4,
@@ -3752,7 +3756,7 @@ coarse_unit_shift_links(dcontext_t *dcontext, coarse_info_t *info)
             app_pc tag = NULL;
             for (l = e->in.fine_l; l != NULL; l = LINKSTUB_NEXT_INCOMING(l)) {
                 /* fine can have incoming structs yet not be linked (trace head, etc.) */
-                if (TEST(LINK_LINKED, l->flags)) {
+                if (TESTANY(LINK_LINKED, l->flags)) {
                     fragment_t *in_f = linkstub_fragment(dcontext, l);
                     if (tag == NULL) {
                         /* unprotect on demand (caller will re-protect) */

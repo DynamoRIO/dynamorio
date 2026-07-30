@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -861,7 +861,7 @@ os_eventlog(syslog_event_type_t priority, uint message_id, uint substitutions_nu
     uint res = 0;
 
     /* check mask on event_type whether to log this type of message */
-    if (!TEST(priority, dynamo_options.syslog_mask))
+    if (!TESTANY(priority, dynamo_options.syslog_mask))
         return;
 
     switch (priority) {

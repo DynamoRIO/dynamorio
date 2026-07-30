@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -114,17 +114,17 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar DR_PARAM
 bool
 opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opnd_t opnd)
 {
-    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
+    if (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_IS_SHIFT, opnd_get_flags(opnd))) {
         dr_shift_type_t t = (dr_shift_type_t)opnd_get_immed_int(opnd);
         print_to_buffer(buf, bufsz, sofar, "%s", shift_name(t));
         return true;
     }
-    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_EXTEND, opnd_get_flags(opnd))) {
+    if (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_IS_EXTEND, opnd_get_flags(opnd))) {
         dr_extend_type_t t = (dr_extend_type_t)opnd_get_immed_int(opnd);
         print_to_buffer(buf, bufsz, sofar, "%s", extend_name(t));
         return true;
     }
-    if (opnd_is_immed_int(opnd) && TEST(DR_OPND_IS_CONDITION, opnd_get_flags(opnd))) {
+    if (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_IS_CONDITION, opnd_get_flags(opnd))) {
         dr_pred_type_t pred = DR_PRED_EQ + opnd_get_immed_int(opnd);
         print_to_buffer(buf, bufsz, sofar, "%s", pred_names[pred]);
         return true;

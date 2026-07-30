@@ -979,9 +979,9 @@ dr_inject_process_inject(void *data, bool force_injection, const char *library_p
     if (!force_injection) {
         int inject_flags = systemwide_should_inject(info->pi.hProcess, NULL);
         bool syswide_will_inject = systemwide_inject_enabled() &&
-            TEST(INJECT_TRUE, inject_flags) && !TEST(INJECT_EXPLICIT, inject_flags);
+            TESTANY(INJECT_TRUE, inject_flags) && !TESTANY(INJECT_EXPLICIT, inject_flags);
         bool should_not_takeover =
-            TEST(INJECT_EXCLUDED, inject_flags) && info->using_debugger_injection;
+            TESTANY(INJECT_EXCLUDED, inject_flags) && info->using_debugger_injection;
         /* case 10794: to support follow_children we inject even if
          * syswide_will_inject.  we use RUNUNDER_EXPLICIT to avoid
          * user32 injection from happening, to get consistent injection.

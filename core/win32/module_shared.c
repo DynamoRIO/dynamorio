@@ -781,7 +781,7 @@ ldr_module_statically_linked(LDR_MODULE *mod)
     win8plus = (get_os_version() >= WINDOWS_VERSION_8);
 #    endif
     if (win8plus) {
-        return (mod->LoadCount == -1 || TEST(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
+        return (mod->LoadCount == -1 || TESTANY(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
                 mod->LoadReason == LoadReasonStaticDependency ||
                 mod->LoadReason == LoadReasonStaticForwarderDependency);
     } else

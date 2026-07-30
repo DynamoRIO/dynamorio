@@ -241,7 +241,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
              */
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
-            IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
+            IF_NOT_X64(ASSERT(TESTANY(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
             /* XXX i#1312: This should be proc_num_simd_sse_avx_registers(). */
             ASSERT(MCXT_SIMD_SLOT_SIZE == ZMM_REG_SIZE);
             for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {

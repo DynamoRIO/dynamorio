@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -670,9 +670,9 @@ it_block_info_advance(it_block_info_t *info)
 static inline dr_pred_type_t
 it_block_instr_predicate(it_block_info_t info, uint index)
 {
-    return (
-        DR_PRED_EQ +
-        (TEST(BITMAP_MASK(index), info.preds) ? info.firstcond : (info.firstcond ^ 0x1)));
+    return (DR_PRED_EQ +
+            (TESTANY(BITMAP_MASK(index), info.preds) ? info.firstcond
+                                                     : (info.firstcond ^ 0x1)));
 }
 
 #endif /* DECODE_PRIVATE_H */

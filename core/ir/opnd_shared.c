@@ -342,7 +342,7 @@ enum {
 opnd_size_t
 opnd_get_vector_element_size(opnd_t opnd)
 {
-    if (!TEST(DR_OPND_IS_VECTOR, opnd.aux.flags))
+    if (!TESTANY(DR_OPND_IS_VECTOR, opnd.aux.flags))
         return OPSZ_NA;
 
     switch (opnd.kind) {
@@ -440,7 +440,7 @@ opnd_invert_immed_int(opnd_t opnd)
 bool
 opnd_is_immed_int64(opnd_t opnd)
 {
-    return (opnd_is_immed_int(opnd) && TEST(DR_OPND_MULTI_PART, opnd_get_flags(opnd)));
+    return (opnd_is_immed_int(opnd) && TESTANY(DR_OPND_MULTI_PART, opnd_get_flags(opnd)));
 }
 
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
@@ -2211,19 +2211,19 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
     if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
         get_mmx_val((uint64 *)val, reg - DR_REG_START_MMX);
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_XMM], XMM_REG_SIZE);
     } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_YMM], YMM_REG_SIZE);
     } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_ZMM], ZMM_REG_SIZE);
     } else if (reg >= DR_REG_START_OPMASK && reg <= DR_REG_STOP_OPMASK) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->opmask[reg - DR_REG_START_OPMASK], OPMASK_AVX512BW_REG_SIZE);
     } else {
@@ -2232,12 +2232,12 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, DR_PARAM_OUT byte *val)
     }
 #elif defined(AARCH64)
     if (reg >= DR_REG_START_Z && reg <= DR_REG_STOP_Z) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->simd[reg - DR_REG_START_Z],
                opnd_size_in_bytes(reg_get_size(reg)));
     } else if (reg >= DR_REG_START_P && reg <= DR_REG_STOP_P) {
-        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+        if (!TESTANY(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
         memcpy(val, &mc->svep[reg - DR_REG_START_P],
                opnd_size_in_bytes(reg_get_size(reg)));
@@ -2396,7 +2396,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
             break;
         case DR_SHIFT_RRX:
             scaled_index = (index_val >> 1) |
-                (TEST(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t) * 8 - 1)) : 0);
+                (TESTANY(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t) * 8 - 1)) : 0);
             break;
         default: scaled_index = index_val;
         }
@@ -2915,7 +2915,7 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg, int 
     /* offs is not raw offset, but includes upcontext size, so we
      * can tell unprotected from normal
      */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
         offs < sizeof(unprotected_context_t)) {
         return opnd_create_base_disp(
             absolute ? REG_NULL : (basereg == REG_NULL ? REG_DCXT_PROT : basereg),
@@ -2984,7 +2984,7 @@ update_dcontext_address(opnd_t op, dcontext_t *old_dcontext, dcontext_t *new_dco
     }
     /* some fields are in a separate memory region! */
     else {
-        CLIENT_ASSERT(TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask),
+        CLIENT_ASSERT(TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask),
                       "update_dcontext_address: inconsistent layout");
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
         offs = opnd_get_disp(op) -

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -621,9 +621,9 @@ hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
         for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
             hash_entry_t *he;
             for (he = table->table[i]; he != NULL; he = he->next) {
-                if ((!TEST(DR_HASHPERS_ONLY_IN_RANGE, flags) ||
+                if ((!TESTANY(DR_HASHPERS_ONLY_IN_RANGE, flags) ||
                      key_in_range(table, he, start, size)) &&
-                    (!TEST(DR_HASHPERS_ONLY_PERSISTED, flags) ||
+                    (!TESTANY(DR_HASHPERS_ONLY_PERSISTED, flags) ||
                      dr_fragment_persistable(drcontext, perscxt, he->key)))
                     count++;
             }
@@ -637,7 +637,7 @@ hashtable_persist_size(void *drcontext, hashtable_t *table, size_t entry_size,
      */
     table->persist_count = count;
     return sizeof(count) +
-        (TEST(DR_HASHPERS_REBASE_KEY, flags) ? sizeof(ptr_uint_t) : 0) +
+        (TESTANY(DR_HASHPERS_REBASE_KEY, flags) ? sizeof(ptr_uint_t) : 0) +
         count * (entry_size + sizeof(void *));
 }
 
@@ -649,7 +649,7 @@ hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t
     ptr_uint_t start = 0;
     size_t size = 0;
     IF_DEBUG(uint count_check = 0;)
-    if (TEST(DR_HASHPERS_REBASE_KEY, flags) && perscxt == NULL)
+    if (TESTANY(DR_HASHPERS_REBASE_KEY, flags) && perscxt == NULL)
         return false; /* invalid params */
     if (perscxt != NULL) {
         start = (ptr_uint_t)dr_persist_start(perscxt);
@@ -657,7 +657,7 @@ hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t
     }
     if (!hash_write_file(fd, &table->persist_count, sizeof(table->persist_count)))
         return false;
-    if (TEST(DR_HASHPERS_REBASE_KEY, flags)) {
+    if (TESTANY(DR_HASHPERS_REBASE_KEY, flags)) {
         if (!hash_write_file(fd, &start, sizeof(start)))
             return false;
     }
@@ -665,14 +665,14 @@ hashtable_persist(void *drcontext, hashtable_t *table, size_t entry_size, file_t
     for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
         hash_entry_t *he;
         for (he = table->table[i]; he != NULL; he = he->next) {
-            if ((!TEST(DR_HASHPERS_ONLY_IN_RANGE, flags) ||
+            if ((!TESTANY(DR_HASHPERS_ONLY_IN_RANGE, flags) ||
                  key_in_range(table, he, start, size)) &&
-                (!TEST(DR_HASHPERS_ONLY_PERSISTED, flags) ||
+                (!TESTANY(DR_HASHPERS_ONLY_PERSISTED, flags) ||
                  dr_fragment_persistable(drcontext, perscxt, he->key))) {
                 IF_DEBUG(count_check++;)
                 if (!hash_write_file(fd, &he->key, sizeof(he->key)))
                     return false;
-                if (TEST(DR_HASHPERS_PAYLOAD_IS_POINTER, flags)) {
+                if (TESTANY(DR_HASHPERS_PAYLOAD_IS_POINTER, flags)) {
                     if (!hash_write_file(fd, he->payload, entry_size))
                         return false;
                 } else {
@@ -701,7 +701,7 @@ hashtable_resurrect(void *drcontext, byte **map DR_PARAM_INOUT, hashtable_t *tab
     ptr_int_t shift_amt = 0;
     uint count = *(uint *)(*map);
     *map += sizeof(count);
-    if (TEST(DR_HASHPERS_REBASE_KEY, flags)) {
+    if (TESTANY(DR_HASHPERS_REBASE_KEY, flags)) {
         if (perscxt == NULL)
             return false; /* invalid parameter */
         stored_start = *(ptr_uint_t *)(*map);
@@ -714,9 +714,9 @@ hashtable_resurrect(void *drcontext, byte **map DR_PARAM_INOUT, hashtable_t *tab
         *map += sizeof(key);
         inmap = (void *)*map;
         *map += entry_size;
-        if (TEST(DR_HASHPERS_PAYLOAD_IS_POINTER, flags)) {
+        if (TESTANY(DR_HASHPERS_PAYLOAD_IS_POINTER, flags)) {
             toadd = inmap;
-            if (TEST(DR_HASHPERS_CLONE_PAYLOAD, flags)) {
+            if (TESTANY(DR_HASHPERS_CLONE_PAYLOAD, flags)) {
                 void *inheap = hash_alloc(entry_size);
                 memcpy(inheap, inmap, entry_size);
                 toadd = inheap;
@@ -725,7 +725,7 @@ hashtable_resurrect(void *drcontext, byte **map DR_PARAM_INOUT, hashtable_t *tab
             toadd = NULL;
             memcpy(&toadd, inmap, entry_size);
         }
-        if (TEST(DR_HASHPERS_REBASE_KEY, flags)) {
+        if (TESTANY(DR_HASHPERS_REBASE_KEY, flags)) {
             key = (void *)(((ptr_int_t)key) + shift_amt);
         }
         if (process_payload != NULL) {
