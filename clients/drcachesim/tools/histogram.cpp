@@ -222,8 +222,11 @@ histogram_t::print_results()
                            top.begin(), top.end(), cmp);
     std::cerr << "icache top " << top.size() << "\n";
     for (const auto &[addr, count] : top) {
-        if (count == 0) // If fewer than top, don't print lines of 0's.
+        if (count == 0) {
+            // If total observed elements are fewer than knob_report_top_, avoid
+            // printing lines of 0's.
             break;
+        }
         std::cerr << std::setw(18) << std::hex << std::showbase << addr << ": "
                   << std::dec << count << "\n";
     }
@@ -233,8 +236,11 @@ histogram_t::print_results()
                            top.begin(), top.end(), cmp);
     std::cerr << "dcache top " << top.size() << "\n";
     for (const auto &[addr, count] : top) {
-        if (count == 0) // If fewer than top, don't print lines of 0's.
+        if (count == 0) {
+            // If total observed elements are fewer than knob_report_top_, avoid
+            // printing lines of 0's.
             break;
+        }
         std::cerr << std::setw(18) << std::hex << std::showbase << addr << ": "
                   << std::dec << count << "\n";
     }
