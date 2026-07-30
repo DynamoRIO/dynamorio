@@ -1688,7 +1688,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_src(instr, 0, memop);
         instr_set_dst(instr, 0, opnd_create_reg(IBL_TARGET_REG));
         /* We target only the typical return instructions: multi-pop here */
-        if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldmia) {
+        if (TESTANY(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldmia) {
             bool writeback = instr_num_srcs(instr) > 1;
             if (writeback) {
                 opnd_set_disp(&memop, -sizeof(void *));
@@ -1823,7 +1823,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             mangle_stolen_reg(dcontext, ilist, instr, immed_next, remove_instr);
         }
         /* We target only the typical return instructions: single pop here */
-        if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldr) {
+        if (TESTANY(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldr) {
             bool writeback = instr_num_srcs(instr) > 1;
             if (writeback && opnd_is_immed_int(instr_get_src(instr, 1))) {
                 opnd_t memop = instr_get_src(instr, 0);
@@ -2047,7 +2047,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * has no analogue with a non-PC base.
      */
     if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB &&
-        TEST(DR_OPND_NEGATED, opnd_get_flags(mem_op)) && disp >= 256) {
+        TESTANY(DR_OPND_NEGATED, opnd_get_flags(mem_op)) && disp >= 256) {
         /* Apply the disp now */
         r15 -= disp;
         disp = 0;
@@ -2769,7 +2769,7 @@ normalize_ldm_instr(dcontext_t *dcontext, instr_t *instr, /* ldm */
         }
         instr_set_predicate(*ldr_pc, pred);
         instr_set_translation(*ldr_pc, pc);
-        if (TEST(INSTR_CLOBBER_RETADDR, instr->flags))
+        if (TESTANY(INSTR_CLOBBER_RETADDR, instr->flags))
             (*ldr_pc)->flags |= INSTR_CLOBBER_RETADDR;
     }
 }

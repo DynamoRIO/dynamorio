@@ -569,7 +569,8 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
             else
                 wrapcxt->mc->pc = wrapcxt->retaddr;
         } else {
-            ASSERT(TEST(DR_MC_MULTIMEDIA, flags) && !TEST(DR_MC_MULTIMEDIA, old_flags) &&
+            ASSERT(TESTANY(DR_MC_MULTIMEDIA, flags) &&
+                       !TESTANY(DR_MC_MULTIMEDIA, old_flags) &&
                        TESTALL(DR_MC_INTEGER | DR_MC_CONTROL, old_flags),
                    "logic error");
             /* the pre-ymm is smaller than ymm so we make a temp copy and then
@@ -581,14 +582,14 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
             dr_get_mcontext(wrapcxt->drcontext, wrapcxt->mc);
             memcpy(wrapcxt->mc, &tmp, offsetof(dr_mcontext_t, pc) + sizeof(tmp.pc));
         }
-        if (TEST(DRWRAP_FAST_CLEANCALLS, global_flags)) {
+        if (TESTANY(DRWRAP_FAST_CLEANCALLS, global_flags)) {
             /* N.B: it's fine to have garbage in the xmm slots we didn't save
              * (which is all but the x64 param ones) since we only redirect
              * to start of callee where they're scratch or to retaddr on a
              * skip where client should have retrieved param xmm (should happen
              * automatically on get) and then filled in any xmm retvals.
              */
-            if (TEST(DR_MC_CONTROL, flags)) {
+            if (TESTANY(DR_MC_CONTROL, flags)) {
                 /* we need a sane eflags for redirect, but we also need to preserve
                  * trap flag or other flags so instead of zeroing we copy cur flags
                  * (xref i#806).
@@ -607,7 +608,7 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
                     : "=m"(val));
                 wrapcxt->mc->xflags = val;
 #    endif
-                ASSERT(!TEST(EFLAGS_DF, wrapcxt->mc->xflags), "DF not cleared");
+                ASSERT(!TESTANY(EFLAGS_DF, wrapcxt->mc->xflags), "DF not cleared");
 #endif
             }
         }
@@ -630,7 +631,7 @@ dr_mcontext_t *
 drwrap_get_mcontext(void *wrapcxt_opaque)
 {
     return drwrap_get_mcontext_ex(wrapcxt_opaque,
-                                  TEST(DRWRAP_FAST_CLEANCALLS, global_flags)
+                                  TESTANY(DRWRAP_FAST_CLEANCALLS, global_flags)
                                       ? (DR_MC_INTEGER | DR_MC_CONTROL)
                                       : DR_MC_ALL);
 }
@@ -748,7 +749,7 @@ drwrap_get_arg(void *wrapcxt_opaque, int arg)
         return NULL; /* can only get args in pre */
     if (addr == NULL)
         return NULL;
-    else if (TEST(DRWRAP_SAFE_READ_ARGS, global_flags)) {
+    else if (TESTANY(DRWRAP_SAFE_READ_ARGS, global_flags)) {
         void *value;
         if (!fast_safe_read(addr, sizeof(value), &value))
             return NULL;
@@ -772,7 +773,7 @@ drwrap_set_arg(void *wrapcxt_opaque, int arg, void *val)
         in_memory = !(addr >= (reg_t *)wrapcxt->mc && addr < (reg_t *)(wrapcxt->mc + 1));
         if (!in_memory)
             wrapcxt->mc_modified = true;
-        if (in_memory && TEST(DRWRAP_SAFE_READ_ARGS, global_flags)) {
+        if (in_memory && TESTANY(DRWRAP_SAFE_READ_ARGS, global_flags)) {
             if (!dr_safe_write((void *)addr, sizeof(val), val, NULL))
                 return false;
         } else
@@ -968,7 +969,7 @@ drwrap_init(void)
     drmgr_init();
     if (!drmgr_register_bb_app2app_event(drwrap_event_bb_app2app, &pri_replace))
         return false;
-    if (!TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+    if (!TESTANY(DRWRAP_INVERT_CONTROL, global_flags)) {
         if (!drmgr_register_bb_instrumentation_event(NULL, drwrap_event_bb_insert,
                                                      &pri_insert))
             return false;
@@ -1031,7 +1032,7 @@ drwrap_exit(void)
     if (count != 0)
         return;
 
-    if (!TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+    if (!TESTANY(DRWRAP_INVERT_CONTROL, global_flags)) {
         if (!drmgr_unregister_bb_insertion_event(drwrap_event_bb_insert))
             ASSERT(false, "failed to unregister in drwrap_exit");
     }
@@ -1139,8 +1140,8 @@ drwrap_set_global_flags(drwrap_global_flags_t flags)
     dr_recurlock_lock(wrap_lock);
     if (dr_atomic_load32(&drwrap_init_count) > 0 &&
         /* After drwrap_init() was called, control inversion cannot be changed. */
-        TEST(DRWRAP_INVERT_CONTROL, flags) &&
-        !TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+        TESTANY(DRWRAP_INVERT_CONTROL, flags) &&
+        !TESTANY(DRWRAP_INVERT_CONTROL, global_flags)) {
         dr_recurlock_unlock(wrap_lock);
         return false;
     }
@@ -1162,7 +1163,7 @@ dr_emit_flags_t
 drwrap_invoke_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                      instr_t *where, bool for_trace, bool translating, void *user_data)
 {
-    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
+    ASSERT(TESTANY(DRWRAP_INVERT_CONTROL, global_flags),
            "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_insert");
     return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, where, for_trace,
                                         translating, user_data, /*cleanup_only=*/false);
@@ -1174,7 +1175,7 @@ drwrap_invoke_insert_cleanup_only(void *drcontext, void *tag, instrlist_t *bb,
                                   instr_t *inst, instr_t *where, bool for_trace,
                                   bool translating, void *user_data)
 {
-    ASSERT(TEST(DRWRAP_INVERT_CONTROL, global_flags),
+    ASSERT(TESTANY(DRWRAP_INVERT_CONTROL, global_flags),
            "must set DRWRAP_INVERT_CONTROL to call drwrap_invoke_insert_cleanup_only");
     return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, where, for_trace,
                                         translating, user_data, /*cleanup_only=*/true);
@@ -1317,7 +1318,7 @@ DR_EXPORT
 bool
 drwrap_replace(app_pc original, app_pc replacement, bool override)
 {
-    if (TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+    if (TESTANY(DRWRAP_INVERT_CONTROL, global_flags)) {
         /* Not supported in this mode since drbbdup does not support a separate
          * app2app per case.
          */
@@ -1331,7 +1332,7 @@ bool
 drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
                       uint stack_adjust, void *user_data, bool override)
 {
-    if (TEST(DRWRAP_INVERT_CONTROL, global_flags)) {
+    if (TESTANY(DRWRAP_INVERT_CONTROL, global_flags)) {
         /* Not supported in this mode since drbbdup does not support a separate
          * app2app per case.
          */
@@ -1794,7 +1795,7 @@ static app_pc
 get_retaddr_from_stack(reg_t xsp)
 {
     app_pc retaddr = NULL;
-    if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
+    if (TESTANY(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
         if (!fast_safe_read((void *)xsp, sizeof(retaddr), &retaddr))
             return NULL;
     } else
@@ -1806,7 +1807,7 @@ static bool
 set_retaddr_on_stack(reg_t xsp, app_pc value)
 {
     bool res = true;
-    if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
+    if (TESTANY(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
         DR_TRY_EXCEPT(
             dr_get_current_drcontext(), { *(app_pc *)xsp = value; }, { /* EXCEPT */
                                                                        res = false;
@@ -1904,7 +1905,7 @@ wrap_table_lookup_normalized_pc(app_pc pc)
 {
     wrap_entry_t *wrap = hashtable_lookup(&wrap_table, (void *)pc);
 #ifdef ARM
-    if (wrap == NULL && !TEST(0x1, (ptr_uint_t)pc)) {
+    if (wrap == NULL && !TESTANY(0x1, (ptr_uint_t)pc)) {
         wrap = hashtable_lookup(&wrap_table,
                                 (void *)dr_app_pc_as_jump_target(DR_ISA_ARM_THUMB, pc));
     }
@@ -1912,14 +1913,14 @@ wrap_table_lookup_normalized_pc(app_pc pc)
     return wrap;
 }
 
-/* assumes that if TEST(DRWRAP_NO_FRILLS, global_flags) then
+/* assumes that if TESTANY(DRWRAP_NO_FRILLS, global_flags) then
  * wrap_lock is held
  */
 static inline void
 drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
                        drwrap_context_t *wrapcxt, app_pc decorated_pc)
 {
-    if (TEST(DRWRAP_NO_DYNAMIC_RETADDRS, wrap->flags)) {
+    if (TESTANY(DRWRAP_NO_DYNAMIC_RETADDRS, wrap->flags)) {
         /* i#0470: On a large multithreaded app, using shared memory here and especially
          * a lock (even an rwlock where the read path is always taken) causes noticeable
          * overhead.  The postcall_cache is often not enough.  Maybe a per-thread cache
@@ -1932,7 +1933,7 @@ drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
     }
     app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
     app_pc plain_pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, decorated_pc);
-    if (TEST(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
+    if (TESTANY(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
         NOTIFY(2, "DRWRAP_REPLACE_RETADDR: saving real retaddr as [%d] " PFX "\n",
                pt->wrap_level, retaddr);
         pt->retaddr[pt->wrap_level] = wrapcxt->retaddr; /* Original, not load tgt. */
@@ -1968,11 +1969,11 @@ drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
          * release all locks.
          */
         dr_rwlock_write_unlock(post_call_rwlock);
-        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+        if (!TESTANY(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_unlock(wrap_lock);
         drwrap_mark_retaddr_for_instru(drcontext, pt, decorated_pc, wrapcxt, enabled);
         /* if we come back, re-lookup */
-        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+        if (!TESTANY(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_lock(wrap_lock);
         wrap = wrap_table_lookup_normalized_pc(plain_pc);
     } else
@@ -2009,7 +2010,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
     ASSERT(arg1 != NULL, "drwrap_in_callee: arg1 is NULL!");
     ASSERT(pt != NULL, "drwrap_in_callee: pt is NULL!");
 
-    if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+    if (TESTANY(DRWRAP_NO_FRILLS, global_flags)) {
         wrap = (wrap_entry_t *)arg1;
         pc = wrap->func;
     } else
@@ -2019,7 +2020,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
 
     app_pc retaddr =
         IF_X86_ELSE(get_retaddr_from_stack(xsp), (app_pc)IF_AARCHXX_ELSE(lr, ra));
-    if (wrap != NULL && TEST(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
+    if (wrap != NULL && TESTANY(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
         /* In case of a tailcall, the return address has already been replaced by
          * the sentinel in the stack, we need to retrieve the return address from the
          * outer level.
@@ -2035,7 +2036,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
 
     drwrap_in_callee_check_unwind(drcontext, pt, &mc);
 
-    if (!TEST(DRWRAP_NO_FRILLS, global_flags)) {
+    if (!TESTANY(DRWRAP_NO_FRILLS, global_flags)) {
         dr_recurlock_lock(wrap_lock);
         wrap = hashtable_lookup(&wrap_table, (void *)pc);
         ASSERT(wrap != NULL, "failed to find wrap info");
@@ -2049,7 +2050,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
     ASSERT(pt->wrap_level >= 0, "wrapping level corrupted");
     ASSERT(pt->wrap_level < MAX_WRAP_NESTING, "max wrapped nesting reached");
     if (pt->wrap_level >= MAX_WRAP_NESTING) {
-        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+        if (!TESTANY(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_unlock(wrap_lock);
         wrapcxt.where_am_i = DRWRAP_WHERE_OUTSIDE_CALLBACK;
         return; /* we'll have to skip stuff */
@@ -2070,7 +2071,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
     }
 
     pt->last_wrap_func[pt->wrap_level] = decorated_pc;
-    if (TEST(DRWRAP_NO_FRILLS, global_flags))
+    if (TESTANY(DRWRAP_NO_FRILLS, global_flags))
         pt->last_wrap_entry[pt->wrap_level] = wrap;
     pt->app_esp[pt->wrap_level] = mc.xsp;
 #ifdef DEBUG
@@ -2083,7 +2084,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
     }
 #endif
 
-    if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+    if (TESTANY(DRWRAP_NO_FRILLS, global_flags)) {
         if (!wrap->enabled) {
             dr_recurlock_lock(wrap_lock);
             disabled_count++;
@@ -2140,7 +2141,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(IF_RISCV64_ELSE(reg_t ra, reg
         /* we won't decrement in post so decrement now.  we needed to increment
          * to set up for pt->skip, etc.
          */
-        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+        if (!TESTANY(DRWRAP_NO_FRILLS, global_flags))
             drwrap_free_user_data(drcontext, pt, pt->wrap_level);
         pt->wrap_level--;
     }
@@ -2188,7 +2189,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
         return; /* skip the post-func cbs */
     }
 
-    if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+    if (TESTANY(DRWRAP_NO_FRILLS, global_flags)) {
         wrap = pt->last_wrap_entry[level];
     } else {
         dr_recurlock_lock(wrap_lock);
@@ -2201,20 +2202,20 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
         /* handle drwrap_unwrap being called in post_cb */
         next = wrap->next;
         if (!wrap->enabled) {
-            if (TEST(DRWRAP_NO_FRILLS, global_flags))
+            if (TESTANY(DRWRAP_NO_FRILLS, global_flags))
                 dr_recurlock_lock(wrap_lock);
             disabled_count++;
-            if (TEST(DRWRAP_NO_FRILLS, global_flags))
+            if (TESTANY(DRWRAP_NO_FRILLS, global_flags))
                 dr_recurlock_unlock(wrap_lock);
             continue;
         }
-        if (TEST(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
+        if (TESTANY(DRWRAP_REPLACE_RETADDR, wrap->flags)) {
             NOTIFY(2, "DRWRAP_REPLACE_RETADDR: setting real retaddr as [%d] " PFX "\n",
                    level, pt->retaddr[level]);
             dr_write_saved_reg(drcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT,
                                (reg_t)pt->retaddr[level]);
         }
-        if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+        if (TESTANY(DRWRAP_NO_FRILLS, global_flags)) {
             user_data = pt->user_data_nofrills[level];
         } else {
             /* we may have to skip some entries */
@@ -2228,7 +2229,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
         }
         if (pt->cleanup_only) {
             /* Skip post handlers. */
-        } else if (!TEST(DRWRAP_NO_FRILLS, global_flags) &&
+        } else if (!TESTANY(DRWRAP_NO_FRILLS, global_flags) &&
                    idx == pt->user_data_count[level]) {
             /* we didn't find it, it must be new, so had no pre => skip post
              * (even if only has post, to be consistent w/ timing)
@@ -2239,14 +2240,14 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
                 wrapcxt.callconv = wrap->callconv;
                 (*wrap->post_cb)(&wrapcxt, user_data);
             } else if (!only_requested_unwind ||
-                       TEST(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
+                       TESTANY(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
                 /* don't double-call those that we presumably already called
                  * that had the flag set.  there might have been a longjmp and no
                  * exception (e.g., any longjmp on linux): but that's too bad:
                  * current impl doesn't handle that.
                  */
                 if (only_requested_unwind ||
-                    !TEST(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
+                    !TESTANY(DRWRAP_UNWIND_ON_EXCEPTION, wrap->flags)) {
                     (*wrap->post_cb)(NULL, user_data);
                 }
             } else
@@ -2263,7 +2264,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
          */
         uint i;
         drvector_init(&toflush, 10, false /*no synch: wrapcxt-local*/, NULL);
-        if (TEST(DRWRAP_NO_FRILLS, global_flags))
+        if (TESTANY(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_lock(wrap_lock);
         for (i = 0; i < HASHTABLE_SIZE(wrap_table.table_bits); i++) {
             hash_entry_t *he, *next_he;
@@ -2297,10 +2298,10 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
         }
         do_flush = true;
         disabled_count = 0;
-        if (TEST(DRWRAP_NO_FRILLS, global_flags))
+        if (TESTANY(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_unlock(wrap_lock);
     }
-    if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+    if (!TESTANY(DRWRAP_NO_FRILLS, global_flags))
         dr_recurlock_unlock(wrap_lock);
     if (wrapcxt.mc_modified && !unwind)
         dr_set_mcontext(drcontext, wrapcxt.mc);
@@ -2316,7 +2317,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc, i
     }
 
     if (unwound_all) {
-        if (!TEST(DRWRAP_NO_FRILLS, global_flags))
+        if (!TESTANY(DRWRAP_NO_FRILLS, global_flags))
             drwrap_free_user_data(drcontext, pt, level);
 
         if (level == pt->wrap_level) {
@@ -2453,7 +2454,8 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
         dr_recurlock_lock(wrap_lock);
         wrap = hashtable_lookup(&wrap_table, (void *)pc);
         if (wrap != NULL) {
-            void *arg1 = TEST(DRWRAP_NO_FRILLS, global_flags) ? (void *)wrap : (void *)pc;
+            void *arg1 =
+                TESTANY(DRWRAP_NO_FRILLS, global_flags) ? (void *)wrap : (void *)pc;
             /* i#690: do not bother saving registers that should be scratch at
              * function entry, if requested by user.
              * I considered building a custom context switch but that would require
@@ -2461,7 +2463,7 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
              * stack alignment code; plus, skipping preservation was already
              * mostly in place for clean call auto opt.
              */
-            dr_cleancall_save_t flags = TEST(DRWRAP_FAST_CLEANCALLS, global_flags)
+            dr_cleancall_save_t flags = TESTANY(DRWRAP_FAST_CLEANCALLS, global_flags)
                 ? (DR_CLEANCALL_NOSAVE_FLAGS | DR_CLEANCALL_NOSAVE_XMM_NONPARAM)
                 : 0;
             flags |= DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
@@ -2502,7 +2504,7 @@ drwrap_event_bb_insert_where(void *drcontext, void *tag, instrlist_t *bb, instr_
         dr_recurlock_lock(wrap_lock);
         wrap = hashtable_lookup(&wrap_table, (void *)target);
         bool add_post = wrap != NULL && wrap->post_cb != NULL &&
-            !TEST(DRWRAP_REPLACE_RETADDR, wrap->flags);
+            !TESTANY(DRWRAP_REPLACE_RETADDR, wrap->flags);
         dr_recurlock_unlock(wrap_lock);
         if (add_post) {
             /* Add the pc-as-load-target (so *not* "pc"). */
@@ -2520,7 +2522,7 @@ static dr_emit_flags_t
 drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                        bool for_trace, bool translating, void *user_data)
 {
-    ASSERT(!TEST(DRWRAP_INVERT_CONTROL, global_flags),
+    ASSERT(!TESTANY(DRWRAP_INVERT_CONTROL, global_flags),
            "should not get here if DRWRAP_INVERT_CONTROL is set");
     return drwrap_event_bb_insert_where(drcontext, tag, bb, inst, inst, for_trace,
                                         translating, user_data, /*cleanup_only=*/false);
@@ -2631,7 +2633,7 @@ drwrap_wrap_ex(app_pc func,
     /* allow one side to be NULL (i#562) */
     if (func == NULL || (pre_func_cb == NULL && post_func_cb == NULL))
         return false;
-    if (TEST(DRWRAP_REPLACE_RETADDR, flags) && post_func_cb == NULL) {
+    if (TESTANY(DRWRAP_REPLACE_RETADDR, flags) && post_func_cb == NULL) {
         /* Nonsensical combination so we fail. */
         return false;
     }
@@ -2660,7 +2662,7 @@ drwrap_wrap_ex(app_pc func,
         for (e = wrap_cur; e != NULL; e = e->next) {
             if (e->pre_cb == pre_func_cb && e->post_cb == post_func_cb) {
                 /* no-frills requires 1st entry to be the live one */
-                if (!TEST(DRWRAP_NO_FRILLS, global_flags) || e == wrap_cur) {
+                if (!TESTANY(DRWRAP_NO_FRILLS, global_flags) || e == wrap_cur) {
                     /* matches existing request: re-enable if necessary */
                     e->enabled = true;
                     /* be sure to update all fields (xref drmem i#816) */
@@ -2670,14 +2672,14 @@ drwrap_wrap_ex(app_pc func,
                     dr_recurlock_unlock(wrap_lock);
                     return true;
                 } /* else continue */
-            } else if (TEST(DRWRAP_NO_FRILLS, global_flags) && e->enabled) {
+            } else if (TESTANY(DRWRAP_NO_FRILLS, global_flags) && e->enabled) {
                 /* more than one wrap of same address is not allowed */
                 dr_global_free(wrap_new, sizeof(*wrap_new));
                 dr_recurlock_unlock(wrap_lock);
                 return false;
             }
         }
-        if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
+        if (TESTANY(DRWRAP_NO_FRILLS, global_flags)) {
             /* free whole chain of disabled entries */
             wrap_entry_free(wrap_cur);
             wrap_cur = NULL;
@@ -2844,7 +2846,7 @@ drwrap_in_callee_check_unwind(void *drcontext, per_thread_t *pt, dr_mcontext_t *
          */
         while (pt->wrap_level >= 0) {
             app_pc ret;
-            if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
+            if (TESTANY(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
                 if (!fast_safe_read((void *)pt->app_esp[pt->wrap_level], sizeof(ret),
                                     &ret))
                     ret = NULL;

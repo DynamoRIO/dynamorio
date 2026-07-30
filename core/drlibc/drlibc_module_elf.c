@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -154,11 +154,11 @@ uint
 module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
 {
     uint segment_prot = 0;
-    if (TEST(PF_X, prog_hdr->p_flags))
+    if (TESTANY(PF_X, prog_hdr->p_flags))
         segment_prot |= MEMPROT_EXEC;
-    if (TEST(PF_W, prog_hdr->p_flags))
+    if (TESTANY(PF_W, prog_hdr->p_flags))
         segment_prot |= MEMPROT_WRITE;
-    if (TEST(PF_R, prog_hdr->p_flags))
+    if (TESTANY(PF_R, prog_hdr->p_flags))
         segment_prot |= MEMPROT_READ;
     return segment_prot;
 }
@@ -411,25 +411,26 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 
     /* reserve the memory from os for library */
     initial_map_size = elf->image_size;
-    if (TEST(MODLOAD_SEPARATE_BSS, flags)) {
+    if (TESTANY(MODLOAD_SEPARATE_BSS, flags)) {
         /* place an extra no-access page after .bss */
         initial_map_size += PAGE_SIZE;
     }
-    lib_base = (*map_func)(-1, &initial_map_size, 0, map_base,
-                           MEMPROT_NONE, /* so the separating page is no-access */
-                           MAP_FILE_COPY_ON_WRITE | MAP_FILE_IMAGE |
-                               /* i#1001: a PIE executable may have NULL as preferred
-                                * base, in which case the map can be anywhere
-                                */
-                               ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
-                               (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0) |
-                               (TEST(MODLOAD_IS_APP, flags) ? MAP_FILE_APP : 0));
+    lib_base =
+        (*map_func)(-1, &initial_map_size, 0, map_base,
+                    MEMPROT_NONE, /* so the separating page is no-access */
+                    MAP_FILE_COPY_ON_WRITE | MAP_FILE_IMAGE |
+                        /* i#1001: a PIE executable may have NULL as preferred
+                         * base, in which case the map can be anywhere
+                         */
+                        ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
+                        (TESTANY(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0) |
+                        (TESTANY(MODLOAD_IS_APP, flags) ? MAP_FILE_APP : 0));
     if (lib_base == NULL)
         return NULL;
     LOG(GLOBAL, LOG_LOADER, 3,
         "%s: initial reservation " PFX "-" PFX " vs preferred " PFX "\n", __FUNCTION__,
         lib_base, lib_base + initial_map_size, map_base);
-    if (TEST(MODLOAD_SEPARATE_BSS, flags) && initial_map_size > elf->image_size)
+    if (TESTANY(MODLOAD_SEPARATE_BSS, flags) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
     else
         elf->image_size = initial_map_size;
@@ -478,8 +479,8 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             }
             seg_prot = module_segment_prot_to_osprot(prog_hdr);
             pg_offs = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
-            if (TEST(MODLOAD_SKIP_WRITABLE, flags) && TEST(MEMPROT_WRITE, seg_prot) &&
-                mem_end == lib_end) {
+            if (TESTANY(MODLOAD_SKIP_WRITABLE, flags) &&
+                TESTANY(MEMPROT_WRITE, seg_prot) && mem_end == lib_end) {
                 /* We only actually skip if it's the final segment, to allow
                  * unmapping with a single mmap and not worrying about sthg
                  * else having been unmapped at the end in the meantime.

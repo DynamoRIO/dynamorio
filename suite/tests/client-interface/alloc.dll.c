@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,7 +66,7 @@ write_array(char *array)
 static uint
 get_os_mem_prot(uint prot)
 {
-    if (add_exec && TEST(DR_MEMPROT_READ, prot))
+    if (add_exec && TESTANY(DR_MEMPROT_READ, prot))
         return (prot | DR_MEMPROT_EXEC);
     return prot;
 }
@@ -742,7 +742,7 @@ dr_init(client_id_t id)
     int res = personality(0xffffffff);
     if (res == -1)
         fprintf(stderr, "Error: fail to get personality\n");
-    else if (TEST(READ_IMPLIES_EXEC, res))
+    else if (TESTANY(READ_IMPLIES_EXEC, res))
         add_exec = true;
 #endif
 

@@ -154,7 +154,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             CHECK(drmgr_get_emulated_instr_data(instr, &emulated_instr),
                   "drmgr_get_emulated_instr_data() failed");
             CHECK(instr_is_stringop_loop(emulated_instr.instr), "orig not string loop");
-            CHECK(TEST(DR_EMULATE_REST_OF_BLOCK, emulated_instr.flags),
+            CHECK(TESTANY(DR_EMULATE_REST_OF_BLOCK, emulated_instr.flags),
                   "entire block not emulated");
             in_emulation = true;
             ++num_app_instrs;

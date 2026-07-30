@@ -680,7 +680,7 @@ sideline_optimize(fragment_t *f,
     /* Emit fragment but don't make visible yet */
     /* mark both old and new as DO_NOT_SIDELINE */
     /* XXX: if f is shared we must hold change_linking_lock here */
-    ASSERT(!TEST(FRAG_SHARED, f->flags));
+    ASSERT(!TESTANY(FRAG_SHARED, f->flags));
     f->flags |= FRAG_DO_NOT_SIDELINE;
     flags = f->flags;
     DEBUG_DECLARE(ok =)

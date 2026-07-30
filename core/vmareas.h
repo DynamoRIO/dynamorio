@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -119,7 +119,7 @@ struct vm_area_vector_t {
 #define VMVECTOR_ALLOC_VECTOR(v, dc, flags, lockname)             \
     do {                                                          \
         v = vmvector_create_vector((dc), (flags));                \
-        if (!TEST(VECTOR_NO_LOCK, (flags)))                       \
+        if (!TESTANY(VECTOR_NO_LOCK, (flags)))                    \
             ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname); \
     } while (0);
 

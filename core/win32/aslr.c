@@ -212,8 +212,8 @@ aslr_init(void)
      * ASLR_HANDLING|ASLR_NORMALIZE_ID
      */
 
-    ASSERT_CURIOSITY(!TEST(ASLR_RANDOMIZE_EXECUTABLE, DYNAMO_OPTION(aslr_cache)) ||
-                     TEST(ASLR_ALLOW_ORIGINAL_CLOBBER, DYNAMO_OPTION(aslr_cache)) &&
+    ASSERT_CURIOSITY(!TESTANY(ASLR_RANDOMIZE_EXECUTABLE, DYNAMO_OPTION(aslr_cache)) ||
+                     TESTANY(ASLR_ALLOW_ORIGINAL_CLOBBER, DYNAMO_OPTION(aslr_cache)) &&
                          "case 8902 - need to duplicate handle in child");
     /* case 8902 tracks the extra work if we want to support this
      * non-recommended configuration */
@@ -250,7 +250,7 @@ aslr_init(void)
          * we won't risk freeing */
     }
 
-    if (TEST(ASLR_HEAP, DYNAMO_OPTION(aslr))) {
+    if (TESTANY(ASLR_HEAP, DYNAMO_OPTION(aslr))) {
         /* we only reserve a random padding from the beginning of memory
          * and let the OS handle all other allocations normally
          */
@@ -297,7 +297,7 @@ aslr_init(void)
      * done in a high privilege process (e.g. winlogon.exe) that may
      * otherwise have no other role to serve in ASLR_SHARED_CONTENTS
      */
-    if (TEST(ASLR_SHARED_INITIALIZE, DYNAMO_OPTION(aslr_cache))) {
+    if (TESTANY(ASLR_SHARED_INITIALIZE, DYNAMO_OPTION(aslr_cache))) {
         HANDLE initialize_directory;
         NTSTATUS res =
             nt_initialize_shared_directory(&initialize_directory, true /* permanent */);
@@ -330,7 +330,7 @@ aslr_init(void)
              * release builds as well
              */
             ASSERT_CURIOSITY(res == STATUS_PRIVILEGE_NOT_HELD);
-            if (TEST(ASLR_SHARED_INITIALIZE_NONPERMANENT, DYNAMO_OPTION(aslr_cache))) {
+            if (TESTANY(ASLR_SHARED_INITIALIZE_NONPERMANENT, DYNAMO_OPTION(aslr_cache))) {
                 res = nt_initialize_shared_directory(&initialize_directory,
                                                      false /* temporary */);
                 ASSERT(NT_SUCCESS(res) && "unable to initialize");
@@ -350,7 +350,7 @@ aslr_init(void)
         /* XXX: this should change to become SID related */
         NTSTATUS res = nt_open_object_directory(
             &shared_object_directory, DYNAMORIO_SHARED_OBJECT_DIRECTORY,
-            TEST(ASLR_SHARED_PUBLISHER, DYNAMO_OPTION(aslr_cache)));
+            TESTANY(ASLR_SHARED_PUBLISHER, DYNAMO_OPTION(aslr_cache)));
         /* Only trusted publishers should be allowed to publish in the
          * SharedCache */
         /* Note  */
@@ -398,7 +398,7 @@ aslr_init(void)
          */
     }
 
-    if (TEST(ASLR_SHARED_WORKLIST, DYNAMO_OPTION(aslr_cache))) {
+    if (TESTANY(ASLR_SHARED_WORKLIST, DYNAMO_OPTION(aslr_cache))) {
         aslr_process_worklist();
     }
 
@@ -418,7 +418,7 @@ aslr_init(void)
 void
 aslr_exit(void)
 {
-    if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) &&
+    if (TESTANY(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) &&
         is_module_list_initialized()) {
         /* doublecheck and print entries to make sure they match */
         DOLOG(1, LOG_VMAREAS, { print_modules_safe(GLOBAL, DUMP_NOT_XML); });
@@ -434,18 +434,18 @@ aslr_exit(void)
     vmvector_delete_vector(GLOBAL_DCONTEXT, aslr_heap_pad_areas);
 
     if (shared_object_directory != INVALID_HANDLE_VALUE) {
-        ASSERT_CURIOSITY(TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
+        ASSERT_CURIOSITY(TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
         nt_close_object_directory(shared_object_directory);
     }
 
     if (known_dlls_object_directory != INVALID_HANDLE_VALUE) {
         ASSERT_CURIOSITY(DYNAMO_OPTION(track_module_filenames) ||
-                         TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
+                         TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
         nt_close_object_directory(known_dlls_object_directory);
     }
 
     if (relocated_dlls_filecache_initial != INVALID_HANDLE_VALUE) {
-        ASSERT_CURIOSITY(TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
+        ASSERT_CURIOSITY(TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
         close_handle(relocated_dlls_filecache_initial);
     }
 
@@ -645,7 +645,7 @@ aslr_update_view_size(app_pc view_base, size_t view_size)
      * rebase and giving up all the time.
      */
 
-    if (TEST(ASLR_INTERNAL_SAME_STRESS, INTERNAL_OPTION(aslr_internal))) {
+    if (TESTANY(ASLR_INTERNAL_SAME_STRESS, INTERNAL_OPTION(aslr_internal))) {
         return;
     }
 
@@ -680,7 +680,7 @@ aslr_track_randomized_dlls(dcontext_t *dcontext, app_pc base, size_t size, bool 
         if (our_shared_file) {
             DEBUG_DECLARE(app_pc our_relocated_preferred_base =
                               get_module_preferred_base(base););
-            ASSERT(TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
+            ASSERT(TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
             ASSERT(dcontext->aslr_context.original_section_base !=
                    ASLR_INVALID_SECTION_BASE);
 
@@ -769,7 +769,7 @@ aslr_track_randomized_dlls(dcontext_t *dcontext, app_pc base, size_t size, bool 
              * see case 8507
              */
             ASSERT(preferred_base == get_module_preferred_base(base) ||
-                   TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
+                   TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
 
             /* XXX: if multiple DLLs preferred regions overlap we
              * wouldn't know not to remove a hole, need refcounting, but
@@ -899,7 +899,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
          * variable, since offset is user exposed.
          * DLL loading on the other hand doesn't need this argument.
          */
-        ASSERT_NOT_IMPLEMENTED(!TEST(ASLR_MAPPED, DYNAMO_OPTION(aslr)));
+        ASSERT_NOT_IMPLEMENTED(!TESTANY(ASLR_MAPPED, DYNAMO_OPTION(aslr)));
 
         if (psection_offs_unsafe == NULL && prot != PAGE_READONLY) {
             /* XXX: should distinguish SEC_IMAGE for the
@@ -968,7 +968,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
             /* assumption: loader never suggests base in 1st map */
             if (requested_base == 0) {
                 DODEBUG({
-                    if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
+                    if (TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
                         dcontext->aslr_context.randomized_section_handle !=
                             section_handle) {
                         STATS_INC(aslr_dlls_not_shared);
@@ -999,7 +999,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                     }
                 });
 
-                if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
+                if (TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
                     dcontext->aslr_context.randomized_section_handle == section_handle) {
                     /* shared DLL mapping at presumably randomized location,
                      * leave base unset for preferred mapping
@@ -1017,7 +1017,8 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                     /* XXX: we may want to take a hint from prot and expected size */
                     modified_base = aslr_get_next_base();
 
-                    if (!TEST(ASLR_INTERNAL_RANGE_NONE, INTERNAL_OPTION(aslr_internal))) {
+                    if (!TESTANY(ASLR_INTERNAL_RANGE_NONE,
+                                 INTERNAL_OPTION(aslr_internal))) {
                         /* really modify base now */
                         /* note that pbase_unsafe is an IN/OUT argument,
                          * so it is not likely that the application would
@@ -1060,7 +1061,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                 ASSERT_CURIOSITY(
                     aslr_last_dll_bounds->start == 0 ||           /* given up */
                     aslr_last_dll_bounds->start == requested_base /* may be race? */
-                    || TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))
+                    || TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))
                     /* not keeping keep track for shared */);
                 /* XXX: for ASLR_SHARED_CONTENTS would be at the
                  * requested shared preferred mapping address which is
@@ -1245,7 +1246,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                      status == STATUS_CONFLICTING_ADDRESSES);
 
     /* handle shared DLL ASLR mapping */
-    if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
+    if (TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
         dcontext->aslr_context.randomized_section_handle == section_handle) {
         if (NT_SUCCESS(status)) {
             if (status == STATUS_SUCCESS) {
@@ -1281,7 +1282,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              */
 
             /* add to preferred module range */
-            if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action))) {
+            if (TESTANY(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action))) {
                 ASSERT(NT_SUCCESS(status));
 
                 /* we assume that since syscall succeeded these dereferences are safe
@@ -1330,7 +1331,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
         dcontext->aslr_context.randomized_section_handle = INVALID_HANDLE_VALUE;
         dcontext->aslr_context.sys_aslr_clobbered = false;
         return;
-    } else if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
+    } else if (TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
                dcontext->aslr_context.randomized_section_handle != section_handle) {
         /* flag that private mapping should be processed in
          * update_module_list()
@@ -1735,8 +1736,8 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                 }
 
                 module_characteristics = get_module_characteristics(base);
-                if (TEST(IMAGE_FILE_DLL, module_characteristics) &&
-                    TEST(IMAGE_FILE_RELOCS_STRIPPED, module_characteristics)) {
+                if (TESTANY(IMAGE_FILE_DLL, module_characteristics) &&
+                    TESTANY(IMAGE_FILE_RELOCS_STRIPPED, module_characteristics)) {
                     /* Note that we still privately ASLR EXEs that are
                      * presumed to not be executable but only loaded
                      * for ther resources */
@@ -1749,7 +1750,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                     exempt = true;
                 }
                 DODEBUG({
-                    if (!exempt && !TEST(IMAGE_FILE_DLL, module_characteristics)) {
+                    if (!exempt && !TESTANY(IMAGE_FILE_DLL, module_characteristics)) {
                         /* EXE usually have no PE name, and note that we
                          * see for example in notepad.exe help on (xp sp2)
                          * we get helpctr.exe loaded as
@@ -1764,7 +1765,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                 });
 
                 /* add to preferred module range only if MEM_IMAGE */
-                if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) && !exempt) {
+                if (TESTANY(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) && !exempt) {
                     /* XXX: only DLLs that are randomized by us get added,
                      * not any DLL rebased due to other conflicts (even if
                      * due to overlap our own allocations we don't take blame)
@@ -1883,7 +1884,7 @@ aslr_pre_process_unmapview(dcontext_t *dcontext, app_pc base, size_t size)
     reg_t *param_base = dcontext->sys_param_base;
 
     /* remove from preferred module range */
-    if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action))) {
+    if (TESTANY(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action))) {
         /* XXX: should move to post processing in
          * aslr_post_process_mapview, for the unlikely case
          * NtUnmapViewOfSection fails, and so that we remove only when
@@ -2066,7 +2067,8 @@ aslr_maybe_pad_stack(dcontext_t *dcontext, HANDLE process_handle)
     LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
         "ASLR: check if thread is in new child " PIFX "\n", process_handle);
 
-    if (TEST(ASLR_STACK, DYNAMO_OPTION(aslr)) && DYNAMO_OPTION(aslr_parent_offset) > 0 &&
+    if (TESTANY(ASLR_STACK, DYNAMO_OPTION(aslr)) &&
+        DYNAMO_OPTION(aslr_parent_offset) > 0 &&
         should_inject_into_process(get_thread_private_dcontext(), process_handle, NULL,
                                    NULL)) {
         /* Case 9173: ensure we only do this once, as 3rd party
@@ -2087,7 +2089,7 @@ aslr_maybe_pad_stack(dcontext_t *dcontext, HANDLE process_handle)
         }
     } else {
         DODEBUG({
-            if (TEST(ASLR_STACK, DYNAMO_OPTION(aslr)) &&
+            if (TESTANY(ASLR_STACK, DYNAMO_OPTION(aslr)) &&
                 DYNAMO_OPTION(aslr_parent_offset) > 0) {
                 LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
                     "ASLR: child not configured for protection, not padding\n");
@@ -2136,7 +2138,7 @@ aslr_force_dynamorio_rebase(HANDLE process_handle)
      */
 
     /* no need to do both */
-    if (!(TEST(ASLR_STACK, DYNAMO_OPTION(aslr)))) {
+    if (!(TESTANY(ASLR_STACK, DYNAMO_OPTION(aslr)))) {
         /* random padding to have the loader load us in a not so
          * determinstic location */
         DEBUG_DECLARE(ok =)
@@ -2208,7 +2210,7 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
     ASSERT(ALIGNED(last_allocation_base, PAGE_SIZE));
     ASSERT(ALIGNED(last_allocation_size, PAGE_SIZE));
 
-    ASSERT(TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr)));
+    ASSERT(TESTANY(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr)));
     if (DYNAMO_OPTION(aslr_reserve_pad) > 0) {
         /* We need to randomly pad memory around each memory
          * allocation as well.  Conservatively, we reserve a new
@@ -2569,7 +2571,7 @@ open_relocated_dlls_filecache_directory(void)
     wchar_t wbuf[MAXIMUM_PATH];
     HANDLE directory_handle;
     int retval;
-    bool per_user = TEST(ASLR_SHARED_PER_USER, DYNAMO_OPTION(aslr_cache));
+    bool per_user = TESTANY(ASLR_SHARED_PER_USER, DYNAMO_OPTION(aslr_cache));
 
     /* XXX: note a lot of overlap with code in os_create_dir() yet
      * that assumes we'll deal with file names, while I want to avoid
@@ -3081,7 +3083,7 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
     NTSTATUS res;
 
     size_t validation_prefix =
-        (TEST(ASLR_PERSISTENT_PARANOID_PREFIX, DYNAMO_OPTION(aslr_validation))
+        (TESTANY(ASLR_PERSISTENT_PARANOID_PREFIX, DYNAMO_OPTION(aslr_validation))
              ? DYNAMO_OPTION(aslr_section_prefix)
              : POINTER_MAX);
 
@@ -3162,8 +3164,8 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
         }
     });
 
-    if (TEST(ASLR_PERSISTENT_PARANOID_TRANSFORM_EXPLICITLY,
-             DYNAMO_OPTION(aslr_validation))) {
+    if (TESTANY(ASLR_PERSISTENT_PARANOID_TRANSFORM_EXPLICITLY,
+                DYNAMO_OPTION(aslr_validation))) {
         KSTART(aslr_validate_relocate);
         /* note we're transforming our good section into the relocated one
          * including any header modifications
@@ -3261,7 +3263,8 @@ aslr_verify_file_checksum(DR_PARAM_IN HANDLE app_file_handle,
     aslr_persistent_digest_t persistent_digest;
 
     module_digest_t calculated_digest;
-    bool short_only = TEST(ASLR_PERSISTENT_SHORT_DIGESTS, DYNAMO_OPTION(aslr_validation));
+    bool short_only =
+        TESTANY(ASLR_PERSISTENT_SHORT_DIGESTS, DYNAMO_OPTION(aslr_validation));
 
     bool ok;
     ok = os_get_file_size_by_handle(app_file_handle, &app_file_size);
@@ -3328,7 +3331,7 @@ aslr_verify_file_checksum(DR_PARAM_IN HANDLE app_file_handle,
      * Measure for performance problems and may streamline.
      */
 
-    if (TEST(ASLR_PERSISTENT_MODIFIED_TIME, DYNAMO_OPTION(aslr_validation))) {
+    if (TESTANY(ASLR_PERSISTENT_MODIFIED_TIME, DYNAMO_OPTION(aslr_validation))) {
         /* XXX: currently impossible to check application times */
         ASSERT_NOT_IMPLEMENTED(false);
         if (!ok) {
@@ -3338,7 +3341,7 @@ aslr_verify_file_checksum(DR_PARAM_IN HANDLE app_file_handle,
         }
     }
 
-    if (TEST(ASLR_PERSISTENT_PARANOID, DYNAMO_OPTION(aslr_validation))) {
+    if (TESTANY(ASLR_PERSISTENT_PARANOID, DYNAMO_OPTION(aslr_validation))) {
         ok = aslr_module_verify_relocated_contents(app_file_handle,
                                                    randomized_file_handle);
         if (!ok) {
@@ -3354,7 +3357,7 @@ aslr_verify_file_checksum(DR_PARAM_IN HANDLE app_file_handle,
         }
     }
 
-    if (TEST(ASLR_PERSISTENT_SOURCE_DIGEST, DYNAMO_OPTION(aslr_validation))) {
+    if (TESTANY(ASLR_PERSISTENT_SOURCE_DIGEST, DYNAMO_OPTION(aslr_validation))) {
         /* XXX: note that we should pass the original section to
          * aslr_publish_section_handle() and use
          * aslr_get_section_digest() instead of a private mapping
@@ -3378,7 +3381,7 @@ aslr_verify_file_checksum(DR_PARAM_IN HANDLE app_file_handle,
         }
     }
 
-    if (TEST(ASLR_PERSISTENT_TARGET_DIGEST, DYNAMO_OPTION(aslr_validation))) {
+    if (TESTANY(ASLR_PERSISTENT_TARGET_DIGEST, DYNAMO_OPTION(aslr_validation))) {
         /* XXX: note that this routine should not be completely
          * trusted, if we're trying to prevent a high privileged
          * process from crashing on a bad DLL for extra safety we
@@ -3895,7 +3898,7 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
 
     _snwprintf(generated_name, max_name_length, L"%s-" L_PFMT, short_name, final_hash);
 
-    if (TEST(ASLR_INTERNAL_SHARED_NONUNIQUE, INTERNAL_OPTION(aslr_internal))) {
+    if (TESTANY(ASLR_INTERNAL_SHARED_NONUNIQUE, INTERNAL_OPTION(aslr_internal))) {
         /* stress testing: temporarily testing multiple file sections by unique
          * within process name */
         static int unique = 0;
@@ -4078,13 +4081,13 @@ aslr_generate_relocated_section(DR_PARAM_IN HANDLE unmodified_section,
      */
     /* check for PE already done by get_module_preferred_base() */
     module_characteristics = get_module_characteristics(base);
-    if (TEST(IMAGE_FILE_RELOCS_STRIPPED, module_characteristics)) {
+    if (TESTANY(IMAGE_FILE_RELOCS_STRIPPED, module_characteristics)) {
         LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
             "ASLR: aslr_generate_relocated_section skipping non-relocatable module\n");
         goto unmap_and_exit;
     }
-    if (!TEST(IMAGE_FILE_DLL, module_characteristics)) {
-        if (TEST(ASLR_RANDOMIZE_EXECUTABLE, DYNAMO_OPTION(aslr_cache))) {
+    if (!TESTANY(IMAGE_FILE_DLL, module_characteristics)) {
+        if (TESTANY(ASLR_RANDOMIZE_EXECUTABLE, DYNAMO_OPTION(aslr_cache))) {
             /* note that we have no problem randomizing an executable with
              * relocations, when we're in the parent
              */
@@ -4112,7 +4115,7 @@ aslr_generate_relocated_section(DR_PARAM_IN HANDLE unmodified_section,
     }
 
     /* .NET DLLs */
-    if (TEST(ASLR_AVOID_NET20_NATIVE_IMAGES, DYNAMO_OPTION(aslr_cache)) &&
+    if (TESTANY(ASLR_AVOID_NET20_NATIVE_IMAGES, DYNAMO_OPTION(aslr_cache)) &&
         module_has_cor20_header(base)) {
         /* XXX:case 9164 once we have better capacity management
          * currently only fear of new temporary DLLs generated by ASP.NET */
@@ -4610,7 +4613,7 @@ aslr_produce_randomized_file(DR_PARAM_IN HANDLE original_file_handle,
     LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
         "ASLR: aslr_produce_randomized_file for %ls\n", mostly_unique_name);
 
-    if (TEST(ASLR_SHARED_FILE_PRODUCER, DYNAMO_OPTION(aslr_cache))) {
+    if (TESTANY(ASLR_SHARED_FILE_PRODUCER, DYNAMO_OPTION(aslr_cache))) {
         /* Note that SEC_IMAGE is always mapped as
          * PAGE_EXECUTE_WRITECOPY therefore one can't write back
          * relocations to a file mapped as image, rather only
@@ -4665,7 +4668,7 @@ aslr_produce_randomized_file(DR_PARAM_IN HANDLE original_file_handle,
 
         if (ok) {
             NTSTATUS res;
-            bool persistent = TEST(ASLR_PERSISTENT, DYNAMO_OPTION(aslr_cache));
+            bool persistent = TESTANY(ASLR_PERSISTENT, DYNAMO_OPTION(aslr_cache));
 
             /* note that SEC_IMAGE is larger than the real file size,
              * but could use module_size to be slightly more conservative */
@@ -5004,7 +5007,7 @@ aslr_publish_section_handle(DR_PARAM_IN HANDLE original_file_handle,
         });
     }
 
-    if (TEST(ASLR_INTERNAL_SHARED_APPFILE, INTERNAL_OPTION(aslr_internal))) {
+    if (TESTANY(ASLR_INTERNAL_SHARED_APPFILE, INTERNAL_OPTION(aslr_internal))) {
         ASSERT_CURIOSITY(randomized_file_handle == NULL);
         /* stress testing: temporarily testing application file
          * sections instead of our own files, provides original file,
@@ -5194,7 +5197,7 @@ aslr_set_randomized_handle(dcontext_t *dcontext, HANDLE relocated_section_handle
     dcontext->aslr_context.original_section_checksum = original_checksum;
     dcontext->aslr_context.original_section_timestamp = original_timestamp;
 
-    if (TEST(ASLR_INTERNAL_SHARED_AND_PRIVATE, INTERNAL_OPTION(aslr_internal))) {
+    if (TESTANY(ASLR_INTERNAL_SHARED_AND_PRIVATE, INTERNAL_OPTION(aslr_internal))) {
         dcontext->aslr_context.randomized_section_handle = INVALID_HANDLE_VALUE;
     }
 }
@@ -5318,7 +5321,7 @@ aslr_replace_section_handle(DR_PARAM_IN HANDLE original_app_section_handle,
      * Note that each consumer will keep a handle and only when all
      * are done with it the file would be replacable.
      */
-    if (!TEST(ASLR_ALLOW_ORIGINAL_CLOBBER, DYNAMO_OPTION(aslr_cache))) {
+    if (!TESTANY(ASLR_ALLOW_ORIGINAL_CLOBBER, DYNAMO_OPTION(aslr_cache))) {
         /* Since we'll keep the app handle after mangling
          * NtCreateSection/NtOpenSection we'll have to close the old
          * handle the next time we're at NtCreateSection/NtOpenSection.
@@ -5482,7 +5485,7 @@ aslr_post_process_create_section_internal(DR_PARAM_IN HANDLE old_app_section_han
     bool ok;
     HANDLE new_published_handle;
 
-    ASSERT(TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
+    ASSERT(TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
     ASSERT(TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_SUBSCRIBER |
                        ASLR_SHARED_ANONYMOUS_CONSUMER,
                    DYNAMO_OPTION(aslr_cache)));
@@ -5514,7 +5517,7 @@ aslr_post_process_create_section_internal(DR_PARAM_IN HANDLE old_app_section_han
     /* if we are a subscriber, try opening a published section, and
      * verify whether it is from correct DLL
      */
-    if (TEST(ASLR_SHARED_SUBSCRIBER, DYNAMO_OPTION(aslr_cache)) &&
+    if (TESTANY(ASLR_SHARED_SUBSCRIBER, DYNAMO_OPTION(aslr_cache)) &&
         aslr_subscribe_section_handle(old_app_section_handle, file_handle,
                                       mostly_unique_name, new_relocated_handle)) {
         return true;
@@ -5525,10 +5528,10 @@ aslr_post_process_create_section_internal(DR_PARAM_IN HANDLE old_app_section_han
                 DYNAMO_OPTION(aslr_cache)) &&
         aslr_publish_section_handle(
             file_handle, mostly_unique_name,
-            TEST(ASLR_SHARED_ANONYMOUS_CONSUMER, DYNAMO_OPTION(aslr_cache)),
+            TESTANY(ASLR_SHARED_ANONYMOUS_CONSUMER, DYNAMO_OPTION(aslr_cache)),
             &new_published_handle)) {
         /* anonymous publisher==subscriber */
-        if (TEST(ASLR_SHARED_ANONYMOUS_CONSUMER, DYNAMO_OPTION(aslr_cache))) {
+        if (TESTANY(ASLR_SHARED_ANONYMOUS_CONSUMER, DYNAMO_OPTION(aslr_cache))) {
             /* reuses the private section handle, just needs to
              * register the metadata */
             ASSERT(new_published_handle != INVALID_HANDLE_VALUE);
@@ -5550,7 +5553,7 @@ aslr_post_process_create_section_internal(DR_PARAM_IN HANDLE old_app_section_han
          * produced - producer may want to produce only for
          * others' consumption but refrain from using these...
          */
-        if (TEST(ASLR_SHARED_SUBSCRIBER, DYNAMO_OPTION(aslr_cache))) {
+        if (TESTANY(ASLR_SHARED_SUBSCRIBER, DYNAMO_OPTION(aslr_cache))) {
             /* we now reopen the object as a regular subscriber, so
              * that we don't pass to the application a handle that may
              * have higher privileges than necessary.  XXX: this
@@ -5835,10 +5838,10 @@ aslr_post_process_create_or_open_section(dcontext_t *dcontext, bool is_create,
     d_r_safe_read(sysarg_section_handle, sizeof(safe_section_handle),
                   &safe_section_handle);
 
-    ASSERT(TEST(ASLR_DLL, DYNAMO_OPTION(aslr)));
+    ASSERT(TESTANY(ASLR_DLL, DYNAMO_OPTION(aslr)));
     ASSERT(file_handle != NULL && file_handle != INVALID_HANDLE_VALUE);
 
-    if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
+    if (TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
         TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_SUBSCRIBER |
                     ASLR_SHARED_ANONYMOUS_CONSUMER,
                 DYNAMO_OPTION(aslr_cache))) {
@@ -5851,7 +5854,7 @@ aslr_post_process_create_or_open_section(dcontext_t *dcontext, bool is_create,
             /* XXX: see note in aslr_post_process_mapview about handling failures
              * where we may need to preserve the original handle as well
              */
-            if (TEST(ASLR_ALLOW_ORIGINAL_CLOBBER, DYNAMO_OPTION(aslr_cache))) {
+            if (TESTANY(ASLR_ALLOW_ORIGINAL_CLOBBER, DYNAMO_OPTION(aslr_cache))) {
                 /* we can just close the handle to the original file */
                 close_handle(safe_section_handle);
             } else {
@@ -6039,7 +6042,7 @@ gbop_get_num_hooks(void)
         uint set_index = 0;
         size_t total_size = 0;
         while (gbop_hooks_set_sizes[set_index] != GBOP_HOOK_LIST_END_SENTINEL) {
-            if (TEST((1 << set_index), DYNAMO_OPTION(gbop_include_set))) {
+            if (TESTANY((1 << set_index), DYNAMO_OPTION(gbop_include_set))) {
                 gbop_hooks_set_enabled[set_index] = 1;
                 LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1,
                     "gbop_get_num_hooks: 0x%x => %d enabled \n", (1 << set_index),
@@ -6161,8 +6164,8 @@ gbop_is_after_cti(const app_pc ret_addr)
     bool done = false;
     dcontext_t *dcontext;
 
-    ASSERT(TEST(GBOP_CHECK_INSTR_TYPE, DYNAMO_OPTION(gbop)));
-    if (!TEST(GBOP_IS_CALL, DYNAMO_OPTION(gbop))) {
+    ASSERT(TESTANY(GBOP_CHECK_INSTR_TYPE, DYNAMO_OPTION(gbop)));
+    if (!TESTANY(GBOP_IS_CALL, DYNAMO_OPTION(gbop))) {
         DODEBUG_ONCE(LOG(THREAD_GET, LOG_ALL, 1,
                          "GBOP: gbop_is_after_cti: GBOP_CHECK_INSTR_TYPE is "
                          "enabled, but GBOP_IS_CALL is not\n"));
@@ -6381,7 +6384,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
 
         reg_t spill_mc_esp;
 
-        bool source_instr_ok = !(TEST(GBOP_CHECK_INSTR_TYPE, DYNAMO_OPTION(gbop)));
+        bool source_instr_ok = !(TESTANY(GBOP_CHECK_INSTR_TYPE, DYNAMO_OPTION(gbop)));
         bool is_call = false;   /* NYI */
         bool is_hp_jmp = false; /* NYI */
         bool is_jmp = false;    /* NYI */
@@ -6428,12 +6431,12 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
          * could make check that it points within the array so can't be
          * overwritten trivially (and assuming DR memory is not writable).
          */
-        if (TEST(GBOP_IS_EXECUTABLE, DYNAMO_OPTION(gbop))) {
+        if (TESTANY(GBOP_IS_EXECUTABLE, DYNAMO_OPTION(gbop))) {
             is_exec = is_executable_address(suspect_shellcode_addr);
         }
 
 #    ifdef PROGRAM_SHEPHERDING
-        if (!is_exec && TEST(GBOP_IS_FUTURE_EXEC, DYNAMO_OPTION(gbop))) {
+        if (!is_exec && TESTANY(GBOP_IS_FUTURE_EXEC, DYNAMO_OPTION(gbop))) {
             /* is_future_exec is cheaper to evaluate policy
              * than the the policies that use query_virtual_memory()
              * so doing before the rest
@@ -6488,10 +6491,10 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
              * somehow managed to make this call - so maybe somebody
              * is fooling with us. */
             DOLOG(2, LOG_VMAREAS, {
-                if (is_x && TEST(GBOP_IS_X, DYNAMO_OPTION(gbop))) {
+                if (is_x && TESTANY(GBOP_IS_X, DYNAMO_OPTION(gbop))) {
                     LOG(THREAD_GET, LOG_VMAREAS, 1, "GBOP: using is GBOP_IS_X\n");
                 }
-                if (is_image && TEST(GBOP_IS_IMAGE, DYNAMO_OPTION(gbop))) {
+                if (is_image && TESTANY(GBOP_IS_IMAGE, DYNAMO_OPTION(gbop))) {
                     /* XXX: all we check for GBOP_IS_IMAGE is whether MEM_IMAGE
                      * is set, note executable_if_image in fact only counts on
                      * getting module base, but should also be checking this.
@@ -6512,24 +6515,24 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
         on_stack = is_address_on_stack(dcontext, purported_ret_addr);
         get_mcontext(dcontext)->xsp = spill_mc_esp;
 
-        ASSERT(!is_exec || TEST(GBOP_IS_EXECUTABLE, DYNAMO_OPTION(gbop)));
-        ASSERT(!is_future_exec || TEST(GBOP_IS_FUTURE_EXEC, DYNAMO_OPTION(gbop)));
+        ASSERT(!is_exec || TESTANY(GBOP_IS_EXECUTABLE, DYNAMO_OPTION(gbop)));
+        ASSERT(!is_future_exec || TESTANY(GBOP_IS_FUTURE_EXEC, DYNAMO_OPTION(gbop)));
 
         /* CAUTION: the order of the source page checks shouldn't be changed! */
         source_page_ok = is_exec || is_future_exec ||
-            (TEST(GBOP_IS_IMAGE, DYNAMO_OPTION(gbop)) && is_image) ||
-            (TEST(GBOP_IS_X, DYNAMO_OPTION(gbop)) && is_x);
+            (TESTANY(GBOP_IS_IMAGE, DYNAMO_OPTION(gbop)) && is_image) ||
+            (TESTANY(GBOP_IS_X, DYNAMO_OPTION(gbop)) && is_x);
 
         /* Allow any target but the current stack; case 8085. */
         if (!source_page_ok &&
-            (TEST(GBOP_IS_NOT_STACK, DYNAMO_OPTION(gbop)) && !on_stack)) {
+            (TESTANY(GBOP_IS_NOT_STACK, DYNAMO_OPTION(gbop)) && !on_stack)) {
             LOG(THREAD_GET, LOG_VMAREAS, 1, "GBOP: using GBOP_IS_NOT_STACK\n");
             source_page_ok = true;
         }
 
         /* Allow any target but the current stack, if a vm is loaded; case 8087. */
         if (!source_page_ok &&
-            (TEST(GBOP_IS_DGC, DYNAMO_OPTION(gbop)) && gbop_vm_loaded && !on_stack)) {
+            (TESTANY(GBOP_IS_DGC, DYNAMO_OPTION(gbop)) && gbop_vm_loaded && !on_stack)) {
             LOG(THREAD_GET, LOG_VMAREAS, 1, "GBOP: using GBOP_IS_DGC\n");
             source_page_ok = true;
         }
@@ -6550,7 +6553,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
             /* continuing in case we're walking stack frames */
         }
 
-        if (TEST(GBOP_CHECK_INSTR_TYPE, DYNAMO_OPTION(gbop)))
+        if (TESTANY(GBOP_CHECK_INSTR_TYPE, DYNAMO_OPTION(gbop)))
             source_instr_ok = gbop_is_after_cti(purported_ret_addr);
 
         if (!source_instr_ok) {
@@ -6607,7 +6610,7 @@ gbop_validate_and_act(app_state_at_intercept_t *state, byte fpo_adjustment,
     app_pc bad_addr;
 
     ASSERT(DYNAMO_OPTION(gbop) != GBOP_DISABLED);
-    if (!TEST(GBOP_SET_NTDLL_BASE, DYNAMO_OPTION(gbop_include_set))) {
+    if (!TESTANY(GBOP_SET_NTDLL_BASE, DYNAMO_OPTION(gbop_include_set))) {
         return;
     }
 

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1212,9 +1212,9 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * targets, we should have the private ibl have special code to test the
  * flags and copy xcx to the tls slot if necessary.
  */
-#define SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)          \
-    ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) \
-         ? instr_create_save_to_tls(dc, reg, tls_offs)                \
+#define SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)             \
+    ((DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, (flags))) \
+         ? instr_create_save_to_tls(dc, reg, tls_offs)                   \
          : instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
 
 #define SAVE_TO_DC_OR_TLS_OR_REG(dc, flags, reg, tls_offs, dc_offs, dest_reg)       \
@@ -1223,9 +1223,9 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          ? INSTR_CREATE_mov_ld(dc, opnd_create_reg(dest_reg), opnd_create_reg(reg)) \
          : SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs))
 
-#define RESTORE_FROM_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)     \
-    ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) \
-         ? instr_create_restore_from_tls(dc, reg, tls_offs)           \
+#define RESTORE_FROM_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)        \
+    ((DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, (flags))) \
+         ? instr_create_restore_from_tls(dc, reg, tls_offs)              \
          : instr_create_restore_from_dcontext((dc), (reg), (dc_offs)))
 
 static void
@@ -1496,7 +1496,7 @@ mangle_far_indirect_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
         opnd_set_size(&sel, OPSZ_2);
 
         /* all scratch space should be in TLS only */
-        ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
+        ASSERT(TESTANY(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
         PRE(ilist, instr,
             SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
                                      XBX_OFFSET, REG_R10));
@@ -1542,7 +1542,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * XXX Just a note that converted calls are not subjected to any of
      * the specialized builds' processing further down.
      */
-    if (TEST(INSTR_IND_CALL_DIRECT, instr->flags)) {
+    if (TESTANY(INSTR_IND_CALL_DIRECT, instr->flags)) {
         /* convert the call to a push of the return address */
         insert_push_retaddr(dcontext, ilist, instr, retaddr, pushsz);
         /* remove the call */
@@ -1630,7 +1630,7 @@ mangle_far_return_save_selector(dcontext_t *dcontext, instrlist_t *ilist, instr_
          */
         /* We could do a pop but state xl8 is already set up to restore lea */
         /* all scratch space should be in TLS only */
-        ASSERT(TEST(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
+        ASSERT(TESTANY(FRAG_SHARED, flags) || DYNAMO_OPTION(private_ib_in_tls));
         PRE(ilist, instr,
             SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX, MANGLE_FAR_SPILL_SLOT,
                                      XBX_OFFSET, REG_R10));
@@ -1726,7 +1726,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
     }
 
-    if (TEST(INSTR_CLOBBER_RETADDR, instr->flags)) {
+    if (TESTANY(INSTR_CLOBBER_RETADDR, instr->flags)) {
         /* we put the value in the offset field earlier */
         ptr_uint_t val = (ptr_uint_t)instr->offset;
         insert_mov_ptr_uint_beyond_TOS(dcontext, ilist, instr, val, retsz);
@@ -2019,13 +2019,13 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
         PRE(ilist, next_instr,
             INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XCX),
                                 opnd_create_reg(REG_XDX)));
-    } else if (TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags)) {
+    } else if (TESTANY(INSTR_BRANCH_SPECIAL_EXIT, instr->flags)) {
         int num = instr_get_interrupt_number(instr);
         ASSERT(instr_get_opcode(instr) == OP_int);
         if (num == 0x81 || num == 0x82) {
             int reason = (num == 0x81) ? EXIT_REASON_NI_SYSCALL_INT_0x81
                                        : EXIT_REASON_NI_SYSCALL_INT_0x82;
-            if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+            if (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, flags)) {
                 insert_shared_get_dcontext(dcontext, ilist, instr, true /*save_xdi*/);
                 PRE(ilist, instr,
                     INSTR_CREATE_mov_st(
@@ -2055,7 +2055,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
 
     if (does_syscall_ret_to_callsite()) {
         uint len = instr_length(dcontext, instr);
-        if (TEST(INSTR_SHARED_SYSCALL, instr->flags)) {
+        if (TESTANY(INSTR_SHARED_SYSCALL, instr->flags)) {
             ASSERT(DYNAMO_OPTION(shared_syscalls));
             /* this syscall will be performed by the shared_syscall code
              * we just need to place a return address into the dcontext
@@ -2094,7 +2094,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
         /* Handle ignorable syscall.  non-ignorable system calls are
          * destroyed and removed from the list at the end of this func.
          */
-        else if (!TEST(INSTR_NI_SYSCALL, instr->flags)) {
+        else if (!TESTANY(INSTR_NI_SYSCALL, instr->flags)) {
             if (get_syscall_method() == SYSCALL_METHOD_INT && DYNAMO_OPTION(sygate_int)) {
                 /* for Sygate need to mangle into a call to int_syscall_addr
                  * is anyone going to get screwed up by this change
@@ -2118,13 +2118,13 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
          * page at 0x7ffe0000 can't be made writable anyway, so hooking
          * isn't possible.
          */
-        if (TEST(INSTR_SHARED_SYSCALL, instr->flags)) {
+        if (TESTANY(INSTR_SHARED_SYSCALL, instr->flags)) {
             ASSERT(DYNAMO_OPTION(shared_syscalls));
         }
         /* Handle ignorable syscall.  non-ignorable system calls are
          * destroyed and removed from the list at the end of this func.
          */
-        else if (!TEST(INSTR_NI_SYSCALL, instr->flags)) {
+        else if (!TESTANY(INSTR_NI_SYSCALL, instr->flags)) {
 
             instr_t *mov_imm;
 
@@ -2156,7 +2156,7 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
     } else {
         SYSLOG_INTERNAL_ERROR("unsupported system call method");
         LOG(THREAD, LOG_INTERP, 1, "don't know convention for this syscall method\n");
-        if (!TEST(INSTR_NI_SYSCALL, instr->flags))
+        if (!TESTANY(INSTR_NI_SYSCALL, instr->flags))
             return;
         ASSERT_NOT_IMPLEMENTED(false);
     }
@@ -2217,7 +2217,7 @@ void
 mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_t *instr)
 {
     /* Sets exit reason dynamically. */
-    if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+    if (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, flags)) {
         insert_shared_get_dcontext(dcontext, ilist, instr, true /*save_xdi*/);
         PRE(ilist, instr,
             INSTR_CREATE_mov_st(
@@ -2253,7 +2253,7 @@ float_pc_update(dcontext_t *dcontext)
         dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_XSAVE64) {
         /* Check whether the FPU state was saved */
         uint64 header_bv = *(uint64 *)(state + FXSAVE_SIZE);
-        if (!TEST(XCR0_FP, header_bv)) {
+        if (!TESTANY(XCR0_FP, header_bv)) {
             LOG(THREAD, LOG_INTERP, 2, "%s: xsave did not save FP state => nop\n",
                 __FUNCTION__);
         }
@@ -2352,7 +2352,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             dr_instr_category_t type;
             if (instr_is_app(prev) && instr_is_floating_type(prev, &type)) {
                 bool control_instr = false;
-                if (TEST(DR_INSTR_CATEGORY_STATE, type) /* quick check */ &&
+                if (TESTANY(DR_INSTR_CATEGORY_STATE, type) /* quick check */ &&
                     /* Check the list from Intel Vol 1 8.1.8 */
                     (op == OP_fnclex || op == OP_fldcw || op == OP_fnstcw ||
                      op == OP_fnstsw || op == OP_fnstenv || op == OP_fldenv ||
@@ -2398,12 +2398,12 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * XXX: we can't recover the loss of coarse-grained: we live with that.
          */
         exit_is_normal = true;
-        ASSERT_CURIOSITY(!TEST(FRAG_CANNOT_BE_TRACE, *flags) ||
+        ASSERT_CURIOSITY(!TESTANY(FRAG_CANNOT_BE_TRACE, *flags) ||
                          /* i#1562: it could be marked as no-trace for other reasons */
-                         TEST(FRAG_SELFMOD_SANDBOXED, *flags));
+                         TESTANY(FRAG_SELFMOD_SANDBOXED, *flags));
     } else {
         int reason = 0;
-        CLIENT_ASSERT(!TEST(FRAG_IS_TRACE, *flags),
+        CLIENT_ASSERT(!TESTANY(FRAG_IS_TRACE, *flags),
                       "removing an FPU instr in a trace with an FPU state save "
                       "is not supported");
         switch (op) {
@@ -2419,7 +2419,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         case OP_xsaveopt64: reason = EXIT_REASON_FLOAT_PC_XSAVE64; break;
         default: ASSERT_NOT_REACHED();
         }
-        if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, *flags)) {
+        if (DYNAMO_OPTION(private_ib_in_tls) || TESTANY(FRAG_SHARED, *flags)) {
             insert_shared_get_dcontext(dcontext, ilist, instr, true /*save_xdi*/);
             PRE(ilist, instr,
                 INSTR_CREATE_mov_st(
@@ -2456,7 +2456,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_create_save_to_tls(dcontext, REG_XDI, FLOAT_PC_STATE_SLOT));
 
         /* Restore app %xdi */
-        if (TEST(FRAG_SHARED, *flags))
+        if (TESTANY(FRAG_SHARED, *flags))
             insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
         else {
             PRE(ilist, instr,
@@ -2475,7 +2475,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* XXX: there could be some other reason this was marked
          * cannot-be-trace that we're undoing here...
          */
-        if (TEST(FRAG_CANNOT_BE_TRACE, *flags))
+        if (TESTANY(FRAG_CANNOT_BE_TRACE, *flags))
             *flags &= ~FRAG_CANNOT_BE_TRACE;
     }
 }
@@ -2639,8 +2639,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_get_rel_addr_target(instr, &tgt);
     STATS_INC(rip_rel_instrs);
 #    ifdef RCT_IND_BRANCH
-    if (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-        TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
+    if (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+        TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
         /* PR 215408: record addresses taken via rip-relative instrs */
         rct_add_rip_rel_addr(dcontext, tgt _IF_DEBUG(instr_get_translation(instr)));
     }
@@ -3617,7 +3617,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
             INSTR_CREATE_cmp(dcontext, OPND_CREATE_ABSMEM(counter, OPSZ_4),
                              OPND_CREATE_INT_32OR8(thresh)));
 #endif
-        if (TEST(FRAG_WRITES_EFLAGS_6, flags) IF_X64(&&false)) {
+        if (TESTANY(FRAG_WRITES_EFLAGS_6, flags) IF_X64(&&false)) {
             jmp = INSTR_CREATE_jcc(dcontext, OP_jge, opnd_create_pc(start_pc));
             instr_branch_set_special_exit(jmp, true);
             /* an exit cti, not a meta instr */
@@ -3631,7 +3631,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
             PRE(ilist, instr,
                 RESTORE_FROM_DC_OR_TLS(dcontext, REG_XCX, TLS_XCX_SLOT, XCX_OFFSET));
 #endif
-            if (!TEST(FRAG_WRITES_EFLAGS_6, flags)) {
+            if (!TESTANY(FRAG_WRITES_EFLAGS_6, flags)) {
                 ASSERT(restore_eflags_and_exit == NULL);
                 restore_eflags_and_exit = INSTR_CREATE_label(dcontext);
                 PRE(ilist, instr,
@@ -3744,7 +3744,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist, bool s2ro, uint flag
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XSI, TLS_XBX_SLOT, XSI_OFFSET));
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XDI, TLS_XDX_SLOT, XDI_OFFSET));
-    if (!TEST(FRAG_WRITES_EFLAGS_6, flags)) {
+    if (!TESTANY(FRAG_WRITES_EFLAGS_6, flags)) {
         instr_t *start_bb = INSTR_CREATE_label(dcontext);
         PRE(ilist, instr, INSTR_CREATE_jcc(dcontext, OP_je, opnd_create_instr(start_bb)));
         if (restore_eflags_and_exit != NULL) /* somebody needs this label */
@@ -3851,7 +3851,7 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                          */
                         ASSERT(EXIT_IS_CALL(instr_exit_branch_type(next)) ||
                                (DYNAMO_OPTION(IAT_convert) &&
-                                TEST(INSTR_IND_CALL_DIRECT, instr->flags)));
+                                TESTANY(INSTR_IND_CALL_DIRECT, instr->flags)));
 
                         LOG(THREAD, LOG_INTERP, 3,
                             " ignoring CALL* at end of fragment\n");
@@ -3973,9 +3973,9 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
     int k = ((ptr_uint_t)f->tag) > UINT_MAX ? 1 : 0;
 #endif
     i = (sandbox_top_of_bb_check_s2ro(dcontext, f->tag)) ? 1 : 0;
-    j = (TEST(FRAG_WRITES_EFLAGS_6, f->flags)
+    j = (TESTANY(FRAG_WRITES_EFLAGS_6, f->flags)
              ? 0
-             : (TEST(FRAG_WRITES_EFLAGS_OF, f->flags) ? 1 : 2));
+             : (TESTANY(FRAG_WRITES_EFLAGS_OF, f->flags) ? 1 : 2));
     pc = FCACHE_ENTRY_PC(f) + selfmod_copy_start_offs[i][j] IF_X64([k]);
     /* The copy start gets updated after sandbox_top_of_bb. */
     *((cache_pc *)vmcode_get_writable_addr(pc)) = copy_pc;

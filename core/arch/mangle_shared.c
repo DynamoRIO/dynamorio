@@ -121,7 +121,7 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
     PRE(ilist, where, instr_create_restore_from_tls(dcontext, reg, TLS_DCONTEXT_SLOT));
 
     /* An extra level of indirection with SELFPROT_DCONTEXT */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         ASSERT_NOT_TESTED();
         PRE(ilist, where,
             XINST_CREATE_load(dcontext, opnd_create_reg(reg),
@@ -234,7 +234,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
          * work right.  XXX - the dcontext accessing routines are a mess of shared
          * vs. no shared support, separate context vs. no separate context support etc. */
-        ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+        ASSERT_NOT_IMPLEMENTED(!TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
 
 #ifdef WINDOWS
         /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
@@ -751,10 +751,10 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_t *in = (instr == NULL) ? instrlist_last(ilist) : instr_get_prev(instr);
     bool direct;
     uint stack_for_params = insert_parameter_preparation(
-        dcontext, ilist, instr, TEST(META_CALL_CLEAN, flags), num_args, args);
+        dcontext, ilist, instr, TESTANY(META_CALL_CLEAN, flags), num_args, args);
     ASSERT(ALIGNED(stack_for_params, get_ABI_stack_alignment()));
 
-    if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
+    if (TESTANY(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         if (SCRATCH_ALWAYS_TLS()) {
 #if defined(AARCHXX) || defined(RISCV64)
             int link_reg = IF_RISCV64_ELSE(DR_REG_RA, DR_REG_LR);
@@ -803,7 +803,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * We document this to clients using dr_insert_call_ex() or DR_CLEANCALL_INDIRECT.
      */
     direct = insert_reachable_cti(dcontext, ilist, instr, encode_pc, (byte *)callee,
-                                  false /*call*/, TEST(META_CALL_RETURNS, flags),
+                                  false /*call*/, TESTANY(META_CALL_RETURNS, flags),
                                   false /*!precise*/, CALL_SCRATCH_REG, NULL);
     if (stack_for_params > 0) {
         /* XXX PR 245936: let user decide whether to clean up?
@@ -816,10 +816,10 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              OPND_CREATE_INT32(stack_for_params)));
     }
 
-    if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
+    if (TESTANY(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         uint whereami;
 
-        if (TEST(META_CALL_RETURNS_TO_NATIVE, flags))
+        if (TESTANY(META_CALL_RETURNS_TO_NATIVE, flags))
             whereami = (uint)DR_WHERE_APP;
         else
             whereami = (uint)DR_WHERE_FCACHE;
@@ -1451,10 +1451,10 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
              * the target part of the sequence, leading to app errors.
              */
             uint exit_type = instr_branch_type(copy);
-            byte *pc = get_ibl_routine(dcontext, get_ibl_entry_type(exit_type),
-                                       TEST(FRAG_IS_TRACE, *flags) ? DEFAULT_IBL_TRACE()
-                                                                   : DEFAULT_IBL_BB(),
-                                       get_ibl_branch_type(copy));
+            byte *pc = get_ibl_routine(
+                dcontext, get_ibl_entry_type(exit_type),
+                TESTANY(FRAG_IS_TRACE, *flags) ? DEFAULT_IBL_TRACE() : DEFAULT_IBL_BB(),
+                get_ibl_branch_type(copy));
             instr_t *exit = XINST_CREATE_jump(dcontext, opnd_create_pc(pc));
             instr_exit_branch_set_type(exit, exit_type);
             instrlist_preinsert(ilist, insert_at, exit);
@@ -1700,7 +1700,7 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (pc + len >= end) {
         ilist->flags |= INSTR_RSEQ_ENDPOINT;
         /* We should already have this flag set by the bb builder. */
-        ASSERT(TEST(FRAG_HAS_RSEQ_ENDPOINT, *flags));
+        ASSERT(TESTANY(FRAG_HAS_RSEQ_ENDPOINT, *flags));
         if (pc + len != end) {
             REPORT_FATAL_ERROR_AND_EXIT(
                 RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
@@ -1844,7 +1844,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
     bool ignorable_sysenter = DYNAMO_OPTION(ignore_syscalls) &&
         DYNAMO_OPTION(ignore_syscalls_follow_sysenter) &&
         (get_syscall_method() == SYSCALL_METHOD_SYSENTER) &&
-        TEST(FRAG_HAS_SYSCALL, *flags);
+        TESTANY(FRAG_HAS_SYSCALL, *flags);
 #endif
 
     /* Walk through instr list:
@@ -2103,7 +2103,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags DR_PARAM_INOUT,
 #endif
 
         if (!instr_is_cti(instr) || instr_is_meta(instr)) {
-            if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && instr_is_label(instr)) {
+            if (TESTANY(INSTR_CLOBBER_RETADDR, instr->flags) && instr_is_label(instr)) {
                 /* Move the value to the offset field (which the client cannot
                  * possibly use at this point) so we don't have to search for
                  * this label when we hit the ret instr.
@@ -2335,12 +2335,12 @@ void
 mangle_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
 {
 #ifdef X86
-    if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, f->flags)) {
         finalize_selfmod_sandbox(dcontext, f);
     }
 #endif
 #ifdef LINUX
-    if (TEST(INSTR_RSEQ_ENDPOINT, ilist->flags))
+    if (TESTANY(INSTR_RSEQ_ENDPOINT, ilist->flags))
         mangle_rseq_finalize(dcontext, ilist, f);
 #endif
 }

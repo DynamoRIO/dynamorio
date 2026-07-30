@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -599,13 +599,13 @@ libc_sigismember(const sigset_t *set, int _sig)
     int sig = _sig - 1; /* go to 0-based */
 #if defined(MACOS) || defined(ANDROID32)
     /* sigset_t is just a uint32 */
-    return TEST(1UL << sig, *set);
+    return TESTANY(1UL << sig, *set);
 #else
     /* "set->__val" would be cleaner, but is glibc specific (e.g. musl libc
      * uses __bits as the field name on sigset_t).
      */
     uint bits_per = 8 * sizeof(ulong);
-    return TEST(1UL << (sig % bits_per), ((const ulong *)set)[sig / bits_per]);
+    return TESTANY(1UL << (sig % bits_per), ((const ulong *)set)[sig / bits_per]);
 #endif
 }
 

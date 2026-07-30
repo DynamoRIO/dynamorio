@@ -583,13 +583,13 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     // not require a LOAD program header.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
         ELF_WORD flags = 0;
-        if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_EXEC, section_header_info[section_index].prot)) {
             flags |= PF_X;
         }
-        if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_WRITE, section_header_info[section_index].prot)) {
             flags |= PF_W;
         }
-        if (TEST(PROT_READ, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_READ, section_header_info[section_index].prot)) {
             flags |= PF_R;
         }
         const ELF_WORD size = section_header_info[section_index].vm_end -
@@ -683,10 +683,10 @@ os_dump_core_internal(dcontext_t *dcontext, const char *output_directory DR_PARA
     // this loop.
     for (int section_index = 0; section_index < section_count - 1; ++section_index) {
         ELF_WORD flags = SHF_ALLOC | SHF_MERGE;
-        if (TEST(PROT_WRITE, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_WRITE, section_header_info[section_index].prot)) {
             flags |= SHF_WRITE;
         }
-        if (TEST(PROT_EXEC, section_header_info[section_index].prot)) {
+        if (TESTANY(PROT_EXEC, section_header_info[section_index].prot)) {
             flags |= SHF_EXECINSTR;
         }
         if (!write_section_header(

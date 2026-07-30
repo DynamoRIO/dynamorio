@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -87,7 +87,7 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
                           opnd_create_reg(REG_DCXT)));
 #endif
     ASSERT_NOT_IMPLEMENTED(!absolute &&
-                           !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+                           !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     /* grab gen routine's parameter dcontext and put it into REG_DCXT */
     APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT), OPND_ARG1));
 #ifdef UNIX

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -389,7 +389,7 @@ drbbdup_ilist_has_unending_emulation(instrlist_t *bb)
     for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
         if (drmgr_is_emulation_start(inst) &&
             drmgr_get_emulated_instr_data(inst, &emul_info) &&
-            TEST(DR_EMULATE_REST_OF_BLOCK, emul_info.flags))
+            TESTANY(DR_EMULATE_REST_OF_BLOCK, emul_info.flags))
             return true;
     }
     return false;

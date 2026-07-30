@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -199,7 +199,7 @@ instrlist_get_auto_predicate(instrlist_t *ilist)
 bool
 instrlist_get_our_mangling(instrlist_t *ilist)
 {
-    return TEST(INSTR_OUR_MANGLING, ilist->flags);
+    return TESTANY(INSTR_OUR_MANGLING, ilist->flags);
 }
 
 /* returns the first inst in the list */
@@ -546,7 +546,7 @@ instrlist_encode_to_copy(void *drcontext, instrlist_t *ilist, byte *copy_pc,
     DOCHECK(2, {
         if (!has_instr_jmp_targets) {
             for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-                if (TEST(INSTR_OPERANDS_VALID, (inst)->flags)) {
+                if (TESTANY(INSTR_OPERANDS_VALID, (inst)->flags)) {
                     int i;
                     for (i = 0; i < instr_num_srcs(inst); ++i) {
                         CLIENT_ASSERT(!opnd_is_instr(instr_get_src(inst, i)),

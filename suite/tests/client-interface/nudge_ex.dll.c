@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -169,7 +169,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifdef UNIX
     if (sysnum == SYS_FORK_VALUE
 #    ifdef LINUX
-        || (sysnum == SYS_clone && !TEST(CLONE_VM, data->saved_param))
+        || (sysnum == SYS_clone && !TESTANY(CLONE_VM, data->saved_param))
 #    endif
     ) {
         child_pid = dr_syscall_get_result(drcontext);

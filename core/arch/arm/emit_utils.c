@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -194,7 +194,7 @@ static size_t
 get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
 {
     /* ARM always uses shared gencode so we ignore FRAG_DB_SHARED(flags) */
-    if (TEST(FRAG_COARSE_GRAIN, flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, flags)) {
         /* TODO i#1575: coarse-grain NYI on ARM */
         ASSERT_NOT_IMPLEMENTED(false);
         return 0;
@@ -217,7 +217,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 {
     byte *pc = (byte *)stub_pc;
     /* TODO i#1575: coarse-grain NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
     /* XXX: should we use our IR and encoder instead?  Then we could
      * share code with emit_do_syscall(), though at a perf cost.
      */
@@ -510,7 +510,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
     /* target is always the same, so if it's already unlinked, this is a nop */
-    if (!TEST(LINK_LINKED, l->flags))
+    if (!TESTANY(LINK_LINKED, l->flags))
         return;
     ibl_code = get_ibl_routine_code(dcontext, extract_branchtype(l->flags), f->flags);
     exit_target = ibl_code->unlinked_ibl_entry;
@@ -639,7 +639,7 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
     /* TODO i#1573: NYI on ARM with SELFPROT_DCONTEXT */
-    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     ASSERT(dr_reg_stolen != SCRATCH_REG0);
     /* store stolen reg value into TLS slot */
     APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG0, REG_OFFSET(dr_reg_stolen)));
@@ -699,7 +699,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
 {
     dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
     ASSERT_NOT_IMPLEMENTED(!absolute &&
-                           !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+                           !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     if (R0_OFFSET != 0) {
         APP(ilist,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_DCXT),
@@ -822,7 +822,7 @@ insert_mode_change_handling(dcontext_t *dc, instrlist_t *ilist, instr_t *where,
      * Unfortunately it's hard to not do this in the IBL and instead back in DR:
      * what about signal handler, other places who decode?
      */
-    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
     PRE(ilist, where, instr_create_restore_from_tls(dc, scratch2, TLS_DCONTEXT_SLOT));
     /* Get LSB from target address */
     PRE(ilist, where,

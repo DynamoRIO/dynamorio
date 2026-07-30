@@ -71,7 +71,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
     case SYS_open_nocancel: {
         /* 3rd arg is only required for O_CREAT */
         int flags = (int)pt->sysarg[1];
-        if (TEST(O_CREAT, flags)) {
+        if (TESTANY(O_CREAT, flags)) {
             if (!report_sysarg_type(ii, 2, SYSARG_READ, sizeof(int),
                                     DRSYS_TYPE_SIGNED_INT, NULL))
                 return;
@@ -136,7 +136,7 @@ static bool
 os_handle_syscall_arg_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
                              app_pc start, uint size)
 {
-    if (!TEST(SYSARG_COMPLEX_TYPE, arg_info->flags))
+    if (!TESTANY(SYSARG_COMPLEX_TYPE, arg_info->flags))
         return false;
 
     switch (arg_info->misc) {
@@ -284,13 +284,13 @@ drsys_syscall_type(drsys_syscall_t *syscall, drsys_syscall_type_t *type DR_PARAM
 bool
 os_syscall_succeeded(drsys_sysnum_t sysnum, syscall_info_t *info, cls_syscall_t *pt)
 {
-    if (TEST(SYSCALL_NUM_MARKER_MACH, sysnum.number)) {
+    if (TESTANY(SYSCALL_NUM_MARKER_MACH, sysnum.number)) {
         /* XXX i#1440: Mach syscalls vary (for some KERN_SUCCESS=0 is success,
          * for others that return mach_port_t 0 is failure (I think?).
          */
         return ((ptr_int_t)pt->mc.xax >= 0);
     } else
-        return !TEST(EFLAGS_CF, pt->mc.xflags);
+        return !TESTANY(EFLAGS_CF, pt->mc.xflags);
 }
 
 bool

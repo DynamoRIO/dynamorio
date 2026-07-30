@@ -530,7 +530,7 @@ decode_sizeof_ex(void *drcontext, byte *start_pc, int *num_prefixes, uint *rip_r
                 break;
             case EVEX_PREFIX_OPCODE: {
                 /* If 64-bit mode or EVEX.R' bit is flipped, this is evex */
-                if (X64_MODE_DC(dcontext) || TEST(0x10, *(pc + 1))) {
+                if (X64_MODE_DC(dcontext) || TESTANY(0x10, *(pc + 1))) {
                     evex_prefix = true;
                 }
                 /* Fall-through is deliberate, EVEX is handled through VEX below */

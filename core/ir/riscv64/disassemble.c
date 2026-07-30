@@ -75,7 +75,7 @@ opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar DR_PARAM_INOUT, opn
         /* Immediates are sign-extended at the decode time. */
         ptr_int_t val = opnd_get_immed_int(opnd);
         const char *fmt =
-            TEST(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
+            TESTANY(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
         print_to_buffer(buf, bufsz, sofar, fmt, val);
         return true;
     }

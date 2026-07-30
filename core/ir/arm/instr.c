@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -581,53 +581,53 @@ instr_predicate_triggered_priv(instr_t *instr, priv_mcontext_t *mc)
     switch (pred) {
     case DR_PRED_NONE: return DR_PRED_TRIGGER_NOPRED;
     case DR_PRED_EQ: /* Z == 1 */
-        return (TEST(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                          : DR_PRED_TRIGGER_MISMATCH;
+        return (TESTANY(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_NE: /* Z == 0 */
-        return (!TEST(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                           : DR_PRED_TRIGGER_MISMATCH;
+        return (!TESTANY(EFLAGS_Z, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                              : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_CS: /* C == 1 */
-        return (TEST(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                          : DR_PRED_TRIGGER_MISMATCH;
+        return (TESTANY(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_CC: /* C == 0 */
-        return (!TEST(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                           : DR_PRED_TRIGGER_MISMATCH;
+        return (!TESTANY(EFLAGS_C, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                              : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_MI: /* N == 1 */
-        return (TEST(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                          : DR_PRED_TRIGGER_MISMATCH;
+        return (TESTANY(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_PL: /* N == 0 */
-        return (!TEST(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                           : DR_PRED_TRIGGER_MISMATCH;
+        return (!TESTANY(EFLAGS_N, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                              : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_VS: /* V == 1 */
-        return (TEST(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                          : DR_PRED_TRIGGER_MISMATCH;
+        return (TESTANY(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_VC: /* V == 0 */
-        return (!TEST(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
-                                           : DR_PRED_TRIGGER_MISMATCH;
+        return (!TESTANY(EFLAGS_V, mc->apsr)) ? DR_PRED_TRIGGER_MATCH
+                                              : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_HI: /* C == 1 and Z == 0 */
-        return (TEST(EFLAGS_C, mc->apsr) && !TEST(EFLAGS_Z, mc->apsr))
+        return (TESTANY(EFLAGS_C, mc->apsr) && !TESTANY(EFLAGS_Z, mc->apsr))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LS: /* C == 0 or Z == 1 */
-        return (!TEST(EFLAGS_C, mc->apsr) || TEST(EFLAGS_Z, mc->apsr))
+        return (!TESTANY(EFLAGS_C, mc->apsr) || TESTANY(EFLAGS_Z, mc->apsr))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_GE: /* N == V */
-        return BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))
+        return BOOLS_MATCH(TESTANY(EFLAGS_N, mc->apsr), TESTANY(EFLAGS_V, mc->apsr))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LT: /* N != V */
-        return !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr))
+        return !BOOLS_MATCH(TESTANY(EFLAGS_N, mc->apsr), TESTANY(EFLAGS_V, mc->apsr))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_GT /* Z == 0 and N == V */:
-        return (!TEST(EFLAGS_Z, mc->apsr) &&
-                BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)))
+        return (!TESTANY(EFLAGS_Z, mc->apsr) &&
+                BOOLS_MATCH(TESTANY(EFLAGS_N, mc->apsr), TESTANY(EFLAGS_V, mc->apsr)))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_LE: /* Z == 1 or N != V */
-        return (TEST(EFLAGS_Z, mc->apsr) ||
-                !BOOLS_MATCH(TEST(EFLAGS_N, mc->apsr), TEST(EFLAGS_V, mc->apsr)))
+        return (TESTANY(EFLAGS_Z, mc->apsr) ||
+                !BOOLS_MATCH(TESTANY(EFLAGS_N, mc->apsr), TESTANY(EFLAGS_V, mc->apsr)))
             ? DR_PRED_TRIGGER_MATCH
             : DR_PRED_TRIGGER_MISMATCH;
     case DR_PRED_AL: return DR_PRED_TRIGGER_MATCH;

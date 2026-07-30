@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -322,9 +322,10 @@ global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t which));
 #define UNPROTECTED_GLOBAL_FREE global_unprotected_heap_free
 
 /* use global heap for shared fragments and their related data structures */
-#define FRAGMENT_ALLOC_DC(dc, flags) (TEST(FRAG_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
+#define FRAGMENT_ALLOC_DC(dc, flags) \
+    (TESTANY(FRAG_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
 #define FRAGMENT_TABLE_ALLOC_DC(dc, flags) \
-    (TEST(HASHTABLE_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
+    (TESTANY(HASHTABLE_SHARED, (flags)) ? GLOBAL_DCONTEXT : (dc))
 
 /* convenience for allocating a single type: does cast, sizeof, and HEAPACCT
  * for you, and takes param for whether protected or not

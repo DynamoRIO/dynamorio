@@ -98,7 +98,7 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
     ASSERT(arg->mc != NULL, "mc check");
     ASSERT(arg->drcontext == dr_get_current_drcontext(), "dc check");
 
-    if (arg->reg == DR_REG_NULL && !TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
+    if (arg->reg == DR_REG_NULL && !TESTANY(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT((byte *)arg->start_addr >= (byte *)arg->mc->xsp &&
                    (byte *)arg->start_addr < (byte *)arg->mc->xsp + dr_page_size(),
                "mem args should be on stack");
@@ -113,7 +113,7 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
                    arg->value64, arg->size);
     }
 
-    if (TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
+    if (TESTANY(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT(arg->pre ||
                    arg->value == dr_syscall_get_result(dr_get_current_drcontext()),
                "return val wrong");

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -351,7 +351,7 @@ probe_address(dcontext_t *dcontext, app_pc pc_in, DR_PARAM_OUT uint *prot)
                    /* nothing: just continue */
                });
     /* x86 can't be writable w/o being readable.  avoiding nested TRY though. */
-    if (TEST(MEMPROT_READ, *prot)) {
+    if (TESTANY(MEMPROT_READ, *prot)) {
         TRY_EXCEPT(dcontext, /* try */
                    {
                        PROBE_WRITE_PC(pc);
