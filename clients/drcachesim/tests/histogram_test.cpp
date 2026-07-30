@@ -38,6 +38,8 @@
 
 #include <iostream>
 #include <optional>
+#include <regex>
+#include <sstream>
 #include <vector>
 
 #include "../tools/histogram.h"
@@ -84,9 +86,7 @@ bool
 check_parallel_reduce()
 {
     static constexpr unsigned int LINE_SIZE = 64;
-    // XXX i#8026: Remove this shift to simplify storage.
-    static constexpr unsigned int LINE_SHIFT = 6;
-    histogram_t tool(LINE_SIZE, /*report_top=*/5, /*verbose=*/0);
+    histogram_t tool(LINE_SIZE, /*report_top=*/10, /*verbose=*/0);
     std::vector<memref_t> memrefs = {
         gen_instr(1, 20 * LINE_SIZE),
         gen_data(1, /*load=*/true, 10 * LINE_SIZE, 8),
@@ -120,23 +120,52 @@ check_parallel_reduce()
             std::cerr << "failed to obtain icache counts\n";
             return false;
         }
-        // XXX i#8026: Remove this shift to simplify storage.
-        if ((*icache_res)[(20 * LINE_SIZE) >> LINE_SHIFT] != 2 ||
-            (*icache_res)[(21 * LINE_SIZE) >> LINE_SHIFT] != 1) {
-            std::cerr << "incorrect icache counts: got "
-                      << (*icache_res)[(20 * LINE_SIZE) >> LINE_SHIFT] << ","
-                      << (*icache_res)[(21 * LINE_SIZE) >> LINE_SHIFT]
-                      << " instead of 2,1\n";
+        if ((*icache_res)[20 * LINE_SIZE] != 2 || (*icache_res)[21 * LINE_SIZE] != 1) {
+            std::cerr << "incorrect icache counts: got " << (*icache_res)[20 * LINE_SIZE]
+                      << "," << (*icache_res)[21 * LINE_SIZE] << " instead of 2,1\n";
             return false;
         }
         return true;
     };
     if (!check_icache())
         return false;
+
     // Do another reduce inside print_results, testing that multiple reduces
     // do not change the result. The get_icache_counts() will also do another
     // reduce.
+    // While at it, we test that printing stops before hitting the 10 top
+    // results we requested when there aren't 10 total.
+    std::stringstream capture;
+    std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
     tool.print_results();
+    std::string res = capture.str();
+    std::cerr.rdbuf(prior);
+    // The order of same-count items can vary so we use a regex.
+    const char *expect = R"DELIM(Cache line histogram tool results:
+icache: 5 unique cache lines
+dcache: 8 unique cache lines
+icache top 10
+             0x500: 2
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+dcache top 10
+             0x280: 2
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+)DELIM";
+    if (!std::regex_search(res, std::regex(expect))) {
+        std::cerr << "print_results output |" << res << "| did not match expected |"
+                  << expect << "\n";
+        return false;
+    }
+
     if (!check_icache())
         return false;
     return true;
