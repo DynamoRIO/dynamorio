@@ -30,6 +30,11 @@
  * DAMAGE.
  */
 
+/* This file provides implementations for the same set of OS-interface
+ * functions as core/unix/os.c and core/win32/os.c, but for the Linux
+ * kernel-module target.
+ */
+
 #include "globals.h"
 #include "kernel_interface.h"
 
