@@ -75,9 +75,7 @@
 /* Bit test helpers. */
 /* Check if all bits in mask are set in var. */
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* Check if any bit in mask is set in var. */
+/* Check if any bit in mask is set in var.  Use this to check a single bit. */
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* Check if a single bit is set in var. */
-#define TEST TESTANY
 
 #endif /* _DR_PROJECT_WIDE_DEFINES_H_ */
