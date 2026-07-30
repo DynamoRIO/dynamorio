@@ -2869,9 +2869,10 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
     }
 #endif
 
-    if (try_vmm)
+    if (try_vmm) {
         p = vmm_heap_reserve(reserve_size, &error_code, TESTANY(MEMPROT_EXEC, prot),
                              which);
+    }
 
 #ifdef WINDOWS
     if (!try_vmm || p < (vm_addr_t)min_addr) {
