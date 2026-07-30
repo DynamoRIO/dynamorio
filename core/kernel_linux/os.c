@@ -60,14 +60,14 @@ assert_not_ported(const char *file, int line, const char *func)
 ushort
 os_get_app_tls_base_offset(reg_id_t reg)
 {
-    ASSERT_NOT_REACHED();
+    ASSERT_NOT_PORTED(false);
     return 0;
 }
 
 ushort
 os_get_app_tls_reg_offset(reg_id_t reg)
 {
-    ASSERT_NOT_REACHED();
+    ASSERT_NOT_PORTED(false);
     return 0;
 }
 
