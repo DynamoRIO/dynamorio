@@ -1225,7 +1225,7 @@ check_list_default_and_append(liststring_t default_list, liststring_t append_lis
 /* security options have to be enabled to be blocking or reporting */
 #    define SECURITY_OPTION_CONSISTENT(security_option)                                  \
         do {                                                                             \
-            if (!TEST(OPTION_ENABLED, DYNAMO_OPTION(security_option)) &&                 \
+            if (!TESTANY(OPTION_ENABLED, DYNAMO_OPTION(security_option)) &&              \
                 TESTANY(OPTION_BLOCK | OPTION_REPORT, DYNAMO_OPTION(security_option))) { \
                 USAGE_ERROR("Incompatible settings for %s", #security_option);           \
                 dynamo_options.security_option = OPTION_DISABLED;                        \
@@ -1330,23 +1330,23 @@ check_option_compatibility_helper(int recurse_count)
     if (
 #    ifdef WINDOWS
         /* XXX: CACHE isn't multithread safe yet */
-        TEST(SELFPROT_CACHE, dynamo_options.protect_mask) ||
+        TESTANY(SELFPROT_CACHE, dynamo_options.protect_mask) ||
 #    endif
         /* XXX: LOCAL has some unresolved issues w/ new heap units, etc. */
-        TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) ||
-        TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+        TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask) ||
+        TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         ASSERT_NOT_TESTED();
     }
     /* warn of incompatible options */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
-        !TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+        !TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask)) {
         USAGE_ERROR("dcontext is only actually protected if global is as well");
         /* XXX: turn off dcontext?  or let upcontext be split anyway? */
     }
     /* XXX: better way to enforce these incompatibilities w/ certain builds
      * than by turning off protection?  Should we halt instead?
      */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
         SHARED_FRAGMENTS_ENABLED()) {
         /* XXX: get all shared gen routines to properly handle unprotected_context_t */
         USAGE_ERROR("Shared cache does not support protecting dcontext yet");
@@ -1355,7 +1355,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 
 #    if defined(MACOS) && defined(AARCH64)
-    if (TEST(SELFPROT_GENCODE, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_GENCODE, dynamo_options.protect_mask)) {
         USAGE_ERROR("memory protection changes incompatible with MAP_JIT");
         dynamo_options.protect_mask &= ~SELFPROT_GENCODE;
         changed_options = true;
@@ -1897,7 +1897,7 @@ check_option_compatibility_helper(int recurse_count)
     /* shared/ignore syscall writes to sysenter_storage dcontext field which
      * should be in upcontext or something XXX */
     if (DYNAMO_OPTION(sygate_sysenter) &&
-        TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask))) {
+        TESTANY(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask))) {
         USAGE_ERROR("-sygate_sysenter incompatbile with -protect_mask dc");
         dynamo_options.protect_mask &= ~SELFPROT_DCONTEXT;
         changed_options = true;
@@ -1933,7 +1933,7 @@ check_option_compatibility_helper(int recurse_count)
     SECURITY_OPTION_CONSISTENT(rct_ind_call);
     SECURITY_OPTION_CONSISTENT(rct_ind_jump);
     if (!DYNAMO_OPTION(ret_after_call) &&
-        TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
+        TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
         SYSLOG_INTERNAL_INFO(".F depends on .C after calls, disabling .F");
         dynamo_options.rct_ind_jump = OPTION_DISABLED;
         changed_options = true;

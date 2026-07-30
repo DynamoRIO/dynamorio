@@ -389,10 +389,10 @@ static inline ibl_entry_point_type_t
 get_ibl_entry_type(uint link_or_instr_flags)
 {
 #if defined(X86) && defined(X64)
-    if (TEST(LINK_TRACE_CMP, link_or_instr_flags))
+    if (TESTANY(LINK_TRACE_CMP, link_or_instr_flags))
         return IBL_TRACE_CMP;
 #endif
-    if (TEST(LINK_FAR, link_or_instr_flags))
+    if (TESTANY(LINK_FAR, link_or_instr_flags))
         return IBL_FAR;
     else
         return IBL_LINKED;
@@ -1650,7 +1650,7 @@ special_ibl_xfer_tgt(dcontext_t *dcontext, generated_code_t *code,
  */
 #    define FRAG_DB_SHARED(flags) true
 #else
-#    define FRAG_DB_SHARED(flags) (TEST(FRAG_SHARED, (flags)))
+#    define FRAG_DB_SHARED(flags) (TESTANY(FRAG_SHARED, (flags)))
 #endif
 
 /* fragment_t fields */
@@ -1682,7 +1682,7 @@ use_ibt_prefix(uint flags)
      */
     return (IS_IBL_TARGET(flags) &&
             /* coarse bbs (and fine in presence of coarse) do not support prefixes */
-            !(DYNAMO_OPTION(coarse_units) && !TEST(FRAG_IS_TRACE, flags) &&
+            !(DYNAMO_OPTION(coarse_units) && !TESTANY(FRAG_IS_TRACE, flags) &&
               DYNAMO_OPTION(bb_ibl_targets)));
 }
 

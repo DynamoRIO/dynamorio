@@ -339,7 +339,7 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
 #        endif
 #        define CHECK_GPR(name, num, reference_value)                       \
             do {                                                            \
-                if (TEST(1 << (num), gpr_check_mask))                       \
+                if (TESTANY(1 << (num), gpr_check_mask))                    \
                     check_gpr_value(name, *(xsp + (num)), reference_value); \
             } while (0)
     CHECK_GPR("r15", 15, MAKE_HEX_C(R15_BASE()));
@@ -363,7 +363,7 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
      * AARCH64
      */
 
-    if (TEST(1, gpr_check_mask)) {
+    if (TESTANY(1, gpr_check_mask)) {
         /* Unfortunately, since it's RISC, we have to use x0 in the asm loop.
          * Its value could be either 0x1 or &sideline_exit.
          */
@@ -371,7 +371,7 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
     }
 #        define CHECK_GPR(name, num, reference_value)                       \
             do {                                                            \
-                if (TEST(1 << (num), gpr_check_mask))                       \
+                if (TESTANY(1 << (num), gpr_check_mask))                    \
                     check_gpr_value(name, *(xsp + (num)), reference_value); \
             } while (0)
     CHECK_GPR("x1", 1, MAKE_HEX_C(X1_BASE()));

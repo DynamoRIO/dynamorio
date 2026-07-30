@@ -189,7 +189,7 @@ warn you if you use assignment rather than equality.
 
 -# Use the `TEST` and related macros for testing bits.
 
-  \b GOOD: `if (TEST(BITMASK, x))`
+  \b GOOD: `if (TESTANY(BITMASK, x))`
 
   \e BAD:  `if ((x & BITMASK) != 0)`
 

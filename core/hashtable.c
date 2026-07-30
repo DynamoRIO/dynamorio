@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -274,7 +274,7 @@ generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int i
 static inline bool
 strhash_key_cmp(strhash_table_t *htable, const char *s1, const char *s2)
 {
-    if (TEST(STRHASH_CASE_INSENSITIVE, htable->table_flags))
+    if (TESTANY(STRHASH_CASE_INSENSITIVE, htable->table_flags))
         return strcasecmp(s1, s2) == 0;
     else
         return strcmp(s1, s2) == 0;
@@ -326,7 +326,7 @@ strhash_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
     strhash_table_t *table =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, strhash_table_t, ACCT_OTHER, PROTECTED);
     hashtable_strhash_init(GLOBAL_DCONTEXT, table, bits, load_factor_percent,
-                           TEST(STRHASH_CASE_INSENSITIVE, table_flags)
+                           TESTANY(STRHASH_CASE_INSENSITIVE, table_flags)
                                ? HASH_FUNCTION_STRING_NOCASE
                                : HASH_FUNCTION_STRING,
                            0 /* hash_mask_offset */, table_flags _IF_DEBUG(table_name));

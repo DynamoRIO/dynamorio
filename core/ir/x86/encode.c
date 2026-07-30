@@ -715,7 +715,7 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             return true;
         }
         if (size_template == OPSZ_4_rex8_short2) {
-            if (TEST(PREFIX_REX_W, di->prefixes))
+            if (TESTANY(PREFIX_REX_W, di->prefixes))
                 return false; /* rex.w trumps data prefix */
             di->prefixes |= prefix_data_addr;
             return true;
@@ -725,13 +725,13 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         if (size_template == OPSZ_4 || size_template == OPSZ_2)
             return true; /* will take prefix or no prefix */
         if (size_template == OPSZ_4_rex8_short2 || size_template == OPSZ_4_rex8)
-            return !TEST(PREFIX_REX_W, di->prefixes);
+            return !TESTANY(PREFIX_REX_W, di->prefixes);
         if (size_template == OPSZ_8_short2 || size_template == OPSZ_8_short4) {
             di->prefixes |= prefix_data_addr;
             return true;
         }
         if (size_template == OPSZ_6_irex10_short4 &&
-            (proc_get_vendor() == VENDOR_AMD || !TEST(PREFIX_REX_W, di->prefixes))) {
+            (proc_get_vendor() == VENDOR_AMD || !TESTANY(PREFIX_REX_W, di->prefixes))) {
             di->prefixes |= prefix_data_addr;
             return true;
         }
@@ -742,7 +742,7 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             size_template == OPSZ_2 || size_template == OPSZ_4 || size_template == OPSZ_8)
             return true; /* will take prefix or no prefix */
         if (size_template == OPSZ_6_irex10_short4 &&
-            (proc_get_vendor() == VENDOR_AMD || !TEST(PREFIX_REX_W, di->prefixes))) {
+            (proc_get_vendor() == VENDOR_AMD || !TESTANY(PREFIX_REX_W, di->prefixes))) {
             di->prefixes |= prefix_data_addr;
             return true;
         }
@@ -753,9 +753,9 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             return true; /* will take prefix or no prefix */
         if (size_template == OPSZ_4_short2 || size_template == OPSZ_4_rex8_short2 ||
             size_template == OPSZ_8_short2)
-            return !TEST(prefix_data_addr, di->prefixes);
+            return !TESTANY(prefix_data_addr, di->prefixes);
         if (size_template == OPSZ_6_irex10_short4 &&
-            (proc_get_vendor() == VENDOR_AMD || !TEST(PREFIX_REX_W, di->prefixes))) {
+            (proc_get_vendor() == VENDOR_AMD || !TESTANY(PREFIX_REX_W, di->prefixes))) {
             di->prefixes |= prefix_data_addr;
             return true;
         }
@@ -765,11 +765,11 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             (size_template == OPSZ_10 && proc_get_vendor() != VENDOR_AMD))
             return true; /* will take prefix or no prefix */
         if (size_template == OPSZ_4_short2)
-            return !TEST(prefix_data_addr, di->prefixes);
+            return !TESTANY(prefix_data_addr, di->prefixes);
         if (size_template == OPSZ_4_rex8_short2)
             return !TESTANY(prefix_data_addr | PREFIX_REX_W, di->prefixes);
         if (size_template == OPSZ_4_rex8)
-            return !TEST(PREFIX_REX_W, di->prefixes);
+            return !TESTANY(PREFIX_REX_W, di->prefixes);
         if (size_template == OPSZ_8_short4) {
             di->prefixes |= prefix_data_addr;
             return true;
@@ -783,7 +783,7 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             return true;
         }
         if (size_template == OPSZ_4_rex8_short2) {
-            if (TEST(prefix_data_addr, di->prefixes))
+            if (TESTANY(prefix_data_addr, di->prefixes))
                 return true; /* Already shrinking so ok */
             /* XXX - ambiguous on 64-bit (could widen to 8 or shrink to 2).
              * We choose to widen by default for 64-bit as that seems the more likely
@@ -800,7 +800,7 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             return true;
         }
         if (size_template == OPSZ_8_short4)
-            return !TEST(prefix_data_addr, di->prefixes);
+            return !TESTANY(prefix_data_addr, di->prefixes);
         return false;
     case OPSZ_8_short4:
         if (size_template == OPSZ_4_rex8 || size_template == OPSZ_8 ||
@@ -808,9 +808,9 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             return true; /* will take prefix or no prefix */
         if (size_template == OPSZ_4_short2 || size_template == OPSZ_4_rex8_short2 ||
             size_template == OPSZ_8_short2)
-            return !TEST(prefix_data_addr, di->prefixes);
+            return !TESTANY(prefix_data_addr, di->prefixes);
         if (size_template == OPSZ_6_irex10_short4 &&
-            (proc_get_vendor() == VENDOR_AMD || !TEST(PREFIX_REX_W, di->prefixes))) {
+            (proc_get_vendor() == VENDOR_AMD || !TESTANY(PREFIX_REX_W, di->prefixes))) {
             di->prefixes |= prefix_data_addr;
             return true;
         }
@@ -988,39 +988,40 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 return true;
             }
             if (size_template == OPSZ_2_short1)
-                return !TEST(prefix_data_addr, di->prefixes);
+                return !TESTANY(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_4_short2 || size_template == OPSZ_8_short2) {
                 di->prefixes |= prefix_data_addr;
                 return true;
             }
             if (size_template == OPSZ_4_rex8_short2) {
-                if (TEST(PREFIX_REX_W, di->prefixes))
+                if (TESTANY(PREFIX_REX_W, di->prefixes))
                     return false; /* rex.w trumps data prefix */
                 di->prefixes |= prefix_data_addr;
                 return true;
             }
             if (size_template == OPSZ_eighth_16_vex32)
-                return !TEST(PREFIX_VEX_L, di->prefixes);
+                return !TESTANY(PREFIX_VEX_L, di->prefixes);
             if (size_template == OPSZ_eighth_16_vex32_evex64) {
-                return !TEST(PREFIX_VEX_L, di->prefixes) &&
-                    !TEST(PREFIX_EVEX_LL, di->prefixes);
+                return !TESTANY(PREFIX_VEX_L, di->prefixes) &&
+                    !TESTANY(PREFIX_EVEX_LL, di->prefixes);
             }
             return false;
         case OPSZ_4:
             if (size_template == OPSZ_addr) {
                 if (!X64_MODE(di))
-                    return !TEST(prefix_data_addr, di->prefixes);
+                    return !TESTANY(prefix_data_addr, di->prefixes);
                 di->prefixes |= prefix_data_addr;
                 return true;
             }
             if (size_template == OPSZ_4_short2)
-                return !TEST(prefix_data_addr, di->prefixes);
+                return !TESTANY(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_4_rex8_short2)
                 return !TESTANY(prefix_data_addr | PREFIX_REX_W, di->prefixes);
             if (size_template == OPSZ_4_rex8)
-                return !TEST(PREFIX_REX_W, di->prefixes);
+                return !TESTANY(PREFIX_REX_W, di->prefixes);
             if (size_template == OPSZ_6_irex10_short4) {
-                if (TEST(PREFIX_REX_W, di->prefixes) && proc_get_vendor() != VENDOR_AMD)
+                if (TESTANY(PREFIX_REX_W, di->prefixes) &&
+                    proc_get_vendor() != VENDOR_AMD)
                     return false; /* rex.w trumps data prefix */
                 di->prefixes |= prefix_data_addr;
                 return true;
@@ -1030,27 +1031,27 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 return true;
             }
             if (size_template == OPSZ_4_rex8_of_16)
-                return !TEST(PREFIX_REX_W, di->prefixes);
+                return !TESTANY(PREFIX_REX_W, di->prefixes);
             if (size_template == OPSZ_quarter_16_vex32)
-                return !TEST(PREFIX_VEX_L, di->prefixes);
+                return !TESTANY(PREFIX_VEX_L, di->prefixes);
             if (size_template == OPSZ_quarter_16_vex32_evex64) {
-                return !TEST(PREFIX_VEX_L, di->prefixes) &&
-                    !TEST(PREFIX_EVEX_LL, di->prefixes);
+                return !TESTANY(PREFIX_VEX_L, di->prefixes) &&
+                    !TESTANY(PREFIX_EVEX_LL, di->prefixes);
             }
             if (size_template == OPSZ_eighth_16_vex32) {
                 di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
             if (size_template == OPSZ_eighth_16_vex32_evex64) {
-                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                     di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
             return false;
         case OPSZ_6:
             if (size_template == OPSZ_6_irex10_short4) {
-                return !TEST(prefix_data_addr, di->prefixes) &&
-                    (!TEST(PREFIX_REX_W, di->prefixes) ||
+                return !TESTANY(prefix_data_addr, di->prefixes) &&
+                    (!TESTANY(PREFIX_REX_W, di->prefixes) ||
                      proc_get_vendor() == VENDOR_AMD);
             }
             if (size_template == OPSZ_12_rex40_short6) {
@@ -1068,22 +1069,22 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if ((X64_MODE(di) && size_template == OPSZ_addr) ||
                 size_template == OPSZ_8_short4 || size_template == OPSZ_8_short2)
-                return !TEST(prefix_data_addr, di->prefixes);
+                return !TESTANY(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_8_rex16 || size_template == OPSZ_8_rex16_short4)
                 return !TESTANY(prefix_data_addr | PREFIX_REX_W, di->prefixes);
             if (size_template == OPSZ_half_16_vex32)
-                return !TEST(PREFIX_VEX_L, di->prefixes);
+                return !TESTANY(PREFIX_VEX_L, di->prefixes);
             if (size_template == OPSZ_half_16_vex32_evex64) {
-                return !TEST(PREFIX_VEX_L, di->prefixes) &&
-                    !TEST(PREFIX_EVEX_LL, di->prefixes);
+                return !TESTANY(PREFIX_VEX_L, di->prefixes) &&
+                    !TESTANY(PREFIX_EVEX_LL, di->prefixes);
             }
             if (size_template == OPSZ_quarter_16_vex32) {
-                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                     di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
             if (size_template == OPSZ_quarter_16_vex32_evex64) {
-                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                     di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
@@ -1104,7 +1105,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             if (size_template == OPSZ_12_rex40_short6)
                 return !TESTANY(prefix_data_addr | PREFIX_REX_W, di->prefixes);
             if (size_template == OPSZ_12_rex8_of_16)
-                return !TEST(PREFIX_REX_W, di->prefixes);
+                return !TESTANY(PREFIX_REX_W, di->prefixes);
             return false;
         case OPSZ_16:
             if (X64_MODE(di) &&
@@ -1117,12 +1118,12 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 return true;
             }
             if (size_template == OPSZ_16_vex32)
-                return !TEST(PREFIX_VEX_L, di->prefixes);
+                return !TESTANY(PREFIX_VEX_L, di->prefixes);
             if (size_template == OPSZ_16_vex32_evex64)
                 return !TESTANY(PREFIX_EVEX_LL | PREFIX_VEX_L, di->prefixes);
             if (size_template == OPSZ_half_16_vex32 ||
                 size_template == OPSZ_half_16_vex32_evex64) {
-                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                     di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
@@ -1141,14 +1142,14 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_15: return false; /* no variable sizes match, need identical request */
         case OPSZ_28:
             if (size_template == OPSZ_28_short14)
-                return !TEST(prefix_data_addr, di->prefixes);
+                return !TESTANY(prefix_data_addr, di->prefixes);
             return false;
         case OPSZ_32:
             if (size_template == OPSZ_32_short16)
-                return !TEST(prefix_data_addr, di->prefixes);
+                return !TESTANY(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_16_vex32 || size_template == OPSZ_16_vex32_evex64 ||
                 size_template == OPSZ_vex32_evex64) {
-                if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+                if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                     di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
@@ -1180,7 +1181,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             return false;
         case OPSZ_108:
             if (size_template == OPSZ_108_short94)
-                return !TEST(prefix_data_addr, di->prefixes);
+                return !TESTANY(prefix_data_addr, di->prefixes);
             return false;
         case OPSZ_512:
             return false; /* no variable sizes match, need identical request */
@@ -1331,9 +1332,9 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
         opsize == OPSZ_quarter_16_vex32_evex64 || opsize == OPSZ_eighth_16_vex32_evex64 ||
         optype == TYPE_VSIB) {
         if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
-            return !TEST(PREFIX_VEX_L, di->prefixes);
+            return !TESTANY(PREFIX_VEX_L, di->prefixes);
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
-            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+            if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                 di->prefixes |= PREFIX_VEX_L;
             return true;
         }
@@ -1347,7 +1348,7 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     if (opsize == OPSZ_16_of_32) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
             /* Set VEX.L since required for some opcodes and the rest don't care */
-            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+            if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                 di->prefixes |= PREFIX_VEX_L;
             return true;
         } else
@@ -1356,7 +1357,7 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     if (opsize == OPSZ_16_of_32_evex64 || opsize == OPSZ_4_of_32_evex64 ||
         opsize == OPSZ_8_of_32_evex64) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
-            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+            if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                 di->prefixes |= PREFIX_VEX_L;
             return true;
         } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
@@ -1382,7 +1383,7 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     if (size_ok(di, reg_get_size(reg), resolve_var_reg_size(opsize, true), addr)) {
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
             /* Set VEX.L since required for some opcodes and the rest don't care */
-            if (!TEST(di->prefixes, PREFIX_EVEX_LL))
+            if (!TESTANY(di->prefixes, PREFIX_EVEX_LL))
                 di->prefixes |= PREFIX_VEX_L;
         } else if (reg >= DR_REG_START_ZMM && reg <= DR_REG_STOP_ZMM) {
             di->prefixes |= PREFIX_EVEX_LL;
@@ -1552,13 +1553,13 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
                                     _IF_X64(true /*extendable*/)));
     case TYPE_VSIB:
 #ifndef X64
-        if (TEST(PREFIX_ADDR, di->prefixes))
+        if (TESTANY(PREFIX_ADDR, di->prefixes))
             return false; /* VSIB invalid w/ 16-bit addressing */
 #endif
-        if (TEST(REQUIRES_VSIB_YMM, flags)) {
+        if (TESTANY(REQUIRES_VSIB_YMM, flags)) {
             if (!reg_is_strictly_ymm(opnd_get_index(opnd)))
                 return false;
-        } else if (TEST(REQUIRES_VSIB_ZMM, flags)) {
+        } else if (TESTANY(REQUIRES_VSIB_ZMM, flags)) {
             if (!reg_is_strictly_zmm(opnd_get_index(opnd)))
                 return false;
         }
@@ -1836,8 +1837,8 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
 const instr_info_t *
 instr_info_extra_opnds(const instr_info_t *info)
 {
-    if (TEST(HAS_EXTRA_OPERANDS, info->flags)) {
-        if (TEST(EXTRAS_IN_CODE_FIELD, info->flags))
+    if (TESTANY(HAS_EXTRA_OPERANDS, info->flags)) {
+        if (TESTANY(EXTRAS_IN_CODE_FIELD, info->flags))
             return (const instr_info_t *)(info->code);
         else /* extra operands are in next entry */
             return (info + 1);
@@ -1853,7 +1854,7 @@ instr_info_extra_opnds(const instr_info_t *info)
         if (!opnd_type_ok(di, get_op, iitype, iisize, flags))                            \
             return false;                                                                \
         if (opnd_needs_evex(get_op)) {                                                   \
-            if (!TEST(REQUIRES_EVEX, flags))                                             \
+            if (!TESTANY(REQUIRES_EVEX, flags))                                          \
                 return false;                                                            \
         }                                                                                \
         if (type_instr_uses_reg_bits(iitype)) {                                          \
@@ -1871,7 +1872,7 @@ instr_info_extra_opnds(const instr_info_t *info)
         } else if (type_uses_evex_aaa_bits(iitype)) {                                    \
             if (!opnd_is_null(using_aaa_bits) && !opnd_same(using_aaa_bits, get_op))     \
                 return false;                                                            \
-            if (TEST(REQUIRES_NOT_K0, flags) && opnd_get_reg(get_op) == DR_REG_K0)       \
+            if (TESTANY(REQUIRES_NOT_K0, flags) && opnd_get_reg(get_op) == DR_REG_K0)    \
                 return false;                                                            \
             using_aaa_bits = get_op;                                                     \
         }                                                                                \
@@ -1882,7 +1883,7 @@ static bool
 encoding_meets_hints(instr_t *instr, const instr_info_t *info)
 {
     return !instr_has_encoding_hint(instr, DR_ENCODING_HINT_X86_EVEX) ||
-        TEST(REQUIRES_EVEX, info->flags);
+        TESTANY(REQUIRES_EVEX, info->flags);
 }
 
 /* May be called a 2nd time to check size prefix consistency.
@@ -1915,7 +1916,7 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t *ii)
     TEST_OPND(di, ii->src3_type, ii->src3_size, 3, in->num_srcs, instr_get_src(in, 2),
               ii->flags);
 
-    if (TEST(HAS_EXTRA_OPERANDS, ii->flags)) {
+    if (TESTANY(HAS_EXTRA_OPERANDS, ii->flags)) {
         /* extra operands to test! */
         int offs = 1;
         ii = instr_info_extra_opnds(ii);
@@ -1957,7 +1958,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
         return false;
     LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\nencoding_possible on " PFX "\n", ii->opcode);
 
-    if (TEST(X64_MODE(di) ? X64_INVALID : X86_INVALID, ii->flags))
+    if (TESTANY(X64_MODE(di) ? X64_INVALID : X86_INVALID, ii->flags))
         return false;
 
     /* For size prefixes we use the di prefix field since that's what
@@ -2072,9 +2073,10 @@ encode_immed(decode_info_t *di, byte *pc)
              * the offset, but wants to hold the absolute pc.
              */
             size = di->size_immed; /* TYPE_I put real size there */
-            CLIENT_ASSERT((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
-                              (size == OPSZ_4) || IF_X64_ELSE((size == OPSZ_8), false),
-                          "encode error: immediate has invalid size");
+            CLIENT_ASSERT(
+                (size == OPSZ_4_short2 && !TESTANY(PREFIX_DATA, di->prefixes)) ||
+                    (size == OPSZ_4) || IF_X64_ELSE((size == OPSZ_8), false),
+                "encode error: immediate has invalid size");
             /* we want val to be pc of target instr
              * immed is the difference between us and target
              * HACK: di->modrm was set with the number of instruction bytes
@@ -2202,7 +2204,7 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
     reg_id_t base, index;
     int scale, disp;
     /* in 64-bit mode, addr prefix simply truncates registers and final address */
-    bool addr16 = !X64_MODE(di) && TEST(PREFIX_ADDR, di->prefixes);
+    bool addr16 = !X64_MODE(di) && TESTANY(PREFIX_ADDR, di->prefixes);
 
     /* user can use opnd_create_abs_addr() but it will internally be a base-disp
      * if its disp is 32-bit: if it's larger it has to be TYPE_O and not get here!
@@ -2257,7 +2259,7 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
             di->has_disp = true;
             di->disp = disp;
             /* if rex.x is set we'll have r12 instead of no base */
-            CLIENT_ASSERT(!TEST(PREFIX_REX_X, di->prefixes),
+            CLIENT_ASSERT(!TESTANY(PREFIX_REX_X, di->prefixes),
                           "encode error: for x64 cannot encode abs addr w/ rex.x");
         } else {
             di->has_sib = false;
@@ -2380,7 +2382,7 @@ encode_base_disp(decode_info_t *di, opnd_t opnd)
                 if (X64_MODE(di) && reg_is_32bit(base)) {
                     CLIENT_ASSERT(
                         index == REG_NULL ||
-                            (reg_is_32bit(index) && TEST(PREFIX_ADDR, di->prefixes)),
+                            (reg_is_32bit(index) && TESTANY(PREFIX_ADDR, di->prefixes)),
                         "encode error: index and base must be same width");
                     di->prefixes |= PREFIX_ADDR;
                 }
@@ -2774,9 +2776,9 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
 static byte
 encode_vex_final_prefix_byte(byte cur_byte, decode_info_t *di, const instr_info_t *info)
 {
-    cur_byte |= (di->vex_vvvv << 3) | (TEST(PREFIX_VEX_L, di->prefixes) ? 0x04 : 0x00);
+    cur_byte |= (di->vex_vvvv << 3) | (TESTANY(PREFIX_VEX_L, di->prefixes) ? 0x04 : 0x00);
     /* we override OPCODE_SUFFIX for vex to mean "requires vex.L" */
-    if (TEST(OPCODE_SUFFIX, info->opcode))
+    if (TESTANY(OPCODE_SUFFIX, info->opcode))
         cur_byte |= 0x04;
     /* OPCODE_{MODRM,SUFFIX} mean something else for vex */
     if (info->opcode > 0xffffff) {
@@ -2805,11 +2807,11 @@ encode_evex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *inf
     field_ptr++;
     /* second evex byte */
     val = /* these are negated */
-        (TEST(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80) |
-        (TEST(PREFIX_REX_X, di->prefixes) ? 0x00 : 0x40) |
-        (TEST(PREFIX_REX_B, di->prefixes) ? 0x00 : 0x20) |
-        (TEST(PREFIX_EVEX_RR, di->prefixes) ? 0x00 : 0x10);
-    if (TEST(OPCODE_THREEBYTES, info->opcode)) {
+        (TESTANY(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80) |
+        (TESTANY(PREFIX_REX_X, di->prefixes) ? 0x00 : 0x40) |
+        (TESTANY(PREFIX_REX_B, di->prefixes) ? 0x00 : 0x20) |
+        (TESTANY(PREFIX_EVEX_RR, di->prefixes) ? 0x00 : 0x10);
+    if (TESTANY(OPCODE_THREEBYTES, info->opcode)) {
         byte op3 = (byte)((info->opcode & 0x00ff0000) >> 16);
         if (op3 == 0x38)
             val |= 0x02;
@@ -2825,9 +2827,9 @@ encode_evex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *inf
     *field_ptr = val;
     field_ptr++;
     /* third evex byte */
-    val = (TEST(PREFIX_REX_W, di->prefixes) ? 0x80 : 0x00);
+    val = (TESTANY(PREFIX_REX_W, di->prefixes) ? 0x80 : 0x00);
     /* we override OPCODE_MODRM for evex to mean "requires evex.W" */
-    if (TEST(OPCODE_MODRM, info->opcode))
+    if (TESTANY(OPCODE_MODRM, info->opcode))
         val = 0x80;
     /* evex fixed bit always 1. */
     val |= 0x4;
@@ -2847,17 +2849,17 @@ encode_evex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *inf
     *field_ptr = val;
     field_ptr++;
     /* fourth evex byte */
-    val = (TEST(PREFIX_EVEX_z, di->prefixes) ? 0x80 : 0x00) |
-        (TEST(PREFIX_EVEX_LL, di->prefixes) ? 0x40 : 0x00) |
-        (TEST(PREFIX_VEX_L, di->prefixes) ? 0x20 : 0x00) |
-        (TEST(PREFIX_EVEX_b, di->prefixes) ? 0x10 : 0x00) |
-        (TEST(PREFIX_EVEX_VV, di->prefixes) ? 0x00 : 0x08);
+    val = (TESTANY(PREFIX_EVEX_z, di->prefixes) ? 0x80 : 0x00) |
+        (TESTANY(PREFIX_EVEX_LL, di->prefixes) ? 0x40 : 0x00) |
+        (TESTANY(PREFIX_VEX_L, di->prefixes) ? 0x20 : 0x00) |
+        (TESTANY(PREFIX_EVEX_b, di->prefixes) ? 0x10 : 0x00) |
+        (TESTANY(PREFIX_EVEX_VV, di->prefixes) ? 0x00 : 0x08);
     /* we override OPCODE_SUFFIX for evex to mean "requires evex.L" */
     /* XXX i#1312: what about evex.L'? */
-    if (TEST(OPCODE_SUFFIX, info->opcode))
+    if (TESTANY(OPCODE_SUFFIX, info->opcode))
         val |= 0x20;
     /* we override OPCODE_TWOBYTES for evex to mean "requires evex.b" */
-    if (TEST(OPCODE_TWOBYTES, info->opcode))
+    if (TESTANY(OPCODE_TWOBYTES, info->opcode))
         val |= 0x10;
     val |= di->evex_aaa;
     *field_ptr = val;
@@ -2880,7 +2882,7 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
         /* 3-byte vex shortest encoding for 0x0f 0x3[8a], and the same
          * size but I'm assuming faster decode in processor for 0x0f
          */
-        TEST(OPCODE_THREEBYTES, info->opcode) ||
+        TESTANY(OPCODE_THREEBYTES, info->opcode) ||
         /* XOP is always 3 bytes */
         xop ||
         /* 2-byte requires leading 0x0f */
@@ -2897,16 +2899,17 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
         field_ptr++;
         /* second vex byte */
         val = /* these are negated */
-            (TEST(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80) |
-            (TEST(PREFIX_REX_X, di->prefixes) ? 0x00 : 0x40) |
-            (TEST(PREFIX_REX_B, di->prefixes) ? 0x00 : 0x20);
+            (TESTANY(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80) |
+            (TESTANY(PREFIX_REX_X, di->prefixes) ? 0x00 : 0x40) |
+            (TESTANY(PREFIX_REX_B, di->prefixes) ? 0x00 : 0x20);
         if (xop) {
             byte map_select = (byte)((info->opcode & 0x00ff0000) >> 16);
-            CLIENT_ASSERT(TEST(OPCODE_THREEBYTES, info->opcode), "internal invalid XOP");
+            CLIENT_ASSERT(TESTANY(OPCODE_THREEBYTES, info->opcode),
+                          "internal invalid XOP");
             CLIENT_ASSERT(map_select < 0x20, "XOP.map_select only has 5 bits");
             val |= map_select;
         } else {
-            if (TEST(OPCODE_THREEBYTES, info->opcode)) {
+            if (TESTANY(OPCODE_THREEBYTES, info->opcode)) {
                 byte op3 = (byte)((info->opcode & 0x00ff0000) >> 16);
                 if (op3 == 0x38)
                     val |= 0x02;
@@ -2923,9 +2926,9 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
         *field_ptr = val;
         field_ptr++;
         /* third vex byte */
-        val = (TEST(PREFIX_REX_W, di->prefixes) ? 0x80 : 0x00);
+        val = (TESTANY(PREFIX_REX_W, di->prefixes) ? 0x80 : 0x00);
         /* we override OPCODE_MODRM for vex to mean "requires vex.W" */
-        if (TEST(OPCODE_MODRM, info->opcode))
+        if (TESTANY(OPCODE_MODRM, info->opcode))
             val = 0x80;
         val = encode_vex_final_prefix_byte(val, di, info);
         *field_ptr = val;
@@ -2937,7 +2940,7 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
         di->vex_encoded = true;
         field_ptr++;
         /* second vex byte */
-        val = (TEST(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80); /* negated */
+        val = (TESTANY(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80); /* negated */
         val = encode_vex_final_prefix_byte(val, di, info);
         *field_ptr = val;
         field_ptr++;
@@ -2967,10 +2970,10 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
     }
 
     if (instr->prefixes != 0) {
-        if (TEST(PREFIX_JCC_TAKEN, instr->prefixes)) {
+        if (TESTANY(PREFIX_JCC_TAKEN, instr->prefixes)) {
             *pc = RAW_PREFIX_jcc_taken;
             pc++;
-        } else if (TEST(PREFIX_JCC_NOT_TAKEN, instr->prefixes)) {
+        } else if (TESTANY(PREFIX_JCC_NOT_TAKEN, instr->prefixes)) {
             *pc = RAW_PREFIX_jcc_not_taken;
             pc++;
         }
@@ -2986,11 +2989,11 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc,
     *pc = (byte)((info->opcode & 0x00ff0000) >> 16);
     pc++;
     /* second opcode byte, if there is one */
-    if (TEST(OPCODE_TWOBYTES, info->opcode)) {
+    if (TESTANY(OPCODE_TWOBYTES, info->opcode)) {
         *pc = (byte)((info->opcode & 0x0000ff00) >> 8);
         pc++;
     }
-    ASSERT(!TEST(OPCODE_THREEBYTES, info->opcode)); /* no cti has 3 opcode bytes */
+    ASSERT(!TESTANY(OPCODE_THREEBYTES, info->opcode)); /* no cti has 3 opcode bytes */
 
     /* we assume only one operand: 1st src == jump target, but we do
      * not check that, for speed
@@ -3252,8 +3255,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     /* instr_t* operand support */
     di.cur_offs = (ptr_int_t)instr->offset;
 
-    di.vex_encoded = TEST(REQUIRES_VEX, info->flags);
-    di.evex_encoded = TEST(REQUIRES_EVEX, info->flags);
+    di.vex_encoded = TESTANY(REQUIRES_VEX, info->flags);
+    di.evex_encoded = TESTANY(REQUIRES_EVEX, info->flags);
     CLIENT_ASSERT(!di.vex_encoded || !di.evex_encoded,
                   "instr_encode error: flags can't be both vex and evex.");
 
@@ -3262,12 +3265,12 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
          * always at least two bytes) to indicate EVEX.b=1. We need to
          * do this now to make sure we calculate the correct tuple size.
          */
-        if (TEST(OPCODE_TWOBYTES, info->opcode))
+        if (TESTANY(OPCODE_TWOBYTES, info->opcode))
             di.prefixes |= PREFIX_EVEX_b;
         decode_get_tuple_type_input_size(info, &di);
     }
     if (di.vex_encoded || di.evex_encoded) {
-        if (TEST(OPCODE_MODRM, info->opcode))
+        if (TESTANY(OPCODE_MODRM, info->opcode))
             di.prefixes |= PREFIX_REX_W;
     }
 
@@ -3295,7 +3298,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                            instr_get_src(instr, offs * 3 + 2));
         }
         offs++;
-        if (TEST(HAS_EXTRA_OPERANDS, ii->flags))
+        if (TESTANY(HAS_EXTRA_OPERANDS, ii->flags))
             ii = instr_info_extra_opnds(ii);
         else
             ii = NULL;
@@ -3312,34 +3315,34 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 
     /* output the prefix byte(s) */
     if (di.prefixes != 0) {
-        if (TEST(PREFIX_LOCK, di.prefixes)) {
+        if (TESTANY(PREFIX_LOCK, di.prefixes)) {
             *field_ptr = RAW_PREFIX_lock;
             field_ptr++;
         }
-        if (TEST(PREFIX_XACQUIRE, di.prefixes)) {
+        if (TESTANY(PREFIX_XACQUIRE, di.prefixes)) {
             *field_ptr = RAW_PREFIX_xacquire;
             field_ptr++;
         }
-        if (TEST(PREFIX_XRELEASE, di.prefixes)) {
+        if (TESTANY(PREFIX_XRELEASE, di.prefixes)) {
             *field_ptr = RAW_PREFIX_xrelease;
             field_ptr++;
         }
-        if (TEST(PREFIX_JCC_TAKEN, di.prefixes)) {
+        if (TESTANY(PREFIX_JCC_TAKEN, di.prefixes)) {
             *field_ptr = RAW_PREFIX_jcc_taken;
             field_ptr++;
-        } else if (TEST(PREFIX_JCC_NOT_TAKEN, di.prefixes)) {
+        } else if (TESTANY(PREFIX_JCC_NOT_TAKEN, di.prefixes)) {
             *field_ptr = RAW_PREFIX_jcc_not_taken;
             field_ptr++;
         }
     }
-    if (TEST(PREFIX_DATA, di.prefixes)) {
+    if (TESTANY(PREFIX_DATA, di.prefixes)) {
         *field_ptr = DATA_PREFIX_OPCODE;
         field_ptr++;
     }
     /* N.B.: we assume the order of 0x67 <seg> in coarse_is_indirect_stub()
      * and instr_is_tls_xcx_spill()
      */
-    if (TEST(PREFIX_ADDR, di.prefixes)) {
+    if (TESTANY(PREFIX_ADDR, di.prefixes)) {
         *field_ptr = ADDR_PREFIX_OPCODE;
         field_ptr++;
     }
@@ -3360,15 +3363,16 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
      * flags, and some opcode bytes.
      */
     if (di.vex_encoded) {
-        if (TEST(REQUIRES_VEX_L_1, info->flags)) {
+        if (TESTANY(REQUIRES_VEX_L_1, info->flags)) {
             di.prefixes |= PREFIX_VEX_L;
         }
         field_ptr = encode_vex_prefixes(field_ptr, &di, info, &output_initial_opcode);
     } else if (di.evex_encoded) {
         field_ptr = encode_evex_prefixes(field_ptr, &di, info, &output_initial_opcode);
     } else {
-        CLIENT_ASSERT(!TEST(PREFIX_VEX_L, di.prefixes), "internal encode vex error");
-        CLIENT_ASSERT(!TEST(PREFIX_EVEX_LL, di.prefixes), "internal encode evex error");
+        CLIENT_ASSERT(!TESTANY(PREFIX_VEX_L, di.prefixes), "internal encode vex error");
+        CLIENT_ASSERT(!TESTANY(PREFIX_EVEX_LL, di.prefixes),
+                      "internal encode evex error");
 
         /* output the opcode required prefix byte (if needed) */
         if (info->opcode > 0xffffff &&
@@ -3379,7 +3383,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             field_ptr++;
         }
 
-        if (TEST(REQUIRES_REX, info->flags)) {
+        if (TESTANY(REQUIRES_REX, info->flags)) {
             /* We could add other rex flags by overloading OPCODE_SUFFIX or
              * possibly OPCODE_MODRM (but the latter only for instrs that
              * aren't in mod_ext).  For now this flag implies rex.w.
@@ -3391,13 +3395,13 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
          * part of the opcode). Xref PR 271878. */
         if (TESTANY(PREFIX_REX_ALL, di.prefixes)) {
             byte rexval = REX_PREFIX_BASE_OPCODE;
-            if (TEST(PREFIX_REX_W, di.prefixes))
+            if (TESTANY(PREFIX_REX_W, di.prefixes))
                 rexval |= REX_PREFIX_W_OPFLAG;
-            if (TEST(PREFIX_REX_R, di.prefixes))
+            if (TESTANY(PREFIX_REX_R, di.prefixes))
                 rexval |= REX_PREFIX_R_OPFLAG;
-            if (TEST(PREFIX_REX_X, di.prefixes))
+            if (TESTANY(PREFIX_REX_X, di.prefixes))
                 rexval |= REX_PREFIX_X_OPFLAG;
-            if (TEST(PREFIX_REX_B, di.prefixes))
+            if (TESTANY(PREFIX_REX_B, di.prefixes))
                 rexval |= REX_PREFIX_B_OPFLAG;
             *field_ptr = rexval;
             field_ptr++;
@@ -3406,7 +3410,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 
     if (!output_initial_opcode) {
         /* output the opcode byte(s) (opcode required prefixes are handled above) */
-        if (TEST(OPCODE_THREEBYTES, info->opcode)) {
+        if (TESTANY(OPCODE_THREEBYTES, info->opcode)) {
             /* implied initial opcode byte */
             *field_ptr = 0x0f;
             field_ptr++;
@@ -3417,14 +3421,14 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     /* second opcode byte, if there is one */
-    if (TEST(REQUIRES_EVEX, info->flags) || TEST(OPCODE_TWOBYTES, info->opcode) ||
-        TEST(OPCODE_THREEBYTES, info->opcode)) {
+    if (TESTANY(REQUIRES_EVEX, info->flags) || TESTANY(OPCODE_TWOBYTES, info->opcode) ||
+        TESTANY(OPCODE_THREEBYTES, info->opcode)) {
         *field_ptr = (byte)((info->opcode & 0x0000ff00) >> 8);
         field_ptr++;
     }
 
     /* /n: part of opcode is in reg of modrm byte */
-    if (TEST(OPCODE_REG, info->opcode)) {
+    if (TESTANY(OPCODE_REG, info->opcode)) {
         CLIENT_ASSERT(di.reg == 8,
                       "instr_encode error: /n opcode inconsistency"); /* unset */
         di.reg = (byte)(info->opcode & 0x00000007);
@@ -3438,7 +3442,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
     /* opcode depends on entire modrm byte */
     if (!TESTANY(REQUIRES_VEX | REQUIRES_EVEX, info->flags) &&
-        TEST(OPCODE_MODRM, info->opcode)) {
+        TESTANY(OPCODE_MODRM, info->opcode)) {
         /* modrm is encoded in prefix byte */
         *field_ptr = (byte)(info->opcode >> 24);
         field_ptr++;
@@ -3466,7 +3470,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             if (di.mod == 1) {
                 *field_ptr = (byte)di.disp;
                 field_ptr++;
-            } else if (!X64_MODE(&di) && TEST(PREFIX_ADDR, di.prefixes)) {
+            } else if (!X64_MODE(&di) && TESTANY(PREFIX_ADDR, di.prefixes)) {
                 CLIENT_ASSERT_TRUNCATE(*((short *)field_ptr), ushort, di.disp,
                                        "encode error: modrm disp too large for 16-bit");
                 *((short *)field_ptr) = (ushort)di.disp;
@@ -3497,7 +3501,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 
     /* suffix opcode */
     if (!TESTANY(REQUIRES_VEX | REQUIRES_EVEX, info->flags) &&
-        TEST(OPCODE_SUFFIX, info->opcode)) {
+        TESTANY(OPCODE_SUFFIX, info->opcode)) {
         /* none of these have immeds, currently (and presumably never will have) */
         ASSERT_CURIOSITY(di.size_immed == OPSZ_NA && di.size_immed2 == OPSZ_NA);
         /* modrm is encoded in prefix byte */
@@ -3509,7 +3513,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         if (check_reachable &&
             !CHECK_TRUNCATE_TYPE_int(di.disp_abs - (field_ptr - copy_pc + final_pc)) &&
             /* PR 253327: we auto-add addr prefix for out-of-reach low tgt */
-            (!TEST(PREFIX_ADDR, di.prefixes) || (ptr_uint_t)di.disp_abs > INT_MAX)) {
+            (!TESTANY(PREFIX_ADDR, di.prefixes) || (ptr_uint_t)di.disp_abs > INT_MAX)) {
             CLIENT_ASSERT(!assert_reachable,
                           "encode error: rip-relative reference out of 32-bit reach");
             return NULL;

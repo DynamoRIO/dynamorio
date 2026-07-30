@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -156,7 +156,8 @@ typedef struct _live_header_t {
 
 /* NOTE this must be a multiple of START_PC_ALIGNMENT bytes so that the
  * start_pc is properly aligned (for -pad_jmps_shift_{bb,trace} support) */
-#define HEADER_SIZE(f) (TEST(FRAG_COARSE_GRAIN, (f)->flags) ? 0 : (sizeof(fragment_t *)))
+#define HEADER_SIZE(f) \
+    (TESTANY(FRAG_COARSE_GRAIN, (f)->flags) ? 0 : (sizeof(fragment_t *)))
 #define HEADER_SIZE_FROM_CACHE(cache) ((cache)->is_coarse ? 0 : (sizeof(fragment_t *)))
 
 /**************************************************
@@ -198,11 +199,11 @@ typedef struct _empty_slot_t {
 } empty_slot_t;
 
 /* macros to make dealing with both fragment_t and empty_slot_t easier */
-#define FRAG_EMPTY(f) (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))
+#define FRAG_EMPTY(f) (TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags))
 
-#define FRAG_START(f)                                                       \
-    (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags) ? ((empty_slot_t *)(f))->start_pc \
-                                          : (f)->start_pc)
+#define FRAG_START(f)                                                          \
+    (TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags) ? ((empty_slot_t *)(f))->start_pc \
+                                             : (f)->start_pc)
 
 /* N.B.: must hold cache lock across any set of a fragment's start_pc or size
  * once that fragment is in a cache, as contig-cache-walkers need a consistent view!
@@ -210,7 +211,7 @@ typedef struct _empty_slot_t {
  */
 #define FRAG_START_ASSIGN(f, val)                    \
     do {                                             \
-        if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))    \
+        if (TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags)) \
             ((empty_slot_t *)(f))->start_pc = (val); \
         else                                         \
             (f)->start_pc = (val);                   \
@@ -218,20 +219,20 @@ typedef struct _empty_slot_t {
 
 /* for -pad_jmps_shift_{bb,trace} we may have shifted the start_pc forward by up
  * to START_PC_ALIGNMENT-1 bytes, back align to get the right header pointer */
-#define FRAG_START_PADDING(f)                                                      \
-    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags) || !PAD_JMPS_SHIFT_START((f)->flags))   \
-         ? 0                                                                       \
-         : (ASSERT(CHECK_TRUNCATE_TYPE_uint(                                       \
-                (ptr_uint_t)((f)->start_pc -                                       \
-                             ALIGN_BACKWARD((f)->start_pc, START_PC_ALIGNMENT)))), \
-            (uint)((ptr_uint_t)(f)->start_pc -                                     \
+#define FRAG_START_PADDING(f)                                                       \
+    ((TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags) || !PAD_JMPS_SHIFT_START((f)->flags)) \
+         ? 0                                                                        \
+         : (ASSERT(CHECK_TRUNCATE_TYPE_uint(                                        \
+                (ptr_uint_t)((f)->start_pc -                                        \
+                             ALIGN_BACKWARD((f)->start_pc, START_PC_ALIGNMENT)))),  \
+            (uint)((ptr_uint_t)(f)->start_pc -                                      \
                    ALIGN_BACKWARD((f)->start_pc, START_PC_ALIGNMENT))))
 
 #define FRAG_HDR_START(f) (FRAG_START(f) - HEADER_SIZE(f) - FRAG_START_PADDING(f))
 
-#define FRAG_SIZE(f)                          \
-    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))   \
-         ? ((empty_slot_t *)(f))->fcache_size \
+#define FRAG_SIZE(f)                           \
+    ((TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags)) \
+         ? ((empty_slot_t *)(f))->fcache_size  \
          : (f)->size + (uint)(f)->fcache_extra + FRAG_START_PADDING(f))
 
 /* N.B.: must hold cache lock across any set of a fragment's start_pc or size
@@ -240,7 +241,7 @@ typedef struct _empty_slot_t {
  */
 #define FRAG_SIZE_ASSIGN(f, val)                                            \
     do {                                                                    \
-        if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) {                         \
+        if (TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags)) {                      \
             ASSERT_TRUNCATE(((empty_slot_t *)(f))->fcache_size, uint, val); \
             ((empty_slot_t *)(f))->fcache_size = (val);                     \
         } else {                                                            \
@@ -251,56 +252,57 @@ typedef struct _empty_slot_t {
         }                                                                   \
     } while (0)
 
-#define FIFO_NEXT(f)                                \
-    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))         \
-         ? ((empty_slot_t *)(f))->next_fcache       \
-         : (ASSERT(!TEST(FRAG_SHARED, (f)->flags)), \
+#define FIFO_NEXT(f)                                   \
+    ((TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags))         \
+         ? ((empty_slot_t *)(f))->next_fcache          \
+         : (ASSERT(!TESTANY(FRAG_SHARED, (f)->flags)), \
             ((private_fragment_t *)(f))->next_fcache))
 
 #define FIFO_NEXT_ASSIGN(f, val)                              \
     do {                                                      \
-        if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))             \
+        if (TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags))          \
             ((empty_slot_t *)(f))->next_fcache = (val);       \
         else {                                                \
-            ASSERT(!TEST(FRAG_SHARED, (f)->flags));           \
+            ASSERT(!TESTANY(FRAG_SHARED, (f)->flags));        \
             ((private_fragment_t *)(f))->next_fcache = (val); \
         }                                                     \
     } while (0)
 
-#define FIFO_PREV(f)                                \
-    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))         \
-         ? ((empty_slot_t *)(f))->prev_fcache       \
-         : (ASSERT(!TEST(FRAG_SHARED, (f)->flags)), \
+#define FIFO_PREV(f)                                   \
+    ((TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags))         \
+         ? ((empty_slot_t *)(f))->prev_fcache          \
+         : (ASSERT(!TESTANY(FRAG_SHARED, (f)->flags)), \
             ((private_fragment_t *)(f))->prev_fcache))
 
 #define FIFO_PREV_ASSIGN(f, val)                              \
     do {                                                      \
-        if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))             \
+        if (TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags))          \
             ((empty_slot_t *)(f))->prev_fcache = (val);       \
         else {                                                \
-            ASSERT(!TEST(FRAG_SHARED, (f)->flags));           \
+            ASSERT(!TESTANY(FRAG_SHARED, (f)->flags));        \
             ((private_fragment_t *)(f))->prev_fcache = (val); \
         }                                                     \
     } while (0)
 
-#define FRAG_TAG(f) \
-    ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? ((empty_slot_t *)(f))->start_pc : (f)->tag)
+#define FRAG_TAG(f)                                                              \
+    ((TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? ((empty_slot_t *)(f))->start_pc \
+                                               : (f)->tag)
 
 #ifdef DEBUG
-#    define FRAG_ID(f) ((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? -1 : (f)->id)
+#    define FRAG_ID(f) ((TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags)) ? -1 : (f)->id)
 #endif
 
-#define FIFO_UNIT(f)                                            \
-    (fcache_lookup_unit((TEST(FRAG_IS_EMPTY_SLOT, (f)->flags))  \
-                            ? (((empty_slot_t *)(f))->start_pc) \
+#define FIFO_UNIT(f)                                              \
+    (fcache_lookup_unit((TESTANY(FRAG_IS_EMPTY_SLOT, (f)->flags)) \
+                            ? (((empty_slot_t *)(f))->start_pc)   \
                             : ((f)->start_pc)))
 
 /* Shared fragments do NOT use a FIFO as they cannot easily replace existing
  * fragments.  Instead they use a free list (below).
  */
-#define USE_FIFO(f) (!TEST(FRAG_SHARED, (f)->flags))
+#define USE_FIFO(f) (!TESTANY(FRAG_SHARED, (f)->flags))
 #define USE_FREE_LIST(f) \
-    (TEST(FRAG_SHARED, (f)->flags) && !TEST(FRAG_COARSE_GRAIN, (f)->flags))
+    (TESTANY(FRAG_SHARED, (f)->flags) && !TESTANY(FRAG_COARSE_GRAIN, (f)->flags))
 #define USE_FIFO_FOR_CACHE(c) (!(c)->is_shared)
 #define USE_FREE_LIST_FOR_CACHE(c) ((c)->is_shared && !(c)->is_coarse)
 
@@ -383,7 +385,7 @@ typedef struct _free_list_footer_t {
  * we're checking the next free list entry's flags by dereferencing, forcing a
  * check for NULL as well (== end of list).
  */
-#define FRAG_IS_FREE_LIST(f) ((f) == NULL || TEST(FRAG_FCACHE_FREE_LIST, (f)->flags))
+#define FRAG_IS_FREE_LIST(f) ((f) == NULL || TESTANY(FRAG_FCACHE_FREE_LIST, (f)->flags))
 
 /* De-references the fragment header stored at the start of the next
  * fcache slot, given a pc and a size for the current slot.
@@ -870,7 +872,7 @@ fcache_init(void)
         /* ensure flag in free list is at same spot as in fragment_t */
         static free_list_header_t free;
         free.flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;
-        ASSERT(TEST(FRAG_FCACHE_FREE_LIST, ((fragment_t *)(&free))->flags));
+        ASSERT(TESTANY(FRAG_FCACHE_FREE_LIST, ((fragment_t *)(&free))->flags));
         /* ensure treating fragment_t* as next will work */
         ASSERT(offsetof(free_list_header_t, next) == offsetof(live_header_t, f));
     });
@@ -948,7 +950,7 @@ remove_unit_from_cache(fcache_unit_t *u)
 static void
 fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
 {
-    if (TEST(SELFPROT_CACHE, dynamo_options.protect_mask) && !u->writable) {
+    if (TESTANY(SELFPROT_CACHE, dynamo_options.protect_mask) && !u->writable) {
         change_protection((void *)u->start_pc, u->size, WRITABLE);
     }
 #ifdef WINDOWS_PC_SAMPLE
@@ -1276,7 +1278,7 @@ void
 fcache_change_fragment_protection(dcontext_t *dcontext, fragment_t *f, bool writable)
 {
     fcache_unit_t *u;
-    ASSERT(TEST(SELFPROT_CACHE, dynamo_options.protect_mask));
+    ASSERT(TESTANY(SELFPROT_CACHE, dynamo_options.protect_mask));
     if (f != NULL) {
         u = fcache_lookup_unit(f->start_pc);
         ASSERT(u != NULL);
@@ -1563,15 +1565,15 @@ fcache_cache_init(dcontext_t *dcontext, uint flags, bool initial_unit)
         dcontext, sizeof(fcache_t) HEAPACCT(ACCT_MEM_MGT));
     cache->fifo = NULL;
     cache->size = 0;
-    cache->is_trace = TEST(FRAG_IS_TRACE, flags);
-    cache->is_shared = TEST(FRAG_SHARED, flags);
-    cache->is_coarse = TEST(FRAG_COARSE_GRAIN, flags);
+    cache->is_trace = TESTANY(FRAG_IS_TRACE, flags);
+    cache->is_shared = TESTANY(FRAG_SHARED, flags);
+    cache->is_coarse = TESTANY(FRAG_COARSE_GRAIN, flags);
     DODEBUG({ cache->is_local = false; });
     cache->coarse_info = NULL;
     DODEBUG({ cache->consistent = true; });
     if (cache->is_shared) {
         ASSERT(dcontext == GLOBAL_DCONTEXT);
-        if (TEST(FRAG_IS_TRACE, flags)) {
+        if (TESTANY(FRAG_IS_TRACE, flags)) {
             DODEBUG({ cache->name = "Trace (shared)"; });
             SET_CACHE_PARAMS(cache, shared_trace);
         } else if (cache->is_coarse) {
@@ -1583,7 +1585,7 @@ fcache_cache_init(dcontext_t *dcontext, uint flags, bool initial_unit)
         }
     } else {
         ASSERT(dcontext != GLOBAL_DCONTEXT);
-        if (TEST(FRAG_IS_TRACE, flags)) {
+        if (TESTANY(FRAG_IS_TRACE, flags)) {
             DODEBUG({ cache->name = "Trace (private)"; });
             SET_CACHE_PARAMS(cache, trace);
         } else {
@@ -1705,7 +1707,7 @@ fcache_free_list_consistency(dcontext_t *dcontext, fcache_t *cache, int bucket)
              * followed by a marked fragment_t.
              */
             ASSERT((!FRAG_IS_FREE_LIST(subseq) &&
-                    TEST(FRAG_FOLLOWS_FREE_ENTRY, subseq->flags)) ||
+                    TESTANY(FRAG_FOLLOWS_FREE_ENTRY, subseq->flags)) ||
                    /* ok to have subsequent free entry if unable to coalesce due
                     * to ushort size limits */
                    size + FRAG_NEXT_FREE(start_pc, header->size)->size >
@@ -1887,7 +1889,7 @@ fcache_shift_fragments(dcontext_t *dcontext, fcache_unit_t *unit, ssize_t shift,
              * fragment_shift_fcache_pointers re-relativized all outgoing
              * ctis by the shifted amount.
              */
-            if (TEST(FRAG_LINKED_INCOMING, f->flags)) {
+            if (TESTANY(FRAG_LINKED_INCOMING, f->flags)) {
                 unlink_fragment_incoming(dcontext, f);
                 link_fragment_incoming(dcontext, f, false /*not new*/);
             }
@@ -2154,11 +2156,11 @@ fragment_lookup_deleted(dcontext_t *dcontext, app_pc tag)
     if (SHARED_FRAGMENTS_ENABLED() && dcontext != GLOBAL_DCONTEXT) {
         fut = fragment_lookup_private_future(dcontext, tag);
         if (fut != NULL)
-            return TEST(FRAG_WAS_DELETED, fut->flags);
+            return TESTANY(FRAG_WAS_DELETED, fut->flags);
         /* if no private, lookup shared */
     }
     fut = fragment_lookup_future(dcontext, tag);
-    return (fut != NULL && TEST(FRAG_WAS_DELETED, fut->flags));
+    return (fut != NULL && TESTANY(FRAG_WAS_DELETED, fut->flags));
 }
 
 /* find a fragment that existed in the same type of cache */
@@ -2174,7 +2176,7 @@ fragment_lookup_cache_deleted(dcontext_t *dcontext, fcache_t *cache, app_pc tag)
         fut = fragment_lookup_private_future(dcontext, tag);
     } else
         fut = fragment_lookup_future(dcontext, tag);
-    if (fut != NULL && TEST(FRAG_WAS_DELETED, fut->flags))
+    if (fut != NULL && TESTANY(FRAG_WAS_DELETED, fut->flags))
         return fut;
     else
         return NULL;
@@ -2765,7 +2767,7 @@ removed_fragment_stats(dcontext_t *dcontext, fcache_t *cache, fragment_t *f)
         }
         stubs += sz;
     }
-    if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
+    if (TESTANY(FRAG_SELFMOD_SANDBOXED, f->flags)) {
         /* we cannot go and re-decode the app bb now, since it may have been
          * changed (selfmod doesn't make page RO!), so we use a stored size
          * that's there just for stats
@@ -2818,7 +2820,7 @@ replace_fragments(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     pc = FRAG_HDR_START(fifo);
     victim = fifo;
     while (true) {
-        if (TEST(FRAG_CANNOT_DELETE, victim->flags)) {
+        if (TESTANY(FRAG_CANNOT_DELETE, victim->flags)) {
             DODEBUG({ cache->consistent = true; });
             return false;
         }
@@ -3056,11 +3058,11 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
             ASSERT(FIFO_UNIT(subseq) == unit);
             ASSERT(FRAG_HDR_START(subseq) == start_pc + size);
             /* can already be marked if we're called due to a split */
-            if (!TEST(FRAG_FOLLOWS_FREE_ENTRY, subseq->flags)) {
-                if (TEST(FRAG_SHARED, subseq->flags))
+            if (!TESTANY(FRAG_FOLLOWS_FREE_ENTRY, subseq->flags)) {
+                if (TESTANY(FRAG_SHARED, subseq->flags))
                     acquire_recursive_lock(&change_linking_lock);
                 subseq->flags |= FRAG_FOLLOWS_FREE_ENTRY;
-                if (TEST(FRAG_SHARED, subseq->flags))
+                if (TESTANY(FRAG_SHARED, subseq->flags))
                     release_recursive_lock(&change_linking_lock);
             }
         }
@@ -3068,7 +3070,7 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     /* If we're actually freeing a real fragment_t, we can coalesce with prev.
      * Other reasons to come here should never have a free entry in the prev slot.
      */
-    if (f != NULL && TEST(FRAG_FOLLOWS_FREE_ENTRY, f->flags)) {
+    if (f != NULL && TESTANY(FRAG_FOLLOWS_FREE_ENTRY, f->flags)) {
         /* coalesce with prev */
         free_list_footer_t *prev_footer =
             (free_list_footer_t *)(start_pc - sizeof(free_list_footer_t));
@@ -3253,11 +3255,11 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
                     subseq->id, subseq->tag, subseq->start_pc);
                 ASSERT(FIFO_UNIT(subseq) == unit);
                 ASSERT(FRAG_HDR_START(subseq) == start_pc + free_size);
-                if (TEST(FRAG_SHARED, subseq->flags))
+                if (TESTANY(FRAG_SHARED, subseq->flags))
                     acquire_recursive_lock(&change_linking_lock);
-                ASSERT(TEST(FRAG_FOLLOWS_FREE_ENTRY, subseq->flags));
+                ASSERT(TESTANY(FRAG_FOLLOWS_FREE_ENTRY, subseq->flags));
                 subseq->flags &= ~FRAG_FOLLOWS_FREE_ENTRY;
-                if (TEST(FRAG_SHARED, subseq->flags))
+                if (TESTANY(FRAG_SHARED, subseq->flags))
                     release_recursive_lock(&change_linking_lock);
             } else {
                 /* shouldn't be free list entry following this one, unless
@@ -3399,7 +3401,7 @@ fcache_shift_start_pc(dcontext_t *dcontext, fragment_t *f, uint space)
     /* must hold cache lock across any set of a fragment's start_pc or size
      * once that fragment is in a cache, as contig-cache-walkers need a consistent view!
      */
-    if (TEST(FRAG_SHARED, f->flags)) {
+    if (TESTANY(FRAG_SHARED, f->flags)) {
         /* optimization: avoid unit lookup for private fragments.
          * this assumes that no cache lock is used for private fragments!
          */
@@ -3430,7 +3432,7 @@ fcache_shift_start_pc(dcontext_t *dcontext, fragment_t *f, uint space)
         }
     });
 
-    if (TEST(FRAG_SHARED, f->flags))
+    if (TESTANY(FRAG_SHARED, f->flags))
         PROTECT_CACHE(cache, unlock);
 }
 
@@ -3583,8 +3585,8 @@ get_cache_for_new_fragment(dcontext_t *dcontext, fragment_t *f)
 {
     fcache_thread_units_t *tu = (fcache_thread_units_t *)dcontext->fcache_field;
     fcache_t *cache = NULL;
-    if (TEST(FRAG_SHARED, f->flags)) {
-        if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+    if (TESTANY(FRAG_SHARED, f->flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
             /* new fragment must be targeting the one non-frozen unit */
             coarse_info_t *info = get_executable_area_coarse_info(f->tag);
             ASSERT(info != NULL);
@@ -3702,7 +3704,7 @@ fcache_remove_fragment(dcontext_t *dcontext, fragment_t *f)
 
     /* should only be deleted through proper synched channels */
     ASSERT(dcontext != GLOBAL_DCONTEXT || dynamo_exited || dynamo_resetting ||
-           TEST(FRAG_WAS_DELETED, f->flags) || is_self_allsynch_flushing());
+           TESTANY(FRAG_WAS_DELETED, f->flags) || is_self_allsynch_flushing());
     PROTECT_CACHE(cache, lock);
 
     LOG(THREAD, LOG_CACHE, 4, "fcache_remove_fragment: F%d from %s unit\n", f->id,
@@ -3850,8 +3852,8 @@ chain_fragments_for_flush(dcontext_t *dcontext, fcache_unit_t *unit, fragment_t 
         ASSERT(f != NULL);
         ASSERT(FIFO_UNIT(f) == unit);
         ASSERT(FRAG_HDR_START(f) == pc);
-        ASSERT(!TEST(FRAG_CANNOT_DELETE, f->flags));
-        if (TEST(FRAG_WAS_DELETED, f->flags)) {
+        ASSERT(!TESTANY(FRAG_CANNOT_DELETE, f->flags));
+        if (TESTANY(FRAG_WAS_DELETED, f->flags)) {
             /* must be a consistency-flushed or lazily deleted fragment.
              * while typically it will be deleted before the other fragments
              * in this unit (since flushtime now is < ours, and lazy are deleted
@@ -4217,7 +4219,7 @@ fcache_reset_all_caches_proactively(uint target)
     ASSERT(OWN_MUTEX(&all_threads_synch_lock) && OWN_MUTEX(&thread_initexit_lock));
     STATS_INC(fcache_reset_proactively);
     DOSTATS({
-        if (TEST(RESET_PENDING_DELETION, target))
+        if (TESTANY(RESET_PENDING_DELETION, target))
             STATS_INC(fcache_reset_pending_del);
     });
 
@@ -4440,7 +4442,7 @@ fcache_reset_cache(dcontext_t *dcontext, fcache_t *cache)
              * Should do an analysis and see if we ever use it anymore.
              * It is a powerful feature to support, but also a limiting one...
              */
-            if (TEST(FRAG_CANNOT_DELETE, f->flags)) {
+            if (TESTANY(FRAG_CANNOT_DELETE, f->flags)) {
                 unit_empty = false;
                 /* XXX: this allocates memory for the empty_slot_t data struct! */
                 fifo_prepend_empty(dcontext, cache, u, NULL, last_pc, pc - last_pc);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -784,9 +784,9 @@ should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env
         return false;
     /* env var counts as app-specific */
     if (!app_specific && !from_env) {
-        if (TEST(RUNUNDER_ALL, rununder))
+        if (TESTANY(RUNUNDER_ALL, rununder))
             *rununder_on = true;
-    } else if (TEST(RUNUNDER_ON, rununder))
+    } else if (TESTANY(RUNUNDER_ON, rununder))
         *rununder_on = true;
     /* Linux ignores RUNUNDER_EXPLICIT, RUNUNDER_COMMANDLINE_*, RUNUNDER_ONCE */
     return true;

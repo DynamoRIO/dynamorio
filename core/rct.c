@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -268,8 +268,8 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
     DEBUG_DECLARE(const char *ibranch_type = is_ind_call ? "call" : "jmp";)
     ASSERT(is_ind_call || EXIT_IS_JMP(dcontext->last_exit->flags));
 
-    ASSERT((is_ind_call && TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call))) ||
-           (!is_ind_call && TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))));
+    ASSERT((is_ind_call && TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call))) ||
+           (!is_ind_call && TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))));
 
     LOG(THREAD, LOG_RCT, 2, "RCT: ind %s target = " PFX "\n", ibranch_type, target_addr);
 
@@ -563,8 +563,8 @@ rct_known_targets_init(void)
 void
 rct_init(void)
 {
-    if (!(TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-          TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump)))) {
+    if (!(TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+          TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump)))) {
         ASSERT(!(TESTANY(OPTION_REPORT | OPTION_BLOCK, DYNAMO_OPTION(rct_ind_call)) ||
                  TESTANY(OPTION_REPORT | OPTION_BLOCK, DYNAMO_OPTION(rct_ind_jump))));
         return;
@@ -576,8 +576,8 @@ rct_init(void)
 void
 rct_exit(void)
 {
-    if (!(TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-          TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))))
+    if (!(TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+          TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))))
         return;
 
     DELETE_LOCK(rct_module_lock);

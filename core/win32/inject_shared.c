@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -747,7 +747,7 @@ get_process_qualified_name(HANDLE process_handle, wchar_t *w_exename,
     }
 
     commandline_dispatch = commandline_qualifier_needed(short_name, whichreg);
-    if (TEST(RUNUNDER_COMMANDLINE_DISPATCH, commandline_dispatch)) {
+    if (TESTANY(RUNUNDER_COMMANDLINE_DISPATCH, commandline_dispatch)) {
         wchar_t cmdline_qualifier[MAXIMUM_PATH] = L"-";
         /* XXX: we could do all this processing in w_exename so that
            no other buffer is needed at all, but for the sake of
@@ -770,7 +770,7 @@ get_process_qualified_name(HANDLE process_handle, wchar_t *w_exename,
         get_commandline_qualifier(
             process_commandline, cmdline_qualifier + 1, /* skip the '-' */
             BUFFER_SIZE_ELEMENTS(cmdline_qualifier) - 1,
-            TEST(RUNUNDER_COMMANDLINE_NO_STRIP, commandline_dispatch));
+            TESTANY(RUNUNDER_COMMANDLINE_NO_STRIP, commandline_dispatch));
 
         /* append "qualifier" which already has a '-' and may in fact be only '-' if
          * no qualifier was found (we still want the '-' to separate out the registry
@@ -1398,7 +1398,7 @@ check_for_run_once(HANDLE process, int rununder_mask)
     int size;
     char mask_string[MAX_RUNVALUE_LENGTH];
 
-    if (TEST(rununder_mask, RUNUNDER_ONCE)) {
+    if (TESTANY(rununder_mask, RUNUNDER_ONCE)) {
         rununder_mask &= ~RUNUNDER_ON;
         size =
             snprintf(mask_string, BUFFER_SIZE_ELEMENTS(mask_string), "%d", rununder_mask);

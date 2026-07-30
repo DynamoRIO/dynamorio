@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1120,7 +1120,7 @@ get_sve_state(pid_t pid, struct user_sve_header **sve_state_out)
      * state.
      */
     const bool has_active_sve_state =
-        !ptrace_error && TEST((*sve_state_out)->flags, SVE_PT_REGS_SVE);
+        !ptrace_error && TESTANY((*sve_state_out)->flags, SVE_PT_REGS_SVE);
 
     if (!has_active_sve_state) {
         free(*sve_state_out);
@@ -1348,7 +1348,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
 #    elif defined(AARCH64)
     app_mode = DR_ISA_ARM_A64;
 #    elif defined(ARM)
-    app_mode = TEST(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+    app_mode = TESTANY(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
 #    elif defined(RISCV64)
     app_mode = DR_ISA_RV64;
 #    else
@@ -1515,9 +1515,9 @@ injectee_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc add
     int fd;
     int flags = 0;
     app_pc r;
-    if (TEST(MAP_FILE_COPY_ON_WRITE, map_flags))
+    if (TESTANY(MAP_FILE_COPY_ON_WRITE, map_flags))
         flags |= MAP_PRIVATE;
-    if (TEST(MAP_FILE_FIXED, map_flags))
+    if (TESTANY(MAP_FILE_FIXED, map_flags))
         flags |= MAP_FIXED;
     /* MAP_FILE_IMAGE is a nop on Linux. */
     if (f == injector_dr_fd)
@@ -1567,7 +1567,7 @@ injectee_overlap_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, ap
     /* This works only if the user wants the new mapping only at the given addr,
      * and it is acceptable to unmap any mapping already existing there.
      */
-    ASSERT(TEST(MAP_FILE_FIXED, map_flags));
+    ASSERT(TESTANY(MAP_FILE_FIXED, map_flags));
     return injectee_map_file(f, size, offs, addr, prot, map_flags);
 }
 
@@ -1739,7 +1739,7 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
 
     if (sve_header != NULL) {
         /* Process has active SVE state. */
-        ASSERT(TEST(SVE_PT_REGS_SVE, sve_header->flags));
+        ASSERT(TESTANY(SVE_PT_REGS_SVE, sve_header->flags));
         ASSERT(sve_header->vl <= MAX_SUPPORTED_SVE_VECTOR_LENGTH);
 
         /* The ptrace macros calculate sizes based on "vq": the vector length in
@@ -1973,7 +1973,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
 #    elif defined(AARCH64)
     app_mode = DR_ISA_ARM_A64;
 #    elif defined(ARM)
-    app_mode = TEST(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+    app_mode = TESTANY(EFLAGS_T, regs.uregs[16]) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
 #    elif defined(RISCV64)
     app_mode = DR_ISA_RV64;
 #    else

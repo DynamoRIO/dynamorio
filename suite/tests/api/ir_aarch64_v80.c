@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2025-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -210,23 +210,23 @@ TEST_INSTR(mrs)
             );
             switch (systemreg[i]) {
             case DR_REG_NZCV:
-                EXPECT_TRUE(TEST(EFLAGS_READ_NZCV,
-                                 instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
-                EXPECT_FALSE(TEST(EFLAGS_WRITE_NZCV,
-                                  instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                    instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_FALSE(TESTANY(EFLAGS_WRITE_NZCV,
+                                     instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
                 break;
             case DR_REG_RNDR:
             case DR_REG_RNDRRS:
-                EXPECT_FALSE(TEST(EFLAGS_READ_NZCV,
-                                  instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
-                EXPECT_TRUE(TEST(EFLAGS_WRITE_NZCV,
-                                 instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_FALSE(TESTANY(EFLAGS_READ_NZCV,
+                                     instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                    instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
                 break;
             default:
-                EXPECT_FALSE(TEST(EFLAGS_READ_NZCV,
-                                  instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
-                EXPECT_FALSE(TEST(EFLAGS_WRITE_NZCV,
-                                  instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_FALSE(TESTANY(EFLAGS_READ_NZCV,
+                                     instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_FALSE(TESTANY(EFLAGS_WRITE_NZCV,
+                                     instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
             }
         });
 }
@@ -293,16 +293,16 @@ TEST_INSTR(msr)
             );
             switch (systemreg[i]) {
             case DR_REG_NZCV:
-                EXPECT_FALSE(TEST(EFLAGS_READ_NZCV,
-                                  instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
-                EXPECT_TRUE(TEST(EFLAGS_WRITE_NZCV,
-                                 instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_FALSE(TESTANY(EFLAGS_READ_NZCV,
+                                     instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                    instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
                 break;
             default:
-                EXPECT_FALSE(TEST(EFLAGS_READ_NZCV,
-                                  instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
-                EXPECT_FALSE(TEST(EFLAGS_WRITE_NZCV,
-                                  instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_FALSE(TESTANY(EFLAGS_READ_NZCV,
+                                     instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+                EXPECT_FALSE(TESTANY(EFLAGS_WRITE_NZCV,
+                                     instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
             }
         });
 
@@ -322,10 +322,10 @@ TEST_INSTR(msr)
                                "msr    %spsel $0x02", "msr    %ssbs $0x03",
                                "msr    %dit $0x04", "msr    %tco $0x05",
                                "msr    %daifset $0x06", "msr    %daifclr $0x07");
-            EXPECT_FALSE(TEST(EFLAGS_READ_NZCV,
-                              instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
-            EXPECT_FALSE(TEST(EFLAGS_WRITE_NZCV,
-                              instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+            EXPECT_FALSE(TESTANY(EFLAGS_READ_NZCV,
+                                 instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
+            EXPECT_FALSE(TESTANY(EFLAGS_WRITE_NZCV,
+                                 instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL)));
         });
 }
 
@@ -501,10 +501,10 @@ TEST_INSTR(ccmp)
                                "ccmp   %w24 $0x18 $0x0c gt", "ccmp   %w26 $0x1a $0x0d le",
                                "ccmp   %w28 $0x1c $0x0e al",
                                "ccmp   %w30 $0x1e $0x0f nv");
-            EXPECT_TRUE(
-                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
-            EXPECT_TRUE(
-                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
         });
 
     /* Testing CCMP <Xn>, #<imm>, #<nzcv>, <cond> */
@@ -523,10 +523,10 @@ TEST_INSTR(ccmp)
                                "ccmp   %x24 $0x18 $0x0c gt", "ccmp   %x26 $0x1a $0x0d le",
                                "ccmp   %x28 $0x1c $0x0e al",
                                "ccmp   %x30 $0x1e $0x0f nv");
-            EXPECT_TRUE(
-                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
-            EXPECT_TRUE(
-                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
         });
 
     /* Testing CCMP <Wn>, <Wm>, #<nzcv>, <cond> */
@@ -544,10 +544,10 @@ TEST_INSTR(ccmp)
                                "ccmp   %w20 %w21 $0x0a ge", "ccmp   %w22 %w23 $0x0b lt",
                                "ccmp   %w24 %w25 $0x0c gt", "ccmp   %w26 %w27 $0x0d le",
                                "ccmp   %w28 %w29 $0x0e al", "ccmp   %w30 %wzr $0x0f nv");
-            EXPECT_TRUE(
-                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
-            EXPECT_TRUE(
-                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
         });
 
     /* Testing CCMP <Xn>, <Xm>, #<nzcv>, <cond> */
@@ -565,10 +565,10 @@ TEST_INSTR(ccmp)
                                "ccmp   %x20 %x21 $0x0a ge", "ccmp   %x22 %x23 $0x0b lt",
                                "ccmp   %x24 %x25 $0x0c gt", "ccmp   %x26 %x27 $0x0d le",
                                "ccmp   %x28 %x29 $0x0e al", "ccmp   %x30 %xzr $0x0f nv");
-            EXPECT_TRUE(
-                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
-            EXPECT_TRUE(
-                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
         });
 }
 
@@ -590,10 +590,10 @@ TEST_INSTR(ccmn)
                                "ccmn   %w24 $0x18 $0x0c gt", "ccmn   %w26 $0x1a $0x0d le",
                                "ccmn   %w28 $0x1c $0x0e al",
                                "ccmn   %w30 $0x1e $0x0f nv");
-            EXPECT_TRUE(
-                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
-            EXPECT_TRUE(
-                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
         });
 
     /* Testing CCMN <Xn>, #<imm>, #<nzcv>, <cond> */
@@ -612,10 +612,10 @@ TEST_INSTR(ccmn)
                                "ccmn   %x24 $0x18 $0x0c gt", "ccmn   %x26 $0x1a $0x0d le",
                                "ccmn   %x28 $0x1c $0x0e al",
                                "ccmn   %x30 $0x1e $0x0f nv");
-            EXPECT_TRUE(
-                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
-            EXPECT_TRUE(
-                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
         });
 
     /* Testing CCMN <Wn>, <Wm>, #<nzcv>, <cond> */
@@ -633,10 +633,10 @@ TEST_INSTR(ccmn)
                                "ccmn   %w20 %w21 $0x0a ge", "ccmn   %w22 %w23 $0x0b lt",
                                "ccmn   %w24 %w25 $0x0c gt", "ccmn   %w26 %w27 $0x0d le",
                                "ccmn   %w28 %w29 $0x0e al", "ccmn   %w30 %wzr $0x0f nv");
-            EXPECT_TRUE(
-                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
-            EXPECT_TRUE(
-                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
         });
 
     /* Testing CCMN <Xn>, <Xm>, #<nzcv>, <cond> */
@@ -654,10 +654,10 @@ TEST_INSTR(ccmn)
                                "ccmn   %x20 %x21 $0x0a ge", "ccmn   %x22 %x23 $0x0b lt",
                                "ccmn   %x24 %x25 $0x0c gt", "ccmn   %x26 %x27 $0x0d le",
                                "ccmn   %x28 %x29 $0x0e al", "ccmn   %x30 %xzr $0x0f nv");
-            EXPECT_TRUE(
-                TEST(EFLAGS_READ_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
-            EXPECT_TRUE(
-                TEST(EFLAGS_WRITE_NZCV, instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_READ_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
+            EXPECT_TRUE(TESTANY(EFLAGS_WRITE_NZCV,
+                                instr_get_arith_flags(instr, DR_QUERY_DEFAULT)));
         });
 }
 

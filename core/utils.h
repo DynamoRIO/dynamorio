@@ -933,8 +933,8 @@ dr_modload_hook_exists(void); /* hard to include instrument.h here */
             d_r_mutex_unlock(&(bb_building_lock));                                      \
     } while (0)
 /* we assume dynamo_resetting is only done w/ all threads suspended */
-#define NEED_SHARED_LOCK(flags)                                             \
-    (TEST(FRAG_SHARED, (flags)) && !INTERNAL_OPTION(single_thread_in_DR) && \
+#define NEED_SHARED_LOCK(flags)                                                \
+    (TESTANY(FRAG_SHARED, (flags)) && !INTERNAL_OPTION(single_thread_in_DR) && \
      !dynamo_exited && !dynamo_resetting)
 #define SHARED_FLAGS_MUTEX(flags, operation, lock) \
     do {                                           \
@@ -2055,14 +2055,15 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
         SYSLOG_INTERNAL_ERROR(__VA_ARGS__); \
         ASSERT_NOT_REACHED();               \
     } while (0)
-#define FATAL_USAGE_ERROR(id, sub, ...)                                                \
-    do {                                                                               \
-        /* synchronize dynamic options for dumpcore_mask */                            \
-        synchronize_dynamic_options();                                                 \
-        if (TEST(DUMPCORE_FATAL_USAGE_ERROR, DYNAMO_OPTION_NOT_STRING(dumpcore_mask))) \
-            os_dump_core("fatal usage error");                                         \
-        SYSLOG(SYSLOG_CRITICAL, id, sub, __VA_ARGS__);                                 \
-        os_terminate(NULL, TERMINATE_PROCESS);                                         \
+#define FATAL_USAGE_ERROR(id, sub, ...)                       \
+    do {                                                      \
+        /* synchronize dynamic options for dumpcore_mask */   \
+        synchronize_dynamic_options();                        \
+        if (TESTANY(DUMPCORE_FATAL_USAGE_ERROR,               \
+                    DYNAMO_OPTION_NOT_STRING(dumpcore_mask))) \
+            os_dump_core("fatal usage error");                \
+        SYSLOG(SYSLOG_CRITICAL, id, sub, __VA_ARGS__);        \
+        os_terminate(NULL, TERMINATE_PROCESS);                \
     } while (0)
 #define OPTION_PARSE_ERROR(id, sub, ...)                            \
     do {                                                            \

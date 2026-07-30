@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -338,7 +338,7 @@ lookup_exe_syms(void)
     ASSERT(r == DRSYM_ERROR_INVALID_PARAMETER);
 
 #ifdef WINDOWS
-    if (TEST(DRSYM_PDB, debug_kind)) { /* else NYI */
+    if (TESTANY(DRSYM_PDB, debug_kind)) { /* else NYI */
         lookup_overloads(exe_path);
         lookup_templates(exe_path);
         /* Test drsym_get_type_by_name function */
@@ -736,7 +736,7 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
                || syms_found->flags_expected == DRSYM_LEAVE_MANGLED ||
                (out->flags == (syms_found->flags_expected & ~DRSYM_DEMANGLE_FULL))));
 
-    if (TEST(DRSYM_PDB, out->debug_kind)) { /* else types NYI */
+    if (TESTANY(DRSYM_PDB, out->debug_kind)) { /* else types NYI */
         static char buf[4096];
         drsym_type_t *type;
         drsym_error_t r = drsym_get_type(syms_found->dll_path, out->start_offs, 1, buf,
@@ -820,7 +820,7 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected, uint flag
     }
 
 #ifdef WINDOWS
-    if (TEST(DRSYM_PDB, debug_kind)) {
+    if (TESTANY(DRSYM_PDB, debug_kind)) {
         /* drsym_search_symbols should find the same symbols with the short
          * mangling, regardless of the flags used by the previous enumerations.
          */
@@ -864,17 +864,18 @@ check_enumerate_dll_syms(const char *dll_path)
     ASSERT(r == DRSYM_SUCCESS);
 
     dr_fprintf(STDERR, "enumerating with DRSYM_LEAVE_MANGLED\n");
-    enum_syms_with_flags(
-        dll_path, TEST(DRSYM_PDB, debug_kind) ? dll_syms_mangled_pdb : dll_syms_mangled,
-        DRSYM_LEAVE_MANGLED);
+    enum_syms_with_flags(dll_path,
+                         TESTANY(DRSYM_PDB, debug_kind) ? dll_syms_mangled_pdb
+                                                        : dll_syms_mangled,
+                         DRSYM_LEAVE_MANGLED);
     dr_fprintf(STDERR, "enumerating with DRSYM_DEMANGLE\n");
     enum_syms_with_flags(
-        dll_path, TEST(DRSYM_PDB, debug_kind) ? dll_syms_short_pdb : dll_syms_short,
+        dll_path, TESTANY(DRSYM_PDB, debug_kind) ? dll_syms_short_pdb : dll_syms_short,
         DRSYM_DEMANGLE);
     dr_fprintf(STDERR, "enumerating with DRSYM_DEMANGLE_FULL\n");
-    enum_syms_with_flags(dll_path,
-                         TEST(DRSYM_PDB, debug_kind) ? dll_syms_full_pdb : dll_syms_full,
-                         (DRSYM_DEMANGLE | DRSYM_DEMANGLE_FULL));
+    enum_syms_with_flags(
+        dll_path, TESTANY(DRSYM_PDB, debug_kind) ? dll_syms_full_pdb : dll_syms_full,
+        (DRSYM_DEMANGLE | DRSYM_DEMANGLE_FULL));
 }
 
 #ifdef UNIX

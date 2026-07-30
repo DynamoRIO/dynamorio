@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -274,22 +274,22 @@ typedef struct _coarse_incoming_t {
 } coarse_incoming_t;
 
 /* this one does not take in flags b/c historically we used other fields */
-#define LINKSTUB_FAKE(l) (TEST(LINK_FAKE, (l)->flags))
+#define LINKSTUB_FAKE(l) (TESTANY(LINK_FAKE, (l)->flags))
 /* direct includes normal direct and cbr fallthrough */
-#define LINKSTUB_DIRECT(flags) (TEST(LINK_DIRECT, (flags)))
+#define LINKSTUB_DIRECT(flags) (TESTANY(LINK_DIRECT, (flags)))
 #define LINKSTUB_NORMAL_DIRECT(flags) \
-    (TEST(LINK_DIRECT, (flags)) && !TEST(LINK_INDIRECT, (flags)))
+    (TESTANY(LINK_DIRECT, (flags)) && !TESTANY(LINK_INDIRECT, (flags)))
 #define LINKSTUB_INDIRECT(flags) \
-    (!TEST(LINK_DIRECT, (flags)) && TEST(LINK_INDIRECT, (flags)))
+    (!TESTANY(LINK_DIRECT, (flags)) && TESTANY(LINK_INDIRECT, (flags)))
 #define LINKSTUB_CBR_FALLTHROUGH(flags) \
-    (TEST(LINK_DIRECT, (flags)) && TEST(LINK_INDIRECT, (flags)))
+    (TESTANY(LINK_DIRECT, (flags)) && TESTANY(LINK_INDIRECT, (flags)))
 
 /* used with both LINK_* and INSTR_*_EXIT flags */
-#define EXIT_IS_CALL(flags) (TEST(LINK_CALL, flags) && !TEST(LINK_JMP, flags))
-#define EXIT_IS_JMP(flags) (TEST(LINK_JMP, flags) && !TEST(LINK_CALL, flags))
+#define EXIT_IS_CALL(flags) (TESTANY(LINK_CALL, flags) && !TESTANY(LINK_JMP, flags))
+#define EXIT_IS_JMP(flags) (TESTANY(LINK_JMP, flags) && !TESTANY(LINK_CALL, flags))
 #define EXIT_IS_IND_JMP_PLT(flags) (TESTALL(LINK_JMP | LINK_CALL, flags))
 
-#define LINKSTUB_FINAL(l) (TEST(LINK_END_OF_LIST, (l)->flags))
+#define LINKSTUB_FINAL(l) (TESTANY(LINK_END_OF_LIST, (l)->flags))
 
 /* We assume this combination of flags is unique for coarse proxies. */
 #define LINKSTUB_COARSE_PROXY(flags) \
@@ -357,15 +357,15 @@ typedef struct _coarse_incoming_t {
 #endif
 
 /* indirect exits w/o inlining have no stub at all for -no_indirect_stubs */
-#define EXIT_HAS_STUB(l_flags, f_flags)                                       \
-    (DYNAMO_OPTION(indirect_stubs) || !LINKSTUB_INDIRECT((l_flags)) ||        \
-     (!EXIT_TARGETS_SHARED_SYSCALL(l_flags) &&                                \
-      ((DYNAMO_OPTION(inline_trace_ibl) && TEST(FRAG_IS_TRACE, (f_flags))) || \
-       (DYNAMO_OPTION(inline_bb_ibl) && !TEST(FRAG_IS_TRACE, (f_flags))))))
+#define EXIT_HAS_STUB(l_flags, f_flags)                                          \
+    (DYNAMO_OPTION(indirect_stubs) || !LINKSTUB_INDIRECT((l_flags)) ||           \
+     (!EXIT_TARGETS_SHARED_SYSCALL(l_flags) &&                                   \
+      ((DYNAMO_OPTION(inline_trace_ibl) && TESTANY(FRAG_IS_TRACE, (f_flags))) || \
+       (DYNAMO_OPTION(inline_bb_ibl) && !TESTANY(FRAG_IS_TRACE, (f_flags))))))
 
 /* two cases with no local stub: a separate stub or no stub at all */
 #define EXIT_HAS_LOCAL_STUB(l_flags, f_flags) \
-    (EXIT_HAS_STUB(l_flags, f_flags) && !TEST(LINK_SEPARATE_STUB, (l_flags)))
+    (EXIT_HAS_STUB(l_flags, f_flags) && !TESTANY(LINK_SEPARATE_STUB, (l_flags)))
 
 void
 d_r_link_init(void);

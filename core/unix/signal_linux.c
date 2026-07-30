@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -445,13 +445,13 @@ handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask, size_t 
         /* Keep our write fd in the private fd space */
         pipe->write_fd = fd_priv_dup(fds[1]);
         os_close(fds[1]);
-        if (TEST(SFD_CLOEXEC, flags))
+        if (TESTANY(SFD_CLOEXEC, flags))
             fd_mark_close_on_exec(pipe->write_fd);
         fd_table_add(pipe->write_fd, 0 /*keep across fork*/);
 
         /* We need an un-closable copy of the read fd in case we need to dup it */
         pipe->read_fd = fd_priv_dup(fds[0]);
-        if (TEST(SFD_CLOEXEC, flags))
+        if (TESTANY(SFD_CLOEXEC, flags))
             fd_mark_close_on_exec(pipe->read_fd);
         fd_table_add(pipe->read_fd, 0 /*keep across fork*/);
 

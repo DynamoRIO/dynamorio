@@ -129,7 +129,7 @@ instr_clone(void *drcontext, instr_t *orig)
     /* We could heap-allocate an instr_noalloc_t but it's intended for use in a
      * signal handler or other places where we don't want any heap allocation.
      */
-    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, orig->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_IS_NOALLOC_STRUCT, orig->flags),
                   "Cloning an instr_noalloc_t is not supported.");
 
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
@@ -213,9 +213,9 @@ instr_free(void *drcontext, instr_t *instr)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
         (*instr->label_cb)(dcontext, instr);
-    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+    if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         return;
-    if (TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
+    if (TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags)) {
         instr_free_raw_bits(dcontext, instr);
     }
     if (instr->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
@@ -236,7 +236,7 @@ instr_free(void *drcontext, instr_t *instr)
 int
 instr_mem_usage(instr_t *instr)
 {
-    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+    if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         return sizeof(instr_noalloc_t);
     int usage = 0;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
@@ -262,7 +262,7 @@ instr_reset(void *drcontext, instr_t *instr)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_free(dcontext, instr);
-    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+    if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
         instr_init(dcontext, instr);
         instr->flags |= INSTR_IS_NOALLOC_STRUCT;
     } else {
@@ -356,7 +356,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 {
     byte *buf;
     byte stack_buf[MAX_INSTR_LENGTH];
-    if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+    if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
         /* We have no choice: we live with no persistent caching if the stack is
          * too far away, because the instr's raw bits will be on the stack.
          * (We can't use encode_buf here bc the re-rel below does not support
@@ -394,7 +394,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
                                                                 _IF_ARM(false))
                                         ->name);
 #endif
-            if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+            if (!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
                 heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
@@ -424,7 +424,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
          * we rely on the INSTR_RIP_REL_VALID flag being invalidated whenever
          * the raw bits are.
          */
-        bool rip_rel_valid = TEST(INSTR_RIP_REL_VALID, instr->flags);
+        bool rip_rel_valid = TESTANY(INSTR_RIP_REL_VALID, instr->flags);
 #endif
         byte *tmp;
         CLIENT_ASSERT(!instr_raw_bits_valid(instr),
@@ -443,7 +443,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+    if (!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
@@ -637,7 +637,7 @@ instr_set_num_opnds(void *drcontext, instr_t *instr, int instr_num_dsts,
         CLIENT_ASSERT_TRUNCATE(instr->num_dsts, byte, instr_num_dsts,
                                "instr_set_num_opnds: too many dsts");
         instr->num_dsts = (byte)instr_num_dsts;
-        if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+        if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
             instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
             noalloc->instr.dsts = noalloc->dsts;
         } else {
@@ -650,7 +650,7 @@ instr_set_num_opnds(void *drcontext, instr_t *instr, int instr_num_dsts,
         if (instr_num_srcs > 1) {
             CLIENT_ASSERT(instr->num_srcs <= 1 && instr->srcs == NULL,
                           "instr_set_num_opnds: srcs are already set");
-            if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+            if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
                 instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
                 noalloc->instr.srcs = noalloc->srcs;
             } else {
@@ -701,7 +701,7 @@ instr_remove_srcs(void *drcontext, instr_t *instr, uint start, uint end)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     opnd_t *new_srcs;
-    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags),
                   /* We could implement, but it does not seem an important use case. */
                   "instr_remove_srcs not supported for instr_noalloc_t");
     CLIENT_ASSERT(start >= 0 && end <= instr->num_srcs && start < end,
@@ -734,7 +734,7 @@ instr_remove_dsts(void *drcontext, instr_t *instr, uint start, uint end)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     opnd_t *new_dsts;
-    CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags),
                   /* We could implement, but it does not seem an important use case. */
                   "instr_remove_srcs not supported for instr_noalloc_t");
     CLIENT_ASSERT(start >= 0 && end <= instr->num_dsts && start < end,
@@ -929,7 +929,7 @@ instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
 bool
 instr_branch_is_padded(instr_t *instr)
 {
-    return TEST(INSTR_BRANCH_PADDED, instr->flags);
+    return TESTANY(INSTR_BRANCH_PADDED, instr->flags);
 }
 
 void
@@ -945,7 +945,7 @@ instr_branch_set_padded(instr_t *instr, bool val)
 bool
 instr_branch_special_exit(instr_t *instr)
 {
-    return TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags);
+    return TESTANY(INSTR_BRANCH_SPECIAL_EXIT, instr->flags);
 }
 
 /* If val is true, indicates that instr is a special exit cti.
@@ -1038,12 +1038,12 @@ uint
 instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
                            dr_opnd_query_flags_t flags)
 {
-    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_predicate_is_cond(pred) &&
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_predicate_is_cond(pred) &&
         !instr_predicate_reads_srcs(pred)) {
         /* i#1836: the predicate itself reads some flags */
         full_eflags &= ~EFLAGS_READ_NON_PRED;
     }
-    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_predicate_is_cond(pred) &&
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_predicate_is_cond(pred) &&
         !instr_predicate_writes_eflags(pred))
         full_eflags &= ~EFLAGS_WRITE_ALL;
     return full_eflags;
@@ -1217,7 +1217,7 @@ instr_free_raw_bits(void *drcontext, instr_t *instr)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0)
         return;
-    if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
+    if (!TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags))
         heap_reachable_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
     instr->bytes = NULL;
     instr->flags &= ~INSTR_RAW_BITS_VALID;
@@ -1233,11 +1233,11 @@ instr_allocate_raw_bits(void *drcontext, instr_t *instr, uint num_bytes)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte *original_bits = NULL;
-    if (TEST(INSTR_RAW_BITS_VALID, instr->flags))
+    if (TESTANY(INSTR_RAW_BITS_VALID, instr->flags))
         original_bits = instr->bytes;
-    if (!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags) || instr->length != num_bytes) {
+    if (!TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags) || instr->length != num_bytes) {
         byte *new_bits;
-        if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
+        if (TESTANY(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
             /* This may not be reachable, so re-relativization is limited. */
             instr_noalloc_t *noalloc = (instr_noalloc_t *)instr;
             CLIENT_ASSERT(num_bytes <= sizeof(noalloc->encode_buf),
@@ -1276,7 +1276,7 @@ instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
     CLIENT_ASSERT(instr_is_label(instr),
                   "only set callback functions for label instructions");
     CLIENT_ASSERT(instr->label_cb == NULL, "label callback function is already set");
-    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags),
                   "instruction's raw bits occupying label callback memory");
     instr->label_cb = cb;
 }
@@ -1287,7 +1287,7 @@ instr_clear_label_callback(instr_t *instr)
     CLIENT_ASSERT(instr_is_label(instr),
                   "only set callback functions for label instructions");
     CLIENT_ASSERT(instr->label_cb != NULL, "label callback function not set");
-    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags),
                   "instruction's raw bits occupying label callback memory");
     instr->label_cb = NULL;
 }
@@ -1297,7 +1297,7 @@ instr_get_label_callback(instr_t *instr)
 {
     CLIENT_ASSERT(instr_is_label(instr),
                   "only label instructions have a callback function");
-    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+    CLIENT_ASSERT(!TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags),
                   "instruction's raw bits occupying label callback memory");
     return instr->label_cb;
 }
@@ -1446,7 +1446,7 @@ instr_set_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 bool
 instr_has_encoding_hint(instr_t *instr, dr_encoding_hint_type_t hint)
 {
-    return TEST(hint, instr->encoding_hints);
+    return TESTANY(hint, instr->encoding_hints);
 }
 
 /***********************************************************************/
@@ -2029,7 +2029,7 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     int i;
     opnd_t opnd;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
         !instr_predicate_reads_srcs(instr_get_predicate(instr)))
         return false;
 
@@ -2055,7 +2055,7 @@ instr_reads_from_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t f
     int i;
     opnd_t opnd;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
         !instr_predicate_reads_srcs(instr_get_predicate(instr)))
         return false;
 
@@ -2094,7 +2094,7 @@ instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     int i;
     opnd_t opnd;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
         return false;
 
     for (i = 0; i < instr_num_dsts(instr); i++) {
@@ -2112,7 +2112,7 @@ instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t fl
     int i;
     opnd_t opnd;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
+    if (!TESTANY(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
         return false;
 
     for (i = 0; i < instr_num_dsts(instr); i++) {
@@ -2263,7 +2263,7 @@ instr_zeroes_ymmh(instr_t *instr)
      * Moreover, EVEX encoded instructions clear upper ZMM bits, but also
      * YMM bits if an XMM reg is used.
      */
-    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
+    if (!TESTANY(REQUIRES_VEX, info->flags) && !TESTANY(REQUIRES_EVEX, info->flags))
         return false;
 
     /* Handle zeroall special case. */
@@ -2286,7 +2286,7 @@ instr_zeroes_zmmh(instr_t *instr)
     const instr_info_t *info = get_encoding_info(instr);
     if (info == NULL)
         return false;
-    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
+    if (!TESTANY(REQUIRES_VEX, info->flags) && !TESTANY(REQUIRES_EVEX, info->flags))
         return false;
     /* Handle special cases, namely zeroupper and zeroall. */
     /* XXX: DR ir should actually have these two instructions have all SIMD vector regs
@@ -2350,7 +2350,7 @@ instr_is_xrstor(instr_t *instr)
 bool
 instr_rip_rel_valid(instr_t *instr)
 {
-    return instr_raw_bits_valid(instr) && TEST(INSTR_RIP_REL_VALID, instr->flags);
+    return instr_raw_bits_valid(instr) && TESTANY(INSTR_RIP_REL_VALID, instr->flags);
 }
 
 void
@@ -2582,7 +2582,7 @@ instr_get_rel_addr_src_idx(instr_t *instr)
 bool
 instr_is_our_mangling(instr_t *instr)
 {
-    return TEST(INSTR_OUR_MANGLING, instr->flags);
+    return TESTANY(INSTR_OUR_MANGLING, instr->flags);
 }
 
 void
@@ -2597,9 +2597,9 @@ instr_set_our_mangling(instr_t *instr, bool ours)
 bool
 instr_is_our_mangling_epilogue(instr_t *instr)
 {
-    ASSERT(!TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags) ||
+    ASSERT(!TESTANY(INSTR_OUR_MANGLING_EPILOGUE, instr->flags) ||
            instr_is_our_mangling(instr));
-    return TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags);
+    return TESTANY(INSTR_OUR_MANGLING_EPILOGUE, instr->flags);
 }
 
 void

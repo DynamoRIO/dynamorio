@@ -152,7 +152,7 @@
 int
 exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags)
 {
-    if (TEST(FRAG_COARSE_GRAIN, flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, flags)) {
         /* For coarse: bb building points at bb ibl, and then insert_exit_stub
          * changes that to the appropriate coarse prefix.  So the emit() calls to
          * this routine pass in a real ibl.  But any later calls, e.g. for
@@ -188,7 +188,7 @@ exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags)
                            IBL_FRAG_FLAGS(ibl_code)))
             return 0;
 
-        if (TEST(FRAG_COARSE_GRAIN, flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, flags)) {
             IF_WINDOWS(ASSERT(!is_shared_syscall_routine(dcontext, target)));
             /* keep in synch w/ coarse_indirect_stub_size() */
             return (STUB_COARSE_INDIRECT_SIZE(flags));
@@ -207,7 +207,7 @@ exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags)
             return (STUB_INDIRECT_SIZE(flags));
     } else {
         /* direct branch */
-        if (TEST(FRAG_COARSE_GRAIN, flags))
+        if (TESTANY(FRAG_COARSE_GRAIN, flags))
             return (STUB_COARSE_DIRECT_SIZE(flags));
         else
             return (STUB_DIRECT_SIZE(flags));
@@ -293,7 +293,7 @@ uint
 extend_trace_pad_bytes(fragment_t *add_frag)
 {
     /* To estimate we count the number of exit ctis by counting the linkstubs. */
-    bool inline_ibl_head = TEST(FRAG_IS_TRACE, add_frag->flags)
+    bool inline_ibl_head = TESTANY(FRAG_IS_TRACE, add_frag->flags)
         ? DYNAMO_OPTION(inline_trace_ibl)
         : DYNAMO_OPTION(inline_bb_ibl);
     int num_patchables = 0;
@@ -363,7 +363,7 @@ cache_pc
 get_direct_exit_target(dcontext_t *dcontext, uint flags)
 {
     if (FRAG_DB_SHARED(flags)) {
-        if (TEST(FRAG_COARSE_GRAIN, flags)) {
+        if (TESTANY(FRAG_COARSE_GRAIN, flags)) {
             /* note that entrance stubs should target their unit's prefix,
              * who will then target this routine
              */
@@ -387,12 +387,12 @@ bool
 is_exit_cti_patchable(dcontext_t *dcontext, instr_t *inst, uint frag_flags)
 {
     app_pc target;
-    if (TEST(FRAG_COARSE_GRAIN, frag_flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, frag_flags)) {
         /* Case 8647: coarse grain fragment bodies always link through stubs
          * until frozen, so their ctis are never patched except at freeze time
          * when we suspend the world.
          */
-        ASSERT(!TEST(FRAG_IS_TRACE, frag_flags));
+        ASSERT(!TESTANY(FRAG_IS_TRACE, frag_flags));
         return false;
     }
     ASSERT(instr_is_exit_cti(inst));
@@ -518,7 +518,7 @@ link_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool hot_
      */
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
 
-    ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
 
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
@@ -574,12 +574,12 @@ indirect_linkstub_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
          * exit from other indirect exits and from other exits in
          * a fragment containing ignorable or non-ignorable syscalls
          */
-        ASSERT(TEST(FRAG_HAS_SYSCALL, f->flags));
+        ASSERT(TESTANY(FRAG_HAS_SYSCALL, f->flags));
         return shared_syscall_routine_ex(
             dcontext _IF_X86_64(FRAGMENT_GENCODE_MODE(f->flags)));
     }
 #endif
-    if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
+    if (TESTANY(FRAG_COARSE_GRAIN, f->flags)) {
         /* Need to target the ibl prefix.  Passing in cti works as well as stub,
          * and avoids a circular dependence where linkstub_unlink_entry_offset()
          * call this routine to get the target and then this routine asks for
@@ -961,7 +961,7 @@ remove_assembled_patch_markers(dcontext_t *dcontext, patch_list_t *patch)
     */
 
     while (j < patch->num_relocations) {
-        if (TEST(PATCH_MARKER, patch->entry[j].patch_flags)) {
+        if (TESTANY(PATCH_MARKER, patch->entry[j].patch_flags)) {
             LOG(THREAD, LOG_EMIT, 4,
                 "remove_assembled_patch_markers: removing marker %d\n", j);
         } else {
@@ -989,9 +989,9 @@ relocate_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *ilis
     /* go through the instructions and "relocate" by indirectly using XDI */
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         if (cur < patch->num_relocations && inst == patch->entry[cur].where.instr) {
-            ASSERT(!TEST(PATCH_OFFSET_VALID, patch->entry[cur].patch_flags));
+            ASSERT(!TESTANY(PATCH_OFFSET_VALID, patch->entry[cur].patch_flags));
 
-            if (!TEST(PATCH_MARKER, patch->entry[cur].patch_flags)) {
+            if (!TESTANY(PATCH_MARKER, patch->entry[cur].patch_flags)) {
                 opnd_t opnd;
                 ASSERT(instr_num_srcs(inst) > 0);
                 opnd = instr_get_src(inst, 0);
@@ -1071,7 +1071,7 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *i
         pc = nxt_pc;
 
         if (cur < patch->num_relocations && inst == patch->entry[cur].where.instr) {
-            ASSERT(!TEST(PATCH_OFFSET_VALID, patch->entry[cur].patch_flags));
+            ASSERT(!TESTANY(PATCH_OFFSET_VALID, patch->entry[cur].patch_flags));
 
             /* support positive offsets from beginning and negative -
              * from end of instruction
@@ -1093,18 +1093,18 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *i
                 "encode_with_patch_list: patch_entry_t[%d] offset=" PFX "\n", cur,
                 patch->entry[cur].where.offset);
 
-            if (TEST(PATCH_MARKER, patch->entry[cur].patch_flags)) {
+            if (TESTANY(PATCH_MARKER, patch->entry[cur].patch_flags)) {
                 /* treat value_location_offset as an output argument
                    and store there the computed offset,
                 */
                 ptr_uint_t *output_value =
                     (ptr_uint_t *)patch->entry[cur].value_location_offset;
                 ptr_uint_t output_offset = patch->entry[cur].where.offset;
-                if (TEST(PATCH_ASSEMBLE_ABSOLUTE, patch->entry[cur].patch_flags)) {
-                    ASSERT(!TEST(PATCH_UINT_SIZED, patch->entry[cur].patch_flags));
+                if (TESTANY(PATCH_ASSEMBLE_ABSOLUTE, patch->entry[cur].patch_flags)) {
+                    ASSERT(!TESTANY(PATCH_UINT_SIZED, patch->entry[cur].patch_flags));
                     output_offset += (ptr_uint_t)vmcode_get_executable_addr(start_pc);
                 }
-                if (TEST(PATCH_UINT_SIZED, patch->entry[cur].patch_flags)) {
+                if (TESTANY(PATCH_UINT_SIZED, patch->entry[cur].patch_flags)) {
                     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(output_offset)));
                     *((uint *)output_value) = (uint)output_offset;
                 } else
@@ -1138,7 +1138,7 @@ print_patch_list(patch_list_t *patch)
         patch->num_relocations);
 
     for (i = 0; i < patch->num_relocations; i++) {
-        ASSERT(TEST(PATCH_OFFSET_VALID, patch->entry[i].patch_flags));
+        ASSERT(TESTANY(PATCH_OFFSET_VALID, patch->entry[i].patch_flags));
         LOG(THREAD_GET, LOG_EMIT, 4,
             "patch_list [%d] offset=" PFX " patch_flags=%d value_offset=" PFX "\n", i,
             patch->entry[i].where.offset, patch->entry[i].patch_flags,
@@ -1158,7 +1158,7 @@ disassemble_with_annotations(dcontext_t *dcontext, patch_list_t *patch, byte *st
     do {
         if (cur < patch->num_relocations &&
             pc >= start_pc + patch->entry[cur].where.offset) {
-            ASSERT(TEST(PATCH_OFFSET_VALID, patch->entry[cur].patch_flags));
+            ASSERT(TESTANY(PATCH_OFFSET_VALID, patch->entry[cur].patch_flags));
             /* this is slightly off - we'll mark next instruction,
                but is good enough for this purpose */
             LOG(THREAD, LOG_EMIT, 2, "%d:", cur);
@@ -1199,9 +1199,9 @@ patch_emitted_code(dcontext_t *dcontext, patch_list_t *patch, byte *start_pc)
         /* value address, (think for example of pt->trace.hash_mask) */
         ptr_uint_t value;
         char *vaddr = NULL;
-        if (TEST(PATCH_PER_THREAD, patch->entry[i].patch_flags)) {
+        if (TESTANY(PATCH_PER_THREAD, patch->entry[i].patch_flags)) {
             vaddr = (char *)pt + patch->entry[i].value_location_offset;
-        } else if (TEST(PATCH_UNPROT_STAT, patch->entry[i].patch_flags)) {
+        } else if (TESTANY(PATCH_UNPROT_STAT, patch->entry[i].patch_flags)) {
             /* separate the two parts of the stat */
             uint unprot_offs = (uint)(patch->entry[i].value_location_offset) >> 16;
             uint field_offs = (uint)(patch->entry[i].value_location_offset) & 0xffff;
@@ -1213,17 +1213,17 @@ patch_emitted_code(dcontext_t *dcontext, patch_list_t *patch, byte *start_pc)
                 patch->entry[i].value_location_offset, unprot_offs, field_offs, vaddr);
         } else
             ASSERT_NOT_REACHED();
-        ASSERT(TEST(PATCH_OFFSET_VALID, patch->entry[i].patch_flags));
-        ASSERT(!TEST(PATCH_MARKER, patch->entry[i].patch_flags));
+        ASSERT(TESTANY(PATCH_OFFSET_VALID, patch->entry[i].patch_flags));
+        ASSERT(!TESTANY(PATCH_MARKER, patch->entry[i].patch_flags));
 
-        if (!TEST(PATCH_TAKE_ADDRESS, patch->entry[i].patch_flags)) {
+        if (!TESTANY(PATCH_TAKE_ADDRESS, patch->entry[i].patch_flags)) {
             /* use value pointed by computed address */
-            if (TEST(PATCH_UINT_SIZED, patch->entry[i].patch_flags))
+            if (TESTANY(PATCH_UINT_SIZED, patch->entry[i].patch_flags))
                 value = (ptr_uint_t) * ((uint *)vaddr);
             else
                 value = *(ptr_uint_t *)vaddr;
         } else {
-            ASSERT(!TEST(PATCH_UINT_SIZED, patch->entry[i].patch_flags));
+            ASSERT(!TESTANY(PATCH_UINT_SIZED, patch->entry[i].patch_flags));
             value = (ptr_uint_t)vaddr; /* use computed address */
         }
 
@@ -1232,7 +1232,7 @@ patch_emitted_code(dcontext_t *dcontext, patch_list_t *patch, byte *start_pc)
             " vaddr=" PFX " value=" PFX "\n",
             i, patch->entry[i].where.offset, patch->entry[i].patch_flags,
             patch->entry[i].value_location_offset, vaddr, value);
-        if (TEST(PATCH_UINT_SIZED, patch->entry[i].patch_flags)) {
+        if (TESTANY(PATCH_UINT_SIZED, patch->entry[i].patch_flags)) {
             IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(value)));
             *((uint *)pc) = (uint)value;
         } else
@@ -1266,7 +1266,7 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(LINKSTUB_INDIRECT(l->flags));
     ASSERT(EXIT_HAS_STUB(l->flags, f->flags));
     /* Shared use indirection so no patching needed -- caller should check */
-    ASSERT(!TEST(FRAG_SHARED, f->flags));
+    ASSERT(!TESTANY(FRAG_SHARED, f->flags));
 #ifdef WINDOWS
     /* Do not touch shared_syscall */
     if (EXIT_TARGET_TAG(dcontext, f, l) ==
@@ -1281,7 +1281,7 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         return;
     }
 
-    if (TEST(FRAG_IS_TRACE, f->flags)) {
+    if (TESTANY(FRAG_IS_TRACE, f->flags)) {
         ASSERT(code->trace_ibl[branch_type].ibl_head_is_inlined);
         patch_emitted_code(dcontext, &code->trace_ibl[branch_type].ibl_stub_patch,
                            start_pc);
@@ -1961,7 +1961,7 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *  mov SCRATCH_REG5, xax # save callee-saved reg in case return for signal
  *  if (!absolute)
  *      mov    ARG1, SCRATCH_REG5 # dcontext param
- *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *      RESTORE_FROM_UPCONTEXT PROT_OFFSET, %xsi
  *    endif
  *  endif
@@ -2097,16 +2097,16 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
  *    RESTORE_FROM_UPCONTEXT xbx_OFFSET,%xbx
  *    RESTORE_FROM_UPCONTEXT xcx_OFFSET,%xcx
  *    RESTORE_FROM_UPCONTEXT xdx_OFFSET,%xdx
- *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
  *  endif
- *  if (absolute || TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
  *  endif
  *    RESTORE_FROM_UPCONTEXT xbp_OFFSET,%xbp
  *    RESTORE_FROM_UPCONTEXT xsp_OFFSET,%xsp
  *  if (!absolute)
- *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *      RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
  *    else
  *      RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
@@ -2256,7 +2256,7 @@ emit_fcache_enter(dcontext_t *dcontext, generated_code_t *code, byte *pc)
 
     00:   mov xdi, tls_slot_scratch2   64 89 3d 0c 0f 00 00 mov    %edi -> %fs:0xf0c
     07:   mov tls_slot_dcontext, xdi   64 8b 3d 14 0f 00 00 mov    %fs:0xf14 -> %edi
-  if TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
+  if TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
      ASSERT_NOT_TESTED
   endif
 */
@@ -2271,7 +2271,7 @@ insert_shared_get_dcontext(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wh
     }
     PRE(ilist, where,
         RESTORE_FROM_TLS(dcontext, SCRATCH_REG5 /*xdi/r5*/, TLS_DCONTEXT_SLOT));
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
 #ifdef X86
         bool absolute = false;
         /* PR 224798: we could avoid extra indirection by storing
@@ -2316,7 +2316,7 @@ insert_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist,
  *  if (!absolute)
  *    mov  %xdi,fs:xdx_OFFSET
  *    mov  fs:dcontext,%xdi
- *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *      RESTORE_FROM_DCONTEXT PROT_OFFSET,%xdi
  *      xchg   %xsi,%xdi
  *      SAVE_TO_UPCONTEXT %xdi,xsi_OFFSET
@@ -2357,7 +2357,7 @@ append_prepare_fcache_return(dcontext_t *dcontext, generated_code_t *code,
      */
     APP(ilist, SAVE_TO_TLS(dcontext, REG_DCTXT, DCONTEXT_BASE_SPILL_SLOT));
     APP(ilist, RESTORE_FROM_TLS(dcontext, REG_DCTXT, TLS_DCONTEXT_SLOT));
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
 #ifdef X86
         /* we'd need a 3rd slot in order to nicely get unprot ptr into xsi
          * we can do it w/ only 2 slots by clobbering dcontext ptr
@@ -2437,7 +2437,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  if (!absolute)
  *    mov  %xdi,fs:xdx_OFFSET
  *    mov  fs:dcontext,%xdi
- *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *      RESTORE_FROM_DCONTEXT PROT_OFFSET,%xdi
  *      xchg   %xsi,%xdi
  *      SAVE_TO_UPCONTEXT %xdi,xsi_OFFSET
@@ -2463,7 +2463,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  endif
  *    SAVE_TO_UPCONTEXT %xcx,xcx_OFFSET
  *    SAVE_TO_UPCONTEXT %xdx,xdx_OFFSET
- *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *  if (absolute || !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
  *    SAVE_TO_UPCONTEXT %xsi,xsi_OFFSET
  *  endif
  *  if (absolute)
@@ -2874,7 +2874,7 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
     APP(&ilist, fcache_ret_prefix);
 
 #if defined(X86) && defined(X64)
-    if (TEST(PERSCACHE_X86_32, info->flags)) {
+    if (TESTANY(PERSCACHE_X86_32, info->flags)) {
         /* XXX: this won't work b/c opnd size will be wrong */
         ASSERT_NOT_IMPLEMENTED(false && "must pass opnd size to SAVE_TO_TLS");
         APP(&ilist, SAVE_TO_TLS(dcontext, REG_ECX, MANGLE_XCX_SPILL_SLOT));
@@ -3501,7 +3501,7 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
          * and add logic there to set x86_mode based on LINK_FAR.
          * We do not want x86_mode sitting in unprotected_context_t.
          */
-        ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
+        ASSERT_NOT_IMPLEMENTED(!TESTANY(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
         APP(&ilist,
             XINST_CREATE_store(
                 dcontext,
@@ -4034,7 +4034,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                          1 /* offset of imm field */, (ptr_uint_t *)&after_syscall_ptr);
     }
     /* even if !DYNAMO_OPTION(syscalls_synch_flush) must set for reset */
-    ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
+    ASSERT(!TESTANY(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
     if (all_shared) {
         /* readers of at_syscall are ok w/ us not quite having xdi restored yet */
         APP(&ilist,
