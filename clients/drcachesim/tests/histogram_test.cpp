@@ -38,6 +38,8 @@
 
 #include <iostream>
 #include <optional>
+#include <regex>
+#include <sstream>
 #include <vector>
 
 #include "../tools/histogram.h"
@@ -138,26 +140,27 @@ check_parallel_reduce()
     tool.print_results();
     std::string res = capture.str();
     std::cerr.rdbuf(prior);
+    // The order of same-count items can vary so we use a regex.
     const char *expect = R"DELIM(Cache line histogram tool results:
 icache: 5 unique cache lines
 dcache: 8 unique cache lines
 icache top 10
              0x500: 2
-             0x540: 1
-             0xc40: 1
-             0xc80: 1
-             0x580: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
 dcache top 10
              0x280: 2
-             0x2c0: 1
-             0xa40: 1
-             0x780: 1
-             0x740: 1
-             0x9c0: 1
-             0x300: 1
-             0xa00: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
+             0x..0: 1
 )DELIM";
-    if (res != expect) {
+    if (!std::regex_search(res, std::regex(expect))) {
         std::cerr << "print_results output |" << res << "| did not match expected |"
                   << expect << "\n";
         return false;
