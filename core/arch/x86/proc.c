@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -470,9 +470,9 @@ proc_init_arch(void)
             } else {
                 LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX-512\n");
             }
-            get_xstate_area_offsets(TEST(XCR0_OPMASK, bv_low),
-                                    TEST(XCR0_ZMM_HI256, bv_low),
-                                    TEST(XCR0_HI16_ZMM, bv_low));
+            get_xstate_area_offsets(TESTANY(XCR0_OPMASK, bv_low),
+                                    TESTANY(XCR0_ZMM_HI256, bv_low),
+                                    TESTANY(XCR0_HI16_ZMM, bv_low));
         }
     }
     for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
@@ -502,7 +502,7 @@ proc_has_feature(feature_bit_t f)
     }
 
     bit = f % 32;
-    return TEST((1 << bit), val);
+    return TESTANY((1 << bit), val);
 }
 
 /* No synchronization routines necessary.  The Pentium hardware

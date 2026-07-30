@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -92,11 +92,11 @@ uint
 memprot_to_osprot(uint prot)
 {
     uint mmap_prot = 0;
-    if (TEST(MEMPROT_EXEC, prot))
+    if (TESTANY(MEMPROT_EXEC, prot))
         mmap_prot |= PROT_EXEC;
-    if (TEST(MEMPROT_READ, prot))
+    if (TESTANY(MEMPROT_READ, prot))
         mmap_prot |= PROT_READ;
-    if (TEST(MEMPROT_WRITE, prot))
+    if (TESTANY(MEMPROT_WRITE, prot))
         mmap_prot |= PROT_WRITE;
     return mmap_prot;
 }
@@ -238,7 +238,7 @@ os_get_file_size_by_handle(file_t fd, uint64 *size)
 bool
 os_create_dir(const char *fname, create_directory_flags_t create_dir_flags)
 {
-    bool require_new = TEST(CREATE_DIR_REQUIRE_NEW, create_dir_flags);
+    bool require_new = TESTANY(CREATE_DIR_REQUIRE_NEW, create_dir_flags);
 #ifdef SYS_mkdir
     int rc = dynamorio_syscall(SYS_mkdir, 2, fname, S_IRWXU | S_IRWXG);
 #else
@@ -318,13 +318,13 @@ os_open(const char *fname, int os_open_flags)
     int mode = 0;
     const int create_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
 
-    if (TEST(OS_OPEN_ALLOW_LARGE, os_open_flags))
+    if (TESTANY(OS_OPEN_ALLOW_LARGE, os_open_flags))
         flags |= O_LARGEFILE;
 
-    if (TEST(OS_OPEN_WRITE_ONLY, os_open_flags)) {
+    if (TESTANY(OS_OPEN_WRITE_ONLY, os_open_flags)) {
         flags |= O_WRONLY | O_CREAT;
         mode = create_mode;
-    } else if (!TEST(OS_OPEN_WRITE, os_open_flags))
+    } else if (!TESTANY(OS_OPEN_WRITE, os_open_flags))
         flags |= O_RDONLY;
     else {
         flags |= O_RDWR | O_CREAT |
@@ -335,8 +335,8 @@ os_open(const char *fname, int os_open_flags)
              * add OS_TRUNCATE or sthg we'll need to add it to
              * any current writers who don't set OS_OPEN_REQUIRE_NEW.
              */
-            (TEST(OS_OPEN_APPEND, os_open_flags) ? O_APPEND : O_TRUNC) |
-            (TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) ? O_EXCL : 0);
+            (TESTANY(OS_OPEN_APPEND, os_open_flags) ? O_APPEND : O_TRUNC) |
+            (TESTANY(OS_OPEN_REQUIRE_NEW, os_open_flags) ? O_EXCL : 0);
 
         mode = create_mode;
     }
@@ -462,13 +462,13 @@ os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uin
 #ifdef VMX86_SERVER
     flags = MAP_PRIVATE; /* MAP_SHARED not supported yet */
 #else
-    flags = TEST(MAP_FILE_COPY_ON_WRITE, map_flags) ? MAP_PRIVATE : MAP_SHARED;
+    flags = TESTANY(MAP_FILE_COPY_ON_WRITE, map_flags) ? MAP_PRIVATE : MAP_SHARED;
 #endif
     /* Allows memory request instead of mapping a file,
      * so we can request memory from a particular address with fixed argument */
     if (f == -1)
         flags |= MAP_ANONYMOUS;
-    if (TEST(MAP_FILE_FIXED, map_flags))
+    if (TESTANY(MAP_FILE_FIXED, map_flags))
         flags |= MAP_FIXED;
     map = mmap_syscall(addr, *size, memprot_to_osprot(prot), flags, f,
                        /* x86 Linux mmap uses offset in pages */

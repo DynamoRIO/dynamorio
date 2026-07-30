@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -178,7 +178,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     uint *pc = write_stub_pc;
     uint num_nops_needed = 0;
     /* TODO i#1575: coarse-grain NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
     if (LINKSTUB_DIRECT(l_flags)) {
         /* stp x0, x1, [x(stolen), #(offs)] */
         *pc++ = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
@@ -461,7 +461,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
     /* Target is always the same, so if it's already unlinked, this is a nop. */
-    if (!TEST(LINK_LINKED, l->flags))
+    if (!TESTANY(LINK_LINKED, l->flags))
         return;
     ibl_code = get_ibl_routine_code(dcontext, extract_branchtype(l->flags), f->flags);
     exit_target = ibl_code->unlinked_ibl_entry;
@@ -643,7 +643,7 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     int i;
 
     /* TODO i#1573: NYI on ARM with SELFPROT_DCONTEXT */
-    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     ASSERT(dr_reg_stolen != SCRATCH_REG0);
     /* Store stolen reg value into TLS slot. */
     APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG0, REG_OFFSET(dr_reg_stolen)));

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -189,12 +189,12 @@
      FRAG_SHARED | FRAG_TEMP_PRIVATE)
 
 /* FRAG_IS_X86_TO_X64 is in x64 mode */
-#define FRAG_ISA_MODE(flags)                                                        \
-    IF_X86_ELSE(                                                                    \
-        IF_X64_ELSE((FRAG_IS_32(flags)) ? DR_ISA_IA32 : DR_ISA_AMD64, DR_ISA_IA32), \
-        IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64,                                 \
-                                    (TEST(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB   \
-                                                               : DR_ISA_ARM_A32)),  \
+#define FRAG_ISA_MODE(flags)                                                          \
+    IF_X86_ELSE(                                                                      \
+        IF_X64_ELSE((FRAG_IS_32(flags)) ? DR_ISA_IA32 : DR_ISA_AMD64, DR_ISA_IA32),   \
+        IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64,                                   \
+                                    (TESTANY(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB  \
+                                                                  : DR_ISA_ARM_A32)), \
                         DR_ISA_RV64))
 
 static inline uint
@@ -367,10 +367,10 @@ typedef struct _private_trace_t {
 } private_trace_t;
 
 /* convenient way to deal w/ trace fields: this returns trace_only_t* */
-#define TRACE_FIELDS(f)                                      \
-    (ASSERT(TEST(FRAG_IS_TRACE, (f)->flags)),                \
-     (TEST(FRAG_SHARED, (f)->flags) ? &(((trace_t *)(f))->t) \
-                                    : &(((private_trace_t *)(f))->t)))
+#define TRACE_FIELDS(f)                                         \
+    (ASSERT(TESTANY(FRAG_IS_TRACE, (f)->flags)),                \
+     (TESTANY(FRAG_SHARED, (f)->flags) ? &(((trace_t *)(f))->t) \
+                                       : &(((private_trace_t *)(f))->t)))
 
 /* XXX: Can be used to determine if a frag should have a prefix since currently
  * all IB targets have the same prefix. Use a different macro if different frags
@@ -389,11 +389,11 @@ typedef struct _private_trace_t {
  * However it's not very useful to go after the short lived FRAG_TEMP_PRIVATE
  */
 /* can a frag w/the given flags be an IBL target? */
-#define IS_IBL_TARGET(flags)                                                       \
-    (TEST(FRAG_IS_TRACE, (flags))                                                  \
-         ? (TEST(FRAG_SHARED, (flags)) || !DYNAMO_OPTION(shared_trace_ibt_tables)) \
-         : (DYNAMO_OPTION(bb_ibl_targets) &&                                       \
-            (TEST(FRAG_SHARED, (flags)) || !DYNAMO_OPTION(shared_bb_ibt_tables))))
+#define IS_IBL_TARGET(flags)                                                          \
+    (TESTANY(FRAG_IS_TRACE, (flags))                                                  \
+         ? (TESTANY(FRAG_SHARED, (flags)) || !DYNAMO_OPTION(shared_trace_ibt_tables)) \
+         : (DYNAMO_OPTION(bb_ibl_targets) &&                                          \
+            (TESTANY(FRAG_SHARED, (flags)) || !DYNAMO_OPTION(shared_bb_ibt_tables))))
 
 #define HASHTABLE_IBL_OFFSET(branch_type)                                    \
     (((branch_type) == IBL_INDCALL) ? DYNAMO_OPTION(ibl_indcall_hash_offset) \
@@ -549,39 +549,39 @@ typedef struct _per_thread_t {
 /* translation info pointer can be at end of any struct, so rather than have
  * 8 different structs we keep it out of the formal struct definitions
  */
-#define FRAGMENT_STRUCT_SIZE(flags)                                                  \
-    ((TEST(FRAG_IS_TRACE, (flags))                                                   \
-          ? (TEST(FRAG_SHARED, (flags)) ? sizeof(trace_t) : sizeof(private_trace_t)) \
-          : (TEST(FRAG_SHARED, (flags)) ? sizeof(fragment_t)                         \
-                                        : sizeof(private_fragment_t))) +             \
-     (TEST(FRAG_HAS_TRANSLATION_INFO, flags) ? sizeof(translation_info_t *) : 0))
+#define FRAGMENT_STRUCT_SIZE(flags)                                                     \
+    ((TESTANY(FRAG_IS_TRACE, (flags))                                                   \
+          ? (TESTANY(FRAG_SHARED, (flags)) ? sizeof(trace_t) : sizeof(private_trace_t)) \
+          : (TESTANY(FRAG_SHARED, (flags)) ? sizeof(fragment_t)                         \
+                                           : sizeof(private_fragment_t))) +             \
+     (TESTANY(FRAG_HAS_TRANSLATION_INFO, flags) ? sizeof(translation_info_t *) : 0))
 
 #define FRAGMENT_EXIT_STUBS(f)                                                         \
-    (TEST(FRAG_FAKE, (f)->flags)                                                       \
+    (TESTANY(FRAG_FAKE, (f)->flags)                                                    \
          ? (ASSERT(false && "fake fragment_t has no exit stubs!"), (linkstub_t *)NULL) \
          : ((linkstub_t *)(((byte *)(f)) + FRAGMENT_STRUCT_SIZE((f)->flags))))
 
 /* selfmod copy size is stored at very end of fragment space */
-#define FRAGMENT_SELFMOD_COPY_SIZE(f)                  \
-    (ASSERT(TEST(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
+#define FRAGMENT_SELFMOD_COPY_SIZE(f)                     \
+    (ASSERT(TESTANY(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
      (*((uint *)((f)->start_pc + (f)->size - sizeof(uint)))))
 #define FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) (FRAGMENT_SELFMOD_COPY_SIZE(f) - sizeof(uint))
-#define FRAGMENT_SELFMOD_COPY_PC(f)                    \
-    (ASSERT(TEST(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
+#define FRAGMENT_SELFMOD_COPY_PC(f)                       \
+    (ASSERT(TESTANY(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
      ((f)->start_pc + (f)->size - FRAGMENT_SELFMOD_COPY_SIZE(f)))
 
 #define FRAGMENT_TRANSLATION_INFO_ADDR(f)                                              \
-    (TEST(FRAG_HAS_TRANSLATION_INFO, (f)->flags)                                       \
+    (TESTANY(FRAG_HAS_TRANSLATION_INFO, (f)->flags)                                    \
          ? ((translation_info_t **)(((byte *)(f)) + FRAGMENT_STRUCT_SIZE((f)->flags) - \
                                     sizeof(translation_info_t *)))                     \
          : ((INTERNAL_OPTION(safe_translate_flushed) &&                                \
-             TEST(FRAG_WAS_DELETED, (f)->flags))                                       \
+             TESTANY(FRAG_WAS_DELETED, (f)->flags))                                    \
                 ? &((f)->in_xlate.translation_info)                                    \
                 : NULL))
 
-#define HAS_STORED_TRANSLATION_INFO(f)              \
-    (TEST(FRAG_HAS_TRANSLATION_INFO, (f)->flags) || \
-     (INTERNAL_OPTION(safe_translate_flushed) && TEST(FRAG_WAS_DELETED, (f)->flags)))
+#define HAS_STORED_TRANSLATION_INFO(f)                 \
+    (TESTANY(FRAG_HAS_TRANSLATION_INFO, (f)->flags) || \
+     (INTERNAL_OPTION(safe_translate_flushed) && TESTANY(FRAG_WAS_DELETED, (f)->flags)))
 
 #define FRAGMENT_TRANSLATION_INFO(f) \
     (HAS_STORED_TRANSLATION_INFO(f) ? (*(FRAGMENT_TRANSLATION_INFO_ADDR(f))) : NULL)
@@ -589,9 +589,9 @@ typedef struct _per_thread_t {
 static inline const char *
 fragment_type_name(fragment_t *f)
 {
-    if (TEST(FRAG_IS_TRACE_HEAD, f->flags))
+    if (TESTANY(FRAG_IS_TRACE_HEAD, f->flags))
         return "trace head";
-    else if (TEST(FRAG_IS_TRACE, f->flags))
+    else if (TESTANY(FRAG_IS_TRACE, f->flags))
         return "trace";
     else
         return "bb";
@@ -1212,9 +1212,10 @@ void
 print_shared_stats(void);
 #endif
 
-#define PROTECT_FRAGMENT_ENABLED(flags)                                              \
-    (TEST(FRAG_SHARED, (flags)) ? TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask) \
-                                : TEST(SELFPROT_LOCAL, dynamo_options.protect_mask))
+#define PROTECT_FRAGMENT_ENABLED(flags)                          \
+    (TESTANY(FRAG_SHARED, (flags))                               \
+         ? TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask) \
+         : TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask))
 
 #ifdef DEBUG
 void

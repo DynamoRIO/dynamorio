@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -211,7 +211,8 @@ struct _coarse_info_t {
 }; /* typedef as "coarse_info_t" is in globals.h */
 
 #if defined(X86) && defined(X64)
-#    define COARSE_32_FLAG(info) (TEST(PERSCACHE_X86_32, (info)->flags) ? FRAG_32_BIT : 0)
+#    define COARSE_32_FLAG(info) \
+        (TESTANY(PERSCACHE_X86_32, (info)->flags) ? FRAG_32_BIT : 0)
 #else
 #    define COARSE_32_FLAG(info) 0
 #endif

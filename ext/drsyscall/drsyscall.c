@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -343,7 +343,7 @@ drsys_syscall_is_known(drsys_syscall_t *syscall, bool *known DR_PARAM_OUT)
     syscall_info_t *sysinfo = (syscall_info_t *)syscall;
     if (syscall == NULL || known == NULL)
         return DRMF_ERROR_INVALID_PARAMETER;
-    *known = TEST(SYSINFO_ALL_PARAMS_KNOWN, sysinfo->flags);
+    *known = TESTANY(SYSINFO_ALL_PARAMS_KNOWN, sysinfo->flags);
     return DRMF_SUCCESS;
 }
 
@@ -678,7 +678,7 @@ get_syscall_result(syscall_info_t *sysinfo, cls_syscall_t *pt, DR_PARAM_OUT bool
         *value = mc->IF_X86_ELSE(rax, r0); /*r0 for AARCH64*/
 #else
         /* yes, reg_t is unsigned so we have no sign-extension here */
-        if (TEST(SYSINFO_RET_64BIT, sysinfo->flags)) {
+        if (TESTANY(SYSINFO_RET_64BIT, sysinfo->flags)) {
             *value = (uint64)mc->IF_ARM_ELSE(r0, eax) |
                 ((uint64)mc->IF_ARM_ELSE(r1, edx) << 32);
         } else
@@ -822,7 +822,7 @@ report_memarg_ex(sysarg_iter_info_t *ii, int ordinal, drsys_param_mode_t mode, a
     /* Support making handler code simpler by allowing them to invoke us
      * w/o conditionals on whether it's an IN param and this is post-syscall.
      */
-    if (!ii->pt->pre && !TEST(DRSYS_PARAM_OUT, mode))
+    if (!ii->pt->pre && !TESTANY(DRSYS_PARAM_OUT, mode))
         return true;
 
     arg->type = type;
@@ -854,11 +854,11 @@ drsys_param_mode_t
 mode_from_flags(uint arg_flags)
 {
     drsys_param_mode_t mode = 0;
-    if (TEST(SYSARG_WRITE, arg_flags))
+    if (TESTANY(SYSARG_WRITE, arg_flags))
         mode |= DRSYS_PARAM_OUT;
     if (TESTANY(SYSARG_READ | SYSARG_INLINED, arg_flags))
         mode |= DRSYS_PARAM_IN;
-    if (TEST(SYSARG_INLINED, arg_flags))
+    if (TESTANY(SYSARG_INLINED, arg_flags))
         mode |= DRSYS_PARAM_INLINED;
     return mode;
 }
@@ -1059,7 +1059,7 @@ handle_cstring(sysarg_iter_info_t *ii, int ordinal, uint arg_flags, const char *
     size_t maxsz = (size == 0) ? (MAX_PATH * sizeof(char)) : size;
     if (start == NULL)
         return false; /* nothing to do */
-    if (ii->arg->pre && !TEST(SYSARG_READ, arg_flags)) {
+    if (ii->arg->pre && !TESTANY(SYSARG_READ, arg_flags)) {
         if (!check_addr)
             return false;
         if (size > 0) {
@@ -1069,7 +1069,7 @@ handle_cstring(sysarg_iter_info_t *ii, int ordinal, uint arg_flags, const char *
             return true;
         }
     }
-    if (!ii->arg->pre && !TEST(SYSARG_WRITE, arg_flags))
+    if (!ii->arg->pre && !TESTANY(SYSARG_WRITE, arg_flags))
         return false; /*nothing to do */
     for (i = 0; i < maxsz; i += sizeof(char)) {
         if (safe != NULL)
@@ -1119,9 +1119,9 @@ handle_sockaddr(cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *ptr, size_t soc
     /* If not enough space kernel writes space needed, so we need to adjust
      * to the passed-in size by storing it in pre-syscall.
      */
-    if (pt->first_iter && ii->arg->pre && TEST(SYSARG_WRITE, arg_flags)) {
+    if (pt->first_iter && ii->arg->pre && TESTANY(SYSARG_WRITE, arg_flags)) {
         store_extra_info(pt, EXTRA_INFO_SOCKADDR, socklen);
-    } else if (!ii->arg->pre && TEST(SYSARG_WRITE, arg_flags)) {
+    } else if (!ii->arg->pre && TESTANY(SYSARG_WRITE, arg_flags)) {
         size_t pre_len = (size_t)read_extra_info(pt, EXTRA_INFO_SOCKADDR);
         if (socklen > pre_len)
             socklen = pre_len;
@@ -1133,7 +1133,7 @@ handle_sockaddr(cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *ptr, size_t soc
      * with specified capacity above) and it seems to fill in solidly
      * w/ no gaps, so on a write we do not walk the individual fields.
      */
-    if (TEST(SYSARG_WRITE, arg_flags)) {
+    if (TESTANY(SYSARG_WRITE, arg_flags)) {
         if (!report_memarg_type(ii, ordinal, arg_flags, ptr, socklen, id,
                                 DRSYS_TYPE_SOCKADDR, NULL))
             return true;
@@ -1251,7 +1251,7 @@ sysarg_get_size(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii,
 {
     ptr_uint_t size = 0;
     sysinfo_arg_t *arg = &sysinfo->arg[argnum];
-    if (arg->size == 0 && TEST(SYSARG_COMPLEX_TYPE, arg->flags) &&
+    if (arg->size == 0 && TESTANY(SYSARG_COMPLEX_TYPE, arg->flags) &&
         arg->misc == SYSARG_TYPE_CSTRING) {
         return SIZE_DYNAMIC; /* we'll figure out size later */
     } else if (arg->size == SYSARG_POST_SIZE_RETVAL) {
@@ -1329,7 +1329,7 @@ sysarg_get_size(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii,
             if (sysinfo->arg[sz_argnum].size == sizeof(uint))
                 size = (uint)size;
         }
-        if (TEST(SYSARG_LENGTH_INOUT, arg->flags)) {
+        if (TESTANY(SYSARG_LENGTH_INOUT, arg->flags)) {
             size_t *ptr;
             int sz_argnum;
             ASSERT(arg->size <= 0, "inout can't be immed");
@@ -1359,7 +1359,7 @@ sysarg_get_size(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii,
                  */
                 !safe_read((void *)ptr, sysinfo->arg[sz_argnum].size, &size))
                 size = 0;
-        } else if (TEST(SYSARG_POST_SIZE_IO_STATUS, arg->flags)) {
+        } else if (TESTANY(SYSARG_POST_SIZE_IO_STATUS, arg->flags)) {
 #ifdef WINDOWS
             IO_STATUS_BLOCK *status = (IO_STATUS_BLOCK *)pt->sysarg[-arg->size];
             ULONG_PTR sz;
@@ -1375,11 +1375,11 @@ sysarg_get_size(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii,
 #endif
         }
     }
-    if (TEST(SYSARG_SIZE_PLUS_1, arg->flags)) {
+    if (TESTANY(SYSARG_SIZE_PLUS_1, arg->flags)) {
         LOG(drcontext, SYSCALL_VERBOSE, "\t  adding 1 to original size of %d\n", size);
         size++;
     }
-    if (TEST(SYSARG_SIZE_IN_ELEMENTS, arg->flags)) {
+    if (TESTANY(SYSARG_SIZE_IN_ELEMENTS, arg->flags)) {
         ASSERT(arg->misc > 0 || -arg->misc < SYSCALL_NUM_ARG_STORE,
                "reached max syscall args stored");
         size *= ((arg->misc > 0) ? arg->misc : ((int)pt->sysarg[-arg->misc]));
@@ -1396,9 +1396,9 @@ should_ignore_arg(cls_syscall_t *pt, sysarg_iter_info_t *ii, syscall_info_t *sys
      * misc.  We skip that for now to avoid conflicting with type info for
      * inline args.
      */
-    if (TEST(SYSARG_IGNORE_IF_NEXT_NULL, sysinfo->arg[i].flags))
+    if (TESTANY(SYSARG_IGNORE_IF_NEXT_NULL, sysinfo->arg[i].flags))
         if_null_arg = i + 1;
-    else if (TEST(SYSARG_IGNORE_IF_PREV_NULL, sysinfo->arg[i].flags))
+    else if (TESTANY(SYSARG_IGNORE_IF_PREV_NULL, sysinfo->arg[i].flags))
         if_null_arg = i - 1;
     else
         return false;
@@ -1521,9 +1521,9 @@ process_post_syscall_reads_and_writes(cls_syscall_t *pt, sysarg_iter_info_t *ii)
         if (sysarg_invalid(&sysinfo->arg[i]))
             break;
         ASSERT(i < SYSCALL_NUM_ARG_STORE, "not storing enough args");
-        if (!TEST(SYSARG_WRITE, sysinfo->arg[i].flags))
+        if (!TESTANY(SYSARG_WRITE, sysinfo->arg[i].flags))
             continue;
-        ASSERT(!TEST(SYSARG_INLINED, sysinfo->arg[i].flags),
+        ASSERT(!TESTANY(SYSARG_INLINED, sysinfo->arg[i].flags),
                "inlined should not be written");
 #ifdef WINDOWS
         /* i#486, i#531, i#932: for too-small buffer, only last param written */
@@ -1570,7 +1570,7 @@ process_post_syscall_reads_and_writes(cls_syscall_t *pt, sysarg_iter_info_t *ii)
                  */
                 size = last_size;
             }
-            if (TEST(SYSARG_NO_WRITE_IF_COUNT_0, sysinfo->arg[i].flags)) {
+            if (TESTANY(SYSARG_NO_WRITE_IF_COUNT_0, sysinfo->arg[i].flags)) {
                 /* Currently used only for NtUserGetKeyboardLayoutList.
                  * If the count (passed in a param indicated by the first entry's
                  * size field) is zero, the kernel returns the capacity needed,
@@ -1628,7 +1628,7 @@ get_sysinfo(void *drcontext, cls_syscall_t *pt, int initial_num,
     sysnum->secondary = 0;
     sysinfo = syscall_lookup(*sysnum, false /*don't resolve 2ndary yet*/);
     if (sysinfo != NULL) {
-        if (TEST(SYSINFO_SECONDARY_TABLE, sysinfo->flags)) {
+        if (TESTANY(SYSINFO_SECONDARY_TABLE, sysinfo->flags)) {
             uint code;
             ASSERT(sysinfo->arg_count >= 1, "at least 1 arg for code");
             /* We're called only from pre, before pt->sysarg is set, and not
@@ -1771,7 +1771,7 @@ drsys_iterate_args_common(void *drcontext, cls_syscall_t *pt, syscall_info_t *sy
             sysinfo->arg[compacted].param == i) {
             if (SYSARG_MISC_HAS_TYPE(sysinfo->arg[compacted].flags)) {
                 arg->type = type_from_arg_info(&sysinfo->arg[compacted]);
-            } else if (!TEST(SYSARG_INLINED, sysinfo->arg[compacted].flags)) {
+            } else if (!TESTANY(SYSARG_INLINED, sysinfo->arg[compacted].flags)) {
                 /* Rather than clutter up the tables with DRSYS_TYPE_STRUCT
                  * for all the types we haven't given special enums to,
                  * we mark the truly unknown and assume everything else is
@@ -1779,7 +1779,7 @@ drsys_iterate_args_common(void *drcontext, cls_syscall_t *pt, syscall_info_t *sy
                  */
                 arg->type = DRSYS_TYPE_STRUCT;
             }
-            if (TEST(SYSARG_INLINED, sysinfo->arg[compacted].flags)) {
+            if (TESTANY(SYSARG_INLINED, sysinfo->arg[compacted].flags)) {
                 int sz = sysinfo->arg[compacted].size;
                 ASSERT(sz > 0, "inlined must have regular size in bytes");
                 arg->size = sz;
@@ -1812,7 +1812,7 @@ drsys_iterate_args_common(void *drcontext, cls_syscall_t *pt, syscall_info_t *sy
             break;
     }
 
-    if (pt == NULL || !TEST(SYSINFO_RET_TYPE_VARIES, sysinfo->flags)) {
+    if (pt == NULL || !TESTANY(SYSINFO_RET_TYPE_VARIES, sysinfo->flags)) {
         /* return value */
         arg->size = sizeof(reg_t);
         /* get exported type and size if different from reg_t */
@@ -1923,7 +1923,7 @@ drsys_event_pre_syscall(void *drcontext, int initial_num)
     /* now that we have pt->sysarg set, get sysinfo and sysnum */
     pt->sysinfo = get_sysinfo(drcontext, pt, initial_num, &pt->sysnum);
     pt->known =
-        (pt->sysinfo != NULL && TEST(SYSINFO_ALL_PARAMS_KNOWN, pt->sysinfo->flags));
+        (pt->sysinfo != NULL && TESTANY(SYSINFO_ALL_PARAMS_KNOWN, pt->sysinfo->flags));
 
     /* Save params for post-syscall access.
      * We are reading beyond the # of args of some syscalls and we can
@@ -1948,7 +1948,7 @@ drsys_event_pre_syscall(void *drcontext, int initial_num)
                     ASSERT(compacted <= MAX_ARGS_IN_ENTRY, "error in table entry");
                     if (pt->sysinfo != NULL &&
                         !sysarg_invalid(&pt->sysinfo->arg[compacted]) &&
-                        TEST(SYSARG_INLINED, pt->sysinfo->arg[compacted].flags) &&
+                        TESTANY(SYSARG_INLINED, pt->sysinfo->arg[compacted].flags) &&
                         pt->sysinfo->arg[compacted].size == 8) {
                         /* This arg takes up two slots */
                         dr_slot++;

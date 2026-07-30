@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,11 +81,11 @@ orig = instrlist_first(ilist);
 #endif
 #define OPCODE(name, opc, icnm, flags, ...)                                              \
     do {                                                                                 \
-        if (!TEST(IF_X64_ELSE(X86_ONLY, X64_ONLY), flags) && len_##name != 0) {          \
+        if (!TESTANY(IF_X64_ELSE(X86_ONLY, X64_ONLY), flags) && len_##name != 0) {       \
             instr_reset(dc, instr);                                                      \
             next_pc = decode(dc, pc, instr);                                             \
             ASSERT(next_pc != NULL);                                                     \
-            if (TEST(VERIFY_EVEX, flags))                                                \
+            if (TESTANY(VERIFY_EVEX, flags))                                             \
                 ASSERT(*pc == FIRST_EVEX_BYTE);                                          \
             ASSERT((next_pc - pc) == decode_sizeof(dc, pc, NULL _IF_X64(NULL)));         \
             ASSERT((next_pc - pc) == len_##name);                                        \
@@ -93,10 +93,12 @@ orig = instrlist_first(ilist);
             /* ensure operands all came out the same (xref i#1232) */                    \
             ASSERT(instr_same(orig, instr) ||                                            \
                    instr_num_srcs(orig) > 0 && opnd_is_instr(instr_get_target(orig)));   \
-            ASSERT(BOOLS_MATCH(TEST(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)),  \
-                               instr_reads_memory(instr)));                              \
-            ASSERT(BOOLS_MATCH(TEST(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)), \
-                               instr_writes_memory(instr)));                             \
+            ASSERT(                                                                      \
+                BOOLS_MATCH(TESTANY(DR_INSTR_CATEGORY_LOAD, instr_get_category(instr)),  \
+                            instr_reads_memory(instr)));                                 \
+            ASSERT(                                                                      \
+                BOOLS_MATCH(TESTANY(DR_INSTR_CATEGORY_STORE, instr_get_category(instr)), \
+                            instr_writes_memory(instr)));                                \
             EXTRA_IN_DEBUG(dc, pc, instr); /* Clobbers "instr". */                       \
             pc = next_pc;                                                                \
             orig = instr_get_next(orig);                                                 \

@@ -1981,8 +1981,8 @@ run_canary_test_ex(FILE *file, /* INOUT */ CANARY_INFO *info, const WCHAR *scrat
 
 #        define DO_RUN(run_flag, core_ops, canary_options, inject, run_name, test_type) \
             do {                                                                        \
-                if (TEST(run_flag, info->run_flags)) {                                  \
-                    WCHAR *canary_ops = TEST(run_flag, info->fault_run)                 \
+                if (TESTANY(run_flag, info->run_flags)) {                               \
+                    WCHAR *canary_ops = TESTANY(run_flag, info->fault_run)              \
                         ? info->canary_fault_args                                       \
                         : canary_options;                                               \
                     for (i = 0; i < num_canary_processes; i++) {                        \

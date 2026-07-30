@@ -50,8 +50,6 @@
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 /* check if any bit in mask is set in var */
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 static void
 test_dr_rename_delete(void);
@@ -215,17 +213,19 @@ dr_init(client_id_t id)
 
     if (!dr_query_memory((byte *)dummy_func, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
-    dr_fprintf(STDERR, "dummy_func is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
-               TEST(DR_MEMPROT_EXEC, prot) ? "x" : "");
+    dr_fprintf(STDERR, "dummy_func is %s%s%s\n",
+               TESTANY(DR_MEMPROT_READ, prot) ? "r" : "",
+               TESTANY(DR_MEMPROT_WRITE, prot) ? "w" : "",
+               TESTANY(DR_MEMPROT_EXEC, prot) ? "x" : "");
     if (base_pc > (byte *)dummy_func || base_pc + size < (byte *)dummy_func)
         dr_fprintf(STDERR, "dummy_func region mismatch");
 
     memset(writable_buf, 0, sizeof(writable_buf)); /* strip off write copy */
     if (!dr_query_memory(writable_buf + 100, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
-    dr_fprintf(STDERR, "writable_buf is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
+    dr_fprintf(STDERR, "writable_buf is %s%s%s\n",
+               TESTANY(DR_MEMPROT_READ, prot) ? "r" : "",
+               TESTANY(DR_MEMPROT_WRITE, prot) ? "w" : "",
 #ifdef UNIX
                /* Linux sometimes (probably depends on version and hardware NX
                 * support) lists all readable regions as also exectuable in the
@@ -233,7 +233,7 @@ dr_init(client_id_t id)
                 * matching the template file easier. */
                ""
 #else
-               TEST(DR_MEMPROT_EXEC, prot) ? "x" : ""
+               TESTANY(DR_MEMPROT_EXEC, prot) ? "x" : ""
 #endif
     );
     if (base_pc > writable_buf || base_pc + size < writable_buf)
@@ -244,8 +244,9 @@ dr_init(client_id_t id)
 
     if (!dr_query_memory(read_only_buf + 100, &base_pc, &size, &prot))
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
-    dr_fprintf(STDERR, "read_only_buf is %s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
-               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "");
+    dr_fprintf(STDERR, "read_only_buf is %s%s\n",
+               TESTANY(DR_MEMPROT_READ, prot) ? "r" : "",
+               TESTANY(DR_MEMPROT_WRITE, prot) ? "w" : "");
     if (base_pc > read_only_buf || base_pc + size < read_only_buf)
         dr_fprintf(STDERR, "read_only_buf region mismatch");
     if (base_pc + size < read_only_buf + sizeof(read_only_buf))

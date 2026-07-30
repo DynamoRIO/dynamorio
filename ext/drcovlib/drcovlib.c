@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -149,7 +149,7 @@ bb_table_print(void *drcontext, per_thread_t *data)
            "block count exceeds 32-bit max");
     dr_fprintf(data->log, "BB Table: %u bbs\n",
                (uint)drtable_num_entries(data->bb_table));
-    if (TEST(DRCOVLIB_DUMP_AS_TEXT, options.flags)) {
+    if (TESTANY(DRCOVLIB_DUMP_AS_TEXT, options.flags)) {
         dr_fprintf(data->log, "module id, start, size:\n");
         drtable_iterate(data->bb_table, data, bb_table_entry_print);
     } else
@@ -558,7 +558,7 @@ drcovlib_init(drcovlib_options_t *ops)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     if ((ops->flags & (~(DRCOVLIB_DUMP_AS_TEXT | DRCOVLIB_THREAD_PRIVATE))) != 0)
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
-    if (TEST(DRCOVLIB_THREAD_PRIVATE, ops->flags)) {
+    if (TESTANY(DRCOVLIB_THREAD_PRIVATE, ops->flags)) {
         if (!dr_using_all_private_caches())
             return DRCOVLIB_ERROR_INVALID_SETUP;
         drcov_per_thread = true;

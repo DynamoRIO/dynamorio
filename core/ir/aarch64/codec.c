@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016-2024 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -81,7 +81,7 @@ decode_bitmask(uint enc)
     uint len = enc & 63;
     ptr_uint_t x;
 
-    if (TEST(1U << 12, enc)) {
+    if (TESTANY(1U << 12, enc)) {
         if (len == 63)
             return 0;
         x = MASK(len + 1);
@@ -262,7 +262,7 @@ encode_pc_off(OUT uint *poff, int bits, byte *pc, instr_t *instr, opnd_t opnd,
     else
         return false;
     range = (ptr_uint_t)1 << bits;
-    if (!TEST(~((range - 1) << 2), off + (range << 1))) {
+    if (!TESTANY(~((range - 1) << 2), off + (range << 1))) {
         *poff = off >> 2 & (range - 1);
         return true;
     }
@@ -697,7 +697,7 @@ static int
 mem7_scale(uint enc)
 {
     return 2 +
-        (TEST(1U << 26, enc) ? extract_uint(enc, 30, 2) : extract_uint(enc, 31, 1));
+        (TESTANY(1U << 26, enc) ? extract_uint(enc, 30, 2) : extract_uint(enc, 31, 1));
 }
 
 /* Used for memlit operand type, used by load (literal). Returns the size
@@ -710,7 +710,7 @@ memlit_size(uint enc)
     switch (extract_uint(enc, 30, 2)) {
     case 0: size = OPSZ_4; break;
     case 1: size = OPSZ_8; break;
-    case 2: size = TEST(1U << 26, enc) ? OPSZ_16 : OPSZ_4;
+    case 2: size = TESTANY(1U << 26, enc) ? OPSZ_16 : OPSZ_4;
     }
     return size;
 }
@@ -998,7 +998,7 @@ extract_imm13_size(uint enc)
     const ptr_uint_t value = extract_uint(enc, 5, 13);
 
     /* Bit 12 is high iff type is a double */
-    if (TEST(1 << 12, value))
+    if (TESTANY(1 << 12, value))
         return DOUBLE_REG;
 
     /* For the remaining, invert the value and find the index of the highest high bit
@@ -1121,7 +1121,7 @@ encode_opnd_adr_page(int scale, byte *pc, opnd_t opnd, OUT uint *enc_out, instr_
 static inline bool
 decode_opnd_dq_plus(int add, int rpos, int qpos, uint enc, OUT opnd_t *opnd)
 {
-    *opnd = opnd_create_reg((TEST(1U << qpos, enc) ? DR_REG_Q0 : DR_REG_D0) +
+    *opnd = opnd_create_reg((TESTANY(1U << qpos, enc) ? DR_REG_Q0 : DR_REG_D0) +
                             (extract_uint(enc, rpos, 5) + add) % 32);
     return true;
 }
@@ -1145,7 +1145,7 @@ encode_opnd_dq_plus(int add, int rpos, int qpos, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_dq_q(int reg_pos, uint enc, OUT opnd_t *opnd)
 {
-    const reg_id_t min_reg = TEST(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0;
+    const reg_id_t min_reg = TESTANY(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0;
     const reg_id_t reg_id = min_reg + extract_uint(enc, reg_pos, 5);
 
     const uint sz = extract_uint(enc, 22, 1);
@@ -1181,7 +1181,7 @@ encode_opnd_dq_q(int rpos, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_sd(int rpos, int qpos, uint enc, OUT opnd_t *opnd)
 {
-    *opnd = opnd_create_reg((TEST(1U << qpos, enc) ? DR_REG_D0 : DR_REG_S0) +
+    *opnd = opnd_create_reg((TESTANY(1U << qpos, enc) ? DR_REG_D0 : DR_REG_S0) +
                             (extract_uint(enc, rpos, 5) % 32));
     return true;
 }
@@ -1259,7 +1259,7 @@ encode_opnd_int(int pos, int len, bool signd, int scale, dr_opnd_flags_t flags,
 static bool
 decode_opnd_imm_bf(int pos, uint enc, OUT opnd_t *opnd)
 {
-    if (!TEST(1U << 31, enc) && extract_uint(enc, pos, 6) >= 32)
+    if (!TESTANY(1U << 31, enc) && extract_uint(enc, pos, 6) >= 32)
         return false;
     return decode_opnd_int(pos, 6, false, 0, OPSZ_6b, 0, enc, opnd);
 }
@@ -1267,7 +1267,7 @@ decode_opnd_imm_bf(int pos, uint enc, OUT opnd_t *opnd)
 static bool
 encode_opnd_imm_bf(int pos, uint enc, opnd_t opnd, uint *enc_out)
 {
-    if (!TEST(1U << 31, enc) && extract_uint(enc, pos, 6) >= 32)
+    if (!TESTANY(1U << 31, enc) && extract_uint(enc, pos, 6) >= 32)
         return false;
     return encode_opnd_int(pos, 6, false, 0, 0, opnd, enc_out);
 }
@@ -1381,7 +1381,7 @@ encode_opnd_mem9_bytes(int bytes, bool post, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_memreg_size(opnd_size_t size, uint enc, OUT opnd_t *opnd)
 {
-    if (!TEST(1U << 14, enc))
+    if (!TESTANY(1U << 14, enc))
         return false;
     dr_extend_type_t extend;
     switch (enc >> 13 & 7) {
@@ -1395,8 +1395,8 @@ decode_opnd_memreg_size(opnd_size_t size, uint enc, OUT opnd_t *opnd)
 
     *opnd = opnd_create_base_disp_aarch64(
         decode_reg(enc >> 5 & 31, true, true),
-        decode_reg(enc >> 16 & 31, TEST(1U << 13, enc), false), extend,
-        TEST(1U << 12, enc), 0, 0, size);
+        decode_reg(enc >> 16 & 31, TESTANY(1U << 13, enc), false), extend,
+        TESTANY(1U << 12, enc), 0, 0, size);
     return true;
 }
 
@@ -1411,7 +1411,7 @@ encode_opnd_memreg_size(opnd_size_t size, opnd_t opnd, OUT uint *enc_out)
 
     option = opnd_get_index_extend(opnd, &scaled, NULL);
 
-    if (!TEST(2, option))
+    if (!TESTANY(2, option))
         return false;
 
     if (!encode_reg(&rn, &xn, opnd_get_base(opnd), true) || !xn ||
@@ -1447,7 +1447,7 @@ static inline bool
 decode_opnd_rn(bool is_sp, int pos, int sz_bit, uint enc, OUT opnd_t *opnd)
 {
     *opnd = opnd_create_reg(
-        decode_reg(extract_uint(enc, pos, 5), TEST(1U << sz_bit, enc), is_sp));
+        decode_reg(extract_uint(enc, pos, 5), TESTANY(1U << sz_bit, enc), is_sp));
     return true;
 }
 
@@ -1494,7 +1494,7 @@ decode_opnd_vtn(int add, uint enc, OUT opnd_t *opnd)
 {
     if (extract_uint(enc, 10, 2) == 3 && extract_uint(enc, 30, 1) == 0)
         return false;
-    *opnd = opnd_create_reg((TEST(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0) +
+    *opnd = opnd_create_reg((TESTANY(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0) +
                             ((extract_uint(enc, 0, 5) + add) % 32));
     return true;
 }
@@ -3065,7 +3065,7 @@ encode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, opnd_t opnd,
 
     int64 sz_shft = opnd_get_immed_int(opnd);
     int shift = (int)(sz_shft & 0xffffffff);
-    if (!TEST(1U << CMODE_MSL_BIT, shift)) // MSL bit should be set
+    if (!TESTANY(1U << CMODE_MSL_BIT, shift)) // MSL bit should be set
         return false;
     shift &= 0xff;
     const int size = (int)(sz_shft >> 32);
@@ -3396,7 +3396,7 @@ encode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
 
     const int64 sz_shft = opnd_get_immed_int(opnd);
     const int shift = (int)(sz_shft & 0xffffffff);
-    if (TEST(1U << CMODE_MSL_BIT, shift)) // MSL bit should not be set as this is LSL
+    if (TESTANY(1U << CMODE_MSL_BIT, shift)) // MSL bit should not be set as this is LSL
         return false;
     const int size = (int)(sz_shft >> 32);
 
@@ -5214,7 +5214,8 @@ encode_opnd_z_sz21_sd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *e
 static inline bool
 decode_opnd_z_sz21_sd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    const aarch64_reg_offset element_size = TEST(1u << 21, enc) ? DOUBLE_REG : SINGLE_REG;
+    const aarch64_reg_offset element_size =
+        TESTANY(1u << 21, enc) ? DOUBLE_REG : SINGLE_REG;
     return decode_single_sized(DR_REG_Z0, DR_REG_Z31, 0, 5, element_size, 0, enc, opnd);
 }
 
@@ -5468,7 +5469,7 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     int offset9 = extract_int(simm9, 0, 9);
     IF_RETURN_FALSE(offset9 < -256 || offset9 > 255)
 
-    bool is_vector = TEST(1u << 14, enc);
+    bool is_vector = TESTANY(1u << 14, enc);
 
     /* Transfer size depends on whether we are transferring a Z or a P register. */
     opnd_size_t memory_transfer_size =
@@ -5499,7 +5500,7 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
     bool is_x;
     uint rn;
 
-    bool is_vector = TEST(1u << 14, enc);
+    bool is_vector = TESTANY(1u << 14, enc);
 
     /* Transfer size depends on whether we are transferring a Z or a P register. */
     opnd_size_t memory_transfer_size =
@@ -6011,7 +6012,8 @@ encode_opnd_z_sz_sd(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 static inline bool
 decode_opnd_z_sz_sd(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    const aarch64_reg_offset element_size = TEST(1u << 22, enc) ? DOUBLE_REG : SINGLE_REG;
+    const aarch64_reg_offset element_size =
+        TESTANY(1u << 22, enc) ? DOUBLE_REG : SINGLE_REG;
     return decode_single_sized(DR_REG_Z0, DR_REG_Z31, 0, 5, element_size, 0, enc, opnd);
 }
 
@@ -8263,11 +8265,12 @@ encode_svemem_gpr_vec_xs(uint enc, uint pos, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_svemem_gpr_vec32_st(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    const aarch64_reg_offset element_size = TEST(1u << 22, enc) ? SINGLE_REG : DOUBLE_REG;
+    const aarch64_reg_offset element_size =
+        TESTANY(1u << 22, enc) ? SINGLE_REG : DOUBLE_REG;
     const aarch64_reg_offset msz = BITS(enc, 24, 23);
-    const bool scaled = TEST(1u << 21, enc);
+    const bool scaled = TESTANY(1u << 21, enc);
 
-    const dr_extend_type_t mod = TEST(1u << 14, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
+    const dr_extend_type_t mod = TESTANY(1u << 14, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
 
     return decode_svemem_gpr_vec(enc, element_size, mod, msz, scaled, false, opnd);
 }
@@ -8276,9 +8279,10 @@ static inline bool
 encode_opnd_svemem_gpr_vec32_st(uint enc, int opcode, byte *pc, opnd_t opnd,
                                 OUT uint *enc_out)
 {
-    const aarch64_reg_offset element_size = TEST(1u << 22, enc) ? SINGLE_REG : DOUBLE_REG;
+    const aarch64_reg_offset element_size =
+        TESTANY(1u << 22, enc) ? SINGLE_REG : DOUBLE_REG;
     const uint msz = BITS(enc, 24, 23);
-    const bool scaled = TEST(1u << 21, enc);
+    const bool scaled = TESTANY(1u << 21, enc);
 
     return encode_svemem_gpr_vec(enc, element_size, msz, scaled, opnd, enc_out) &&
         encode_svemem_gpr_vec_xs(enc, 14, opnd, enc_out);
@@ -8759,7 +8763,7 @@ encode_opnd_memvm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 static inline bool
 decode_opnd_dq16_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    *opnd = opnd_create_reg((TEST(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0) +
+    *opnd = opnd_create_reg((TESTANY(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0) +
                             extract_uint(enc, 16, 4));
     return true;
 }
@@ -8787,7 +8791,7 @@ encode_opnd_dq16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
 static inline bool
 decode_opnd_sd16_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    *opnd = opnd_create_reg((TEST(1U << 30, enc) ? DR_REG_D0 : DR_REG_S0) +
+    *opnd = opnd_create_reg((TESTANY(1U << 30, enc) ? DR_REG_D0 : DR_REG_S0) +
                             extract_uint(enc, 16, 4));
     return true;
 }
@@ -8866,7 +8870,7 @@ encode_opnd_vdq_q_sd_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
 static inline bool
 decode_opnd_imm6(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    if (!TEST(1U << 31, enc) && TEST(1U << 15, enc))
+    if (!TESTANY(1U << 31, enc) && TESTANY(1U << 15, enc))
         return false;
     return decode_opnd_int(10, 6, false, 0, OPSZ_6b, 0, enc, opnd);
 }
@@ -8874,7 +8878,7 @@ decode_opnd_imm6(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_imm6(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (!TEST(1U << 31, enc) && TEST(1U << 15, enc))
+    if (!TESTANY(1U << 31, enc) && TESTANY(1U << 15, enc))
         return false;
     return encode_opnd_int(10, 6, false, 0, 0, opnd, enc_out);
 }
@@ -8912,7 +8916,7 @@ encode_opnd_immr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_imm16sh(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    if (!TEST(1U << 31, enc) && TEST(1U << 22, enc))
+    if (!TESTANY(1U << 31, enc) && TESTANY(1U << 22, enc))
         return false;
     return decode_opnd_int(21, 2, false, 4, OPSZ_6b, 0, enc, opnd);
 }
@@ -8922,7 +8926,7 @@ encode_opnd_imm16sh(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 {
     uint t;
     if (!encode_opnd_int(21, 2, false, 4, 0, opnd, &t) ||
-        (!TEST(1U << 31, enc) && TEST(1U << 22, t)))
+        (!TESTANY(1U << 31, enc) && TESTANY(1U << 22, t)))
         return false;
     *enc_out = t;
     return true;
@@ -9006,7 +9010,7 @@ static inline bool
 decode_opnd_sveprf_gpr_vec32(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     const aarch64_reg_offset element_size = BITS(enc, 31, 30);
-    const dr_extend_type_t mod = TEST(1u << 22, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
+    const dr_extend_type_t mod = TESTANY(1u << 22, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
     const aarch64_reg_offset msz = BITS(enc, 14, 13);
 
     return decode_svemem_gpr_vec(enc, element_size, mod, msz, msz > 0, true, opnd);
@@ -9067,8 +9071,8 @@ decode_opnd_svemem_gpr_vec32_ld(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
 {
     const aarch64_reg_offset element_size = BITS(enc, 31, 30);
     const aarch64_reg_offset msz = BITS(enc, 24, 23);
-    const bool scaled = TEST(1u << 21, enc);
-    const dr_extend_type_t mod = TEST(1u << 22, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
+    const bool scaled = TESTANY(1u << 21, enc);
+    const dr_extend_type_t mod = TESTANY(1u << 22, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
 
     return decode_svemem_gpr_vec(enc, element_size, mod, msz, scaled, false, opnd);
 }
@@ -9079,7 +9083,7 @@ encode_opnd_svemem_gpr_vec32_ld(uint enc, int opcode, byte *pc, opnd_t opnd,
 {
     const aarch64_reg_offset element_size = BITS(enc, 31, 30);
     const aarch64_reg_offset msz = BITS(enc, 24, 23);
-    const bool scaled = TEST(1u << 21, enc);
+    const bool scaled = TESTANY(1u << 21, enc);
 
     return encode_svemem_gpr_vec(enc, element_size, msz, scaled, opnd, enc_out) &&
         encode_svemem_gpr_vec_xs(enc, 22, opnd, enc_out);
@@ -9326,9 +9330,9 @@ decode_opnds_cbz(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
     instr_set_opcode(instr, opcode);
     instr_set_num_opnds(dcontext, instr, 0, 2);
     instr_set_src(instr, 0, opnd_create_pc(pc + extract_int(enc, 5, 19) * 4));
-    instr_set_src(
-        instr, 1,
-        opnd_create_reg(decode_reg(extract_uint(enc, 0, 5), TEST(1U << 31, enc), false)));
+    instr_set_src(instr, 1,
+                  opnd_create_reg(decode_reg(extract_uint(enc, 0, 5),
+                                             TESTANY(1U << 31, enc), false)));
     return true;
 }
 
@@ -9353,11 +9357,11 @@ static inline bool
 decode_opnds_logic_imm(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr,
                        int opcode)
 {
-    bool is_x = TEST(1U << 31, enc);
+    bool is_x = TESTANY(1U << 31, enc);
     uint imm_enc = extract_uint(enc, 10, 13);     /* encoding of bitmask */
     ptr_uint_t imm_val = decode_bitmask(imm_enc); /* value of bitmask */
     bool canonical = encode_bitmask(imm_val) == imm_enc;
-    if (imm_val == 0 || (!is_x && TEST(1U << 12, imm_enc)))
+    if (imm_val == 0 || (!is_x && TESTANY(1U << 12, imm_enc)))
         return false;
     if (!is_x)
         imm_val &= 0xffffffff;
@@ -9387,10 +9391,10 @@ encode_opnds_logic_imm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     opnd_val = instr_get_src(instr, 1);
     if (!encode_opnd_rn(opcode != OP_ands, 0, 31, instr_get_dst(instr, 0), &rd) ||
         !encode_opnd_rn(false, 5, 31, instr_get_src(instr, 0), &rn) ||
-        TEST(1U << 31, rd ^ rn) || !opnd_is_immed_int(opnd_val))
+        TESTANY(1U << 31, rd ^ rn) || !opnd_is_immed_int(opnd_val))
         return ENCFAIL;
     imm_val = opnd_get_immed_int(opnd_val);
-    if (!TEST(1U << 31, rd)) {
+    if (!TESTANY(1U << 31, rd)) {
         if ((imm_val >> 32) != 0)
             return ENCFAIL;
         imm_val |= imm_val << 32;
@@ -9459,10 +9463,11 @@ decode_opnds_tbz(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
     instr_set_opcode(instr, opcode);
     instr_set_num_opnds(dcontext, instr, 0, 3);
     instr_set_src(instr, 0, opnd_create_pc(pc + extract_int(enc, 5, 14) * 4));
-    instr_set_src(instr, 1,
-                  opnd_create_reg(decode_reg(extract_uint(enc, 0, 5),
-                                             TEST(1U << 31, enc), /* true if x, else w*/
-                                             false)));
+    instr_set_src(
+        instr, 1,
+        opnd_create_reg(decode_reg(extract_uint(enc, 0, 5),
+                                   TESTANY(1U << 31, enc), /* true if x, else w*/
+                                   false)));
     instr_set_src(instr, 2,
                   opnd_create_immed_int((enc >> 19 & 31) | (enc >> 26 & 32), OPSZ_5b));
     return true;
