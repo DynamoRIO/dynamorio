@@ -42,25 +42,17 @@
 app_pc vsyscall_syscall_end_pc = NULL;
 app_pc vsyscall_sysenter_return_pc = NULL;
 
-static bool in_assert_not_ported = false;
-
 #define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
 
 static void
 assert_not_ported(const char *file, int line, const char *func)
 {
     print_file(STDERR, "%s:%d - %s not ported.\n", file, line, func);
-    if (!in_assert_not_ported) {
-        in_assert_not_ported = true;
 #ifdef DEBUG
-        ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(false);
 #else
-        os_terminate(NULL, 0);
+    os_terminate(NULL, 0);
 #endif
-    } else {
-        print_file(STDERR, "not ported recursion\n");
-        os_terminate(NULL, 0);
-    }
 }
 
 ushort
