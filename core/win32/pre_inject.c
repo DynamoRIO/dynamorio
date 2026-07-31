@@ -59,6 +59,7 @@
 #include <windows.h>
 #include <tchar.h>
 #include <stdio.h>
+#include "dr_project_wide_defines.h"
 /* we share ntdll.c w/ the main library */
 #include "globals_shared.h"
 #include "ntdll.h"

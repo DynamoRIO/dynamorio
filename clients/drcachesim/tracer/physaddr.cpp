@@ -45,6 +45,7 @@
 #include <string>
 
 #include "dr_api.h"
+#include "dr_project_wide_defines.h"
 #include "options.h"
 #include "trace_entry.h"
 #include "utils.h"
