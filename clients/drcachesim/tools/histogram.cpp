@@ -66,7 +66,6 @@ histogram_t::histogram_t(unsigned int line_size, unsigned int report_top,
     : knob_line_size_(line_size)
     , knob_report_top_(report_top)
 {
-    line_size_bits_ = compute_log2((int)line_size);
 }
 
 histogram_t::~histogram_t()
@@ -110,12 +109,6 @@ histogram_t::parallel_shard_exit(void *shard_data)
     return true;
 }
 
-static inline addr_t
-back_align(addr_t addr, addr_t align)
-{
-    return addr & ~(align - 1);
-}
-
 bool
 histogram_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
@@ -141,8 +134,7 @@ histogram_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     for (addr_t addr = back_align(start_addr, knob_line_size_);
          addr < start_addr + size && addr < addr + knob_line_size_ /* overflow */;
          addr += knob_line_size_) {
-        // XXX i#8026: Remove this shift to simplify storage.
-        ++(*cache_map)[addr >> line_size_bits_];
+        ++(*cache_map)[addr];
     }
     return true;
 }
@@ -165,7 +157,8 @@ histogram_t::process_memref(const memref_t &memref)
 }
 
 bool
-cmp(const std::pair<addr_t, uint64_t> &l, const std::pair<addr_t, uint64_t> &r)
+histogram_t::cmp(const std::pair<addr_t, uint64_t> &l,
+                 const std::pair<addr_t, uint64_t> &r)
 {
     return l.second > r.second;
 }
@@ -228,20 +221,28 @@ histogram_t::print_results()
     std::partial_sort_copy(reduced_.icache_map.begin(), reduced_.icache_map.end(),
                            top.begin(), top.end(), cmp);
     std::cerr << "icache top " << top.size() << "\n";
-    for (std::vector<std::pair<addr_t, uint64_t>>::iterator it = top.begin();
-         it != top.end(); ++it) {
-        std::cerr << std::setw(18) << std::hex << std::showbase << (it->first << 6)
-                  << ": " << std::dec << it->second << "\n";
+    for (const auto &[addr, count] : top) {
+        if (count == 0) {
+            // If total observed elements are fewer than knob_report_top_, avoid
+            // printing lines of 0's.
+            break;
+        }
+        std::cerr << std::setw(18) << std::hex << std::showbase << addr << ": "
+                  << std::dec << count << "\n";
     }
     top.clear();
     top.resize(knob_report_top_);
     std::partial_sort_copy(reduced_.dcache_map.begin(), reduced_.dcache_map.end(),
                            top.begin(), top.end(), cmp);
     std::cerr << "dcache top " << top.size() << "\n";
-    for (std::vector<std::pair<addr_t, uint64_t>>::iterator it = top.begin();
-         it != top.end(); ++it) {
-        std::cerr << std::setw(18) << std::hex << std::showbase << (it->first << 6)
-                  << ": " << std::dec << it->second << "\n";
+    for (const auto &[addr, count] : top) {
+        if (count == 0) {
+            // If total observed elements are fewer than knob_report_top_, avoid
+            // printing lines of 0's.
+            break;
+        }
+        std::cerr << std::setw(18) << std::hex << std::showbase << addr << ": "
+                  << std::dec << count << "\n";
     }
     // Reset the i/o format for subsequent tool invocations.
     std::cerr << std::dec;

@@ -92,9 +92,17 @@ protected:
         std::string error;
     };
 
+    static bool
+    cmp(const std::pair<addr_t, uint64_t> &l, const std::pair<addr_t, uint64_t> &r);
+
+    static inline addr_t
+    back_align(addr_t addr, addr_t align)
+    {
+        return addr & ~(align - 1);
+    }
+
     unsigned int knob_line_size_;
     unsigned int knob_report_top_; /* most accessed lines */
-    size_t line_size_bits_;
     static const std::string TOOL_NAME;
     std::unordered_map<int, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
