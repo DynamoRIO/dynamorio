@@ -59,6 +59,8 @@
 
 /* Inlined rather than using limits_wrapper.h: this file is exported as
  * dr_ir_macros.h and limits_wrapper.h is not part of the exported headers.
+ * XXX: Consider using CMake configure_file (@ONLY) to substitute system
+ * headers at configure time to keep public headers clean.
  */
 #ifdef LINUX_KERNEL
 #    include <linux/kernel.h>
