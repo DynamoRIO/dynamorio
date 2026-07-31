@@ -50,6 +50,11 @@
  * the instr_shrink_to_16_bits() routine.
  */
 
+/* Because <math.h> cannot be included in the kernel module, floating-point math constants
+ * (such as M_PI) are not available. Therefore, we cannot create some floating-point
+ * instructions (e.g., INSTR_CREATE_fldpi) in the kernel module, or there will be
+ * compilation errors.
+ */
 #ifndef LINUX_KERNEL
 #    include <math.h> /* for floating-point math constants */
 #endif
