@@ -378,7 +378,7 @@ const instr_info_t * const op_instr[] =
     /* OP_fxrstor32    */   &rex_w_extensions[1][0],
     /* OP_ldmxcsr      */   &e_vex_extensions[61][0],
     /* OP_stmxcsr      */   &e_vex_extensions[62][0],
-    /* OP_lfence       */   &mod_extensions[6][1],
+    /* OP_lfence       */   &prefix_extensions[200][0],
     /* OP_mfence       */   &prefix_extensions[197][0],
     /* OP_clflush      */   &prefix_extensions[194][0],
     /* OP_sfence       */   &mod_extensions[3][1],
@@ -1712,6 +1712,7 @@ const instr_info_t * const op_instr[] =
     /* OP_endbr64 */ &rm_extensions[8][2],
     /* OP_endbr32 */ &rm_extensions[8][3],
     /* OP_rdssp */ &prefix_extensions[198][1],
+    /* OP_incssp */ &prefix_extensions[200][1],
 };
 
 
