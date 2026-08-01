@@ -534,6 +534,8 @@
 #define INSTR_CREATE_serialize(dc) instr_create_0dst_0src((dc), OP_serialize)
 #define INSTR_CREATE_erets(dc) instr_create_0dst_0src((dc), OP_erets)
 #define INSTR_CREATE_eretu(dc) instr_create_0dst_0src((dc), OP_eretu)
+#define INSTR_CREATE_endbr64(dc) instr_create_0dst_0src((dc), OP_endbr64)
+#define INSTR_CREATE_endbr32(dc) instr_create_0dst_0src((dc), OP_endbr32)
 /** @} */ /* end doxygen group */
 
 /* no destination, 1 source */
@@ -1140,6 +1142,7 @@
 #define INSTR_CREATE_rdfsbase(dc, d) instr_create_1dst_0src((dc), OP_rdfsbase, (d))
 #define INSTR_CREATE_rdgsbase(dc, d) instr_create_1dst_0src((dc), OP_rdgsbase, (d))
 #define INSTR_CREATE_slwpcb(dc, d) instr_create_1dst_0src((dc), OP_slwpcb, (d))
+#define INSTR_CREATE_rdssp(dc, d) instr_create_1dst_0src((dc), OP_rdssp, (d))
 /**
  * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
