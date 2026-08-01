@@ -6092,6 +6092,19 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf30f1e10, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0x660f1e10, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0xf20f1e10, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* prefix extension 200 */
+    {OP_lfence,   0xe80fae75, catState, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_incssp,   0xf30fae35, catState, "incssp", xx, xx, Ry, xx, xx, mrm, x, END_LIST},
+    {INVALID,     0x660fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xf20fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x0fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xf30fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x660fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xf20fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,       0x0fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xf30fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x660fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0xf20fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }
 };
 
@@ -6771,8 +6784,7 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 6 */
     {REX_W_EXT, 0x0fae35, catUncategorized, "(rex.w ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
-    /* note that gdb thinks e9-ef are "lfence (bad)" (PR 239920) */
-    {OP_lfence, 0xe80fae75, catState, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {PREFIX_EXT, 0x0fae75, catUncategorized, "(prefix ext 200)", xx, xx, xx, xx, xx, no, x, 200},
   },
   { /* mod extension 7 */
     {PREFIX_EXT,  0x0fae36, catUncategorized, "(prefix ext 195)", xx, xx, xx, xx, xx, no, x, 195},
