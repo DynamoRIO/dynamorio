@@ -1713,7 +1713,7 @@ const instr_info_t * const op_instr[] =
     /* OP_endbr32 */ &rm_extensions[8][3],
     /* OP_rdssp */ &prefix_extensions[198][1],
     /* OP_incssp */ &prefix_extensions[200][1],
-    /* OP_rstorssp */ &prefix_extensions[201][1],
+    /* OP_rstorssp */ &mod_extensions[120][0],
 };
 
 
@@ -6107,19 +6107,6 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,     0xf30fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x660fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf20fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-  },{ /* prefix extension 201 */
-    {INVALID,       0x0f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rstorssp, 0xf30f0135, catState, "rstorssp", xx, xx, Mq, xx, xx, mrm, x, END_LIST},
-    {INVALID,     0x660f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf20f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,       0x0f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf30f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0x660f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf20f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,       0x0f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf30f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0x660f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,     0xf20f0135, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }
 };
 
@@ -7262,7 +7249,7 @@ const instr_info_t mod_extensions[][2] = {
     {OP_vsqrtpd,0x660f5150, catFP | catMath | catSIMD, "vsqrtpd", Voq, xx, KEb, Uoq, xx, mrm|evex|er|ttfv, x, END_LIST},
   },
   { /* mod extension 120 */
-    {PREFIX_EXT,  0x0f0135, catUncategorized, "(prefix ext 201)", xx, xx, xx, xx, xx, no, x, 201},
+    {OP_rstorssp, 0xf30f0135, catState, "rstorssp", xx, xx, Mq, xx, xx, mrm|reqp, x, END_LIST},
     {RM_EXT,      0x0f0175, catUncategorized, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
   },
   { /* mod extension 121 */
