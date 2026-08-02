@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2016-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +45,7 @@
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -77,10 +79,15 @@ test_main(int argc, const char *argv[])
     static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
-    /* We also test -rstats_to_stderr */
-    if (!my_setenv("DYNAMORIO_OPTIONS",
-                   "-stderr_mask 0xc -rstats_to_stderr "
-                   "-client_lib ';;-offline'"))
+    const bool use_lz4 = argc > 1 && strcmp(argv[1], "--lz4") == 0;
+    const char *dynamorio_options =
+        use_lz4 ? "-stderr_mask 0xc -rstats_to_stderr "
+                  "-client_lib ';;-offline -raw_compress lz4 "
+                  "-subdir_prefix drmemtrace.tool.drcacheoff.burst_static-lz4'"
+                : "-stderr_mask 0xc -rstats_to_stderr "
+                  "-client_lib ';;-offline -raw_compress none'";
+    /* We also test -rstats_to_stderr. */
+    if (!my_setenv("DYNAMORIO_OPTIONS", dynamorio_options))
         std::cerr << "failed to set env var!\n";
 
     /* We use an outer loop to test re-attaching (i#2157). */

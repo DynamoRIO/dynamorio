@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -441,8 +442,11 @@ droption_t<bytesize_t> op_exit_after_tracing(
 
 droption_t<std::string> op_raw_compress(
     DROPTION_SCOPE_CLIENT, "raw_compress",
-#if defined(HAS_LZ4) && !defined(DRMEMTRACE_STATIC)
-    // lz4 performs best but has no allocator parameterization so cannot be static.
+#if defined(HAS_LZ4) && (!defined(DRMEMTRACE_STATIC) || defined(HAS_LZ4_CUSTOM_MEM))
+    // lz4 performs best i#5427.  A statically linked client additionally needs
+    // HAS_LZ4_CUSTOM_MEM (lz4 >= 1.9.4), which is what lets the tracer point lz4's
+    // allocator at DR's private heap; older lz4 has no allocator parameterization
+    // and so cannot be used statically at all.
     "lz4",
 #elif defined(HAS_SNAPPY) && !defined(DRMEMTRACE_STATIC)
     // snappy_nocrc also has no allocator parameterization so cannot be static.

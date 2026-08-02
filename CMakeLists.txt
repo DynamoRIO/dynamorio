@@ -2,6 +2,7 @@
 # Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
+# Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -1992,6 +1993,30 @@ if (UNIX AND X64)
     message(STATUS "Found liblz4: ${liblz4}")
     if (APPLE)
       mac_add_inc_and_lib(lz4.h liblz4.a)
+    endif ()
+    # lz4 >= 1.9.4 supports custom allocators, but some builds do not export the
+    # required API.  Check that it links before using it for static clients (i#5427).
+    include(CheckCSourceCompiles)
+    set(_lz4_save_required_libraries ${CMAKE_REQUIRED_LIBRARIES})
+    set(CMAKE_REQUIRED_LIBRARIES ${liblz4})
+    check_c_source_compiles("
+#define LZ4F_STATIC_LINKING_ONLY
+#include <lz4frame.h>
+int main(void) {
+  LZ4F_cctx *cctx = LZ4F_createCompressionContext_advanced(LZ4F_defaultCMem,
+                                                           LZ4F_VERSION);
+  LZ4F_freeCompressionContext(cctx);
+  return 0;
+}
+" HAVE_LZ4_CUSTOM_MEM)
+    set(CMAKE_REQUIRED_LIBRARIES ${_lz4_save_required_libraries})
+    unset(_lz4_save_required_libraries)
+    if (HAVE_LZ4_CUSTOM_MEM)
+      message(STATUS "liblz4 supports LZ4F_CustomMem: lz4 is safe for static clients")
+    else ()
+      message(STATUS "liblz4 lacks a usable LZ4F_CustomMem: "
+        "-raw_compress lz4 stays unsafe for static clients (needs lz4 >= 1.9.4 "
+        "built with -DLZ4F_PUBLISH_STATIC_FUNCTIONS, or a static liblz4)")
     endif ()
   endif ()
   find_library(libxxhash xxhash)

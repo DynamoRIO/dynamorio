@@ -1,5 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -66,6 +67,12 @@
 #    include <zlib.h>
 #endif
 #ifdef HAS_LZ4
+#    ifdef HAS_LZ4_CUSTOM_MEM
+/* LZ4F_CustomMem and LZ4F_createCompressionContext_advanced() are declared under
+ * this guard, which must be defined before including the header.
+ */
+#        define LZ4F_STATIC_LINKING_ONLY
+#    endif
 #    include <lz4frame.h>
 #endif
 
@@ -266,30 +273,82 @@ snappy_enabled()
 }
 #endif
 
-#ifdef HAS_ZLIB
+#if defined(HAS_ZLIB) || defined(HAS_LZ4_CUSTOM_MEM)
+/* A compression library whose allocator we can parameterize gets pointed at DR's
+ * private heap.  That is what makes it usable from a statically linked client,
+ * where calling the application's malloc is not safe.  dr_custom_free() needs the
+ * original size back, so we stash it in a header word ahead of the returned
+ * pointer.
+ */
 static void *
-redirect_malloc(void *drcontext, uint items, uint per_size)
+alloc_from_dr_heap(size_t size)
 {
-    void *mem;
-    size_t size = items * per_size; /* XXX: ignoring overflow */
     size += sizeof(size_t);
-    mem = dr_custom_alloc(nullptr, static_cast<dr_alloc_flags_t>(0), size,
-                          DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
-    if (mem == NULL)
-        return Z_NULL;
-    *((size_t *)mem) = size;
-    return (byte *)mem + sizeof(size_t);
+    void *mem = dr_custom_alloc(nullptr, static_cast<dr_alloc_flags_t>(0), size,
+                                DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
+    if (mem == nullptr)
+        return nullptr;
+    *reinterpret_cast<size_t *>(mem) = size;
+    return reinterpret_cast<byte *>(mem) + sizeof(size_t);
 }
 
 static void
-redirect_free(void *drcontext, void *ptr)
+free_to_dr_heap(void *ptr)
 {
-    if (ptr != NULL) {
-        byte *mem = (byte *)ptr;
-        mem -= sizeof(size_t);
-        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), mem, *((size_t *)mem));
-    }
+    if (ptr == nullptr)
+        return;
+    byte *mem = reinterpret_cast<byte *>(ptr) - sizeof(size_t);
+    dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), mem,
+                   *reinterpret_cast<size_t *>(mem));
 }
+#endif
+
+#ifdef HAS_ZLIB
+static void *
+zlib_redirect_malloc(void *drcontext, uint items, uint per_size)
+{
+    void *mem = alloc_from_dr_heap(items * per_size); /* XXX: ignoring overflow */
+    return mem == nullptr ? Z_NULL : mem;
+}
+
+static void
+zlib_redirect_free(void *drcontext, void *ptr)
+{
+    free_to_dr_heap(ptr);
+}
+#endif
+
+#ifdef HAS_LZ4_CUSTOM_MEM
+/* lz4's allocator hooks take a single byte count, unlike zlib's (items, size)
+ * pair, so they cannot reuse zlib_redirect_malloc()/zlib_redirect_free() directly.
+ */
+static void *
+lz4_redirect_malloc(void *opaque, size_t size)
+{
+    return alloc_from_dr_heap(size);
+}
+
+static void *
+lz4_redirect_calloc(void *opaque, size_t size)
+{
+    void *mem = alloc_from_dr_heap(size);
+    if (mem != nullptr)
+        memset(mem, 0, size);
+    return mem;
+}
+
+static void
+lz4_redirect_free(void *opaque, void *ptr)
+{
+    free_to_dr_heap(ptr);
+}
+
+/* Setting this at context creation is sufficient: lz4 stores it on the context
+ * and every subsequent internal allocation (the LZ4_stream_t and the frame's
+ * tmpBuff) goes through it.
+ */
+static const LZ4F_CustomMem lz4_custom_mem = { lz4_redirect_malloc, lz4_redirect_calloc,
+                                               lz4_redirect_free, nullptr };
 #endif
 
 int
@@ -460,15 +519,15 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
 #ifdef HAS_ZLIB
         if (op_offline.get_value() && op_raw_compress.get_value() == "zlib") {
             memset(&data->zstream, 0, sizeof(data->zstream));
-            data->zstream.zalloc = redirect_malloc;
-            data->zstream.zfree = redirect_free;
+            data->zstream.zalloc = zlib_redirect_malloc;
+            data->zstream.zfree = zlib_redirect_free;
             data->zstream.opaque = drcontext;
             int res = deflateInit(&data->zstream, Z_BEST_SPEED);
             DR_ASSERT(res == Z_OK);
         } else if (op_offline.get_value() && op_raw_compress.get_value() == "gzip") {
             memset(&data->zstream, 0, sizeof(data->zstream));
-            data->zstream.zalloc = redirect_malloc;
-            data->zstream.zfree = redirect_free;
+            data->zstream.zalloc = zlib_redirect_malloc;
+            data->zstream.zfree = zlib_redirect_free;
             data->zstream.opaque = drcontext;
             const int ZLIB_WINDOW_SIZE = 15;
             const int ZLIB_REQUEST_GZIP = 16; /* Added to size to trigger gz headers. */
@@ -482,8 +541,18 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
 #endif
 #ifdef HAS_LZ4
         if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+#    ifdef HAS_LZ4_CUSTOM_MEM
+            /* Unlike the legacy entry point, this returns the context itself
+             * (NULL on failure) rather than an error code.
+             */
+            data->lzcxt =
+                LZ4F_createCompressionContext_advanced(lz4_custom_mem, LZ4F_VERSION);
+            DR_ASSERT(data->lzcxt != nullptr);
+            size_t res;
+#    else
             size_t res = LZ4F_createCompressionContext(&data->lzcxt, LZ4F_VERSION);
             DR_ASSERT(!LZ4F_isError(res));
+#    endif
             // Write out the header.
             res = LZ4F_compressBegin(data->lzcxt, data->buf_lz4, data->buf_lz4_size,
                                      &lz4_ops);
@@ -1535,12 +1604,18 @@ init_io()
 #    endif
     }
 #endif
-#ifdef HAS_LZ4
+#if defined(HAS_LZ4) && !defined(HAS_LZ4_CUSTOM_MEM)
     if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
-        /* Similarly to libsnappy, lz4 doesn't parameterize its allocator. */
+        /* Similarly to libsnappy, this liblz4 gives us no way to parameterize its
+         * allocator: either it predates LZ4F_CustomMem (lz4 < 1.9.4) or it does not
+         * export LZ4F_createCompressionContext_advanced().  See the link test in the
+         * top-level CMakeLists.txt.
+         */
         dr_allow_unsafe_static_behavior();
 #    ifdef DRMEMTRACE_STATIC
-        NOTIFY(0, "-raw_compress lz4 is unsafe with statically linked clients\n");
+        NOTIFY(0,
+               "-raw_compress lz4 is unsafe with statically linked clients: "
+               "this build's liblz4 lacks LZ4F_CustomMem support\n");
 #    endif
     }
 #endif
