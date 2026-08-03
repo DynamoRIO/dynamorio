@@ -536,6 +536,8 @@
 #define INSTR_CREATE_eretu(dc) instr_create_0dst_0src((dc), OP_eretu)
 #define INSTR_CREATE_endbr64(dc) instr_create_0dst_0src((dc), OP_endbr64)
 #define INSTR_CREATE_endbr32(dc) instr_create_0dst_0src((dc), OP_endbr32)
+#define INSTR_CREATE_saveprevssp(dc) instr_create_0dst_0src((dc), OP_saveprevssp)
+#define INSTR_CREATE_setssbsy(dc) instr_create_0dst_0src((dc), OP_setssbsy)
 /** @} */ /* end doxygen group */
 
 /* no destination, 1 source */
@@ -626,6 +628,8 @@
 #define INSTR_CREATE_llwpcb(dc, s) instr_create_0dst_1src((dc), OP_llwpcb, (s))
 #define INSTR_CREATE_umonitor(dc, s) instr_create_0dst_1src((dc), OP_umonitor, (s))
 #define INSTR_CREATE_incssp(dc, s) instr_create_0dst_1src((dc), OP_incssp, (s))
+#define INSTR_CREATE_rstorssp(dc, s) instr_create_0dst_1src((dc), OP_rstorssp, (s))
+#define INSTR_CREATE_clrssbsy(dc, s) instr_create_0dst_1src((dc), OP_clrssbsy, (s))
 /**
  * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1281,6 +1285,8 @@
 #define INSTR_CREATE_movdqa(dc, d, s) instr_create_1dst_1src((dc), OP_movdqa, (d), (s))
 #define INSTR_CREATE_movzx(dc, d, s) instr_create_1dst_1src((dc), OP_movzx, (d), (s))
 #define INSTR_CREATE_movsx(dc, d, s) instr_create_1dst_1src((dc), OP_movsx, (d), (s))
+#define INSTR_CREATE_wrss(dc, d, s) instr_create_1dst_1src((dc), OP_wrss, (d), (s))
+#define INSTR_CREATE_wruss(dc, d, s) instr_create_1dst_1src((dc), OP_wruss, (d), (s))
 #define INSTR_CREATE_bsf(dc, d, s) \
     INSTR_PRED(instr_create_1dst_1src((dc), OP_bsf, (d), (s)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_bsr(dc, d, s) \
