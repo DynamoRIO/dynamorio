@@ -1717,6 +1717,8 @@ const instr_info_t * const op_instr[] =
     /* OP_saveprevssp */ &rm_extensions[5][2],
     /* OP_setssbsy */ &prefix_extensions[191][1],
     /* OP_clrssbsy */ &prefix_extensions[195][1],
+    /* OP_wrss */ &prefix_extensions[143][0],
+    /* OP_wruss */ &prefix_extensions[142][2],
 };
 
 
@@ -5296,7 +5298,7 @@ const instr_info_t prefix_extensions[][12] = {
   }, { /* prefix extension 142 */
     {INVALID,        0x38f518, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f518, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,      0x6638f518, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_wruss,     0x6638f518, catState, "wruss", My, xx, Gy, xx, xx, mrm, x, END_LIST},
     {INVALID,      0xf238f518, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_bzhi,        0x38f518, catUncategorized, "bzhi",    Gy, xx, Ey, By, xx, mrm|vex, fW6, END_LIST},
     {OP_pext,      0xf338f518, catUncategorized, "pext",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
@@ -5307,7 +5309,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x6638f518, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf238f518, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 143 */
-    {INVALID,        0x38f618, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_wrss,        0x38f618, catState, "wrss", My, xx, Gy, xx, xx, mrm, x, END_LIST},
     {OP_adox,      0xf338f618, catUncategorized, "adox",    Gy, xx, Ey, Gy, xx, mrm, (fWO|fRO), END_LIST},
     {OP_adcx,      0x6638f618, catMath, "adcx",    Gy, xx, Ey, Gy, xx, mrm, (fWC|fRC), END_LIST},
     {INVALID,      0xf238f618, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
