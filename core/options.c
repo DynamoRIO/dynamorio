@@ -688,7 +688,11 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
 
 #ifdef LINUX_KERNEL
     /* To stay within the 4096-byte compiler frame limit (-Wframe-larger-than=4096),
-     * use static buffers (safe under options_lock and !OPTIONS_PROTECTED()). */
+     * use static buffers. This is safe because:
+     * 1) options_lock prevents concurrent modification by multiple threads.
+     * 2) !OPTIONS_PROTECTED() guarantees options memory is writeable (unprotected),
+     *    so writing to static variables will not trigger protection faults.
+     */
     static char badopt[MAX_OPTION_LENGTH];
     static char wordbuffer[MAX_OPTION_LENGTH];
 #else
