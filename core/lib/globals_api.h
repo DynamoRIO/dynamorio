@@ -51,11 +51,20 @@
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
 #    include <winbase.h>
-#else
+#elif !defined(LINUX_KERNEL)
 #    include <stdio.h>
 #    include <stdlib.h>
 #endif
-#include <stdarg.h> /* for varargs */
+/* Inlined rather than using stdarg_wrapper.h: this file is exported as
+ * dr_defines.h and stdarg_wrapper.h is not part of the exported headers.
+ * XXX i#8038: Consider using CMake configure_file (@ONLY) to substitute
+ * system headers at configure time to keep public headers clean.
+ */
+#ifdef LINUX_KERNEL
+#    include <linux/stdarg.h>
+#else
+#    include <stdarg.h> /* for varargs */
+#endif
 
 #ifndef DYNAMORIO_INTERNAL
 #    include <stdbool.h> /* for bool */
@@ -114,7 +123,7 @@
  * behave properly.  It indents the guard.  There seems to be no workaround.
  */
 /* clang-format off */
-#    ifndef __cplusplus
+#    if !defined(__cplusplus) && !defined(LINUX_KERNEL)
 #        ifdef WINDOWS
 #            define inline __inline
 #        else
@@ -136,7 +145,11 @@ typedef _Bool bool;
 #    endif
 
 #    ifdef UNIX
-#        include <sys/types.h> /* for pid_t (non-glibc, e.g. musl) */
+#        ifdef LINUX_KERNEL
+#            include <linux/types.h>
+#        else
+#            include <sys/types.h> /* for pid_t (non-glibc, e.g. musl) */
+#        endif
 #    endif
 #    ifdef WINDOWS
 /* allow nameless struct/union */
@@ -160,7 +173,7 @@ typedef _Bool bool;
  * (in gcc >= 3.4) to not export symbols by default, setting
  * USE_VISIBILITY_ATTRIBUTES will properly export.
  */
-#    ifdef USE_VISIBILITY_ATTRIBUTES
+#    if defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
 #        define DR_EXPORT __attribute__((visibility("default")))
 #    else
 #        define DR_EXPORT

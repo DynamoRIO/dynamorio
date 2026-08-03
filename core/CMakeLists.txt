@@ -1211,6 +1211,7 @@ endif ()
 # Do not put core/ into the include dirs as our link.h will conflict
 # with /usr/include/link.h!
 include_directories(BEFORE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/arch
   ${CMAKE_CURRENT_SOURCE_DIR}/ir

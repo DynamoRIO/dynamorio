@@ -38,7 +38,7 @@
  * iox.h: i/o routines for both Linux and Windows
  */
 
-#include <limits.h> /* for UCHAR_MAX */
+#include "limits_wrapper.h" /* for UCHAR_MAX */
 
 #ifdef IOX_WIDE_CHAR
 #    define TCHAR wchar_t
@@ -114,6 +114,7 @@ TNAME(ulong_to_str)(ulong num, int base, TCHAR *buf, int decimal, bool caps)
     return p;
 }
 
+#ifndef LINUX_KERNEL
 /* N.B.: when building with /QIfist casting rounds instead of truncating (i#763)!
  * Thus, use double2int_trunc() instead of casting.
  */
@@ -272,6 +273,7 @@ TNAME(d_r_vsnprintf_float)(double val, const TCHAR *c,
     }
     return str;
 }
+#endif /* !LINUX_KERNEL */
 
 /* Returns number of chars printed, not including the null terminator.
  * If number is larger than max,
@@ -561,10 +563,15 @@ TNAME(d_r_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             case _T('e'):
             case _T('E'):
             case _T('f'): {
+#ifdef LINUX_KERNEL
+                ASSERT_NOT_REACHED();
+                str = _T("FLOATING POINT NOT SUPPORTED.");
+#else
                 /* pretty sure will always be promoted to a double in arg list */
                 double val = va_arg(ap, double);
                 str = TNAME(d_r_vsnprintf_float)(val, c, prefixbuf, buf, decimal,
                                                  space_flag, plus_flag, pound_flag);
+#endif
                 break;
             }
             case _T('n'): {

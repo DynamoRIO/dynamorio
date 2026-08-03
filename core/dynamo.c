@@ -238,12 +238,10 @@ data_section_exit(void);
 
 #ifdef DEBUG /*************************/
 
-#    include <time.h>
-
 /* XXX: not all dynamo_options references are #ifdef DEBUG
  * are we trying to hardcode the options for a release build?
  */
-#    ifdef UNIX
+#    if defined(UNIX) && !defined(LINUX_KERNEL)
 /* linux include files for mmap stuff*/
 #        include <sys/ipc.h>
 #        include <sys/types.h>
@@ -407,7 +405,7 @@ dynamorio_app_init_part_one_options(void)
         }
     } else /* we do enter if nullcalls is on */ {
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
         os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #endif
 #ifdef WINDOWS
@@ -417,7 +415,7 @@ dynamorio_app_init_part_one_options(void)
         /* avoid time() for libc independence */
         DODEBUG(starttime = query_time_seconds(););
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
         if (getenv(DYNAMORIO_VAR_EXECVE) != NULL) {
             post_execve = true;
 #    ifdef VMX86_SERVER
@@ -789,7 +787,7 @@ dynamorio_app_init_part_two_finalize(void)
     return SUCCESS;
 }
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
 void
 dynamorio_fork_init(dcontext_t *dcontext)
 {
@@ -896,7 +894,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
         instrument_fork_init(dcontext);
     }
 }
-#endif /* UNIX */
+#endif /* UNIX && !LINUX_KERNEL */
 
 /* To make DynamoRIO useful as a library for a standalone client
  * application (as opposed to a client library that works with
@@ -920,7 +918,7 @@ standalone_init(void)
     /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
     dynamo_options.deadlock_avoidance = false;
 #endif
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
     os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #endif
 #ifdef WINDOWS

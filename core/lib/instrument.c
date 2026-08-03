@@ -2128,6 +2128,7 @@ instrument_invoke_another_syscall(dcontext_t *dcontext)
     return dcontext->client_data->invoke_another_syscall;
 }
 
+#ifndef LINUX_KERNEL
 bool
 instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
                        os_cxt_ptr_t source_os_cxt, dr_mcontext_t *source_dmc,
@@ -2169,6 +2170,7 @@ instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
     dcontext->client_data->cur_mc = NULL;
     return true;
 }
+#endif
 
 #ifdef WINDOWS
 /* Notify user of exceptions.  Note: not called for RaiseException */
@@ -6864,6 +6866,7 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     dcontext->whereami = DR_WHERE_FCACHE;
     set_last_exit(dcontext, (linkstub_t *)get_client_linkstub());
+#ifndef LINUX_KERNEL
     if (kernel_xfer_callbacks.num > 0) {
         /* This can only be called from a clean call or an exception event.
          * For both of those we can get the current mcontext via dr_get_mcontext()
@@ -6878,6 +6881,7 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
                                    dr_mcontext_as_priv_mcontext(mcontext), 0))
             dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     }
+#endif
     transfer_to_dispatch(dcontext, dr_mcontext_as_priv_mcontext(mcontext),
                          true /*full_DR_state*/);
     /* on success we won't get here */

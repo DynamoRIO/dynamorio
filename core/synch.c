@@ -2170,7 +2170,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     wait_for_outstanding_nudges();
 #endif
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
     /* i#2270: we ignore alarm signals during detach to reduce races. */
     signal_remove_alarm_handlers(my_dcontext);
 #endif
@@ -2272,7 +2272,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
          * the thread_initexit_lock is held so that we can clean up thread
          * data later.
          */
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
         os_signal_thread_detach(threads[i]->dcontext);
 #endif
         LOG(GLOBAL, LOG_ALL, 1, "Detach: thread " TIDFMT " is being resumed as native\n",
@@ -2281,7 +2281,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     }
 
     ASSERT(my_idx != -1 || !internal);
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
     LOG(GLOBAL, LOG_ALL, 1, "Detach: waiting for threads to fully detach\n");
     for (i = 0; i < num_threads; i++) {
         if (i != my_idx && !IS_CLIENT_THREAD(threads[i]->dcontext))
@@ -2372,7 +2372,9 @@ detach_externally_on_new_stack(void)
     if (my_dcontext != NULL)
         enter_threadexit(my_dcontext);
     /* i#2270: we ignore alarm signals during detach to reduce races. */
+#    ifndef LINUX_KERNEL
     signal_remove_alarm_handlers(my_dcontext);
+#    endif
     /* suspend all DR-controlled threads at safe locations */
     if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT, &threads,
                                 &num_threads,
@@ -2435,16 +2437,20 @@ detach_externally_on_new_stack(void)
          * the thread_initexit_lock is held so that we can clean up thread
          * data later.
          */
+#    ifndef LINUX_KERNEL
         os_signal_thread_detach(threads[i]->dcontext);
+#    endif
         LOG(GLOBAL, LOG_ALL, 1, "Detach: thread " TIDFMT " is being resumed as native\n",
             threads[i]->id);
         os_thread_resume(threads[i]);
     }
+#    ifndef LINUX_KERNEL
     LOG(GLOBAL, LOG_ALL, 1, "Detach: waiting for threads to fully detach\n");
     for (i = 0; i < num_threads; i++) {
         if (i != my_idx && !IS_CLIENT_THREAD(threads[i]->dcontext))
             os_wait_thread_detached(threads[i]->dcontext);
     }
+#    endif
     /* Clean up each thread now that everyone has gone native. Needs to be
      * done with the thread_initexit_lock held, which is true within a synched
      * region.

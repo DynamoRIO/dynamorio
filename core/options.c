@@ -40,7 +40,7 @@
  *
  */
 
-#include <stddef.h>
+#include "stddef_wrapper.h"
 
 #ifndef NOT_DYNAMORIO_CORE
 #    include "globals.h"
@@ -672,9 +672,6 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
     char *opt;
     const char *pos = optstr;
     bool got_badopt = false;
-    char badopt[MAX_OPTION_LENGTH];
-
-    char wordbuffer[MAX_OPTION_LENGTH];
 
     /* used in the OPTION_COMMAND define above, declared here to save stack
      * space XXX : value_true and value_false could be static const if
@@ -688,6 +685,21 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
     ASSERT_OWN_OPTIONS_LOCK(options == &dynamo_options || options == &temp_options,
                             &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
+
+#ifdef LINUX_KERNEL
+    /* To stay within the 4096-byte compiler frame limit (-Wframe-larger-than=4096),
+     * use static buffers. This is safe because:
+     * 1) options_lock prevents concurrent modification by multiple threads.
+     * 2) !OPTIONS_PROTECTED() guarantees options memory is writeable (unprotected),
+     *    so writing to static variables will not trigger protection faults.
+     */
+    static char badopt[MAX_OPTION_LENGTH];
+    static char wordbuffer[MAX_OPTION_LENGTH];
+#else
+    char badopt[MAX_OPTION_LENGTH];
+    char wordbuffer[MAX_OPTION_LENGTH];
+#endif
+
     while ((opt = getword(optstr, &pos, wordbuffer, sizeof(wordbuffer))) != NULL) {
         if (opt[0] == '-') {
             value = NULL;

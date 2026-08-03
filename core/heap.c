@@ -40,7 +40,7 @@
  */
 
 #include "globals.h"
-#include <limits.h>
+#include "limits_wrapper.h"
 
 #include "fragment.h" /* for struct sizes */
 #include "link.h"     /* for struct sizes */

@@ -77,9 +77,14 @@
 #include "globals_api.h" // IWYU pragma: export
 #include "dr_project_wide_defines.h"
 
-#include <limits.h> /* for USHRT_MAX */
+#include "limits_wrapper.h" /* for USHRT_MAX */
+
 #ifdef UNIX
-#    include <signal.h>
+#    ifdef LINUX_KERNEL
+#        include <asm/sigcontext.h>
+#    else
+#        include <signal.h>
+#    endif
 #endif
 
 #include "c_defines.h" // IWYU pragma: export

@@ -48,7 +48,7 @@
 #include "hotpatch.h"
 #include "synch.h"
 #include "module_shared.h"
-#include <stddef.h> /* for offsetof */
+#include "stddef_wrapper.h" /* for offsetof */
 #include "instrument.h"
 
 #ifdef DEBUG

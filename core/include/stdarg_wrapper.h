@@ -30,22 +30,15 @@
  * DAMAGE.
  */
 
-#include <linux/module.h>
+#ifndef _STDARG_WRAPPER_H_
+#define _STDARG_WRAPPER_H_
 
-MODULE_LICENSE("Dual BSD/GPL");
+#include "configure.h"
 
-static int __init
-dynamorio_module_init(void)
-{
-    pr_info("DynamoRIO module started\n");
-    return 0;
-}
+#ifdef LINUX_KERNEL
+#    include <linux/stdarg.h>
+#else
+#    include <stdarg.h>
+#endif
 
-static void __exit
-dynamorio_module_exit(void)
-{
-    pr_info("DynamoRIO module exited\n");
-}
-
-module_init(dynamorio_module_init);
-module_exit(dynamorio_module_exit);
+#endif /* _STDARG_WRAPPER_H_ */

@@ -1678,7 +1678,7 @@ typedef struct dr_jmp_buf_t {
 #    define REGS_IN_JMP_BUF 26 /* See dr_setjmp and dr_longjmp. */
     reg_t regs[REGS_IN_JMP_BUF];
 #endif                         /* X86/AARCH64/ARM/RISCV64 */
-#if defined(UNIX) && defined(DEBUG)
+#if defined(UNIX) && !defined(LINUX_KERNEL) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the
      * mask in the fault's signal frame, but we do record it in debug
      * build to verify our assumptions

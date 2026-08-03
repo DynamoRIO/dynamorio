@@ -44,11 +44,11 @@
 #ifndef ARCH_H
 #define ARCH_H
 
-#include <stddef.h>       /* for offsetof */
-#include "instr.h"        /* for reg_id_t */
-#include "decode.h"       /* for X64_CACHE_MODE_DC */
-#include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
-#include "../fragment.h"  /* IS_IBL_TARGET */
+#include "stddef_wrapper.h" /* for offsetof */
+#include "instr.h"          /* for reg_id_t */
+#include "decode.h"         /* for X64_CACHE_MODE_DC */
+#include "arch_exports.h"   /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
+#include "../fragment.h"    /* IS_IBL_TARGET */
 #include "ir_utils.h"
 
 #if defined(X86) && defined(X64)

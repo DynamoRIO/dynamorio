@@ -46,8 +46,8 @@
 #include "emit.h"
 #include "monitor.h"
 #include "instrument.h"
-#include <stddef.h> /* for offsetof */
-#include <limits.h> /* UINT_MAX */
+#include "stddef_wrapper.h" /* for offsetof */
+#include "limits_wrapper.h" /* UINT_MAX */
 #include "perscache.h"
 #include "synch.h"
 #ifdef UNIX
@@ -3036,7 +3036,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
             release_recursive_lock(&change_linking_lock);
     }
 
-#ifdef LINUX
+#if defined(LINUX) && !defined(LINUX_KERNEL)
     if (TESTANY(FRAG_HAS_RSEQ_ENDPOINT, f->flags))
         rseq_remove_fragment(dcontext, f);
 #endif
@@ -5432,7 +5432,7 @@ check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed)
     ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &local_flushtime_global);
     if (DYNAMO_OPTION(shared_deletion) &&
         pt->flushtime_last_update < local_flushtime_global) {
-#ifdef LINUX
+#if defined(LINUX) && !defined(LINUX_KERNEL)
         rseq_shared_fragment_flushtime_update(dcontext);
 #endif
         /* dec ref count on any pending shared areas */

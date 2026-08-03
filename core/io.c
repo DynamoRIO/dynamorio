@@ -50,7 +50,7 @@ typedef unsigned long ulong;
 void
 dr_fpu_exception_init(void);
 #endif
-#include <stdarg.h> /* for varargs */
+#include "stdarg_wrapper.h" /* for varargs */
 
 #ifdef UNIX
 #    ifdef MACOS
@@ -58,7 +58,9 @@ dr_fpu_exception_init(void);
 #        define _EXTERNALIZE_CTYPE_INLINES_TOP_
 #        define _EXTERNALIZE_CTYPE_INLINES_
 #    endif
-#    include <wchar.h>
+#    ifndef LINUX_KERNEL
+#        include <wchar.h>
+#    endif
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
@@ -89,6 +91,7 @@ const static double zerof = 0.0;
 #    define neg_inf (-1.0 / zerof)
 #endif
 
+#ifndef LINUX_KERNEL
 /* assumes that d > 0 */
 long /* exported to utils.c */
 double2int_trunc(double d)
@@ -116,6 +119,7 @@ double2int(double d)
     else
         return i;
 }
+#endif
 
 #ifdef WINDOWS
 /*****************************************************************************

@@ -97,7 +97,7 @@
 
 #ifdef WINDOWS
 #    define DYNAMORIO_EXPORT __declspec(dllexport)
-#elif defined(USE_VISIBILITY_ATTRIBUTES)
+#elif defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
 /* PR 262804: we use "protected" instead of "default" to ensure our
  * own uses won't be preempted.  Note that for DR_APP_API in
  * lib/dr_app.h we get a link error trying to use "protected": but we
@@ -154,8 +154,10 @@
 
 #define INLINE_ONCE inline
 
-#include <stdlib.h>
-#include <stdio.h>
+#ifndef LINUX_KERNEL
+#    include <stdlib.h>
+#    include <stdio.h>
+#endif
 
 /* N.B.: some of these typedefs and defines are duplicated in
  * lib/globals_shared.h!
@@ -186,7 +188,8 @@ typedef HANDLE file_t;
 #    if defined(MACOS) || defined(ANDROID)
 typedef unsigned long ulong;
 #    endif
-#    include <sys/types.h> /* for wait */
+#    include "stddef_wrapper.h" /* for wchar_t */
+#    include "types_wrapper.h"  /* for wait */
 #    define DIRSEP '/'
 #    define ALT_DIRSEP DIRSEP
 #endif
@@ -407,7 +410,9 @@ typedef struct _client_data_t {
     bool suspended;
     /* 2 other ways to point at a context for dr_{g,s}et_mcontext() */
     priv_mcontext_t *cur_mc;
+#ifndef LINUX_KERNEL
     os_cxt_ptr_t os_cxt;
+#endif
 
     /* The error code of last failed API routine. Not updated on successful API calls
      * but only upon failures.
@@ -622,8 +627,10 @@ entering_dynamorio(void);
 void
 exiting_dynamorio(void);
 
+#ifndef LINUX_KERNEL
 void
 handle_system_call(dcontext_t *dcontext);
+#endif
 
 /* self-protection */
 void
@@ -1092,7 +1099,7 @@ enum { DUMP_XML = true, DUMP_NOT_XML = false };
 
 /* io.c */
 /* to avoid transparency problems we must have our own vnsprintf and sscanf */
-#include <stdarg.h> /* for va_list */
+#include "stdarg_wrapper.h" /* for va_list */
 int
 d_r_snprintf(char *s, size_t max, const char *fmt, ...);
 int

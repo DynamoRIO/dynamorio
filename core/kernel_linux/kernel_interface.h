@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013 Peter Feiner.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,22 +31,19 @@
  * DAMAGE.
  */
 
-#include <linux/module.h>
+#ifndef _KERNEL_INTERFACE_H_
+#define _KERNEL_INTERFACE_H_
 
-MODULE_LICENSE("Dual BSD/GPL");
+int
+kernel_get_cpu_id(void);
 
-static int __init
-dynamorio_module_init(void)
-{
-    pr_info("DynamoRIO module started\n");
-    return 0;
-}
+unsigned int
+kernel_query_time_seconds(void);
 
-static void __exit
-dynamorio_module_exit(void)
-{
-    pr_info("DynamoRIO module exited\n");
-}
+#define KERNEL_ENV_NAME_MAX 50
+#define KERNEL_ENV_VALUE_MAX 512
 
-module_init(dynamorio_module_init);
-module_exit(dynamorio_module_exit);
+const char *
+kernel_getenv(const char *name);
+
+#endif /* _KERNEL_INTERFACE_H_ */

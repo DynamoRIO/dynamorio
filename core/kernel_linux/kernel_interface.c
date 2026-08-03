@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013 Peter Feiner.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,22 +31,41 @@
  * DAMAGE.
  */
 
-#include <linux/module.h>
+#include "kernel_interface.h"
 
-MODULE_LICENSE("Dual BSD/GPL");
+#include <linux/ktime.h>
+#include <linux/smp.h>
+#include <linux/string.h>
 
-static int __init
-dynamorio_module_init(void)
+int
+kernel_get_cpu_id(void)
 {
-    pr_info("DynamoRIO module started\n");
-    return 0;
+    return smp_processor_id();
 }
 
-static void __exit
-dynamorio_module_exit(void)
+unsigned int
+kernel_query_time_seconds(void)
 {
-    pr_info("DynamoRIO module exited\n");
+    return (unsigned int)ktime_get_real_seconds();
 }
 
-module_init(dynamorio_module_init);
-module_exit(dynamorio_module_exit);
+#define KERNEL_ENV_MAX 20
+
+typedef struct {
+    char name[KERNEL_ENV_NAME_MAX];
+    char value[KERNEL_ENV_VALUE_MAX];
+} kernel_env_t;
+
+static kernel_env_t env_vars[KERNEL_ENV_MAX];
+static int env_count = 0;
+
+const char *
+kernel_getenv(const char *name)
+{
+    for (int i = 0; i < env_count; i++) {
+        if (strncmp(name, env_vars[i].name, KERNEL_ENV_NAME_MAX) == 0) {
+            return (const char *)env_vars[i].value;
+        }
+    }
+    return NULL;
+}

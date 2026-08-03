@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013 Peter Feiner.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,22 +31,80 @@
  * DAMAGE.
  */
 
-#include <linux/module.h>
+/* This file provides implementations for the same set of OS-interface
+ * functions as core/unix/os.c and core/win32/os.c, but for the Linux
+ * kernel-module target.
+ */
 
-MODULE_LICENSE("Dual BSD/GPL");
+#include "globals.h"
+#include "kernel_interface.h"
 
-static int __init
-dynamorio_module_init(void)
+app_pc vsyscall_syscall_end_pc = NULL;
+app_pc vsyscall_sysenter_return_pc = NULL;
+
+#define ASSERT_NOT_PORTED(x) assert_not_ported(__FILE__, __LINE__, __func__)
+
+static void
+assert_not_ported(const char *file, int line, const char *func)
 {
-    pr_info("DynamoRIO module started\n");
+    print_file(STDERR, "%s:%d - %s not ported.\n", file, line, func);
+#ifdef DEBUG
+    ASSERT_NOT_IMPLEMENTED(false);
+#else
+    os_terminate(NULL, 0);
+#endif
+}
+
+ushort
+os_get_app_tls_base_offset(reg_id_t reg)
+{
+    ASSERT_NOT_PORTED(false);
     return 0;
 }
 
-static void __exit
-dynamorio_module_exit(void)
+ushort
+os_get_app_tls_reg_offset(reg_id_t reg)
 {
-    pr_info("DynamoRIO module exited\n");
+    ASSERT_NOT_PORTED(false);
+    return 0;
 }
 
-module_init(dynamorio_module_init);
-module_exit(dynamorio_module_exit);
+thread_id_t
+get_thread_id(void)
+{
+    /* kernel_get_cpu_id is reentrant and fast
+     * (it just reads gs:[&per_cpu_var(cpu_number)])
+     */
+    return kernel_get_cpu_id();
+}
+
+thread_id_t
+get_tls_thread_id(void)
+{
+    return get_thread_id();
+}
+
+thread_id_t
+get_sys_thread_id(void)
+{
+    return kernel_get_cpu_id();
+}
+
+bool
+is_thread_terminated(dcontext_t *dcontext)
+{
+    ASSERT_NOT_PORTED(false);
+    return true;
+}
+
+void
+os_wait_thread_terminated(dcontext_t *dcontext)
+{
+    ASSERT_NOT_PORTED(false);
+}
+
+uint
+query_time_seconds(void)
+{
+    return kernel_query_time_seconds();
+}
