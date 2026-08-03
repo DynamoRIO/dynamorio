@@ -80,12 +80,19 @@ test_main(int argc, const char *argv[])
     static int iter_stop = iter_start + 4;
 
     const bool use_lz4 = argc > 1 && strcmp(argv[1], "--lz4") == 0;
-    const char *dynamorio_options =
-        use_lz4 ? "-stderr_mask 0xc -rstats_to_stderr "
-                  "-client_lib ';;-offline -raw_compress lz4 "
-                  "-subdir_prefix drmemtrace.tool.drcacheoff.burst_static-lz4'"
-                : "-stderr_mask 0xc -rstats_to_stderr "
-                  "-client_lib ';;-offline -raw_compress none'";
+    const char *dynamorio_options;
+    if (use_lz4) {
+        /* This app is shared with the non-lz4 test, so we pass a distinct subdir
+         * prefix to keep the two tests' output directories apart.
+         */
+        dynamorio_options = "-stderr_mask 0xc -rstats_to_stderr "
+                            "-client_lib ';;-offline -raw_compress lz4 "
+                            "-subdir_prefix "
+                            "drmemtrace.tool.drcacheoff.burst_static-lz4'";
+    } else {
+        dynamorio_options = "-stderr_mask 0xc -rstats_to_stderr "
+                            "-client_lib ';;-offline -raw_compress none'";
+    }
     /* We also test -rstats_to_stderr. */
     if (!my_setenv("DYNAMORIO_OPTIONS", dynamorio_options))
         std::cerr << "failed to set env var!\n";
