@@ -1714,6 +1714,7 @@ const instr_info_t * const op_instr[] =
     /* OP_rdssp */ &prefix_extensions[198][1],
     /* OP_incssp */ &prefix_extensions[200][1],
     /* OP_rstorssp */ &mod_extensions[120][0],
+    /* OP_saveprevssp */ &rm_extensions[5][2],
 };
 
 
@@ -7338,7 +7339,7 @@ const instr_info_t rm_extensions[][8] = {
   { /* rm extension 5 */
     {PREFIX_EXT, 0x01e808, catUncategorized, "(prefix ext 191)", xx, xx, xx, xx, xx, no, x, 191},
     {OP_xresldtrk, 0xf201e908, catOther, "xresldtrk", xx, xx, xx, xx, xx, reqp, x, END_LIST},
-    {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_saveprevssp, 0xf301ea08, catState, "saveprevssp", xx, xx, xx, xx, xx, reqp, x, END_LIST},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
