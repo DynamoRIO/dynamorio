@@ -36,7 +36,7 @@
 #include "drx.h"
 #include "drmgr.h"
 #include "drvector.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include <stddef.h> /* for offsetof */
 #include <string.h> /* for memcpy */
 

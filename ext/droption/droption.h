@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,6 +52,9 @@
 namespace dynamorio { /**< General DynamoRIO namespace. */
 namespace droption {  /**< DynamoRIO Option Parser namespace. */
 
+// We duplicate these since dr_project_wide_defines.h is not really
+// meant for public headers: we would probably want DR_ prefixes on all
+// its macros to avoid collisions before taking that step.
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 

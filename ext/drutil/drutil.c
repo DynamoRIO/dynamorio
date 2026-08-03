@@ -26,7 +26,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 /* currently using asserts on internal logic sanity checks (never on
  * input from user)

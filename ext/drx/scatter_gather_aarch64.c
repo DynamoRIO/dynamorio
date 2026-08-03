@@ -39,7 +39,7 @@
 #include "drx.h"
 #include "drmgr.h"
 #include "drreg.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include "scatter_gather_shared.h"
 
 #include <signal.h>

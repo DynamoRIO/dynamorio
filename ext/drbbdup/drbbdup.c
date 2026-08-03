@@ -39,7 +39,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <limits.h>
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 #undef drmgr_is_first_instr
 #undef drmgr_is_first_nonlabel_instr

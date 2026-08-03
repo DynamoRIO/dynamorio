@@ -59,6 +59,7 @@
 #include <windows.h>
 #include <tchar.h>
 #include <stdio.h>
+#include "dr_project_wide_defines.h"
 /* we share ntdll.c w/ the main library */
 #include "globals_shared.h"
 #include "ntdll.h"
@@ -109,12 +110,6 @@ extern char *
 get_application_name(void);
 extern char *
 get_application_pid(void);
-
-/* for convenience, duplicated from utils.h, XXX share */
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 /* can only set to 1 for debug builds, unless also set in inject_shared.c */
 /* must turn on VERBOSE in inject_shared.c as well since we're now

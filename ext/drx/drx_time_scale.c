@@ -35,7 +35,7 @@
 #include "dr_api.h"
 #include "drx.h"
 #include "drmgr.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 #include <errno.h>
 #include <string.h>

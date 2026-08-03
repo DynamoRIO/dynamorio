@@ -29,7 +29,7 @@
 #include "drmgr.h"
 #include "hashtable.h"
 #include "drvector.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include <string.h>
 #include <stddef.h> /* offsetof */
 #include <limits.h> /* USHRT_MAX */

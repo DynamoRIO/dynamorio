@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,6 +34,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <io.h> /* _access */
+#include "dr_project_wide_defines.h"
 
 /* This is a tool whose sole purpose is to provide an in-memory image
  * of an initialized dynamorio.dll, so we can query it with a debugger.
@@ -53,11 +54,6 @@
 
 typedef int (*int_func_t)();
 typedef void (*void_func_t)();
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 int
 usage(char *exec)

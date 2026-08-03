@@ -33,7 +33,8 @@
 
 #include "dr_api.h"
 
-#include "client_tools.h" /* For BUFFER_SIZE_ELEMENTS */
+#include "dr_project_wide_defines.h" /* For BUFFER_SIZE_ELEMENTS and TEST*. */
+#include "client_tools.h"
 
 #include <string.h>
 
@@ -45,11 +46,6 @@
 #    include <unistd.h>
 #    include <time.h>
 #endif
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
 
 static void
 test_dr_rename_delete(void);

@@ -180,12 +180,6 @@ extern "C" {
 #    define IF_DRMEM_ELSE(x, y) y
 #endif
 
-#ifndef TESTANY
-#    define TESTANY(mask, var) (((mask) & (var)) != 0)
-#    define TESTALL(mask, var) (((mask) & (var)) == (mask))
-#    define TESTONE(mask, var) test_one_bit_set((mask) & (var))
-#endif
-
 #define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
 #define EXPANDSTR(x) #x
@@ -618,11 +612,6 @@ extern int tls_idx_util;
 #define PREXL8 instrlist_preinsert
 #define POST instrlist_meta_postinsert
 #define POSTXL8 instrlist_postinsert
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 #define DWORD2BYTE(v, n) (((v) & (0xff << 8 * (n))) >> 8 * (n))
 

@@ -44,7 +44,7 @@
 #include "drmgr.h"
 #include "drvector.h"
 #include "drreg.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include <string.h>
 #include <limits.h>
 #include <stddef.h> /* offsetof */

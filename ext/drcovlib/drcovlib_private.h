@@ -33,7 +33,7 @@
 #ifndef _DRCOVLIB_PRIVATE_H_
 #define _DRCOVLIB_PRIVATE_H_
 
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 extern uint verbose;
 
