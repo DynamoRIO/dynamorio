@@ -41,4 +41,4 @@
 #    include <stdarg.h>
 #endif
 
-#endif
+#endif /* _STDARG_WRAPPER_H_ */

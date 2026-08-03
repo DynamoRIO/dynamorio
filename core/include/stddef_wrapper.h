@@ -45,4 +45,4 @@ typedef __WCHAR_TYPE__ wchar_t;
 #    include <stddef.h>
 #endif
 
-#endif
+#endif /* _STDDEF_WRAPPER_H_ */

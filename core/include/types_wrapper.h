@@ -41,4 +41,4 @@
 #    include <sys/types.h>
 #endif
 
-#endif
+#endif /* _TYPES_WRAPPER_H_ */
