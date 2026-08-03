@@ -1716,6 +1716,7 @@ const instr_info_t * const op_instr[] =
     /* OP_rstorssp */ &mod_extensions[120][0],
     /* OP_saveprevssp */ &rm_extensions[5][2],
     /* OP_setssbsy */ &prefix_extensions[191][1],
+    /* OP_clrssbsy */ &prefix_extensions[195][1],
 };
 
 
@@ -6033,7 +6034,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf20fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 195 */
     {REX_W_EXT,       0x0fae36, catUncategorized, "(rex.w ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
-    {INVALID,       0xf30fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_clrssbsy,   0xf30fae36, catState, "clrssbsy", xx, xx, Mq, xx, xx, mrm, x, END_LIST},
     {MOD_EXT,       0x660fae36, catUncategorized, "(mod ext 123)", xx, xx, xx, xx, xx, mrm, x, 123},
     {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,         0x0fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
