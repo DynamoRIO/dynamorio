@@ -57,8 +57,8 @@
 #endif
 /* Inlined rather than using stdarg_wrapper.h: this file is exported as
  * dr_defines.h and stdarg_wrapper.h is not part of the exported headers.
- * XXX: Consider using CMake configure_file (@ONLY) to substitute system
- * headers at configure time to keep public headers clean.
+ * XXX i#8038: Consider using CMake configure_file (@ONLY) to substitute
+ * system headers at configure time to keep public headers clean.
  */
 #ifdef LINUX_KERNEL
 #    include <linux/stdarg.h>
