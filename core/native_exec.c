@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
  * **********************************************************/
 
 /*
@@ -487,3 +488,27 @@ put_back_native_retaddrs(dcontext_t *dcontext)
     }
 #endif
 }
+
+#ifdef STANDALONE_UNIT_TEST
+
+void
+unit_test_native_exec(void)
+{
+    ptr_uint_t retstub_start = (ptr_uint_t)back_from_native_retstubs;
+    ptr_uint_t retstub_end = (ptr_uint_t)back_from_native_retstubs_end;
+
+    EXPECT(retstub_end >= retstub_start, true);
+    EXPECT(native_exec_is_back_from_native((app_pc)retstub_start),
+           (retstub_end > retstub_start));
+
+    /* If non-zero size label. */
+    if (retstub_end > retstub_start) {
+        EXPECT(native_exec_is_back_from_native((app_pc)(retstub_end - 1)), true);
+    }
+
+    /* Boundary conditions: strictly outside the stub. */
+    EXPECT(native_exec_is_back_from_native((app_pc)(retstub_start - 1)), false);
+    EXPECT(native_exec_is_back_from_native((app_pc)(retstub_end)), false);
+}
+
+#endif /* STANDALONE_UNIT_TEST */
