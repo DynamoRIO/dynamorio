@@ -494,21 +494,21 @@ put_back_native_retaddrs(dcontext_t *dcontext)
 void
 unit_test_native_exec(void)
 {
-    ptr_uint_t retstub_start = (ptr_uint_t)back_from_native_retstubs;
-    ptr_uint_t retstub_end = (ptr_uint_t)back_from_native_retstubs_end;
+    const ptr_uint_t retstubs_sym_start = (ptr_uint_t)back_from_native_retstubs;
+    const ptr_uint_t retstubs_sym_end = (ptr_uint_t)back_from_native_retstubs_end;
 
-    EXPECT(retstub_end >= retstub_start, true);
-    EXPECT(native_exec_is_back_from_native((app_pc)retstub_start),
-           (retstub_end > retstub_start));
+    EXPECT(retstubs_sym_end >= retstubs_sym_start, true);
+    EXPECT(native_exec_is_back_from_native((app_pc)retstubs_sym_start),
+           (retstubs_sym_end > retstubs_sym_start));
 
     /* If non-zero size label. */
-    if (retstub_end > retstub_start) {
-        EXPECT(native_exec_is_back_from_native((app_pc)(retstub_end - 1)), true);
+    if (retstubs_sym_end > retstubs_sym_start) {
+        EXPECT(native_exec_is_back_from_native((app_pc)(retstubs_sym_end - 1)), true);
     }
 
     /* Boundary conditions: strictly outside the stub. */
-    EXPECT(native_exec_is_back_from_native((app_pc)(retstub_start - 1)), false);
-    EXPECT(native_exec_is_back_from_native((app_pc)(retstub_end)), false);
+    EXPECT(native_exec_is_back_from_native((app_pc)(retstubs_sym_start - 1)), false);
+    EXPECT(native_exec_is_back_from_native((app_pc)(retstubs_sym_end)), false);
 }
 
 #endif /* STANDALONE_UNIT_TEST */
