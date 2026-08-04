@@ -348,7 +348,8 @@ lz4_redirect_free(void *opaque, void *ptr)
  * tmpBuff) goes through it.
  */
 static const LZ4F_CustomMem lz4_custom_mem = { lz4_redirect_malloc, lz4_redirect_calloc,
-                                               lz4_redirect_free, nullptr };
+                                               lz4_redirect_free,
+                                               /*opaqueState=*/nullptr };
 #endif
 
 int

@@ -4944,7 +4944,7 @@ if (BUILD_CLIENTS)
       if (HAVE_LZ4_CUSTOM_MEM)
         set(tool.drcacheoff.burst_static-lz4_nodr ON)
         torunonly_drcacheoff(burst_static-lz4 tool.drcacheoff.burst_static
-          "" "" "--lz4")
+          "" "" "-lz4")
         set(tool.drcacheoff.burst_static-lz4_expectbase "offline-burst_static")
       endif ()
 

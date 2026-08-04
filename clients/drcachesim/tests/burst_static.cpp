@@ -79,7 +79,7 @@ test_main(int argc, const char *argv[])
     static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
-    const bool use_lz4 = argc > 1 && strcmp(argv[1], "--lz4") == 0;
+    const bool use_lz4 = argc > 1 && strcmp(argv[1], "-lz4") == 0;
     const char *dynamorio_options;
     if (use_lz4) {
         /* This app is shared with the non-lz4 test, so we pass a distinct subdir
