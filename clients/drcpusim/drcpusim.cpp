@@ -138,7 +138,7 @@ instr_is_3DNow_no_Intel(instr_t *instr)
 static bool
 instr_is_cet_nop(instr_t *instr)
 {
-    /* OP_endbr64, OP_endbr32, and OP_rdssp are newer instructions in Intel CET but they 
+    /* OP_endbr64, OP_endbr32, and OP_rdssp are newer instructions in Intel CET but they
      * decode as nop on old processors, so they should be harmless.
      */
     int opc = instr_get_opcode(instr);
