@@ -1711,7 +1711,7 @@ const instr_info_t * const op_instr[] =
     /* Intel CET instructions */
     /* OP_endbr64 */ &rm_extensions[8][2],
     /* OP_endbr32 */ &rm_extensions[8][3],
-    /* OP_rdssp */ &prefix_extensions[198][1],
+    /* OP_rdssp */ &mod_extensions[127][1],
     /* OP_incssp */ &prefix_extensions[200][1],
     /* OP_rstorssp */ &mod_extensions[120][0],
     /* OP_saveprevssp */ &rm_extensions[5][2],
@@ -6075,7 +6075,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 198 */
     {OP_nop_modrm,    0x0f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {OP_rdssp,      0xf30f1e10, catState, "rdssp", Ry, xx, xx, xx, xx, mrm, x, END_LIST},
+    {MOD_EXT,       0xf30f1e10, catUncategorized, "(mod ext 127)", xx, xx, xx, xx, xx, mrm, x, 127},
     {OP_nop_modrm,  0x660f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {OP_nop_modrm,  0xf20f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {INVALID,         0x0f1e10, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -7279,8 +7279,12 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 126 */
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {RM_EXT, 0xf30f1e10, catUncategorized, "(group 21 mod + rm ext 8)", xx, xx, xx, xx, xx, mrm, x, 8},
+    {RM_EXT,       0xf30f1e10, catUncategorized, "(group 21 mod + rm ext 8)", xx, xx, xx, xx, xx, mrm, x, 8},
   },
+  { /* mod extension 127 */
+    {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_rdssp,     0xf30f1e31, catState, "rdssp", Ry, xx, xx, xx, xx, mrm, x, END_LIST},
+  }
 };
 
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
