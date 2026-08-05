@@ -2989,7 +2989,8 @@ test_fred_instructions(void *dc)
 #endif
 }
 
-static void test_cet_instructions(void *dc)
+static void
+test_cet_instructions(void *dc)
 {
 #ifdef X64
     /* Test encoding of CET instructions. */
