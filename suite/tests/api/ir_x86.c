@@ -2998,7 +2998,7 @@ test_cet_instructions(void *dc)
     byte encode_buf[16];
     instr_t *encode_instr;
 
-    /*Test endbr64 encoding */
+    /*Test endbr64 encoding. */
     const byte bytes_endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
     encode_instr = INSTR_CREATE_endbr64(dc);
     pc = instr_encode(dc, encode_instr, encode_buf);
@@ -3007,13 +3007,31 @@ test_cet_instructions(void *dc)
     ASSERT(memcmp(encode_buf, bytes_endbr64, sizeof(bytes_endbr64)) == 0);
     instr_destroy(dc, encode_instr);
 
-    /* Test endbr32 encoding */
+    /* Test endbr32 encoding. */
     const byte bytes_endbr32[] = { 0xf3, 0x0f, 0x1e, 0xfb };
     encode_instr = INSTR_CREATE_endbr32(dc);
     pc = instr_encode(dc, encode_instr, encode_buf);
     ASSERT(pc != NULL);
     ASSERT((pc - encode_buf) == sizeof(bytes_endbr32));
     ASSERT(memcmp(encode_buf, bytes_endbr32, sizeof(bytes_endbr32)) == 0);
+    instr_destroy(dc, encode_instr);
+
+    /* Test rdsspd encoding. */
+    const byte bytes_rdsspd[] = { 0xf3, 0x0f, 0x1e, 0xcb };
+    encode_instr = INSTR_CREATE_rdssp(dc, opnd_create_reg(DR_REG_EBX));
+    pc = instr_encode(dc, encode_instr, encode_buf);
+    ASSERT(pc != NULL);
+    ASSERT((pc - encode_buf) == sizeof(bytes_rdsspd));
+    ASSERT(memcmp(encode_buf, bytes_rdsspd, sizeof(bytes_rdsspd)) == 0);
+    instr_destroy(dc, encode_instr);
+
+    /* Test rdsspq encoding. */
+    const byte bytes_rdsspq[] = { 0xf3, 0x48, 0x0f, 0x1e, 0xcb };
+    encode_instr = INSTR_CREATE_rdssp(dc, opnd_create_reg(DR_REG_RBX));
+    pc = instr_encode(dc, encode_instr, encode_buf);
+    ASSERT(pc != NULL);
+    ASSERT((pc - encode_buf) == sizeof(bytes_rdsspq));
+    ASSERT(memcmp(encode_buf, bytes_rdsspq, sizeof(bytes_rdsspq)) == 0);
     instr_destroy(dc, encode_instr);
 #endif
 }
