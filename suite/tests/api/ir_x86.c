@@ -2989,6 +2989,34 @@ test_fred_instructions(void *dc)
 #endif
 }
 
+static void test_cet_instructions(void *dc)
+{
+#ifdef X64
+    /* Test encoding of CET instructions. */
+    byte *pc;
+    byte encode_buf[16];
+    instr_t *encode_instr;
+
+    /*Test endbr64 encoding */
+    const byte bytes_endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
+    encode_instr = INSTR_CREATE_endbr64(dc);
+    pc = instr_encode(dc, encode_instr, encode_buf);
+    ASSERT(pc != NULL);
+    ASSERT((pc - encode_buf) == sizeof(bytes_endbr64));
+    ASSERT(memcmp(encode_buf, bytes_endbr64, sizeof(bytes_endbr64)) == 0);
+    instr_destroy(dc, encode_instr);
+
+    /* Test endbr32 encoding */
+    const byte bytes_endbr32[] = { 0xf3, 0x0f, 0x1e, 0xfb };
+    encode_instr = INSTR_CREATE_endbr32(dc);
+    pc = instr_encode(dc, encode_instr, encode_buf);
+    ASSERT(pc != NULL);
+    ASSERT((pc - encode_buf) == sizeof(bytes_endbr32));
+    ASSERT(memcmp(encode_buf, bytes_endbr32, sizeof(bytes_endbr32)) == 0);
+    instr_destroy(dc, encode_instr);
+#endif
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -3052,6 +3080,8 @@ main(int argc, char *argv[])
     test_x64_vmovq(dcontext);
 
     test_fred_instructions(dcontext);
+
+    test_cet_instructions(dcontext);
 #endif
 
     test_regs(dcontext);
