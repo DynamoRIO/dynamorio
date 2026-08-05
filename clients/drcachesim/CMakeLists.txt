@@ -1,5 +1,6 @@
 # **********************************************************
 # Copyright (c) 2015-2026 Google, Inc.    All rights reserved.
+# Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -141,6 +142,11 @@ endif()
 if (liblz4)
   add_definitions(-DHAS_LZ4)
   set(lz4_reader reader/lz4_file_reader.cpp)
+  if (HAVE_LZ4_CUSTOM_MEM)
+    # Lets the tracer route lz4's allocations through DR's private heap, making
+    # -raw_compress lz4 safe for statically linked clients.
+    add_definitions(-DHAS_LZ4_CUSTOM_MEM)
+  endif ()
 endif ()
 
 if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL)

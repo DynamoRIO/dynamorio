@@ -2,6 +2,7 @@
 # Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
+# Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -4478,6 +4479,10 @@ if (BUILD_CLIENTS)
     # lz4 is on by default so we test no compression here.
     torunonly_drcacheoff(raw-none ${ci_shared_app} "-raw_compress none" "" "")
     set(tool.drcacheoff.raw-none_expectbase "offline-simple")
+    if (liblz4)
+      torunonly_drcacheoff(raw-lz4 ${ci_shared_app} "-raw_compress lz4" "" "")
+      set(tool.drcacheoff.raw-lz4_expectbase "offline-simple")
+    endif ()
 
     # Test that malloc & co. are not invoked.
     # We disable the lz4 default as both lz4 and snappy call
@@ -4486,6 +4491,15 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(check-malloc ${ci_shared_app}
       "-raw_compress none -record_function 'main|2'" "" "")
     set(tool.drcacheoff.check-malloc_expectbase "offline-simple")
+
+    if (HAVE_LZ4_CUSTOM_MEM)
+      # With lz4 >= 1.9.4 we parameterize lz4's allocator onto DR's heap instead of
+      # calling dr_allow_unsafe_static_behavior(), so the malloc check above stays
+      # armed and can cover the lz4 path too.
+      torunonly_drcacheoff(check-malloc-lz4 ${ci_shared_app}
+        "-raw_compress lz4 -record_function 'main|2'" "" "")
+      set(tool.drcacheoff.check-malloc-lz4_expectbase "offline-simple")
+    endif ()
 
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
@@ -4928,6 +4942,12 @@ if (BUILD_CLIENTS)
     if (NOT ARM AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949 AND NOT RISCV64)
       set(tool.drcacheoff.burst_static_nodr ON)
       torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "" "")
+      if (HAVE_LZ4_CUSTOM_MEM)
+        set(tool.drcacheoff.burst_static-lz4_nodr ON)
+        torunonly_drcacheoff(burst_static-lz4 tool.drcacheoff.burst_static
+          "" "" "-lz4")
+        set(tool.drcacheoff.burst_static-lz4_expectbase "offline-burst_static")
+      endif ()
 
       set(tool.drcacheoff.burst_replace_nodr ON)
       torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
@@ -5560,6 +5580,8 @@ if (BUILD_CLIENTS)
       # the check that complains about malloc use in the client is disabled by invoking
       # dr_allow_unsafe_static_behavior. We want to perform this check on the kernel
       # tracing flow.
+      # (With lz4 >= 1.9.4 that is no longer true for lz4. See HAS_LZ4_CUSTOM_MEM.
+      # But we keep 'none' here to hold the kernel flow's coverage fixed.)
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "-raw_compress none" ""
                                   "@-tool@basic_counts")
       torunonly_drcacheoff_kernel(opcode-mix ${ci_shared_app} "-raw_compress none" ""
