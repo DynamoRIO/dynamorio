@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,6 +79,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sub      REG_XSP, FRAME_PADDING
         END_PROLOG
 
+        /* This constant is hardcoded in avx512lazy.dll.c. */
         mov      REG_XAX, 0x12345678
         mov      REG_XAX, 0x12345678
 
@@ -93,6 +94,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sub      REG_XSP, FRAME_PADDING
         END_PROLOG
 
+        /* This constant is hardcoded in avx512lazy.dll.c. */
         mov      REG_XAX, 0x12345678
         mov      REG_XAX, 0x12345678
 
