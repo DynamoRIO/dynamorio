@@ -7374,8 +7374,8 @@ const instr_info_t rm_extensions[][8] = {
   { /* rm extension 8*/
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {OP_endbr64, 0xf30f1e10, catState, "endbr64", xx, xx, xx, xx, xx, mrm, x, END_LIST},
-    {OP_endbr32, 0xf30f1e10, catState, "endbr32", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_endbr64, 0xf31efa08, catState, "endbr64", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {OP_endbr32, 0xf31efb08, catState, "endbr32", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
