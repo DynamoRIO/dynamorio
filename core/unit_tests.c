@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +39,8 @@
 
 void
 unit_test_io(void);
+void
+unit_test_native_exec(void);
 #ifdef UNIX
 void
 unit_test_string(void);
@@ -75,6 +78,7 @@ main(int argc, char **argv, char **envp)
      * might be worth looking into gtest, which already does this.
      */
     unit_test_io();
+    unit_test_native_exec();
 #ifdef UNIX
     unit_test_string();
     unit_test_os();

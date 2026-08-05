@@ -1,5 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -120,8 +121,14 @@ put_back_native_retaddrs(dcontext_t *dcontext);
 static inline bool
 native_exec_is_back_from_native(app_pc pc)
 {
+    /* Non-x86 platforms can have zero-sized retstub if native_exec is not implemented.
+     * retstub_region_size is a link-time constant on all platforms, making the check a
+     * single compare.
+     */
+    ptr_uint_t retstub_region_size =
+        (ptr_uint_t)back_from_native_retstubs_end - (ptr_uint_t)back_from_native_retstubs;
     ptr_uint_t diff = (ptr_uint_t)pc - (ptr_uint_t)back_from_native_retstubs;
-    return (diff < MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
+    return (diff < retstub_region_size);
 }
 
 #ifdef UNIX
