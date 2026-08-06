@@ -3091,7 +3091,7 @@ test_cet_instructions(void *dc)
     /* Test wrssd encoding. */
     const byte bytes_wrssd[] = { 0x0f, 0x38, 0xf6, 0x19 };
     encode_instr = INSTR_CREATE_wrss(dc, OPND_CREATE_MEM32(DR_REG_RCX, 0),
-                                        opnd_create_reg(DR_REG_EBX));
+                                     opnd_create_reg(DR_REG_EBX));
     pc = instr_encode(dc, encode_instr, encode_buf);
     ASSERT(pc != NULL);
     ASSERT((pc - encode_buf) == sizeof(bytes_wrssd));
@@ -3101,7 +3101,7 @@ test_cet_instructions(void *dc)
     /* Test wrssq encoding. */
     const byte bytes_wrssq[] = { 0x48, 0x0f, 0x38, 0xf6, 0x19 };
     encode_instr = INSTR_CREATE_wrss(dc, OPND_CREATE_MEM64(DR_REG_RCX, 0),
-                                        opnd_create_reg(DR_REG_RBX));
+                                     opnd_create_reg(DR_REG_RBX));
     pc = instr_encode(dc, encode_instr, encode_buf);
     ASSERT(pc != NULL);
     ASSERT((pc - encode_buf) == sizeof(bytes_wrssq));
@@ -3111,7 +3111,7 @@ test_cet_instructions(void *dc)
     /* Test wrussd encoding. */
     const byte bytes_wrussd[] = { 0x66, 0x0f, 0x38, 0xf5, 0x19 };
     encode_instr = INSTR_CREATE_wruss(dc, OPND_CREATE_MEM32(DR_REG_RCX, 0),
-                                        opnd_create_reg(DR_REG_EBX));
+                                      opnd_create_reg(DR_REG_EBX));
     pc = instr_encode(dc, encode_instr, encode_buf);
     ASSERT(pc != NULL);
     ASSERT((pc - encode_buf) == sizeof(bytes_wrussd));
@@ -3121,7 +3121,7 @@ test_cet_instructions(void *dc)
     /* Test wrussq encoding. */
     const byte bytes_wrussq[] = { 0x66, 0x48, 0x0f, 0x38, 0xf5, 0x19 };
     encode_instr = INSTR_CREATE_wruss(dc, OPND_CREATE_MEM64(DR_REG_RCX, 0),
-                                        opnd_create_reg(DR_REG_RBX));
+                                      opnd_create_reg(DR_REG_RBX));
     pc = instr_encode(dc, encode_instr, encode_buf);
     ASSERT(pc != NULL);
     ASSERT((pc - encode_buf) == sizeof(bytes_wrussq));
