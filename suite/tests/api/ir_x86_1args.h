@@ -213,3 +213,12 @@ OPCODE(ptwrite_mem, ptwrite, ptwrite, 0, MEMARG(OPSZ_ptwrite))
 OPCODE(rdpid_32, rdpid, rdpid, X86_ONLY, REGARG(EAX))
 OPCODE(rdpid_64lo, rdpid, rdpid, X64_ONLY, REGARG(RAX))
 OPCODE(rdpid_64hi, rdpid, rdpid, X64_ONLY, REGARG(R15))
+
+/****************************************************************************/
+/* CET */
+OPCODE(rdssp_32, rdssp, rdssp, 0, REGARG(EAX))
+OPCODE(rdssp_64, rdssp, rdssp, X64_ONLY, REGARG(RAX))
+OPCODE(incssp_32, incssp, incssp, 0, REGARG(EAX))
+OPCODE(incssp_64, incssp, incssp, X64_ONLY, REGARG(RAX))
+OPCODE(rstorssp, rstorssp, rstorssp, 0, MEMARG(OPSZ_8))
+OPCODE(clrssbsy, clrssbsy, clrssbsy, 0, MEMARG(OPSZ_8))
