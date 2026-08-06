@@ -3127,6 +3127,32 @@ test_cet_instructions(void *dc)
     ASSERT((pc - encode_buf) == sizeof(bytes_wrussq));
     ASSERT(memcmp(encode_buf, bytes_wrussq, sizeof(bytes_wrussq)) == 0);
     instr_destroy(dc, encode_instr);
+
+    /* Test decoding of CET instructions. */
+    struct {
+        byte bytes[5];
+        size_t len;
+        int expected_opcode;
+    } decode_tests[] = {
+        { { 0xf3, 0x0f, 0x1e, 0xc0 }, 4, OP_nop_modrm },
+        { { 0xf3, 0x0f, 0x1e, 0x08 }, 4, OP_nop_modrm },
+        { { 0xf3, 0x0f, 0x1e, 0xc8 }, 4, OP_rdssp },
+        { { 0xf3, 0x48, 0x0f, 0x1e, 0xc8 }, 5, OP_rdssp },
+        { { 0xf3, 0x0f, 0x1e, 0xd8 }, 4, OP_nop_modrm },
+        { { 0xf3, 0x0f, 0x1e, 0xfa }, 4, OP_endbr64 },
+        { { 0xf3, 0x0f, 0x1e, 0xfb }, 4, OP_endbr32 },
+        { { 0xf3, 0x0f, 0x1e, 0x38 }, 4, OP_nop_modrm },
+        { { 0xf3, 0x0f, 0x1e, 0xf8 }, 4, OP_nop_modrm },
+    };
+
+    for (int i = 0; i < sizeof(decode_tests) / sizeof(decode_tests[0]); i++) {
+        instr_t decode_instr;
+        instr_init(dc, &decode_instr);
+        pc = decode(dc, decode_tests[i].bytes, &decode_instr);
+        ASSERT(instr_get_opcode(&decode_instr) == decode_tests[i].expected_opcode);
+        ASSERT((pc - decode_tests[i].bytes) == decode_tests[i].len);
+        instr_free(dc, &decode_instr);
+    }
 #endif
 }
 
