@@ -7255,7 +7255,7 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 120 */
     {OP_rstorssp, 0xf30f0135, catState, "rstorssp", xx, xx, Mq, xx, xx, mrm|reqp, x, END_LIST},
-    {RM_EXT,      0x0f0175, catUncategorized, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
+    {RM_EXT,        0x0f0175, catUncategorized, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
   },
   { /* mod extension 121 */
     {OP_enqcmds, 0xf338f808, catMove | catOther, "enqcmds", GesvS_oq, xx, Moq, xx, xx, mrm, fW6, END_LIST},
