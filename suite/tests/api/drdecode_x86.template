@@ -3,7 +3,6 @@
  bf 11 00 00 00       mov    $0x00000011 -> %edi
  48 cf                iret   %rsp (%rsp)[40byte] -> %rsp
  9c                   pushf  %rsp -> %rsp 0xfffffff8(%rsp)[8byte]
- 9c                   pushf  %rsp -> %rsp 0xfffffff8(%rsp)[8byte]
  9d                   popf   %rsp (%rsp)[8byte] -> %rsp
  66 cf                data16 iret   %rsp (%rsp)[6byte] -> %rsp
  66 9c                data16 pushf  %rsp -> %rsp 0xfffffffe(%rsp)[2byte]
@@ -11,7 +10,6 @@
  89 41 fd             mov    %eax, -0x03(%rcx)
  bf 11 00 00 00       mov    $0x00000011, %edi
  48 cf                iretq
- 9c                   pushfq
  9c                   pushfq
  9d                   popfq
  66 cf                data16 iretw
@@ -21,7 +19,6 @@
  bf 11 00 00 00       mov    edi, 0x00000011
  48 cf                iretq
  9c                   pushfq
- 9c                   pushfq
  9d                   popfq
  66 cf                iret
  66 9c                pushf
@@ -30,7 +27,6 @@
  89 41 fd             mov    %eax -> 0xfffffffd(%ecx)[4byte]
  bf 11 00 00 00       mov    $0x00000011 -> %edi
  cf                   iret   %esp (%esp)[12byte] -> %esp
- 9c                   pushf  %esp -> %esp 0xfffffffc(%esp)[4byte]
  9c                   pushf  %esp -> %esp 0xfffffffc(%esp)[4byte]
  9d                   popf   %esp (%esp)[4byte] -> %esp
  60                   pusha  %esp %eax %ebx %ecx %edx %ebp %esi %edi -> %esp 0xffffffe0(%esp)[32byte]
@@ -44,7 +40,6 @@
  bf 11 00 00 00       mov    $0x00000011, %edi
  cf                   iretd
  9c                   pushfd
- 9c                   pushfd
  9d                   popfd
  60                   pushad
  61                   popad
@@ -56,7 +51,6 @@
  89 41 fd             mov    dword ptr [ecx-0x03], eax
  bf 11 00 00 00       mov    edi, 0x00000011
  cf                   iretd
- 9c                   pushfd
  9c                   pushfd
  9d                   popfd
  60                   pushad

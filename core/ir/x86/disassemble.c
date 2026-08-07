@@ -337,9 +337,7 @@ instr_opcode_name_suffix(instr_t *instr)
         case OP_pushf:
         case OP_popf: {
             uint sz = instr_memory_reference_size(instr);
-            if (sz == 1)
-                return "b";
-            else if (sz == 2)
+            if (sz == 2)
                 return att ? "w" : "";
             else if (sz == 4)
                 return "d"; /* Some tools use "l" for att. */

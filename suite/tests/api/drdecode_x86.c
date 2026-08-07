@@ -62,7 +62,6 @@ test_disasm_style(void)
     /* Test instructions with custom suffixes. */
     instrlist_append(ilist, INSTR_CREATE_iret(GD));
     instrlist_append(ilist, INSTR_CREATE_pushf(GD));
-    instrlist_append(ilist, INSTR_CREATE_pushf(GD));
     instrlist_append(ilist, INSTR_CREATE_popf(GD));
 #ifndef X64
     instrlist_append(ilist, INSTR_CREATE_pusha(GD));
