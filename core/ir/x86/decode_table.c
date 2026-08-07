@@ -2584,7 +2584,7 @@ const instr_info_t second_byte[] = {
   {PREFIX_EXT, 0x0f1b10, catUncategorized, "(prefix ext 187)", xx, xx, xx, xx, xx, mrm, x, 187},
   {OP_cldemote, 0x0f1c30, catOther, "cldemote", xx, xx, Mb, xx, xx, mrm|reqp, x, END_LIST},
   {OP_nop_modrm, 0x0f1d10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-  {EXTENSION, 0x0f1e10, catUncategorized, "(group 21)", xx, xx, xx, xx, xx, mrm, x, 34},
+  {EXTENSION, 0x0f1e10, catUncategorized, "(ext 34)", xx, xx, xx, xx, xx, mrm, x, 34},
   {OP_nop_modrm, 0x0f1f10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
   /* 20 */
   {OP_mov_priv, 0x0f2010, catMove, "mov", Rr, xx, Cr, xx, xx, mrm, fW6, tsb[0x21]},
@@ -3231,7 +3231,6 @@ const instr_info_t base_extensions[][8] = {
     {INVALID,     0x38f33e, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x38f33f, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
-  /* group 18 */
   { /* extensions[32] */
     {INVALID, 0x6638c638, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {EVEX_Wb_EXT, 0x6638c639, catUncategorized, "(evex_Wb ext 197)", xx, xx, xx, xx, xx, mrm|reqp, x, 197},
@@ -3242,7 +3241,6 @@ const instr_info_t base_extensions[][8] = {
     {EVEX_Wb_EXT, 0x6638c63e, catUncategorized, "(evex_Wb ext 203)", xx, xx, xx, xx, xx, mrm|reqp, x, 203},
     {INVALID, 0x6638c63f, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
-  /* group 19 */
   { /* extensions[33] */
     {INVALID, 0x6638c738, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {EVEX_Wb_EXT, 0x6638c739, catUncategorized, "(evex_Wb ext 198)", xx, xx, xx, xx, xx, mrm|reqp, x, 198},
@@ -3253,7 +3251,6 @@ const instr_info_t base_extensions[][8] = {
     {EVEX_Wb_EXT, 0x6638c73e, catUncategorized, "(evex_Wb ext 204)", xx, xx, xx, xx, xx, mrm|reqp, x, 204},
     {INVALID, 0x6638c73f, catUncategorized, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
-  /* group 21 */
   { /* extensions[34] */
     {OP_nop_modrm,  0x0f1e30, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {PREFIX_EXT,    0x0f1e31, catUncategorized, "(prefix ext 198)", xx, xx, xx, xx, xx, mrm, x, 198},
@@ -7288,7 +7285,7 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 126 */
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {RM_EXT,       0xf30f1e10, catUncategorized, "(group 21 mod + rm ext 8)", xx, xx, xx, xx, xx, mrm, x, 8},
+    {RM_EXT,       0xf30f1e10, catUncategorized, "(ext 34 mod + rm ext 8)", xx, xx, xx, xx, xx, mrm, x, 8},
   },
   { /* mod extension 127 */
     {OP_nop_modrm, 0xf30f1e31, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
@@ -7792,8 +7789,8 @@ const instr_info_t third_byte_38[] = {
   {EVEX_Wb_EXT, 0x6638a118, catUncategorized, "(evex_Wb ext 194)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 194},/*160*/
   {EVEX_Wb_EXT, 0x6638a218, catUncategorized, "(evex_Wb ext 195)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 195},/*161*/
   {EVEX_Wb_EXT, 0x6638a318, catUncategorized, "(evex_Wb ext 196)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 196},/*162*/
-  {EXTENSION, 0x6638c618, catUncategorized, "group 18", xx, xx, xx, xx, xx, mrm, x, 32},/*163*/
-  {EXTENSION, 0x6638c718, catUncategorized, "group 19", xx, xx, xx, xx, xx, mrm, x, 33},/*164*/
+  {EXTENSION, 0x6638c618, catUncategorized, "(ext 32)", xx, xx, xx, xx, xx, mrm, x, 32},/*163*/
+  {EXTENSION, 0x6638c718, catUncategorized, "(ext 33)", xx, xx, xx, xx, xx, mrm, x, 33},/*164*/
   {OP_sha1msg1, 0x38c918, catUncategorized, "sha1msg1", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},/*165*/
   {E_VEX_EXT, 0x66385008, catUncategorized, "(e_vex ext 149)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 149},/*166*/
   {E_VEX_EXT, 0x66385108, catUncategorized, "(e_vex ext 150)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 150},/*167*/
