@@ -304,7 +304,8 @@ instr_opcode_name_suffix(instr_t *instr)
 {
     bool att = TESTANY(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask));
     bool intel = TESTANY(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask));
-    if (att || intel) {
+    if ((att || intel) && instr_operands_valid(instr)) {
+        /* add "b" or "d" suffix */
         switch (instr_get_opcode(instr)) {
         case OP_xlat:
         case OP_ins:
@@ -361,6 +362,24 @@ instr_opcode_name_suffix(instr_t *instr)
             else if (sz == 12)
                 return "d"; /* Some tools use "l" for att. */
             else if (sz == 40)
+                return "q";
+            break;
+        }
+        case OP_rdssp: {
+            opnd_size_t sz = opnd_get_size(instr_get_dst(instr, 0));
+            if (sz == OPSZ_4)
+                return "d";
+            else if (sz == OPSZ_8)
+                return "q";
+            break;
+        }
+        case OP_incssp:
+        case OP_wrss:
+        case OP_wruss: {
+            opnd_size_t sz = opnd_get_size(instr_get_src(instr, 0));
+            if (sz == OPSZ_4)
+                return "d";
+            else if (sz == OPSZ_8)
                 return "q";
             break;
         }

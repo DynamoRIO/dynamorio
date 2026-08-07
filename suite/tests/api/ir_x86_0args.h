@@ -208,3 +208,8 @@ OPCODE(serialize, serialize, serialize, 0)
 
 OPCODE(erets, erets, erets, X64_ONLY)
 OPCODE(eretu, eretu, eretu, X64_ONLY)
+
+OPCODE(endbr64, endbr64, endbr64, 0)
+OPCODE(endbr32, endbr32, endbr32, 0)
+OPCODE(saveprevssp, saveprevssp, saveprevssp, 0)
+OPCODE(setssbsy, setssbsy, setssbsy, 0)

@@ -135,6 +135,16 @@ instr_is_3DNow_no_Intel(instr_t *instr)
             (instr_get_opcode(instr) != OP_prefetchw || !op_allow_prefetchw.get_value()));
 }
 
+static bool
+instr_is_cet_nop(instr_t *instr)
+{
+    /* OP_endbr64, OP_endbr32, and OP_rdssp are newer instructions in Intel CET but they
+     * decode as nop on old processors, so they should be harmless.
+     */
+    int opc = instr_get_opcode(instr);
+    return opc == OP_endbr64 || opc == OP_endbr32 || opc == OP_rdssp;
+}
+
 /***************************************************
  * Pentium
  */
@@ -168,7 +178,7 @@ opcode_supported_Pentium(instr_t *instr)
         opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
-        opc >= OP_fisttp)
+        (opc >= OP_fisttp && !instr_is_cet_nop(instr)))
         return false;
     return true;
 #    endif
@@ -201,7 +211,7 @@ opcode_supported_PentiumMMX(instr_t *instr)
         opc == OP_sysexit || opc == OP_fxsave32 || opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
-        opc >= OP_fisttp)
+        (opc >= OP_fisttp && !instr_is_cet_nop(instr)))
         return false;
     return true;
 #    endif
@@ -236,7 +246,7 @@ opcode_supported_PentiumPro(instr_t *instr)
         opc == OP_fxsave32 || opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
-        opc >= OP_fisttp)
+        (opc >= OP_fisttp && !instr_is_cet_nop(instr)))
         return false;
     return true;
 #    endif
@@ -270,7 +280,7 @@ opcode_supported_Klamath(instr_t *instr)
         opc == OP_fxsave32 || opc == OP_fxrstor32 ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
-        opc >= OP_fisttp)
+        (opc >= OP_fisttp && !instr_is_cet_nop(instr)))
         return false;
     return true;
 #    endif
@@ -303,7 +313,7 @@ opcode_supported_Deschutes(instr_t *instr)
     if (instr_is_sse(instr) || instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
-        opc >= OP_fisttp)
+        (opc >= OP_fisttp && !instr_is_cet_nop(instr)))
         return false;
     return true;
 #    endif
@@ -336,7 +346,7 @@ opcode_supported_Pentium3(instr_t *instr)
     if (instr_is_sse2(instr) || instr_is_3DNow_no_Intel(instr) ||
         // We assume that new opcodes from SSE3+ (incl OP_monitor and OP_mwait)
         // were appended to the enum.
-        opc >= OP_fisttp)
+        (opc >= OP_fisttp && !instr_is_cet_nop(instr)))
         return false;
     return true;
 #    endif
@@ -371,7 +381,7 @@ opcode_supported_Banias(instr_t *instr)
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE3+ were
         // appended to the enum, except some SSE2 added late.
-        (opc >= OP_fisttp && !instr_is_sse2(instr)))
+        (opc >= OP_fisttp && !instr_is_sse2(instr) && !instr_is_cet_nop(instr)))
         return false;
     return true;
 #    endif
@@ -408,8 +418,8 @@ opcode_supported_Prescott(instr_t *instr)
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSSE3+ were
         // appended to the enum, except some SSE2 added late.
-        (opc >= OP_pshufb &&
-         !instr_is_sse2(instr)
+        (opc >= OP_pshufb && !instr_is_sse2(instr) &&
+         !instr_is_cet_nop(instr)
 #    ifdef X64
          // Allow new x64 opcodes
          && opc != OP_movsxd && opc != OP_swapgs
@@ -450,8 +460,8 @@ opcode_supported_Merom(instr_t *instr)
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
-        (opc >= OP_popcnt &&
-         !instr_is_sse2(instr)
+        (opc >= OP_popcnt && !instr_is_sse2(instr) &&
+         !instr_is_cet_nop(instr)
 #    ifdef X64
          // Allow new x64 opcodes
          && opc != OP_movsxd && opc != OP_swapgs
@@ -494,8 +504,8 @@ opcode_supported_Penryn(instr_t *instr)
     if (instr_is_3DNow_no_Intel(instr) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
-        (opc >= OP_popcnt && !instr_is_sse2(instr) &&
-         !instr_is_sse41(instr)
+        (opc >= OP_popcnt && !instr_is_sse2(instr) && !instr_is_sse41(instr) &&
+         !instr_is_cet_nop(instr)
 #    ifdef X64
          // Allow new x64 opcodes
          && opc != OP_movsxd && opc != OP_swapgs
@@ -536,7 +546,8 @@ opcode_supported_Nehalem(instr_t *instr)
     if (instr_is_3DNow_no_Intel(instr) || (instr_is_sse4A(instr) && opc != OP_popcnt) ||
         // We assume that new and only new opcodes from SSE4+ were
         // appended to the enum, except some SSE2 added late.
-        (opc >= OP_vmcall && !instr_is_sse2(instr) && opc != OP_rdtscp))
+        (opc >= OP_vmcall && !instr_is_sse2(instr) && opc != OP_rdtscp &&
+         !instr_is_cet_nop(instr)))
         return false;
     return true;
 }
@@ -572,7 +583,7 @@ opcode_supported_Westmere(instr_t *instr)
         // We assume that new and only new opcodes were appended to
         // the enum, except some SSE2 added late.
         // We assume we don't care about AMD SVM or Intel VMX (user-mode only).
-        (opc >= OP_movbe && !instr_is_sse2(instr)))
+        (opc >= OP_movbe && !instr_is_sse2(instr) && !instr_is_cet_nop(instr)))
         return false;
     return true;
 }
@@ -610,7 +621,8 @@ opcode_supported_Sandybridge(instr_t *instr)
         // We assume that new and only new opcodes were appended to
         // the enum, except some SSE2 and split *xsave64 added late.
         // We assume we don't care about AMD SVM.
-        (opc >= OP_vcvtph2ps && !(opc >= OP_movq2dq && opc <= OP_xsaveopt64)))
+        (opc >= OP_vcvtph2ps && !(opc >= OP_movq2dq && opc <= OP_xsaveopt64) &&
+         !instr_is_cet_nop(instr)))
         return false;
     return true;
 }
@@ -649,7 +661,7 @@ opcode_supported_Ivybridge(instr_t *instr)
         (opc >= OP_vfmadd132ps && opc <= OP_vfnmsub231sd) ||
         // We assume that new and only new opcodes were appended to the enum.
         // We assume we don't care about AMD SVM.
-        opc >= OP_rdseed)
+        (opc >= OP_rdseed && !instr_is_cet_nop(instr)))
         return false;
     return true;
 }
