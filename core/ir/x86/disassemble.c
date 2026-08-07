@@ -302,7 +302,8 @@ suppress_memory_size_annotations(instr_t *instr)
 static const char *
 instr_opcode_name_suffix(instr_t *instr)
 {
-    if (TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
+    if (TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) &&
+        instr_operands_valid(instr)) {
         /* add "b" or "d" suffix */
         switch (instr_get_opcode(instr)) {
         case OP_pushf:
@@ -351,6 +352,24 @@ instr_opcode_name_suffix(instr_t *instr)
             else if (sz == 12)
                 return "d";
             else if (sz == 40)
+                return "q";
+            break;
+        }
+        case OP_rdssp: {
+            opnd_size_t sz = opnd_get_size(instr_get_dst(instr, 0));
+            if (sz == OPSZ_4)
+                return "d";
+            else if (sz == OPSZ_8)
+                return "q";
+            break;
+        }
+        case OP_incssp:
+        case OP_wrss:
+        case OP_wruss: {
+            opnd_size_t sz = opnd_get_size(instr_get_src(instr, 0));
+            if (sz == OPSZ_4)
+                return "d";
+            else if (sz == OPSZ_8)
                 return "q";
             break;
         }
