@@ -302,12 +302,11 @@ suppress_memory_size_annotations(instr_t *instr)
 static const char *
 instr_opcode_name_suffix(instr_t *instr)
 {
-    if (TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) &&
-        instr_operands_valid(instr)) {
+    bool att = TESTANY(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask));
+    bool intel = TESTANY(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask));
+    if ((att || intel) && instr_operands_valid(instr)) {
         /* add "b" or "d" suffix */
         switch (instr_get_opcode(instr)) {
-        case OP_pushf:
-        case OP_popf:
         case OP_xlat:
         case OP_ins:
         case OP_rep_ins:
@@ -336,21 +335,32 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "q";
             break;
         }
+        case OP_pushf:
+        case OP_popf: {
+            uint sz = instr_memory_reference_size(instr);
+            if (sz == 2)
+                return att ? "w" : "";
+            else if (sz == 4)
+                return "d"; /* Some tools use "l" for att. */
+            else if (sz == 8)
+                return "q";
+            break;
+        }
         case OP_pusha:
         case OP_popa: {
             uint sz = instr_memory_reference_size(instr);
             if (sz == 16)
-                return "w";
+                return att ? "w" : "";
             else if (sz == 32)
-                return "d";
+                return "d"; /* Some tools use "l" for att. */
             break;
         }
         case OP_iret: {
             uint sz = instr_memory_reference_size(instr);
             if (sz == 6)
-                return "w";
+                return att ? "w" : "";
             else if (sz == 12)
-                return "d";
+                return "d"; /* Some tools use "l" for att. */
             else if (sz == 40)
                 return "q";
             break;
@@ -427,8 +437,12 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t buf
      * For data16, we'd look for 16-bit reg or OPSZ_2 immed or base_disp.
      */
     if (!TESTANY(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
-        if (TESTANY(PREFIX_DATA, instr->prefixes))
+        if (TESTANY(PREFIX_DATA, instr->prefixes)) {
+            /* XXX i#8044: Xed now prints "data16" so maybe we should
+             * reconsider whether to print this for Intel style.
+             */
             print_to_buffer(buf, bufsz, sofar, "data16 ");
+        }
         if (TESTANY(PREFIX_ADDR, instr->prefixes) &&
             !suppress_memory_size_annotations(instr)) {
             print_to_buffer(buf, bufsz, sofar,

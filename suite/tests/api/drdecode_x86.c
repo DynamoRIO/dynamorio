@@ -59,9 +59,36 @@ test_disasm_style(void)
                                          opnd_create_reg(REG_EAX)));
     instrlist_append(
         ilist, INSTR_CREATE_mov_imm(GD, opnd_create_reg(REG_EDI), OPND_CREATE_INT32(17)));
+    /* Test instructions with custom suffixes. */
+    instrlist_append(ilist, INSTR_CREATE_iret(GD));
+    instrlist_append(ilist, INSTR_CREATE_pushf(GD));
+    instrlist_append(ilist, INSTR_CREATE_popf(GD));
+#ifndef X64
+    instrlist_append(ilist, INSTR_CREATE_pusha(GD));
+    instrlist_append(ilist, INSTR_CREATE_popa(GD));
+#endif
     end = instrlist_encode(GD, ilist, buf, false);
+    ASSERT(end != NULL && end - buf < BUFFER_SIZE_ELEMENTS(buf));
+    /* It's a pain to synthesize the data16 versions so we use the encoding. */
+    *end++ = 0x66;
+    *end++ = 0xcf; /* iret */
+    *end++ = 0x66;
+    *end++ = 0x9c; /* push */
+    *end++ = 0x66;
+    *end++ = 0x9d; /* popf */
+#ifndef X64
+    *end++ = 0x66;
+    *end++ = 0x60; /* pusha */
+    *end++ = 0x66;
+    *end++ = 0x61; /* popa */
+#endif
     ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
 
+    pc = buf;
+    while (pc < end)
+        pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
+
+    disassemble_set_syntax(DR_DISASM_ATT);
     pc = buf;
     while (pc < end)
         pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
