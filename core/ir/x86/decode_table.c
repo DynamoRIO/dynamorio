@@ -5298,6 +5298,9 @@ const instr_info_t prefix_extensions[][12] = {
   }, { /* prefix extension 142 */
     {INVALID,        0x38f518, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f518, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    /* Disassembled as wrussd for 32-bit operands or wrussq for 64-bit.
+     * The suffix is appended by instr_opcode_name_suffix().
+     */
     {OP_wruss,     0x6638f518, catState, "wruss", My, xx, Gy, xx, xx, mrm, x, END_LIST},
     {INVALID,      0xf238f518, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_bzhi,        0x38f518, catUncategorized, "bzhi",    Gy, xx, Ey, By, xx, mrm|vex, fW6, END_LIST},
@@ -5309,6 +5312,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x6638f518, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf238f518, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 143 */
+    /* Disassembled as wrssd for 32-bit operands or wrssq for 64-bit.
+     * The suffix is appended by instr_opcode_name_suffix().
+     */
     {OP_wrss,        0x38f618, catState, "wrss", My, xx, Gy, xx, xx, mrm, x, END_LIST},
     {OP_adox,      0xf338f618, catUncategorized, "adox",    Gy, xx, Ey, Gy, xx, mrm, (fWO|fRO), END_LIST},
     {OP_adcx,      0x6638f618, catMath, "adcx",    Gy, xx, Ey, Gy, xx, mrm, (fWC|fRC), END_LIST},
@@ -6101,6 +6107,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf20f1e37, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 200 */
     {OP_lfence,   0xe80fae75, catState, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
+    /* Disassembled as incsspd for 32-bit operands or incsspq for 64-bit.
+     * The suffix is appended by instr_opcode_name_suffix().
+     */
     {OP_incssp,   0xf30fae35, catState, "incssp", xx, xx, Ry, xx, xx, mrm, x, END_LIST},
     {INVALID,     0x660fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf20fae35, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -7283,6 +7292,9 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 127 */
     {OP_nop_modrm, 0xf30f1e31, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    /* Disassembled as rdsspd for 32-bit operands or rdsspq for 64-bit.
+     * The suffix is appended by instr_opcode_name_suffix().
+     */
     {OP_rdssp,     0xf30f1e31, catState, "rdssp", Ry, xx, xx, xx, xx, mrm, x, END_LIST},
   }
 };
