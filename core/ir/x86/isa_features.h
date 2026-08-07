@@ -1,5 +1,5 @@
 #ifndef _DR_IR_ISA_FEATURES_X86_H_
-#define _DR_IR_ISA_FEATURES_X86_H_ 1
+#define _DR_IR_ISA_FEATURES_X86_H_
 
 /****************************************************************************
  * ISA_FEATURE

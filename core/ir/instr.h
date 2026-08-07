@@ -68,7 +68,9 @@ struct instr_info_t;
  */
 /* Inlining macro controls. */
 #ifndef INSTR_INLINE
-#    ifdef DR_FAST_IR
+#    ifdef LINUX_KERNEL
+#        define INSTR_INLINE static inline
+#    elif defined(DR_FAST_IR)
 #        define INSTR_INLINE inline
 #    else
 #        define INSTR_INLINE

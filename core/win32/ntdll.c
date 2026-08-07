@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -867,7 +867,7 @@ is_thread_exited(HANDLE hthread)
         ASSERT(false && "Not a valid thread handle.");
         return THREAD_EXIT_ERROR;
     }
-    if (!TEST(SYNCHRONIZE, nt_get_handle_access_rights(hthread))) {
+    if (!TESTANY(SYNCHRONIZE, nt_get_handle_access_rights(hthread))) {
         /* Note that our own thread handles will have SYNCHRONIZE since, like
          * THREAD_TERMINATE, that seems to be a right the thread can always get for
          * itself (prob. due to how stacks are freed). So only a potential issue with
@@ -1052,9 +1052,9 @@ get_peb32(HANDLE process, HANDLE thread)
     NTSTATUS res = query_thread_info(thread, &info);
     if (!NT_SUCCESS(res))
         return 0;
-        /* Bizarrely, info.TebBaseAddress points 2 pages too low!  We do sanity
-         * checks to confirm we have a TEB by looking at its self pointer.
-         */
+    /* Bizarrely, info.TebBaseAddress points 2 pages too low!  We do sanity
+     * checks to confirm we have a TEB by looking at its self pointer.
+     */
 #    define TEB32_QUERY_OFFS 0x2000
     byte *teb32 = (byte *)info.TebBaseAddress;
     uint ptr32;
@@ -1408,7 +1408,7 @@ get_own_context_integer_control(CONTEXT *cxt, reg_t cs, reg_t ss, priv_mcontext_
 void
 get_own_context(CONTEXT *cxt)
 {
-    if (TEST(CONTEXT_SEGMENTS, cxt->ContextFlags)) {
+    if (TESTANY(CONTEXT_SEGMENTS, cxt->ContextFlags)) {
         get_segments_defg(&cxt->SegDs, &cxt->SegEs, &cxt->SegFs, &cxt->SegGs);
     }
     /* XXX : do we want CONTEXT_DEBUG_REGISTERS or CONTEXT_FLOATING_POINT
@@ -1755,14 +1755,14 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots, uint alignm
      * and mark ALL entries inbetween.  Of course we know we can't go
      * beyond index 63 in either request.
      */
-    if (TEST(TLS_FLAG_BITMAP_FILL, tls_flags)) {
+    if (TESTANY(TLS_FLAG_BITMAP_FILL, tls_flags)) {
         int first_to_fill = bitmap_find_free_sequence(
             peb->TlsBitmap->BitMapBuffer, peb->TlsBitmap->SizeOfBitMap, 1, /* single */
             false,                                                         /* bottom up */
             0, 0 /* no alignment */);
         ASSERT_NOT_TESTED();
         /* we only fill from the front - and taking all up to the top isn't nice */
-        ASSERT(!TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags));
+        ASSERT(!TESTANY(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags));
         ASSERT_NOT_IMPLEMENTED(false);
         /* XXX: need to save first slot, so we can free the
          * filled slots on exit */
@@ -1808,14 +1808,14 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots, uint alignm
      * bitmap */
     start = bitmap_find_free_sequence(peb->TlsBitmap->BitMapBuffer,
                                       peb->TlsBitmap->SizeOfBitMap, num_slots,
-                                      TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags),
+                                      TESTANY(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags),
                                       0 /* align first element */, alignment);
 
-    if (!TEST(TLS_FLAG_CACHE_LINE_START, tls_flags)) {
+    if (!TESTANY(TLS_FLAG_CACHE_LINE_START, tls_flags)) {
         /* try either way, worthwhile only if we fit into an alignment unit */
         int end_aligned = bitmap_find_free_sequence(
             peb->TlsBitmap->BitMapBuffer, peb->TlsBitmap->SizeOfBitMap, num_slots,
-            TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags),
+            TESTANY(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags),
             /* align the end of last
              * element, so open ended */
             num_slots, alignment);
@@ -1823,7 +1823,7 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots, uint alignm
             ASSERT_NOT_TESTED();
             start = end_aligned;
         } else {
-            if (TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags)) {
+            if (TESTANY(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags)) {
                 /* prefer latest start */
                 if (start < end_aligned) {
                     start = end_aligned;
@@ -3128,7 +3128,7 @@ get_sd_pointers(DR_PARAM_IN PISECURITY_DESCRIPTOR SecurityDescriptor,
                 DR_PARAM_OUT PACL *Sacl OPTIONAL, DR_PARAM_OUT PACL *Dacl OPTIONAL)
 {
     /* we usually deal with self-relative SIDs as returned by NtQuerySecurityObject */
-    if (TEST(SE_SELF_RELATIVE, SecurityDescriptor->Control)) {
+    if (TESTANY(SE_SELF_RELATIVE, SecurityDescriptor->Control)) {
         PISECURITY_DESCRIPTOR_RELATIVE RelSD =
             (PISECURITY_DESCRIPTOR_RELATIVE)SecurityDescriptor;
         if (Owner != NULL) {
@@ -3208,7 +3208,7 @@ set_owner_sd(PISECURITY_DESCRIPTOR SecurityDescriptor, PSID Owner)
     if (SecurityDescriptor->Revision != SECURITY_DESCRIPTOR_REVISION1) {
         return false;
     }
-    if (TEST(SE_SELF_RELATIVE, SecurityDescriptor->Control)) {
+    if (TESTANY(SE_SELF_RELATIVE, SecurityDescriptor->Control)) {
         ASSERT(false && "we only create absolute security descriptors");
         return false;
     }
@@ -3495,7 +3495,7 @@ nt_create_file(DR_PARAM_OUT HANDLE *file_handle, const wchar_t *filename,
         return res;
     }
 
-    if (TEST(FILE_DISPOSITION_SET_OWNER, create_disposition)) {
+    if (TESTANY(FILE_DISPOSITION_SET_OWNER, create_disposition)) {
         pSD = set_primary_user_owner(&sd);
         create_disposition &= ~FILE_DISPOSITION_SET_OWNER;
     }

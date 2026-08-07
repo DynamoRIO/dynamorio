@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,8 @@
 #include <stdio.h>
 #include "tools.h"
 
-int __declspec(dllimport) in_lib(int arg);
+int __declspec(dllimport)
+in_lib(int arg);
 
 int
 main()

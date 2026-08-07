@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
@@ -45,7 +45,10 @@
 #include "dr_tools.h"
 #include "utils.h"
 #include "module_shared.h"
-#include <math.h>
+
+#ifndef LINUX_KERNEL
+#    include <math.h>
+#endif
 
 #ifdef PROCESS_CONTROL
 #    include "moduledb.h" /* for process control macros */
@@ -92,7 +95,7 @@ sideline_exit(void);
  * performs some cleanup and then calls os_terminate
  */
 static void
-soft_terminate()
+soft_terminate(void)
 {
 #ifdef SIDELINE
     /* kill child threads */
@@ -349,7 +352,7 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex
 /* dump process locks that have been acquired at least once */
 /* XXX: since most mutexes are global we don't have thread private lock lists */
 void
-dump_process_locks()
+dump_process_locks(void)
 {
     mutex_t *cur_lock;
     uint depth = 0;
@@ -386,7 +389,7 @@ dump_process_locks()
 }
 
 uint
-locks_not_closed()
+locks_not_closed(void)
 {
     mutex_t *cur_lock;
     uint forgotten = 0;
@@ -610,7 +613,7 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                         d_r_get_thread_id());
                     dump_owned_locks(dcontext);
                     /* like syslog don't synchronize options for dumpcore_mask */
-                    if (TEST(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
+                    if (TESTANY(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
                         os_dump_core("rank order violation");
                 }
                 ASSERT((dcontext->thread_owned_locks->last_lock->rank < lock->rank ||
@@ -727,7 +730,7 @@ DECLARE_FREQPROT_VAR(static uint random_seed, 1234); /* initialized in utils_ini
 DEBUG_DECLARE(static uint initial_random_seed;)
 
 void
-utils_init()
+utils_init(void)
 {
     /* XXX: We need to find a formula (or a better constant) based on real experiments
        also see comment on spinlock_count_on_SMP in optionsx.h */
@@ -1620,7 +1623,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free)
 /* LOGGING */
 
 file_t
-get_thread_private_logfile()
+get_thread_private_logfile(void)
 {
 #ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -1897,9 +1900,9 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
     LOG(THREAD_GET, LOG_ALL, 1, "%s: %s\n", prefix, msgbuf);
 
 #ifdef WINDOWS
-    if (TEST(priority, dynamo_options.syslog_mask)) {
+    if (TESTANY(priority, dynamo_options.syslog_mask)) {
         if (internal) {
-            if (TEST(priority, INTERNAL_OPTION(syslog_internal_mask))) {
+            if (TESTANY(priority, INTERNAL_OPTION(syslog_internal_mask))) {
                 do_syslog(priority, message_id, 3, get_application_name(),
                           get_application_pid(), msgbuf);
             }
@@ -1913,10 +1916,10 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
     /* syslog not yet implemented on linux, XXX */
 #endif
 
-    if (TEST(priority, dynamo_options.stderr_mask))
+    if (TESTANY(priority, dynamo_options.stderr_mask))
         print_file(STDERR, "<%s>\n", msgbuf);
 
-    if (TEST(priority, dynamo_options.msgbox_mask)) {
+    if (TESTANY(priority, dynamo_options.msgbox_mask)) {
 #ifdef WINDOWS
         /* XXX: could use os_countdown_msgbox (if ever implemented) here to
          * do a timed out messagebox, could then also replace the os_timeout in
@@ -2026,7 +2029,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t prng_lock, INIT_LOCK_FREE(prng_lock));
 #ifdef DEBUG
 /* callers should play it safe - no memory allocations, no grabbing locks */
 bool
-under_internal_exception()
+under_internal_exception(void)
 {
 #    ifdef DEADLOCK_AVOIDANCE
     /* ASSUMPTION: reading owner field is atomic */
@@ -2102,7 +2105,7 @@ set_display_version(const char *ver)
 }
 
 /* Fine to pass NULL for dcontext, will obtain it for you.
- * If TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag), does a full SYSLOG;
+ * If TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag), does a full SYSLOG;
  * else, does a SYSLOG_INTERNAL_ERROR.
  * Fine to pass NULL for report_ebp: will use current ebp for you.
  */
@@ -2179,7 +2182,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
         curbuf += (len == -1 ? REPORT_LEN_STACK_EACH : (len < 0 ? 0 : len));
     }
     /* Only walk the module list if we think the data structs are safe */
-    if (!TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
+    if (!TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
         size_t sofar = 0;
         /* We decided it's better to include the paths even if it means we may
          * not fit all the modules (i#968).  We plan to add the modules to the
@@ -2197,24 +2200,25 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
     *curbuf = '\0';
     /* now done with reportbuf */
 
-    if (TEST(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) && DYNAMO_OPTION(live_dump)) {
+    if (TESTANY(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) &&
+        DYNAMO_OPTION(live_dump)) {
         /* non-fatal coredumps attempted before printing further diagnostics */
         os_dump_core(reportbuf);
     }
 
     /* we already synchronized the options at the top of this function and we
      * might be stack critical so use _NO_OPTION_SYNCH */
-    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag) ||
-        TEST(DUMPCORE_CLIENT_EXCEPTION, dumpcore_flag)) {
+    if (TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag) ||
+        TESTANY(DUMPCORE_CLIENT_EXCEPTION, dumpcore_flag)) {
         char saddr[IF_X64_ELSE(19, 11)];
         snprintf(saddr, BUFFER_SIZE_ELEMENTS(saddr), PFX, exception_addr);
         NULL_TERMINATE_BUFFER(saddr);
-        if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
+        if (TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
             SYSLOG_NO_OPTION_SYNCH(
                 SYSLOG_CRITICAL, EXCEPTION, 7 /*#args*/, get_application_name(),
                 get_application_pid(), exception_label_core,
-                TEST(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ? STACK_OVERFLOW_NAME
-                                                             : CRASH_NAME,
+                TESTANY(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ? STACK_OVERFLOW_NAME
+                                                                : CRASH_NAME,
                 saddr, exception_report_url,
                 /* skip the prefix since the event log string
                  * already has it */
@@ -2223,18 +2227,18 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
             SYSLOG_NO_OPTION_SYNCH(
                 SYSLOG_CRITICAL, CLIENT_EXCEPTION, 7 /*#args*/, get_application_name(),
                 get_application_pid(), exception_label_client,
-                TEST(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ? STACK_OVERFLOW_NAME
-                                                             : CRASH_NAME,
+                TESTANY(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ? STACK_OVERFLOW_NAME
+                                                                : CRASH_NAME,
                 saddr, exception_report_url,
                 reportbuf + report_client_exception_skip_prefix());
         }
-    } else if (TEST(DUMPCORE_ASSERTION, dumpcore_flag)) {
+    } else if (TESTANY(DUMPCORE_ASSERTION, dumpcore_flag)) {
         /* We need to report ASSERTS in DEBUG=1 INTERNAL=0 builds since we're still
          * going to kill the process. Xref PR 232783. d_r_internal_error() already
          * obfuscated the which file info. */
         SYSLOG_NO_OPTION_SYNCH(SYSLOG_ERROR, INTERNAL_SYSLOG_ERROR, 3,
                                get_application_name(), get_application_pid(), reportbuf);
-    } else if (TEST(DUMPCORE_CURIOSITY, dumpcore_flag)) {
+    } else if (TESTANY(DUMPCORE_CURIOSITY, dumpcore_flag)) {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING, "%s", reportbuf);
     } else {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_ERROR, "%s", reportbuf);
@@ -2256,7 +2260,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
      * for client and app crashes but not DR crashes.
      */
     DOLOG(1, LOG_ALL, {
-        if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag))
+        if (TESTANY(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag))
             dump_callstack(exception_addr, report_ebp, THREAD, DUMP_NOT_XML);
         else
             dump_dr_callstack(THREAD);
@@ -2276,7 +2280,8 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
         });
     }
 
-    if (TEST(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) && !DYNAMO_OPTION(live_dump)) {
+    if (TESTANY(dumpcore_flag, DYNAMO_OPTION(dumpcore_mask)) &&
+        !DYNAMO_OPTION(live_dump)) {
         /* fatal coredump goes last */
         os_dump_core(reportbuf);
     }
@@ -2291,7 +2296,7 @@ report_app_problem(dcontext_t *dcontext, uint appfault_flag, app_pc pc, app_pc r
     va_list ap;
     char excpt_addr[IF_X64_ELSE(20, 12)];
 
-    if (!TEST(appfault_flag, DYNAMO_OPTION(appfault_mask)))
+    if (!TESTANY(appfault_flag, DYNAMO_OPTION(appfault_mask)))
         return;
 
     snprintf(excpt_addr, BUFFER_SIZE_ELEMENTS(excpt_addr), PFX, pc);
@@ -2316,7 +2321,7 @@ report_app_problem(dcontext_t *dcontext, uint appfault_flag, app_pc pc, app_pc r
 
     report_diagnostics(buf, NULL, NO_VIOLATION_OK_INTERNAL_STATE);
 
-    if (TEST(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
+    if (TESTANY(DUMPCORE_APP_EXCEPTION, DYNAMO_OPTION(dumpcore_mask)))
         os_dump_core("application fault");
 }
 
@@ -2443,12 +2448,12 @@ safe_write_try_except(void *base, size_t size, const void *in_buf, size_t *bytes
         if (is_readable_without_exception(base, size) &&
             IF_UNIX_ELSE(get_memory_info_from_os, get_memory_info)(base, &region_base,
                                                                    &region_size, &prot) &&
-            TEST(MEMPROT_WRITE, prot)) {
+            TESTANY(MEMPROT_WRITE, prot)) {
             size_t bytes_checked = region_size - ((byte *)base - region_base);
             while (bytes_checked < size) {
                 if (!IF_UNIX_ELSE(get_memory_info_from_os, get_memory_info)(
                         region_base + region_size, &region_base, &region_size, &prot) ||
-                    !TEST(MEMPROT_WRITE, prot))
+                    !TESTANY(MEMPROT_WRITE, prot))
                     return false;
                 bytes_checked += region_size;
             }
@@ -2657,7 +2662,7 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t logdir_mutex,
 
 /* enable creating a new base logdir (for a fork, e.g.) */
 void
-enable_new_log_dir()
+enable_new_log_dir(void)
 {
     logdir_initialized = false;
 }
@@ -2976,7 +2981,7 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
 }
 
 const char *
-get_app_name_for_path()
+get_app_name_for_path(void)
 {
     return get_short_name(get_application_name());
 }
@@ -3259,13 +3264,13 @@ dump_buffer_as_ascii(file_t logfile, char *buffer, size_t len)
 void
 dump_buffer_as_bytes(file_t logfile, void *buffer, size_t len, int flags)
 {
-    bool octal = TEST(DUMP_OCTAL, flags);
-    bool raw = TEST(DUMP_RAW, flags);
-    bool usechars = !raw && !TEST(DUMP_NO_CHARS, flags);
-    bool replayable = usechars && !TEST(DUMP_NO_QUOTING, flags);
-    bool dword = TEST(DUMP_DWORD, flags);
-    bool prepend_address = TEST(DUMP_ADDRESS, flags);
-    bool append_ascii = TEST(DUMP_APPEND_ASCII, flags);
+    bool octal = TESTANY(DUMP_OCTAL, flags);
+    bool raw = TESTANY(DUMP_RAW, flags);
+    bool usechars = !raw && !TESTANY(DUMP_NO_CHARS, flags);
+    bool replayable = usechars && !TESTANY(DUMP_NO_QUOTING, flags);
+    bool dword = TESTANY(DUMP_DWORD, flags);
+    bool prepend_address = TESTANY(DUMP_ADDRESS, flags);
+    bool append_ascii = TESTANY(DUMP_APPEND_ASCII, flags);
 
     unsigned char *buf = (unsigned char *)buffer;
 
@@ -3455,7 +3460,7 @@ print_version_and_app_info(file_t file)
 }
 
 void
-utils_exit()
+utils_exit(void)
 {
     LOG(GLOBAL, LOG_STATS, 1, "-prng_seed " PFX " for reproducing random sequence\n",
         initial_random_seed);
@@ -4250,7 +4255,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t profile_callers_lock,
  * XXX: combine w/ a generalized mutex_collect_callstack()?
  */
 void
-profile_callers()
+profile_callers(void)
 {
     profile_callers_t *entry;
     uint *pc;
@@ -4305,7 +4310,7 @@ profile_callers()
 }
 
 void
-profile_callers_exit()
+profile_callers_exit(void)
 {
     profile_callers_t *entry, *next;
     file_t file;

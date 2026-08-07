@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2042,8 +2042,8 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
     if (d_r_get_thread_id() == tid) {
         /* Simple case when called on own thread. */
         /* XXX i#2249 : we should handle these flags. */
-        ASSERT_NOT_IMPLEMENTED(!TEST(CONTEXT_CONTROL, cxt->ContextFlags) &&
-                               !TEST(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags));
+        ASSERT_NOT_IMPLEMENTED(!TESTANY(CONTEXT_CONTROL, cxt->ContextFlags) &&
+                               !TESTANY(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags));
         return execute_syscall;
     }
     d_r_mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
@@ -2116,7 +2116,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
          * all synch_with_thread synch points should be, we check here
          */
         ASSERT(!is_couldbelinking(tr->dcontext));
-        if (TEST(THREAD_SET_CONTEXT, nt_get_handle_access_rights(thread_handle))) {
+        if (TESTANY(THREAD_SET_CONTEXT, nt_get_handle_access_rights(thread_handle))) {
             /* Case 10101: a thread waiting at check_wait_at_safe_spot can't
              * be directly setcontext-ed so we explicitly do the context
              * set request here and skip the system call.
@@ -2320,11 +2320,11 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
     uint type = (uint)sys_param(dcontext, param_base, 4 + arg_shift);
     uint prot = (uint)sys_param(dcontext, param_base, 5 + arg_shift);
     app_pc base;
-    if (is_phandle_me(process_handle) && TEST(MEM_COMMIT, type) &&
+    if (is_phandle_me(process_handle) && TESTANY(MEM_COMMIT, type) &&
         /* Any overlap when asking for MEM_RESERVE (even when combined w/ MEM_COMMIT)
          * will fail anyway, so we only have to worry about overlap on plain MEM_COMMIT
          */
-        !TEST(MEM_RESERVE, type)) {
+        !TESTANY(MEM_RESERVE, type)) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         size_t size;
         if (d_r_safe_read(pbase, sizeof(base), &base) &&
@@ -2336,7 +2336,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
         }
     }
 #ifdef PROGRAM_SHEPHERDING
-    if (is_phandle_me(process_handle) && TEST(MEM_COMMIT, type) &&
+    if (is_phandle_me(process_handle) && TESTANY(MEM_COMMIT, type) &&
         TESTALL(PAGE_EXECUTE_READWRITE, prot)) {
         /* executable_if_alloc policy says we only add a region to the future
          * list if it is committed rwx with no prior reservation.
@@ -2350,14 +2350,15 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
          * (unless have try...except)
          */
         if (d_r_safe_read(pbase, sizeof(base), &base)) {
-            dcontext->alloc_no_reserve =
-                (base == NULL ||
-                 (TEST(MEM_RESERVE, type) && !get_memory_info(base, NULL, NULL, NULL)));
+            dcontext->alloc_no_reserve = (base == NULL ||
+                                          (TESTANY(MEM_RESERVE, type) &&
+                                           !get_memory_info(base, NULL, NULL, NULL)));
             /* XXX: can one MEM_RESERVE an address previously
              * MEM_RESERVEd - at least on XP that's not allowed */
         }
-    } else if (TEST(ASLR_STACK, DYNAMO_OPTION(aslr)) && !is_phandle_me(process_handle) &&
-               TEST(MEM_RESERVE, type) && is_newly_created_process(process_handle)) {
+    } else if (TESTANY(ASLR_STACK, DYNAMO_OPTION(aslr)) &&
+               !is_phandle_me(process_handle) && TESTANY(MEM_RESERVE, type) &&
+               is_newly_created_process(process_handle)) {
         /* pre-processing of remote NtAllocateVirtualMemory reservation */
         /* Case 9173: ignore allocations with a requested base.  These may come
          * after we've inserted our pad (is_newly_created_process() isn't
@@ -2512,7 +2513,7 @@ presys_FreeVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
     if (type == MEM_RELEASE) {
         check_for_stack_free(dcontext, base, size);
     }
-    if (type == MEM_RELEASE && TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr))) {
+    if (type == MEM_RELEASE && TESTANY(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr))) {
         /* We free our allocation before the application
          * reservation is released.  Not a critical failure if the
          * application free fails but we have freed our pad.  Also
@@ -3706,16 +3707,16 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
         "syscall: NtAllocateVirtualMemory%s%s%s@" PFX " sz=" PIFX
         " prot=%s 0x%x => 0x%x\n",
         is_phandle_me(process_handle) ? "" : " IPC",
-        TEST(MEM_RESERVE, type) ? " reserve" : "",
-        TEST(MEM_COMMIT, type) ? " commit  " : " ", base, size, prot_string(prot), prot,
-        mc->xax);
+        TESTANY(MEM_RESERVE, type) ? " reserve" : "",
+        TESTANY(MEM_COMMIT, type) ? " commit  " : " ", base, size, prot_string(prot),
+        prot, mc->xax);
     DOLOG(1, LOG_MEMSTATS, {
         /* snapshots are heavyweight, so do rarely */
         if (size > SNAPSHOT_THRESHOLD && is_phandle_me(process_handle))
             mem_stats_snapshot();
     });
 
-    if (TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr)) && is_phandle_me(process_handle)) {
+    if (TESTANY(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr)) && is_phandle_me(process_handle)) {
         /* We allocate our padding after the application region is
          * successfully reserved.  XXX: assuming that one cannot
          * pass MEM_RESERVE|MEM_COMMIT on an already reserved
@@ -3730,7 +3731,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
          * after an allocation but that may change.)
          */
 
-        /* XXX: case 6287 we should TEST(MEM_RESERVE, type) if
+        /* XXX: case 6287 we should TESTANY(MEM_RESERVE, type) if
          * allocation has just been reserved, or if pre_syscall
          * base was NULL for a MEM_COMMIT.  Currently a pad is
          * reserved only in case immediate region has not been
@@ -3740,7 +3741,7 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
         aslr_post_process_allocate_virtual_memory(dcontext, base, size);
     }
 
-    if (!TEST(MEM_COMMIT, type)) {
+    if (!TESTANY(MEM_COMMIT, type)) {
         /* MEM_RESERVE only: protection bits are meaningless, we do nothing
          * MEM_RESET: we do not need to flush on a reset, since whatever is there
          * cannot be changed without writing to it!
@@ -3751,11 +3752,11 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
     }
     if (is_phandle_me(process_handle)) {
 #ifdef DGC_DIAGNOSTICS
-        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, TEST(MEM_COMMIT, type) ? 1U : 2U,
+        LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, TESTANY(MEM_COMMIT, type) ? 1U : 2U,
             "syscall: NtAllocateVirtualMemory%s%s@" PFX " sz=" PIFX
             " prot=%s 0x%x => 0x%x\n",
-            TEST(MEM_RESERVE, type) ? " reserve" : "",
-            TEST(MEM_COMMIT, type) ? " commit  " : " ", base, size, prot_string(prot),
+            TESTANY(MEM_RESERVE, type) ? " reserve" : "",
+            TESTANY(MEM_COMMIT, type) ? " commit  " : " ", base, size, prot_string(prot),
             prot, mc->xax);
         DOLOG(1, LOG_VMAREAS, {
             dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc)mc->xbp, THREAD,
@@ -3873,8 +3874,8 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                     LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 1,
                         "WARNING: QueryVM to DR DLL " PFX ", pretending not a dll\n",
                         base);
-                    if (TEST(HIDE_FROM_QUERY_TYPE_PROTECT,
-                             DYNAMO_OPTION(hide_from_query))) {
+                    if (TESTANY(HIDE_FROM_QUERY_TYPE_PROTECT,
+                                DYNAMO_OPTION(hide_from_query))) {
                         mbi->Type = MEM_PRIVATE; /* not image! */
                         mbi->Protect = PAGE_NOACCESS;
                     }
@@ -3883,7 +3884,8 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                      * XXX: app could still use a snapshot to get list
                      * of modules, but that is covered by -hide
                      */
-                    if (TEST(HIDE_FROM_QUERY_BASE_SIZE, DYNAMO_OPTION(hide_from_query))) {
+                    if (TESTANY(HIDE_FROM_QUERY_BASE_SIZE,
+                                DYNAMO_OPTION(hide_from_query))) {
                         mbi->AllocationBase = ((app_pc)mbi->AllocationBase) + PAGE_SIZE;
                         mbi->BaseAddress = ((app_pc)mbi->BaseAddress) + PAGE_SIZE;
                         /* skip over the other regions in our dll -- ok to
@@ -3895,8 +3897,8 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                     }
                     /* note that returning STATUS_INVALID_ADDRESS is too
                      * extreme of a solution, so this is off by default */
-                    if (TEST(HIDE_FROM_QUERY_RETURN_INVALID,
-                             DYNAMO_OPTION(hide_from_query))) {
+                    if (TESTANY(HIDE_FROM_QUERY_RETURN_INVALID,
+                                DYNAMO_OPTION(hide_from_query))) {
                         /* XXX: SET_RETURN_VAL bug 5068 had return val as 0
                          * Need to re-test this with this actual return val
                          */
@@ -4020,10 +4022,10 @@ postsys_CreateSection(dcontext_t *dcontext, reg_t *param_base, bool success)
         return;
 
     postsys_create_or_open_section(dcontext, unsafe_section_handle, file_handle,
-                                   !TEST(SEC_IMAGE, attributes));
+                                   !TESTANY(SEC_IMAGE, attributes));
 
-    if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr))) {
-        if (TEST(SEC_IMAGE, attributes)) {
+    if (TESTANY(ASLR_DLL, DYNAMO_OPTION(aslr))) {
+        if (TESTANY(SEC_IMAGE, attributes)) {
             if (aslr_post_process_create_or_open_section(dcontext, true, /* create */
                                                          file_handle,
                                                          unsafe_section_handle)) {
@@ -4065,8 +4067,8 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
      * call aslr_recreate_known_dll_file() at all?
      */
     if ((DYNAMO_OPTION(track_module_filenames) ||
-         (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
-          TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)))) &&
+         (TESTANY(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
+          TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)))) &&
         obj_attr != NULL) {
         /* need to identify KnownDlls here */
         /* XXX: NtOpenSection doesn't give us section attributes,
@@ -4093,8 +4095,8 @@ postsys_OpenSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                     "syscall: NtOpenSection: unable to recreate file handle\n");
             }
 
-            if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
-                TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))) {
+            if (TESTANY(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
+                TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))) {
                 if (aslr_post_process_create_or_open_section(dcontext, false, /* open */
                                                              /* recreated file */
                                                              new_file_handle,

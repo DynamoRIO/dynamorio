@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,26 +30,22 @@
  * DAMAGE.
  */
 
-/* Shared utilities for Extension implementations */
+#include <linux/module.h>
 
-#ifndef EXT_UTILS_H
-#define EXT_UTILS_H
+MODULE_LICENSE("Dual BSD/GPL");
 
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
+static int __init
+dynamorio_module_init(void)
+{
+    pr_info("DynamoRIO module started\n");
+    return 0;
+}
 
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
+static void __exit
+dynamorio_module_exit(void)
+{
+    pr_info("DynamoRIO module exited\n");
+}
 
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
-
-#endif /* EXT_UTILS_H */
+module_init(dynamorio_module_init);
+module_exit(dynamorio_module_exit);

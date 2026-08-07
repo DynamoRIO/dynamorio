@@ -915,7 +915,7 @@ get_uname(void)
  *
  */
 static void
-detect_unsupported_syscalls()
+detect_unsupported_syscalls(void)
 {
     /* We know that when clone3 is available, it fails with EINVAL with
      * these args.
@@ -1152,7 +1152,7 @@ get_application_pid_helper(bool ignore_cache)
 
 /* get application pid, (cached), used for event logging */
 char *
-get_application_pid()
+get_application_pid(void)
 {
     return get_application_pid_helper(false);
 }
@@ -1275,7 +1275,7 @@ set_app_args(DR_PARAM_IN int *app_argc_in, DR_PARAM_IN char **app_argv_in)
 
 /* Returns the number of application's command-line arguments. */
 int
-num_app_args()
+num_app_args(void)
 {
     if (!DYNAMO_OPTION(early_inject)) {
         set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
@@ -1356,7 +1356,7 @@ get_timer_frequency_cpuinfo(void)
 }
 
 timestamp_t
-get_timer_frequency()
+get_timer_frequency(void)
 {
 #ifdef VMX86_SERVER
     if (os_in_vmkernel_userworld()) {
@@ -1407,7 +1407,7 @@ query_time_seconds(void)
 
 /* milliseconds since 1601 */
 uint64
-query_time_millis()
+query_time_millis(void)
 {
     struct timeval current_time;
 #if !(defined(MACOS) && defined(AARCH64))
@@ -1442,7 +1442,7 @@ query_time_millis()
 
 /* microseconds since 1601 */
 uint64
-query_time_micros()
+query_time_micros(void)
 {
     struct timeval current_time;
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
@@ -1472,7 +1472,7 @@ query_time_micros()
    and should be used only in well known points for release build.
 */
 static app_pc
-find_stack_bottom()
+find_stack_bottom(void)
 {
     app_pc retaddr = 0;
     int depth = 0;
@@ -1561,13 +1561,13 @@ os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t flags, int exit_c
     /* i#1319: we support a signal via 2nd byte */
     bool use_signal = exit_code > 0x00ff;
     /* XXX: TERMINATE_THREAD not supported */
-    ASSERT_NOT_IMPLEMENTED(TEST(TERMINATE_PROCESS, flags));
+    ASSERT_NOT_IMPLEMENTED(TESTANY(TERMINATE_PROCESS, flags));
     if (use_signal) {
         int sig = (exit_code & 0xff00) >> 8;
         os_terminate_via_signal(dcontext, flags, sig);
         ASSERT_NOT_REACHED();
     }
-    if (TEST(TERMINATE_CLEANUP, flags)) {
+    if (TESTANY(TERMINATE_CLEANUP, flags)) {
         /* we enter from several different places, so rewind until top-level kstat */
         KSTOP_REWIND_UNTIL(thread_measured);
         block_cleanup_and_terminate(dcontext, SYSNUM_EXIT_PROCESS, exit_code, 0,
@@ -2079,7 +2079,7 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base)
  * allocate a temporary TLS region until os_tls_init.
  */
 void *
-os_tls_thread_init_temp()
+os_tls_thread_init_temp(void)
 {
     void *temp_tls = NULL;
     if (!read_thread_register(TLS_REG_LIB)) {
@@ -2211,7 +2211,7 @@ get_app_segment_base(uint seg)
 }
 
 local_state_extended_t *
-get_local_state_extended()
+get_local_state_extended(void)
 {
     os_local_state_t *os_tls = NULL;
     ASSERT(is_thread_tls_initialized());
@@ -2220,7 +2220,7 @@ get_local_state_extended()
 }
 
 local_state_t *
-get_local_state()
+get_local_state(void)
 {
 #ifdef HAVE_TLS
     return (local_state_t *)get_local_state_extended();
@@ -2462,7 +2462,7 @@ os_tls_init(void)
 }
 
 static bool
-should_zero_tls_at_thread_exit()
+should_zero_tls_at_thread_exit(void)
 {
 #ifdef X86
     /* i#2089: For a thread w/o CLONE_SIGHAND we cannot handle a fault, so we want to
@@ -2874,7 +2874,7 @@ os_fork_init(dcontext_t *dcontext)
                                          (void **)&flags);
         if (iter < 0)
             break;
-        if (TEST(OS_OPEN_CLOSE_ON_FORK, flags)) {
+        if (TESTANY(OS_OPEN_CLOSE_ON_FORK, flags)) {
             close_syscall((file_t)fd);
             iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, fd_table, iter, fd);
         }
@@ -3034,7 +3034,7 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
 {
     if (os_should_swap_state())
         os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
-    if (TEST(DR_STATE_DR_TLS, flags))
+    if (TESTANY(DR_STATE_DR_TLS, flags))
         os_swap_dr_tls(dcontext, to_app);
 }
 
@@ -3122,7 +3122,7 @@ detach_finalize_cleanup(void)
 }
 
 static pid_t
-get_process_group_id()
+get_process_group_id(void)
 {
     return dynamorio_syscall(SYS_getpgid, 0);
 }
@@ -3319,11 +3319,11 @@ static inline uint
 osprot_to_memprot(uint prot)
 {
     uint mem_prot = 0;
-    if (TEST(PROT_EXEC, prot))
+    if (TESTANY(PROT_EXEC, prot))
         mem_prot |= MEMPROT_EXEC;
-    if (TEST(PROT_READ, prot))
+    if (TESTANY(PROT_READ, prot))
         mem_prot |= MEMPROT_READ;
-    if (TEST(PROT_WRITE, prot))
+    if (TESTANY(PROT_WRITE, prot))
         mem_prot |= MEMPROT_WRITE;
     return mem_prot;
 }
@@ -3374,9 +3374,9 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
     byte *p;
     uint os_prot = memprot_to_osprot(prot);
     uint os_flags =
-        MAP_PRIVATE | MAP_ANONYMOUS | (TEST(RAW_ALLOC_32BIT, flags) ? MAP_32BIT : 0);
+        MAP_PRIVATE | MAP_ANONYMOUS | (TESTANY(RAW_ALLOC_32BIT, flags) ? MAP_32BIT : 0);
 #if defined(MACOS) && defined(AARCH64)
-    if (TEST(MEMPROT_EXEC, prot))
+    if (TESTANY(MEMPROT_EXEC, prot))
         os_flags |= MAP_JIT;
 #endif
 
@@ -3788,7 +3788,7 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
 
 /* yield the current thread */
 void
-os_thread_yield()
+os_thread_yield(void)
 {
 #ifdef MACOS
     /* XXX i#1291: use raw syscall instead */
@@ -4749,7 +4749,7 @@ os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uin
 #ifdef VMX86_SERVER
     flags = MAP_PRIVATE; /* MAP_SHARED not supported yet */
 #else
-    flags = TEST(MAP_FILE_COPY_ON_WRITE, map_flags) ? MAP_PRIVATE : MAP_SHARED;
+    flags = TESTANY(MAP_FILE_COPY_ON_WRITE, map_flags) ? MAP_PRIVATE : MAP_SHARED;
 #endif
 #if defined(X64)
     /* Allocate memory from reachable range for image: or anything (pcache
@@ -4764,17 +4764,17 @@ os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uin
      * so we can request memory from a particular address with fixed argument */
     if (f == -1)
         flags |= MAP_ANONYMOUS;
-    if (TEST(MAP_FILE_FIXED, map_flags))
+    if (TESTANY(MAP_FILE_FIXED, map_flags))
         flags |= MAP_FIXED;
 #if defined(X64)
-    if (!TEST(MAP_32BIT, flags) && TEST(MAP_FILE_REACHABLE, map_flags)) {
+    if (!TESTANY(MAP_32BIT, flags) && TESTANY(MAP_FILE_REACHABLE, map_flags)) {
         vmcode_get_reachable_region(&region_start, &region_end);
         /* addr need not be NULL: we'll use it if it's in the region */
-        ASSERT(!TEST(MAP_FILE_FIXED, map_flags));
+        ASSERT(!TESTANY(MAP_FILE_FIXED, map_flags));
         /* Loop to handle races */
         loop = true;
     }
-    if ((!TEST(MAP_32BIT, flags) && TEST(MAP_FILE_REACHABLE, map_flags) &&
+    if ((!TESTANY(MAP_32BIT, flags) && TESTANY(MAP_FILE_REACHABLE, map_flags) &&
          (is_vmm_reserved_address(addr, *size, NULL, NULL) ||
           /* Try to honor a library's preferred address.  This does open up a race
            * window during attach where another thread could take this spot,
@@ -4782,7 +4782,7 @@ os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uin
            * memory.  We live with that as being rare rather than complicate the code.
            */
           !rel32_reachable_from_current_vmcode(addr))) ||
-        (TEST(MAP_FILE_FIXED, map_flags) && !TEST(MAP_FILE_VMM_COMMIT, map_flags) &&
+        (TESTANY(MAP_FILE_FIXED, map_flags) && !TESTANY(MAP_FILE_VMM_COMMIT, map_flags) &&
          is_vmm_reserved_address(addr, *size, NULL, NULL))) {
         if (DYNAMO_OPTION(vm_reserve)) {
             /* Try to get space inside the vmcode reservation. */
@@ -5182,7 +5182,7 @@ os_set_protection(byte *pc, size_t length, uint prot /*MEMPROT_*/)
     uint flags = memprot_to_osprot(prot);
     DOSTATS({
         /* once on each side of prot, to get on right side of writability */
-        if (!TEST(PROT_WRITE, flags)) {
+        if (!TESTANY(PROT_WRITE, flags)) {
             STATS_INC(protection_change_calls);
             STATS_ADD(protection_change_pages, num_bytes / PAGE_SIZE);
         }
@@ -5197,7 +5197,7 @@ os_set_protection(byte *pc, size_t length, uint prot /*MEMPROT_*/)
         num_bytes / PAGE_SIZE);
     DOSTATS({
         /* once on each side of prot, to get on right side of writability */
-        if (TEST(PROT_WRITE, flags)) {
+        if (TESTANY(PROT_WRITE, flags)) {
             STATS_INC(protection_change_calls);
             STATS_ADD(protection_change_pages, num_bytes / PAGE_SIZE);
         }
@@ -5358,7 +5358,7 @@ os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext)
             interrupt = instr_get_interrupt_number(gateway);
     } else {
         ASSERT(dcontext != NULL);
-        if (TEST(LINK_SPECIAL_EXIT, dcontext->last_exit->flags)) {
+        if (TESTANY(LINK_SPECIAL_EXIT, dcontext->last_exit->flags)) {
             if (dcontext->upcontext.upcontext.exit_reason ==
                 EXIT_REASON_NI_SYSCALL_INT_0x81)
                 interrupt = 0x81;
@@ -5370,7 +5370,7 @@ os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext)
         }
     }
 #    ifdef X64
-    if (TEST(SYSCALL_NUM_MARKER_BSD, num_raw))
+    if (TESTANY(SYSCALL_NUM_MARKER_BSD, num_raw))
         return (int)(num_raw & 0xffffff); /* Drop BSD bit */
     else
         num = (int)num_raw; /* Keep Mach and Machdep bits */
@@ -5668,7 +5668,7 @@ static inline bool
 syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
 {
 #ifdef MACOS
-    if (TEST(SYSCALL_NUM_MARKER_MACH, normalized_sysnum)) {
+    if (TESTANY(SYSCALL_NUM_MARKER_MACH, normalized_sysnum)) {
         /* XXX: Mach syscalls vary (for some KERN_SUCCESS=0 is success,
          * for others that return mach_port_t 0 is failure (I think?).
          * We defer to drsyscall.
@@ -5676,9 +5676,9 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
         return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
     } else {
 #    ifdef X86
-        return !TEST(EFLAGS_CF, mc->xflags);
+        return !TESTANY(EFLAGS_CF, mc->xflags);
 #    elif defined(AARCH64)
-        return !TEST(EFLAGS_C, mc->xflags);
+        return !TESTANY(EFLAGS_C, mc->xflags);
 #    else
 #        error NYI
 #    endif
@@ -5958,7 +5958,7 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, uint64 flags)
         return true;
 #    endif
 #    ifdef LINUX
-    if ((sysnum == SYS_clone || sysnum == SYS_clone3) && TEST(CLONE_VM, flags))
+    if ((sysnum == SYS_clone || sysnum == SYS_clone3) && TESTANY(CLONE_VM, flags))
         return true;
 #    endif
     return false;
@@ -7474,7 +7474,7 @@ pre_system_call(dcontext_t *dcontext)
             /* Check for overlap with existing code or patch-proof regions */
             if (addr != NULL &&
                 !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot),
-                                      !TEST(MAP_FIXED, arg->flags),
+                                      !TESTANY(MAP_FIXED, arg->flags),
                                       false /*we'll update in post*/,
                                       false /*unknown*/)) {
                 /* Rather than failing or skipping the syscall we'd like to just
@@ -7511,13 +7511,13 @@ pre_system_call(dcontext_t *dcontext)
         /* Try to see whether it's an image, though we can't tell for addr==NULL
          * (typical for 1st mmap).
          */
-        bool image = addr != NULL && !TEST(MAP_ANONYMOUS, flags) &&
-            mmap_check_for_module_overlap(addr, len, TEST(PROT_READ, prot), 0, true);
+        bool image = addr != NULL && !TESTANY(MAP_ANONYMOUS, flags) &&
+            mmap_check_for_module_overlap(addr, len, TESTANY(PROT_READ, prot), 0, true);
         if (addr != NULL &&
-            !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot),
-                                  !TEST(MAP_FIXED, flags), false /*we'll update in post*/,
-                                  image /*best estimate*/)) {
-            if (!TEST(MAP_FIXED, flags)) {
+            !app_memory_pre_alloc(
+                dcontext, addr, len, osprot_to_memprot(prot), !TESTANY(MAP_FIXED, flags),
+                false /*we'll update in post*/, image /*best estimate*/)) {
+            if (!TESTANY(MAP_FIXED, flags)) {
                 /* Rather than failing or skipping the syscall we just remove
                  * the hint which should eliminate any overlap.
                  */
@@ -8277,7 +8277,7 @@ pre_system_call(dcontext_t *dcontext)
         IF_AARCHXX(ASSERT_NOT_TESTED());
         uint first_fd = sys_param(dcontext, 0), last_fd = sys_param(dcontext, 1);
         uint flags = sys_param(dcontext, 2);
-        bool is_cloexec = TEST(CLOSE_RANGE_CLOEXEC, flags);
+        bool is_cloexec = TESTANY(CLOSE_RANGE_CLOEXEC, flags);
         if (is_cloexec) {
             /* client.file_io has a test for CLOSE_RANGE_CLOEXEC, but it hasn't been
              * verified on a system with kernel version >= 5.11 yet.
@@ -8808,7 +8808,7 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map, app_pc base, size_t siz
         }
     }
     LOG(THREAD, LOG_SYSCALLS | LOG_VMAREAS, 2, "dlopen " PFX "-" PFX "%s\n", base,
-        base + mod_size, TEST(MEMPROT_EXEC, memprot) ? " +x" : "");
+        base + mod_size, TESTANY(MEMPROT_EXEC, memprot) ? " +x" : "");
 
     /* Mapping in a new module.  From what we've observed of the loader's
      * behavior, it first maps the file in with size equal to the final
@@ -8910,7 +8910,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     uint memprot = osprot_to_memprot(prot);
 #ifdef ANDROID
     /* i#1861: avoid merging file-backed w/ anon regions */
-    if (!TEST(MAP_ANONYMOUS, flags))
+    if (!TESTANY(MAP_ANONYMOUS, flags))
         memprot |= MEMPROT_HAS_COMMENT;
 #endif
 
@@ -8940,18 +8940,18 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
      * can read the memory to see if it is a elf_header
      */
     /* XXX: get inode for check */
-    if (TEST(MAP_ANONYMOUS, flags)) {
+    if (TESTANY(MAP_ANONYMOUS, flags)) {
         /* not an ELF mmap */
         LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": anon\n", base);
-    } else if (mmap_check_for_module_overlap(base, size, TEST(MEMPROT_READ, memprot), 0,
-                                             true)) {
+    } else if (mmap_check_for_module_overlap(base, size, TESTANY(MEMPROT_READ, memprot),
+                                             0, true)) {
         /* XXX - how can we distinguish between the loader mapping the segments
          * over the initial map from someone just mapping over part of a module? If
          * is the latter case need to adjust the view size or remove from module list. */
         image = true;
         DODEBUG({ map_type = "ELF SO"; });
         LOG(THREAD, LOG_SYSCALLS, 4, "mmap " PFX ": overlaps image\n", base);
-    } else if (TEST(MEMPROT_READ, memprot) &&
+    } else if (TESTANY(MEMPROT_READ, memprot) &&
                /* i#727: We can still get SIGBUS on mmap'ed files that can't be
                 * read, so pass size=0 to use a safe_read.
                 */
@@ -9113,10 +9113,11 @@ post_system_call(dcontext_t *dcontext)
         || sysnum ==
             SYS_fork
 #endif
-                IF_LINUX(||
-                         (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)) ||
-                         (sysnum == SYS_clone3 &&
-                          !TEST(CLONE_VM, get_stored_clone3_flags(dcontext))))) {
+                IF_LINUX(
+                    ||
+                    (sysnum == SYS_clone && !TESTANY(CLONE_VM, dcontext->sys_param0)) ||
+                    (sysnum == SYS_clone3 &&
+                     !TESTANY(CLONE_VM, get_stored_clone3_flags(dcontext))))) {
         if (result == 0) {
             /* we're the child */
             thread_id_t child = get_sys_thread_id();
@@ -9356,8 +9357,8 @@ post_system_call(dcontext_t *dcontext)
             if (!get_memory_info_from_os(addr, NULL, NULL, &memprot))
                 memprot = MEMPROT_NONE;
             /* We're post-syscall so from_os should match the prctl */
-            ASSERT((comment == NULL && !TEST(MEMPROT_HAS_COMMENT, memprot)) ||
-                   (comment != NULL && TEST(MEMPROT_HAS_COMMENT, memprot)));
+            ASSERT((comment == NULL && !TESTANY(MEMPROT_HAS_COMMENT, memprot)) ||
+                   (comment != NULL && TESTANY(MEMPROT_HAS_COMMENT, memprot)));
             LOG(THREAD, LOG_SYSCALLS, 2,
                 "syscall: prctl PR_SET_VMA_ANON_NAME base=" PFX " size=" PFX
                 " comment=%s\n",
@@ -9648,8 +9649,8 @@ post_system_call(dcontext_t *dcontext)
             if ((cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC))
                 signal_handle_dup(dcontext, fd, (file_t)result);
         }
-        break;
 #endif
+        break;
     }
 
     case IF_MACOS_ELSE(SYS_getrlimit, IF_X64_ELSE(SYS_getrlimit, SYS_ugetrlimit)): {
@@ -10058,7 +10059,7 @@ get_application_end(void)
 }
 
 app_pc
-get_image_entry()
+get_image_entry(void)
 {
     static app_pc image_entry_point = NULL;
     if (image_entry_point == NULL && executable_start != NULL) {
@@ -10079,7 +10080,7 @@ get_image_entry()
 
 #ifdef DEBUG
 void
-mem_stats_snapshot()
+mem_stats_snapshot(void)
 {
     /* TODO: NYI */
 }
@@ -10101,7 +10102,7 @@ is_in_dynamo_dll(app_pc pc)
 }
 
 app_pc
-get_dynamorio_dll_start()
+get_dynamorio_dll_start(void)
 {
     if (dynamo_dll_start == NULL)
         get_dynamo_library_bounds();
@@ -10110,7 +10111,7 @@ get_dynamorio_dll_start()
 }
 
 app_pc
-get_dynamorio_dll_end()
+get_dynamorio_dll_end(void)
 {
     if (dynamo_dll_end == NULL)
         get_dynamo_library_bounds();
@@ -10119,7 +10120,7 @@ get_dynamorio_dll_end()
 }
 
 app_pc
-get_dynamorio_dll_preferred_base()
+get_dynamorio_dll_preferred_base(void)
 {
     /* on Linux there is no preferred base if we're PIC,
      * therefore is always equal to dynamo_dll_start  */
@@ -10291,12 +10292,12 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
              */
         } else if (add_modules &&
                    mmap_check_for_module_overlap(iter->vm_start, size,
-                                                 TEST(MEMPROT_READ, iter->prot),
+                                                 TESTANY(MEMPROT_READ, iter->prot),
                                                  iter->inode, false)) {
             /* we already added the whole image region when we hit the first map for it */
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
-        } else if (TEST(MEMPROT_READ, iter->prot) &&
+        } else if (TESTANY(MEMPROT_READ, iter->prot) &&
                    module_is_header(iter->vm_start, size)) {
             DEBUG_DECLARE(size_t image_size = size;)
             app_pc mod_base, mod_first_end, mod_max_end;
@@ -10307,8 +10308,9 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
             LOG(GLOBAL, LOG_VMAREAS, 2,
                 "Found already mapped module first segment :\n"
                 "\t" PFX "-" PFX "%s inode=" UINT64_FORMAT_STRING " name=%s\n",
-                iter->vm_start, iter->vm_end, TEST(MEMPROT_EXEC, iter->prot) ? " +x" : "",
-                iter->inode, iter->comment);
+                iter->vm_start, iter->vm_end,
+                TESTANY(MEMPROT_EXEC, iter->prot) ? " +x" : "", iter->inode,
+                iter->comment);
 #    ifdef LINUX
             /* Mapped images should have inodes, except for cases where an anon
              * map is placed on top (i#2566)
@@ -10611,7 +10613,7 @@ query_memory_ex_from_os(const byte *pc, DR_PARAM_OUT dr_mem_info_t *info)
          * The cleaner fix is to allow safe_read to work w/o a dcontext or
          * fault handling: i#350/PR 529066.
          */
-        if (TEST(MEMPROT_READ, info->prot) &&
+        if (TESTANY(MEMPROT_READ, info->prot) &&
             module_is_header(info->base_pc, fault_handling_initialized ? 0 : info->size))
             info->type = DR_MEMTYPE_IMAGE;
         else {
@@ -11696,7 +11698,7 @@ rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src))
 
 #ifdef HOT_PATCHING_INTERFACE
 void *
-get_drmarker_hotp_policy_status_table()
+get_drmarker_hotp_policy_status_table(void)
 {
     ASSERT_NOT_IMPLEMENTED(false);
     return NULL;
@@ -11746,7 +11748,7 @@ aslr_possible_preferred_address(app_pc target_addr)
 }
 
 void
-take_over_primary_thread()
+take_over_primary_thread(void)
 {
     /* nothing to do here */
 }

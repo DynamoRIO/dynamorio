@@ -73,6 +73,7 @@ add_definitions(-DNOT_DYNAMORIO_CORE -DDYNAMORIO_INTERNAL -DWIN32 -DUNICODE -D_U
 include_directories(
   ${PROJECT_SOURCE_DIR}/libutil
   ${PROJECT_SOURCE_DIR}/core
+  ${PROJECT_SOURCE_DIR}/core/include
   ${PROJECT_SOURCE_DIR}/core/lib
   ${CMAKE_CURRENT_SOURCE_DIR} # for resource.h for generated DynamoRIO.rc
   )

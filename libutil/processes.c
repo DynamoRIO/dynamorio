@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -285,11 +285,11 @@ under_dynamorio_ex(process_id_t ProcessID, DWORD *build_num)
         }
         /* NOTE - profile build can be combined with DEBUG or RELEASE so we check it
          * first.  Perhaps we should just get rid of the notion of profile builds. */
-        if (TEST(DR_MARKER_PROFILE_BUILD, marker.flags))
+        if (TESTANY(DR_MARKER_PROFILE_BUILD, marker.flags))
             return DLL_PROFILE;
-        if (TEST(DR_MARKER_RELEASE_BUILD, marker.flags))
+        if (TESTANY(DR_MARKER_RELEASE_BUILD, marker.flags))
             return DLL_RELEASE;
-        if (TEST(DR_MARKER_DEBUG_BUILD, marker.flags))
+        if (TESTANY(DR_MARKER_DEBUG_BUILD, marker.flags))
             return DLL_DEBUG;
     }
     /* should never get here */

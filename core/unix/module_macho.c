@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -435,7 +435,7 @@ get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t load_delta,
         uint flags = read_uleb128(ptr, max, &ptr);
         if (is_indirect_code != NULL)
             *is_indirect_code = false;
-        if (TEST(EXPORT_SYMBOL_FLAGS_REEXPORT, flags)) {
+        if (TESTANY(EXPORT_SYMBOL_FLAGS_REEXPORT, flags)) {
             /* Forwarder */
             read_uleb128(ptr, max, &ptr); /* ordinal */
             const char *forw_name = (const char *)ptr;
@@ -443,7 +443,7 @@ get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t load_delta,
                 forw_name = name;
             LOG(GLOBAL, LOG_SYMBOLS, 4, "\tforwarder %s\n", forw_name);
             /* XXX i#1360: handle forwards */
-        } else if (TEST(EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER, flags)) {
+        } else if (TESTANY(EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER, flags)) {
             /* Lazy or non-lazy pointer */
             DEBUG_DECLARE(size_t stub_offs =)
             read_uleb128(ptr, max, &ptr);

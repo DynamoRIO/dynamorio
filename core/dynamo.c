@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -238,12 +238,10 @@ data_section_exit(void);
 
 #ifdef DEBUG /*************************/
 
-#    include <time.h>
-
 /* XXX: not all dynamo_options references are #ifdef DEBUG
  * are we trying to hardcode the options for a release build?
  */
-#    ifdef UNIX
+#    if defined(UNIX) && !defined(LINUX_KERNEL)
 /* linux include files for mmap stuff*/
 #        include <sys/ipc.h>
 #        include <sys/types.h>
@@ -407,7 +405,7 @@ dynamorio_app_init_part_one_options(void)
         }
     } else /* we do enter if nullcalls is on */ {
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
         os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #endif
 #ifdef WINDOWS
@@ -417,7 +415,7 @@ dynamorio_app_init_part_one_options(void)
         /* avoid time() for libc independence */
         DODEBUG(starttime = query_time_seconds(););
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
         if (getenv(DYNAMORIO_VAR_EXECVE) != NULL) {
             post_execve = true;
 #    ifdef VMX86_SERVER
@@ -439,9 +437,9 @@ dynamorio_app_init_part_one_options(void)
             post_execve = false;
 #endif
 
-            /* default non-zero dynamo settings (options structure is
-             * initialized to 0 automatically)
-             */
+        /* default non-zero dynamo settings (options structure is
+         * initialized to 0 automatically)
+         */
 #ifdef DEBUG
 #    ifndef INTERNAL
         nonshared_stats.logmask = LOG_ALL_RELEASE;
@@ -751,10 +749,10 @@ dynamorio_app_init_part_two_finalize(void)
             /* ENTERING_DR will increment, so decrement first
              * XXX: waste of protection change since will nop-unprotect!
              */
-            if (TEST(SELFPROT_DATA_CXTSW, DYNAMO_OPTION(protect_mask)))
+            if (TESTANY(SELFPROT_DATA_CXTSW, DYNAMO_OPTION(protect_mask)))
                 datasec_writable_cxtswprot = 0;
             /* XXX case 8073: remove once freqprot not every cxt sw */
-            if (TEST(SELFPROT_DATA_FREQ, DYNAMO_OPTION(protect_mask)))
+            if (TESTANY(SELFPROT_DATA_FREQ, DYNAMO_OPTION(protect_mask)))
                 datasec_writable_freqprot = 0;
         }
         /* this thread is now entering DR */
@@ -789,7 +787,7 @@ dynamorio_app_init_part_two_finalize(void)
     return SUCCESS;
 }
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
 void
 dynamorio_fork_init(dcontext_t *dcontext)
 {
@@ -896,7 +894,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
         instrument_fork_init(dcontext);
     }
 }
-#endif /* UNIX */
+#endif /* UNIX && !LINUX_KERNEL */
 
 /* To make DynamoRIO useful as a library for a standalone client
  * application (as opposed to a client library that works with
@@ -920,7 +918,7 @@ standalone_init(void)
     /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
     dynamo_options.deadlock_avoidance = false;
 #endif
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
     os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #endif
 #ifdef WINDOWS
@@ -1648,8 +1646,8 @@ create_new_dynamo_context(bool initial, byte *dstack_in, priv_mcontext_t *mc)
     dcontext_t *dcontext;
     size_t alloc = sizeof(dcontext_t) + proc_get_cache_line_size();
     void *alloc_start =
-        (void *)((TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask) &&
-                  !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+        (void *)((TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask) &&
+                  !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
                      ?
                      /* if protecting global but not dcontext, put whole thing in unprot
                         mem */
@@ -1701,7 +1699,7 @@ create_new_dynamo_context(bool initial, byte *dstack_in, priv_mcontext_t *mc)
         /* dstack may be pre-allocated only at thread init, not at callback */
         ASSERT(dstack_in == NULL);
     }
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         dcontext->upcontext.separate_upcontext = global_unprotected_heap_alloc(
             sizeof(unprotected_context_t) HEAPACCT(ACCT_OTHER));
         /* don't need to initialize upcontext */
@@ -1745,12 +1743,12 @@ delete_dynamo_context(dcontext_t *dcontext, bool free_stack)
 
     ASSERT(dcontext->try_except.try_except_state == NULL);
 
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         global_unprotected_heap_free(dcontext->upcontext.separate_upcontext,
                                      sizeof(unprotected_context_t) HEAPACCT(ACCT_OTHER));
     }
-    if (TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask) &&
-        !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask) &&
+        !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         /* if protecting global but not dcontext, we put whole thing in unprot mem */
         global_unprotected_heap_free(dcontext->allocated_start,
                                      sizeof(dcontext_t) +
@@ -3317,7 +3315,7 @@ check_should_be_protected(uint sec)
          */
         doing_detach ||
 #    endif
-        !TEST(DATASEC_SELFPROT[sec], DYNAMO_OPTION(protect_mask)) ||
+        !TESTANY(DATASEC_SELFPROT[sec], DYNAMO_OPTION(protect_mask)) ||
         DATASEC_PROTECTED(sec))
         return true;
     STATS_INC(datasec_not_prot);
@@ -3383,7 +3381,7 @@ get_data_section_bounds(uint sec)
     ASSERT(sec >= 0 && sec < DATASEC_NUM);
     /* for DEBUG we use for data_sections_enclose_region() */
     ASSERT(IF_WINDOWS(IF_DEBUG(true ||))
-               TEST(DATASEC_SELFPROT[sec], dynamo_options.protect_mask));
+               TESTANY(DATASEC_SELFPROT[sec], dynamo_options.protect_mask));
     d_r_mutex_lock(&datasec_lock[sec]);
     ASSERT(datasec_start[sec] == NULL);
     get_named_section_bounds(get_dynamorio_dll_start(), DATASEC_NAMES[sec],
@@ -3393,7 +3391,7 @@ get_data_section_bounds(uint sec)
     ASSERT(ALIGNED(datasec_end[sec], PAGE_SIZE));
     ASSERT(datasec_start[sec] < datasec_end[sec]);
 #ifdef WINDOWS
-    if (IF_DEBUG(true ||) TEST(DATASEC_SELFPROT[sec], dynamo_options.protect_mask))
+    if (IF_DEBUG(true ||) TESTANY(DATASEC_SELFPROT[sec], dynamo_options.protect_mask))
         merge_writecopy_pages(datasec_start[sec], datasec_end[sec]);
 #endif
 }
@@ -3425,7 +3423,7 @@ data_section_init(void)
         ASSIGN_INIT_LOCK_FREE(datasec_lock[i], datasec_selfprot_lock);
         /* for DEBUG we use for data_sections_enclose_region() */
         if (IF_WINDOWS(IF_DEBUG(true ||))
-                TEST(DATASEC_SELFPROT[i], dynamo_options.protect_mask)) {
+                TESTANY(DATASEC_SELFPROT[i], dynamo_options.protect_mask)) {
             get_data_section_bounds(i);
         }
     }
@@ -3475,7 +3473,7 @@ void
 protect_data_section(uint sec, bool writable)
 {
     ASSERT(sec >= 0 && sec < DATASEC_NUM);
-    ASSERT(TEST(DATASEC_SELFPROT[sec], dynamo_options.protect_mask));
+    ASSERT(TESTANY(DATASEC_SELFPROT[sec], dynamo_options.protect_mask));
     /* We can be called very early before data_section_init() so init here
      * (data_section_init() has no dependences).
      */
@@ -3508,8 +3506,8 @@ protect_data_section(uint sec, bool writable)
             STATS_INC(datasec_prot_wasted_calls);
         (void)DATASEC_WRITABLE_MOD(sec, ++);
     }
-    LOG(TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? THREAD_GET : GLOBAL,
-        LOG_VMAREAS, TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? 3U : 2U,
+    LOG(TESTANY(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? THREAD_GET : GLOBAL,
+        LOG_VMAREAS, TESTANY(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? 3U : 2U,
         "protect_data_section: thread " TIDFMT " %s (recur %d, stat %d) %s %s %d\n",
         d_r_get_thread_id(), DATASEC_WRITABLE(sec) == 1 ? "changing" : "nop",
         DATASEC_WRITABLE(sec), GLOBAL_STAT(datasec_not_prot), DATASEC_NAMES[sec],

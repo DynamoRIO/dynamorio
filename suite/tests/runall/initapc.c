@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,10 +54,11 @@
 #include "tools.h"
 
 /* from initapc-dll.dll */
-__declspec(dllimport) import_me(int x);
+__declspec(dllimport)
+import_me(int x);
 
 int
-main()
+main(int argc, const char *argv[])
 {
     INIT();
 

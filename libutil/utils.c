@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -796,7 +796,7 @@ set_dr_platform(dr_platform_t platform)
 }
 
 dr_platform_t
-get_dr_platform()
+get_dr_platform(void)
 {
     if (registry_view ==
         DR_PLATFORM_64BIT IF_X64(|| registry_view == DR_PLATFORM_DEFAULT))
@@ -1927,8 +1927,8 @@ run_individual_canary_test(FILE *file, WCHAR *logbase, WCHAR *dr_options, int ex
     return canary_code;
 }
 
-#        pragma warning( \
-            disable : 4127) // conditional expression is constant i.e while (FALSE)
+#        pragma warning(disable \
+                        : 4127) // conditional expression is constant i.e while (FALSE)
 
 /* see utils.h for description */
 BOOL
@@ -1981,8 +1981,8 @@ run_canary_test_ex(FILE *file, /* INOUT */ CANARY_INFO *info, const WCHAR *scrat
 
 #        define DO_RUN(run_flag, core_ops, canary_options, inject, run_name, test_type) \
             do {                                                                        \
-                if (TEST(run_flag, info->run_flags)) {                                  \
-                    WCHAR *canary_ops = TEST(run_flag, info->fault_run)                 \
+                if (TESTANY(run_flag, info->run_flags)) {                               \
+                    WCHAR *canary_ops = TESTANY(run_flag, info->fault_run)              \
                         ? info->canary_fault_args                                       \
                         : canary_options;                                               \
                     for (i = 0; i < num_canary_processes; i++) {                        \

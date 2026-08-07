@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "dr_project_wide_defines.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,9 +45,6 @@
     ((void)((!(x)) ? (printf("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
                       abort(), 0)                                                    \
                    : 0))
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 #define ORIG_PC ((byte *)0x10000)
 
@@ -182,7 +180,7 @@ test_isa_features(void)
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     test_LSB();
 

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -549,7 +549,7 @@ privload_tls_init(void *app_tp, bool use_safe_read)
             /* Only copy the valid mapped memory of app_tp (pointer to TCB/TLS block). */
             if (get_memory_info_from_os((byte *)app_tp, &tp_map_base, &tp_map_size,
                                         &prot) &&
-                TEST(MEMPROT_READ, prot)) {
+                TESTANY(MEMPROT_READ, prot)) {
                 byte *region_end = tp_map_base + tp_map_size;
                 if (app_start < tp_map_base) {
                     size_t delta = tp_map_base - app_start;
@@ -680,7 +680,7 @@ redirect___tls_get_addr(tls_index_t *ti)
 }
 
 void *
-redirect____tls_get_addr()
+redirect____tls_get_addr(void)
 {
     tls_index_t *ti;
     /* XXX: in some version of ___tls_get_addr, ti is passed via xax

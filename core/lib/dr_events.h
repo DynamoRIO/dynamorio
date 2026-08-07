@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -685,7 +685,8 @@ typedef struct _dr_fault_fragment_info_t {
     /**
      * The tag of the code fragment inside the code cache at the
      * exception/signal/translation interruption point. NULL for
-     * interruption not in the code cache.
+     * interruption not in the code cache. Use dr_fragment_app_pc() to convert
+     * to the corresponding application address.
      */
     void *tag;
     /**
@@ -1478,7 +1479,7 @@ DR_API
  * whenever virtual memory is tight and enables the client to help free space.
  */
 void
-dr_register_low_on_memory_event(void (*func)());
+dr_register_low_on_memory_event(void (*func)(void));
 
 DR_API
 /**
@@ -1487,7 +1488,7 @@ DR_API
  * (e.g., the function was not registered).
  */
 bool
-dr_unregister_low_on_memory_event(void (*func)());
+dr_unregister_low_on_memory_event(void (*func)(void));
 
 DR_API
 /**

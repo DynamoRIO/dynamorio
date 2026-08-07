@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -265,7 +265,7 @@ handle_clone(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
      * the kernel ignores them unless selected by appropriate flags.
      * We check the writes here to avoid races (xref PR 408540).
      */
-    if (TEST(CLONE_PARENT_SETTID, flags)) {
+    if (TESTANY(CLONE_PARENT_SETTID, flags)) {
         pid_t *ptid = SYSARG_AS_PTR(pt, 2, pid_t *);
         if (!report_sysarg(ii, 2, SYSARG_WRITE))
             return;
@@ -275,7 +275,7 @@ handle_clone(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii)
                 return;
         }
     }
-    if (TEST(CLONE_SETTLS, flags)) {
+    if (TESTANY(CLONE_SETTLS, flags)) {
 #ifdef X86_32
         /* handle differences in type name */
 #    ifdef _LINUX_LDT_H
@@ -524,7 +524,7 @@ static void
 check_msghdr(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *ptr,
              size_t len, int ordinal, uint arg_flags)
 {
-    bool sendmsg = TEST(SYSARG_READ, arg_flags); /* else, recvmsg */
+    bool sendmsg = TESTANY(SYSARG_READ, arg_flags); /* else, recvmsg */
     struct msghdr *msg = (struct msghdr *)ptr;
     byte *ptr1, *ptr2;
     size_t val_socklen;
@@ -663,7 +663,7 @@ handle_pre_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
                                 NULL))
             return;
         break;
-    case SYS_BIND: id = "bind";
+    case SYS_BIND: id = "bind"; DR_FALLTHROUGH;
     case SYS_CONNECT:
         id = (id == NULL) ? "connect" : id;
         if (!report_memarg_type(ii, SOCK_ARRAY_ARG, SYSARG_READ, (app_pc)arg,
@@ -676,16 +676,16 @@ handle_pre_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
                 return;
         }
         break;
-    case SYS_SHUTDOWN: id = "shutdown";
+    case SYS_SHUTDOWN: id = "shutdown"; DR_FALLTHROUGH;
     case SYS_LISTEN:
         id = (id == NULL) ? "listen" : id;
         if (!report_memarg_type(ii, SOCK_ARRAY_ARG, SYSARG_READ, (app_pc)arg,
                                 2 * sizeof(ptr_uint_t), id, DRSYS_TYPE_STRUCT, NULL))
             return;
         break;
-    case SYS_ACCEPT: id = "accept";
-    case SYS_GETSOCKNAME: id = (id == NULL) ? "getsockname" : id;
-    case SYS_GETPEERNAME: id = (id == NULL) ? "getpeername" : id;
+    case SYS_ACCEPT: id = "accept"; DR_FALLTHROUGH;
+    case SYS_GETSOCKNAME: id = (id == NULL) ? "getsockname" : id; DR_FALLTHROUGH;
+    case SYS_GETPEERNAME: id = (id == NULL) ? "getpeername" : id; DR_FALLTHROUGH;
     case SYS_ACCEPT4:
         if (!report_memarg_type(ii, SOCK_ARRAY_ARG, SYSARG_READ, (app_pc)arg,
                                 3 * sizeof(ptr_uint_t), id, DRSYS_TYPE_STRUCT, NULL))
@@ -721,7 +721,7 @@ handle_pre_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
                 return;
         }
         break;
-    case SYS_SEND: id = "send";
+    case SYS_SEND: id = "send"; DR_FALLTHROUGH;
     case SYS_RECV:
         id = (id == NULL) ? "recv" : id;
         if (!report_memarg_type(ii, SOCK_ARRAY_ARG, SYSARG_READ, (app_pc)arg,
@@ -865,9 +865,9 @@ handle_post_socketcall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *i
     if (result < 0)
         return;
     switch (request) {
-    case SYS_ACCEPT: id = "accept";
-    case SYS_GETSOCKNAME: id = (id == NULL) ? "getsockname" : id;
-    case SYS_GETPEERNAME: id = (id == NULL) ? "getpeername" : id;
+    case SYS_ACCEPT: id = "accept"; DR_FALLTHROUGH;
+    case SYS_GETSOCKNAME: id = (id == NULL) ? "getsockname" : id; DR_FALLTHROUGH;
+    case SYS_GETPEERNAME: id = (id == NULL) ? "getpeername" : id; DR_FALLTHROUGH;
     case SYS_ACCEPT4:
         if (pt->sysarg[3] /*pre-addrlen*/ > 0 && pt->sysarg[2] /*sockaddr*/ != 0 &&
             /* re-read to see size returned by kernel */
@@ -1270,7 +1270,7 @@ static void
 check_msgbuf(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii, byte *ptr,
              size_t len, int ordinal, uint arg_flags)
 {
-    bool msgsnd = TEST(SYSARG_READ, arg_flags); /* else, msgrcv */
+    bool msgsnd = TESTANY(SYSARG_READ, arg_flags); /* else, msgrcv */
     struct msgbuf *buf = (struct msgbuf *)ptr;
     if (!ii->arg->pre) {
         if (msgsnd)
@@ -1609,7 +1609,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
     case SYS_mremap: {
         /* 5th arg is conditionally valid */
         int flags = (int)pt->sysarg[3];
-        if (TEST(MREMAP_FIXED, flags)) {
+        if (TESTANY(MREMAP_FIXED, flags)) {
             if (!report_sysarg(ii, 4, SYSARG_READ))
                 return;
         }
@@ -1622,7 +1622,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
          * that wrapper (PR 488597).
          */
         int flags = (int)pt->sysarg[1];
-        if (TEST(O_CREAT, flags)) {
+        if (TESTANY(O_CREAT, flags)) {
             if (!report_sysarg(ii, 2, SYSARG_READ))
                 return;
         }
@@ -1702,7 +1702,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
          */
         kernel_sigaction_t *sa = SYSARG_AS_PTR(pt, 1, kernel_sigaction_t *);
         if (sa != NULL) {
-            if (TEST(SA_RESTORER, sa->flags)) {
+            if (TESTANY(SA_RESTORER, sa->flags)) {
                 if (!report_memarg_type(ii, 1, SYSARG_READ, (app_pc)sa, sizeof(*sa), NULL,
                                         DRSYS_TYPE_STRUCT, NULL))
                     return;
@@ -1904,7 +1904,7 @@ static bool
 os_handle_syscall_arg_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
                              app_pc start, uint size)
 {
-    if (!TEST(SYSARG_COMPLEX_TYPE, arg_info->flags))
+    if (!TESTANY(SYSARG_COMPLEX_TYPE, arg_info->flags))
         return false;
 
     switch (arg_info->misc) {

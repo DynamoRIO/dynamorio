@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -57,8 +57,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     ptr_int_t val1, val2;
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         if (instr_is_mov_constant(instr, prev_was_mov_const ? &val2 : &val1)) {
-            if (prev_was_mov_const && val1 == val2 &&
-                val1 != 0 && /* rule out xor w/ self */
+            if (prev_was_mov_const && val1 == val2 && val1 == 0x12345678 &&
                 opnd_is_reg(instr_get_dst(instr, 0)) &&
                 opnd_get_reg(instr_get_dst(instr, 0)) == REG_XAX) {
                 if (seen_mov_mov) {

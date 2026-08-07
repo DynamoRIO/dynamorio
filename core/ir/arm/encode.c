@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1433,7 +1433,7 @@ encode_T32_modified_immed_ok(decode_info_t *di, opnd_size_t size_temp, opnd_t op
     /* 4) ROR of 1bcdefgh */
     first_one = -1;
     for (i = 31; i >= 0; i--) {
-        if (TEST(1 << i, val)) {
+        if (TESTANY(1 << i, val)) {
             if (first_one == -1)
                 first_one = i;
             else if (first_one - i >= 8)
@@ -1632,7 +1632,7 @@ static int
 opnd_get_signed_disp(opnd_t opnd)
 {
     int disp = opnd_get_disp(opnd);
-    if (TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)))
+    if (TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)))
         return -disp;
     else
         return disp;
@@ -2069,11 +2069,11 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+            (BOOLS_MATCH(TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I12) ||
              opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), 1, false /*unsigned*/,
-                            TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
+                            TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
             di->check_wb_disp_sz = OPSZ_12b;
@@ -2090,7 +2090,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_index(opnd) != REG_NULL &&
             !(di->T32_16 && opnd_get_index(opnd) > DR_REG_R7) &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+            BOOLS_MATCH(TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                         optype == TYPE_M_NEG_REG) &&
             opnd_get_disp(opnd) == 0 && size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
@@ -2102,7 +2102,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_M_NEG_SHREG:
         if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) != REG_NULL &&
-            BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+            BOOLS_MATCH(TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                         optype == TYPE_M_NEG_SHREG) &&
             opnd_get_disp(opnd) == 0 && size_op == size_temp) {
             ptr_int_t sh2, val;
@@ -2122,7 +2122,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_M_POS_LSH1REG:
         if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) != REG_NULL &&
-            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) && opnd_get_disp(opnd) == 0 &&
+            !TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)) && opnd_get_disp(opnd) == 0 &&
             size_op == size_temp) {
             ptr_int_t sh2, val;
             uint amount;
@@ -2161,7 +2161,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return (opnd_is_base_disp(opnd) && opnd_get_base(opnd) == DR_REG_SP &&
                 opnd_get_index(opnd) == REG_NULL &&
                 opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-                !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+                !TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
                 encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false /*unsigned*/,
                                 false /*pos*/) &&
                 size_op == size_temp);
@@ -2170,11 +2170,11 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+            (BOOLS_MATCH(TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I8) ||
              opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 1, false /*unsigned*/,
-                            TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
+                            TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
             di->check_wb_disp_sz = OPSZ_1;
@@ -2189,11 +2189,11 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+            (BOOLS_MATCH(TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I8x4) ||
              opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false /*unsigned*/,
-                            TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
+                            TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
             di->check_wb_disp_sz = OPSZ_1;
@@ -2208,11 +2208,11 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) != REG_NULL &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+            (BOOLS_MATCH(TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_NEG_I4_4) ||
              opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 1, false /*unsigned*/,
-                            TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
+                            TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
             di->check_wb_disp_sz = OPSZ_1;
@@ -2227,7 +2227,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) <= DR_REG_R7 /* T32.16 only */ &&
             opnd_get_base(opnd) != REG_NULL && opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            !TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
             encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 1, false /*unsigned*/,
                             false /*pos*/) &&
             size_op == size_temp) {
@@ -2242,7 +2242,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) <= DR_REG_R7 /* T32.16 only */ &&
             opnd_get_base(opnd) != REG_NULL && opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            !TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
             encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 2, false /*unsigned*/,
                             false /*pos*/) &&
             size_op == size_temp) {
@@ -2257,7 +2257,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_base(opnd) <= DR_REG_R7 /* T32.16 only */ &&
             opnd_get_base(opnd) != REG_NULL && opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            !TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
             encode_immed_ok(di, OPSZ_5b, opnd_get_disp(opnd), 4, false /*unsigned*/,
                             false /*pos*/) &&
             size_op == size_temp) {
@@ -2271,7 +2271,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) == DR_REG_PC &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
+            !TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)) &&
             encode_immed_ok(di, OPSZ_1, opnd_get_disp(opnd), 4, false /*unsigned*/,
                             false /*pos*/) &&
             size_op == size_temp) {
@@ -2287,11 +2287,11 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         if (opnd_is_base_disp(opnd) && opnd_get_base(opnd) == DR_REG_PC &&
             opnd_get_index(opnd) == REG_NULL &&
             opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
-            (BOOLS_MATCH(TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)),
+            (BOOLS_MATCH(TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd)),
                          optype == TYPE_M_PCREL_NEG_I12) ||
              opnd_get_disp(opnd) == 0) &&
             encode_immed_ok(di, OPSZ_12b, opnd_get_disp(opnd), 1, false /*unsigned*/,
-                            TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
+                            TESTANY(DR_OPND_NEGATED, opnd_get_flags(opnd))) &&
             size_op == size_temp) {
             di->check_wb_base = opnd_get_base(opnd);
             di->check_wb_disp_sz = OPSZ_12b;
@@ -2360,7 +2360,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
         if (pred == DR_PRED_OP) {
             di->errmsg = "DR_PRED_OP is an illegal predicate request";
             return false;
-        } else if (TEST(DECODE_PREDICATE_28_AL, ii->flags)) {
+        } else if (TESTANY(DECODE_PREDICATE_28_AL, ii->flags)) {
             if (pred != DR_PRED_AL && pred != DR_PRED_NONE) {
                 di->errmsg = "DR_PRED_AL is the only valid predicate";
                 return false;
@@ -2394,9 +2394,10 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
         }
         if (ii->dst2_type != TYPE_NONE) {
             if (!encode_opnd_ok(di, ii->dst2_type, ii->dst2_size, in,
-                                !TEST(DECODE_4_SRCS, ii->flags),
-                                TEST(DECODE_4_SRCS, ii->flags) ? &num_srcs : &num_dsts)) {
-                if (TEST(DECODE_4_SRCS, ii->flags)) {
+                                !TESTANY(DECODE_4_SRCS, ii->flags),
+                                TESTANY(DECODE_4_SRCS, ii->flags) ? &num_srcs
+                                                                  : &num_dsts)) {
+                if (TESTANY(DECODE_4_SRCS, ii->flags)) {
                     di->errmsg = "Source operand #%d has wrong type/size";
                     di->errmsg_param = num_srcs - 1;
                 } else {
@@ -2408,9 +2409,10 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
         }
         if (ii->src1_type != TYPE_NONE) {
             if (!encode_opnd_ok(di, ii->src1_type, ii->src1_size, in,
-                                TEST(DECODE_3_DSTS, ii->flags),
-                                TEST(DECODE_3_DSTS, ii->flags) ? &num_dsts : &num_srcs)) {
-                if (TEST(DECODE_3_DSTS, ii->flags)) {
+                                TESTANY(DECODE_3_DSTS, ii->flags),
+                                TESTANY(DECODE_3_DSTS, ii->flags) ? &num_dsts
+                                                                  : &num_srcs)) {
+                if (TESTANY(DECODE_3_DSTS, ii->flags)) {
                     di->errmsg = "Destination operand #%d has wrong type/size";
                     di->errmsg_param = num_dsts - 1;
                 } else {
@@ -3237,13 +3239,13 @@ encode_operands(decode_info_t *di, instr_t *in, const instr_info_t *ii)
             encode_operand(di, ii->dst1_type, ii->dst1_size, in, true, &num_dsts);
         if (ii->dst2_type != TYPE_NONE) {
             encode_operand(di, ii->dst2_type, ii->dst2_size, in,
-                           !TEST(DECODE_4_SRCS, ii->flags),
-                           TEST(DECODE_4_SRCS, ii->flags) ? &num_srcs : &num_dsts);
+                           !TESTANY(DECODE_4_SRCS, ii->flags),
+                           TESTANY(DECODE_4_SRCS, ii->flags) ? &num_srcs : &num_dsts);
         }
         if (ii->src1_type != TYPE_NONE) {
             encode_operand(di, ii->src1_type, ii->src1_size, in,
-                           TEST(DECODE_3_DSTS, ii->flags),
-                           TEST(DECODE_3_DSTS, ii->flags) ? &num_dsts : &num_srcs);
+                           TESTANY(DECODE_3_DSTS, ii->flags),
+                           TESTANY(DECODE_3_DSTS, ii->flags) ? &num_dsts : &num_srcs);
         }
         if (ii->src2_type != TYPE_NONE)
             encode_operand(di, ii->src2_type, ii->src2_size, in, false, &num_srcs);
@@ -3337,15 +3339,15 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 
     /* Encode into di.instr_word */
     di.instr_word = info->opcode;
-    if (TEST(DECODE_PREDICATE_28, info->flags)) {
+    if (TESTANY(DECODE_PREDICATE_28, info->flags)) {
         dr_pred_type_t pred = instr_get_predicate(instr);
         if (pred == DR_PRED_NONE)
             pred = DR_PRED_AL;
         di.instr_word |= (pred - DR_PRED_EQ) << 28;
-    } else if (TEST(DECODE_PREDICATE_22, info->flags)) {
+    } else if (TESTANY(DECODE_PREDICATE_22, info->flags)) {
         dr_pred_type_t pred = instr_get_predicate(instr);
         di.instr_word |= (pred - DR_PRED_EQ) << 22;
-    } else if (TEST(DECODE_PREDICATE_8, info->flags)) {
+    } else if (TESTANY(DECODE_PREDICATE_8, info->flags)) {
         dr_pred_type_t pred = instr_get_predicate(instr);
         di.instr_word |= (pred - DR_PRED_EQ) << 8;
     }

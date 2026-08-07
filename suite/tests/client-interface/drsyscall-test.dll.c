@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -24,6 +24,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drsyscall.h"
+#include "dr_project_wide_defines.h"
 #include <string.h>
 #ifdef WINDOWS
 #    include <windows.h>
@@ -34,19 +35,12 @@
 #    include <sys/socket.h>
 #endif
 
-#define TEST(mask, var) (((mask) & (var)) != 0)
-
 #undef ASSERT /* we don't want msgbox */
 #define ASSERT(cond, msg)                                                               \
     ((void)((!(cond)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
                                     __LINE__, #cond, msg),                              \
                          dr_abort(), 0)                                                 \
                       : 0))
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 #ifdef WINDOWS
 /* TODO i#2279: Make it easier for clients to auto-generate! */
@@ -125,13 +119,13 @@ drsys_iter_arg_cb(drsys_arg_t *arg, void *user_data)
     ASSERT(arg->mc != NULL, "mc check");
     ASSERT(arg->drcontext == dr_get_current_drcontext(), "dc check");
 
-    if (arg->reg == DR_REG_NULL && !TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
+    if (arg->reg == DR_REG_NULL && !TESTANY(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT((byte *)arg->start_addr >= (byte *)arg->mc->xsp &&
                    (byte *)arg->start_addr < (byte *)arg->mc->xsp + dr_page_size(),
                "mem args should be on stack");
     }
 
-    if (TEST(DRSYS_PARAM_RETVAL, arg->mode)) {
+    if (TESTANY(DRSYS_PARAM_RETVAL, arg->mode)) {
         ASSERT(arg->pre ||
                    arg->value == dr_syscall_get_result(dr_get_current_drcontext()),
                "return val wrong");

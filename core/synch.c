@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -197,7 +197,7 @@ thread_synch_check_state(dcontext_t *dcontext, thread_synch_permission_t desired
     }
     if (!THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm))
         return false;
-        /* barrier to keep the 1st check above on this side of the lock below */
+    /* barrier to keep the 1st check above on this side of the lock below */
 #ifdef WINDOWS
     MemoryBarrier();
 #else
@@ -889,7 +889,7 @@ set_synched_thread_context(thread_record_t *trec,
 
 /* for use by synch_with_* routines to wait for thread(s) */
 static void
-synch_thread_yield()
+synch_thread_yield(void)
 {
     /* xref 9400, 9488 - os_thread_yield() works ok on an UP machine, but on an MP machine
      * yield might not actually do anything (in which case we burn through to the max
@@ -941,7 +941,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
     thread_synch_result_t res = THREAD_SYNCH_RESULT_NOT_SAFE;
     bool first_loop = true;
     IF_UNIX(bool actually_suspended = true;)
-    const uint max_loops = TEST(THREAD_SYNCH_SMALL_LOOP_MAX, flags)
+    const uint max_loops = TESTANY(THREAD_SYNCH_SMALL_LOOP_MAX, flags)
         ? (SYNCH_MAXIMUM_LOOPS / 10)
         : SYNCH_MAXIMUM_LOOPS;
 
@@ -1024,7 +1024,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                     (trec->dcontext->currently_stopped IF_APP_EXPORTS(|| dr_api_exit)) &&
                     "Thead synch unable to suspend target"
                     " thread, case 2096?");
-                res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags)
+                res = (TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags)
                            ? THREAD_SYNCH_RESULT_SUCCESS
                            : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
                 IF_UNIX(actually_suspended = false);
@@ -1036,11 +1036,11 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                 ASSERT_CURIOSITY_ONCE(false &&
                                       "Thead synch unable to get_context target"
                                       " thread, case 2096?");
-                res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags)
+                res = (TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags)
                            ? THREAD_SYNCH_RESULT_SUCCESS
                            : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
                 /* Make sure to not leave suspended if not returning success */
-                if (!TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags))
+                if (!TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags))
                     os_thread_resume(trec);
                 break;
             }
@@ -1061,7 +1061,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
             }
             if (!os_thread_resume(trec)) {
                 ASSERT_NOT_REACHED();
-                res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags)
+                res = (TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags)
                            ? THREAD_SYNCH_RESULT_SUCCESS
                            : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
                 break;
@@ -1145,7 +1145,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                     os_wait_thread_terminated(trec->dcontext);
                 }
             } else
-                ASSERT(TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags));
+                ASSERT(TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags));
 #endif
         }
         if (THREAD_SYNCH_IS_CLEANED(desired_state)) {
@@ -1209,7 +1209,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     dcontext_t *dcontext = NULL;
     uint flags_one; /* flags for synch_with_thread() call */
     thread_synch_result_t synch_res;
-    const uint max_loops = TEST(THREAD_SYNCH_SMALL_LOOP_MAX, flags)
+    const uint max_loops = TESTANY(THREAD_SYNCH_SMALL_LOOP_MAX, flags)
         ? (SYNCH_ALL_THREADS_MAXIMUM_LOOPS / 10)
         : SYNCH_ALL_THREADS_MAXIMUM_LOOPS;
     /* We treat client-owned threads as native but they don't have a clean native state
@@ -1250,7 +1250,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                  flags));
     flags_one = flags;
     /* we'll do the retry */
-    if (TEST(THREAD_SYNCH_SUSPEND_FAILURE_RETRY, flags)) {
+    if (TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_RETRY, flags)) {
         flags_one &= ~THREAD_SYNCH_SUSPEND_FAILURE_RETRY;
         flags_one |= THREAD_SYNCH_SUSPEND_FAILURE_ABORT;
     }
@@ -1407,7 +1407,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     continue; /* skip this thread for now till non-client are finished */
                 }
                 if (IS_CLIENT_THREAD(threads[i]->dcontext) &&
-                    (TEST(flags, THREAD_SYNCH_SKIP_CLIENT_THREAD) ||
+                    (TESTANY(flags, THREAD_SYNCH_SKIP_CLIENT_THREAD) ||
                      !should_suspend_client_thread(threads[i]->dcontext,
                                                    desired_synch_state))) {
                     /* PR 609569: do not suspend this thread.
@@ -1448,7 +1448,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     LOG(THREAD, LOG_SYNCH, 2, "Synch failed!\n");
                     all_synched = false;
                     if (synch_res == THREAD_SYNCH_RESULT_SUSPEND_FAILURE) {
-                        if (TEST(THREAD_SYNCH_SUSPEND_FAILURE_ABORT, flags))
+                        if (TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_ABORT, flags))
                             goto synch_with_all_abort;
                     } else
                         ASSERT(synch_res == THREAD_SYNCH_RESULT_NOT_SAFE);
@@ -1502,7 +1502,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
      * to correspond w/ no suspended threads, a freed threads array, and no
      * locks being held, so we go through the abort path
      */
-    if (!all_synched && TEST(THREAD_SYNCH_SUSPEND_FAILURE_ABORT, flags))
+    if (!all_synched && TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_ABORT, flags))
         goto synch_with_all_abort;
 synch_with_all_exit:
     /* make sure we didn't exit the loop without synchronizing, XXX : in
@@ -1538,7 +1538,7 @@ synch_with_all_exit:
      * synch_result is ignored.  Callers are responsible for resuming threads that are
      * suspended and freeing allocation for threads array
      */
-    if ((!all_synched && TEST(THREAD_SYNCH_SUSPEND_FAILURE_ABORT, flags)) ||
+    if ((!all_synched && TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_ABORT, flags)) ||
         THREAD_SYNCH_IS_CLEANED(desired_synch_state)) {
         global_heap_free(
             threads, num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
@@ -2170,7 +2170,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     wait_for_outstanding_nudges();
 #endif
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
     /* i#2270: we ignore alarm signals during detach to reduce races. */
     signal_remove_alarm_handlers(my_dcontext);
 #endif
@@ -2272,7 +2272,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
          * the thread_initexit_lock is held so that we can clean up thread
          * data later.
          */
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
         os_signal_thread_detach(threads[i]->dcontext);
 #endif
         LOG(GLOBAL, LOG_ALL, 1, "Detach: thread " TIDFMT " is being resumed as native\n",
@@ -2281,7 +2281,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     }
 
     ASSERT(my_idx != -1 || !internal);
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
     LOG(GLOBAL, LOG_ALL, 1, "Detach: waiting for threads to fully detach\n");
     for (i = 0; i < num_threads; i++) {
         if (i != my_idx && !IS_CLIENT_THREAD(threads[i]->dcontext))
@@ -2329,7 +2329,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 
 #ifdef LINUX
 void
-detach_externally_on_new_stack()
+detach_externally_on_new_stack(void)
 {
     dcontext_t *my_dcontext;
     priv_mcontext_t my_mcontext;
@@ -2372,7 +2372,9 @@ detach_externally_on_new_stack()
     if (my_dcontext != NULL)
         enter_threadexit(my_dcontext);
     /* i#2270: we ignore alarm signals during detach to reduce races. */
+#    ifndef LINUX_KERNEL
     signal_remove_alarm_handlers(my_dcontext);
+#    endif
     /* suspend all DR-controlled threads at safe locations */
     if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT, &threads,
                                 &num_threads,
@@ -2435,16 +2437,20 @@ detach_externally_on_new_stack()
          * the thread_initexit_lock is held so that we can clean up thread
          * data later.
          */
+#    ifndef LINUX_KERNEL
         os_signal_thread_detach(threads[i]->dcontext);
+#    endif
         LOG(GLOBAL, LOG_ALL, 1, "Detach: thread " TIDFMT " is being resumed as native\n",
             threads[i]->id);
         os_thread_resume(threads[i]);
     }
+#    ifndef LINUX_KERNEL
     LOG(GLOBAL, LOG_ALL, 1, "Detach: waiting for threads to fully detach\n");
     for (i = 0; i < num_threads; i++) {
         if (i != my_idx && !IS_CLIENT_THREAD(threads[i]->dcontext))
             os_wait_thread_detached(threads[i]->dcontext);
     }
+#    endif
     /* Clean up each thread now that everyone has gone native. Needs to be
      * done with the thread_initexit_lock held, which is true within a synched
      * region.

@@ -52,10 +52,12 @@
 #    include <sys/time.h>
 #endif
 
+#include "dr_project_wide_defines.h"
+
 namespace dynamorio {
 namespace drmemtrace {
 
-// XXX: DR should export this
+// TODO i#8001: Unify with DR's defines and move to dr_project_wide_defines.h.
 #define INVALID_THREAD_ID 0
 // We avoid collisions with DR's INVALID_PROCESS_ID by using our own name.
 #define INVALID_PID -1
@@ -65,7 +67,7 @@ namespace drmemtrace {
 #define ERRMSG(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
 
 // XXX: can we share w/ core DR?
-#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
+#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
 // XXX i#4399: DR should define a DEBUG-only assert.
 #ifdef DEBUG
@@ -76,22 +78,11 @@ namespace drmemtrace {
 #    define IF_DEBUG(x)    /* Nothing. */
 #endif
 
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-
 #if defined(X64) || defined(ARM)
 #    define IF_REL_ADDRS(x) x
 #else
 #    define IF_REL_ADDRS(x)
 #endif
-
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
 
 #define NOTIFY(level, ...)                     \
     do {                                       \
@@ -104,7 +95,7 @@ namespace drmemtrace {
 #ifdef WINDOWS
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif

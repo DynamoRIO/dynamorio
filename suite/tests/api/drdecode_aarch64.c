@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited.  All rights reserved.
  * **********************************************************/
 
@@ -35,6 +35,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "dr_project_wide_defines.h"
 #include "tools.h"
 
 #define GD GLOBAL_DCONTEXT
@@ -43,9 +44,6 @@
     ((void)((!(x)) ? (print("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
                       abort(), 0)                                                   \
                    : 0))
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 static void
 test_disasm(void)
@@ -90,7 +88,7 @@ test_mov_instr_addr(void)
     __builtin___clear_cache((char *)generated_code,
                             (char *)generated_code + gencode_max_size);
 
-    uint written = ((uint(*)(void))generated_code)();
+    uint written = ((uint (*)(void))generated_code)();
     ASSERT(written == 0xdeadbeef);
 
     instrlist_clear_and_destroy(GD, ilist);
@@ -341,7 +339,7 @@ test_isa_features(void)
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     test_disasm();
 

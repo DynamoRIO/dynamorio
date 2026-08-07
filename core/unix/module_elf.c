@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -138,7 +138,7 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
     app_pc last_seg_end = NULL;
     ELF_HEADER_TYPE *elf_hdr;
 
-    if (size < sizeof(ELF_HEADER_TYPE) || !TEST(MEMPROT_READ, memprot) ||
+    if (size < sizeof(ELF_HEADER_TYPE) || !TESTANY(MEMPROT_READ, memprot) ||
         !is_elf_so_header(base, 0 /*i#727: safer to ask for safe_read*/)) {
         return true;
     }
@@ -660,8 +660,8 @@ gnu_hash_lookup(const char *name, ptr_int_t load_delta, ELF_SYM_TYPE *symtab,
     hidx = elf_gnu_hash(name);
     entry = bitmask[(hidx / ELF_WORD_SIZE) & bitidx];
     h1 = hidx & (ELF_WORD_SIZE - 1);
-    h2 = (hidx >> shift) & (ELF_WORD_SIZE - 1);   /* bloom filter hash */
-    if (TEST(1, (entry >> h1) & (entry >> h2))) { /* bloom filter check */
+    h2 = (hidx >> shift) & (ELF_WORD_SIZE - 1);      /* bloom filter hash */
+    if (TESTANY(1, (entry >> h1) & (entry >> h2))) { /* bloom filter check */
         Elf32_Word bucket = buckets[hidx % num_buckets];
         if (bucket != 0) {
             Elf32_Word *harray = &chain[bucket];
@@ -683,7 +683,7 @@ gnu_hash_lookup(const char *name, ptr_int_t load_delta, ELF_SYM_TYPE *symtab,
                         break;
                     }
                 }
-            } while (!TEST(1, *harray++));
+            } while (!TESTANY(1, *harray++));
         }
     }
     return res;
@@ -779,7 +779,7 @@ get_proc_address_ex(module_base_t lib, const char *name,
         } else if (res != NULL) {
             if (is_ifunc) {
                 TRY_EXCEPT_ALLOW_NO_DCONTEXT(
-                    get_thread_private_dcontext(), { res = ((app_pc(*)(void))(res))(); },
+                    get_thread_private_dcontext(), { res = ((app_pc (*)(void))(res))(); },
                     { /* EXCEPT */
                       ASSERT_CURIOSITY(false && "crashed while executing ifunc");
                       res = NULL;
@@ -851,7 +851,7 @@ module_has_text_relocs(app_pc base, bool at_map)
             return true;
         /* Newer binaries have a DF_TEXTREL flag in DT_FLAGS */
         if (dyn->d_tag == DT_FLAGS) {
-            if (TEST(DF_TEXTREL, dyn->d_un.d_val))
+            if (TESTANY(DF_TEXTREL, dyn->d_un.d_val))
                 return true;
         }
         dyn++;
@@ -959,7 +959,7 @@ module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd, ELF_DYNAMIC_ENTRY_T
         case DT_PLTREL: opd->pltrel = dyn->d_un.d_val; break;
         case DT_TEXTREL: opd->textrel = true; break;
         case DT_FLAGS:
-            if (TEST(DF_TEXTREL, dyn->d_un.d_val))
+            if (TESTANY(DF_TEXTREL, dyn->d_un.d_val))
                 opd->textrel = true;
             break;
         case DT_JMPREL: opd->jmprel = (app_pc)(dyn->d_un.d_ptr + load_delta); break;
@@ -1117,7 +1117,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
     if (res != NULL) {
         if (is_ifunc) {
             TRY_EXCEPT_ALLOW_NO_DCONTEXT(
-                dcontext, { res = ((app_pc(*)(void))(res))(); },
+                dcontext, { res = ((app_pc (*)(void))(res))(); },
                 { /* EXCEPT */
                   ASSERT_CURIOSITY(false && "crashed while executing ifunc");
                   res = NULL;
@@ -1172,7 +1172,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
         if (res != NULL) {
             if (is_ifunc) {
                 TRY_EXCEPT_ALLOW_NO_DCONTEXT(
-                    dcontext, { res = ((app_pc(*)(void))(res))(); },
+                    dcontext, { res = ((app_pc (*)(void))(res))(); },
                     { /* EXCEPT */
                       ASSERT_CURIOSITY(false && "crashed while executing ifunc");
                       res = NULL;
@@ -1185,7 +1185,7 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 }
 
 static void
-module_undef_symbols()
+module_undef_symbols(void)
 {
     FATAL_USAGE_ERROR(UNDEFINED_SYMBOL_REFERENCE, 0, "");
 }
@@ -1209,7 +1209,7 @@ symbol_iterator_next_noread(elf_symbol_iterator_t *iter)
     if (iter->hidx < iter->num_buckets) {
         /* XXX: perhaps we should safe_read buckets[] and chain[] */
         if (iter->chain_idx != 0) {
-            if (TEST(1, iter->chain[iter->chain_idx])) {
+            if (TESTANY(1, iter->chain[iter->chain_idx])) {
                 /* LSB being 1 marks end of chain. */
                 iter->chain_idx = 0;
             } else
@@ -1482,7 +1482,7 @@ resolve_ifunc(app_pc resolver_pc)
     /* TODO i#7392: glibc 2.41 passes hwcap to ifunc resolvers on AArch32, and
      * hwcap and __ifunc_arg_t structure to ifunc resolvers on AArch64.
      */
-    addr = ((ELF_ADDR(*)(void))resolver_pc)();
+    addr = ((ELF_ADDR (*)(void))resolver_pc)();
 #    endif
 
     return addr;
@@ -1704,13 +1704,13 @@ module_relocate_relr(app_pc modbase, os_privmod_data_t *pd, const ELF_WORD *relr
     LOG(GLOBAL, LOG_LOADER, 4, "%s walking relr %p-%p\n", __FUNCTION__, relr,
         (char *)relr + size);
     for (; size != 0; relr++, size -= sizeof(ELF_WORD)) {
-        if (!TEST(1, relr[0])) {
+        if (!TESTANY(1, relr[0])) {
             r_addr = (ELF_ADDR *)(relr[0] + pd->load_delta);
             *r_addr++ += pd->load_delta;
         } else {
             int i = 0;
             for (ELF_WORD bitmap = relr[0]; (bitmap >>= 1) != 0; i++) {
-                if (TEST(1, bitmap))
+                if (TESTANY(1, bitmap))
                     r_addr[i] += pd->load_delta;
             }
             r_addr += CHAR_BIT * sizeof(ELF_WORD) - 1;

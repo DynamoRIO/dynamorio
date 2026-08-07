@@ -193,7 +193,7 @@ load_module(const char *modpath)
                     mod = newmod;
                 }
             } /* else stick with mod */
-        }     /* else stick with mod */
+        } /* else stick with mod */
     }
     if (newmod == NULL) {
         dwarf_lib_handle_t dbg;
@@ -213,7 +213,7 @@ load_module(const char *modpath)
             }
         }
 #endif
-        if (TEST(DRSYM_DWARF_LINE, mod->debug_kind) &&
+        if (TESTANY(DRSYM_DWARF_LINE, mod->debug_kind) &&
             drsym_obj_dwarf_init(mod->obj_info, &dbg)) {
             mod->dwarf_info = drsym_dwarf_init(dbg);
         } else {
@@ -449,7 +449,7 @@ addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info DR_PARAM
     if (symbol == NULL)
         return DRSYM_ERROR;
 
-    if (TEST(DRSYM_DEMANGLE, flags) && info->name != NULL) {
+    if (TESTANY(DRSYM_DEMANGLE, flags) && info->name != NULL) {
         name_len = drsym_demangle_symbol(info->name, info->name_size, symbol, flags);
     }
     if (name_len == 0) {
@@ -647,7 +647,7 @@ drsym_unix_lookup_symbol(void *mod_in, const char *symbol, size_t *modoffs DR_PA
 
     *modoffs = 0;
 
-    if (!TEST(DRSYM_SYMBOLS, mod->debug_kind)) {
+    if (!TESTANY(DRSYM_SYMBOLS, mod->debug_kind)) {
         /* XXX i#883: we have no symbols and we're just looking at exports so we
          * should do a fast hashtable lookup instead of a linear walk.
          * DR already has the code for this, accessible via dr_get_proc_address(),
@@ -744,7 +744,7 @@ size_t
 drsym_unix_demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled,
                            uint flags)
 {
-    if (!TEST(DRSYM_DEMANGLE_FULL, flags)) {
+    if (!TESTANY(DRSYM_DEMANGLE_FULL, flags)) {
         /* The demangle.cc implementation is fast and replaces template args
          * with <> and omits parameters.  Use it if the user doesn't
          * want either of those.  Its return value always follows our

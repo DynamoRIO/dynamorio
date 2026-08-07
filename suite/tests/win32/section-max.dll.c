@@ -646,7 +646,8 @@ int er503 = 5;
  *
  */
 
-int __declspec(dllexport) make_a_lib(int arg)
+int __declspec(dllexport)
+make_a_lib(int arg)
 {
     shared2 = 101;
     return shared1 + discard1 + nocache1 + nopage1 + erw1;

@@ -96,7 +96,8 @@ dlltest(void)
 }
 
 /* our Makefile expects a .lib */
-int __declspec(dllexport) data_attack(int arg)
+int __declspec(dllexport)
+data_attack(int arg)
 {
     print("data_attack\n");
     /* XXX: will do this some other time */

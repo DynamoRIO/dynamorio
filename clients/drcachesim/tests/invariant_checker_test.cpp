@@ -4473,7 +4473,7 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, 42), nullptr },
             // Second template.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                         DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+                         DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
               nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), load },
             { gen_instr(TID_A), move },
@@ -4483,7 +4483,7 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                         DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+                         DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
               nullptr },
             { gen_exit(TID_A), nullptr }
         };
@@ -4531,14 +4531,14 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 0), nullptr },
             // Syscall template.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                         DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+                         DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
               nullptr },
             { gen_instr(TID_A), load },
             { gen_data(TID_A, /*load=*/true, /*addr=*/0x1234, /*size=*/4), nullptr },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                         DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+                         DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
               nullptr },
             // Switch template.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START,
@@ -4575,14 +4575,14 @@ check_kernel_syscall_trace(void)
             { gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 0), nullptr },
             // Only one template, which has a PC discontinuity.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                         DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+                         DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
               nullptr },
             { gen_instr(TID_A), move },
             // Missing load instruction from the PC order in setup 'ilist' above.
             { gen_marker(TID_A, TRACE_MARKER_TYPE_BRANCH_TARGET, 0), nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_JUMP, TID_A), sys_return },
             { gen_marker(TID_A, TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                         DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM),
+                         DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM),
               nullptr },
             { gen_exit(TID_A), nullptr }
         };

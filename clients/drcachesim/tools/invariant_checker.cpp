@@ -194,7 +194,7 @@ invariant_checker_t::parallel_shard_exit(void *shard_data)
         bool has_switch_templates = !shard->saw_switch_trace_.empty();
         bool has_syscall_templates = !shard->saw_syscall_trace_.empty();
         bool has_default_syscall_template =
-            shard->saw_syscall_trace_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM) !=
+            shard->saw_syscall_trace_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM) !=
             shard->saw_syscall_trace_.end();
         report_if_false(shard,
                         (!has_switch_templates && has_syscall_templates) ||
@@ -1100,14 +1100,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard, !shard->verify_next_thread_exit_,
                         "Expected thread exit after branch-to-zero in syscall trace");
 
-        // We wait until we see an actual non-kernel instruction to reset the following
-        // fields. We cannot do this on seeing the respective TRACE_MARKER_TYPE_*_END
-        // marker because we may need it again if there's a consecutive syscall/switch.
         if (!shard->between_kernel_syscall_trace_markers_) {
+            // We wait until we see an actual non-kernel instruction to reset the
+            // following fields. We cannot do this on seeing the respective
+            // TRACE_MARKER_TYPE_*_END marker because we may need it again if there's a
+            // consecutive syscall/switch.
             shard->pre_syscall_trace_instr_ = {};
             shard->syscall_trace_num_after_last_userspace_instr_ = -1;
             report_if_false(shard, !shard->expect_syscall_trace_,
                             "Missing system call trace");
+            // Reset state to prevent reporting the same error instance multiple times.
+            shard->expect_syscall_trace_ = false;
         }
         // We'd prefer to report this error at the syscall instr but it is easier
         // to wait until here:
@@ -1115,6 +1118,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         !TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) ||
                             !shard->expect_syscall_marker_,
                         "Syscall marker missing after syscall instruction");
+        // Reset state to prevent reporting the same error instance multiple times.
+        shard->expect_syscall_marker_ = false;
 
         per_shard_t::instr_info_t cur_instr_info;
         const bool expect_encoding =

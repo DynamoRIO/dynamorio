@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -116,8 +116,8 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
     case OP_jnz:
         /* XXX i#1315: we should support 2-byte immeds => length 4+ */
         return 6 +
-            ((TEST(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
-              TEST(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr)))
+            ((TESTANY(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
+              TESTANY(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr)))
                  ? 1
                  : 0);
     case OP_jb_short:
@@ -137,8 +137,8 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
     case OP_jz_short:
     case OP_jnz_short:
         return 2 +
-            ((TEST(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
-              TEST(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr)))
+            ((TESTANY(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
+              TESTANY(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr)))
                  ? 1
                  : 0);
         /* alternative names (e.g., OP_jae_short) are equivalent,
@@ -199,7 +199,7 @@ instr_compute_VSIB_index(bool *selected DR_PARAM_OUT, app_pc *result DR_PARAM_OU
 {
     CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL,
                   "vsib address computation: invalid args");
-    CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
+    CLIENT_ASSERT(TESTANY(DR_MC_MULTIMEDIA, mc_flags),
                   "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
     opnd_t src0 = instr_get_src(instr, 0);
     /* We detect whether the instruction is EVEX by looking at its potential mask operand.
@@ -828,12 +828,20 @@ instr_is_wow64_syscall(instr_t *instr)
 #        ifdef DEBUG
         /* We still pattern match in debug to provide a sanity check */
         static const byte WOW64_SYSSVC[] = {
-            0x64, 0x8b, 0x15, 0x30, 0x00, 0x00, 0x00, /* mov edx,dword ptr fs:[30h] */
+            0x64,
+            0x8b,
+            0x15,
+            0x30,
+            0x00,
+            0x00,
+            0x00, /* mov edx,dword ptr fs:[30h] */
             /* The offset here varies across updates so we do do not check it */
-            0x8b, 0x92, /* mov edx,dword ptr [edx+254h] */
+            0x8b,
+            0x92, /* mov edx,dword ptr [edx+254h] */
         };
         static const byte WOW64_SYSSVC_1609[] = {
-            0xff, 0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
+            0xff,
+            0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
         };
         byte tgt_code[sizeof(WOW64_SYSSVC)];
 #        endif
@@ -930,7 +938,7 @@ bool
 instr_is_floating_type(instr_t *instr, dr_instr_category_t *type DR_PARAM_OUT)
 {
     uint cat = instr_get_category(instr);
-    if (!TEST(DR_INSTR_CATEGORY_FP, cat))
+    if (!TESTANY(DR_INSTR_CATEGORY_FP, cat))
         return false;
     if (type != NULL)
         *type = cat;
@@ -942,21 +950,21 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type DR_PARAM_OUT)
 {
     uint cat = instr_get_category(instr);
 
-    if (!TEST(DR_INSTR_CATEGORY_FP, cat))
+    if (!TESTANY(DR_INSTR_CATEGORY_FP, cat))
         return false;
-    else if (TEST(DR_INSTR_CATEGORY_MATH, cat)) {
+    else if (TESTANY(DR_INSTR_CATEGORY_MATH, cat)) {
         if (type != NULL)
             *type = DR_FP_MATH;
         return true;
-    } else if (TEST(DR_INSTR_CATEGORY_CONVERT, cat)) {
+    } else if (TESTANY(DR_INSTR_CATEGORY_CONVERT, cat)) {
         if (type != NULL)
             *type = DR_FP_CONVERT;
         return true;
-    } else if (TEST(DR_INSTR_CATEGORY_STATE, cat)) {
+    } else if (TESTANY(DR_INSTR_CATEGORY_STATE, cat)) {
         if (type != NULL)
             *type = DR_FP_STATE;
         return true;
-    } else if (TEST(DR_INSTR_CATEGORY_MOVE, cat)) {
+    } else if (TESTANY(DR_INSTR_CATEGORY_MOVE, cat)) {
         if (type != NULL)
             *type = DR_FP_MOVE;
         return true;
@@ -1498,10 +1506,10 @@ instr_invert_cbr(instr_t *instr)
         }
         instr_set_opcode(instr, opc);
         /* reverse any branch hint */
-        if (TEST(PREFIX_JCC_TAKEN, instr_get_prefixes(instr))) {
+        if (TESTANY(PREFIX_JCC_TAKEN, instr_get_prefixes(instr))) {
             instr->prefixes &= ~PREFIX_JCC_TAKEN;
             instr->prefixes |= PREFIX_JCC_NOT_TAKEN;
-        } else if (TEST(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr))) {
+        } else if (TESTANY(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr))) {
             instr->prefixes &= ~PREFIX_JCC_NOT_TAKEN;
             instr->prefixes |= PREFIX_JCC_TAKEN;
         }
@@ -1521,10 +1529,10 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mcontext, bool pre)
         switch (opc) {
         case OP_loop: return (mcontext->xcx != (pre ? 1U : 0U));
         case OP_loope:
-            return (TEST(EFLAGS_ZF, mcontext->xflags) &&
+            return (TESTANY(EFLAGS_ZF, mcontext->xflags) &&
                     mcontext->xcx != (pre ? 1U : 0U));
         case OP_loopne:
-            return (!TEST(EFLAGS_ZF, mcontext->xflags) &&
+            return (!TESTANY(EFLAGS_ZF, mcontext->xflags) &&
                     mcontext->xcx != (pre ? 1U : 0U));
         case OP_jecxz: return (mcontext->xcx == 0U);
         default: CLIENT_ASSERT(false, "instr_cbr_taken: unknown opcode"); return false;
@@ -1539,41 +1547,41 @@ opc_jcc_taken(int opc, reg_t eflags)
 {
     switch (opc) {
     case OP_jo:
-    case OP_jo_short: return TEST(EFLAGS_OF, eflags);
+    case OP_jo_short: return TESTANY(EFLAGS_OF, eflags);
     case OP_jno:
-    case OP_jno_short: return !TEST(EFLAGS_OF, eflags);
+    case OP_jno_short: return !TESTANY(EFLAGS_OF, eflags);
     case OP_jb:
-    case OP_jb_short: return TEST(EFLAGS_CF, eflags);
+    case OP_jb_short: return TESTANY(EFLAGS_CF, eflags);
     case OP_jnb:
-    case OP_jnb_short: return !TEST(EFLAGS_CF, eflags);
+    case OP_jnb_short: return !TESTANY(EFLAGS_CF, eflags);
     case OP_jz:
-    case OP_jz_short: return TEST(EFLAGS_ZF, eflags);
+    case OP_jz_short: return TESTANY(EFLAGS_ZF, eflags);
     case OP_jnz:
-    case OP_jnz_short: return !TEST(EFLAGS_ZF, eflags);
+    case OP_jnz_short: return !TESTANY(EFLAGS_ZF, eflags);
     case OP_jbe:
     case OP_jbe_short: return TESTANY(EFLAGS_CF | EFLAGS_ZF, eflags);
     case OP_jnbe:
     case OP_jnbe_short: return !TESTANY(EFLAGS_CF | EFLAGS_ZF, eflags);
     case OP_js:
-    case OP_js_short: return TEST(EFLAGS_SF, eflags);
+    case OP_js_short: return TESTANY(EFLAGS_SF, eflags);
     case OP_jns:
-    case OP_jns_short: return !TEST(EFLAGS_SF, eflags);
+    case OP_jns_short: return !TESTANY(EFLAGS_SF, eflags);
     case OP_jp:
-    case OP_jp_short: return TEST(EFLAGS_PF, eflags);
+    case OP_jp_short: return TESTANY(EFLAGS_PF, eflags);
     case OP_jnp:
-    case OP_jnp_short: return !TEST(EFLAGS_PF, eflags);
+    case OP_jnp_short: return !TESTANY(EFLAGS_PF, eflags);
     case OP_jl:
-    case OP_jl_short: return (TEST(EFLAGS_SF, eflags) != TEST(EFLAGS_OF, eflags));
+    case OP_jl_short: return (TESTANY(EFLAGS_SF, eflags) != TESTANY(EFLAGS_OF, eflags));
     case OP_jnl:
-    case OP_jnl_short: return (TEST(EFLAGS_SF, eflags) == TEST(EFLAGS_OF, eflags));
+    case OP_jnl_short: return (TESTANY(EFLAGS_SF, eflags) == TESTANY(EFLAGS_OF, eflags));
     case OP_jle:
     case OP_jle_short:
-        return (TEST(EFLAGS_ZF, eflags) ||
-                TEST(EFLAGS_SF, eflags) != TEST(EFLAGS_OF, eflags));
+        return (TESTANY(EFLAGS_ZF, eflags) ||
+                TESTANY(EFLAGS_SF, eflags) != TESTANY(EFLAGS_OF, eflags));
     case OP_jnle:
     case OP_jnle_short:
-        return (!TEST(EFLAGS_ZF, eflags) &&
-                TEST(EFLAGS_SF, eflags) == TEST(EFLAGS_OF, eflags));
+        return (!TESTANY(EFLAGS_ZF, eflags) &&
+                TESTANY(EFLAGS_SF, eflags) == TESTANY(EFLAGS_OF, eflags));
     default: CLIENT_ASSERT(false, "instr_jcc_taken: unknown opcode"); return false;
     }
 }

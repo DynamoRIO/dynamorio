@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -281,7 +281,7 @@ extern timestamp_t kstat_ignore_context_switch;
                 (kstack)->node[depth].outlier_time;                                     \
             *pcum =                                                                     \
                 (kstack)->node[depth].self_time + (kstack)->node[depth].subpath_time;   \
-            /* XXX: an outlier should be counted as a NaN for outliers on subpaths    \
+            /* XXX: an outlier should be counted as a NaN for outliers on subpaths      \
              */                                                                         \
             if (*pcum > 0 && (kstack)->node[depth].var->min_cum > *pcum)                \
                 (kstack)->node[depth].var->min_cum = *pcum;                             \

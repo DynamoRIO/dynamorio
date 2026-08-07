@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -284,9 +284,9 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     if (!translating)
         increment(tag);
 
-        /* I'm looking for a specific BB in the test .exe.  I've marked
-         * it with a couple nops.
-         */
+    /* I'm looking for a specific BB in the test .exe.  I've marked
+     * it with a couple nops.
+     */
 #ifdef WINDOWS
     if ((app_pc)tag >= start && (app_pc)tag < end) {
 #endif

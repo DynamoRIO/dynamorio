@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,6 +43,10 @@
 #    include "heap.h"
 #    ifdef WINDOWS
 #        include "ntdll.h"
+#    endif
+
+#    ifdef LINUX_KERNEL
+#        include "kernel_interface.h"
 #    endif
 
 /* DYNAMORIO_VAR_CONFIGDIR is searched first, and then these: */
@@ -192,7 +196,9 @@ static config_vals_t *config_reread_vals;
 const char *
 my_getenv(IF_WINDOWS_ELSE_NP(const wchar_t *, const char *) var, char *buf, size_t bufsz)
 {
-#    ifdef UNIX
+#    ifdef LINUX_KERNEL
+    return kernel_getenv(var);
+#    elif defined(UNIX)
     return getenv(var);
 #    else
     wchar_t wbuf[MAX_CONFIG_VALUE];
@@ -778,9 +784,9 @@ should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env
         return false;
     /* env var counts as app-specific */
     if (!app_specific && !from_env) {
-        if (TEST(RUNUNDER_ALL, rununder))
+        if (TESTANY(RUNUNDER_ALL, rununder))
             *rununder_on = true;
-    } else if (TEST(RUNUNDER_ON, rununder))
+    } else if (TESTANY(RUNUNDER_ON, rununder))
         *rununder_on = true;
     /* Linux ignores RUNUNDER_EXPLICIT, RUNUNDER_COMMANDLINE_*, RUNUNDER_ONCE */
     return true;

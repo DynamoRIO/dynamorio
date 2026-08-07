@@ -73,7 +73,6 @@ else ()
   set(srcs ) # empty list
 endif ()
 # Not all clients are supported on all plaforms
-string(REGEX REPLACE "[^;]*MF_moduledb.c" "" srcs "${srcs}")
 if (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   string(REGEX REPLACE "[^;]*stats.c" "" srcs "${srcs}")
 endif (UNIX OR CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)

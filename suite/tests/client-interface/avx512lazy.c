@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,14 +34,14 @@
 #    include "tools.h"
 
 NOINLINE void
-before_marker();
+before_marker(void);
 NOINLINE void
-after_marker();
+after_marker(void);
 NOINLINE void
-avx512_instr();
+avx512_instr(void);
 
 void
-run_avx512()
+run_avx512(void)
 {
 #    ifndef __AVX512F__
 #        error "Build error, should only be added with AVX-512 support."
@@ -56,7 +56,7 @@ run_avx512()
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     run_avx512();
     return 0;
@@ -79,6 +79,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sub      REG_XSP, FRAME_PADDING
         END_PROLOG
 
+        /* This constant is hardcoded in avx512lazy.dll.c. */
         mov      REG_XAX, 0x12345678
         mov      REG_XAX, 0x12345678
 
@@ -93,6 +94,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sub      REG_XSP, FRAME_PADDING
         END_PROLOG
 
+        /* This constant is hardcoded in avx512lazy.dll.c. */
         mov      REG_XAX, 0x12345678
         mov      REG_XAX, 0x12345678
 

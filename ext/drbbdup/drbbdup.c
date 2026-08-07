@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,7 +39,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <limits.h>
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 #undef drmgr_is_first_instr
 #undef drmgr_is_first_nonlabel_instr
@@ -169,10 +169,10 @@ drbbdup_encoding_already_included(drbbdup_manager_t *manager, uintptr_t encoding
                                   bool check_default);
 
 static void
-drbbdup_handle_new_case();
+drbbdup_handle_new_case(void);
 
 static app_pc
-init_fp_cache(void (*clean_call_func)());
+init_fp_cache(void (*clean_call_func)(void));
 
 static instr_t *
 drbbdup_first_app(instrlist_t *bb);
@@ -389,7 +389,7 @@ drbbdup_ilist_has_unending_emulation(instrlist_t *bb)
     for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
         if (drmgr_is_emulation_start(inst) &&
             drmgr_get_emulated_instr_data(inst, &emul_info) &&
-            TEST(DR_EMULATE_REST_OF_BLOCK, emul_info.flags))
+            TESTANY(DR_EMULATE_REST_OF_BLOCK, emul_info.flags))
             return true;
     }
     return false;
@@ -1315,7 +1315,7 @@ drbbdup_do_dynamic_handling(drbbdup_manager_t *manager)
 
 /* Increments the execution count of bails to default case. */
 static void
-drbbdup_inc_bail_count()
+drbbdup_inc_bail_count(void)
 {
     dr_mutex_lock(stat_mutex);
     stats.bail_count++;
@@ -1869,7 +1869,7 @@ drbbdup_manage_new_case(void *drcontext, hashtable_t *manager_table,
 }
 
 static void
-drbbdup_handle_new_case()
+drbbdup_handle_new_case(void)
 {
     void *drcontext = dr_get_current_drcontext();
 
@@ -1935,7 +1935,7 @@ drbbdup_handle_new_case()
 }
 
 static app_pc
-init_fp_cache(void (*clean_call_func)())
+init_fp_cache(void (*clean_call_func)(void))
 {
     /* Assumes caller manages synchronisation. */
     app_pc cache_pc;

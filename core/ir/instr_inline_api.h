@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,9 +48,9 @@
 #        define DR_IF_DEBUG IF_DEBUG
 #        define DR_IF_DEBUG_ IF_DEBUG_
 
-#        define MAKE_OPNDS_VALID(instr)                       \
-            (void)(TEST(INSTR_OPERANDS_VALID, (instr)->flags) \
-                       ? (instr)                              \
+#        define MAKE_OPNDS_VALID(instr)                          \
+            (void)(TESTANY(INSTR_OPERANDS_VALID, (instr)->flags) \
+                       ? (instr)                                 \
                        : instr_decode_with_current_dcontext(instr))
 /* CLIENT_ASSERT with a trailing comma in a debug build, otherwise nothing. */
 #        define CLIENT_ASSERT_(cond, msg) DR_IF_DEBUG_(CLIENT_ASSERT(cond, msg))
@@ -446,28 +446,28 @@ INSTR_INLINE
 bool
 instr_operands_valid(instr_t *instr)
 {
-    return TEST(INSTR_OPERANDS_VALID, instr->flags);
+    return TESTANY(INSTR_OPERANDS_VALID, instr->flags);
 }
 
 INSTR_INLINE
 bool
 instr_raw_bits_valid(instr_t *instr)
 {
-    return TEST(INSTR_RAW_BITS_VALID, instr->flags);
+    return TESTANY(INSTR_RAW_BITS_VALID, instr->flags);
 }
 
 INSTR_INLINE
 bool
 instr_has_allocated_bits(instr_t *instr)
 {
-    return TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags);
+    return TESTANY(INSTR_RAW_BITS_ALLOCATED, instr->flags);
 }
 
 INSTR_INLINE
 bool
 instr_needs_encoding(instr_t *instr)
 {
-    return !TEST(INSTR_RAW_BITS_VALID, instr->flags);
+    return !TESTANY(INSTR_RAW_BITS_VALID, instr->flags);
 }
 
 INSTR_INLINE
@@ -501,7 +501,7 @@ instr_num_dsts(instr_t *instr)
         (MAKE_OPNDS_VALID(instr),                            \
          CLIENT_ASSERT_(pos >= 0 && pos < (instr)->num_srcs, \
                         "instr_get_src: ordinal invalid")(   \
-             (pos) == 0 ? (instr)->src0 : (instr)->srcs[(pos)-1]))
+             (pos) == 0 ? (instr)->src0 : (instr)->srcs[(pos) - 1]))
 
 #    define INSTR_GET_DST(instr, pos)                            \
         (MAKE_OPNDS_VALID(instr),                                \

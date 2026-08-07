@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -101,11 +101,12 @@ print_moduledb_exempt_lists(file_t file);
 #    define PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY 0x4
 
 #    define IS_PROCESS_CONTROL_MODE_ALLOWLIST() \
-        (TEST(PROCESS_CONTROL_MODE_ALLOWLIST, DYNAMO_OPTION(process_control)))
+        (TESTANY(PROCESS_CONTROL_MODE_ALLOWLIST, DYNAMO_OPTION(process_control)))
 #    define IS_PROCESS_CONTROL_MODE_BLOCKLIST() \
-        (TEST(PROCESS_CONTROL_MODE_BLOCKLIST, DYNAMO_OPTION(process_control)))
-#    define IS_PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY() \
-        (TEST(PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY, DYNAMO_OPTION(process_control)))
+        (TESTANY(PROCESS_CONTROL_MODE_BLOCKLIST, DYNAMO_OPTION(process_control)))
+#    define IS_PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY()  \
+        (TESTANY(PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY, \
+                 DYNAMO_OPTION(process_control)))
 #    define IS_PROCESS_CONTROL_ON()                                                    \
         (IS_PROCESS_CONTROL_MODE_ALLOWLIST() || IS_PROCESS_CONTROL_MODE_BLOCKLIST() || \
          IS_PROCESS_CONTROL_MODE_ALLOWLIST_INTEGRITY())

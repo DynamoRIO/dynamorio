@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -80,7 +80,7 @@ static hashtable_t usercall_table;
 static const char *const usercall_names[] = {
 #define USERCALL(type, name, w2k, xp, w2003, vistaSP01, vistaSP2, w7, w8, w81, w10, w11, \
                  w12, w13, w14, w15)                                                     \
-#    type "." #    name,
+    #type "." #name,
 #include "drsyscall_usercallx.h"
 #undef USERCALL
 };
@@ -89,7 +89,7 @@ static const char *const usercall_names[] = {
 static const char *const usercall_primary[] = {
 #define USERCALL(type, name, w2k, xp, w2003, vistaSP01, vistaSP2, w7, w8, w81, w10, w11, \
                  w12, w13, w14, w15)                                                     \
-#    type,
+    #type,
 #include "drsyscall_usercallx.h"
 #undef USERCALL
 };
@@ -401,12 +401,12 @@ handle_large_string_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info
                                   "LARGE_STRING capacity", DRSYS_TYPE_LARGE_STRING, NULL,
                                   DRSYS_TYPE_INVALID))
                 return true;
-            if (TEST(SYSARG_READ, arg_info->flags)) {
+            if (TESTANY(SYSARG_READ, arg_info->flags)) {
                 if (!report_memarg(ii, arg_info, (byte *)ls.Buffer, ls.Length,
                                    "LARGE_STRING content"))
                     return true;
             }
-        } else if (TEST(SYSARG_WRITE, arg_info->flags)) {
+        } else if (TESTANY(SYSARG_WRITE, arg_info->flags)) {
             if (!report_memarg(ii, arg_info, (byte *)ls.Buffer, ls.Length,
                                "LARGE_STRING content"))
                 return true;
@@ -467,7 +467,7 @@ handle_wndclassexw_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
      * alternatively keep the check here and treat this is a user32.dll bug and
      * suppress it.
      */
-    bool use_cbSize = TEST(SYSARG_READ, arg_info->flags);
+    bool use_cbSize = TESTANY(SYSARG_READ, arg_info->flags);
     if (ii->arg->pre && use_cbSize) {
         if (!report_memarg_type(ii, arg_info->param, SYSARG_READ, start,
                                 sizeof(safe.cbSize), "WNDCLASSEX.cbSize",
@@ -479,8 +479,8 @@ handle_wndclassexw_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
                            use_cbSize ? safe.cbSize : sizeof(WNDCLASSEX), "WNDCLASSEX"))
             return true;
         /* For WRITE there is no capacity here so nothing to check (i#505) */
-        if ((ii->arg->pre && TEST(SYSARG_READ, arg_info->flags)) ||
-            (!ii->arg->pre && TEST(SYSARG_WRITE, arg_info->flags))) {
+        if ((ii->arg->pre && TESTANY(SYSARG_READ, arg_info->flags)) ||
+            (!ii->arg->pre && TESTANY(SYSARG_WRITE, arg_info->flags))) {
             /* lpszMenuName can be from MAKEINTRESOURCE, and
              * lpszClassName can be an atom
              */
@@ -515,7 +515,7 @@ handle_clsmenuname_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
     CLSMENUNAME safe;
     if (!report_memarg(ii, arg_info, start, size, "CLSMENUNAME"))
         return true;
-    if (ii->arg->pre && !TEST(SYSARG_READ, arg_info->flags)) {
+    if (ii->arg->pre && !TESTANY(SYSARG_READ, arg_info->flags)) {
         /* looks like even the UNICODE_STRING is not set up: contains garbage,
          * so presumably kernel creates it and doesn't just write to Buffer
          */
@@ -577,13 +577,13 @@ handle_menuiteminfow_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_inf
                                   NULL, DRSYS_TYPE_INVALID))
                 return true;
         }
-        if (TEST(MIIM_BITMAP, safe.fMask) &&
+        if (TESTANY(MIIM_BITMAP, safe.fMask) &&
             safe.cbSize > offsetof(MENUITEMINFOW, hbmpItem)) {
             if (!report_memarg(ii, arg_info, (byte *)&real->hbmpItem,
                                sizeof(real->hbmpItem), "MENUITEMINFOW.hbmpItem"))
                 return true;
         }
-        if (TEST(MIIM_CHECKMARKS, safe.fMask)) {
+        if (TESTANY(MIIM_CHECKMARKS, safe.fMask)) {
             if (safe.cbSize > offsetof(MENUITEMINFOW, hbmpChecked)) {
                 if (!report_memarg(ii, arg_info, (byte *)&real->hbmpChecked,
                                    sizeof(real->hbmpChecked),
@@ -597,43 +597,43 @@ handle_menuiteminfow_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_inf
                     return true;
             }
         }
-        if (TEST(MIIM_DATA, safe.fMask) &&
+        if (TESTANY(MIIM_DATA, safe.fMask) &&
             safe.cbSize > offsetof(MENUITEMINFOW, dwItemData)) {
             if (!report_memarg(ii, arg_info, (byte *)&real->dwItemData,
                                sizeof(real->dwItemData), "MENUITEMINFOW.dwItemData"))
                 return true;
         }
-        if (TEST(MIIM_FTYPE, safe.fMask) &&
+        if (TESTANY(MIIM_FTYPE, safe.fMask) &&
             safe.cbSize > offsetof(MENUITEMINFOW, fType)) {
             if (!report_memarg(ii, arg_info, (byte *)&real->fType, sizeof(real->fType),
                                "MENUITEMINFOW.fType"))
                 return true;
         }
-        if (TEST(MIIM_ID, safe.fMask) && safe.cbSize > offsetof(MENUITEMINFOW, wID)) {
+        if (TESTANY(MIIM_ID, safe.fMask) && safe.cbSize > offsetof(MENUITEMINFOW, wID)) {
             if (!report_memarg(ii, arg_info, (byte *)&real->wID, sizeof(real->wID),
                                "MENUITEMINFOW.wID"))
                 return true;
         }
-        if (TEST(MIIM_STATE, safe.fMask) &&
+        if (TESTANY(MIIM_STATE, safe.fMask) &&
             safe.cbSize > offsetof(MENUITEMINFOW, fState)) {
             if (!report_memarg(ii, arg_info, (byte *)&real->fState, sizeof(real->fState),
                                "MENUITEMINFOW.fState"))
                 return true;
         }
-        if (TEST(MIIM_STRING, safe.fMask) &&
+        if (TESTANY(MIIM_STRING, safe.fMask) &&
             safe.cbSize > offsetof(MENUITEMINFOW, dwTypeData)) {
             if (!report_memarg(ii, arg_info, (byte *)&real->dwTypeData,
                                sizeof(real->dwTypeData), "MENUITEMINFOW.dwTypeData"))
                 return true;
             check_dwTypeData = true;
         }
-        if (TEST(MIIM_SUBMENU, safe.fMask) &&
+        if (TESTANY(MIIM_SUBMENU, safe.fMask) &&
             safe.cbSize > offsetof(MENUITEMINFOW, hSubMenu)) {
             if (!report_memarg(ii, arg_info, (byte *)&real->hSubMenu,
                                sizeof(real->hSubMenu), "MENUITEMINFOW.hSubMenu"))
                 return true;
         }
-        if (TEST(MIIM_TYPE, safe.fMask) &&
+        if (TESTANY(MIIM_TYPE, safe.fMask) &&
             !TESTANY(MIIM_BITMAP | MIIM_FTYPE | MIIM_STRING, safe.fMask)) {
             if (safe.cbSize > offsetof(MENUITEMINFOW, fType)) {
                 if (!report_memarg(ii, arg_info, (byte *)&real->fType,
@@ -651,7 +651,7 @@ handle_menuiteminfow_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_inf
             /* i#1463: when retrieving, kernel sets safe.cch so we don't have
              * to walk the string.  When setting, cch is ignored.
              */
-            if (TEST(SYSARG_WRITE, arg_info->flags)) {
+            if (TESTANY(SYSARG_WRITE, arg_info->flags)) {
                 if (safe.cbSize > offsetof(MENUITEMINFOW, cch)) {
                     if (ii->arg->pre) {
                         /* User must set cch to capacity of dwTypeData */
@@ -743,7 +743,7 @@ handle_logfont(sysarg_iter_info_t *ii, byte *start, size_t size, int ordinal,
                uint arg_flags, LOGFONTW *safe)
 {
     LOGFONTW *font = (LOGFONTW *)start;
-    if (ii->arg->pre && TEST(SYSARG_WRITE, arg_flags)) {
+    if (ii->arg->pre && TESTANY(SYSARG_WRITE, arg_flags)) {
         if (!report_memarg_type(ii, ordinal, arg_flags, start, size, "LOGFONTW",
                                 DRSYS_TYPE_LOGFONTW, NULL))
             return;
@@ -798,11 +798,11 @@ handle_nonclientmetrics(sysarg_iter_info_t *ii, byte *start, size_t size_specifi
      */
     LOG(ii->arg->drcontext, 2,
         "NONCLIENTMETRICSW %s: sizeof(NONCLIENTMETRICSW)=%x, cbSize=%x, uiParam=%x\n",
-        TEST(SYSARG_WRITE, arg_flags) ? "write" : "read", sizeof(NONCLIENTMETRICSW),
+        TESTANY(SYSARG_WRITE, arg_flags) ? "write" : "read", sizeof(NONCLIENTMETRICSW),
         ptr_safe->cbSize, size_specified);
     /* win7 seems to set cbSize properly, always */
     if (win_ver.version >= DR_WINDOWS_VERSION_7 ||
-        (!ii->arg->pre && TEST(SYSARG_WRITE, arg_flags)))
+        (!ii->arg->pre && TESTANY(SYSARG_WRITE, arg_flags)))
         size = ptr_safe->cbSize;
     else {
         /* MAX to handle future additions.  I don't think older versions
@@ -811,7 +811,7 @@ handle_nonclientmetrics(sysarg_iter_info_t *ii, byte *start, size_t size_specifi
         size = MAX(sizeof(NONCLIENTMETRICSW), size_specified);
     }
 
-    if (ii->arg->pre && TEST(SYSARG_WRITE, arg_flags)) {
+    if (ii->arg->pre && TESTANY(SYSARG_WRITE, arg_flags)) {
         if (!report_memarg_type(ii, ordinal, arg_flags, start, size, "NONCLIENTMETRICSW",
                                 DRSYS_TYPE_NONCLIENTMETRICSW, NULL))
             return;
@@ -921,7 +921,7 @@ handle_iconmetrics(sysarg_iter_info_t *ii, byte *start, int ordinal, uint arg_fl
     }
     size = ptr_safe->cbSize;
 
-    if (ii->arg->pre && TEST(SYSARG_WRITE, arg_flags)) {
+    if (ii->arg->pre && TESTANY(SYSARG_WRITE, arg_flags)) {
         if (!report_memarg_type(ii, ordinal, arg_flags, start, size, "ICONMETRICSW",
                                 DRSYS_TYPE_ICONMETRICSW, NULL))
             return;
@@ -2157,7 +2157,7 @@ handle_UserTrackMouseEvent(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_
         uint flags;
         safe = (TRACKMOUSEEVENT *)buf;
         /* XXX: for non-TME_QUERY are the other fields read? */
-        flags = TEST(TME_QUERY, safe->dwFlags) ? SYSARG_WRITE : SYSARG_READ;
+        flags = TESTANY(TME_QUERY, safe->dwFlags) ? SYSARG_WRITE : SYSARG_READ;
         if ((flags == SYSARG_WRITE || ii->arg->pre) &&
             safe->cbSize > BUFFER_SIZE_BYTES(buf)) {
             report_sysarg_type(ii, 0, SYSARG_READ, safe->cbSize - BUFFER_SIZE_BYTES(buf),
@@ -2427,20 +2427,22 @@ handle_UserSetScrollInfo(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t 
                             "SCROLLINFO cbSize+fMask", DRSYS_TYPE_STRUCT, "SCROLLINFO"))
         return;
     if (safe_read((byte *)si, sizeof(safe), &safe)) {
-        if (TEST(SIF_RANGE, safe.fMask) && safe.cbSize >= offsetof(SCROLLINFO, nPage)) {
+        if (TESTANY(SIF_RANGE, safe.fMask) &&
+            safe.cbSize >= offsetof(SCROLLINFO, nPage)) {
             if (!report_memarg_type(ii, 0, SYSARG_READ, (byte *)&si->nMin,
                                     sizeof(si->nMin) + sizeof(si->nMax),
                                     "SCROLLINFO nMin+nMax", DRSYS_TYPE_STRUCT,
                                     "SCROLLINFO"))
                 return;
         }
-        if (TEST(SIF_PAGE, safe.fMask) && safe.cbSize >= offsetof(SCROLLINFO, nPos)) {
+        if (TESTANY(SIF_PAGE, safe.fMask) && safe.cbSize >= offsetof(SCROLLINFO, nPos)) {
             if (!report_memarg_type(ii, 0, SYSARG_READ, (byte *)&si->nPage,
                                     sizeof(si->nPage), "SCROLLINFO.nPage",
                                     DRSYS_TYPE_STRUCT, "SCROLLINFO"))
                 return;
         }
-        if (TEST(SIF_POS, safe.fMask) && safe.cbSize >= offsetof(SCROLLINFO, nTrackPos)) {
+        if (TESTANY(SIF_POS, safe.fMask) &&
+            safe.cbSize >= offsetof(SCROLLINFO, nTrackPos)) {
             if (!report_memarg_type(ii, 0, SYSARG_READ, (byte *)&si->nPos,
                                     sizeof(si->nPos), "SCROLLINFO.nPos",
                                     DRSYS_TYPE_STRUCT, "SCROLLINFO"))
@@ -2677,7 +2679,7 @@ wingdi_shadow_process_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_in
         UINT fuOptions = (UINT)pt->sysarg[3];
         int cwc = (int)pt->sysarg[6];
         INT *pdx = (INT *)pt->sysarg[7];
-        if (ii->arg->pre && TEST(ETO_PDY, fuOptions)) {
+        if (ii->arg->pre && TESTANY(ETO_PDY, fuOptions)) {
             /* pdx contains pairs of INTs.  regular entry already checked
              * size of singletons of INTs so here we check the extra size.
              */

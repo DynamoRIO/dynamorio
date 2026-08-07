@@ -211,7 +211,7 @@ raw2trace_t::get_syscall_template(int syscall_num)
     if (it != syscall_trace_templates_.end()) {
         return &it->second;
     }
-    it = syscall_trace_templates_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM);
+    it = syscall_trace_templates_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM);
     if (it != syscall_trace_templates_.end())
         return &it->second;
     return nullptr;

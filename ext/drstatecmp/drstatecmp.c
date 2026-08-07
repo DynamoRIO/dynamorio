@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2021-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drstatecmp.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include <string.h>
 #include <stdint.h>
 
@@ -258,7 +258,7 @@ drstatecmp_analyze_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
         if (drmgr_is_emulation_start(inst)) {
             emulated_instr_t emulated_inst;
             drmgr_get_emulated_instr_data(inst, &emulated_inst);
-            if (!TEST(DR_EMULATE_INSTR_ONLY, emulated_inst.flags)) {
+            if (!TESTANY(DR_EMULATE_INSTR_ONLY, emulated_inst.flags)) {
                 /* Emulation sequence required for re-execution and golden bb copy should
                  * be the post-app2app copy.
                  */
@@ -530,7 +530,7 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
     drstatecmp_check_gpr_value("r15", tag, mc_instrumented->r15, mc_expected->r15);
 #    endif
 
-    if (!TEST(DRSTATECMP_SKIP_CHECK_AFLAGS, flags)) {
+    if (!TESTANY(DRSTATECMP_SKIP_CHECK_AFLAGS, flags)) {
         drstatecmp_check_gpr_value("xflags", tag, mc_instrumented->xflags,
                                    mc_expected->xflags);
     }
@@ -574,7 +574,7 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
     drstatecmp_check_gpr_value("r29", tag, mc_instrumented->r29, mc_expected->r29);
 #    endif
 
-    if (!TEST(DRSTATECMP_SKIP_CHECK_LR, flags))
+    if (!TESTANY(DRSTATECMP_SKIP_CHECK_LR, flags))
         drstatecmp_check_gpr_value("lr", tag, mc_instrumented->lr, mc_expected->lr);
 
     drstatecmp_check_xflags_value("xflags", tag, mc_instrumented->xflags,

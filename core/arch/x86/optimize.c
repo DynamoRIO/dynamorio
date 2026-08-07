@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -276,7 +276,7 @@ static struct {
   that wants to keep them in opt_stats_t and put appropriate code below*/
 
 void
-print_optimization_stats()
+print_optimization_stats(void)
 {
     if (dynamo_options.rlr) {
         uint top, bottom;
@@ -861,9 +861,9 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (opnd_get_pc(instr_get_target(branch)) != tag)
         return;
 
-        /* eflags: for simplicity require that eflags be written before read
-         * only need to look at arith flags
-         */
+    /* eflags: for simplicity require that eflags be written before read
+     * only need to look at arith flags
+     */
 #    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "\nunroll loop -- checking eflags on:\n");
     if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_OPTS) != 0)
@@ -2363,9 +2363,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                     state->hint = make_imm_store(state, inst, immed3);
                 break;
             }
-            case 2: {
-                // mul divide xchg xadd
-            }
+            case 2: /* mul divide xchg xadd */
             default: {
                 // unable to simlify this instruction
             }

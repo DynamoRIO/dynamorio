@@ -36,7 +36,7 @@
 #ifndef _CONTAINERS_PRIVATE_H_
 #define _CONTAINERS_PRIVATE_H_
 
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 #ifdef DEBUG
 #    define IF_DEBUG(x) x

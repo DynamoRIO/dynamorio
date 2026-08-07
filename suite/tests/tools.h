@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,7 @@
 #define _WIN32_WINNT 0x0600
 
 #define _GNU_SOURCE 1 /* for REG_RIP, etc. */
+#include "dr_project_wide_defines.h"
 #include "configure.h"
 #include "drlibc.h"
 #include <stdarg.h>
@@ -160,13 +161,6 @@ extern "C" {
 /* Get the defines for "true" and "false" w/o messing up clang-format. */
 #define DR_DO_NOT_DEFINE_bool
 #include "c_defines.h"
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 #ifdef USE_DYNAMO
 /* to avoid non-api tests depending on dr_api headers we rely on test
@@ -291,16 +285,8 @@ page_size(void)
 #else /* UNIX */
 #    define EXPORT __attribute__((visibility("default")))
 #    define IMPORT extern
-#    define NOINLINE __attribute__((noinline))
+#    define NOINLINE __attribute__((__noinline__))
 #endif
-
-/* convenience macros for secure string buffer operations */
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-#define BUFFER_ROOM_LEFT_W(wbuf) (BUFFER_SIZE_ELEMENTS(wbuf) - wcslen(wbuf) - 1)
-#define BUFFER_ROOM_LEFT(abuf) (BUFFER_SIZE_ELEMENTS(abuf) - strlen(abuf) - 1)
 
 #define PUSHF_MASK 0x00fcffff
 
@@ -318,11 +304,6 @@ typedef enum {
     COPY_NORMAL,
     COPY_CROSS_PAGE,
 } Copy_Mode;
-
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + (((ptr_uint_t)alignment) - 1)) & (~(((ptr_uint_t)alignment) - 1)))
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
 #ifdef UNIX
 #    ifndef MAP_ANONYMOUS

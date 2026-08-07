@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,7 +60,7 @@ struct _instrlist_t {
 #ifdef ARM
     dr_pred_type_t auto_pred;
 #endif /* ARM */
-};     /* instrlist_t */
+}; /* instrlist_t */
 
 /* basic instrlist_t functions */
 

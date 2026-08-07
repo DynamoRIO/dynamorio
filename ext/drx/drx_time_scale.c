@@ -35,7 +35,7 @@
 #include "dr_api.h"
 #include "drx.h"
 #include "drmgr.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 
 #include <errno.h>
 #include <string.h>
@@ -495,7 +495,7 @@ event_pre_syscall(void *drcontext, int sysnum)
                dr_get_thread_id(drcontext), flags, new_spec, old_spec);
         data->app_set_timer_param = new_spec;
         data->app_read_timer_param = old_spec;
-        if (TEST(TIMER_ABSTIME, flags)) {
+        if (TESTANY(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
@@ -524,7 +524,7 @@ event_pre_syscall(void *drcontext, int sysnum)
                dr_get_thread_id(drcontext), flags, new_spec, old_spec);
         data->app_set_timer_param = new_spec;
         data->app_read_timer_param = old_spec;
-        if (TEST(TIMER_ABSTIME, flags)) {
+        if (TESTANY(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
@@ -611,7 +611,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         data->app_set_timer_param = spec;
         data->app_read_timer_param = remain;
         data->was_zero = false;
-        if (TEST(TIMER_ABSTIME, flags)) {
+        if (TESTANY(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
@@ -643,7 +643,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         data->app_set_timer_param = spec;
         data->app_read_timer_param = remain;
         data->was_zero = false;
-        if (TEST(TIMER_ABSTIME, flags)) {
+        if (TESTANY(TIMER_ABSTIME, flags)) {
             /* TODO i#7504: Handle TIMER_ABSTIME and SYS_timer_getoverrun. */
             NOTIFY(0, "Absolute time is not supported\n");
             data->app_read_timer_param = NULL; /* Don't scale in post. */
@@ -784,7 +784,7 @@ event_post_syscall(void *drcontext, int sysnum)
     switch (sysnum) {
     case SYS_timer_settime:
         dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
-        /* Deliberate fallthrough. */
+        DR_FALLTHROUGH;
     case SYS_timer_gettime: {
         size_t wrote;
         if (!info.succeeded) {
@@ -808,7 +808,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifndef X64
     case SYS_timer_settime64:
         dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
-        /* Deliberate fallthrough. */
+        DR_FALLTHROUGH;
     case SYS_timer_gettime64: {
         size_t wrote;
         if (!info.succeeded) {
@@ -832,7 +832,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #endif
     case SYS_setitimer:
         dr_syscall_set_param(drcontext, 1, (reg_t)data->app_set_timer_param);
-        /* Deliberate fallthrough. */
+        DR_FALLTHROUGH;
     case SYS_getitimer: {
         size_t wrote;
         if (!info.succeeded) {
@@ -859,8 +859,8 @@ event_post_syscall(void *drcontext, int sysnum)
          * want to restore the pre-syscall value.
          */
         dr_syscall_set_param(drcontext, 0, (reg_t)data->app_set_timer_param);
+        DR_FALLTHROUGH;
 #endif
-        /* Deliberate fallthrough. */
     case SYS_clock_nanosleep: {
         if (sysnum == SYS_clock_nanosleep)
             dr_syscall_set_param(drcontext, 2, (reg_t)data->app_set_timer_param);
@@ -1197,7 +1197,7 @@ drx_register_time_scaling(drx_time_scale_t *options)
 
 DR_EXPORT
 bool
-drx_unregister_time_scaling()
+drx_unregister_time_scaling(void)
 {
     int count = dr_atomic_add32_return_sum(&init_count, -1);
     if (count != 0)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -106,18 +106,18 @@ moduledb_process_relaxation_flags(uint flags, const char *name, bool add)
         !TESTANY(~(MODULEDB_ALL_SECTIONS_BITS | MODULEDB_RCT_EXEMPT_TO |
                    MODULEDB_REPORT_ON_LOAD | MODULEDB_DLL2HEAP | MODULEDB_DLL2STACK),
                  flags));
-    if (TEST(MODULEDB_RCT_EXEMPT_TO, flags)) {
+    if (TESTANY(MODULEDB_RCT_EXEMPT_TO, flags)) {
         LOG(GLOBAL, LOG_MODULEDB, 1, "%s module %s to moduledb exempt rct\n",
             add ? "Adding" : "Removing", name);
         moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_RCT), name, add);
     }
-    if (TEST(MODULEDB_DLL2HEAP, flags)) {
+    if (TESTANY(MODULEDB_DLL2HEAP, flags)) {
         LOG(GLOBAL, LOG_MODULEDB, 1, "%s module %s to moduledb exempt dll2heap\n",
             add ? "Adding" : "Removing", name);
         moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_DLL2HEAP), name,
                                     add);
     }
-    if (TEST(MODULEDB_DLL2STACK, flags)) {
+    if (TESTANY(MODULEDB_DLL2STACK, flags)) {
         LOG(GLOBAL, LOG_MODULEDB, 1, "%s module %s to moduledb exempt dll2stack\n",
             add ? "Adding" : "Removing", name);
         moduledb_update_exempt_list(&GET_EXEMPT_LIST(MODULEDB_EXEMPT_DLL2STACK), name,
@@ -215,7 +215,7 @@ moduledb_process_image(const char *name, app_pc base, bool add)
              * usually 5 of these per process, two for logitech mouse hook
              * dlls, 1 for drpreinject and 2 for Norton av. */
             if (add &&
-                TEST(MODULEDB_REPORT_ON_LOAD, DYNAMO_OPTION(unknown_module_policy))) {
+                TESTANY(MODULEDB_REPORT_ON_LOAD, DYNAMO_OPTION(unknown_module_policy))) {
                 /* XXX - will prob. need a release version of this */
                 DODEBUG({
                     DO_THRESHOLD_SAFE(DYNAMO_OPTION(unknown_module_load_report_max),
@@ -242,7 +242,7 @@ static const char *const exempt_list_names[MODULEDB_EXEMPT_NUM_LISTS] = { "rct",
                                                                           "dll2stack" };
 
 void
-moduledb_init()
+moduledb_init(void)
 {
     uint exempt_array_size = (MODULEDB_EXEMPT_NUM_LISTS) * sizeof(char *);
     ASSERT(exemption_lists == NULL);
@@ -257,7 +257,7 @@ moduledb_init()
 }
 
 void
-moduledb_exit()
+moduledb_exit(void)
 {
     int i;
     ASSERT(exemption_lists != NULL);

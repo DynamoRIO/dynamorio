@@ -132,7 +132,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     }
 
     /* TODO i#3544: coarse-grain NYI on RISCV64 */
-    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(FRAG_COARSE_GRAIN, f->flags));
 
     if (LINKSTUB_DIRECT(l_flags)) {
         APP(&ilist,
@@ -543,7 +543,7 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_INDIRECT(l->flags));
     /* Target is always the same, so if it's already unlinked, this is a nop. */
-    if (!TEST(LINK_LINKED, l->flags))
+    if (!TESTANY(LINK_LINKED, l->flags))
         return;
     ibl_code = get_ibl_routine_code(dcontext, extract_branchtype(l->flags), f->flags);
     exit_target = ibl_code->unlinked_ibl_entry;
@@ -1268,7 +1268,7 @@ void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
     ASSERT_NOT_IMPLEMENTED(!absolute &&
-                           !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+                           !TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
 
     instr_t *no_signals = INSTR_CREATE_label(dcontext);
 

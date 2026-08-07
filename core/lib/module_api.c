@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -432,7 +432,7 @@ dr_module_should_instrument(module_handle_t handle)
     ma = module_pc_lookup((byte *)handle);
     CLIENT_ASSERT(ma != NULL, "invalid module handle");
     if (ma != NULL) {
-        should_instrument = !TEST(MODULE_NULL_INSTRUMENT, ma->flags);
+        should_instrument = !TESTANY(MODULE_NULL_INSTRUMENT, ma->flags);
     }
     os_get_module_info_unlock();
     return should_instrument;

@@ -67,6 +67,16 @@ public:
     }
 
     /**
+     * Returns whether the current point in the trace is inside a system call trace
+     * region.
+     */
+    bool
+    in_syscall_trace() const
+    {
+        return in_syscall_ || last_update_was_syscall_end_marker_;
+    }
+
+    /**
      * Updates the kernel tracking state based on the provided trace \p record.
      */
     void
@@ -86,6 +96,7 @@ private:
         case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
             in_syscall_ = false;
             last_update_was_end_marker_ = true;
+            last_update_was_syscall_end_marker_ = true;
             break;
         case TRACE_MARKER_TYPE_CONTEXT_SWITCH_END:
             in_context_switch_ = false;
@@ -106,6 +117,7 @@ private:
     update_internal(const memref_t &record)
     {
         last_update_was_end_marker_ = false;
+        last_update_was_syscall_end_marker_ = false;
         if (record.marker.type == TRACE_TYPE_MARKER) {
             update_for_marker(
                 static_cast<trace_marker_type_t>(record.marker.marker_type));
@@ -116,6 +128,7 @@ private:
     update_internal(const trace_entry_t &record)
     {
         last_update_was_end_marker_ = false;
+        last_update_was_syscall_end_marker_ = false;
         if (record.type == TRACE_TYPE_MARKER) {
             update_for_marker(static_cast<trace_marker_type_t>(record.size));
         }
@@ -125,6 +138,7 @@ private:
     bool in_context_switch_ = false;
     int hardware_event_depth_ = 0;
     bool last_update_was_end_marker_ = false;
+    bool last_update_was_syscall_end_marker_ = false;
 };
 
 /**

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -522,7 +522,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     mod->ref_count = 1;
     mod->externally_loaded = false;
     mod->is_top_level_client = false; /* up to caller to set later */
-    mod->is_client = false; /* up to caller to set later */
+    mod->is_client = false;           /* up to caller to set later */
     mod->called_proc_entry = false;
     mod->called_proc_exit = false;
     /* do not add non-heap struct to list: in init() we'll move array to list */
@@ -948,7 +948,7 @@ redirect_malloc(size_t size)
     ASSERT(HEAP_ALIGNMENT * 2 == STANDARD_HEAP_ALIGNMENT);
 #endif
     /* Our header is the size itself, with the top bit stolen to indicate alignment. */
-    if (TEST(REDIRECT_HEADER_SHIFTED, alloc_size)) {
+    if (TESTANY(REDIRECT_HEADER_SHIFTED, alloc_size)) {
         /* We do not support the top bit being set as that conflicts with the bit in
          * our header.  This should be fine as all sytem allocators we have seen also
          * have size limits that are this size (for 32-bit) or even smaller.
@@ -964,7 +964,7 @@ redirect_malloc(size_t size)
     ptr_uint_t res =
         ALIGN_FORWARD((ptr_uint_t)mem + sizeof(size_t), STANDARD_HEAP_ALIGNMENT);
     size_t header = alloc_size;
-    ASSERT(!TEST(REDIRECT_HEADER_SHIFTED, header));
+    ASSERT(!TESTANY(REDIRECT_HEADER_SHIFTED, header));
     if (res == (ptr_uint_t)mem + sizeof(size_t)) {
         /* Already aligned. */
     } else if (res == (ptr_uint_t)mem + sizeof(size_t) * 2) {
@@ -986,7 +986,7 @@ redirect_malloc_size_and_start(void *mem, DR_PARAM_OUT void **start_out)
     size_t *size_ptr = (size_t *)((ptr_uint_t)mem - sizeof(size_t));
     size_t size = *((size_t *)size_ptr);
     void *start = size_ptr;
-    if (TEST(REDIRECT_HEADER_SHIFTED, size)) {
+    if (TESTANY(REDIRECT_HEADER_SHIFTED, size)) {
         start = size_ptr - 1;
         size &= ~REDIRECT_HEADER_SHIFTED;
     }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2023 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * Copyright (c) 2023-2024 Arm Limited.   All rights reserved.
  * **********************************************************/
 
@@ -39,7 +39,7 @@
 #include "drx.h"
 #include "drmgr.h"
 #include "drreg.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include "scatter_gather_shared.h"
 
 #include <signal.h>
@@ -1652,7 +1652,7 @@ loop_var_is_first_element(const scatter_gather_info_t *sg_info,
 
     /* loop_var should be 1-bit mask indicating the current element */
     DR_ASSERT(loop_var != 0);
-    DR_ASSERT(TEST(loop_var, governing_predicate));
+    DR_ASSERT(TESTANY(loop_var, governing_predicate));
 
     /* If any of the governing_predicate bits lower than the loop_var bit are set, then
      * this is not the first active element.

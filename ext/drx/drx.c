@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
 #include "dr_api.h"
 #include "drx.h"
 #include "hashtable.h"
-#include "../ext_utils.h"
+#include "dr_project_wide_defines.h"
 #include <stddef.h> /* for offsetof */
 #include <string.h>
 
@@ -119,9 +119,9 @@ drx_buf_exit_library(void);
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 bool
-drx_scatter_gather_init();
+drx_scatter_gather_init(void);
 void
-drx_scatter_gather_exit();
+drx_scatter_gather_exit(void);
 #endif
 
 static int drx_init_count;
@@ -168,7 +168,7 @@ drx_init(void)
 
 DR_EXPORT
 void
-drx_exit()
+drx_exit(void)
 {
     int count = dr_atomic_add32_return_sum(&drx_init_count, -1);
     if (count != 0)
@@ -433,7 +433,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     bool save_regs = true;
     reg_id_t reg1, reg2;
 #endif
-    bool is_64 = TEST(DRX_COUNTER_64BIT, flags);
+    bool is_64 = TESTANY(DRX_COUNTER_64BIT, flags);
     /* Requires drx_init(), where it didn't when first added. */
     if (drx_init_count == 0) {
         ASSERT(false, "drx_insert_counter_update requires drx_init");
@@ -457,7 +457,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
 
     /* check whether we can add lock */
-    if (TEST(DRX_COUNTER_LOCK, flags)) {
+    if (TESTANY(DRX_COUNTER_LOCK, flags)) {
 #if defined(AARCHXX) || defined(RISCV64)
         /* TODO i#1551,i#1569,i#3544: implement for AArchXX/RISCV64. */
         ASSERT(false, "DRX_COUNTER_LOCK not implemented for AArchXX/RISCV64");
@@ -493,7 +493,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         drcontext,
         OPND_CREATE_ABSMEM(addr, IF_X64_ELSE((is_64 ? OPSZ_8 : OPSZ_4), OPSZ_4)),
         OPND_CREATE_INT_32OR8(value));
-    if (TEST(DRX_COUNTER_LOCK, flags))
+    if (TESTANY(DRX_COUNTER_LOCK, flags))
         instr = LOCK(instr);
     /* On x86, for DRX_COUNTER_REL_ACQ, we don't need to do anything as the
      * ISA provides release-acquire semantics for regular stores and loads.
@@ -554,7 +554,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
      */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr, opnd_create_reg(reg1),
                                      ilist, where, NULL, NULL);
-    if (TEST(DRX_COUNTER_REL_ACQ, flags)) {
+    if (TESTANY(DRX_COUNTER_REL_ACQ, flags)) {
 #    ifdef AARCH64
         MINSERT(ilist, where,
                 INSTR_CREATE_ldar(drcontext, opnd_create_reg(reg2),
@@ -746,7 +746,7 @@ GET_NTDLL(NtQueryInformationJobObject,
 
 #    define STATUS_BUFFER_OVERFLOW ((NTSTATUS)0x80000005L)
 
-#    define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t)-1)
+#    define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t) - 1)
 
 typedef LONG KPRIORITY;
 
@@ -963,8 +963,8 @@ soft_kills_pre_SetInformationJobObject(void *drcontext, cls_soft_t *cls)
     if (class == JobObjectExtendedLimitInformation && sz >= sizeof(info) &&
         dr_safe_read((byte *)dr_syscall_get_param(drcontext, 2), sizeof(info), &info,
                      NULL)) {
-        if (TEST(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-                 info.BasicLimitInformation.LimitFlags)) {
+        if (TESTANY(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+                    info.BasicLimitInformation.LimitFlags)) {
             /* Remove the kill-on-close flag from the syscall arg.
              * We restore in post-syscall in case app uses the memory
              * for something else.  There is of course a race where another
@@ -1037,7 +1037,7 @@ soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
         /* We have to save jinfo b/c dup_src will be gone */
         cls->dup_jinfo = (job_info_t *)hashtable_lookup(&job_table, (void *)cls->dup_src);
         if (cls->dup_jinfo != NULL) {
-            if (TEST(DUPLICATE_CLOSE_SOURCE, cls->dup_options)) {
+            if (TESTANY(DUPLICATE_CLOSE_SOURCE, cls->dup_options)) {
                 /* "This occurs regardless of any error status returned"
                  * according to MSDN DuplicateHandle, and Nebbett.
                  * Thus, we act on this here, which avoids any handle value

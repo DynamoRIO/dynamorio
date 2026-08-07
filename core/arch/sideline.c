@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -73,7 +73,7 @@ typedef pid_t thread_t;
 #    include "../fcache.h"
 
 #    define OPTVERB_3 4
-//#define VERB_3 3
+// #define VERB_3 3
 #    define VERB_3 4
 #    define VERB_2 2
 
@@ -211,7 +211,7 @@ delete_thread(thread_t thread, void *stack);
 
 /* initialization */
 void
-sideline_init()
+sideline_init(void)
 {
 #    ifdef WINDOWS
     int res;
@@ -288,7 +288,7 @@ sideline_init()
 
 /* atexit cleanup */
 void
-sideline_exit()
+sideline_exit(void)
 {
     uint i;
     sample_entry_t *sample;
@@ -413,7 +413,7 @@ remove_sideline_profiling(dcontext_t *dcontext, instrlist_t *trace)
 }
 
 void
-sideline_start()
+sideline_start(void)
 {
     if (child_sleep) {
         LOG(logfile, LOG_SIDELINE, VERB_3, "sideline: in sideline_start()\n");
@@ -423,7 +423,7 @@ sideline_start()
 }
 
 void
-sideline_stop()
+sideline_stop(void)
 {
     if (!child_sleep) {
         LOG(logfile, LOG_SIDELINE, VERB_3, "SIDELINE: in sideline_stop()\n");
@@ -483,7 +483,7 @@ optimize_trace_wrapper(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trac
 }
 
 static void
-sideline_sample()
+sideline_sample(void)
 {
     sample_entry_t *e;
     fragment_t *sample = (fragment_t *)sideline_trace; /* the sample! */
@@ -518,7 +518,7 @@ sideline_sample()
 }
 
 static void
-sideline_examine_traces()
+sideline_examine_traces(void)
 {
     sample_entry_t *e;
     fragment_t *f;
@@ -645,12 +645,12 @@ sideline_optimize(fragment_t *f,
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
 
-        /* XXX: separate always-do-online optimizations from
-         * sideline optimizations
-         * for now, we do all online or all sideline
-         * XXX: our ilist is already fully decoded, so we could avoid the
-         * full decode pass in optimize_trace
-         */
+    /* XXX: separate always-do-online optimizations from
+     * sideline optimizations
+     * for now, we do all online or all sideline
+     * XXX: our ilist is already fully decoded, so we could avoid the
+     * full decode pass in optimize_trace
+     */
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nbefore optimization:\n");
     if (d_r_stats->loglevel >= OPTVERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
@@ -680,7 +680,7 @@ sideline_optimize(fragment_t *f,
     /* Emit fragment but don't make visible yet */
     /* mark both old and new as DO_NOT_SIDELINE */
     /* XXX: if f is shared we must hold change_linking_lock here */
-    ASSERT(!TEST(FRAG_SHARED, f->flags));
+    ASSERT(!TESTANY(FRAG_SHARED, f->flags));
     f->flags |= FRAG_DO_NOT_SIDELINE;
     flags = f->flags;
     DEBUG_DECLARE(ok =)
@@ -784,7 +784,7 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
 }
 
 static sample_entry_t *
-find_hottest_entry()
+find_hottest_entry(void)
 {
     uint i;
     sample_entry_t *e, *max = NULL;

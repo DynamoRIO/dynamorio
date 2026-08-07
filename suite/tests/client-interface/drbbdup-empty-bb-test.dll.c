@@ -142,7 +142,7 @@ analyse_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool tra
 }
 
 static void
-update_encoding()
+update_encoding(void)
 {
     if (encode_val != 0)
         encode_val--;

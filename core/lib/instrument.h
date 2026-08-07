@@ -139,7 +139,8 @@ instrument_post_syscall(dcontext_t *dcontext, int sysnum);
 bool
 instrument_invoke_another_syscall(dcontext_t *dcontext);
 void
-instrument_low_on_memory();
+instrument_low_on_memory(void);
+#ifndef LINUX_KERNEL
 /* returns whether a client event was called which might have changed the context */
 bool
 instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
@@ -148,6 +149,7 @@ instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
                        priv_mcontext_t *source_mc, app_pc target_pc, reg_t target_xsp,
                        /* only one of these 2 should be non-NULL */
                        os_cxt_ptr_t target_os_cxt, priv_mcontext_t *target_mc, int sig);
+#endif
 
 void
 instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);

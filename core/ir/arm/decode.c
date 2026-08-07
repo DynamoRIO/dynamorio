@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -185,7 +185,7 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 app_pc
 canonicalize_pc_target(dcontext_t *dcontext, app_pc pc)
 {
-    if (TEST(0x1, (ptr_uint_t)pc)) {
+    if (TESTANY(0x1, (ptr_uint_t)pc)) {
         dr_isa_mode_t old_mode;
         dr_set_isa_mode(dcontext, DR_ISA_ARM_THUMB, &old_mode);
         DOLOG(2, LOG_TOP, {
@@ -447,7 +447,7 @@ decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_sign
     if (is_signed) {
         ptr_uint_t top_bit = (1 << (opnd_size_in_bits(opsize) - 1));
         val = (ptr_int_t)(int)((di->instr_word >> start_bit) & mask);
-        if (TEST(top_bit, val))
+        if (TESTANY(top_bit, val))
             val |= (~mask);
     } else
         val = (ptr_int_t)(ptr_uint_t)((di->instr_word >> start_bit) & mask);
@@ -525,14 +525,14 @@ decode_SIMD_modified_immed(decode_info_t *di, byte optype, opnd_t *array,
          */
         uint high = 0, low = 0;
         uint64 val64;
-        high |= TEST(0x80, val) ? 0xff000000 : 0;
-        high |= TEST(0x40, val) ? 0x00ff0000 : 0;
-        high |= TEST(0x20, val) ? 0x0000ff00 : 0;
-        high |= TEST(0x10, val) ? 0x000000ff : 0;
-        low |= TEST(0x08, val) ? 0xff000000 : 0;
-        low |= TEST(0x04, val) ? 0x00ff0000 : 0;
-        low |= TEST(0x02, val) ? 0x0000ff00 : 0;
-        low |= TEST(0x01, val) ? 0x000000ff : 0;
+        high |= TESTANY(0x80, val) ? 0xff000000 : 0;
+        high |= TESTANY(0x40, val) ? 0x00ff0000 : 0;
+        high |= TESTANY(0x20, val) ? 0x0000ff00 : 0;
+        high |= TESTANY(0x10, val) ? 0x000000ff : 0;
+        low |= TESTANY(0x08, val) ? 0xff000000 : 0;
+        low |= TESTANY(0x04, val) ? 0x00ff0000 : 0;
+        low |= TESTANY(0x02, val) ? 0x0000ff00 : 0;
+        low |= TESTANY(0x01, val) ? 0x000000ff : 0;
         val64 = ((uint64)high << 32) | low;
         array[(*counter)++] = opnd_create_immed_int64(val64, OPSZ_8);
         return true;
@@ -1668,7 +1668,7 @@ decode_T32_16_ext_bits_10_8_idx(uint instr_word)
 {
     uint idx;
     /* check whether Rn is also listed in reglist */
-    if (TEST((1 << ((instr_word >> 8) & 0x7) /*Rn*/), (instr_word & 0xff) /*reglist*/))
+    if (TESTANY((1 << ((instr_word >> 8) & 0x7) /*Rn*/), (instr_word & 0xff) /*reglist*/))
         idx = 0;
     else
         idx = 1;
@@ -1816,7 +1816,7 @@ decode_instr_info_T32_32(decode_info_t *di)
     /* First, split by whether coprocessor or not */
     if (TESTALL(0xec00, di->halfwordA)) {
         /* coproc */
-        if (TEST(0x1000, di->halfwordA)) {
+        if (TESTANY(0x1000, di->halfwordA)) {
             idx = (((instr_word >> 20) & 0x3) |
                    ((instr_word >> 21) & 0x1c)); /*bits 25:23,21:20*/
             info = &T32_coproc_f[idx];
@@ -1903,7 +1903,7 @@ decode_instr_info_T32_32(decode_info_t *di)
             idx = (idx == 0) ? 0 : 1;
             info = &T32_ext_imm126[info->code][idx];
         } else if (info->type == EXT_OPCBX) {
-            if (!TEST(0x800, di->halfwordB))
+            if (!TESTANY(0x800, di->halfwordB))
                 idx = 0;
             else
                 idx = 1 + ((di->halfwordB >> 8) & 0x7) /*bits 10:8*/;
@@ -2256,7 +2256,7 @@ read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
      * We allow either of the copy or orig to have the LSB set and do not require
      * them to match as some uses cases have a local buffer for pc.
      */
-    if (TEST(0x1, (ptr_uint_t)pc) || TEST(0x1, (ptr_uint_t)orig_pc)) {
+    if (TESTANY(0x1, (ptr_uint_t)pc) || TESTANY(0x1, (ptr_uint_t)orig_pc)) {
         di->isa_mode = DR_ISA_ARM_THUMB;
         pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, pc);
         orig_pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, orig_pc);
@@ -2329,7 +2329,7 @@ read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
     if (TESTANY(DECODE_PREDICATE_22 | DECODE_PREDICATE_8, info->flags)) {
         di->predicate = DR_PRED_EQ +
             decode_predicate(di->instr_word,
-                             TEST(DECODE_PREDICATE_22, info->flags) ? 22 : 8);
+                             TESTANY(DECODE_PREDICATE_22, info->flags) ? 22 : 8);
     }
 
     /* We should now have either a valid OP_ opcode or an invalid opcode */
@@ -2448,8 +2448,9 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
 
-    next_pc = read_instruction(dcontext, pc, orig_pc, &info,
-                               &di _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
+    next_pc =
+        read_instruction(dcontext, pc, orig_pc, &info,
+                         &di _IF_DEBUG(!TESTANY(INSTR_IGNORE_INVALID, instr->flags)));
     instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     di.opcode = info->type; /* needed for decode_cur_pc */
@@ -2477,14 +2478,16 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         }
         if (info->dst2_type != TYPE_NONE) {
             if (!decode_operand(&di, info->dst2_type, info->dst2_size,
-                                TEST(DECODE_4_SRCS, info->flags) ? srcs : dsts,
-                                TEST(DECODE_4_SRCS, info->flags) ? &num_srcs : &num_dsts))
+                                TESTANY(DECODE_4_SRCS, info->flags) ? srcs : dsts,
+                                TESTANY(DECODE_4_SRCS, info->flags) ? &num_srcs
+                                                                    : &num_dsts))
                 goto decode_invalid;
         }
         if (info->src1_type != TYPE_NONE) {
             if (!decode_operand(&di, info->src1_type, info->src1_size,
-                                TEST(DECODE_3_DSTS, info->flags) ? dsts : srcs,
-                                TEST(DECODE_3_DSTS, info->flags) ? &num_dsts : &num_srcs))
+                                TESTANY(DECODE_3_DSTS, info->flags) ? dsts : srcs,
+                                TESTANY(DECODE_3_DSTS, info->flags) ? &num_dsts
+                                                                    : &num_srcs))
                 goto decode_invalid;
         }
         if (info->src2_type != TYPE_NONE) {
@@ -2569,7 +2572,7 @@ decode_next_pc(void *drcontext, byte *pc)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     dr_isa_mode_t isa_mode;
     byte *read_pc = pc;
-    if (TEST(0x1, (ptr_uint_t)pc)) {
+    if (TESTANY(0x1, (ptr_uint_t)pc)) {
         isa_mode = DR_ISA_ARM_THUMB; /* and keep LSB=1 (i#1688) */
         read_pc = PC_AS_LOAD_TGT(DR_ISA_ARM_THUMB, read_pc);
     } else {
@@ -2633,7 +2636,7 @@ decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
     if (mode == DR_ISA_ARM_A32) {
         uint word = *(uint *)pc;
         int disp = word & 0xffffff;
-        if (TEST(0x800000, disp))
+        if (TESTANY(0x800000, disp))
             disp |= 0xff000000; /* sign-extend */
         return decode_cur_pc(pc, mode, OP_b, NULL) + (disp << 2);
     } else {
@@ -2660,13 +2663,13 @@ const instr_info_t *
 instr_info_extra_opnds(const instr_info_t *info)
 {
     /* XXX i#1551: pick proper *_extra_operands table */
-    if (TEST(DECODE_EXTRA_SHIFT, info->flags))
+    if (TESTANY(DECODE_EXTRA_SHIFT, info->flags))
         return &A32_extra_operands[0];
-    else if (TEST(DECODE_EXTRA_WRITEBACK, info->flags))
+    else if (TESTANY(DECODE_EXTRA_WRITEBACK, info->flags))
         return &A32_extra_operands[1];
-    else if (TEST(DECODE_EXTRA_WRITEBACK2, info->flags))
+    else if (TESTANY(DECODE_EXTRA_WRITEBACK2, info->flags))
         return &A32_extra_operands[2];
-    else if (TEST(DECODE_EXTRA_OPERANDS, info->flags))
+    else if (TESTANY(DECODE_EXTRA_OPERANDS, info->flags))
         return (const instr_info_t *)(info->code);
     else
         return NULL;
@@ -2680,14 +2683,14 @@ instr_info_opnd_type(const instr_info_t *info, bool src, int num)
     while (info != NULL) {
         if (!src && i++ == num)
             return info->dst1_type;
-        if (TEST(DECODE_4_SRCS, info->flags)) {
+        if (TESTANY(DECODE_4_SRCS, info->flags)) {
             if (src && i++ == num)
                 return info->dst2_type;
         } else {
             if (!src && i++ == num)
                 return info->dst2_type;
         }
-        if (TEST(DECODE_3_DSTS, info->flags)) {
+        if (TESTANY(DECODE_3_DSTS, info->flags)) {
             if (!src && i++ == num)
                 return info->src1_type;
         } else {
@@ -3026,11 +3029,11 @@ check_ISA(dr_isa_mode_t isa_mode)
                     int dst_type[MAX_TYPES];
                     while (ops != NULL) {
                         dst_type[num_dsts++] = ops->dst1_type;
-                        if (TEST(DECODE_4_SRCS, ops->flags))
+                        if (TESTANY(DECODE_4_SRCS, ops->flags))
                             src_type[num_srcs++] = ops->dst2_type;
                         else
                             dst_type[num_dsts++] = ops->dst2_type;
-                        if (TEST(DECODE_3_DSTS, ops->flags))
+                        if (TESTANY(DECODE_3_DSTS, ops->flags))
                             dst_type[num_dsts++] = ops->src1_type;
                         else
                             src_type[num_srcs++] = ops->src1_type;
@@ -3066,7 +3069,7 @@ decode_debug_checks_arch(void)
 #    include "instr_create_shared.h"
 
 int
-main()
+main(int argc, const char *argv[])
 {
     bool res = true;
     standalone_init();

@@ -37,12 +37,12 @@
 #include "tools.h"
 
 int
-main()
+main(int argc, const char *argv[])
 {
     const int CTR_EL0_DIC_BIT = 29;
     unsigned long ctr;
     asm volatile("mrs %[ctr], ctr_el0" : [ctr] "=r"(ctr));
-    if (TEST(ctr, 1U << CTR_EL0_DIC_BIT)) {
+    if (TESTANY(ctr, 1U << CTR_EL0_DIC_BIT)) {
         print("CTR_EL0 = %lx\n", ctr);
         return 1;
     } else {

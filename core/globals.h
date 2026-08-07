@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -62,12 +62,12 @@
 #    pragma warning(disable : 4100) // 'envp' : unreferenced formal parameter
 #    pragma warning(disable : 4127) // conditional expr is constant (majority of warnings)
 #    pragma warning(disable : 4189) // local variable is initialized but not referenced
-#    pragma warning( \
-        disable : 4204) // nonstd extension: non-constant aggregate initializer
+#    pragma warning(disable \
+                    : 4204) // nonstd extension: non-constant aggregate initializer
 #    pragma warning(disable : 4210) // nonstd extension: function given file scope
 #    pragma warning(disable : 4505) // unreferenced local function has been removed
-#    pragma warning( \
-        disable : 4702) // unreachable code (DEBUG=0, for INTERNAL_OPTION test)
+#    pragma warning(disable \
+                    : 4702) // unreachable code (DEBUG=0, for INTERNAL_OPTION test)
 #    pragma warning(disable : 4324) // structure was padded due to __declspec(align())
 #    pragma warning(disable : 4709) // comma operator within array index expression
 #    pragma warning(disable : 4214) // nonstd extension: bit field types other than int
@@ -78,8 +78,8 @@
 /* shows up in buildtools/VC/8.0/dist/VC/include/vadefs.h
  * supposed to include identifier in the pop pragma and they don't
  */
-#    pragma warning( \
-        disable : 4159) // #pragma pack has popped previously pushed identifier
+#    pragma warning(disable \
+                    : 4159) // #pragma pack has popped previously pushed identifier
 
 /* XXX case 191729: this is coming from our own code.  We could
  * switch to the _s versions when on Windows.
@@ -97,7 +97,7 @@
 
 #ifdef WINDOWS
 #    define DYNAMORIO_EXPORT __declspec(dllexport)
-#elif defined(USE_VISIBILITY_ATTRIBUTES)
+#elif defined(USE_VISIBILITY_ATTRIBUTES) && !defined(LINUX_KERNEL)
 /* PR 262804: we use "protected" instead of "default" to ensure our
  * own uses won't be preempted.  Note that for DR_APP_API in
  * lib/dr_app.h we get a link error trying to use "protected": but we
@@ -154,8 +154,10 @@
 
 #define INLINE_ONCE inline
 
-#include <stdlib.h>
-#include <stdio.h>
+#ifndef LINUX_KERNEL
+#    include <stdlib.h>
+#    include <stdio.h>
+#endif
 
 /* N.B.: some of these typedefs and defines are duplicated in
  * lib/globals_shared.h!
@@ -186,7 +188,8 @@ typedef HANDLE file_t;
 #    if defined(MACOS) || defined(ANDROID)
 typedef unsigned long ulong;
 #    endif
-#    include <sys/types.h> /* for wait */
+#    include "stddef_wrapper.h" /* for wchar_t */
+#    include "types_wrapper.h"  /* for wait */
 #    define DIRSEP '/'
 #    define ALT_DIRSEP DIRSEP
 #endif
@@ -407,7 +410,9 @@ typedef struct _client_data_t {
     bool suspended;
     /* 2 other ways to point at a context for dr_{g,s}et_mcontext() */
     priv_mcontext_t *cur_mc;
+#ifndef LINUX_KERNEL
     os_cxt_ptr_t os_cxt;
+#endif
 
     /* The error code of last failed API routine. Not updated on successful API calls
      * but only upon failures.
@@ -533,9 +538,9 @@ DYNAMORIO_EXPORT int
 dynamorio_app_init(void);
 /* dynamorio_app_init() can be called in two parts: */
 void
-dynamorio_app_init_part_one_options();
+dynamorio_app_init_part_one_options(void);
 int
-dynamorio_app_init_part_two_finalize();
+dynamorio_app_init_part_two_finalize(void);
 int
 dynamorio_app_exit(void);
 dcontext_t *
@@ -622,8 +627,10 @@ entering_dynamorio(void);
 void
 exiting_dynamorio(void);
 
+#ifndef LINUX_KERNEL
 void
 handle_system_call(dcontext_t *dcontext);
+#endif
 
 /* self-protection */
 void
@@ -756,7 +763,7 @@ struct _dcontext_t {
      */
     union {
         /* we use separate_upcontext if
-         *    (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+         *    (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
          * else we use the inlined upcontext
          */
         unprotected_context_t *separate_upcontext;
@@ -1079,7 +1086,7 @@ struct _dcontext_t {
 static INLINE_FORCED priv_mcontext_t *
 get_mcontext(dcontext_t *dcontext)
 {
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
         return &(dcontext->upcontext.separate_upcontext->mcontext);
     else
         return &(dcontext->upcontext.upcontext.mcontext);
@@ -1092,7 +1099,7 @@ enum { DUMP_XML = true, DUMP_NOT_XML = false };
 
 /* io.c */
 /* to avoid transparency problems we must have our own vnsprintf and sscanf */
-#include <stdarg.h> /* for va_list */
+#include "stdarg_wrapper.h" /* for va_list */
 int
 d_r_snprintf(char *s, size_t max, const char *fmt, ...);
 int

@@ -538,7 +538,7 @@ DR_API
  * decode.
  */
 void
-enable_all_test_cpu_features();
+enable_all_test_cpu_features(void);
 #endif
 
 DR_API

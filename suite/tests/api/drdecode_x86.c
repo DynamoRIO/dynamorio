@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "dr_project_wide_defines.h"
 #include "tools.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,9 +46,6 @@
     ((void)((!(x)) ? (print("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
                       abort(), 0)                                                   \
                    : 0))
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 static void
 test_disasm_style(void)
@@ -287,7 +285,7 @@ test_isa_features(void)
 }
 
 int
-main()
+main(int argc, const char *argv[])
 {
     test_disasm_style();
 

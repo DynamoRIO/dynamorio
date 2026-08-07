@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,10 +75,16 @@
 #endif
 
 #include "globals_api.h" // IWYU pragma: export
+#include "dr_project_wide_defines.h"
 
-#include <limits.h> /* for USHRT_MAX */
+#include "limits_wrapper.h" /* for USHRT_MAX */
+
 #ifdef UNIX
-#    include <signal.h>
+#    ifdef LINUX_KERNEL
+#        include <asm/sigcontext.h>
+#    else
+#        include <signal.h>
+#    endif
 #endif
 
 #include "c_defines.h" // IWYU pragma: export
@@ -107,13 +113,6 @@
 #    define MIN(x, y) ((x) <= (y) ? (x) : (y))
 #endif
 #define PTR_UINT_ABS(x) ((x) < 0 ? -(x) : (x))
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 #define BOOLS_MATCH(a, b) (!!(a) == !!(b))
 
@@ -475,15 +474,6 @@ typedef char pathstring_t[MAX_PATH_OPTION_LENGTH];
  * appended to if multiple option instances are specified
  */
 typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
-
-/* convenience macros for secure string buffer operations */
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
-
-#define BUFFER_ROOM_LEFT_W(wbuf) (BUFFER_SIZE_ELEMENTS(wbuf) - wcslen(wbuf) - 1)
-#define BUFFER_ROOM_LEFT(abuf) (BUFFER_SIZE_ELEMENTS(abuf) - strlen(abuf) - 1)
 
 /* strncat() calls require termination after each to be safe, especially if
  * cating repeatedly.  For example see hotpatch.c:hotp_load_hotp_dlls().

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -22,6 +22,8 @@
 
 #ifndef _UTILS_H_
 #define _UTILS_H_
+
+#include "dr_project_wide_defines.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -178,23 +180,7 @@ extern "C" {
 #    define IF_DRMEM_ELSE(x, y) y
 #endif
 
-#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
-#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
-#define ALIGN_MOD(addr, size, alignment) \
-    ((((ptr_uint_t)addr) + (size)-1) & ((alignment)-1))
-#define CROSSES_ALIGNMENT(addr, size, alignment) \
-    (ALIGN_MOD(addr, size, alignment) < (size)-1)
-
-#ifndef TESTANY
-#    define TEST(mask, var) (((mask) & (var)) != 0)
-#    define TESTANY TEST
-#    define TESTALL(mask, var) (((mask) & (var)) == (mask))
-#    define TESTONE(mask, var) test_one_bit_set((mask) & (var))
-#endif
-
-#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x)-1)) == 0)
+#define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
@@ -204,7 +190,7 @@ extern "C" {
 #    define INLINE_FORCED __forceinline
 /* Use special C99 operator _Pragma to generate a pragma from a macro */
 #    if _MSC_VER <= 1200 /* XXX: __pragma may work w/ vc6: then don't need #if */
-#        define ACTUAL_PRAGMA(p) _Pragma(#        p)
+#        define ACTUAL_PRAGMA(p) _Pragma(#p)
 #    else
 #        define ACTUAL_PRAGMA(p) __pragma(p)
 #    endif
@@ -564,7 +550,7 @@ extern int tls_idx_util;
         len = dr_snprintf((buf) + (sofar), (bufsz) - (sofar), __VA_ARGS__);             \
         sofar += (len == -1 ? ((bufsz) - (sofar)) : (len < 0 ? 0 : len));               \
         /* be paranoid: though usually many calls in a row and could delay until end */ \
-        (buf)[(bufsz)-1] = '\0';                                                        \
+        (buf)[(bufsz) - 1] = '\0';                                                      \
     } while (0)
 
 #define BUFPRINT(buf, bufsz, sofar, len, ...)                    \
@@ -626,11 +612,6 @@ extern int tls_idx_util;
 #define PREXL8 instrlist_preinsert
 #define POST instrlist_meta_postinsert
 #define POSTXL8 instrlist_postinsert
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 #define DWORD2BYTE(v, n) (((v) & (0xff << 8 * (n))) >> 8 * (n))
 

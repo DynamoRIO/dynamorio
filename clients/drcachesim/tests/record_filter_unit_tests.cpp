@@ -1906,6 +1906,107 @@ test_kernel_filter()
     return true;
 }
 
+static bool
+test_kernel_filter_except_syscalls()
+{
+    // Test keeping syscall content while removing other kernel content.
+    constexpr addr_t TID = 5;
+    constexpr addr_t PC_A = 0x1234;
+    constexpr addr_t ENCODING_A = 0x4321;
+    constexpr addr_t PC_B = 0xabcd;
+    constexpr addr_t ENCODING_B = 0xdbca;
+    std::vector<test_case_t> entries = {
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, true, { true } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_ARCH_X86_64 | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_KERNEL_SYSCALLS } },
+          true,
+          { true } },
+        { { TRACE_TYPE_THREAD, 0, { TID } }, true, { true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 100 } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0 } }, true, { true } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_A } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL, { 1 } }, true, { true } },
+        // Syscall trace - preserved.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, { 1 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Context switch trace - removed.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CONTEXT_SWITCH_START, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CONTEXT_SWITCH_END, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Kernel trace between hardware_event and hardware_context_return markers -
+        // removed.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
+          true,
+          { false } },
+        { { TRACE_TYPE_ENCODING, 2, { ENCODING_B } }, true, { false } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, { 1 } },
+          true,
+          { false } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+
+        // Kernel trace between syscall markers and nested hardware_event markers -
+        // preserved.
+        // This is the only nesting of kernel trace marker pairs that's currently
+        // expected.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_START, { 1 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_EVENT, { 1 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_HARDWARE_CONTEXT_RETURN, { 1 } },
+          true,
+          { true } },
+        { { TRACE_TYPE_INSTR, 2, { PC_B } }, true, { true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL_TRACE_END, { 1 } },
+          true,
+          { true } },
+
+        { { TRACE_TYPE_INSTR, 2, { PC_A } }, true, { true } },
+        { { TRACE_TYPE_THREAD_EXIT, 0, { TID } }, true, { true } },
+        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true } },
+    };
+    std::vector<std::unique_ptr<record_filter_func_t>> filters;
+    auto kernel_filter = std::unique_ptr<record_filter_func_t>(
+        new dynamorio::drmemtrace::kernel_filter_t(/*keep_syscalls=*/true));
+    filters.push_back(std::move(kernel_filter));
+    auto record_filter = std::unique_ptr<test_record_filter_t>(
+        new test_record_filter_t(std::move(filters), 0, /*write_archive=*/true));
+    if (!process_entries_and_check_result(record_filter.get(), entries, 0).empty())
+        return false;
+    fprintf(stderr, "test_kernel_filter_except_syscalls passed\n");
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -1920,7 +2021,7 @@ test_main(int argc, const char *argv[])
     if (!test_cache_and_type_filter() || !test_chunk_update() || !test_trim_filter() ||
         !test_null_filter() || !test_wait_filter() || !test_encodings2regdeps_filter() ||
         !test_func_id_filter() || !test_modify_marker_value_filter() ||
-        !test_kernel_filter())
+        !test_kernel_filter() || !test_kernel_filter_except_syscalls())
         return 1;
     fprintf(stderr, "All done!\n");
     dr_standalone_exit();

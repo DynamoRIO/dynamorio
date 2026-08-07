@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -44,11 +44,11 @@ static inline uint
 vmprot_to_memprot(uint prot)
 {
     uint mem_prot = 0;
-    if (TEST(VM_PROT_EXECUTE, prot))
+    if (TESTANY(VM_PROT_EXECUTE, prot))
         mem_prot |= MEMPROT_EXEC;
-    if (TEST(VM_PROT_READ, prot))
+    if (TESTANY(VM_PROT_READ, prot))
         mem_prot |= MEMPROT_READ;
-    if (TEST(VM_PROT_WRITE, prot))
+    if (TESTANY(VM_PROT_WRITE, prot))
         mem_prot |= MEMPROT_WRITE;
     return mem_prot;
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -498,7 +498,7 @@ get_mem_val(dcontext_t *dcontext, opnd_t mem_access, int address)
 
 #    ifdef SIDELINE
 void
-LTC_examine_traces()
+LTC_examine_traces(void)
 {
     fragment_t *curfrag;
     trace_only_t *t_curfrag;
@@ -1303,9 +1303,10 @@ save_eflags_list(dcontext_t *dcontext, fragment_t *frag)
         instrlist_append(ilist, INSTR_CREATE_lahf(dcontext));
     }
 
-    if (!TEST(FRAG_WRITES_EFLAGS_OF, frag->flags) || dynamo_options.safe_loads_to_const) {
+    if (!TESTANY(FRAG_WRITES_EFLAGS_OF, frag->flags) ||
+        dynamo_options.safe_loads_to_const) {
         /* must have saved eax */
-        ASSERT(!TEST(FRAG_WRITES_EFLAGS_6, frag->flags) ||
+        ASSERT(!TESTANY(FRAG_WRITES_EFLAGS_6, frag->flags) ||
                dynamo_options.safe_loads_to_const);
         instrlist_append(ilist,
                          INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));

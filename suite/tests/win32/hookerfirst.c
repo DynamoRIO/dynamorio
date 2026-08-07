@@ -57,9 +57,11 @@
 #endif
 
 /* from hookerfirst.dll */
-__declspec(dllimport) hookit(int x);
+__declspec(dllimport)
+hookit(int x);
 
-__declspec(dllimport) unhookit(int x);
+__declspec(dllimport)
+unhookit(int x);
 
 int
 badfunc(void)

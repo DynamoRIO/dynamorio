@@ -65,7 +65,8 @@
  */
 #define UNLOAD __FUnloadDelayLoadedDLL2
 
-int __declspec(dllimport) make_a_lib(int arg);
+int __declspec(dllimport)
+make_a_lib(int arg);
 
 int
 myloader(void)

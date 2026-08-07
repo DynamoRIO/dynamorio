@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,9 @@
  */
 
 #ifndef INSTR_INLINE
-#    ifdef DR_FAST_IR
+#    ifdef LINUX_KERNEL
+#        define INSTR_INLINE static inline
+#    elif defined(DR_FAST_IR)
 #        define INSTR_INLINE inline
 #    else
 #        define INSTR_INLINE
@@ -244,7 +246,7 @@ struct _instr_t {
 
     /* Used to hold the relative offset within an instruction list when encoding. */
     size_t offset;
-};     /* instr_t */
+}; /* instr_t */
 #endif /* DR_FAST_IR */
 
 /**

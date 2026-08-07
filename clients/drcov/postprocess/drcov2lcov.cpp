@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -573,7 +573,7 @@ bb_bitmap_lookup(module_table_t *table, uint addr)
 {
     byte *bm = table->bb_table.bitmap;
     if (bm[BITMAP_INDEX(addr)] == 0xff ||
-        TEST(BITMAP_MASK(BITMAP_OFFSET(addr)), bm[BITMAP_INDEX(addr)]))
+        TESTANY(BITMAP_MASK(BITMAP_OFFSET(addr)), bm[BITMAP_INDEX(addr)]))
         return BB_TABLE_ENTRY_SET;
     return BB_TABLE_ENTRY_CLEAR;
 }
@@ -589,7 +589,7 @@ bb_bitmap_add(module_table_t *table, bb_entry_t *entry)
     if (bm[idx] == BB_TABLE_RANGE_SET)
         return false;
     offs = BITMAP_OFFSET(entry->start);
-    if (TEST(BITMAP_MASK(offs), bm[idx]))
+    if (TESTANY(BITMAP_MASK(offs), bm[idx]))
         return false;
     /* now we add a new bb */
     PRINT(6, "Add 0x%x-0x%x in table " PFX "\n", entry->start, entry->start + entry->size,

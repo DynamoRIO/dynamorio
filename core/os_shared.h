@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -302,7 +302,7 @@ char *
 get_application_name(void);
 
 int
-num_app_args();
+num_app_args(void);
 int
 get_app_args(DR_PARAM_OUT dr_app_arg_t *args_array, int args_count);
 const char *
@@ -418,7 +418,7 @@ os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
  * XXX: we're duplicating these types above as dr_auxlib*
  */
 typedef void *shlib_handle_t;
-typedef void (*shlib_routine_ptr_t)();
+typedef void (*shlib_routine_ptr_t)(void);
 
 shlib_handle_t
 load_shared_library(const char *name, bool reachable);
@@ -681,34 +681,34 @@ extern uint datasec_writable_cxtswprot;
      INTERNAL_OPTION(single_privileged_thread))
 
 /* macros to put mask check outside of function, for efficiency */
-#define SELF_PROTECT_LOCAL(dc, w)                              \
-    do {                                                       \
-        if (TEST(SELFPROT_LOCAL, dynamo_options.protect_mask)) \
-            protect_local_heap(dc, w);                         \
+#define SELF_PROTECT_LOCAL(dc, w)                                 \
+    do {                                                          \
+        if (TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask)) \
+            protect_local_heap(dc, w);                            \
     } while (0);
 
-#define SELF_PROTECT_GLOBAL(w)                                  \
-    do {                                                        \
-        if (TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask)) \
-            protect_global_heap(w);                             \
+#define SELF_PROTECT_GLOBAL(w)                                     \
+    do {                                                           \
+        if (TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask)) \
+            protect_global_heap(w);                                \
     } while (0);
 
-#define ASSERT_LOCAL_HEAP_PROTECTED(dcontext)                    \
-    ASSERT(!TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) || \
+#define ASSERT_LOCAL_HEAP_PROTECTED(dcontext)                       \
+    ASSERT(!TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask) || \
            local_heap_protected(dcontext))
-#define ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext)                  \
-    ASSERT(!TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) || \
+#define ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext)                     \
+    ASSERT(!TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask) || \
            !local_heap_protected(dcontext))
 
-#define SELF_PROTECT_DATASEC(which)                                     \
-    do {                                                                \
-        if (TEST(DATASEC_SELFPROT[which], DYNAMO_OPTION(protect_mask))) \
-            protect_data_section(which, READONLY);                      \
+#define SELF_PROTECT_DATASEC(which)                                        \
+    do {                                                                   \
+        if (TESTANY(DATASEC_SELFPROT[which], DYNAMO_OPTION(protect_mask))) \
+            protect_data_section(which, READONLY);                         \
     } while (0);
-#define SELF_UNPROTECT_DATASEC(which)                                   \
-    do {                                                                \
-        if (TEST(DATASEC_SELFPROT[which], DYNAMO_OPTION(protect_mask))) \
-            protect_data_section(which, WRITABLE);                      \
+#define SELF_UNPROTECT_DATASEC(which)                                      \
+    do {                                                                   \
+        if (TESTANY(DATASEC_SELFPROT[which], DYNAMO_OPTION(protect_mask))) \
+            protect_data_section(which, WRITABLE);                         \
     } while (0);
 
 /***************************************************************************/
@@ -1010,7 +1010,7 @@ query_time_millis(void);
 
 /* microseconds since 1601 */
 uint64
-query_time_micros();
+query_time_micros(void);
 
 /* gives a good but not necessarily crypto-strength random seed */
 uint

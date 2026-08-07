@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -241,7 +241,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
              */
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
-            IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
+            IF_NOT_X64(ASSERT(TESTANY(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
             /* XXX i#1312: This should be proc_num_simd_sse_avx_registers(). */
             ASSERT(MCXT_SIMD_SLOT_SIZE == ZMM_REG_SIZE);
             for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
@@ -850,7 +850,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
     PUSH_IMMEDIATE((int)(ptr_int_t)NT_CURRENT_PROCESS); /* arg ProcessHandle */     \
     IF_X64(MOV_TOS_TO_PARAM_0());                                                   \
     CALL(NtProtectVirtualMemory); /* 8 pushes => still aligned to 16 */             \
-    /* no error checking, can't really do anything about it, XXX */               \
+    /* no error checking, can't really do anything about it, XXX */                 \
     /* stdcall so just the three slots we made for the ptr arguments                \
      * left on the stack for 32-bit */                                              \
     IF_X64(ADD_IMM8_TO_ESP(5 * XSP_SZ)); /* clean up 5 slots */                     \

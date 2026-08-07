@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -101,7 +101,7 @@ drfront_access(const char *fname, drfront_access_mode_t mode, DR_PARAM_OUT bool 
          * and +x access to any file with at least one +x bit set.  This is
          * usually true but not always.
          */
-        if (TEST(DRFRONT_EXEC, mode)) {
+        if (TESTANY(DRFRONT_EXEC, mode)) {
             *ret = TESTANY((DRFRONT_EXEC << 6) | (DRFRONT_EXEC << 3) | DRFRONT_EXEC,
                            st.st_mode);
         } else
@@ -114,7 +114,7 @@ drfront_access(const char *fname, drfront_access_mode_t mode, DR_PARAM_OUT bool 
         *ret = TESTALL(mode, st.st_mode);
     }
 
-    if (*ret && S_ISDIR(st.st_mode) && TEST(DRFRONT_WRITE, mode)) {
+    if (*ret && S_ISDIR(st.st_mode) && TESTANY(DRFRONT_WRITE, mode)) {
         /* We use an actual write try, to avoid failing on a read-only filesystem
          * (DrMi#1857).
          */

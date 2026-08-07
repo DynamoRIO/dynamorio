@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2025 Arm Limited  All rights reserved.
  * **********************************************************/
 
@@ -339,7 +339,7 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
 #        endif
 #        define CHECK_GPR(name, num, reference_value)                       \
             do {                                                            \
-                if (TEST(1 << (num), gpr_check_mask))                       \
+                if (TESTANY(1 << (num), gpr_check_mask))                    \
                     check_gpr_value(name, *(xsp + (num)), reference_value); \
             } while (0)
     CHECK_GPR("r15", 15, MAKE_HEX_C(R15_BASE()));
@@ -363,7 +363,7 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
      * AARCH64
      */
 
-    if (TEST(1, gpr_check_mask)) {
+    if (TESTANY(1, gpr_check_mask)) {
         /* Unfortunately, since it's RISC, we have to use x0 in the asm loop.
          * Its value could be either 0x1 or &sideline_exit.
          */
@@ -371,7 +371,7 @@ check_gpr_vals(ptr_uint_t *xsp, uint gpr_check_mask)
     }
 #        define CHECK_GPR(name, num, reference_value)                       \
             do {                                                            \
-                if (TEST(1 << (num), gpr_check_mask))                       \
+                if (TESTANY(1 << (num), gpr_check_mask))                    \
                     check_gpr_value(name, *(xsp + (num)), reference_value); \
             } while (0)
     CHECK_GPR("x1", 1, MAKE_HEX_C(X1_BASE()));
@@ -524,10 +524,18 @@ check_xsp(ptr_uint_t *xsp)
 }
 #    endif
 
+/* This needs to be larger than the distance from the PC of the call in
+ * MAKE_WRITEABLE to the selfmod-modified PC in SELFMOD, whereever those
+ * macros are instantiated.
+ * Currently AArch64's distance is 1316.
+ */
+#    define CODE_SIZE_MAKE_WRITABLE_TO_SELFMOD 2048
+
 void
 make_mem_writable(ptr_uint_t pc)
 {
-    protect_mem((void *)pc, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
+    protect_mem((void *)pc, CODE_SIZE_MAKE_WRITABLE_TO_SELFMOD,
+                ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
 }
 
 void
@@ -536,7 +544,7 @@ make_mem_non_writeable(ptr_uint_t pc)
     /* Reset self-modifying test page permissions so later non-self-modifying
      * fragment cache tests do not inherit RWX, violating DR's ASSERT() checks.
      */
-    protect_mem((void *)pc, 1024, ALLOW_READ | ALLOW_EXEC);
+    protect_mem((void *)pc, CODE_SIZE_MAKE_WRITABLE_TO_SELFMOD, ALLOW_READ | ALLOW_EXEC);
 }
 
 #else /* asm code *************************************************************/

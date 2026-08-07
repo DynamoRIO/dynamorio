@@ -2,6 +2,7 @@
 # Copyright (c) 2010-2026 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
+# Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -408,19 +409,17 @@ option(TEST_SUITE "we are running a series of builds for official purposes")
 if (INTERNAL OR DEBUG)
   set(KSTATS_DEFAULT ON)
 else (INTERNAL OR DEBUG)
-  set(KSTATS_DEFAULT 0FF)
+  set(KSTATS_DEFAULT OFF)
 endif (INTERNAL OR DEBUG)
 
 # no KSTATS for caller profiling: we want to be as close to release
 # build as we can, but w/o optimizations
 if (CALLPROF)
-  set(KSTATS_DEFAULT 0FF)
+  set(KSTATS_DEFAULT OFF)
 endif (CALLPROF)
 
 set(KSTATS "" CACHE STRING "internal kstat profiling: ON or OFF overrides default")
-# XXX i#170: once CMake 2.8 is released we can detect whether 2.8 is
-# in use, and if so use a value-enum to get drop-down of possible values, like so:
-#   set_property(CACHE KSTATS PROPERTY STRINGS "" "ON" "OFF")
+set_property(CACHE KSTATS PROPERTY STRINGS "" "ON" "OFF")
 if ("${KSTATS}" STREQUAL "")
     set(KSTATS ${KSTATS_DEFAULT})
 endif()
@@ -837,6 +836,8 @@ if (UNIX)
   # now w/ no separate cpp step we should eliminate the
   # warnings and pass -pedantic to main gcc
   set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -std=gnu99")
+  # i#7975: required by our style guide and Kbuild
+  set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -Wstrict-prototypes")
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
   # Ensure DR is interoperable with other toolchains: do not assume char is signed
@@ -848,6 +849,10 @@ if (UNIX)
   if (no_stack_protector_avail)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fno-stack-protector")
   endif (no_stack_protector_avail)
+  CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough" implicit_fallthrough_avail)
+  if (implicit_fallthrough_avail)
+    set(BASE_CFLAGS "${BASE_CFLAGS} -Wimplicit-fallthrough")
+  endif (implicit_fallthrough_avail)
   # Prefer the new 'override' keyword.
   CHECK_CXX_COMPILER_FLAG("-Wsuggest-override" suggest_override_avail)
   if (suggest_override_avail)
@@ -1551,6 +1556,7 @@ endif (EXISTS ${defines_file})
 include_directories(BEFORE
   ${PROJECT_BINARY_DIR} # for configure.h, configure_defines.h, events.h, and event_strings.h
   )
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/common)
 
 # Export targets for importing by clients.
 # We include DynamoRIO and all Extensions in the same file for simplicity,
@@ -1688,6 +1694,8 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
+option(BUILD_KERNEL_MODULE "build DynamoRIO as a kernel module (experimental)" OFF)
+
 if (ANDROID)
   # TODO i#1874: Android does not build drcachesim or drcpusim, which have
   # references spread throughout the docs.
@@ -1713,6 +1721,42 @@ endif (BUILD_TESTS)
 if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)
+
+if (BUILD_KERNEL_MODULE)
+  if (NOT LINUX)
+    message(FATAL_ERROR "BUILD_KERNEL_MODULE is only supported on Linux")
+  endif()
+
+  # TODO i#8021: support AARCH64.
+  if (NOT X86 OR NOT X64)
+    message(FATAL_ERROR
+      "BUILD_KERNEL_MODULE is currently only supported on X86_64 architecture")
+  endif()
+
+  if (NOT BUILD_CORE)
+    message(FATAL_ERROR "BUILD_KERNEL_MODULE requires BUILD_CORE")
+  endif()
+
+  set(KERNEL_DIR "/lib/modules/${CMAKE_SYSTEM_VERSION}/build" CACHE PATH
+    "Path to the kernel build directory")
+
+  find_program(MAKE_PROGRAM NAMES make DOC
+    "make utility for driving the kernel's Kbuild system")
+  if (NOT MAKE_PROGRAM)
+    message(FATAL_ERROR
+      "BUILD_KERNEL_MODULE requires 'make' to drive the kernel's Kbuild system")
+  endif()
+
+  if (NOT IS_DIRECTORY "${KERNEL_DIR}" OR NOT EXISTS "${KERNEL_DIR}/Makefile")
+    message(FATAL_ERROR
+      "Kernel build headers not found at ${KERNEL_DIR}.\n"
+      "Please install kernel headers or specify -DKERNEL_DIR=/path/to/kernel/sources"
+    )
+  endif()
+
+  message(STATUS "DynamoRIO Linux kernel module enabled using KERNEL_DIR=${KERNEL_DIR}")
+  add_subdirectory(core/kernel_linux)
+endif()
 
 add_subdirectory(libutil)
 
@@ -1949,6 +1993,30 @@ if (UNIX AND X64)
     message(STATUS "Found liblz4: ${liblz4}")
     if (APPLE)
       mac_add_inc_and_lib(lz4.h liblz4.a)
+    endif ()
+    # lz4 >= 1.9.4 supports custom allocators, but some builds do not export the
+    # required API.  Check that it links before using it for static clients (i#5427).
+    include(CheckCSourceCompiles)
+    set(_lz4_save_required_libraries ${CMAKE_REQUIRED_LIBRARIES})
+    set(CMAKE_REQUIRED_LIBRARIES ${liblz4})
+    check_c_source_compiles("
+#define LZ4F_STATIC_LINKING_ONLY
+#include <lz4frame.h>
+int main(void) {
+  LZ4F_cctx *cctx = LZ4F_createCompressionContext_advanced(LZ4F_defaultCMem,
+                                                           LZ4F_VERSION);
+  LZ4F_freeCompressionContext(cctx);
+  return 0;
+}
+" HAVE_LZ4_CUSTOM_MEM)
+    set(CMAKE_REQUIRED_LIBRARIES ${_lz4_save_required_libraries})
+    unset(_lz4_save_required_libraries)
+    if (HAVE_LZ4_CUSTOM_MEM)
+      message(STATUS "liblz4 supports LZ4F_CustomMem: lz4 is safe for static clients")
+    else ()
+      message(STATUS "liblz4 lacks a usable LZ4F_CustomMem: "
+        "-raw_compress lz4 stays unsafe for static clients (needs lz4 >= 1.9.4 "
+        "built with -DLZ4F_PUBLISH_STATIC_FUNCTIONS, or a static liblz4)")
     endif ()
   endif ()
   find_library(libxxhash xxhash)

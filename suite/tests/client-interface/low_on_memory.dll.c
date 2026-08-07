@@ -61,7 +61,7 @@ static node_t *head;
 static const uintptr_t user_value = 9909;
 
 static void
-insert_new_node()
+insert_new_node(void)
 {
     node_t **node = &head;
 
@@ -90,7 +90,7 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 }
 
 static void
-free_nodes()
+free_nodes(void)
 {
     node_t *node = head;
     while (node != NULL) {
@@ -103,7 +103,7 @@ free_nodes()
 }
 
 static void
-low_on_memory_event()
+low_on_memory_event(void)
 {
     if (!is_clear) {
         if (head == NULL)

@@ -35,6 +35,7 @@
 #include "dr_api.h"
 #include "tools/basic_counts.h"
 #include "memref_gen.h"
+#include "utils.h"
 
 #include <cinttypes>
 #include <vector>

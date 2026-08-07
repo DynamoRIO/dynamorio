@@ -39,7 +39,8 @@
 #include <winbase.h> /* for QueueUserAPC */
 #include "tools.h"
 
-void __declspec(dllexport) import_me(int x)
+void __declspec(dllexport)
+import_me(int x)
 {
     print("initapc.dll:import_me(%d)\n", x);
 }

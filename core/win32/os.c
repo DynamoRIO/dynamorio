@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1496,8 +1496,8 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
     HANDLE currentThreadOrProcess = NT_CURRENT_PROCESS;
     bool exit_process = true;
 
-    ASSERT(TEST(TERMINATE_PROCESS, terminate_type) != /* xor */
-           TEST(TERMINATE_THREAD, terminate_type));
+    ASSERT(TESTANY(TERMINATE_PROCESS, terminate_type) != /* xor */
+           TESTANY(TERMINATE_THREAD, terminate_type));
 
     /* We could be holding the bb_building_lock at this point -- if we cleanup,
      * we will get a rank order violation with all_threads_synch_lock.  if we
@@ -1520,7 +1520,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
              * here though caller has likely alredy gone as deep as detach
              * will since almost everyone SYSLOG's before calling this */
             detach_helper(
-                TEST(DETACH_ON_TERMINATE_NO_CLEAN, DYNAMO_OPTION(internal_detach_mask))
+                TESTANY(DETACH_ON_TERMINATE_NO_CLEAN, DYNAMO_OPTION(internal_detach_mask))
                     ? DETACH_BAD_STATE_NO_CLEANUP
                     : DETACH_BAD_STATE);
             /* skip option synch, make this as safe as possible */
@@ -1547,7 +1547,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
     /* CHECK: Can a process disallow PROCESS_TERMINATE or THREAD_TERMINATE
        access even to itself?
     */
-    if (TEST(TERMINATE_THREAD, terminate_type)) {
+    if (TESTANY(TERMINATE_THREAD, terminate_type)) {
         exit_process =
             (!IS_CLIENT_THREAD(dcontext) && is_last_app_thread() && !dynamo_exited);
         if (!exit_process) {
@@ -1556,7 +1556,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
     }
 
     STATS_INC(num_threads_killed);
-    if (TEST(TERMINATE_CLEANUP, terminate_type)) {
+    if (TESTANY(TERMINATE_CLEANUP, terminate_type)) {
         byte *arguments =
             os_terminate_static_arguments(exit_process, custom_code, exit_code);
 
@@ -1767,7 +1767,7 @@ os_thread_stack_exit(dcontext_t *dcontext)
                                     true /* own thread_initexit_lock */,
                                     false /* not image */);
         }
-        if (TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr))) {
+        if (TESTANY(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr))) {
             size_t stack_reserved_size = ostd->stack_top - ostd->stack_base;
             /* verified above with get_allocation_size() this is not
              * only the committed portion
@@ -1870,8 +1870,10 @@ enum {
  * data, or another thread during synchall.
  */
 static generic_table_t *takeover_table;
-#    define INIT_HTABLE_SIZE_TAKEOVER 6             /* should remain small */
-#    define INVALID_PAYLOAD ((void *)(ptr_int_t)-2) /* NULL and -1 are used by table */
+#    define INIT_HTABLE_SIZE_TAKEOVER 6 /* should remain small */
+#    define INVALID_PAYLOAD                                        \
+        ((void *)(ptr_int_t) - 2) /* NULL and -1 are used by table \
+                                   */
 
 static void
 takeover_table_entry_free(dcontext_t *dcontext, void *e)
@@ -3070,7 +3072,7 @@ prot_is_copyonwrite(uint prot)
 bool
 prot_is_guard(uint prot)
 {
-    return TEST(PAGE_GUARD, prot);
+    return TESTANY(PAGE_GUARD, prot);
 }
 
 /* translate platform independent protection bits to native flags */
@@ -3078,22 +3080,22 @@ int
 memprot_to_osprot(uint prot)
 {
     uint os_prot = 0;
-    if (TEST(MEMPROT_EXEC, prot)) {
-        if (!TEST(MEMPROT_READ, prot)) {
-            ASSERT(!TEST(MEMPROT_WRITE, prot));
+    if (TESTANY(MEMPROT_EXEC, prot)) {
+        if (!TESTANY(MEMPROT_READ, prot)) {
+            ASSERT(!TESTANY(MEMPROT_WRITE, prot));
             os_prot = PAGE_EXECUTE;
-        } else if (TEST(MEMPROT_WRITE, prot))
+        } else if (TESTANY(MEMPROT_WRITE, prot))
             os_prot = PAGE_EXECUTE_READWRITE;
         else
             os_prot = PAGE_EXECUTE_READ;
-    } else if (TEST(MEMPROT_READ, prot)) {
-        if (TEST(MEMPROT_WRITE, prot))
+    } else if (TESTANY(MEMPROT_READ, prot)) {
+        if (TESTANY(MEMPROT_WRITE, prot))
             os_prot = PAGE_READWRITE;
         else
             os_prot = PAGE_READONLY;
     } else
         os_prot = PAGE_NOACCESS;
-    if (TEST(MEMPROT_GUARD, prot))
+    if (TESTANY(MEMPROT_GUARD, prot))
         os_prot |= PAGE_GUARD;
     return os_prot;
 }
@@ -3287,7 +3289,7 @@ should_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
         inject_setting_mask_t should_inject =
             systemwide_should_inject(process_handle, rununder_mask);
 
-        if (DYNAMO_OPTION(follow_systemwide) && TEST(INJECT_TRUE, should_inject)) {
+        if (DYNAMO_OPTION(follow_systemwide) && TESTANY(INJECT_TRUE, should_inject)) {
             LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
                 "\tconfigured child should be injected\n");
             inject = true;
@@ -3304,15 +3306,15 @@ should_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
             inject = true; /* -follow_children defaults to inject */
 
             /* check if child should be excluded from running under dr */
-            if (TEST(INJECT_EXCLUDED, should_inject)) {
+            if (TESTANY(INJECT_EXCLUDED, should_inject)) {
                 LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
                     "\tchild is excluded, not injecting\n");
                 inject = false;
             }
 
             /* check if we should leave injection to preinjector */
-            if (TEST(INJECT_TRUE, should_inject) && systemwide_inject_enabled() &&
-                !TEST(INJECT_EXPLICIT, should_inject)) {
+            if (TESTANY(INJECT_TRUE, should_inject) && systemwide_inject_enabled() &&
+                !TESTANY(INJECT_EXPLICIT, should_inject)) {
                 ASSERT(!DYNAMO_OPTION(follow_systemwide));
                 LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
                     "\tletting preinjector inject into child\n");
@@ -3327,7 +3329,7 @@ should_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
             });
         }
         if (inject) {
-            ASSERT(!TEST(INJECT_EXCLUDED, should_inject));
+            ASSERT(!TESTANY(INJECT_EXCLUDED, should_inject));
             if (inject_settings != NULL)
                 *inject_settings = should_inject;
         }
@@ -3382,7 +3384,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, HANDLE thread_h
         /* We got the global key's library, use parent's library instead if the only
          * reason we're injecting is -follow_children (i.e. reading RUNUNDER gave us
          * !INJECT_TRUE). */
-        if (!TEST(INJECT_TRUE, should_inject)) {
+        if (!TESTANY(INJECT_TRUE, should_inject)) {
             ASSERT(DYNAMO_OPTION(follow_children));
             library = get_dynamorio_library_path();
         }
@@ -4009,7 +4011,7 @@ mem_stats_snapshot()
             r_reserve += mbi.RegionSize;
         } else if (mbi.State == MEM_COMMIT) {
             r_commit += mbi.RegionSize;
-            if (TEST(PAGE_GUARD, mbi.Protect)) {
+            if (TESTANY(PAGE_GUARD, mbi.Protect)) {
                 /* if any guard blocks inside region, assume entire region
                  * is a stack
                  */
@@ -4110,7 +4112,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
              * this process first (i#817)
              */
             ASSERT_CURIOSITY(is_wow64_process(NT_CURRENT_PROCESS) ||
-                             !TEST(IMAGE_FILE_DLL, get_module_characteristics(base)));
+                             !TESTANY(IMAGE_FILE_DLL, get_module_characteristics(base)));
         }
     });
 #    else
@@ -4170,7 +4172,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
         /* XXX: if some one just loads a vm, our gbop would become useless;
          * need better dgc identification for gbop; see case 8087.
          */
-        if (add && TEST(GBOP_IS_DGC, DYNAMO_OPTION(gbop)) && !gbop_vm_loaded) {
+        if (add && TESTANY(GBOP_IS_DGC, DYNAMO_OPTION(gbop)) && !gbop_vm_loaded) {
             /* !gbop_vm_loaded in the check above would prevent this memory
              * protection change from happenning for each vm load, not that any
              * process load a vm multiple times or multiple vms.
@@ -4413,8 +4415,8 @@ process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool re
         return;
     }
 #    ifdef RCT_IND_BRANCH
-    if (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-        TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
+    if (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+        TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
         /* we need to know about module addition or removal
          * whether or not we'll act on it right now
          */
@@ -4852,12 +4854,12 @@ os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code)
     ASSERT(error_code != NULL);
     ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
 
-    if (!TEST(RAW_ALLOC_RESERVE_ONLY, flags)) {
+    if (!TESTANY(RAW_ALLOC_RESERVE_ONLY, flags)) {
         *error_code = nt_decommit_virtual_memory(p, size);
         if (!NT_SUCCESS(*error_code))
             return false;
     }
-    if (!TEST(RAW_ALLOC_COMMIT_ONLY, flags))
+    if (!TESTANY(RAW_ALLOC_COMMIT_ONLY, flags))
         *error_code = nt_free_virtual_memory(p);
     LOG(GLOBAL, LOG_HEAP, 2, "os_raw_mem_free: " SZFMT " bytes @ " PFX "\n", size, p);
     return NT_SUCCESS(*error_code);
@@ -4876,9 +4878,9 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
 
     *error_code = nt_allocate_virtual_memory(
         &p, size, os_prot,
-        TEST(RAW_ALLOC_RESERVE_ONLY, flags)
+        TESTANY(RAW_ALLOC_RESERVE_ONLY, flags)
             ? MEMORY_RESERVE_ONLY
-            : (TEST(RAW_ALLOC_COMMIT_ONLY, flags) ? MEM_COMMIT : MEMORY_COMMIT));
+            : (TESTANY(RAW_ALLOC_COMMIT_ONLY, flags) ? MEM_COMMIT : MEMORY_COMMIT));
     if (!NT_SUCCESS(*error_code)) {
         LOG(GLOBAL, LOG_HEAP, 3, "os_raw_mem_alloc %d bytes failed" PFX "\n", size, p);
         return NULL;
@@ -5261,7 +5263,7 @@ dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
      * We want to keep the assert to catch invalid internal uses, so we just
      * fill it all in and then adjust the flags.
      */
-    if (TEST(DR_MC_MULTIMEDIA, src->flags))
+    if (TESTANY(DR_MC_MULTIMEDIA, src->flags))
         dst->ContextFlags = CONTEXT_DR_STATE;
     else
         dst->ContextFlags = CONTEXT_DR_STATE_NO_YMM;
@@ -5272,9 +5274,9 @@ dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
     /* XXX: CONTEXT_CONTROL includes xbp, while that's under DR_MC_INTEGER.
      * We document this difference and recommend passing both to avoid problems.
      */
-    if (!TEST(DR_MC_INTEGER, src->flags))
+    if (!TESTANY(DR_MC_INTEGER, src->flags))
         dst->ContextFlags &= ~(CONTEXT_INTEGER);
-    if (!TEST(DR_MC_CONTROL, src->flags))
+    if (!TESTANY(DR_MC_CONTROL, src->flags))
         dst->ContextFlags &= ~(CONTEXT_CONTROL);
 
     return true;
@@ -5284,11 +5286,11 @@ dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
 static dr_mcontext_flags_t
 match_mcontext_flags_to_context_flags(dr_mcontext_flags_t mc_flags, DWORD cxt_flags)
 {
-    if (TEST(DR_MC_INTEGER, mc_flags) && !TESTALL(CONTEXT_INTEGER, cxt_flags))
+    if (TESTANY(DR_MC_INTEGER, mc_flags) && !TESTALL(CONTEXT_INTEGER, cxt_flags))
         mc_flags &= ~DR_MC_INTEGER;
-    if (TEST(DR_MC_CONTROL, mc_flags) && !TESTALL(CONTEXT_CONTROL, cxt_flags))
+    if (TESTANY(DR_MC_CONTROL, mc_flags) && !TESTALL(CONTEXT_CONTROL, cxt_flags))
         mc_flags &= ~DR_MC_CONTROL;
-    if (TEST(DR_MC_MULTIMEDIA, mc_flags) &&
+    if (TESTANY(DR_MC_MULTIMEDIA, mc_flags) &&
         !TESTALL(CONTEXT_DR_STATE & ~(CONTEXT_INTEGER | CONTEXT_CONTROL), cxt_flags))
         mc_flags &= ~DR_MC_MULTIMEDIA;
     return mc_flags;
@@ -6015,7 +6017,7 @@ query_is_readable_without_exception(byte *pc, size_t size)
         if (res != sizeof(mbi)) {
             return false;
         } else {
-            if (mbi.State != MEM_COMMIT || TEST(PAGE_GUARD, mbi.Protect) ||
+            if (mbi.State != MEM_COMMIT || TESTANY(PAGE_GUARD, mbi.Protect) ||
                 !prot_is_readable(mbi.Protect))
                 return false;
         }
@@ -6179,7 +6181,7 @@ unmark_page_as_guard(byte *pc, uint prot)
      * while we wanted to remove this protection. The returned value
      * can be checked for such a case.
      */
-    return TEST(PAGE_GUARD, old_prot);
+    return TESTANY(PAGE_GUARD, old_prot);
 }
 
 /* Change page protection for pc:pc+size.
@@ -7047,8 +7049,8 @@ os_copy_file(HANDLE new_file, HANDLE original_file, uint64 new_file_offset,
 bool
 os_create_dir(const char *fname, create_directory_flags_t create_dir_flags)
 {
-    bool require_new = TEST(CREATE_DIR_REQUIRE_NEW, create_dir_flags);
-    bool force_owner = TEST(CREATE_DIR_FORCE_OWNER, create_dir_flags);
+    bool require_new = TESTANY(CREATE_DIR_REQUIRE_NEW, create_dir_flags);
+    bool force_owner = TESTANY(CREATE_DIR_FORCE_OWNER, create_dir_flags);
 
     /* case 9057 note that hard links are only between files but not directories */
     /* upcoming symlinks can be between either, for consistency should
@@ -7071,7 +7073,7 @@ os_open_directory(const char *fname, int os_open_flags)
     uint access = READ_CONTROL;
 
     /* XXX: only 0 is allowed by create_file for now */
-    if (TEST(OS_OPEN_READ, os_open_flags))
+    if (TESTANY(OS_OPEN_READ, os_open_flags))
         access |= FILE_GENERIC_READ;
 
     return os_internal_create_file(fname, true, access, sharing, FILE_OPEN);
@@ -7090,39 +7092,42 @@ os_open(const char *fname, int os_open_flags)
     /* XXX case 8865: should default be no sharing? */
     uint sharing = FILE_SHARE_READ;
 
-    if (TEST(OS_EXECUTE, os_open_flags))
+    if (TESTANY(OS_EXECUTE, os_open_flags))
         access |= FILE_GENERIC_EXECUTE;
-    if (TEST(OS_OPEN_READ, os_open_flags))
+    if (TESTANY(OS_OPEN_READ, os_open_flags))
         access |= FILE_GENERIC_READ;
 
-    if (TEST(OS_SHARE_DELETE, os_open_flags))
+    if (TESTANY(OS_SHARE_DELETE, os_open_flags))
         sharing |= FILE_SHARE_DELETE;
 
-    if (!TEST(OS_OPEN_WRITE, os_open_flags))
+    if (!TESTANY(OS_OPEN_WRITE, os_open_flags))
         return os_internal_create_file(fname, false, access, sharing, FILE_OPEN);
 
     /* We ignore OS_OPEN_WRITE_ONLY: Linux-only */
 
     /* clients are allowed to open the file however they want, xref PR 227737 */
-    ASSERT_CURIOSITY_ONCE((TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) ||
+    ASSERT_CURIOSITY_ONCE((TESTANY(OS_OPEN_REQUIRE_NEW, os_open_flags) ||
                            standalone_library || CLIENTS_EXIST()) &&
                           "symlink risk PR 213492");
 
     return os_internal_create_file(
         fname, false,
         access |
-            (TEST(OS_OPEN_APPEND, os_open_flags) ?
-                                                 /* FILE_GENERIC_WRITE minus
-                                                  * FILE_WRITE_DATA, so we get auto-append
-                                                  */
+            (TESTANY(OS_OPEN_APPEND, os_open_flags)
+                 ?
+                 /* FILE_GENERIC_WRITE minus
+                  * FILE_WRITE_DATA, so we get auto-append
+                  */
                  (STANDARD_RIGHTS_WRITE | FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES |
                   FILE_WRITE_EA)
-                                                 : FILE_GENERIC_WRITE),
+                 : FILE_GENERIC_WRITE),
         sharing,
-        (TEST(OS_OPEN_REQUIRE_NEW, os_open_flags)
+        (TESTANY(OS_OPEN_REQUIRE_NEW, os_open_flags)
              ? FILE_CREATE
-             : (TEST(OS_OPEN_APPEND, os_open_flags) ? FILE_OPEN_IF : FILE_OVERWRITE_IF)) |
-            (TEST(OS_OPEN_FORCE_OWNER, os_open_flags) ? FILE_DISPOSITION_SET_OWNER : 0));
+             : (TESTANY(OS_OPEN_APPEND, os_open_flags) ? FILE_OPEN_IF
+                                                       : FILE_OVERWRITE_IF)) |
+            (TESTANY(OS_OPEN_FORCE_OWNER, os_open_flags) ? FILE_DISPOSITION_SET_OWNER
+                                                         : 0));
 }
 
 void
@@ -7519,29 +7524,29 @@ os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uin
     LARGE_INTEGER li_offs;
     li_offs.QuadPart = offs;
 
-    if (TEST(MAP_FILE_COPY_ON_WRITE, map_flags) && TEST(MEMPROT_WRITE, prot)) {
+    if (TESTANY(MAP_FILE_COPY_ON_WRITE, map_flags) && TESTANY(MEMPROT_WRITE, prot)) {
         /* Ask for COW for both the section and the view, though we should only
          * need it for the view (except on win98, according to Richter p604)
          */
         osprot = osprot_add_writecopy(osprot);
     }
-    res = nt_create_section(&section,
-                            SECTION_ALL_ACCESS, /* XXX: maybe less privileges needed */
-                            NULL, /* full file size, even if partial view map */
-                            osprot,
-                            /* can only be SEC_IMAGE if a PE file */
-                            /* XXX: SEC_RESERVE shouldn't work w/ COW yet
-                             * it did in my test */
-                            TEST(MAP_FILE_IMAGE, map_flags) ? SEC_IMAGE : SEC_COMMIT, f,
-                            /* process private - no security needed */
-                            /* object name attributes */
-                            NULL /* unnamed */, 0, NULL, NULL);
+    res = nt_create_section(
+        &section, SECTION_ALL_ACCESS, /* XXX: maybe less privileges needed */
+        NULL,                         /* full file size, even if partial view map */
+        osprot,
+        /* can only be SEC_IMAGE if a PE file */
+        /* XXX: SEC_RESERVE shouldn't work w/ COW yet
+         * it did in my test */
+        TESTANY(MAP_FILE_IMAGE, map_flags) ? SEC_IMAGE : SEC_COMMIT, f,
+        /* process private - no security needed */
+        /* object name attributes */
+        NULL /* unnamed */, 0, NULL, NULL);
     if (!NT_SUCCESS(res)) {
         LOG(GLOBAL, LOG_NT, 2, "os_map_file: NtCreateSection error " PFX "\n", res);
         return NULL;
     }
 #    ifdef X64
-    if (TEST(MAP_FILE_REACHABLE, map_flags)) {
+    if (TESTANY(MAP_FILE_REACHABLE, map_flags)) {
         loop = true;
         vmcode_get_reachable_region(&region_start, &region_end);
         /* addr need not be NULL: we'll use it if it's in the region */
@@ -7568,7 +7573,7 @@ os_map_file(file_t f, size_t *size DR_PARAM_INOUT, uint64 offs, app_pc addr, uin
         }
         map = NULL; /* pick a new one */
     }
-    if (NT_SUCCESS(res) && TEST(MAP_FILE_REACHABLE, map_flags))
+    if (NT_SUCCESS(res) && TESTANY(MAP_FILE_REACHABLE, map_flags))
         ASSERT(map >= region_start && map + *size <= region_end);
 #    endif
     /* We do not need to keep the section handle open */
@@ -7969,7 +7974,7 @@ os_dump_core_live_dump(const char *msg, char *path DR_PARAM_OUT, size_t path_sz)
         NULL_TERMINATE_BUFFER(dump_core_buf);
         os_write(dmp_file, dump_core_buf, strlen(dump_core_buf));
 
-        if (mbi.State == MEM_COMMIT && !TEST(PAGE_GUARD, mbi.Protect) &&
+        if (mbi.State == MEM_COMMIT && !TESTANY(PAGE_GUARD, mbi.Protect) &&
             prot_is_readable(mbi.Protect)) {
             os_write(dmp_file, mbi.BaseAddress, mbi.RegionSize);
         }
@@ -8104,11 +8109,11 @@ os_dump_core_internal(const char *msg, bool live_only, char *path DR_PARAM_OUT,
     if (current_id == current_dumping_thread_id)
         return false; /* avoid infinite loop */
 
-        /* XXX : A failure in the mutex_lock or mutex_unlock of the
-         * dump_core_lock could lead to an infinite recursion, also a failure while
-         * holding the eventlog_lock would lead to a deadlock at the syslog in
-         * livedump (but we would likely deadlock later anyways), all other
-         * recursion/deadlock cases should be handled by the above check */
+    /* XXX : A failure in the mutex_lock or mutex_unlock of the
+     * dump_core_lock could lead to an infinite recursion, also a failure while
+     * holding the eventlog_lock would lead to a deadlock at the syslog in
+     * livedump (but we would likely deadlock later anyways), all other
+     * recursion/deadlock cases should be handled by the above check */
 
 #    ifdef DEADLOCK_AVOIDANCE
     /* first turn off deadlock avoidance for this thread (needed for live dump
@@ -9568,7 +9573,7 @@ os_check_option_compatibility(void)
     if (!os_has_aslr)
         return false;
 
-    if (TEST(OS_ASLR_DISABLE_PCACHE_ALL, DYNAMO_OPTION(os_aslr))) {
+    if (TESTANY(OS_ASLR_DISABLE_PCACHE_ALL, DYNAMO_OPTION(os_aslr))) {
         /* completely disable pcache */
 
         /* enabled by -desktop, but can be enabled independently as well */
@@ -9590,7 +9595,7 @@ os_check_option_compatibility(void)
 
     /* note dynamorio.dll is not marked as ASLR friendly so we keep
      * using our own -aslr_dr */
-    if (TEST(OS_ASLR_DISABLE_PCACHE_ALL, DYNAMO_OPTION(os_aslr))) {
+    if (TESTANY(OS_ASLR_DISABLE_PCACHE_ALL, DYNAMO_OPTION(os_aslr))) {
         /* completely disable ASLR */
         /* enabled by -client, but can be enabled independently as well */
         if (DYNAMO_OPTION(aslr) != 0) {

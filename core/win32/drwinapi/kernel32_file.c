@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -360,31 +360,31 @@ static DWORD
 file_options_to_nt(DWORD winapi, ACCESS_MASK *access DR_PARAM_OUT)
 {
     DWORD options = 0;
-    if (!TEST(FILE_FLAG_OVERLAPPED, winapi))
+    if (!TESTANY(FILE_FLAG_OVERLAPPED, winapi))
         options |= FILE_SYNCHRONOUS_IO_NONALERT;
-    if (TEST(FILE_FLAG_BACKUP_SEMANTICS, winapi)) {
+    if (TESTANY(FILE_FLAG_BACKUP_SEMANTICS, winapi)) {
         options |= FILE_OPEN_FOR_BACKUP_INTENT;
-        if (TEST(GENERIC_WRITE, *access))
+        if (TESTANY(GENERIC_WRITE, *access))
             options |= FILE_OPEN_REMOTE_INSTANCE;
     } else {
         /* FILE_FLAG_BACKUP_SEMANTICS is supposed to be set for directories */
         options |= FILE_NON_DIRECTORY_FILE;
     }
-    if (TEST(FILE_FLAG_DELETE_ON_CLOSE, winapi)) {
+    if (TESTANY(FILE_FLAG_DELETE_ON_CLOSE, winapi)) {
         *access |= DELETE; /* needed for FILE_DELETE_ON_CLOSE */
         options |= FILE_DELETE_ON_CLOSE;
     }
-    if (TEST(FILE_FLAG_NO_BUFFERING, winapi))
+    if (TESTANY(FILE_FLAG_NO_BUFFERING, winapi))
         options |= FILE_NO_INTERMEDIATE_BUFFERING;
-    if (TEST(FILE_FLAG_OPEN_NO_RECALL, winapi))
+    if (TESTANY(FILE_FLAG_OPEN_NO_RECALL, winapi))
         options |= FILE_OPEN_NO_RECALL;
-    if (TEST(FILE_FLAG_OPEN_REPARSE_POINT, winapi))
+    if (TESTANY(FILE_FLAG_OPEN_REPARSE_POINT, winapi))
         options |= FILE_OPEN_REPARSE_POINT;
-    if (TEST(FILE_FLAG_RANDOM_ACCESS, winapi))
+    if (TESTANY(FILE_FLAG_RANDOM_ACCESS, winapi))
         options |= FILE_RANDOM_ACCESS;
-    if (TEST(FILE_FLAG_SEQUENTIAL_SCAN, winapi))
+    if (TESTANY(FILE_FLAG_SEQUENTIAL_SCAN, winapi))
         options |= FILE_SEQUENTIAL_ONLY;
-    if (TEST(FILE_FLAG_WRITE_THROUGH, winapi))
+    if (TESTANY(FILE_FLAG_WRITE_THROUGH, winapi))
         options |= FILE_WRITE_THROUGH;
 
     /* XXX: not sure about FILE_FLAG_POSIX_SEMANTICS or
@@ -400,11 +400,11 @@ file_access_to_nt(ACCESS_MASK winapi)
     ACCESS_MASK access = winapi;
     /* always set these */
     access |= SYNCHRONIZE | FILE_READ_ATTRIBUTES;
-    if (TEST(GENERIC_READ, winapi))
+    if (TESTANY(GENERIC_READ, winapi))
         access |= FILE_GENERIC_READ;
-    if (TEST(GENERIC_WRITE, winapi))
+    if (TESTANY(GENERIC_WRITE, winapi))
         access |= FILE_GENERIC_WRITE;
-    if (TEST(GENERIC_EXECUTE, winapi))
+    if (TESTANY(GENERIC_EXECUTE, winapi))
         access |= FILE_GENERIC_EXECUTE;
     return access;
 }
@@ -441,17 +441,17 @@ create_file_common(__in LPCWSTR nt_file_name, __in DWORD dwDesiredAccess,
     file_attributes = dwFlagsAndAttributes & FILE_ATTRIBUTE_VALID_FLAGS;
     file_attributes &= ~FILE_ATTRIBUTE_DIRECTORY; /* except this one */
 
-    if (TEST(SECURITY_SQOS_PRESENT, dwFlagsAndAttributes)) {
+    if (TESTANY(SECURITY_SQOS_PRESENT, dwFlagsAndAttributes)) {
         sqos_ptr = &sqos;
         sqos.Length = sizeof(sqos);
         /* SECURITY_* flags are from 4-member SECURITY_IMPERSONATION_LEVEL enum <<16 */
         sqos.ImpersonationLevel = (dwFlagsAndAttributes >> 16) & 0x3;
         ;
-        if (TEST(SECURITY_CONTEXT_TRACKING, dwFlagsAndAttributes))
+        if (TESTANY(SECURITY_CONTEXT_TRACKING, dwFlagsAndAttributes))
             sqos.ContextTrackingMode = SECURITY_DYNAMIC_TRACKING;
         else
             sqos.ContextTrackingMode = SECURITY_STATIC_TRACKING;
-        sqos.EffectiveOnly = TEST(SECURITY_EFFECTIVE_ONLY, dwFlagsAndAttributes);
+        sqos.EffectiveOnly = TESTANY(SECURITY_EFFECTIVE_ONLY, dwFlagsAndAttributes);
     }
 
     /* map the non-FILE_ATTRIBUTE_* flags */
@@ -987,10 +987,10 @@ redirect_MapViewOfFileEx(__in HANDLE hFileMappingObject, __in DWORD dwDesiredAcc
      */
     if (TESTANY(FILE_MAP_WRITE | FILE_MAP_COPY, dwDesiredAccess))
         prot |= FILE_MAP_WRITE;
-    if (TEST(FILE_MAP_EXECUTE, dwDesiredAccess))
+    if (TESTANY(FILE_MAP_EXECUTE, dwDesiredAccess))
         prot |= MEMPROT_EXEC;
     prot = memprot_to_osprot(prot);
-    if (TEST(FILE_MAP_COPY, dwDesiredAccess) &&
+    if (TESTANY(FILE_MAP_COPY, dwDesiredAccess) &&
         /* i#1368: not a true bitmask! */
         dwDesiredAccess != FILE_MAP_ALL_ACCESS)
         prot = osprot_add_writecopy(prot);
@@ -1333,9 +1333,9 @@ redirect_GetDriveTypeW(__in_opt LPCWSTR lpRootPathName)
     switch (info.DeviceType) {
     case FILE_DEVICE_DISK:
     case FILE_DEVICE_DISK_FILE_SYSTEM: {
-        if (TEST(FILE_REMOVABLE_MEDIA, info.Characteristics))
+        if (TESTANY(FILE_REMOVABLE_MEDIA, info.Characteristics))
             return DRIVE_REMOVABLE;
-        else if (TEST(FILE_REMOTE_DEVICE, info.Characteristics))
+        else if (TESTANY(FILE_REMOTE_DEVICE, info.Characteristics))
             return DRIVE_REMOTE;
         else
             return DRIVE_FIXED;
@@ -1636,7 +1636,7 @@ find_first_file_common(
     if (find_next_file_common(dir, fname /*==NULL for plain dir */, lpFindFileData,
                               info)) {
         ans = dir; /* success */
-    }              /* else, last errror was already set */
+    } /* else, last errror was already set */
 
 find_first_file_error:
     if (dirname != NULL) {

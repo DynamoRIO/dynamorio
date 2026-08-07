@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,13 +46,13 @@
 
 #include "configure.h"
 #if defined(NOT_DYNAMORIO_CORE)
+#    include "dr_project_wide_defines.h"
 #    define ASSERT(x)
 #    define ASSERT_NOT_REACHED()
 #    define ASSERT_NOT_IMPLEMENTED(x)
 #    define DODEBUG(x)
 #    define DOCHECK(n, x)
 #    define DECLARE_NEVERPROT_VAR(var, ...) var = __VA_ARGS__;
-#    define ALIGN_BACKWARD(x, alignment) (((ULONG_PTR)x) & (~((alignment)-1)))
 #    define PAGE_SIZE 4096
 #else
 /* we include globals.h mainly for ASSERT, even though we're
@@ -223,7 +223,7 @@ get_module_exports_directory_common(app_pc base_addr,
 #endif
         expdir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_EXPORT;
 
-        /* avoid preinject link issues: we don't have is_readable_pe_base */
+    /* avoid preinject link issues: we don't have is_readable_pe_base */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* callers should have done this in release builds */
     ASSERT(is_readable_pe_base(base_addr));
@@ -365,8 +365,8 @@ get_proc_address_common(module_base_t lib, const char *name,
     if (lib == NULL || (ordinal == UINT_MAX && (name == NULL || *name == '\0')))
         return NULL;
 
-        /* avoid non-core issues: we don't have get_allocation_size or is_readable_pe_base
-         */
+    /* avoid non-core issues: we don't have get_allocation_size or is_readable_pe_base
+     */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* XXX - get_allocation_size and is_readable_pe_base are expensive
      * operations, we could put the onus on the caller to only pass in a
@@ -781,7 +781,7 @@ ldr_module_statically_linked(LDR_MODULE *mod)
     win8plus = (get_os_version() >= WINDOWS_VERSION_8);
 #    endif
     if (win8plus) {
-        return (mod->LoadCount == -1 || TEST(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
+        return (mod->LoadCount == -1 || TESTANY(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
                 mod->LoadReason == LoadReasonStaticDependency ||
                 mod->LoadReason == LoadReasonStaticForwarderDependency);
     } else

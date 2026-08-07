@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -65,7 +65,7 @@ static char THIS_FILE[] = __FILE__;
 #define INITIAL_OPTIONS _T("-stats -loglevel 1")
 #define INITIAL_SYSTEMWIDE _T("\\lib\\debug\\dynamorio.dll")
 #define INITIAL_IGNORE _T("drinject.exe;DynamoRIO.exe")
-//#define INITIAL_IGNORE
+// #define INITIAL_IGNORE
 //_T("drinject.exe;DynamoRIO.exe;CSRSS.EXE;WINLOGON.EXE;SERVICES.EXE;LSASS.EXE;svchost.exe;SPOOLSV.EXE;taskmgr.exe;jconfigdnt.exe;explorer.exe")
 
 /////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,7 @@
  *
  */
 
-#include <stddef.h>
+#include "stddef_wrapper.h"
 
 #ifndef NOT_DYNAMORIO_CORE
 #    include "globals.h"
@@ -178,10 +178,7 @@ const internal_options_t default_internal_options = {
 #undef EMPTY_STRING
 /* Restore. */
 #define OPTION_STRING(x) x
-#define EMPTY_STRING \
-    {                \
-        0            \
-    }
+#define EMPTY_STRING { 0 }
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    define OPTION_COMMAND_INTERNAL OPTION_COMMAND
@@ -675,9 +672,6 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
     char *opt;
     const char *pos = optstr;
     bool got_badopt = false;
-    char badopt[MAX_OPTION_LENGTH];
-
-    char wordbuffer[MAX_OPTION_LENGTH];
 
     /* used in the OPTION_COMMAND define above, declared here to save stack
      * space XXX : value_true and value_false could be static const if
@@ -691,6 +685,21 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
     ASSERT_OWN_OPTIONS_LOCK(options == &dynamo_options || options == &temp_options,
                             &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
+
+#ifdef LINUX_KERNEL
+    /* To stay within the 4096-byte compiler frame limit (-Wframe-larger-than=4096),
+     * use static buffers. This is safe because:
+     * 1) options_lock prevents concurrent modification by multiple threads.
+     * 2) !OPTIONS_PROTECTED() guarantees options memory is writeable (unprotected),
+     *    so writing to static variables will not trigger protection faults.
+     */
+    static char badopt[MAX_OPTION_LENGTH];
+    static char wordbuffer[MAX_OPTION_LENGTH];
+#else
+    char badopt[MAX_OPTION_LENGTH];
+    char wordbuffer[MAX_OPTION_LENGTH];
+#endif
+
     while ((opt = getword(optstr, &pos, wordbuffer, sizeof(wordbuffer))) != NULL) {
         if (opt[0] == '-') {
             value = NULL;
@@ -1115,18 +1124,18 @@ options_enable_code_api_dependences(options_t *options)
     if (!options->code_api)
         return;
 
-        /* PR 202669: larger stack size since we're saving a 512-byte
-         * buffer on the stack when saving fp state.
-         * Also, C++ RTL initialization (even when a C++
-         * client does little else) can take a lot of stack space.
-         * Furthermore, dbghelp.dll usage via drsyms has been observed
-         * to require 36KB, which is already beyond the minimum to
-         * share gencode in the same 64K alloc as the stack.
-         *
-         * XXX: if we raise this beyond 56KB we should adjust the
-         * logic in heap_mmap_reserve_post_stack() to handle sharing the
-         * tail end of a multi-64K-region stack.
-         */
+    /* PR 202669: larger stack size since we're saving a 512-byte
+     * buffer on the stack when saving fp state.
+     * Also, C++ RTL initialization (even when a C++
+     * client does little else) can take a lot of stack space.
+     * Furthermore, dbghelp.dll usage via drsyms has been observed
+     * to require 36KB, which is already beyond the minimum to
+     * share gencode in the same 64K alloc as the stack.
+     *
+     * XXX: if we raise this beyond 56KB we should adjust the
+     * logic in heap_mmap_reserve_post_stack() to handle sharing the
+     * tail end of a multi-64K-region stack.
+     */
 #ifndef NOT_DYNAMORIO_CORE /* XXX: clumsy fix for Windows */
     options->stack_size = MAX(options->stack_size, ALIGN_FORWARD(56 * 1024, PAGE_SIZE));
 #endif
@@ -1220,7 +1229,7 @@ check_list_default_and_append(liststring_t default_list, liststring_t append_lis
 /* security options have to be enabled to be blocking or reporting */
 #    define SECURITY_OPTION_CONSISTENT(security_option)                                  \
         do {                                                                             \
-            if (!TEST(OPTION_ENABLED, DYNAMO_OPTION(security_option)) &&                 \
+            if (!TESTANY(OPTION_ENABLED, DYNAMO_OPTION(security_option)) &&              \
                 TESTANY(OPTION_BLOCK | OPTION_REPORT, DYNAMO_OPTION(security_option))) { \
                 USAGE_ERROR("Incompatible settings for %s", #security_option);           \
                 dynamo_options.security_option = OPTION_DISABLED;                        \
@@ -1325,23 +1334,23 @@ check_option_compatibility_helper(int recurse_count)
     if (
 #    ifdef WINDOWS
         /* XXX: CACHE isn't multithread safe yet */
-        TEST(SELFPROT_CACHE, dynamo_options.protect_mask) ||
+        TESTANY(SELFPROT_CACHE, dynamo_options.protect_mask) ||
 #    endif
         /* XXX: LOCAL has some unresolved issues w/ new heap units, etc. */
-        TEST(SELFPROT_LOCAL, dynamo_options.protect_mask) ||
-        TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+        TESTANY(SELFPROT_LOCAL, dynamo_options.protect_mask) ||
+        TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         ASSERT_NOT_TESTED();
     }
     /* warn of incompatible options */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
-        !TEST(SELFPROT_GLOBAL, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+        !TESTANY(SELFPROT_GLOBAL, dynamo_options.protect_mask)) {
         USAGE_ERROR("dcontext is only actually protected if global is as well");
         /* XXX: turn off dcontext?  or let upcontext be split anyway? */
     }
     /* XXX: better way to enforce these incompatibilities w/ certain builds
      * than by turning off protection?  Should we halt instead?
      */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
         SHARED_FRAGMENTS_ENABLED()) {
         /* XXX: get all shared gen routines to properly handle unprotected_context_t */
         USAGE_ERROR("Shared cache does not support protecting dcontext yet");
@@ -1350,7 +1359,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 
 #    if defined(MACOS) && defined(AARCH64)
-    if (TEST(SELFPROT_GENCODE, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_GENCODE, dynamo_options.protect_mask)) {
         USAGE_ERROR("memory protection changes incompatible with MAP_JIT");
         dynamo_options.protect_mask &= ~SELFPROT_GENCODE;
         changed_options = true;
@@ -1892,7 +1901,7 @@ check_option_compatibility_helper(int recurse_count)
     /* shared/ignore syscall writes to sysenter_storage dcontext field which
      * should be in upcontext or something XXX */
     if (DYNAMO_OPTION(sygate_sysenter) &&
-        TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask))) {
+        TESTANY(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask))) {
         USAGE_ERROR("-sygate_sysenter incompatbile with -protect_mask dc");
         dynamo_options.protect_mask &= ~SELFPROT_DCONTEXT;
         changed_options = true;
@@ -1928,7 +1937,7 @@ check_option_compatibility_helper(int recurse_count)
     SECURITY_OPTION_CONSISTENT(rct_ind_call);
     SECURITY_OPTION_CONSISTENT(rct_ind_jump);
     if (!DYNAMO_OPTION(ret_after_call) &&
-        TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
+        TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
         SYSLOG_INTERNAL_INFO(".F depends on .C after calls, disabling .F");
         dynamo_options.rct_ind_jump = OPTION_DISABLED;
         changed_options = true;
@@ -2427,7 +2436,7 @@ check_option_compatibility_helper(int recurse_count)
 
 /* returns true if changed any options */
 static bool
-check_option_compatibility()
+check_option_compatibility(void)
 {
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
@@ -2436,7 +2445,7 @@ check_option_compatibility()
 
 /* returns true if changed any options */
 static bool
-check_dynamic_option_compatibility()
+check_dynamic_option_compatibility(void)
 {
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
     /* NOTE : use non-synch form of USAGE_ERROR  in here to avoid
@@ -2446,7 +2455,7 @@ check_dynamic_option_compatibility()
 
 /* initialize dynamo options */
 int
-options_init()
+options_init(void)
 {
     int ret = 0, retval;
 
@@ -2476,14 +2485,14 @@ options_init()
  * options_detach() for that.
  */
 void
-options_exit()
+options_exit(void)
 {
     DELETE_READWRITE_LOCK(options_lock);
 }
 
 /* Reset dynamo options to defaults. */
 void
-options_detach()
+options_detach(void)
 {
     /* We do not use options_make_writable() as locks are already gone at this point. */
     SELF_UNPROTECT_OPTIONS();
@@ -2493,7 +2502,7 @@ options_detach()
 
 /* this function returns holding the options lock */
 void
-options_make_writable()
+options_make_writable(void)
 {
     ASSERT_DO_NOT_OWN_WRITE_LOCK(true, &options_lock);
     d_r_write_lock(&options_lock);
@@ -2504,7 +2513,7 @@ options_make_writable()
  * options_make_writable() beforehand
  */
 void
-options_restore_readonly()
+options_restore_readonly(void)
 {
     ASSERT_OWN_WRITE_LOCK(true, &options_lock);
     SELF_PROTECT_OPTIONS();
@@ -2513,7 +2522,7 @@ options_restore_readonly()
 
 /* updates dynamic options and returns if any were changed */
 int
-synchronize_dynamic_options()
+synchronize_dynamic_options(void)
 {
     int updated, retval;
 
@@ -2715,7 +2724,7 @@ show_dynamo_options(bool minimal)
 
 /* USAGE Show descriptions of all available options */
 static void
-show_dynamo_option_descriptions()
+show_dynamo_option_descriptions(void)
 {
 #    define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
                            description, flag, pcache)                                 \

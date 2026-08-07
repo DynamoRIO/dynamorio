@@ -1723,7 +1723,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::read_syscall_sequences()
     if (status != sched_type_t::STATUS_SUCCESS) {
         return status;
     }
-    auto default_seq_it = syscall_sequence_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM);
+    auto default_seq_it = syscall_sequence_.find(DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM);
     if (default_seq_it != syscall_sequence_.end()) {
         default_syscall_sequence_ = std::move(default_seq_it->second);
         syscall_sequence_.erase(default_seq_it);
@@ -2120,7 +2120,7 @@ scheduler_impl_tmpl_t<RecordType, ReaderType>::inject_kernel_sequence(
         if (record_type_is_marker(record, marker_type, marker_value) &&
             (marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_START ||
              marker_type == TRACE_MARKER_TYPE_SYSCALL_TRACE_END) &&
-            marker_value == DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM) {
+            marker_value == DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM) {
             record_type_set_marker_value(record, input->to_inject_syscall);
         }
         // TODO i#7495: Add invariant checks that ensure these are equal to the

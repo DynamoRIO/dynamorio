@@ -42,7 +42,7 @@
 #ifndef _OS_EXPORTS_H_
 #define _OS_EXPORTS_H_
 
-#include <stdarg.h>
+#include "stdarg_wrapper.h"
 #include "../os_shared.h" // IWYU pragma: export
 #include "os_public.h"    // IWYU pragma: export
 /* arch_exports.h exports opnd.h, but relies on kernel_sigset_t from this header.
@@ -267,7 +267,7 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
 
 #if defined(MACOS) && defined(AARCH64)
 void *
-os_tls_thread_init_temp();
+os_tls_thread_init_temp(void);
 
 void
 os_tls_thread_free_temp(void *temp_tls);

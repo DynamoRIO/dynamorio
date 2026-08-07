@@ -1,5 +1,5 @@
 #ifndef ISA_FEATURE_NAMES_ARM_H
-#define ISA_FEATURE_NAMES_ARM_H 1
+#    define ISA_FEATURE_NAMES_ARM_H 1
 
 const char *isa_feature_names[] = {
     /*   0 */ "<invalid>",

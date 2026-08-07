@@ -205,7 +205,7 @@ _init(int argc, char **argv, char **envp)
 }
 
 int
-_fini()
+_fini(void)
 {
 #if VERBOSE_INIT_FINI
     fprintf(stderr, "preload finalized\n");

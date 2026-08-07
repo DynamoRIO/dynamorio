@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,6 +59,7 @@
 #include <windows.h>
 #include <tchar.h>
 #include <stdio.h>
+#include "dr_project_wide_defines.h"
 /* we share ntdll.c w/ the main library */
 #include "globals_shared.h"
 #include "ntdll.h"
@@ -109,12 +110,6 @@ extern char *
 get_application_name(void);
 extern char *
 get_application_pid(void);
-
-/* for convenience, duplicated from utils.h, XXX share */
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
-#define BUFFER_LAST_ELEMENT(buf) buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 /* can only set to 1 for debug builds, unless also set in inject_shared.c */
 /* must turn on VERBOSE in inject_shared.c as well since we're now
@@ -177,7 +172,8 @@ extern int
 switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3, void *arg4,
                       void *arg5, void *arg6);
 
-static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
+static bool
+load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
 {
     HMODULE dll = NULL;
     char path[MAX_PATH];
@@ -350,7 +346,8 @@ static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
     return true;
 }
 
-static int parameters_present(IF_NOT_X64(bool x64_in_wow64))
+static int
+parameters_present(IF_NOT_X64(bool x64_in_wow64))
 {
     char path[MAX_PATH];
     int retval;
@@ -465,7 +462,8 @@ DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved);
  * in the pe.  An export directory is needed to find the pe_name for a dll and
  * it's nice to be able to do so for at least our own dlls. This doesn't
  * increase the size of drpreinject.dll. */
-__declspec(dllexport) void dr_dummy_function()
+__declspec(dllexport) void
+dr_dummy_function()
 {
     /* nothing */
 }

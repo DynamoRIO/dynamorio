@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -649,7 +649,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
     ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(private_peb_initialized);
     ASSERT(tgt_peb != NULL);
-    if (TEST(DR_STATE_PEB, flags) && should_swap_peb_pointer()) {
+    if (TESTANY(DR_STATE_PEB, flags) && should_swap_peb_pointer()) {
         set_teb_field(dcontext, PEB_TIB_OFFSET, (void *)tgt_peb);
         LOG(THREAD, LOG_LOADER, 2, "set teb->peb to " PFX "\n", tgt_peb);
     }
@@ -663,19 +663,19 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
         void *cur_rpc = NULL;
         void *cur_nls_cache = NULL;
         void *cur_static_tls = NULL;
-        if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
+        if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
             cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
             cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
             cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
         }
-        if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+        if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
             cur_static_tls = get_teb_field(dcontext, STATIC_TLS_TIB_OFFSET);
         }
         DOLOG(3, LOG_LOADER, {
             print_teb_fields(dcontext, to_priv ? "pre swap to priv" : "pre swap to app");
         });
         if (to_priv) {
-            if (TEST(DR_STATE_STACK_BOUNDS, flags) &&
+            if (TESTANY(DR_STATE_STACK_BOUNDS, flags) &&
                 dynamo_initialized /* on app stack until init finished */) {
                 if (SWAP_TEB_STACKLIMIT() &&
                     /* Handle two in a row, using an exact cmp b/c
@@ -695,7 +695,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
+            if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
                 /* note: two calls in a row will clobber app_errno w/ wrong value! */
                 dcontext->app_errno =
                     (int)(ptr_int_t)get_teb_field(dcontext, ERRNO_TIB_OFFSET);
@@ -713,7 +713,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->priv_nls_cache);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+            if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
                 if (dcontext->priv_static_tls !=
                     cur_static_tls) { /* handle two in a row */
                     dcontext->app_static_tls = cur_static_tls;
@@ -722,7 +722,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                 }
             }
         } else {
-            if (TEST(DR_STATE_STACK_BOUNDS, flags)) {
+            if (TESTANY(DR_STATE_STACK_BOUNDS, flags)) {
                 if (SWAP_TEB_STACKLIMIT() &&
                     /* Handle two in a row, using an exact cmp b/c
                      * is_dynamo_address() is slow and needs locks (i#1832).
@@ -740,7 +740,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->app_stack_base);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
+            if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_nonstack_fields()) {
                 /* two calls in a row should be fine */
                 set_teb_field(dcontext, ERRNO_TIB_OFFSET,
                               (void *)(ptr_int_t)dcontext->app_errno);
@@ -758,7 +758,7 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                                   dcontext->app_nls_cache);
                 }
             }
-            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
+            if (TESTANY(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
                 if (dcontext->app_static_tls !=
                     cur_static_tls) { /* handle two in a row */
                     /* Unlike the other fields, we control this private one so we
@@ -874,9 +874,9 @@ check_app_stack_limit(dcontext_t *dcontext)
     do {
         check_pc -= PAGE_SIZE;
         res = query_virtual_memory(check_pc, &mbi, sizeof(mbi));
-    } while (res == sizeof(mbi) && !TEST(PAGE_GUARD, mbi.Protect) &&
+    } while (res == sizeof(mbi) && !TESTANY(PAGE_GUARD, mbi.Protect) &&
              check_pc > (byte *)(ptr_uint_t)PAGE_SIZE);
-    if (res == sizeof(mbi) && TEST(PAGE_GUARD, mbi.Protect) &&
+    if (res == sizeof(mbi) && TESTANY(PAGE_GUARD, mbi.Protect) &&
         check_pc + PAGE_SIZE < start_pc) {
         LOG(THREAD, LOG_LOADER, 2,
             "updated stored TEB.StackLimit from " PFX " to " PFX "\n", start_pc,
@@ -999,7 +999,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
     byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, map_flags_t);
     bool (*unmap_func)(file_t, size_t);
     ASSERT(size != NULL);
-    ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(!TESTANY(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
 
     /* On win32 OS_EXECUTE is required to create a section w/ rwx
      * permissions, which is in turn required to map a view w/ rwx
@@ -1058,7 +1058,7 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
         return NULL;
     }
 #ifdef X64
-    if (TEST(MODLOAD_REACHABLE, flags)) {
+    if (TESTANY(MODLOAD_REACHABLE, flags)) {
         bool reloc = module_file_relocatable(map);
         (*unmap_func)(map, *size);
         map = NULL;
@@ -1313,7 +1313,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod, IMAGE_THUNK_DATA 
     const char *forwpath = NULL;
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function)) {
+    if (TESTANY(IMAGE_ORDINAL_FLAG, lookup->u1.Function)) {
         /* XXX: for 64-bit this is a 64-bit type: should we widen through
          * get_proc_address_by_ordinal()?
          */
@@ -2752,7 +2752,7 @@ privload_bootstrap_dynamorio_imports(byte *dr_base, byte *ntdll_base)
         while (lookup->u1.Function != 0) {
             IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)RVA_TO_VA(
                 dr_base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
-            if (TEST(IMAGE_ORDINAL_FLAG, lookup->u1.Function))
+            if (TESTANY(IMAGE_ORDINAL_FLAG, lookup->u1.Function))
                 return false; /* no ordinal support */
 
             func = privload_bootstrap_get_export(ntdll_base, (const char *)name->Name);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1180,7 +1180,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
 
             /* Liveshields give just the base name which is used to compute
              * full path, i.e., DYNAMORIO_HOME/lib/hotp/hotp_dll. */
-            if (TEST(HOTP_TYPE_HOT_PATCH, VUL(vul_tab, vul).type)) {
+            if (TESTANY(HOTP_TYPE_HOT_PATCH, VUL(vul_tab, vul).type)) {
                 strncpy(hotp_dll_path, hotp_dll_cache,
                         BUFFER_SIZE_ELEMENTS(hotp_dll_path) - 1);
                 NULL_TERMINATE_BUFFER(hotp_dll_path);
@@ -2241,8 +2241,8 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
     }
 #    ifdef WINDOWS
     DOCHECK(1, {
-        if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
-            TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))) {
+        if (TESTANY(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
+            TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache))) {
             /* case 8507 - the timestamp and possibly checksum of the current mapping,
                possibly ASLRed, may not be the same as the application DLL */
             uint pe_timestamp;
@@ -2546,10 +2546,10 @@ hotp_process_image_exit:
     /* TODO: or does this go after flush? */
     if (!own_hot_patch_lock)
         d_r_write_unlock(&hotp_vul_table_lock);
-        /* TODO: also there are some race conditions with nudging & policy lookup/
-         *       injection; sort those out; flushing before or after reading the
-         *       policy plays a role too.
-         */
+    /* TODO: also there are some race conditions with nudging & policy lookup/
+     *       injection; sort those out; flushing before or after reading the
+     *       policy plays a role too.
+     */
 #    ifdef WINDOWS
     if (num_threads == HOTP_ONLY_NUM_THREADS_AT_INIT) {
         ASSERT(DYNAMO_OPTION(hotp_only));
@@ -3176,16 +3176,16 @@ hotp_nudge_handler(uint nudge_action_mask)
     ASSERT(DYNAMO_OPTION(liveshields) && DYNAMO_OPTION(hot_patching));
     ASSERT(nudge_action_mask != 0); /* else shouldn't be called */
 
-    if (TEST(NUDGE_GENERIC(lstats), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(lstats), nudge_action_mask)) {
         SYSLOG_INTERNAL_WARNING("Stat dumping for hot patches not done yet.");
     }
 
-    if (TEST(NUDGE_GENERIC(policy), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(policy), nudge_action_mask)) {
         LOG(GLOBAL, LOG_HOT_PATCHING, 1, "\n nudged to read in policy\n");
         nudge_action_read_policies();
     }
 
-    if (TEST(NUDGE_GENERIC(mode), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(mode), nudge_action_mask)) {
         thread_record_t **thread_table = NULL;
         int num_threads = 0;
         hotp_policy_mode_t *old_modes = NULL;
@@ -3291,8 +3291,8 @@ hotp_nudge_handler(uint nudge_action_mask)
      * the new patch points at match time, and we avoid flushing here with
      * checks in vm_area_allsynch_flush_fragments.
      */
-    if (TEST(NUDGE_GENERIC(mode), nudge_action_mask) ||
-        TEST(NUDGE_GENERIC(policy), nudge_action_mask)) {
+    if (TESTANY(NUDGE_GENERIC(mode), nudge_action_mask) ||
+        TESTANY(NUDGE_GENERIC(policy), nudge_action_mask)) {
         if (!DYNAMO_OPTION(hotp_only))
             hotp_remove_hot_patches(GLOBAL_VUL_TABLE, NUM_GLOBAL_VULS, false, NULL);
     }
@@ -3606,7 +3606,7 @@ hotp_inject_gateway_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
 
     /* DSTACK_OFFSET isn't within the upcontext so if it's separate our use of
      * insert_get_mcontext_base() above is incorrect. */
-    ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
 
     /* We push eax as a parameter to the call */
     GET_FROM_DC_OFFS_TO_REG(DSTACK_OFFSET, REG_XAX, false /* !have_dc */, REG_XBX);
@@ -4734,7 +4734,8 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
         APP_XDX(app_reg_ptr) = (reg_t)ppoint_addr;
     } else {
         /* A hot patch can be only one type. */
-        ASSERT(TEST(HOTP_TYPE_HOT_PATCH, hotp_type) ^ TEST(HOTP_TYPE_PROBE, hotp_type));
+        ASSERT(TESTANY(HOTP_TYPE_HOT_PATCH, hotp_type) ^
+               TESTANY(HOTP_TYPE_PROBE, hotp_type));
     }
     /* Under the current design, a detector will always be called; a protector
      * will be called only if the mode says so.
@@ -4758,8 +4759,8 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
         exec_status = HOTP_EXEC_EXPLOIT_DETECTED;
     } else {
         /* A hot patch can be only one type. */
-        ASSERT(TEST(HOTP_TYPE_HOT_PATCH, hotp_type) ^
-               TEST(HOTP_TYPE_GBOP_HOOK, hotp_type));
+        ASSERT(TESTANY(HOTP_TYPE_HOT_PATCH, hotp_type) ^
+               TESTANY(HOTP_TYPE_GBOP_HOOK, hotp_type));
 
         exec_status = hotp_execute_patch(detector_fn, app_reg_ptr, mode, dump_excpt_info,
                                          dump_error_info);
@@ -4797,7 +4798,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
      * Note: In this case, the gbop protector won't get executed even though
      * its mode is set to protect.  See below.
      */
-    if (TEST(exec_status, HOTP_EXEC_LOG_EVENT) &&
+    if (TESTANY(exec_status, HOTP_EXEC_LOG_EVENT) &&
         ((mode == HOTP_MODE_DETECT) ||
          (TESTALL(HOTP_TYPE_GBOP_HOOK, hotp_type)
 #    ifdef PROGRAM_SHEPHERDING
@@ -4862,10 +4863,10 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
 
         /* Which one comes first, esp with kill/raise & cflow change? */
         /* Raise an event only if requested by the protector. */
-        if (TEST(exec_status, HOTP_EXEC_LOG_EVENT)) {
+        if (TESTANY(exec_status, HOTP_EXEC_LOG_EVENT)) {
             hotp_event_notify(exec_status, true, &ppoint, gbop_bad_addr, app_reg_ptr);
         }
-        if (TEST(exec_status, HOTP_EXEC_CHANGE_CONTROL_FLOW)) {
+        if (TESTANY(exec_status, HOTP_EXEC_CHANGE_CONTROL_FLOW)) {
 
             app_rva_t return_rva =
                 PPOINT(vul_tab, vul_index, set_index, module_index, ppoint_index)
@@ -4989,16 +4990,16 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
             memcpy(hotp_cxt, &local_cxt, sizeof(hotp_context_t));
         }
 
-        if ((TEST(HOTP_EXEC_DETECTOR_ERROR, exec_status_only) ||
-             (TEST(HOTP_EXEC_PROTECTOR_ERROR, exec_status_only)))) {
-            const char *msg = TEST(HOTP_EXEC_DETECTOR_ERROR, exec_status_only)
+        if ((TESTANY(HOTP_EXEC_DETECTOR_ERROR, exec_status_only) ||
+             (TESTANY(HOTP_EXEC_PROTECTOR_ERROR, exec_status_only)))) {
+            const char *msg = TESTANY(HOTP_EXEC_DETECTOR_ERROR, exec_status_only)
                 ? "Hot patch detector error"
                 : "Hot patch protector error";
             if (dump_error_info) {
-                if (TEST(DUMPCORE_HOTP_FAILURE, DYNAMO_OPTION(dumpcore_mask)))
+                if (TESTANY(DUMPCORE_HOTP_FAILURE, DYNAMO_OPTION(dumpcore_mask)))
                     os_dump_core(msg);
             }
-            if (TEST(HOTP_EXEC_LOG_EVENT, exec_status)) {
+            if (TESTANY(HOTP_EXEC_LOG_EVENT, exec_status)) {
                 SYSLOG_CUSTOM_NOTIFY(SYSLOG_ERROR, MSG_HOT_PATCH_FAILURE, 3,
                                      "Hot patch error, continuing.",
                                      get_application_name(), get_application_pid(),
@@ -5523,10 +5524,10 @@ hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
     if (!DYNAMO_OPTION(hotp_only) IF_WINDOWS(|| !doing_detach))
         return false;
 
-        /* Today memory debug checks for special heap units only do heap accouting,
-         * but not memcmp, both of which are done for regular heaps.  Special heaps
-         * are where the leaked trampolines are located.  If we do implement that
-         * check then this code in #if 0 would be needed.  Case 10434. */
+    /* Today memory debug checks for special heap units only do heap accouting,
+     * but not memcmp, both of which are done for regular heaps.  Special heaps
+     * are where the leaked trampolines are located.  If we do implement that
+     * check then this code in #if 0 would be needed.  Case 10434. */
 #        if 0
     for (i = 0; i < hotp_only_num_tramps_leaked; i++) {
         if (hotp_only_tramps_leaked[i] >= pc &&

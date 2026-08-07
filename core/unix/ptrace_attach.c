@@ -276,7 +276,7 @@ ptrace_get_sve_state(thread_id_t tid, struct user_sve_header **sve_state_out,
         return false;
     }
 
-    if (!TEST(SVE_PT_REGS_SVE, sve_state->flags)) {
+    if (!TESTANY(SVE_PT_REGS_SVE, sve_state->flags)) {
         global_heap_free(sve_state, full_sve_state_size HEAPACCT(ACCT_THREAD_MGT));
         return true;
     }
@@ -342,7 +342,7 @@ user_regs_to_mc_aarch64(priv_mcontext_t *mc, struct user_pt_regs *regs,
     mc->nzcv = regs->pstate & 0xF0000000;
 
     if (sve_state != NULL) {
-        ASSERT(TEST(SVE_PT_REGS_SVE, sve_state->flags));
+        ASSERT(TESTANY(SVE_PT_REGS_SVE, sve_state->flags));
         ASSERT(sve_state->vl <= sizeof(dr_simd_t));
         const size_t vq = sve_vq_from_vl(sve_state->vl);
         for (size_t i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {

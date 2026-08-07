@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,8 @@
 #ifdef NDEBUG
 #    error NDEBUG should not be set for tests.
 #endif
+
+#include "dr_project_wide_defines.h"
 
 #ifdef __cplusplus
 

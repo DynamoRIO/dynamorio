@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,6 +61,7 @@
 
 #include "dr_api.h"
 #include "drsyms.h"
+#include "dr_project_wide_defines.h"
 #include <assert.h>
 #include <imagehlp.h>
 #include <stdio.h>
@@ -71,11 +72,6 @@
 #else
 #    define EXPORT __declspec(dllexport)
 #endif
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf) (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf) BUFFER_LAST_ELEMENT(buf) = 0
 
 /* global params */
 static bool expect_int2e = false;
@@ -106,8 +102,11 @@ static const char *const usercall_imp_names[] = {
      * I bailed on further investigation as we assume the numbers are
      * the same across bitwidths.
      */
-    "_imp__NtUserCallOneParam", "_imp__NtUserCallHwnd", "_imp__NtUserCallHwndOpt",
-    "_imp__NtUserCallHwndParam", "_imp__NtUserCallHwndLock",
+    "_imp__NtUserCallOneParam",
+    "_imp__NtUserCallHwnd",
+    "_imp__NtUserCallHwndOpt",
+    "_imp__NtUserCallHwndParam",
+    "_imp__NtUserCallHwndLock",
     "_imp__NtUserCallHwndParamLock",
     "_imp__NtUserCallTwoParam", /* For 32-bit we use ALT_TWOPARAM */
 };

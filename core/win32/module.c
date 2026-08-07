@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -564,8 +564,7 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only)
     if (under_internal_exception()) {
         pmod = NULL;
     } else {
-        d_r_mutex_lock(
-            &process_module_vector.lock); /* XXX: can be a shared read lock */
+        d_r_mutex_lock(&process_module_vector.lock); /* XXX: can be a shared read lock */
         {
             pmod = lookup_module_info(&process_module_vector, tag);
             if (pmod) {
@@ -1217,8 +1216,8 @@ print_modules_ldrlist_and_ourlist(file_t f, bool dump_xml, bool conservative)
         print_file(f, "\n");
 
     /* XXX: currently updated only under aslr_action */
-    if (TEST(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
-        TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) &&
+    if (TESTANY(ASLR_DLL, DYNAMO_OPTION(aslr)) &&
+        TESTANY(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action)) &&
         /* XXX: xref case 10750: could print w/o lock inside a TRY  */
         !conservative) {
         print_file(f, "<print_modules_safe/>\n");
@@ -2531,7 +2530,7 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end, bool cons
             LOG(THREAD, LOG_VMAREAS, 2,
                 "is_module_patch_region: count=%d, flags=0x%x, %s\n", mod->LoadCount,
                 mod->Flags, match_IAT ? "IAT" : "not IAT");
-            if (mod->LoadCount == 0 || TEST(LDR_LOAD_IN_PROGRESS, mod->Flags) ||
+            if (mod->LoadCount == 0 || TESTANY(LDR_LOAD_IN_PROGRESS, mod->Flags) ||
                 /* case 10180: executable itself has unknown flag 0x00004000 set; we
                  * relax to consider it the loader if the lock is held and we are
                  * before the image entry, but only when we track the image entry */
@@ -2783,7 +2782,7 @@ add_SEH_to_rct_table(dcontext_t *dcontext, app_pc module_base)
         /* If it is a chain entry, then walk the chain to get the exception
          * handler.
          */
-        while (TEST(UNW_FLAG_CHAININFO, info->Flags)) {
+        while (TESTANY(UNW_FLAG_CHAININFO, info->Flags)) {
             /* Note that while one page of the specs, and the
              * GetChainedFunctionEntry() macro, say that there is a pointer to a
              * RUNTIME_FUNCTION, another page, and all the instances I've seen, have
@@ -3769,8 +3768,7 @@ bool
 rct_is_exported_function(app_pc tag)
 {
     module_info_t mod = { 0 }, *pmod;
-    d_r_mutex_lock(
-        &process_module_vector.lock); /* XXX: this can be a shared read lock */
+    d_r_mutex_lock(&process_module_vector.lock); /* XXX: this can be a shared read lock */
     {
         pmod = lookup_module_info(&process_module_vector, tag);
         if (pmod) {
@@ -3844,7 +3842,7 @@ module_copy_os_data(os_module_data_t *dst, os_module_data_t *src)
 void
 os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which))
 {
-    ASSERT(TEST(MODULE_BEING_UNLOADED, ma->flags));
+    ASSERT(TESTANY(MODULE_BEING_UNLOADED, ma->flags));
 
     /* Modules are always contiguous (xref i#160/PR 562667) */
     module_list_remove_mapping(ma, ma->start, ma->end);
@@ -3948,7 +3946,7 @@ get_module_info_pe(const app_pc module_base, uint *checksum, uint *timestamp,
                 /* Executable sections should be loadable. */
                 DODEBUG({
                     /* PR 214227: we do see INIT sections that are discardable */
-                    if (TEST(IMAGE_SCN_MEM_DISCARDABLE, sec->Characteristics)) {
+                    if (TESTANY(IMAGE_SCN_MEM_DISCARDABLE, sec->Characteristics)) {
                         SYSLOG_INTERNAL_WARNING("found code section that is discardable");
                     }
                 });
@@ -4006,7 +4004,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     if (info.product_name != NULL)
         ma->os_data.product_name = dr_wstrdup(info.product_name HEAPACCT(which));
 
-    if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
+    if (TESTANY(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
         dcontext != NULL && /* if during initialization */
         dcontext->aslr_context.original_section_base != ASLR_INVALID_SECTION_BASE) {
         DEBUG_DECLARE(uint pe_timestamp = timestamp;)
@@ -4672,7 +4670,7 @@ module_reloc_iterator_next(reloc_iterator_t *ri,
              */
             ASSERT_CURIOSITY(
                 skipped == 1 ||
-                TEST(ASLR_PERSISTENT_PARANOID_PREFIX, DYNAMO_OPTION(aslr_validation)));
+                TESTANY(ASLR_PERSISTENT_PARANOID_PREFIX, DYNAMO_OPTION(aslr_validation)));
 
             ri->relocs = ri->relocs + sizeof(ushort);
         } while (ri->relocs < ri->relocs_block_end); /* page block */
@@ -4767,7 +4765,7 @@ module_file_relocatable(app_pc module_base)
 
     sec = IMAGE_FIRST_SECTION(nt_hdr);
     for (i = 0; i < nt_hdr->FileHeader.NumberOfSections; i++, sec++) {
-        if (TEST(IMAGE_SCN_MEM_SHARED, sec->Characteristics)) {
+        if (TESTANY(IMAGE_SCN_MEM_SHARED, sec->Characteristics)) {
             relocatable = false;
         } else {
             /* XXX: probably best is to list all section flags that we
@@ -6344,8 +6342,8 @@ os_module_has_dynamic_base(app_pc module_base)
     IMAGE_NT_HEADERS *nt;
     ASSERT(is_readable_pe_base(module_base));
     nt = NT_HEADER(module_base);
-    return TEST(IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE,
-                nt->OptionalHeader.DllCharacteristics);
+    return TESTANY(IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE,
+                   nt->OptionalHeader.DllCharacteristics);
 }
 
 bool
@@ -6491,7 +6489,7 @@ pe_symbol_import_iterator_read_thunk(pe_symbol_import_iterator_t *iter)
         return false;
     iter->next_symbol.delay_load = false;
     iter->next_symbol.by_ordinal =
-        CAST_TO_bool(TEST(IMAGE_ORDINAL_FLAG, safe_thunk.u1.Function));
+        CAST_TO_bool(TESTANY(IMAGE_ORDINAL_FLAG, safe_thunk.u1.Function));
     if (iter->next_symbol.by_ordinal) {
         iter->next_symbol.ordinal = safe_thunk.u1.AddressOfData & (~IMAGE_ORDINAL_FLAG);
         iter->next_symbol.name = NULL;

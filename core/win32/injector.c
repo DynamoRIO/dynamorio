@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -478,7 +478,7 @@ unset_registry_from_env(const TCHAR *image_name)
 #define TEMP_CMD(name, NAME)                                                           \
     if (overwrote_##name##_value) {                                                    \
         res = RegSetValueEx(image_name_key, _TEXT(DYNAMORIO_VAR_##NAME), 0,            \
-                            REG_SZ /* XXX : abstracted somewhere? */,                \
+                            REG_SZ /* XXX : abstracted somewhere? */,                  \
                             (BYTE *)old_##name##_value,                                \
                             (DWORD)(_tcslen(old_##name##_value) + 1) * sizeof(TCHAR)); \
         ASSERT(res == ERROR_SUCCESS);                                                  \
@@ -530,7 +530,7 @@ using_debugger_key_injection(const TCHAR *image_name)
 {
     int res;
 
-    debug_stop_function = (BOOL(*)(int))(
+    debug_stop_function = (BOOL (*)(int))(
         GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "DebugActiveProcessStop"));
 
     _sntprintf(debugger_key_full_name, BUFFER_SIZE_ELEMENTS(debugger_key_full_name),
@@ -932,9 +932,9 @@ dr_inject_process_attach(process_id_t pid, void **data DR_PARAM_OUT,
         return res;
     }
 
-    BOOL(__stdcall * query_full_process_image_name_w)
-    (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(
-        GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
+    BOOL(__stdcall * query_full_process_image_name_w)(HANDLE, DWORD, LPWSTR, PDWORD) =
+        (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(GetProcAddress(
+            GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
 
     if (query_full_process_image_name_w(process_handle, 0, exe_path, &exe_path_size) ==
         0) {
@@ -979,9 +979,9 @@ dr_inject_process_inject(void *data, bool force_injection, const char *library_p
     if (!force_injection) {
         int inject_flags = systemwide_should_inject(info->pi.hProcess, NULL);
         bool syswide_will_inject = systemwide_inject_enabled() &&
-            TEST(INJECT_TRUE, inject_flags) && !TEST(INJECT_EXPLICIT, inject_flags);
+            TESTANY(INJECT_TRUE, inject_flags) && !TESTANY(INJECT_EXPLICIT, inject_flags);
         bool should_not_takeover =
-            TEST(INJECT_EXCLUDED, inject_flags) && info->using_debugger_injection;
+            TESTANY(INJECT_EXCLUDED, inject_flags) && info->using_debugger_injection;
         /* case 10794: to support follow_children we inject even if
          * syswide_will_inject.  we use RUNUNDER_EXPLICIT to avoid
          * user32 injection from happening, to get consistent injection.

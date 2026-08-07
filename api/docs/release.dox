@@ -1,5 +1,6 @@
 /* ******************************************************************************
  * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
+ * Copyright (c) 2026 Meta Platforms, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -287,6 +288,13 @@ Further non-compatibility-affecting changes include:
    instruction ISA_FEAT_ constant.
  - Added instr_get_isa_feature_name() which returns the string name of an ISA_FEAT_
    constant.
+ - Added -filter_kernel and -filter_kernel_except_syscalls to the drmemtrace
+   analyzer that invokes #dynamorio::drmemtrace::kernel_filter_t to remove kernel
+   content from a trace.
+ - Changed the default for the drmemtrace -raw_compress option in statically linked
+   clients from "none" to "lz4", when built against an lz4 with LZ4F_CustomMem support
+   (lz4 >= 1.9.4).  lz4's allocations are routed through DR's private heap in that
+   configuration.  Where that support is unavailable the static default remains "none".
 
 **************************************************
 <hr>

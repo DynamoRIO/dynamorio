@@ -215,7 +215,7 @@ write_default_syscall_trace(void *dr_context, std::unique_ptr<std::ostream> &wri
 {
     write_trace_entry(writer,
                       test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
-                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
+                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM));
 #ifdef X86
     instr_t *instr = INSTR_CREATE_sysret(dr_context);
 #elif defined(AARCHXX)
@@ -229,7 +229,7 @@ write_default_syscall_trace(void *dr_context, std::unique_ptr<std::ostream> &wri
                       TRACE_TYPE_INSTR_INDIRECT_JUMP);
     write_trace_entry(writer,
                       test_util::make_marker(TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
-                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_NUM));
+                                             DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM));
     return instr;
 }
 
@@ -700,6 +700,18 @@ test_template_with_repstr(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
+    if (syscall_stats.syscall_instrs[SYS_gettid] != SYSCALL_INSTR_COUNT) {
+        std::cerr << "SYS_gettid instr count " << syscall_stats.syscall_instrs[SYS_gettid]
+                  << " != " << SYSCALL_INSTR_COUNT << "\n";
+        return 1;
+    }
+    if (syscall_stats.syscall_instrs[DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM] !=
+        DEFAULT_INSTR_COUNT) {
+        std::cerr << "Default template instr count "
+                  << syscall_stats.syscall_instrs[DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM]
+                  << " != " << DEFAULT_INSTR_COUNT << "\n";
+        return 1;
+    }
     int distinct_instrs_in_tmpl = SYSCALL_INSTR_COUNT + DEFAULT_INSTR_COUNT;
     if (!(template_counts.instrs == distinct_instrs_in_tmpl &&
           template_counts.instrs_nofetch == REP_MOVS_COUNT - 1 &&
@@ -747,6 +759,24 @@ test_trace_templates(void *dr_context)
     syscall_mix_t::statistics_t syscall_stats;
     basic_counts_t::counters_t template_counts;
     get_tool_results(syscall_trace_template, template_counts, syscall_stats);
+    if (syscall_stats.syscall_instrs[SYS_membarrier] != SYSCALL_INSTR_COUNT) {
+        std::cerr << "SYS_membarrier instr count "
+                  << syscall_stats.syscall_instrs[SYS_membarrier]
+                  << " != " << SYSCALL_INSTR_COUNT << "\n";
+        return 1;
+    }
+    if (syscall_stats.syscall_instrs[SYS_gettid] != SYSCALL_INSTR_COUNT) {
+        std::cerr << "SYS_gettid instr count " << syscall_stats.syscall_instrs[SYS_gettid]
+                  << " != " << SYSCALL_INSTR_COUNT << "\n";
+        return 1;
+    }
+    if (syscall_stats.syscall_instrs[DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM] !=
+        DEFAULT_INSTR_COUNT) {
+        std::cerr << "Default template instr count "
+                  << syscall_stats.syscall_instrs[DEFAULT_SYSCALL_TRACE_TEMPLATE_SYSNUM]
+                  << " != " << DEFAULT_INSTR_COUNT << "\n";
+        return 1;
+    }
 
     // We have two templates of two instrs each, and one default template with
     // just one instr.

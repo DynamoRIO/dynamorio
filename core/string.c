@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,7 @@
 
 #include "globals.h"
 
-#include <limits.h>
+#include "limits_wrapper.h"
 
 /* We used to include <string.h> here to make sure our prototypes match, but
  * string.h often uses macros, intrinsics, and always_inline annotations to
@@ -160,18 +160,18 @@ d_r_strncat(char *dest, const char *src, size_t n)
  * DR libc isolation.
  */
 
-#define D_R_MEMMOVE_BODY()                              \
-    do {                                                \
-        ssize_t i;                                      \
-        byte *dst_b = (byte *)dst;                      \
-        const byte *src_b = (const byte *)src;          \
-        if (dst < src)                                  \
-            return memcpy(dst, src, n);                 \
+#define D_R_MEMMOVE_BODY()                            \
+    do {                                              \
+        ssize_t i;                                    \
+        byte *dst_b = (byte *)dst;                    \
+        const byte *src_b = (const byte *)src;        \
+        if (dst < src)                                \
+            return memcpy(dst, src, n);               \
         /* XXX: Could use reverse DF and rep movs. */ \
-        for (i = n - 1; i >= 0; i--) {                  \
-            dst_b[i] = src_b[i];                        \
-        }                                               \
-        return dst;                                     \
+        for (i = n - 1; i >= 0; i--) {                \
+            dst_b[i] = src_b[i];                      \
+        }                                             \
+        return dst;                                   \
     } while (0)
 void *
 d_r_memmove(void *dst, const void *src, size_t n)

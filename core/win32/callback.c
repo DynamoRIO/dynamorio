@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -370,11 +370,11 @@ if (!assume_xsp)
       # app xsp on the switched stack, i.e., dstack; not used after that.
       # i#1685: we use the PC slot as it won't affect a new thread that is in the
       # middle of init on the d_r_initstack and came here during client code.
-    if TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
+    if TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
       mov $MCONTEXT_OFFSET(xcx), xcx
     endif
       mov xsp, $PC_OFFSET(xcx)
-    if TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
+    if TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
       mov fs:$TLS_DCONTEXT_OFFSET, xcx
     endif
       mov $DSTACK(xcx), xsp
@@ -382,7 +382,7 @@ if (!assume_xsp)
       # now get the app xsp from the dcontext and put it on the dstack; this
       # will serve as the app xsp cache and will be used to send the correct
       # app xsp to the handler and to restore app xsp at exit
-    if TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
+    if TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
       mov $MCONTEXT_OFFSET(xcx), xcx
     endif
       mov $PC_OFFSET(xcx), xcx
@@ -960,14 +960,14 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         }
 
         /* Store the app xsp in dcontext and switch to dstack. */
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+        if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
             APP(&ilist,
                 instr_create_restore_from_dc_via_reg(dcontext, REG_XCX, REG_XCX,
                                                      PROT_OFFS));
         }
         APP(&ilist,
             instr_create_save_to_dc_via_reg(dcontext, REG_XCX, REG_XSP, PC_OFFSET));
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+        if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
             APP(&ilist,
                 INSTR_CREATE_mov_ld(
                     dcontext, opnd_create_reg(REG_XCX),
@@ -980,7 +980,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         /* Get the app xsp from the dcontext and put it on the dstack to serve
          * as the app xsp cache.
          */
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+        if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
             APP(&ilist,
                 instr_create_restore_from_dc_via_reg(dcontext, REG_XCX, REG_XCX,
                                                      PROT_OFFS));
@@ -1899,68 +1899,68 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
     if (nt_wrapper == NULL || sysnum == SYSCALL_NOT_PRESENT)
         goto exit_clean_syscall_wrapper;
 
-        /* syscall wrapper should look like
-         * For NT/2000
-         * mov eax, sysnum         {5 bytes}
-         * lea edx, [esp+4]        {4 bytes}
-         * int 2e                  {2 bytes}
-         * ret arg_bytes           {1 byte (0 args) or 3 bytes}
-         *
-         * For XPsp0/XPsp1/2003sp0
-         * mov eax, sysnum         {5 bytes}
-         * mov edx, VSYSCALL_ADDR  {5 bytes}
-         * call edx                {2 bytes}
-         * ret arg_bytes           {1 byte (0 args) or 3 bytes}
-         *
-         * For XPsp2/2003sp1/Vista
-         * mov eax, sysnum         {5 bytes}
-         * mov edx, VSYSCALL_ADDR  {5 bytes}
-         * call [edx]              {2 bytes}
-         * ret arg_bytes           {1 byte (0 args) or 3 bytes}
-         *
-         * For WOW64 (case 3922), there are two types: if setting ecx to 0, xor is used.
-         *   mov eax, sysnum         {5 bytes}
-         *   mov ecx, wow_index      {5 bytes}  --OR--   xor ecx,ecx  {2 bytes}
-         *   lea edx, [esp+4]        {4 bytes}
-         *   call fs:0xc0            {7 bytes}
-         * On Win7 WOW64 after the call we have an add:
-         *   add esp,0x4             {3 bytes}
-         *   ret arg_bytes           {1 byte (0 args) or 3 bytes}
-         * On Win8 WOW64 we have no ecx (and no post-syscall add):
-         *   777311bc b844000100      mov     eax,10044h
-         *   777311c1 64ff15c0000000  call    dword ptr fs:[0C0h]
-         *   777311c8 c3              ret
-         * Win10 WOW64:
-         *   77cda610 b8a3010200      mov     eax,201A3h
-         *   77cda615 bab0d5ce77      mov     edx,offset ntdll!Wow64SystemServiceCall
-         *   77cda61a ffd2            call    edx
-         *   77cda61c c3              ret
-         *
-         * For win8 sysenter we have a co-located "inlined" callee:
-         *   77d7422c b801000000      mov     eax,1
-         *   77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
-         *   77d74236 c3              ret
-         *   77d74237 8bd4            mov     edx,esp
-         *   77d74239 0f34            sysenter
-         *   77d7423b c3              ret
-         * But we instead do the equivalent call to KiFastSystemCall.
-         *
-         * x64 syscall (PR 215398):
-         *   mov r10, rcx          {3 bytes}
-         *   mov eax, sysnum       {5 bytes}
-         *   syscall               {2 bytes}
-         *   ret                   {1 byte}
-         *
-         * win10-TH2(1511) x64:
-         *   4c8bd1          mov     r10,rcx
-         *   b843000000      mov     eax,43h
-         *   f604250803fe7f01 test    byte ptr [SharedUserData+0x308
-         * (00000000`7ffe0308)],1 7503            jne     ntdll!NtContinue+0x15
-         * (00007ff9`13185645) 0f05            syscall c3              ret cd2e int 2Eh c3
-         * ret
-         */
+    /* syscall wrapper should look like
+     * For NT/2000
+     * mov eax, sysnum         {5 bytes}
+     * lea edx, [esp+4]        {4 bytes}
+     * int 2e                  {2 bytes}
+     * ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     *
+     * For XPsp0/XPsp1/2003sp0
+     * mov eax, sysnum         {5 bytes}
+     * mov edx, VSYSCALL_ADDR  {5 bytes}
+     * call edx                {2 bytes}
+     * ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     *
+     * For XPsp2/2003sp1/Vista
+     * mov eax, sysnum         {5 bytes}
+     * mov edx, VSYSCALL_ADDR  {5 bytes}
+     * call [edx]              {2 bytes}
+     * ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     *
+     * For WOW64 (case 3922), there are two types: if setting ecx to 0, xor is used.
+     *   mov eax, sysnum         {5 bytes}
+     *   mov ecx, wow_index      {5 bytes}  --OR--   xor ecx,ecx  {2 bytes}
+     *   lea edx, [esp+4]        {4 bytes}
+     *   call fs:0xc0            {7 bytes}
+     * On Win7 WOW64 after the call we have an add:
+     *   add esp,0x4             {3 bytes}
+     *   ret arg_bytes           {1 byte (0 args) or 3 bytes}
+     * On Win8 WOW64 we have no ecx (and no post-syscall add):
+     *   777311bc b844000100      mov     eax,10044h
+     *   777311c1 64ff15c0000000  call    dword ptr fs:[0C0h]
+     *   777311c8 c3              ret
+     * Win10 WOW64:
+     *   77cda610 b8a3010200      mov     eax,201A3h
+     *   77cda615 bab0d5ce77      mov     edx,offset ntdll!Wow64SystemServiceCall
+     *   77cda61a ffd2            call    edx
+     *   77cda61c c3              ret
+     *
+     * For win8 sysenter we have a co-located "inlined" callee:
+     *   77d7422c b801000000      mov     eax,1
+     *   77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
+     *   77d74236 c3              ret
+     *   77d74237 8bd4            mov     edx,esp
+     *   77d74239 0f34            sysenter
+     *   77d7423b c3              ret
+     * But we instead do the equivalent call to KiFastSystemCall.
+     *
+     * x64 syscall (PR 215398):
+     *   mov r10, rcx          {3 bytes}
+     *   mov eax, sysnum       {5 bytes}
+     *   syscall               {2 bytes}
+     *   ret                   {1 byte}
+     *
+     * win10-TH2(1511) x64:
+     *   4c8bd1          mov     r10,rcx
+     *   b843000000      mov     eax,43h
+     *   f604250803fe7f01 test    byte ptr [SharedUserData+0x308
+     * (00000000`7ffe0308)],1 7503            jne     ntdll!NtContinue+0x15
+     * (00007ff9`13185645) 0f05            syscall c3              ret cd2e int 2Eh c3
+     * ret
+     */
 
-        /* build correct instr list */
+    /* build correct instr list */
 #define APP(list, inst) instrlist_append((list), (inst))
 #define WIN1511_SHUSRDATA_SYS 0x7ffe0308
 #define WIN1511_JNE_OFFS 0x15
@@ -3207,33 +3207,33 @@ intercept_new_thread(CONTEXT *cxt)
         if (DYNAMO_OPTION(thin_client))
             return true /* exit intercept function and let go */;
 
-            /* In fact the apc_target is ntdll!LdrInitializeThunk
-             * (for all threads not only the first one).
-             * Note for vista that threads do not start with an apc, but rather
-             * directly show up at ntdll!LdrInitializeThunk (which we hook on
-             * vista to call this routine).  Note that the thunk will return via
-             * an NtContinue to a context on the stack so really we see the same
-             * behavior as before except we don't go through the apc dispatcher.
-             *
-             * For threads created by kernel32!CreateRemoteThread pre vista
-             * the cxt->Xip then is kernel32!Base{Process,Thread}StartThunk (not
-             * exported), while the cxt->Xax is the user thread procedure and cxt->Xbx
-             * is the arg. On vista it's the same except cxt->Xip is set to
-             * ntdll!RtlUserThreadStart (which is exported in ntdll.dll) by the
-             * kernel.
-             *
-             * kernel32!BaseProcessStartThunk, or kernel32!BaseThreadStartThunk
-             * on all versions I've tested start with
-             * 0xed33  xor ebp,ebp
-             *
-             * Note, of course, that direct NtCreateThread calls
-             * can go anywhere they want (including on Vista).  For example toolhelp
-             * uses NTDLL!RtlpQueryProcessDebugInformationRemote
-             * as the xip so shouldn't count much on this. NtCreateThreadEx threads
-             * (vista only) will, however, always have xip=ntdll!RtlUserThreadStart
-             * since the kernel sets that.
-             */
-            /* keep in mind this is a 16-bit match */
+        /* In fact the apc_target is ntdll!LdrInitializeThunk
+         * (for all threads not only the first one).
+         * Note for vista that threads do not start with an apc, but rather
+         * directly show up at ntdll!LdrInitializeThunk (which we hook on
+         * vista to call this routine).  Note that the thunk will return via
+         * an NtContinue to a context on the stack so really we see the same
+         * behavior as before except we don't go through the apc dispatcher.
+         *
+         * For threads created by kernel32!CreateRemoteThread pre vista
+         * the cxt->Xip then is kernel32!Base{Process,Thread}StartThunk (not
+         * exported), while the cxt->Xax is the user thread procedure and cxt->Xbx
+         * is the arg. On vista it's the same except cxt->Xip is set to
+         * ntdll!RtlUserThreadStart (which is exported in ntdll.dll) by the
+         * kernel.
+         *
+         * kernel32!BaseProcessStartThunk, or kernel32!BaseThreadStartThunk
+         * on all versions I've tested start with
+         * 0xed33  xor ebp,ebp
+         *
+         * Note, of course, that direct NtCreateThread calls
+         * can go anywhere they want (including on Vista).  For example toolhelp
+         * uses NTDLL!RtlpQueryProcessDebugInformationRemote
+         * as the xip so shouldn't count much on this. NtCreateThreadEx threads
+         * (vista only) will, however, always have xip=ntdll!RtlUserThreadStart
+         * since the kernel sets that.
+         */
+        /* keep in mind this is a 16-bit match */
 #define BASE_THREAD_START_THUNK_USHORT 0xed33
 
         /* see comments in os.c pre_system_call CreateThread, Xax holds
@@ -3280,7 +3280,7 @@ intercept_new_thread(CONTEXT *cxt)
                          check_filter("security-win32.except-execution.exe",
                                       get_short_name(get_application_name())));
         /* check for hooker's shellcode delivered via a remote thread */
-        if (TEST(OPTION_ENABLED, DYNAMO_OPTION(thread_policy))) {
+        if (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(thread_policy))) {
             /* Most new threads (and all of the ones that target injected code
              * so far) have xip targeting one of the start thunks.  For these
              * threads the start address we want to apply the policy to is in
@@ -3626,7 +3626,7 @@ intercept_apc(app_state_at_intercept_t *state)
 
 #ifdef PROGRAM_SHEPHERDING
             /* check for hooker's shellcode delivered via APC */
-            if (TEST(OPTION_ENABLED, DYNAMO_OPTION(apc_policy))) {
+            if (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(apc_policy))) {
                 apc_thread_policy_helper((app_pc *)(state->mc.xsp + APC_TARGET_XSP_OFFS),
                                          DYNAMO_OPTION(apc_policy), APC_TARGET_NATIVE
                                          /* NtQueueApcThread, likely from kernel mode */);
@@ -4204,7 +4204,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
     app_pc next_pc = NULL;
     cache_pc instr_cache_pc = (app_pc)pExcptRec->ExceptionAddress;
     app_pc translated_pc;
-    if (!TEST(flags, MOD_CODE_TAKEOVER) || TEST(flags, MOD_CODE_APP_CXT)) {
+    if (!TESTANY(flags, MOD_CODE_TAKEOVER) || TESTANY(flags, MOD_CODE_APP_CXT)) {
         LOG(THREAD, LOG_ASYNCH, 2, "found_modified_code: native/app " PFX "\n",
             instr_cache_pc);
         /* for !takeover: assumption: native pc -- XXX: vs
@@ -4299,7 +4299,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
         /* skip the write */
         next_pc = decode_next_pc(dcontext, translated_pc);
         LOG(THREAD, LOG_ASYNCH, 2, "skipping to after write pc " PFX "\n", next_pc);
-    } else if (TEST(flags, MOD_CODE_EMULATE_WRITE)) {
+    } else if (TESTANY(flags, MOD_CODE_EMULATE_WRITE)) {
         app_pc prot_start = (app_pc)PAGE_START(target);
         uint write_size;
         size_t prot_size;
@@ -4400,7 +4400,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
     }
     /* if !takeover, re-execute the write no matter what -- the assumption
      * is that the write is native */
-    if (!TEST(flags, MOD_CODE_TAKEOVER) || next_pc == NULL) {
+    if (!TESTANY(flags, MOD_CODE_TAKEOVER) || next_pc == NULL) {
         /* now re-execute the write
          * don't try to go through entire exception route by setting up
          * our own exception handler directly in TIB -- not transparent,
@@ -4493,7 +4493,7 @@ check_for_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTE
             /* not an app exception */
             RSTATS_DEC(num_exceptions);
             DOSTATS({
-                if (!TEST(MOD_CODE_TAKEOVER, flags))
+                if (!TESTANY(MOD_CODE_TAKEOVER, flags))
                     STATS_INC(num_native_cachecons_faults);
             });
             LOG(THREAD, LOG_ASYNCH, 2,
@@ -5097,7 +5097,7 @@ client_exception_event(dcontext_t *dcontext, CONTEXT *cxt, EXCEPTION_RECORD *pEx
     if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
         einfo.fault_fragment_info.tag = fragment->tag;
         einfo.fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
-        einfo.fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE, fragment->flags);
+        einfo.fault_fragment_info.is_trace = TESTANY(FRAG_IS_TRACE, fragment->flags);
         einfo.fault_fragment_info.app_code_consistent =
             !TESTANY(FRAG_WAS_DELETED | FRAG_SELFMOD_SANDBOXED, fragment->flags);
     }
@@ -5253,7 +5253,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt, EXCEPTION_RECORD *p
                 /* XXX: if necessary, have a separate dump core mask for
                  * in_page_error */
                 /* Let's pass it back to the application - memory is unreadable */
-                if (TEST(DUMPCORE_FORGE_UNREAD_EXEC, DYNAMO_OPTION(dumpcore_mask)))
+                if (TESTANY(DUMPCORE_FORGE_UNREAD_EXEC, DYNAMO_OPTION(dumpcore_mask)))
                     os_dump_core("Warning: Racy app execution (decode unreadable)");
                 os_forge_exception(target_addr, exception_type);
 
@@ -5441,7 +5441,7 @@ intercept_exception(app_state_at_intercept_t *state)
                                      "Hot patch exception, continuing.",
                                      get_application_name(), get_application_pid(),
                                      excpt_addr);
-                if (TEST(DUMPCORE_HOTP_FAILURE, DYNAMO_OPTION(dumpcore_mask)))
+                if (TESTANY(DUMPCORE_HOTP_FAILURE, DYNAMO_OPTION(dumpcore_mask)))
                     os_dump_core("hotp exception");
 
                 /* we don't support filters, so a single pass through
@@ -5469,7 +5469,7 @@ intercept_exception(app_state_at_intercept_t *state)
              * use dr_safe_read() and other mechanisms.
              */
 
-            if (TEST(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
+            if (TESTANY(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
                 os_dump_core("try/except fault");
 
             /* The exception interception code did an ENTER so we must EXIT here */
@@ -5650,10 +5650,10 @@ intercept_exception(app_state_at_intercept_t *state)
                                               "in preferred DLL range\n",
                                               execution_addr);
 
-                        if (TEST(ASLR_HANDLING, DYNAMO_OPTION(aslr_action)))
+                        if (TESTANY(ASLR_HANDLING, DYNAMO_OPTION(aslr_action)))
                             handling_policy |= OPTION_HANDLING;
 
-                        if (TEST(ASLR_REPORT, DYNAMO_OPTION(aslr_action)))
+                        if (TESTANY(ASLR_REPORT, DYNAMO_OPTION(aslr_action)))
                             handling_policy |= OPTION_REPORT;
 
                         /* for reporting purposes copy application
@@ -5666,7 +5666,7 @@ intercept_exception(app_state_at_intercept_t *state)
                          * exception to the application, unless we
                          * want to forcefully handle it
                          */
-                        ASSERT(!TEST(OPTION_HANDLING, handling_policy) &&
+                        ASSERT(!TESTANY(OPTION_HANDLING, handling_policy) &&
                                "doesn't return");
                     }
                 }
@@ -7893,7 +7893,7 @@ swap_dcontexts(dcontext_t *d1, dcontext_t *d2)
 {
     dcontext_t temp;
     /* be careful some fields can't be blindly swapped */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         /* deep swap of upcontext */
         unprotected_context_t uptemp;
         memcpy((void *)&uptemp, (void *)d1->upcontext.separate_upcontext,
@@ -7906,7 +7906,7 @@ swap_dcontexts(dcontext_t *d1, dcontext_t *d2)
     memcpy((void *)&temp, (void *)d1, sizeof(dcontext_t));
     memcpy((void *)d1, (void *)d2, sizeof(dcontext_t));
     memcpy((void *)d2, (void *)&temp, sizeof(dcontext_t));
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+    if (TESTANY(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         /* must swap upcontext pointers back since code is hardcoded for main one */
         temp.upcontext.separate_upcontext = d2->upcontext.separate_upcontext;
         d2->upcontext.separate_upcontext = d1->upcontext.separate_upcontext;

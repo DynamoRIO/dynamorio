@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,9 +81,9 @@
 /* single_thread_in_DR does not need rw locks since we do not access shared
  * tables from ibl while holding locks (we do so in a lockless manner)
  */
-#define TABLE_NEEDS_LOCK(ptable)                      \
-    (TEST(HASHTABLE_SHARED, (ptable)->table_flags) && \
-     !TEST(HASHTABLE_READ_ONLY, (ptable)->table_flags))
+#define TABLE_NEEDS_LOCK(ptable)                         \
+    (TESTANY(HASHTABLE_SHARED, (ptable)->table_flags) && \
+     !TESTANY(HASHTABLE_READ_ONLY, (ptable)->table_flags))
 
 /* is_local is currently debug-only and only affects asserts */
 #define ASSERT_TABLE_SYNCHRONIZED(ptable, RW)                                 \
@@ -98,10 +98,10 @@
     } while (0)
 
 #define TABLE_MEMOP(table_flags, op) \
-    (TEST((table_flags), HASHTABLE_PERSISTENT) ? heap_##op : nonpersistent_heap_##op)
+    (TESTANY((table_flags), HASHTABLE_PERSISTENT) ? heap_##op : nonpersistent_heap_##op)
 
 #define TABLE_TYPE_MEMOP(table_flags, op, dc, type, which, protected) \
-    (TEST((table_flags), HASHTABLE_PERSISTENT)                        \
+    (TESTANY((table_flags), HASHTABLE_PERSISTENT)                     \
          ? HEAP_TYPE_##op(dc, type, which, protected)                 \
          : NONPERSISTENT_HEAP_TYPE_##op(dc, type, which))
 

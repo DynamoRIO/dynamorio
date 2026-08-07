@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -215,7 +215,7 @@ print_all_ldt(void)
 
 /* returns -1 if all indices are in use */
 static int
-find_unused_ldt_index()
+find_unused_ldt_index(void)
 {
     int i, bytes;
     /* N.B.: we don't have 64K of stack for the full LDT_ENTRIES
@@ -582,7 +582,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 }
 
 bool
-tls_thread_preinit()
+tls_thread_preinit(void)
 {
 #ifdef X64
     /* i#3356: Write a non-zero value to the gs base to work around an AMD bug
@@ -658,12 +658,12 @@ tls_get_fs_gs_segment_base(uint seg)
     uint selector = read_thread_register(seg);
     uint index = SELECTOR_INDEX(selector);
     LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n", __func__,
-        selector, index, TEST(SELECTOR_IS_LDT, selector));
+        selector, index, TESTANY(SELECTOR_IS_LDT, selector));
 
     if (seg != SEG_FS && seg != SEG_GS)
         return (byte *)POINTER_MAX;
 
-    if (TEST(SELECTOR_IS_LDT, selector)) {
+    if (TESTANY(SELECTOR_IS_LDT, selector)) {
         LOG(THREAD_GET, LOG_THREADS, 4, "selector is LDT\n");
         /* we have to read the entire ldt from 0 to the index */
         size_t sz = sizeof(raw_ldt_entry_t) * (index + 1);

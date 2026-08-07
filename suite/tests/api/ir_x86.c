@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2024 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,6 +51,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "dr_project_wide_defines.h"
 #include "tools.h"
 
 #ifdef WINDOWS
@@ -81,9 +82,6 @@ decode_cti(void *dcontext, byte *pc, instr_t *instr);
 #endif
 
 #define BOOLS_MATCH(b1, b2) (!!(b1) == !!(b2))
-
-#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 static byte buf[32768];
 
@@ -148,8 +146,7 @@ static int memarg_disp = DEFAULT_DISP;
     } while (0);
 
 static void
-test_all_opcodes_0(void *dc)
-{
+test_all_opcodes_0(void *dc) {
 #define INCLUDE_NAME "ir_x86_0args.h"
 #include "ir_x86_all_opc.h"
 #undef INCLUDE_NAME
@@ -182,9 +179,7 @@ test_all_opcodes_0(void *dc)
  * so we disable part of this test since for static we just want a
  * sanity check
  */
-static void
-test_all_opcodes_1(void *dc)
-{
+static void test_all_opcodes_1(void *dc) {
 #    define INCLUDE_NAME "ir_x86_1args.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
@@ -212,33 +207,25 @@ test_all_opcodes_1(void *dc)
             }                                                                 \
         } while (0);
 
-static void
-test_all_opcodes_2(void *dc)
-{
+static void test_all_opcodes_2(void *dc) {
 #    define INCLUDE_NAME "ir_x86_2args.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_2_mm(void *dc)
-{
+static void test_all_opcodes_2_mm(void *dc) {
 #    define INCLUDE_NAME "ir_x86_2args_mm.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_2_avx512_vex(void *dc)
-{
+static void test_all_opcodes_2_avx512_vex(void *dc) {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_vex.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_2_avx512_evex_mask(void *dc)
-{
+static void test_all_opcodes_2_avx512_evex_mask(void *dc) {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_evex_mask.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
@@ -264,16 +251,13 @@ test_all_opcodes_2_avx512_evex_mask(void *dc)
             }                                                                \
         } while (0);
 
-static void
-test_all_opcodes_2_avx512_evex(void *dc)
-{
+static void test_all_opcodes_2_avx512_evex(void *dc) {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_evex.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_2_avx512_evex_scaled_disp8(void *dc)
+static void test_all_opcodes_2_avx512_evex_scaled_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_2args_avx512_evex.h"
     memarg_disp = EVEX_SCALABLE_DISP;
@@ -305,59 +289,47 @@ test_all_opcodes_2_avx512_evex_scaled_disp8(void *dc)
         } while (0);
 
 static void
-test_all_opcodes_3(void *dc)
-{
+test_all_opcodes_3(void *dc) {
 #    define INCLUDE_NAME "ir_x86_3args.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_3_avx(void *dc)
-{
+static void test_all_opcodes_3_avx(void *dc) {
 #    define INCLUDE_NAME "ir_x86_3args_avx.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_3_avx512_vex(void *dc)
-{
+static void test_all_opcodes_3_avx512_vex(void *dc) {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_vex.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
 /* Part A: Split up to avoid VS running out of memory (i#3992,i#4610). */
-static void
-test_all_opcodes_3_avx512_evex_mask_A(void *dc)
-{
+static void test_all_opcodes_3_avx512_evex_mask_A(void *dc) {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask_A.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
 /* Part B: Split up to avoid VS running out of memory (i#3992,i#4610). */
-static void
-test_all_opcodes_3_avx512_evex_mask_B(void *dc)
-{
+static void test_all_opcodes_3_avx512_evex_mask_B(void *dc) {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask_B.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
 /* Part C: Split up to avoid VS running out of memory (i#3992,i#4610). */
-static void
-test_all_opcodes_3_avx512_evex_mask_C(void *dc)
-{
+static void test_all_opcodes_3_avx512_evex_mask_C(void *dc) {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask_C.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
 /* Part A: Split up to avoid VS running out of memory (i#3992,i#4610). */
-static void
-test_all_opcodes_3_avx512_evex_mask_scaled_disp8_A(void *dc)
+static void test_all_opcodes_3_avx512_evex_mask_scaled_disp8_A(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex_mask_A.h"
     memarg_disp = EVEX_SCALABLE_DISP;
@@ -407,15 +379,13 @@ test_all_opcodes_3_avx512_evex_mask_scaled_disp8_C(void *dc)
         } while (0);
 
 static void
-test_all_opcodes_3_avx512_evex(void *dc)
-{
+test_all_opcodes_3_avx512_evex(void *dc) {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_3_avx512_evex_scaled_disp8(void *dc)
+static void test_all_opcodes_3_avx512_evex_scaled_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_3args_avx512_evex.h"
     memarg_disp = EVEX_SCALABLE_DISP;
@@ -443,15 +413,13 @@ test_all_opcodes_3_avx512_evex_scaled_disp8(void *dc)
         } while (0);
 
 static void
-test_all_opcodes_4_avx512_evex(void *dc)
-{
+test_all_opcodes_4_avx512_evex(void *dc) {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_4_avx512_evex_scaled_disp8(void *dc)
+static void test_all_opcodes_4_avx512_evex_scaled_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex.h"
     memarg_disp = EVEX_SCALABLE_DISP;
@@ -485,8 +453,7 @@ test_all_opcodes_4_avx512_evex_scaled_disp8(void *dc)
         } while (0);
 
 static void
-test_all_opcodes_4(void *dc)
-{
+test_all_opcodes_4(void *dc) {
 #    define INCLUDE_NAME "ir_x86_4args.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
@@ -495,9 +462,7 @@ test_all_opcodes_4(void *dc)
 /* Part A: Split up to avoid VS running out of memory (i#3992,i#4610).
  * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
  */
-static void
-test_all_opcodes_4_avx512_evex_mask_A(void *dc)
-{
+static void test_all_opcodes_4_avx512_evex_mask_A(void *dc) {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_A.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
@@ -506,9 +471,7 @@ test_all_opcodes_4_avx512_evex_mask_A(void *dc)
 /* Part B: Split up to avoid VS running out of memory (i#3992,i#4610).
  * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
  */
-static void
-test_all_opcodes_4_avx512_evex_mask_B(void *dc)
-{
+static void test_all_opcodes_4_avx512_evex_mask_B(void *dc) {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_B.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
@@ -517,9 +480,7 @@ test_all_opcodes_4_avx512_evex_mask_B(void *dc)
 /* Part C: Split up to avoid VS running out of memory (i#3992,i#4610).
  * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
  */
-static void
-test_all_opcodes_4_avx512_evex_mask_C(void *dc)
-{
+static void test_all_opcodes_4_avx512_evex_mask_C(void *dc) {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_C.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
@@ -528,17 +489,14 @@ test_all_opcodes_4_avx512_evex_mask_C(void *dc)
 /* Part D: Split up to avoid VS running out of memory (i#3992,i#4610).
  * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
  */
-static void
-test_all_opcodes_4_avx512_evex_mask_D(void *dc)
-{
+static void test_all_opcodes_4_avx512_evex_mask_D(void *dc) {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_D.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
 /* Part A: Split up to avoid VS running out of memory (i#3992,i#4610). */
-static void
-test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(void *dc)
+static void test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_A.h"
     memarg_disp = EVEX_SCALABLE_DISP;
@@ -597,15 +555,13 @@ test_all_opcodes_4_avx512_evex_mask_scaled_disp8_D(void *dc)
         } while (0);
 
 static void
-test_all_opcodes_5_avx512_evex_mask(void *dc)
-{
+test_all_opcodes_5_avx512_evex_mask(void *dc) {
 #    define INCLUDE_NAME "ir_x86_5args_avx512_evex_mask.h"
 #    include "ir_x86_all_opc.h"
 #    undef INCLUDE_NAME
 }
 
-static void
-test_all_opcodes_5_avx512_evex_mask_scaled_disp8(void *dc)
+static void test_all_opcodes_5_avx512_evex_mask_scaled_disp8(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_5args_avx512_evex_mask.h"
     memarg_disp = EVEX_SCALABLE_DISP;

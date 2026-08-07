@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -145,7 +145,8 @@ usage(char *us)
 /* we must be a console application in order to have the process
  * we launch NOT get a brand new console window!
  */
-int __cdecl main(int argc, char *argv[], char *envp[])
+int __cdecl
+main(int argc, char *argv[], char *envp[])
 {
     LPTSTR app_name = NULL;
     TCHAR app_cmdline[MAX_CMDLINE];

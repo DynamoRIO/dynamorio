@@ -46,25 +46,25 @@
 
 #ifdef DR_APP_EXPORTS
 void
-drsetup_()
+drsetup_(void)
 {
     dr_app_setup();
 }
 
 void
-drcleanup_()
+drcleanup_(void)
 {
     dr_app_cleanup();
 }
 
 void
-drstart_()
+drstart_(void)
 {
     dr_app_start();
 }
 
 void
-drstop_()
+drstop_(void)
 {
     dr_app_stop();
 }

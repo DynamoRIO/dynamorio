@@ -149,7 +149,7 @@ find_elem(list_t *list, app_pc addr)
 }
 
 static list_t *
-new_list()
+new_list(void)
 {
     list_t *list = (list_t *)dr_global_alloc(sizeof(list_t));
     list->head = NULL;
@@ -171,7 +171,7 @@ delete_list(list_t *list)
 }
 
 hash_table_t
-new_table()
+new_table(void)
 {
     int i;
     hash_table_t table =

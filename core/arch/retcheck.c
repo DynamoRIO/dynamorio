@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -695,7 +695,7 @@ check_debug(dcontext_t *dcontext, volatile int errno, volatile reg_t eflags,
     if (d_r_stats->loglevel >= 3) {
         int i, j;
         byte xmm[8][16]; /* each sse2 is 128 bits = 16 bytes */
-        /* move from registers into memory where we can work with it */
+                         /* move from registers into memory where we can work with it */
 #            ifdef UNIX
         asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
         asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
@@ -1064,7 +1064,7 @@ check_return_ra_mangled(dcontext_t *dcontext, volatile int errno, volatile reg_t
     if (d_r_stats->loglevel >= 3) {
         int idx, i, j;
         byte xmm[8][16]; /* each sse2 is 128 bits = 16 bytes */
-        /* move from registers into memory where we can work with it */
+                         /* move from registers into memory where we can work with it */
 #            ifdef UNIX
         asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
         asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
@@ -1843,7 +1843,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         /* special handling of unreadable memory targets - most likely
          * corrupted app, but could also be an unsuccessful attack
          */
-        if (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ret_unreadable))) {
+        if (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ret_unreadable))) {
             if (!is_readable_without_exception(target_addr, 4)) {
                 SYSLOG_INTERNAL_WARNING_ONCE("return target " PFX " unreadable",
                                              target_addr);

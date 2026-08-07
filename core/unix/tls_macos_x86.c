@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2026 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -266,7 +266,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 }
 
 bool
-tls_thread_preinit()
+tls_thread_preinit(void)
 {
     return true;
 }
@@ -323,9 +323,9 @@ tls_get_fs_gs_segment_base(uint seg)
     selector = read_thread_register(seg);
     index = SELECTOR_INDEX(selector);
     LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n", __FUNCTION__,
-        selector, index, TEST(SELECTOR_IS_LDT, selector));
+        selector, index, TESTANY(SELECTOR_IS_LDT, selector));
 
-    if (!TEST(SELECTOR_IS_LDT, selector) && selector != 0) {
+    if (!TESTANY(SELECTOR_IS_LDT, selector) && selector != 0) {
         ASSERT_NOT_IMPLEMENTED(false);
         return (byte *)POINTER_MAX;
     }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -451,7 +451,7 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
  */
 
 /* SYMBOL_INFO.Name has 1 char in the struct */
-#define NAME_EXTRA_SZ(full_sz) ((full_sz)-1)
+#define NAME_EXTRA_SZ(full_sz) ((full_sz) - 1)
 
 enum {
     /* MAX_SYM_NAME comes from dbghelp.h and is equal to 2000 */
@@ -923,7 +923,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
         info.base = mod->u.load_base;
         if (!(*func)(GetCurrentProcess(), mod->u.load_base, 0, 0, match, 0, enum_cb,
                      (PVOID)&info,
-                     TEST(DRSYM_FULL_SEARCH, flags) ? SYMSEARCH_ALLITEMS : 0)) {
+                     TESTANY(DRSYM_FULL_SEARCH, flags) ? SYMSEARCH_ALLITEMS : 0)) {
             NOTIFY("SymSearch error %d\n", GetLastError());
             res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
         }
@@ -943,7 +943,7 @@ demangle_symbol(char *dst DR_PARAM_OUT, size_t dst_sz, const char *mangled, uint
     DWORD undec_flags;
     size_t len;
 
-    if (TEST(DRSYM_DEMANGLE_FULL, flags)) {
+    if (TESTANY(DRSYM_DEMANGLE_FULL, flags)) {
         /* XXX: I'd like to suppress "class" from the types, but I can't find
          * an option to control it other than UNDNAME_NAME_ONLY, which
          * suppresses overloads, which we want.
@@ -1815,7 +1815,7 @@ drsym_module_has_symbols(const char *modpath)
 
         /* fall back to slower lookup */
         r = drsym_get_module_debug_kind(modpath, &kind);
-        if (r == DRSYM_SUCCESS && !TEST(DRSYM_SYMBOLS, kind))
+        if (r == DRSYM_SUCCESS && !TESTANY(DRSYM_SYMBOLS, kind))
             r = DRSYM_ERROR;
         return r;
     }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2026 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /* Dr. Memory: the memory debugger
@@ -71,7 +71,7 @@ os_handle_pre_syscall(void *drcontext, cls_syscall_t *pt, sysarg_iter_info_t *ii
     case SYS_open_nocancel: {
         /* 3rd arg is only required for O_CREAT */
         int flags = (int)pt->sysarg[1];
-        if (TEST(O_CREAT, flags)) {
+        if (TESTANY(O_CREAT, flags)) {
             if (!report_sysarg_type(ii, 2, SYSARG_READ, sizeof(int),
                                     DRSYS_TYPE_SIGNED_INT, NULL))
                 return;
@@ -136,7 +136,7 @@ static bool
 os_handle_syscall_arg_access(sysarg_iter_info_t *ii, const sysinfo_arg_t *arg_info,
                              app_pc start, uint size)
 {
-    if (!TEST(SYSARG_COMPLEX_TYPE, arg_info->flags))
+    if (!TESTANY(SYSARG_COMPLEX_TYPE, arg_info->flags))
         return false;
 
     switch (arg_info->misc) {
@@ -256,12 +256,12 @@ drsyscall_os_get_sysparam_location(cls_syscall_t *pt, uint argnum, drsys_arg_t *
 {
 #ifdef X64
     switch (argnum) {
-    case 0: arg->reg = DR_REG_RDI;
-    case 1: arg->reg = DR_REG_RSI;
-    case 2: arg->reg = DR_REG_RDX;
-    case 3: arg->reg = DR_REG_R10; /* rcx = retaddr for OP_syscall */
-    case 4: arg->reg = DR_REG_R8;
-    case 5: arg->reg = DR_REG_R9;
+    case 0: arg->reg = DR_REG_RDI; break;
+    case 1: arg->reg = DR_REG_RSI; break;
+    case 2: arg->reg = DR_REG_RDX; break;
+    case 3: arg->reg = DR_REG_R10; break; /* rcx = retaddr for OP_syscall */
+    case 4: arg->reg = DR_REG_R8; break;
+    case 5: arg->reg = DR_REG_R9; break;
     default: arg->reg = DR_REG_NULL; /* error */
     }
     arg->start_addr = NULL;
@@ -284,13 +284,13 @@ drsys_syscall_type(drsys_syscall_t *syscall, drsys_syscall_type_t *type DR_PARAM
 bool
 os_syscall_succeeded(drsys_sysnum_t sysnum, syscall_info_t *info, cls_syscall_t *pt)
 {
-    if (TEST(SYSCALL_NUM_MARKER_MACH, sysnum.number)) {
+    if (TESTANY(SYSCALL_NUM_MARKER_MACH, sysnum.number)) {
         /* XXX i#1440: Mach syscalls vary (for some KERN_SUCCESS=0 is success,
          * for others that return mach_port_t 0 is failure (I think?).
          */
         return ((ptr_int_t)pt->mc.xax >= 0);
     } else
-        return !TEST(EFLAGS_CF, pt->mc.xflags);
+        return !TESTANY(EFLAGS_CF, pt->mc.xflags);
 }
 
 bool

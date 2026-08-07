@@ -47,7 +47,8 @@ dr_probe_desc_t probes[NUM_PROBES];
 #include "dr_defines.h"
 
 /* This probe increments the argument to insert_liboffs.c:doubler() */
-__declspec(dllexport) void doubler_probe(dr_mcontext_t *cxt)
+__declspec(dllexport) void
+doubler_probe(dr_mcontext_t *cxt)
 {
     volatile reg_t *arg_p = (reg_t *)(cxt->xsp + sizeof(reg_t));
     *arg_p = (*arg_p) + 1;

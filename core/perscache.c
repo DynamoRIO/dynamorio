@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,7 @@
 #include "hotpatch.h"
 #include "synch.h"
 #include "module_shared.h"
-#include <stddef.h> /* for offsetof */
+#include "stddef_wrapper.h" /* for offsetof */
 #include "instrument.h"
 
 #ifdef DEBUG
@@ -180,8 +180,8 @@ coarse_unit_create(app_pc base_pc, app_pc end_pc, module_digest_t *digest,
         coarse_unit_mark_in_use(info);
     if (digest != NULL) {
         memcpy(&info->module_md5, digest, sizeof(info->module_md5));
-    } else if (TEST(PERSCACHE_MODULE_MD5_AT_LOAD,
-                    DYNAMO_OPTION(persist_gen_validation))) {
+    } else if (TESTANY(PERSCACHE_MODULE_MD5_AT_LOAD,
+                       DYNAMO_OPTION(persist_gen_validation))) {
         /* case 9735: calculate the module md5 at load time so we have a consistent
          * point at which to compare it when loading in a persisted cache file.
          * If we inject at different points we may see different views of
@@ -699,8 +699,8 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     if (info->cache == NULL || info->frozen)
         goto coarse_unit_freeze_exit;
     /* invalid unit shouldn't get this far */
-    ASSERT(!TEST(PERSCACHE_CODE_INVALID, info->flags));
-    if (TEST(PERSCACHE_CODE_INVALID, info->flags)) /* paranoid */
+    ASSERT(!TESTANY(PERSCACHE_CODE_INVALID, info->flags));
+    if (TESTANY(PERSCACHE_CODE_INVALID, info->flags)) /* paranoid */
         goto coarse_unit_freeze_exit;
 
     memset(freeze_info, 0, sizeof(*freeze_info));
@@ -2215,7 +2215,7 @@ persist_get_options_level(app_pc pc, coarse_info_t *info, bool force_local)
               (force_local ||
                /* once loaded as local, must remain local, even if this
                 * process never hit the exemption */
-               (info != NULL && TEST(PERSCACHE_EXEMPTION_OPTIONS, info->flags)) ||
+               (info != NULL && TESTANY(PERSCACHE_EXEMPTION_OPTIONS, info->flags)) ||
                os_module_get_flag(pc, MODULE_WAS_EXEMPTED)) &&
               /* don't use local if no such options: else when load will think
                * local when really global */
@@ -2384,7 +2384,7 @@ persist_calculate_self_digest(module_digest_t *digest, coarse_persisted_info_t *
                               app_pc map, uint validation_option)
 {
     struct MD5Context self_md5_cxt;
-    if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, validation_option)) {
+    if (TESTANY(PERSCACHE_GENFILE_MD5_COMPLETE, validation_option)) {
         d_r_md5_init(&self_md5_cxt);
         /* Even if generated w/ -persist_map_rw_separate but loaded w/o that
          * option, the md5 should match since the memory layout is the same.
@@ -2393,7 +2393,7 @@ persist_calculate_self_digest(module_digest_t *digest, coarse_persisted_info_t *
                        pers->header_len + pers->data_len - sizeof(persisted_footer_t));
         d_r_md5_final(digest->full_MD5, &self_md5_cxt);
     }
-    if (TEST(PERSCACHE_GENFILE_MD5_SHORT, validation_option)) {
+    if (TESTANY(PERSCACHE_GENFILE_MD5_SHORT, validation_option)) {
         d_r_md5_init(&self_md5_cxt);
         d_r_md5_update(&self_md5_cxt, (byte *)pers, pers->header_len);
         d_r_md5_final(digest->short_MD5, &self_md5_cxt);
@@ -2411,7 +2411,7 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
         /* case 9717: need view size, not image size */
         view_size = os_module_get_view_size(modbase);
     }
-    if (TEST(PERSCACHE_MODULE_MD5_COMPLETE, validation_option)) {
+    if (TESTANY(PERSCACHE_MODULE_MD5_COMPLETE, validation_option)) {
         /* We can't use a full md5 from module_calculate_digest() since .data
          * and other sections change between persist and load times (this is
          * in-memory image, not file).  So we do md5 of code region.  If we have
@@ -2428,7 +2428,7 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
         d_r_md5_update(&code_md5_cxt, code_start, code_end - code_start);
         d_r_md5_final(digest->full_MD5, &code_md5_cxt);
     }
-    if (TEST(PERSCACHE_MODULE_MD5_SHORT, validation_option)) {
+    if (TESTANY(PERSCACHE_MODULE_MD5_SHORT, validation_option)) {
         /* Examine only the image header and the footer (if non-writable)
          * XXX: if view_size < modsize, better to skip the footer than have it
          * cover a data section?  Should be ok w/ PERSCACHE_MODULE_MD5_AT_LOAD.
@@ -2454,8 +2454,9 @@ persist_modinfo_cmp(persisted_module_info_t *mi1, persisted_module_info_t *mi2)
     ASSERT_CURIOSITY(
         module_digests_equal(
             &mi1->module_md5, &mi2->module_md5,
-            TEST(PERSCACHE_MODULE_MD5_SHORT, DYNAMO_OPTION(persist_load_validation)),
-            TEST(PERSCACHE_MODULE_MD5_COMPLETE, DYNAMO_OPTION(persist_load_validation)))
+            TESTANY(PERSCACHE_MODULE_MD5_SHORT, DYNAMO_OPTION(persist_load_validation)),
+            TESTANY(PERSCACHE_MODULE_MD5_COMPLETE,
+                    DYNAMO_OPTION(persist_load_validation)))
         /* relocs => md5 diffs, until we handle relocs wrt md5 */
         IF_WINDOWS(|| mi1->base != mi2->base) ||
         check_filter("win32.partial_map.exe", get_short_name(get_application_name())));
@@ -2468,12 +2469,12 @@ persist_modinfo_cmp(persisted_module_info_t *mi1, persisted_module_info_t *mi2)
         (memcmp(&mi1->checksum, &mi2->checksum,
                 offsetof(persisted_module_info_t, module_md5) -
                     offsetof(persisted_module_info_t, checksum)) == 0);
-    match =
-        match &&
-        module_digests_equal(
-            &mi1->module_md5, &mi2->module_md5,
-            TEST(PERSCACHE_MODULE_MD5_SHORT, DYNAMO_OPTION(persist_load_validation)),
-            TEST(PERSCACHE_MODULE_MD5_COMPLETE, DYNAMO_OPTION(persist_load_validation)));
+    match = match &&
+        module_digests_equal(&mi1->module_md5, &mi2->module_md5,
+                             TESTANY(PERSCACHE_MODULE_MD5_SHORT,
+                                     DYNAMO_OPTION(persist_load_validation)),
+                             TESTANY(PERSCACHE_MODULE_MD5_COMPLETE,
+                                     DYNAMO_OPTION(persist_load_validation)));
     return match;
 }
 
@@ -2667,8 +2668,8 @@ coarse_unit_calculate_persist_info(dcontext_t *dcontext, coarse_info_t *info)
 
 #ifdef RCT_IND_BRANCH
     ASSERT(info->rct_table == NULL);
-    if ((TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-         TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
+    if ((TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+         TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
         (DYNAMO_OPTION(persist_rct)
 #    if defined(RETURN_AFTER_CALL) && defined(WINDOWS)
          /* case 8648: we can have RCT entries that come from code patterns
@@ -2780,8 +2781,8 @@ coarse_unit_merge_persist_info(dcontext_t *dcontext, coarse_info_t *dst,
      * PERSCACHE_SUPPORT_TRACES are weeded out at load time and should
      * not differ here)
      */
-    if (!TEST(PERSCACHE_MAP_RW_SEPARATE, info1->flags) ||
-        !TEST(PERSCACHE_MAP_RW_SEPARATE, info2->flags))
+    if (!TESTANY(PERSCACHE_MAP_RW_SEPARATE, info1->flags) ||
+        !TESTANY(PERSCACHE_MAP_RW_SEPARATE, info2->flags))
         dst->flags &= ~PERSCACHE_MAP_RW_SEPARATE;
     /* Same bounds, so same persistence privileges */
     dst->primary_for_module = info1->primary_for_module || info2->primary_for_module;
@@ -2810,8 +2811,8 @@ coarse_unit_merge_persist_info(dcontext_t *dcontext, coarse_info_t *dst,
 
 #ifdef RCT_IND_BRANCH
     ASSERT(dst->rct_table == NULL);
-    if (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-        TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
+    if (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+        TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) {
         if (info2->persisted && info2->in_use && !info1->persisted) {
             /* coarse_unit_calculate_persist_info already merged the new entries
              * with the in-use persisted entries
@@ -2944,7 +2945,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     pers->build_number = 0;
 #endif
 
-    if (TEST(PERSCACHE_MODULE_MD5_AT_LOAD, DYNAMO_OPTION(persist_gen_validation))) {
+    if (TESTANY(PERSCACHE_MODULE_MD5_AT_LOAD, DYNAMO_OPTION(persist_gen_validation))) {
         ASSERT(!is_region_memset_to_char((byte *)&info->module_md5,
                                          sizeof(info->module_md5), 0));
         DOLOG(1, LOG_CACHE, {
@@ -3231,8 +3232,8 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
     ASSERT(info->frozen && !info->persisted);
 
     /* invalid unit shouldn't get this far */
-    ASSERT(!TEST(PERSCACHE_CODE_INVALID, info->flags));
-    if (TEST(PERSCACHE_CODE_INVALID, info->flags)) /* paranoid */
+    ASSERT(!TESTANY(PERSCACHE_CODE_INVALID, info->flags));
+    if (TESTANY(PERSCACHE_CODE_INVALID, info->flags)) /* paranoid */
         goto coarse_unit_persist_exit;
 
     modbase = get_module_base(info->base_pc);
@@ -3474,7 +3475,8 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         byte *map = (byte *)&pers;
         uint which = DYNAMO_OPTION(persist_gen_validation);
         size_t sz = 0;
-        if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, DYNAMO_OPTION(persist_gen_validation))) {
+        if (TESTANY(PERSCACHE_GENFILE_MD5_COMPLETE,
+                    DYNAMO_OPTION(persist_gen_validation))) {
             /* XXX if mmap up front (case 9758) don't need this mmap */
             sz = pers.header_len + pers.data_len - sizeof(persisted_footer_t);
             map = d_r_map_file(fd, &sz, 0, NULL, MEMPROT_READ,
@@ -3489,7 +3491,8 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         persist_calculate_self_digest(&footer.self_md5, &pers, map, which);
         DOLOG(1, LOG_CACHE,
               { print_module_digest(THREAD, &footer.self_md5, "self md5: "); });
-        if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, DYNAMO_OPTION(persist_gen_validation)) &&
+        if (TESTANY(PERSCACHE_GENFILE_MD5_COMPLETE,
+                    DYNAMO_OPTION(persist_gen_validation)) &&
             map != (byte *)&pers) {
             ASSERT(map != NULL); /* we cleared _COMPLETE so shouldn't get here */
             d_r_unmap_file(map, sz);
@@ -3566,7 +3569,8 @@ persist_check_option_compat(dcontext_t *dcontext, coarse_persisted_info_t *pers,
         return false;
     }
 
-    if (!TEST(PERSCACHE_SUPPORT_TRACES, pers->flags) && !DYNAMO_OPTION(disable_traces)) {
+    if (!TESTANY(PERSCACHE_SUPPORT_TRACES, pers->flags) &&
+        !DYNAMO_OPTION(disable_traces)) {
         /* We bail out; the consequences of continuing are huge performance
          * problems akin to -no_link_ibl.
          */
@@ -3578,10 +3582,10 @@ persist_check_option_compat(dcontext_t *dcontext, coarse_persisted_info_t *pers,
 
     /* we don't bother to split the ifdefs */
 #if defined(RCT_IND_BRANCH) || defined(RETURN_AFTER_CALL)
-    if ((!TEST(PERSCACHE_SUPPORT_RAC, pers->flags) && DYNAMO_OPTION(ret_after_call)) ||
-        (!TEST(PERSCACHE_SUPPORT_RCT, pers->flags) &&
-         (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-          TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))))) {
+    if ((!TESTANY(PERSCACHE_SUPPORT_RAC, pers->flags) && DYNAMO_OPTION(ret_after_call)) ||
+        (!TESTANY(PERSCACHE_SUPPORT_RCT, pers->flags) &&
+         (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+          TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))))) {
         LOG(THREAD, LOG_CACHE, 1, "  error: persisted cache has no RAC/RCT support\n");
         STATS_INC(perscache_rct_mismatch);
         SYSLOG_INTERNAL_WARNING_ONCE("persistent cache RAC/RCT support mismatch");
@@ -3842,10 +3846,10 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
         ALIGN_FORWARD(pers->header_len + pers->data_len, PAGE_SIZE) !=
             ALIGN_FORWARD(map_size, PAGE_SIZE) ||
         footer->magic != PERSISTENT_CACHE_MAGIC ||
-        TEST(PERSCACHE_CODE_INVALID, pers->flags)) {
+        TESTANY(PERSCACHE_CODE_INVALID, pers->flags)) {
         LOG(THREAD, LOG_CACHE, 1, "  invalid persisted file %s\n", filename);
         /* This flag shouldn't be set for on-disk units */
-        ASSERT(!TEST(PERSCACHE_CODE_INVALID, pers->flags));
+        ASSERT(!TESTANY(PERSCACHE_CODE_INVALID, pers->flags));
         STATS_INC(perscache_bad_file);
         /* We didn't have a footer prior to version 4 */
         ASSERT_CURIOSITY_ONCE(pers->version < 4 && "persistent cache file corrupt");
@@ -3860,7 +3864,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
         goto coarse_unit_load_exit;
     }
 
-    if (!TEST(IF_X64_ELSE(PERSCACHE_X86_64, PERSCACHE_X86_32), pers->flags)) {
+    if (!TESTANY(IF_X64_ELSE(PERSCACHE_X86_64, PERSCACHE_X86_32), pers->flags)) {
         LOG(THREAD, LOG_CACHE, 1, "  invalid architecture: not %s %s\n",
             IF_X64_ELSE("AMD64", "IA-32"), filename);
         STATS_INC(perscache_version_mismatch);
@@ -3878,10 +3882,11 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
             print_module_digest(THREAD, &footer->self_md5, "md5 stored in file: ");
             print_module_digest(THREAD, &footer->self_md5, "md5 calculated:     ");
         });
-        if ((TEST(PERSCACHE_GENFILE_MD5_SHORT, DYNAMO_OPTION(persist_load_validation)) &&
+        if ((TESTANY(PERSCACHE_GENFILE_MD5_SHORT,
+                     DYNAMO_OPTION(persist_load_validation)) &&
              !md5_digests_equal(self_md5.short_MD5, footer->self_md5.short_MD5)) ||
-            (TEST(PERSCACHE_GENFILE_MD5_COMPLETE,
-                  DYNAMO_OPTION(persist_load_validation)) &&
+            (TESTANY(PERSCACHE_GENFILE_MD5_COMPLETE,
+                     DYNAMO_OPTION(persist_load_validation)) &&
              !md5_digests_equal(self_md5.full_MD5, footer->self_md5.full_MD5))) {
             LOG(THREAD, LOG_CACHE, 1, "  file header md5 mismatch\n");
             STATS_INC(perscache_md5_mismatch);
@@ -3970,7 +3975,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
          pers->ibl_ret_prefix_len + pers->trace_head_return_prefix_len +
          pers->fcache_return_prefix_len);
 
-    if (TEST(PERSCACHE_MAP_RW_SEPARATE, pers->flags) &&
+    if (TESTANY(PERSCACHE_MAP_RW_SEPARATE, pers->flags) &&
         DYNAMO_OPTION(persist_map_rw_separate)) {
         size_t ro_size;
         map2_size = stubs_and_prefixes_len + sizeof(persisted_footer_t);
@@ -4058,14 +4063,14 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
     info->flags = pers->flags;
 #if defined(RETURN_AFTER_CALL) && defined(WINDOWS)
     /* XXX: provide win32/ interface for setting the flag? */
-    if (TEST(PERSCACHE_SEEN_BORLAND_SEH, pers->flags) && !seen_Borland_SEH) {
+    if (TESTANY(PERSCACHE_SEEN_BORLAND_SEH, pers->flags) && !seen_Borland_SEH) {
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         seen_Borland_SEH = true;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     }
 #endif
     ASSERT(option_level != OP_PCACHE_LOCAL ||
-           TEST(PERSCACHE_EXEMPTION_OPTIONS, info->flags));
+           TESTANY(PERSCACHE_EXEMPTION_OPTIONS, info->flags));
 
     /* Process data sections (other than option string) in reverse order */
     pc = map + pers->header_len + pers->data_len; /* end of file */
@@ -4170,10 +4175,10 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
             info->rct_table = rct_table_resurrect(GLOBAL_DCONTEXT, pc, RCT_RCT);
             ASSERT(info->rct_table != NULL);
             if (for_execution &&
-                (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
-                 TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
+                (TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
+                 TESTANY(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
                 (DYNAMO_OPTION(use_persisted_rct) ||
-                 TEST(PERSCACHE_SEEN_BORLAND_SEH, pers->flags)) &&
+                 TESTANY(PERSCACHE_SEEN_BORLAND_SEH, pers->flags)) &&
                 /* Case 9834: avoid double-add from earlier entire-module resurrect */
                 !os_module_get_flag(info->base_pc, MODULE_RCT_LOADED)) {
                 /* load into the official module table */
@@ -4181,7 +4186,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
                 rct_module_table_set(GLOBAL_DCONTEXT, modbase, info->rct_table, RCT_RCT);
                 ASSERT(used);
 #    ifdef WINDOWS
-                if (TEST(PERSCACHE_ENTIRE_MODULE_RCT, pers->flags)) {
+                if (TESTANY(PERSCACHE_ENTIRE_MODULE_RCT, pers->flags)) {
                     /* mark as not needing to be analyzed */
                     os_module_set_flag(info->base_pc, MODULE_RCT_LOADED);
                 }
@@ -4319,7 +4324,7 @@ exists_coarse_ibl_pending_table(dcontext_t *dcontext, /* in case per-thread some
                 rct_module_persisted_table_exists(dcontext, info->base_pc, RCT_RAC);
         }
         return (exists &&
-                !TEST(COARSE_FILL_IBL_MASK(branch_type), info->ibl_pending_used));
+                !TESTANY(COARSE_FILL_IBL_MASK(branch_type), info->ibl_pending_used));
     }
 #endif
     return false;

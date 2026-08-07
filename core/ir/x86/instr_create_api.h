@@ -50,7 +50,14 @@
  * the instr_shrink_to_16_bits() routine.
  */
 
-#include <math.h> /* for floating-point math constants */
+/* Because <math.h> cannot be included in the kernel module, floating-point math constants
+ * (such as M_PI) are not available. Therefore, we cannot create some floating-point
+ * instructions (e.g., INSTR_CREATE_fldpi) in the kernel module, or there will be
+ * compilation errors.
+ */
+#ifndef LINUX_KERNEL
+#    include <math.h> /* for floating-point math constants */
+#endif
 
 /* instruction modification convenience routines */
 /**
@@ -314,7 +321,7 @@
  * precisely where this instruction will be encoded).
  */
 #define XINST_CREATE_jump_cond(dc, pred, t) \
-    (INSTR_CREATE_jcc((dc), (pred)-DR_PRED_O + OP_jo, (t)))
+    (INSTR_CREATE_jcc((dc), (pred) - DR_PRED_O + OP_jo, (t)))
 
 /**
  * This platform-independent macro creates an #instr_t for an unconditional
@@ -3083,7 +3090,7 @@
  */
 #define INSTR_CREATE_cmovcc(dc, op, d, s)                    \
     INSTR_PRED(instr_create_1dst_1src((dc), (op), (d), (s)), \
-               (dr_pred_type_t)((int)DR_PRED_O + (op)-OP_cmovo))
+               (dr_pred_type_t)((int)DR_PRED_O + (op) - OP_cmovo))
 
 /**
  * This INSTR_CREATE_xxx_imm macro creates an #instr_t with opcode OP_xxx and the given

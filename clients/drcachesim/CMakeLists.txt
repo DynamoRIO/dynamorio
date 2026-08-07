@@ -1,5 +1,6 @@
 # **********************************************************
 # Copyright (c) 2015-2026 Google, Inc.    All rights reserved.
+# Copyright (c) 2026 Meta Platforms, Inc. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -141,6 +142,11 @@ endif()
 if (liblz4)
   add_definitions(-DHAS_LZ4)
   set(lz4_reader reader/lz4_file_reader.cpp)
+  if (HAVE_LZ4_CUSTOM_MEM)
+    # Lets the tracer route lz4's allocations through DR's private heap, making
+    # -raw_compress lz4 safe for statically linked clients.
+    add_definitions(-DHAS_LZ4_CUSTOM_MEM)
+  endif ()
 endif ()
 
 if (BUILD_DRMEMTRACE_WITH_DR_SYSCALL)
@@ -380,6 +386,13 @@ if (liblz4)
 endif ()
 
 link_with_pthread(drmemtrace_analyzer)
+# XXX i#8001: We'd prefer this header to be internal-only, but to avoid exposing
+# we'd have to duplicate some defines in trace_entry.h (TESTANY and
+# START_PACKED_STRUCTURE); even then, we expose utils.h, which includes it.
+# So we export it here. It's currently not exported in the DR API headers;
+# even if we add it there, it's ok to be in both.
+install_client_nonDR_header(.
+  ${PROJECT_SOURCE_DIR}/common/dr_project_wide_defines.h)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.
 install_client_nonDR_header(drmemtrace common/utils.h)
@@ -417,6 +430,7 @@ install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tools/filter/record_filter_create.h)
 install_client_nonDR_header(drmemtrace tools/filter/record_filter.h)
+install_client_nonDR_header(drmemtrace tools/filter/kernel_filter.h)
 # TODO i#6412: Create a separate directory for non-tracer headers so that
 # we can more cleanly separate tracer and raw2trace code.
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
@@ -634,9 +648,6 @@ use_DynamoRIO_extension(drraw2trace drcovlib_static)
 # Because we're leveraging instru_online code we have to link with drutil:
 use_DynamoRIO_extension(drraw2trace drutil_static)
 
-# We add a useful warning that's not in Wall.
-CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough" implicit_fallthrough_avail)
-
 macro(restore_nonclient_flags target is_test)
   # Restore debug and other flags to our non-client executables
   set_target_properties(${target} PROPERTIES
@@ -648,9 +659,6 @@ macro(restore_nonclient_flags target is_test)
   # the config, inject, and frontend headers:
   DynamoRIO_extra_defines(extra_defs ON)
   append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${extra_defs}")
-  if (implicit_fallthrough_avail)
-    append_property_string(TARGET ${target} COMPILE_FLAGS "-Wimplicit-fallthrough")
-  endif ()
 endmacro()
 
 restore_nonclient_flags(drmemtrace_launcher OFF)
@@ -1104,6 +1112,8 @@ if (BUILD_TESTS)
       tools/histogram.cpp tests/histogram_test.cpp)
     target_link_libraries(tool.drcachesim.histogram_test
       drmemtrace_static drmemtrace_analyzer test_helpers)
+    # Ensure we have /std:c++17 for std::optional.
+    restore_nonclient_flags(tool.drcachesim.histogram_test OFF)
     add_win32_flags(tool.drcachesim.histogram_test ON)
     add_test(NAME tool.drcachesim.histogram_test
              COMMAND tool.drcachesim.histogram_test)

@@ -85,9 +85,12 @@ jobs:
     # Install multilib for non-cross-compiling Linux build.
     - name: Create Build Environment
       run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev
+          liblz4-dev g++-multilib libunwind-dev clang-format-21
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     - name: Check if format checks are disabled
@@ -125,9 +128,12 @@ jobs:
     # so we manually install the i386 packages we need.
     - name: Create Build Environment
       run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          liblz4-dev g++-multilib libunwind-dev
+          liblz4-dev g++-multilib libunwind-dev clang-format-21
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu jammy main'
         apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386 \
           zlib1g:i386 zlib1g-dev:i386
