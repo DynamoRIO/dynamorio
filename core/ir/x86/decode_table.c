@@ -3255,14 +3255,14 @@ const instr_info_t base_extensions[][8] = {
   },
   /* group 21 */
   { /* extensions[34] */
-    {OP_nop_modrm, 0x0f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {PREFIX_EXT, 0x0f1e10, catUncategorized, "(prefix ext 198)", xx, xx, xx, xx, xx, mrm, x, 198},
-    {OP_nop_modrm, 0x0f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {OP_nop_modrm, 0x0f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {OP_nop_modrm, 0x0f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {OP_nop_modrm, 0x0f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {OP_nop_modrm, 0x0f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {PREFIX_EXT, 0x0f1e10, catUncategorized, "(prefix ext 199)", xx, xx, xx, xx, xx, mrm, x, 199},
+    {OP_nop_modrm,  0x0f1e30, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {PREFIX_EXT,    0x0f1e31, catUncategorized, "(prefix ext 198)", xx, xx, xx, xx, xx, mrm, x, 198},
+    {OP_nop_modrm,  0x0f1e32, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm,  0x0f1e33, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm,  0x0f1e34, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm,  0x0f1e35, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm,  0x0f1e36, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {PREFIX_EXT,    0x0f1e37, catUncategorized, "(prefix ext 199)", xx, xx, xx, xx, xx, mrm, x, 199},
   }
 };
 
