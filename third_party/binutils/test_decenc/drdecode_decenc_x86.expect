@@ -66591,23 +66591,23 @@ test_s:
  90                   nop
  90                   nop
  f3 0f ae e9          incsspd %ecx
- f3 0f 1e c9          rdsspd  %ecx
+ f3 0f 1e c9          rdsspd %ecx
  f3 0f 01 ea          saveprevssp
  f3 0f 01 29          rstorssp (%ecx)
- 0f 38 f6 04 02       wrssd   %eax, (%edx,%eax)
- 66 0f 38 f5 14 2f    wrussd  %edx, (%edi,%ebp)
+ 0f 38 f6 04 02       wrssd  %eax, (%edx,%eax)
+ 66 0f 38 f5 14 2f    wrussd %edx, (%edi,%ebp)
  f3 0f 01 e8          setssbsy
  f3 0f ae 34 04       clrssbsy (%esp,%eax)
  f3 0f 1e fa          endbr64
  f3 0f 1e fb          endbr32
  f3 0f ae e9          incsspd %ecx
- f3 0f 1e c9          rdsspd  %ecx
+ f3 0f 1e c9          rdsspd %ecx
  f3 0f 01 ea          saveprevssp
  f3 0f 01 6c 01 90    rstorssp -0x70(%ecx,%eax)
- 0f 38 f6 02          wrssd   %eax, (%edx)
- 0f 38 f6 10          wrssd   %edx, (%eax)
- 66 0f 38 f5 14 2f    wrussd  %edx, (%edi,%ebp)
- 66 0f 38 f5 3c 0e    wrussd  %edi, (%esi,%ecx)
+ 0f 38 f6 02          wrssd  %eax, (%edx)
+ 0f 38 f6 10          wrssd  %edx, (%eax)
+ 66 0f 38 f5 14 2f    wrussd %edx, (%edi,%ebp)
+ 66 0f 38 f5 3c 0e    wrussd %edi, (%esi,%ecx)
  f3 0f 01 e8          setssbsy
  f3 0f ae 34 44       clrssbsy (%esp,%eax,2)
  f3 0f 1e fa          endbr64
