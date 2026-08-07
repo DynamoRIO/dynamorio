@@ -66612,16 +66612,16 @@ test_s:
  f3 0f ae 34 44       clrssbsy (%esp,%eax,2)
  f3 0f 1e fa          endbr64
  f3 0f 1e fb          endbr32
- f3 0f ae e9          incssp %ecx
- f3 0f 1e c9          rdssp  %ecx
+ f3 0f ae e9          incsspd %ecx
+ f3 0f 1e c9          rdsspd %ecx
  f3 0f 01 ea          saveprevssp
  67 f3 0f 01 6c 01    addr16 rstorssp 0x01(%si)
  90                   nop
- 67 0f 38 f6 02       addr16 wrss   %eax, (%bp,%si)
- 67 0f 38 f6 10       addr16 wrss   %edx, (%bx,%si)
- 67 66 0f 38 f5 14    addr16 wruss  %edx, (%si)
+ 67 0f 38 f6 02       addr16 wrssd  %eax, (%bp,%si)
+ 67 0f 38 f6 10       addr16 wrssd  %edx, (%bx,%si)
+ 67 66 0f 38 f5 14    addr16 wrussd %edx, (%si)
  2f                   das
- 67 66 0f 38 f5 3c    addr16 wruss  %edi, (%si)
+ 67 66 0f 38 f5 3c    addr16 wrussd %edi, (%si)
  0e                   push   %cs
  f3 0f 01 e8          setssbsy
  67 f3 0f ae 34       addr16 clrssbsy (%si)
