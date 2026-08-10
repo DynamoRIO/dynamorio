@@ -697,11 +697,11 @@ Opcode mix tool results:
 The view tool prints out the contents of the trace for human viewing, including
 disassembling instructions in AT&T, Intel, Arm, or DR format (to see
 disassembly for online traces, pass the `-instr_encodings` option). The
--skip_refs and -sim_refs flags can be used to
+-skip_records and -exit_after_records flags can be used to
 set a start point and end point for the disassembled view. Note that these
 flags compute the number of trace entry records which are skipped or displayed which
 is distinct from the number of instruction records; to skip instruction records
-use -skip_instrs or -skip_to_timestamp (this is faster than -skip_refs).
+use -skip_instrs or -skip_to_timestamp (this is faster than -skip_records).
 
 The tool displays loads and stores, as well as metadata marker entries for
 timestamps, on which core and thread the subsequent instruction sequence was
@@ -712,7 +712,7 @@ In its first two columns, the tool displays the trace record ordinal
 and the instruction fetch ordinal.
 
 \code
-$ $ bin64/drrun -t drmemtrace -tool view -indir drmemtrace.*.dir -sim_refs 20
+$ $ bin64/drrun -t drmemtrace -tool view -indir drmemtrace.*.dir -exit_after_records 20
 Output format:
 <--record#-> <--instr#->: <Wrkld.Tid> <record details>
 ------------------------------------------------------------
