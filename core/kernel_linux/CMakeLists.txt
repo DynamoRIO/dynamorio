@@ -67,6 +67,7 @@ set(dynamorio_module_sources
   ../stats.c
   ../string.c
   ../synch.c
+  ../translate.c
 )
 
 set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko")
