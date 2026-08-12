@@ -70,6 +70,13 @@ set(dynamorio_module_sources
   ../translate.c
   ../utils.c
   ../vmareas.c
+  ../ir/decode_shared.c
+  ../ir/disassemble_shared.c
+  ../ir/encode_shared.c
+  ../ir/instr_shared.c
+  ../ir/instrlist.c
+  ../ir/ir_utils_shared.c
+  ../ir/opnd_shared.c
 )
 
 set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko")
