@@ -8319,7 +8319,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                 result = false;
             }
         }
-#endif
+#endif /* LINUX && !LINUX_KERNEL*/
         LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 4,
             "check_thread_vm_area: check_stop = " PFX "\n", *stop);
     }
