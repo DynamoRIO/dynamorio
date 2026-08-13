@@ -532,6 +532,7 @@ opnd_get_immed_int64(opnd_t opnd)
         (uint64)(uint)opnd.value.immed_int_multi_part.low;
 }
 
+#ifndef LINUX_KERNEL
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 float
 opnd_get_immed_float(opnd_t opnd)
@@ -544,7 +545,7 @@ opnd_get_immed_float(opnd_t opnd)
     return opnd.value.immed_float;
 }
 
-#ifndef WINDOWS
+#    ifndef WINDOWS
 /* XXX i#4488: x87 floating point immediates should be double precision.
  * Type double currently not included for Windows because sizeof(opnd_t) does
  * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
@@ -556,7 +557,8 @@ opnd_get_immed_double(opnd_t opnd)
                   "opnd_get_immed_double called on non-immed-float");
     return opnd.value.immed_double;
 }
-#endif
+#    endif
+#endif /* !LINUX_KERNEL */
 
 /* address operands */
 
