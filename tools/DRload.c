@@ -262,6 +262,7 @@ main(int argc, char *argv[])
             else
                 fprintf(stderr, "  => FAILED\n");
         }
+        fclose(f);
         fprintf(stderr, "loaded %d images successfully\n", count);
         fflush(stderr);
     } else {
