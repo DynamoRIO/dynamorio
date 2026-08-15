@@ -1267,6 +1267,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 {
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
 #ifndef LINUX_KERNEL
+    /* These hold copies of the state so a client tool can inspect/adjust it before we
+     * restore it. We are skipping this under LINUX_KERNEL for now: client instrumentation
+     * events aren't wired up there yet, and skipping also keeps us under the kernel's
+     * -Wframe-larger-than=4096 stack limit.
+     * TODO i#8021: Once we start implementing kernel instrumentation we may need heap
+     * allocation for these fields instead.
+     */
     dr_mcontext_t xl8_mcontext;
     dr_mcontext_t raw_mcontext;
     dr_mcontext_init(&xl8_mcontext);
