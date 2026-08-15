@@ -1660,7 +1660,7 @@ instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
                 ptr_int_t val;
                 if (!d_r_safe_read(opnd_compute_address(src, mc),
                                    MIN(opnd_get_size(src), sizeof(val)), &val))
-                    return false;
+                    return DR_PRED_TRIGGER_UNKNOWN;
                 return (val != 0) ? DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
             } else
                 CLIENT_ASSERT(false, "invalid predicate/instr combo");
