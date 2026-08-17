@@ -2275,6 +2275,7 @@ fork_init(void *drcontext)
             FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
     }
+    fork_exit_thread_io(drcontext);
     init_thread_in_process(drcontext);
 }
 #endif
