@@ -262,7 +262,7 @@ enum {
     REGPARM_1 = REG_RDX,
     REGPARM_2 = REG_R8,
     REGPARM_3 = REG_R9,
-    REGPARM_MINSTACK = 4 * sizeof(XSP_SZ),
+    REGPARM_MINSTACK = 4 * XSP_SZ,
     REDZONE_SIZE = 0,
 #        endif
     /* In fact, for Windows the stack pointer is supposed to be
@@ -278,7 +278,7 @@ enum {
 #        ifdef MACOS
     REGPARM_END_ALIGN = 16,
 #        else
-    REGPARM_END_ALIGN = sizeof(XSP_SZ),
+    REGPARM_END_ALIGN = XSP_SZ,
 #        endif
 #    endif /* 64/32 */
 #elif defined(AARCHXX)
