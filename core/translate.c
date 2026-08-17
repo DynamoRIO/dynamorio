@@ -1266,10 +1266,19 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                             bool just_pc, fragment_t *owning_f, bool restore_memory)
 {
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
+#ifndef LINUX_KERNEL
+    /* These hold copies of the state so a client tool can inspect/adjust it before we
+     * restore it. We are skipping this under LINUX_KERNEL for now: client instrumentation
+     * events aren't wired up there yet, and skipping also keeps us under the kernel's
+     * -Wframe-larger-than=4096 stack limit.
+     * TODO i#8021: Once we start implementing kernel instrumentation we may need heap
+     * allocation for these fields instead.
+     */
     dr_mcontext_t xl8_mcontext;
     dr_mcontext_t raw_mcontext;
     dr_mcontext_init(&xl8_mcontext);
     dr_mcontext_init(&raw_mcontext);
+#endif
 #ifdef WINDOWS
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
         mcontext->pc == vsyscall_after_syscall && mcontext->xsp != 0) {
@@ -1344,11 +1353,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 #    endif
         if (!just_pc) {
             restore_stolen_register(tdcontext, mcontext);
+#    ifndef LINUX_KERNEL
             if (dr_xl8_hook_exists()) {
                 if (!instrument_restore_nonfcache_state_prealloc(
                         tdcontext, restore_memory, mcontext, &xl8_mcontext))
                     return RECREATE_FAILURE;
             }
+#    endif
         }
         return res;
     }
@@ -1393,11 +1404,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         mcontext->pc = dr_fragment_app_pc(POST_SYSCALL_PC(tdcontext));
         if (!just_pc) {
             restore_stolen_register(tdcontext, mcontext);
+#ifndef LINUX_KERNEL
             if (dr_xl8_hook_exists()) {
                 if (!instrument_restore_nonfcache_state_prealloc(
                         tdcontext, restore_memory, mcontext, &xl8_mcontext))
                     return RECREATE_FAILURE;
             }
+#endif
         }
         return res;
     } else if (mcontext->pc == get_reset_exit_stub(tdcontext)) {
@@ -1408,11 +1421,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         mcontext->pc = dr_fragment_app_pc(tdcontext->next_tag);
         if (!just_pc) {
             restore_stolen_register(tdcontext, mcontext);
+#ifndef LINUX_KERNEL
             if (dr_xl8_hook_exists()) {
                 if (!instrument_restore_nonfcache_state_prealloc(
                         tdcontext, restore_memory, mcontext, &xl8_mcontext))
                     return RECREATE_FAILURE;
             }
+#endif
         }
         return res;
     } else if (in_generated_routine(tdcontext, mcontext->pc)) {
@@ -1437,7 +1452,9 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 #ifdef WINDOWS
         bool swap_peb = false;
 #endif
+#ifndef LINUX_KERNEL
         dr_restore_state_info_t client_info;
+#endif
 #ifdef WINDOWS
         /* i#889: restore private PEB/TEB for faithful recreation */
         /* i#1832: swap_peb_pointer() calls is_dynamo_address() in debug build, which
@@ -1570,10 +1587,12 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         ASSERT(ok);
 
         /* now recreate the state */
+#ifndef LINUX_KERNEL
         /* keep a copy of the pre-translation state */
         priv_mcontext_to_dr_mcontext(&raw_mcontext, mcontext);
         client_info.raw_mcontext = &raw_mcontext;
         client_info.raw_mcontext_valid = true;
+#endif
         if (ilist == NULL) {
             ASSERT(f != NULL && FRAGMENT_TRANSLATION_INFO(f) != NULL);
             ASSERT(!TESTANY(FRAG_WAS_DELETED, f->flags) ||
@@ -1593,6 +1612,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 
         if (!just_pc)
             restore_stolen_register(tdcontext, mcontext);
+#ifndef LINUX_KERNEL
         if (res != RECREATE_FAILURE) {
             /* PR 214962: if the client has a restore callback, invoke it to
              * fix up the state (and pc).
@@ -1615,6 +1635,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 res = RECREATE_FAILURE;
             dr_mcontext_to_priv_mcontext(mcontext, &xl8_mcontext);
         }
+#endif
 
     recreate_app_state_done:
         /* free the instrlist_t elements */
