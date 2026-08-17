@@ -139,7 +139,7 @@ macro(add_ext_asm_target asm_file_arm asm_file_aarch64 asm_file_riscv64 asm_file
 endmacro()
 
 add_subdirectory(drcontainers)
-if (NOT ANDROID AND NOT ARM AND NOT AARCH64)
+if (NOT ANDROID AND NOT ARM AND NOT AARCH64 AND NOT DISABLE_DRGUI)
   # XXX i#1701: fails to build on Android.  May not be worth porting.
   # XXX: fails when cross-compiling for ARM or A64 on a machine with x86 Qt5 installing.
   # Working around that by just disabling for ARM and A64 completely.

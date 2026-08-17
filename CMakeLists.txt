@@ -1688,6 +1688,11 @@ endif (WIN32)
 
 option(BUILD_EXT "build Extension libraries" ON)
 
+# i#1972: allow disabling DrGUI even when Qt5 is found, for reproducible
+# builds and to avoid Qt5-related build failures or unwanted build time/disk
+# space.
+option(DISABLE_DRGUI "Disable looking for and using Qt5 for DrGUI" OFF)
+
 # should we disallow selecting samples when core is not built?
 # right now the samples build will just fail
 option(BUILD_SAMPLES "build client samples" ON)
