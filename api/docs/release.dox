@@ -295,6 +295,8 @@ Further non-compatibility-affecting changes include:
    clients from "none" to "lz4", when built against an lz4 with LZ4F_CustomMem support
    (lz4 >= 1.9.4).  lz4's allocations are routed through DR's private heap in that
    configuration.  Where that support is unavailable the static default remains "none".
+ - On AArch64 the restriction that isb instructions must be the last instruction in a
+   block has been lifted.
 
 **************************************************
 <hr>
