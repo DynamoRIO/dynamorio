@@ -377,6 +377,7 @@ free_compression_file_data(void *drcontext, per_thread_t *data)
     if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
         size_t res = LZ4F_freeCompressionContext(data->lzcxt);
         DR_ASSERT(!LZ4F_isError(res));
+        data->lzcxt = nullptr;
     }
 #endif
 }
@@ -390,11 +391,13 @@ exit_compression(void *drcontext, per_thread_t *data)
         (op_raw_compress.get_value() == "zlib" ||
          op_raw_compress.get_value() == "gzip")) {
         dr_raw_mem_free(data->buf_compressed, max_buf_size);
+        data->buf_compressed = nullptr;
     }
 #endif
 #ifdef HAS_LZ4
     if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
         dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
+        data->buf_lz4 = nullptr;
     }
 #endif
 }
