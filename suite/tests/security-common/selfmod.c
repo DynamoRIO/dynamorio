@@ -451,6 +451,16 @@ DECL_EXTERN(print_int)
 _MYTEXT SEGMENT ALIGN(4096) READ EXECUTE SHARED ALIAS(".mytext")
 #endif
 
+#ifdef AARCH64
+/* Clear the instruction cache line containing the address in address_reg. */
+#   define CLEAR_ICACHE_LINE(address_reg) \
+        dc      cvau, address_reg @N@\
+        dsb     ish @N@\
+        ic      ivau, address_reg @N@\
+        dsb     ish @N@\
+        isb
+#endif
+
     /* The following code needs to cross a page boundary. */
 #    ifdef AARCH64
 #        define MAX_PAGE_SIZE_BYTES 65536 /* this is also a multiple of 16K and 4K so
@@ -521,12 +531,7 @@ ADDRTAKEN_LABEL(sandbox_cross_page_no_ilt:)
         orr w11, w11, w0, LSL #5 /* set imm16 to w0. */
         str w11, [x10]
 
-        /* need to invalidate the instruction cache. This tests explicit app icache management. */
-        stp x0, x1, [sp, #-16]!
-        adr x0, sandbox_cross_page
-        adr x1, sandbox_cross_page_end
-        bl clear_icache_if_required
-        ldp x0, x1, [sp], #16
+        CLEAR_ICACHE_LINE(x10)
 
         /* More writes to split the block. */
         strb w0, [x1], #1
@@ -661,12 +666,7 @@ ADDRTAKEN_LABEL(fault_immediate_addr_plus_four:)
         orr w10, w10, w0, LSL #5
         str w10, [x9]
 
-        /* need to invalidate the instruction cache. This tests explicit app icache management. */
-        stp x0, x1, [sp, #-16]!
-        adr x0, sandbox_fault
-        adr x1, sandbox_fault_end
-        bl clear_icache_if_required
-        ldp x0, x1, [sp], #16
+        CLEAR_ICACHE_LINE(x9)
 
         movz x0, #0 /* this will get updated by the code above */
 ADDRTAKEN_LABEL(fault_immediate_addr_plus_four:)
@@ -726,12 +726,7 @@ ADDRTAKEN_LABEL(illegal_immediate_addr_plus_four:)
         orr w10, w10, w0, LSL #5
         str w10, [x9]
 
-        /* need to invalidate the instruction cache. This tests explicit app icache management. */
-        stp x0, x1, [sp, #-16]!
-        adr x0, sandbox_illegal_instr
-        adr x1, sandbox_illegal_instr_end
-        bl clear_icache_if_required
-        ldp x0, x1, [sp], #16
+        CLEAR_ICACHE_LINE(x9)
 
         movz x0, #0 /* this will get updated by the code above */
 ADDRTAKEN_LABEL(illegal_immediate_addr_plus_four:)
@@ -810,10 +805,7 @@ loop_orig_target3:
         add w10, w10, 1 /* branch to 1 instr. further. */
         str w10, [x9]
 
-        /* need to invalidate the instruction cache. This tests explicit app icache management. */
-        adr x0, sandbox_cti_tgt
-        adr x1, sandbox_cti_tgt_end
-        bl clear_icache_if_required
+        CLEAR_ICACHE_LINE(x9)
 
         b branch_orig_target
 ADDRTAKEN_LABEL(branch_target_end:)
@@ -830,13 +822,7 @@ branch_orig_target:
         orr w10, w10, w11
         str w10, [x9]
 
-        /* need to invalidate the instruction cache. This tests explicit app icache management. */
-        stp x13, x13, [sp, #-16]!
-        adr x0, sandbox_cti_tgt
-        adr x1, sandbox_cti_tgt_end
-        bl clear_icache_if_required
-        ldr x13, [sp]
-        add sp, sp, #16
+        CLEAR_ICACHE_LINE(x9)
 
         adr x12, branch_orig_target2
         br x12

@@ -8272,7 +8272,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     if (stop != NULL) {
         *stop = area->end;
         ASSERT(*stop != NULL);
-#ifdef LINUX
+#if defined(LINUX) && !defined(LINUX_KERNEL)
         if (!vmvector_empty(d_r_rseq_areas)) {
             /* XXX i#3798: While for core operation we do not need to end a block at
              * an rseq endpoint, we need clients to treat the endpoint as a barrier and
@@ -8319,7 +8319,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                 result = false;
             }
         }
-#endif
+#endif /* LINUX && !LINUX_KERNEL*/
         LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 4,
             "check_thread_vm_area: check_stop = " PFX "\n", *stop);
     }

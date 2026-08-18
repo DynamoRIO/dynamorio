@@ -352,6 +352,56 @@ static const LZ4F_CustomMem lz4_custom_mem = { lz4_redirect_malloc, lz4_redirect
                                                /*opaqueState=*/nullptr };
 #endif
 
+/* Frees compression resources tied to the current file, but does not flush
+ * data or close the file.
+ */
+static void
+free_compression_file_data(void *drcontext, per_thread_t *data)
+{
+#ifdef HAS_SNAPPY
+    if (op_offline.get_value() && snappy_enabled()) {
+        data->snappy_writer->~snappy_file_writer_t();
+        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
+                       sizeof(*data->snappy_writer));
+        data->snappy_writer = nullptr;
+    }
+#endif
+#ifdef HAS_ZLIB
+    if (op_offline.get_value() &&
+        (op_raw_compress.get_value() == "zlib" ||
+         op_raw_compress.get_value() == "gzip")) {
+        deflateEnd(&data->zstream);
+    }
+#endif
+#ifdef HAS_LZ4
+    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+        size_t res = LZ4F_freeCompressionContext(data->lzcxt);
+        DR_ASSERT(!LZ4F_isError(res));
+        data->lzcxt = nullptr;
+    }
+#endif
+}
+
+/* Frees compression resources independent of any open file. */
+static void
+exit_compression(void *drcontext, per_thread_t *data)
+{
+#ifdef HAS_ZLIB
+    if (op_offline.get_value() &&
+        (op_raw_compress.get_value() == "zlib" ||
+         op_raw_compress.get_value() == "gzip")) {
+        dr_raw_mem_free(data->buf_compressed, max_buf_size);
+        data->buf_compressed = nullptr;
+    }
+#endif
+#ifdef HAS_LZ4
+    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+        dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
+        data->buf_lz4 = nullptr;
+    }
+#endif
+}
+
 int
 append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t window)
 {
@@ -397,12 +447,10 @@ static void
 close_thread_file(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+
 #ifdef HAS_SNAPPY
     if (op_offline.get_value() && snappy_enabled()) {
-        data->snappy_writer->~snappy_file_writer_t();
-        dr_custom_free(nullptr, static_cast<dr_alloc_flags_t>(0), data->snappy_writer,
-                       sizeof(*data->snappy_writer));
-        data->snappy_writer = nullptr;
+        free_compression_file_data(drcontext, data);
     }
 #endif
 #ifdef HAS_ZLIB
@@ -425,7 +473,7 @@ close_thread_file(void *drcontext)
                                      max_buf_size - data->zstream.avail_out);
         } while ((res == Z_OK || res == Z_BUF_ERROR) && ++iters < MAX_ITERS);
         DR_ASSERT(res == Z_STREAM_END);
-        deflateEnd(&data->zstream);
+        free_compression_file_data(drcontext, data);
     }
 #endif
 #ifdef HAS_LZ4
@@ -435,8 +483,7 @@ close_thread_file(void *drcontext)
             LZ4F_compressEnd(data->lzcxt, data->buf_lz4, data->buf_lz4_size, nullptr);
         DR_ASSERT(!LZ4F_isError(res));
         file_ops_func.write_file(data->file, data->buf_lz4, res);
-        res = LZ4F_freeCompressionContext(data->lzcxt);
-        DR_ASSERT(!LZ4F_isError(res));
+        free_compression_file_data(drcontext, data);
     }
 #endif
     file_ops_func.close_file(data->file);
@@ -1541,18 +1588,8 @@ exit_thread_io(void *drcontext)
     if (op_offline.get_value() && data->file != INVALID_FILE)
         close_thread_file(drcontext);
 
-#ifdef HAS_ZLIB
-    if (op_offline.get_value() &&
-        (op_raw_compress.get_value() == "zlib" ||
-         op_raw_compress.get_value() == "gzip")) {
-        dr_raw_mem_free(data->buf_compressed, max_buf_size);
-    }
-#endif
-#ifdef HAS_LZ4
-    if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
-        dr_raw_mem_free(data->buf_lz4, data->buf_lz4_size);
-    }
-#endif
+    exit_compression(drcontext, data);
+
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
         if (data->syscall_record_file != INVALID_FILE) {
@@ -1569,6 +1606,16 @@ exit_thread_io(void *drcontext)
         }
     }
 #endif
+}
+
+void
+fork_exit_thread_io(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    // We need to free data without flushing to the parent's file or closing
+    // the parent's file.
+    free_compression_file_data(drcontext, data);
+    exit_compression(drcontext, data);
 }
 
 void

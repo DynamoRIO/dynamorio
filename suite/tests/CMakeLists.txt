@@ -4449,6 +4449,18 @@ if (BUILD_CLIENTS)
       # Test an app with a fork.
       torunonly_drcacheoff(fork linux.fork "" "" "")
       set(tool.drcacheoff.fork_timeout 180) # Can take a while.
+      # Test other compression methods to test resource cleanup, which is
+      # compression-specific.
+      if (libsnappy)
+        torunonly_drcacheoff(fork_snappy linux.fork "-raw_compress snappy_nocrc" "" "")
+        set(tool.drcacheoff.fork_snappy_timeout 180) # Can take a while.
+        set(tool.drcacheoff.fork_snappy_expectbase "offline-fork")
+      endif ()
+      if (ZLIB_FOUND)
+        torunonly_drcacheoff(fork_zlib linux.fork "-raw_compress zlib" "" "")
+        set(tool.drcacheoff.fork_zlib_timeout 180) # Can take a while.
+        set(tool.drcacheoff.fork_zlib_expectbase "offline-fork")
+      endif ()
     endif ()
 
     # Test reading a legacy pre-interleaved file in thread-sharded mode.

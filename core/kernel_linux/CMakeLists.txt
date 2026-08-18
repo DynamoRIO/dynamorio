@@ -46,6 +46,8 @@ set(dynamorio_module_sources
   dynamorio_module_main.c
   kernel_interface.c
   os.c
+
+  # core/
   ../buildmark.c
   ../config.c
   ../dispatch.c
@@ -67,12 +69,38 @@ set(dynamorio_module_sources
   ../stats.c
   ../string.c
   ../synch.c
+  ../translate.c
+  ../utils.c
+  ../vmareas.c
+
+  # core/ir/
+  ../ir/decode_shared.c
+  ../ir/disassemble_shared.c
+  ../ir/encode_shared.c
+  ../ir/instr_shared.c
+  ../ir/instrlist.c
+  ../ir/ir_utils_shared.c
+  ../ir/opnd_shared.c
+
+  # core/ir/x86/
+  ../ir/x86/decode.c
+  ../ir/x86/decode_fast.c
+  ../ir/x86/decode_table.c
+  ../ir/x86/disassemble.c
+  ../ir/x86/encode.c
+  ../ir/x86/instr.c
+  ../ir/x86/ir_utils.c
+  ../ir/x86/opnd.c
+
+  # core/arch/
   ../arch/arch.c
   ../arch/clean_call_opt_shared.c
   ../arch/emit_utils_shared.c
   ../arch/interp.c
   ../arch/mangle_shared.c
   ../arch/proc_shared.c
+
+  # core/arch/x86/
   ../arch/x86/clean_call_opt.c
   ../arch/x86/emit_utils.c
   ../arch/x86/mangle.c

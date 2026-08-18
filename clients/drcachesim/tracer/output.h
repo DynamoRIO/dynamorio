@@ -57,6 +57,9 @@ void
 exit_thread_io(void *drcontext);
 
 void
+fork_exit_thread_io(void *drcontext);
+
+void
 init_buffers(per_thread_t *data);
 
 void

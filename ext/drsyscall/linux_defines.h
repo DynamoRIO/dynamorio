@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -150,8 +150,6 @@
 #elif !defined(ANDROID)
 #    include <sys/mtio.h>
 #endif
-#include <linux/netrom.h>
-#include <linux/scc.h>
 
 /* i#911: linux/smb_fs.h is missing on FC16 so we define on our own */
 #define SMB_IOC_GETMOUNTUID _IOR('u', 1, __kernel_old_uid_t)

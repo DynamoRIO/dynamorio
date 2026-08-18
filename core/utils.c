@@ -55,13 +55,15 @@
 #endif
 
 #ifdef UNIX
-#    include <sys/types.h>
-#    include <sys/stat.h>
-#    include <fcntl.h>
-#    include <stdio.h>
-#    include <stdlib.h>
-#    include <unistd.h>
-#    include <errno.h>
+#    include "types_wrapper.h"
+#    ifndef LINUX_KERNEL
+#        include <sys/stat.h>
+#        include <fcntl.h>
+#        include <stdio.h>
+#        include <stdlib.h>
+#        include <unistd.h>
+#        include <errno.h>
+#    endif
 #else
 #    include <errno.h>
 /* XXX : remove when syslog macros fixed */
@@ -76,8 +78,8 @@
 #    include "synch.h" /* all_threads_synch_lock */
 #endif
 
-#include <stdarg.h> /* for varargs */
-#include <stddef.h> /* for offsetof */
+#include "stdarg_wrapper.h" /* for varargs */
+#include "stddef_wrapper.h" /* for offsetof */
 
 try_except_t global_try_except;
 #ifdef UNIX
@@ -1711,6 +1713,7 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint 
                      (precision_multiple * *top));
 }
 
+#ifndef LINUX_KERNEL
 /* When building with /QIfist casting rounds instead of truncating (i#763)
  * so we use these routines from io.c.
  */
@@ -1745,6 +1748,7 @@ double_print(double val, uint precision, uint *top, uint *bottom, const char **s
     *top = double2int_trunc(val);
     *bottom = double2int_trunc((val - *top) * precision_multiple);
 }
+#endif
 
 #ifdef WINDOWS
 /* for pre_inject, injector, and core shared files, is just wrapper for syslog
@@ -2569,7 +2573,6 @@ strcasecmp_with_wildcards(const char *regexp, const char *consider)
             return -1;
         } else if (*consider == '\0')
             return 1;
-        ASSERT((sbyte)*regexp != EOF && (sbyte)*consider != EOF);
         cr = (char)tolower(*regexp);
         cc = (char)tolower(*consider);
         if (cr != '?' && cr != cc) {
@@ -3841,7 +3844,7 @@ MD5Transform(uint32 state[4], const unsigned char block[MD5_BLOCK_LENGTH])
 {
     uint32 a, b, c, d, in[MD5_BLOCK_LENGTH / 4];
 
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     memcpy(in, block, sizeof(in));
 #else
     for (a = 0; a < MD5_BLOCK_LENGTH / 4; a++) {

@@ -780,7 +780,7 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
     app_pc call_tgt, ret_tgt;
 
     if (!d_r_safe_read(xsp, sizeof(app_pc), &call_tgt) ||
-        !d_r_safe_read(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &ret_tgt)) {
+        !d_r_safe_read(xsp + ret_imm + XSP_SZ, sizeof(app_pc), &ret_tgt)) {
         ASSERT(false && "fail to read app stack!\n");
         return;
     }
@@ -789,11 +789,11 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
         dcontext_t *dcontext = get_thread_private_dcontext();
         app_pc stub_pc = native_module_get_ret_stub(dcontext, ret_tgt);
         DEBUG_DECLARE(bool ok =)
-        safe_write_ex(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &stub_pc,
+        safe_write_ex(xsp + ret_imm + XSP_SZ, sizeof(app_pc), &stub_pc,
                       NULL /* bytes written */);
         ASSERT(stub_pc != NULL && ok);
         LOG(THREAD, LOG_ALL, 3, "replace return target " PFX " with " PFX " at " PFX "\n",
-            ret_tgt, stub_pc, (xsp + ret_imm + sizeof(XSP_SZ)));
+            ret_tgt, stub_pc, (xsp + ret_imm + XSP_SZ));
     }
 }
 
