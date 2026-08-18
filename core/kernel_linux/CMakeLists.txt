@@ -67,6 +67,16 @@ set(dynamorio_module_sources
   ../stats.c
   ../string.c
   ../synch.c
+  ../arch/arch.c
+  ../arch/clean_call_opt_shared.c
+  ../arch/emit_utils_shared.c
+  ../arch/interp.c
+  ../arch/mangle_shared.c
+  ../arch/proc_shared.c
+  ../arch/x86/clean_call_opt.c
+  ../arch/x86/emit_utils.c
+  ../arch/x86/mangle.c
+  ../arch/x86/proc.c
 )
 
 set(dynamorio_module_ko "${CMAKE_CURRENT_BINARY_DIR}/${dynamorio_module_name}.ko")
@@ -96,6 +106,7 @@ set(dynamorio_module_include_dirs
   "${core_dir}/include"
   "${core_dir}/kernel_linux"
   "${core_dir}/arch"
+  "${core_dir}/arch/x86"
   "${core_dir}/drlibc"
   "${core_dir}/ir"
   "${core_dir}/ir/x86"
@@ -109,14 +120,23 @@ set(dynamorio_module_defines
   DR_DO_NOT_DEFINE_MAX_MIN
 )
 
-set(dynamorio_module_kbuild_ccflags "ccflags-y += \\")
+set(dynamorio_module_common_flags "")
 foreach (dir ${dynamorio_module_include_dirs})
-  string(APPEND dynamorio_module_kbuild_ccflags "\n  -I${dir} \\")
+  string(APPEND dynamorio_module_common_flags "\n  -I${dir} \\")
 endforeach ()
 foreach (define ${dynamorio_module_defines})
-  string(APPEND dynamorio_module_kbuild_ccflags "\n  -D${define} \\")
+  string(APPEND dynamorio_module_common_flags "\n  -D${define} \\")
 endforeach ()
+
+set(dynamorio_module_kbuild_ccflags "ccflags-y += \\${dynamorio_module_common_flags}")
 string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
+
+set(dynamorio_module_kbuild_asflags "asflags-y += \\${dynamorio_module_common_flags}")
+string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mmnemonic=intel \\")
+string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -msyntax=intel \\")
+string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mnaked-reg \\")
+string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -noexecstack \\")
+string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler --64")
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/Kbuild.in
