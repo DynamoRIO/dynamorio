@@ -148,23 +148,14 @@ set(dynamorio_module_defines
   DR_DO_NOT_DEFINE_MAX_MIN
 )
 
-set(dynamorio_module_common_flags "")
+set(dynamorio_module_kbuild_ccflags "ccflags-y += \\")
 foreach (dir ${dynamorio_module_include_dirs})
-  string(APPEND dynamorio_module_common_flags "\n  -I${dir} \\")
+  string(APPEND dynamorio_module_kbuild_ccflags "\n  -I${dir} \\")
 endforeach ()
 foreach (define ${dynamorio_module_defines})
-  string(APPEND dynamorio_module_common_flags "\n  -D${define} \\")
+  string(APPEND dynamorio_module_kbuild_ccflags "\n  -D${define} \\")
 endforeach ()
-
-set(dynamorio_module_kbuild_ccflags "ccflags-y += \\${dynamorio_module_common_flags}")
 string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
-
-set(dynamorio_module_kbuild_asflags "asflags-y += \\${dynamorio_module_common_flags}")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mmnemonic=intel \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -msyntax=intel \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mnaked-reg \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -noexecstack \\")
-string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler --64")
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/Kbuild.in
