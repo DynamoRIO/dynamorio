@@ -40,6 +40,12 @@
  * This test just needs to execute some scatter/gather/predicated contiguous loads and
  * stores so we can verify the counts in the basic_counts output are correct.
  */
+
+#if defined(__ARM_FEATURE_SVE2)
+.arch armv8-a+sve2
+#else
+.arch armv8-a+sve
+#endif
 .text
         .global  _start
 

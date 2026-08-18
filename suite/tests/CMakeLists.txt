@@ -1175,20 +1175,22 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__ -D__AVX512F__")
   elseif (DEFINED ${key}_runavx)
     set(rundefs "${rundefs} -D__AVX__")
-  elseif (DEFINED ${key}_runsve2)
-    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
-    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE2")
-    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
-  elseif (DEFINED ${key}_runsve)
-    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
-    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE_BITS=${proc_sve_vl}")
-  elseif (DEFINED ${key}_runpauth)
-      set(rundefs "${rundefs} -D__ARM_FEATURE_PAUTH")
   endif ()
   if (CPU_AMD)
     set(rundefs "${rundefs} -DCPU_AMD")
   elseif (CPU_INTEL)
     set(rundefs "${rundefs} -DCPU_INTEL")
+  endif ()
+
+  if (AARCH64 AND NOT CMAKE_CROSSCOMPILING)
+    # Enable all architecture features supported by the hardware we are running on. This
+    # will make sure the ACLE __ARM_FEATURE_* macros are available.
+    set(arch_flags "-march=native")
+    if (proc_supports_sve)
+      set(arch_flags ${arch_flags} -msve-vector-bits=${proc_sve_vl})
+    endif ()
+  else ()
+    set(arch_flags "")
   endif ()
 
   if (DEFINED ${key}_test_sample_client)
@@ -1201,7 +1203,7 @@ function(template2expect outexpect template runops key)
   # we need a list: else passed as a single arg in quotes
   string(REGEX REPLACE " " ";" deflist "${defines} ${rundefs}")
   execute_process(COMMAND
-    ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM}
+    ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${arch_flags} ${deflist} -E ${CPP_NO_LINENUM}
       ${CPP_KEEP_WHITESPACE} ${template}
     RESULT_VARIABLE cpp_result
     ERROR_VARIABLE cpp_err

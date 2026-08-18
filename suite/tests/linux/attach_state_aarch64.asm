@@ -58,6 +58,9 @@
  * x9 is used as a scratch register and for the loop count so is excluded from
  * the state check.
  */
+#if defined(__ARM_FEATURE_SVE)
+.arch armv8-a+sve
+#endif
 .text
 .align  2
 .global attach_state_test

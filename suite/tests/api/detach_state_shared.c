@@ -769,6 +769,7 @@ START_FILE
         stp      x2, x3, [sp, #-16]! @N@\
         stp      x0, x1, [sp, #-16]!
 #if defined(__ARM_FEATURE_SVE)
+.arch armv8-a+sve
 #    define PUSHALL \
         /* p0 does not keep its pre-push value */ @N@\
         addpl    sp, sp, #-16 @N@\
