@@ -5298,7 +5298,7 @@ const instr_info_t prefix_extensions[][12] = {
     /* Disassembled as wrussd for 32-bit operands or wrussq for 64-bit.
      * The suffix is appended by instr_opcode_name_suffix().
      */
-    {OP_wruss,     0x6638f518, catState, "wruss", My, xx, Gy, xx, xx, mrm, x, END_LIST},
+    {OP_wruss,     0x6638f518, catMove, "wruss", My, xx, Gy, xx, xx, mrm, x, END_LIST},
     {INVALID,      0xf238f518, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_bzhi,        0x38f518, catUncategorized, "bzhi",    Gy, xx, Ey, By, xx, mrm|vex, fW6, END_LIST},
     {OP_pext,      0xf338f518, catUncategorized, "pext",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
@@ -5312,7 +5312,7 @@ const instr_info_t prefix_extensions[][12] = {
     /* Disassembled as wrssd for 32-bit operands or wrssq for 64-bit.
      * The suffix is appended by instr_opcode_name_suffix().
      */
-    {OP_wrss,        0x38f618, catState, "wrss", My, xx, Gy, xx, xx, mrm, x, END_LIST},
+    {OP_wrss,        0x38f618, catMove, "wrss", My, xx, Gy, xx, xx, mrm, x, END_LIST},
     {OP_adox,      0xf338f618, catUncategorized, "adox",    Gy, xx, Ey, Gy, xx, mrm, (fWO|fRO), END_LIST},
     {OP_adcx,      0x6638f618, catMath, "adcx",    Gy, xx, Ey, Gy, xx, mrm, (fWC|fRC), END_LIST},
     {INVALID,      0xf238f618, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5987,7 +5987,7 @@ const instr_info_t prefix_extensions[][12] = {
     {EVEX_Wb_EXT,0xf2387218, catUncategorized, "(evex_Wb ext 271)",   xx, xx, xx, xx, xx, mrm|evex|ttnone, x, 271},
   }, { /* prefix extension 191 */
     {OP_serialize,   0x01e808, catOther, "serialize", xx, xx, xx, xx, xx, reqp, x, END_LIST},
-    {OP_setssbsy,  0xf301e808, catState, "setssbsy", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {OP_setssbsy,  0xf301e808, catOther, "setssbsy", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x6601e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_xsusldtrk, 0xf201e808, catOther, "xsusldtrk", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,        0x01e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -6039,7 +6039,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf20fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 195 */
     {REX_W_EXT,       0x0fae36, catUncategorized, "(rex.w ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
-    {OP_clrssbsy,   0xf30fae36, catState, "clrssbsy", xx, xx, Mq, xx, xx, mrm, x, END_LIST},
+    {OP_clrssbsy,   0xf30fae36, catOther, "clrssbsy", xx, xx, Mq, xx, xx, mrm, x, END_LIST},
     {MOD_EXT,       0x660fae36, catUncategorized, "(mod ext 123)", xx, xx, xx, xx, xx, mrm, x, 123},
     {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,         0x0fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -7387,8 +7387,8 @@ const instr_info_t rm_extensions[][8] = {
   { /* rm extension 8*/
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
-    {OP_endbr64, 0xf31efa08, catState, "endbr64", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_endbr32, 0xf31efb08, catState, "endbr32", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {OP_endbr64, 0xf31efa08, catOther, "endbr64", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {OP_endbr32, 0xf31efb08, catOther, "endbr32", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     {OP_nop_modrm, 0xf30f1e10, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
