@@ -5987,7 +5987,7 @@ const instr_info_t prefix_extensions[][12] = {
     {EVEX_Wb_EXT,0xf2387218, catUncategorized, "(evex_Wb ext 271)",   xx, xx, xx, xx, xx, mrm|evex|ttnone, x, 271},
   }, { /* prefix extension 191 */
     {OP_serialize,   0x01e808, catOther, "serialize", xx, xx, xx, xx, xx, reqp, x, END_LIST},
-    {OP_setssbsy,  0xf301e808, catOther, "setssbsy", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {OP_setssbsy,  0xf301e808, catState, "setssbsy", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x6601e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_xsusldtrk, 0xf201e808, catOther, "xsusldtrk", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,        0x01e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -6039,7 +6039,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf20fae37, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },{ /* prefix extension 195 */
     {REX_W_EXT,       0x0fae36, catUncategorized, "(rex.w ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
-    {OP_clrssbsy,   0xf30fae36, catOther, "clrssbsy", xx, xx, Mq, xx, xx, mrm, x, END_LIST},
+    {OP_clrssbsy,   0xf30fae36, catState, "clrssbsy", xx, xx, Mq, xx, xx, mrm, x, END_LIST},
     {MOD_EXT,       0x660fae36, catUncategorized, "(mod ext 123)", xx, xx, xx, xx, xx, mrm, x, 123},
     {INVALID,       0xf20fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,         0x0fae36, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
