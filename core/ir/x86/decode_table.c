@@ -7260,7 +7260,7 @@ const instr_info_t mod_extensions[][2] = {
     {OP_vsqrtpd,0x660f5150, catFP | catMath | catSIMD, "vsqrtpd", Voq, xx, KEb, Uoq, xx, mrm|evex|er|ttfv, x, END_LIST},
   },
   { /* mod extension 120 */
-    {OP_rstorssp, 0xf30f0135, catState, "rstorssp", xx, xx, Mq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_rstorssp, 0xf30f0135, catState, "rstorssp", xx, xx, Mq, xx, xx, mrm|reqp, fW6, END_LIST},
     {RM_EXT,        0x0f0175, catUncategorized, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
   },
   { /* mod extension 121 */
