@@ -383,7 +383,8 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "q";
             break;
         }
-        case OP_clrssbsy: return "";
+        case OP_clrssbsy:
+        case OP_rstorssp: return "";
         }
     }
     if (TESTANY(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) &&
