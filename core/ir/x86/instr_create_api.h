@@ -635,7 +635,6 @@
 #define INSTR_CREATE_llwpcb(dc, s) instr_create_0dst_1src((dc), OP_llwpcb, (s))
 #define INSTR_CREATE_umonitor(dc, s) instr_create_0dst_1src((dc), OP_umonitor, (s))
 #define INSTR_CREATE_incssp(dc, s) instr_create_0dst_1src((dc), OP_incssp, (s))
-#define INSTR_CREATE_rstorssp(dc, s) instr_create_0dst_1src((dc), OP_rstorssp, (s))
 /**
  * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1666,6 +1665,7 @@
 #define INSTR_CREATE_not(dc, d) instr_create_1dst_1src((dc), OP_not, (d), (d))
 #define INSTR_CREATE_neg(dc, d) instr_create_1dst_1src((dc), OP_neg, (d), (d))
 #define INSTR_CREATE_clrssbsy(dc, d) instr_create_1dst_1src((dc), OP_clrssbsy, (d), (d))
+#define INSTR_CREATE_rstorssp(dc, d) instr_create_1dst_1src((dc), OP_rstorssp, (d), (d))
 /** @} */ /* end doxygen group */
 
 /* 1 implicit destination, 1 implicit source */
