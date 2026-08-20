@@ -2945,6 +2945,43 @@ test_fred_instructions(void *dc)
 #endif
 }
 
+static void
+test_cet_0f1e_disambiguation(void *dc)
+{
+#ifdef X64
+    /* The encode/decode round trip of the CET opcodes themselves is already covered
+     * by the binutils decode/encode tests, so this only covers OP_nop_modrm
+     * disambiguation in the same 0F 1E opcode space as
+     * OP_endbr64/OP_endbr32/OP_rdssp, which the binutils tests do not exercise.
+     */
+    byte *pc;
+    struct {
+        byte bytes[8];
+        size_t len;
+        int expected_opcode;
+    } decode_tests[] = {
+        { { 0xf3, 0x0f, 0x1e, 0xc0 }, 4, OP_nop_modrm },
+        { { 0xf3, 0x0f, 0x1e, 0x08 }, 4, OP_nop_modrm },
+        { { 0xf3, 0x0f, 0x1e, 0xcb }, 4, OP_rdssp },
+        { { 0xf3, 0x48, 0x0f, 0x1e, 0xcb }, 5, OP_rdssp },
+        { { 0xf3, 0x0f, 0x1e, 0xd8 }, 4, OP_nop_modrm },
+        { { 0xf3, 0x0f, 0x1e, 0xfa }, 4, OP_endbr64 },
+        { { 0xf3, 0x0f, 0x1e, 0xfb }, 4, OP_endbr32 },
+        { { 0xf3, 0x0f, 0x1e, 0x38 }, 4, OP_nop_modrm },
+        { { 0xf3, 0x0f, 0x1e, 0xf8 }, 4, OP_nop_modrm },
+    };
+
+    for (int i = 0; i < sizeof(decode_tests) / sizeof(decode_tests[0]); i++) {
+        instr_t decode_instr;
+        instr_init(dc, &decode_instr);
+        pc = decode(dc, decode_tests[i].bytes, &decode_instr);
+        ASSERT(instr_get_opcode(&decode_instr) == decode_tests[i].expected_opcode);
+        ASSERT((pc - decode_tests[i].bytes) == decode_tests[i].len);
+        instr_free(dc, &decode_instr);
+    }
+#endif
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -3008,6 +3045,8 @@ main(int argc, char *argv[])
     test_x64_vmovq(dcontext);
 
     test_fred_instructions(dcontext);
+
+    test_cet_0f1e_disambiguation(dcontext);
 #endif
 
     test_regs(dcontext);

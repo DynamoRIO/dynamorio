@@ -541,6 +541,10 @@
 #define INSTR_CREATE_serialize(dc) instr_create_0dst_0src((dc), OP_serialize)
 #define INSTR_CREATE_erets(dc) instr_create_0dst_0src((dc), OP_erets)
 #define INSTR_CREATE_eretu(dc) instr_create_0dst_0src((dc), OP_eretu)
+#define INSTR_CREATE_endbr64(dc) instr_create_0dst_0src((dc), OP_endbr64)
+#define INSTR_CREATE_endbr32(dc) instr_create_0dst_0src((dc), OP_endbr32)
+#define INSTR_CREATE_saveprevssp(dc) instr_create_0dst_0src((dc), OP_saveprevssp)
+#define INSTR_CREATE_setssbsy(dc) instr_create_0dst_0src((dc), OP_setssbsy)
 /** @} */ /* end doxygen group */
 
 /* no destination, 1 source */
@@ -630,6 +634,10 @@
 #define INSTR_CREATE_wrgsbase(dc, s) instr_create_0dst_1src((dc), OP_wrgsbase, (s))
 #define INSTR_CREATE_llwpcb(dc, s) instr_create_0dst_1src((dc), OP_llwpcb, (s))
 #define INSTR_CREATE_umonitor(dc, s) instr_create_0dst_1src((dc), OP_umonitor, (s))
+/* XXX: real assembly only has size-suffixed incsspd/incsspq mnemonics, no bare
+ * "incssp". Unclear whether splitting into separate d/q macros is worth it.
+ */
+#define INSTR_CREATE_incssp(dc, s) instr_create_0dst_1src((dc), OP_incssp, (s))
 /**
  * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1147,6 +1155,10 @@
 #define INSTR_CREATE_rdfsbase(dc, d) instr_create_1dst_0src((dc), OP_rdfsbase, (d))
 #define INSTR_CREATE_rdgsbase(dc, d) instr_create_1dst_0src((dc), OP_rdgsbase, (d))
 #define INSTR_CREATE_slwpcb(dc, d) instr_create_1dst_0src((dc), OP_slwpcb, (d))
+/* XXX: real assembly only has size-suffixed rdsspd/rdsspq mnemonics, no bare
+ * "rdssp". Unclear whether splitting into separate d/q macros is worth it.
+ */
+#define INSTR_CREATE_rdssp(dc, d) instr_create_1dst_0src((dc), OP_rdssp, (d))
 /**
  * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
@@ -1284,6 +1296,11 @@
 #define INSTR_CREATE_movdqa(dc, d, s) instr_create_1dst_1src((dc), OP_movdqa, (d), (s))
 #define INSTR_CREATE_movzx(dc, d, s) instr_create_1dst_1src((dc), OP_movzx, (d), (s))
 #define INSTR_CREATE_movsx(dc, d, s) instr_create_1dst_1src((dc), OP_movsx, (d), (s))
+/* XXX: real assembly only has size-suffixed wrssd/wrssq/wrussd/wrussq mnemonics, no
+ * bare "wrss"/"wruss". Unclear whether splitting into separate d/q macros is worth it.
+ */
+#define INSTR_CREATE_wrss(dc, d, s) instr_create_1dst_1src((dc), OP_wrss, (d), (s))
+#define INSTR_CREATE_wruss(dc, d, s) instr_create_1dst_1src((dc), OP_wruss, (d), (s))
 #define INSTR_CREATE_bsf(dc, d, s) \
     INSTR_PRED(instr_create_1dst_1src((dc), OP_bsf, (d), (s)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_bsr(dc, d, s) \
@@ -1656,6 +1673,8 @@
 #define INSTR_CREATE_bswap(dc, d) instr_create_1dst_1src((dc), OP_bswap, (d), (d))
 #define INSTR_CREATE_not(dc, d) instr_create_1dst_1src((dc), OP_not, (d), (d))
 #define INSTR_CREATE_neg(dc, d) instr_create_1dst_1src((dc), OP_neg, (d), (d))
+#define INSTR_CREATE_clrssbsy(dc, d) instr_create_1dst_1src((dc), OP_clrssbsy, (d), (d))
+#define INSTR_CREATE_rstorssp(dc, d) instr_create_1dst_1src((dc), OP_rstorssp, (d), (d))
 /** @} */ /* end doxygen group */
 
 /* 1 implicit destination, 1 implicit source */
