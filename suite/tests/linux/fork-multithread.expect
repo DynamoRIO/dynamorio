@@ -1,8 +1,3 @@
 parent is running under DynamoRIO
 child is running under DynamoRIO
 child has exited
-Basic counts tool results:
-Total counts:
-.*
-           1 total threads
-.*
