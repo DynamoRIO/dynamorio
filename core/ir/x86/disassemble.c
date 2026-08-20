@@ -294,8 +294,7 @@ suppress_memory_size_annotations(instr_t *instr)
     case OP_movdir64b:
     case OP_enqcmd:
     case OP_enqcmds:
-    case OP_umonitor:
-    case OP_clrssbsy: return true;
+    case OP_umonitor: return true;
     default: return false;
     }
 }
@@ -384,6 +383,7 @@ instr_opcode_name_suffix(instr_t *instr)
                 return "q";
             break;
         }
+        case OP_clrssbsy: return "";
         }
     }
     if (TESTANY(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) &&
