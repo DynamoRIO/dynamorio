@@ -5987,6 +5987,9 @@ const instr_info_t prefix_extensions[][12] = {
     {EVEX_Wb_EXT,0xf2387218, catUncategorized, "(evex_Wb ext 271)",   xx, xx, xx, xx, xx, mrm|evex|ttnone, x, 271},
   }, { /* prefix extension 191 */
     {OP_serialize,   0x01e808, catOther, "serialize", xx, xx, xx, xx, xx, reqp, x, END_LIST},
+    /* TODO i#8067: Add privileged IR support: MSR register enums and implicit memory
+     * operands for load and store.
+     */
     {OP_setssbsy,  0xf301e808, catState, "setssbsy", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x6601e808, catUncategorized, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_xsusldtrk, 0xf201e808, catOther, "xsusldtrk", xx, xx, xx, xx, xx, no, x, END_LIST},
