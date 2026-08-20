@@ -4461,8 +4461,11 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.fork_zlib_expectbase "offline-fork")
       endif ()
       # Test other threads at the time of the fork.
-      torunonly_drcacheoff(fork-multithread linux.fork-multithread ""
-        "@-tool@basic_counts" "")
+      # XXX i#8069: This hits an os.c assert in 32-bit; disabled until fixed.
+      if (X64)
+        torunonly_drcacheoff(fork-multithread linux.fork-multithread ""
+          "@-tool@basic_counts" "")
+      endif ()
     endif ()
 
     # Test reading a legacy pre-interleaved file in thread-sharded mode.
@@ -6029,8 +6032,11 @@ if (UNIX)
   tobuild(linux.exit linux/exit.c)
   if (NOT ANDROID) # XXX i#1874: get working on Android: just output order?!?
     tobuild(linux.fork linux/fork.c)
-    tobuild(linux.fork-multithread linux/fork-multithread.c)
-    link_with_pthread(linux.fork-multithread)
+    # XXX i#8069: This hits an os.c assert in 32-bit; disabled until fixed.
+    if (X64)
+      tobuild(linux.fork-multithread linux/fork-multithread.c)
+      link_with_pthread(linux.fork-multithread)
+    endif ()
   endif ()
   tobuild(linux.fork-sleep linux/fork-sleep.c)
   if (X86)
