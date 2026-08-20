@@ -772,7 +772,7 @@ droption_t<bytesize_t> op_exit_after_records(
     "this count within the shard.");
 
 droption_t<std::string>
-    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr/riscv",
+    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/intel/arm/dr/riscv",
                    "Syntax to use for disassembly.",
                    "Specifies the syntax to use when viewing disassembled offline traces."
                    // TODO i#4382: Add aarch64 syntax support.
