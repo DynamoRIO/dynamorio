@@ -1532,6 +1532,8 @@ exit_thread_io(void *drcontext)
      * and it is asserted.
      */
     if (dr_get_process_id() != dr_get_process_id_from_drcontext(drcontext)) {
+        /* Free compression buffer memory. */
+        fork_exit_thread_io(drcontext);
         return;
     }
 #endif

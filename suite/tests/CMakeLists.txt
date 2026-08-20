@@ -4446,21 +4446,23 @@ if (BUILD_CLIENTS)
     endif()
 
     if (UNIX)
-      # Test an app with a fork.
-      torunonly_drcacheoff(fork linux.fork "" "" "")
-      set(tool.drcacheoff.fork_timeout 180) # Can take a while.
+      # Test an app with a fork. Use basic_counts to speed the test up.
+      torunonly_drcacheoff(fork linux.fork "" "@-tool@basic_counts" "")
       # Test other compression methods to test resource cleanup, which is
       # compression-specific.
       if (libsnappy)
-        torunonly_drcacheoff(fork_snappy linux.fork "-raw_compress snappy_nocrc" "" "")
-        set(tool.drcacheoff.fork_snappy_timeout 180) # Can take a while.
+        torunonly_drcacheoff(fork_snappy linux.fork "-raw_compress snappy_nocrc"
+          "@-tool@basic_counts" "")
         set(tool.drcacheoff.fork_snappy_expectbase "offline-fork")
       endif ()
       if (ZLIB_FOUND)
-        torunonly_drcacheoff(fork_zlib linux.fork "-raw_compress zlib" "" "")
-        set(tool.drcacheoff.fork_zlib_timeout 180) # Can take a while.
+        torunonly_drcacheoff(fork_zlib linux.fork "-raw_compress zlib"
+          "@-tool@basic_counts" "")
         set(tool.drcacheoff.fork_zlib_expectbase "offline-fork")
       endif ()
+      # Test other threads at the time of the fork.
+      torunonly_drcacheoff(fork-multithread linux.fork-multithread ""
+        "@-tool@basic_counts" "")
     endif ()
 
     # Test reading a legacy pre-interleaved file in thread-sharded mode.
@@ -6027,6 +6029,8 @@ if (UNIX)
   tobuild(linux.exit linux/exit.c)
   if (NOT ANDROID) # XXX i#1874: get working on Android: just output order?!?
     tobuild(linux.fork linux/fork.c)
+    tobuild(linux.fork-multithread linux/fork-multithread.c)
+    link_with_pthread(linux.fork-multithread)
   endif ()
   tobuild(linux.fork-sleep linux/fork-sleep.c)
   if (X86)
