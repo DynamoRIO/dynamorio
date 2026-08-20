@@ -54,9 +54,9 @@
 #include "../fcache.h"
 #include "../emit.h"
 #include "../link.h"
-#include "../monitor.h" /* for mark_trace_head */
-#include <stdarg.h>     /* for varargs */
-#include "../nudge.h"   /* for nudge_internal() */
+#include "../monitor.h"     /* for mark_trace_head */
+#include "stdarg_wrapper.h" /* for varargs */
+#include "../nudge.h"       /* for nudge_internal() */
 #include "../synch.h"
 #include "../annotations.h"
 #include "../translate.h"
