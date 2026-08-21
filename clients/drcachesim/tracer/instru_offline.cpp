@@ -178,7 +178,8 @@ offline_instru_t::load_custom_module_data(module_data_t *module, int seg_idx)
         ((name != nullptr &&
           (strstr(name, "linux-gate.so") == name ||
            strstr(name, "linux-vdso.so") == name)) ||
-         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0))) {
+         (module->names.file_name != NULL &&
+          strcmp(module->names.file_name, "[vdso]") == 0))) {
         DR_ASSERT(vdso_modbase_.load(std::memory_order_acquire) == 0 ||
                   vdso_modbase_.load(std::memory_order_acquire) ==
                       reinterpret_cast<uintptr_t>(module->start));
