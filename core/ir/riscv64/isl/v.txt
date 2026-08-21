@@ -87,48 +87,48 @@ vs8r.v            | r | rs1 vs3           | 111000101000.....000.....0100111
 # Vector Floating-Point Instructions
 # https://github.com/riscv/riscv-v-spec/blob/master/v-spec.adoc#14-vector-floating-point-instructions
 # OPFVF
-vfadd.vf          | r | vm vs2 rs1 vd     | 000000...........101.....1010111
-vfsub.vf          | r | vm vs2 rs1 vd     | 000010...........101.....1010111
-vfmin.vf          | r | vm vs2 rs1 vd     | 000100...........101.....1010111
-vfmax.vf          | r | vm vs2 rs1 vd     | 000110...........101.....1010111
-vfsgnj.vf         | r | vm vs2 rs1 vd     | 001000...........101.....1010111
-vfsgnjn.vf        | r | vm vs2 rs1 vd     | 001001...........101.....1010111
-vfsgnjx.vf        | r | vm vs2 rs1 vd     | 001010...........101.....1010111
-vfslide1up.vf     | r | vm vs2 rs1 vd     | 001110...........101.....1010111
-vfslide1down.vf   | r | vm vs2 rs1 vd     | 001111...........101.....1010111
-vfmv.s.f          | r | rs1 vd            | 010000100000.....101.....1010111
+vfadd.vf          | r | vm vs2 rs1(fp) vd     | 000000...........101.....1010111
+vfsub.vf          | r | vm vs2 rs1(fp) vd     | 000010...........101.....1010111
+vfmin.vf          | r | vm vs2 rs1(fp) vd     | 000100...........101.....1010111
+vfmax.vf          | r | vm vs2 rs1(fp) vd     | 000110...........101.....1010111
+vfsgnj.vf         | r | vm vs2 rs1(fp) vd     | 001000...........101.....1010111
+vfsgnjn.vf        | r | vm vs2 rs1(fp) vd     | 001001...........101.....1010111
+vfsgnjx.vf        | r | vm vs2 rs1(fp) vd     | 001010...........101.....1010111
+vfslide1up.vf     | r | vm vs2 rs1(fp) vd     | 001110...........101.....1010111
+vfslide1down.vf   | r | vm vs2 rs1(fp) vd     | 001111...........101.....1010111
+vfmv.s.f          | r | rs1(fp) vd            | 010000100000.....101.....1010111
 
-vfmerge.vfm       | r | vs2 rs1 vd        | 0101110..........101.....1010111
-vfmv.v.f          | r | rs1 vd            | 010111100000.....101.....1010111
-vmfeq.vf          | r | vm vs2 rs1 vd     | 011000...........101.....1010111
-vmfle.vf          | r | vm vs2 rs1 vd     | 011001...........101.....1010111
-vmflt.vf          | r | vm vs2 rs1 vd     | 011011...........101.....1010111
-vmfne.vf          | r | vm vs2 rs1 vd     | 011100...........101.....1010111
-vmfgt.vf          | r | vm vs2 rs1 vd     | 011101...........101.....1010111
-vmfge.vf          | r | vm vs2 rs1 vd     | 011111...........101.....1010111
+vfmerge.vfm       | r | vs2 rs1(fp) vd        | 0101110..........101.....1010111
+vfmv.v.f          | r | rs1(fp) vd            | 010111100000.....101.....1010111
+vmfeq.vf          | r | vm vs2 rs1(fp) vd     | 011000...........101.....1010111
+vmfle.vf          | r | vm vs2 rs1(fp) vd     | 011001...........101.....1010111
+vmflt.vf          | r | vm vs2 rs1(fp) vd     | 011011...........101.....1010111
+vmfne.vf          | r | vm vs2 rs1(fp) vd     | 011100...........101.....1010111
+vmfgt.vf          | r | vm vs2 rs1(fp) vd     | 011101...........101.....1010111
+vmfge.vf          | r | vm vs2 rs1(fp) vd     | 011111...........101.....1010111
 
-vfdiv.vf          | r | vm vs2 rs1 vd     | 100000...........101.....1010111
-vfrdiv.vf         | r | vm vs2 rs1 vd     | 100001...........101.....1010111
-vfmul.vf          | r | vm vs2 rs1 vd     | 100100...........101.....1010111
-vfrsub.vf         | r | vm vs2 rs1 vd     | 100111...........101.....1010111
-vfmadd.vf         | r | vm vs2 rs1 vd     | 101000...........101.....1010111
-vfnmadd.vf        | r | vm vs2 rs1 vd     | 101001...........101.....1010111
-vfmsub.vf         | r | vm vs2 rs1 vd     | 101010...........101.....1010111
-vfnmsub.vf        | r | vm vs2 rs1 vd     | 101011...........101.....1010111
-vfmacc.vf         | r | vm vs2 rs1 vd     | 101100...........101.....1010111
-vfnmacc.vf        | r | vm vs2 rs1 vd     | 101101...........101.....1010111
-vfmsac.vf         | r | vm vs2 rs1 vd     | 101110...........101.....1010111
-vfnmsac.vf        | r | vm vs2 rs1 vd     | 101111...........101.....1010111
+vfdiv.vf          | r | vm vs2 rs1(fp) vd     | 100000...........101.....1010111
+vfrdiv.vf         | r | vm vs2 rs1(fp) vd     | 100001...........101.....1010111
+vfmul.vf          | r | vm vs2 rs1(fp) vd     | 100100...........101.....1010111
+vfrsub.vf         | r | vm vs2 rs1(fp) vd     | 100111...........101.....1010111
+vfmadd.vf         | r | vm vs2 rs1(fp) vd     | 101000...........101.....1010111
+vfnmadd.vf        | r | vm vs2 rs1(fp) vd     | 101001...........101.....1010111
+vfmsub.vf         | r | vm vs2 rs1(fp) vd     | 101010...........101.....1010111
+vfnmsub.vf        | r | vm vs2 rs1(fp) vd     | 101011...........101.....1010111
+vfmacc.vf         | r | vm vs2 rs1(fp) vd     | 101100...........101.....1010111
+vfnmacc.vf        | r | vm vs2 rs1(fp) vd     | 101101...........101.....1010111
+vfmsac.vf         | r | vm vs2 rs1(fp) vd     | 101110...........101.....1010111
+vfnmsac.vf        | r | vm vs2 rs1(fp) vd     | 101111...........101.....1010111
 
-vfwadd.vf         | r | vm vs2 rs1 vd     | 110000...........101.....1010111
-vfwsub.vf         | r | vm vs2 rs1 vd     | 110010...........101.....1010111
-vfwadd.wf         | r | vm vs2 rs1 vd     | 110100...........101.....1010111
-vfwsub.wf         | r | vm vs2 rs1 vd     | 110110...........101.....1010111
-vfwmul.vf         | r | vm vs2 rs1 vd     | 111000...........101.....1010111
-vfwmacc.vf        | r | vm vs2 rs1 vd     | 111100...........101.....1010111
-vfwnmacc.vf       | r | vm vs2 rs1 vd     | 111101...........101.....1010111
-vfwmsac.vf        | r | vm vs2 rs1 vd     | 111110...........101.....1010111
-vfwnmsac.vf       | r | vm vs2 rs1 vd     | 111111...........101.....1010111
+vfwadd.vf         | r | vm vs2 rs1(fp) vd     | 110000...........101.....1010111
+vfwsub.vf         | r | vm vs2 rs1(fp) vd     | 110010...........101.....1010111
+vfwadd.wf         | r | vm vs2 rs1(fp) vd     | 110100...........101.....1010111
+vfwsub.wf         | r | vm vs2 rs1(fp) vd     | 110110...........101.....1010111
+vfwmul.vf         | r | vm vs2 rs1(fp) vd     | 111000...........101.....1010111
+vfwmacc.vf        | r | vm vs2 rs1(fp) vd     | 111100...........101.....1010111
+vfwnmacc.vf       | r | vm vs2 rs1(fp) vd     | 111101...........101.....1010111
+vfwmsac.vf        | r | vm vs2 rs1(fp) vd     | 111110...........101.....1010111
+vfwnmsac.vf       | r | vm vs2 rs1(fp) vd     | 111111...........101.....1010111
 
 # OPFVV
 vfadd.vv          | r | vm vs2 vs1 vd     | 000000...........001.....1010111
