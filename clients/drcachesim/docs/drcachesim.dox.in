@@ -1223,6 +1223,7 @@ If you would like to cite this work, you can use the following BibTeX entry:
 \verbatim
 @misc{Google_Workload_Traces_Version_2,
   title = {Google Workload Traces Version 2},
+  year = {2025},
   howpublished = {\url{https://console.cloud.google.com/storage/browser/external-traces-v2}},
   note = {Accessed: yyyy-mm-dd}
 }
