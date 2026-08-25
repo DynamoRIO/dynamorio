@@ -62,7 +62,7 @@
 #ifdef DEBUG
 #    include "disassemble.h"
 #endif
-#include <limits.h> /* for UCHAR_MAX */
+#include "limits_wrapper.h" /* for UCHAR_MAX */
 #include "../perscache.h"
 
 #ifdef VMX86_SERVER
