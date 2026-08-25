@@ -5395,27 +5395,19 @@ initialize_known_SID(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority, ULONG SubAut
 size_t
 nt_get_context_size(DWORD flags)
 {
-    /* Moved out of nt_initialize_context():
-     *   8d450c          lea     eax,[ebp+0Ch]
-     *   50              push    eax
-     *   57              push    edi
-     *   ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
-     */
     int len;
-    int res;
-    if (ntdll_RtlGetExtendedContextLength == NULL) {
-        /* The extended-context pointers are only resolved when YMM_ENABLED()
-         * (see nt_get_context_extended_functions); on non-AVX CPUs they stay
-         * NULL and calling through them crashes (xref i#6763).  Fall back to
-         * the plain CONTEXT size for flags without an XSTATE layout.  Add 16
-         * so we can align it forward to 16.
+    if (TESTALL(CONTEXT_XSTATE, flags)) {
+        /* Moved out of nt_initialize_context():
+         *   8d450c          lea     eax,[ebp+0Ch]
+         *   50              push    eax
+         *   57              push    edi
+         *   ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
          */
-        ASSERT(!TESTALL(CONTEXT_XSTATE, flags));
-        return sizeof(CONTEXT) + 16;
+        int res = ntdll_RtlGetExtendedContextLength(flags, &len);
+        ASSERT(res >= 0);
+    } else {
+        len = sizeof(CONTEXT);
     }
-    res = ntdll_RtlGetExtendedContextLength(flags, &len);
-    ASSERT(res >= 0);
-    /* Add 16 so we can align it forward to 16. */
     return len + 16;
 }
 
