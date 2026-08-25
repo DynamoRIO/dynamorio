@@ -168,6 +168,9 @@ set(x86_asm_deps
   "${PROJECT_BINARY_DIR}/configure.h"
 )
 
+# Preprocess x86.asm into x86.S.
+# Note: This replicates the preprocessing logic from cpp2asm_support.cmake because
+# cpp2asm_support.cmake cannot be used directly with kbuild.
 add_custom_command(
   OUTPUT "${x86_gen_s}"
   DEPENDS ${x86_asm_deps}
