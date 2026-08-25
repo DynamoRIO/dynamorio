@@ -35,6 +35,9 @@
 #define _KERNEL_INTERFACE_H_
 
 int
+kernel_module_init(size_t dr_heap_size);
+
+int
 kernel_get_cpu_id(void);
 
 unsigned int

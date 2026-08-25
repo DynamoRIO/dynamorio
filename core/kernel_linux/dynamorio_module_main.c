@@ -31,12 +31,21 @@
  */
 
 #include <linux/module.h>
+#include "kernel_interface.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
+
+static ulong dr_heap_size = 257 * 1024 * 1024;
+module_param(dr_heap_size, ulong, 0444);
+MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
 static int __init
 dynamorio_module_init(void)
 {
+    int ret = kernel_module_init(dr_heap_size);
+    if (ret != 0) {
+        return ret;
+    }
     pr_info("DynamoRIO module started\n");
     return 0;
 }

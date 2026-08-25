@@ -33,9 +33,85 @@
 
 #include "kernel_interface.h"
 
+#include <linux/kallsyms.h>
+#include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/smp.h>
 #include <linux/string.h>
+
+static unsigned long (*kallsyms_lookup_name_ptr)(const char *name) = NULL;
+static void *(*module_alloc_ptr)(unsigned long) = NULL;
+
+typedef struct _kernel_symbol_t {
+    unsigned long address;
+    bool has_size;
+    size_t size;
+    const char *name;
+} kernel_symbol_t;
+
+static bool
+get_symbol_size(kernel_symbol_t *symbol)
+{
+    unsigned long size = 0;
+    unsigned long offset = 0;
+    if (kallsyms_lookup_size_offset(symbol->address, &size, &offset)) {
+        DR_ASSERT(offset == 0);
+        symbol->size = size;
+        symbol->has_size = true;
+    } else {
+        symbol->size = 0;
+        symbol->has_size = false;
+    }
+}
+
+static bool
+find_kernel_symbol(kernel_symbol_t *symbol)
+{
+    symbol->address = kallsyms_lookup_name_ptr(symbol->name);
+    if(symbol->address != 0) {
+        get_symbol_size(symbol);
+        return true;
+    }
+    pr_err("find_kernel_symbol failed for %s.\n", symbol->name);
+    return false;
+}
+
+int
+kernel_module_init(size_t dr_heap_size)
+{
+    /* kallsyms_lookup_name is unexported in newer kernels (5.7+), so we use
+     * this kprobe trick to resolve its address.
+     * NOTE: This requires the kernel to be configured with CONFIG_KPROBES=y.
+     * If this becomes an issue, an alternative is to parse the address from
+     * /proc/kallsyms in user space and pass it into the kernel module as a
+     * module parameter.
+     */
+    struct kprobe kp = {
+        .symbol_name = "kallsyms_lookup_name",
+    };
+
+    int ret = register_kprobe(&kp);
+    if (ret < 0) {
+        pr_err("Failed to register kprobe for kallsyms_lookup_name.\n");
+        return ret;
+    }
+
+    if (kp.addr == NULL) {
+        pr_err("kprobe registered for kallsyms_lookup_name but the address is NULL\n");
+        unregister_kprobe(&kp);
+        return -ENOENT;
+    }
+
+    kallsyms_lookup_name_ptr = kp.addr;
+    unregister_kprobe(&kp);
+
+    module_alloc_ptr = (void*)kallsyms_lookup_name_ptr("module_alloc");
+    if (module_alloc_ptr == NULL) {
+        pr_err("dynamorio: Failed to resolve module_alloc\n");
+    }
+
+    return 0;
+}
 
 int
 kernel_get_cpu_id(void)
