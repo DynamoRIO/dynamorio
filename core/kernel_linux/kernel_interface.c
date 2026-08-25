@@ -42,42 +42,38 @@
 static unsigned long (*kallsyms_lookup_name_ptr)(const char *name) = NULL;
 static void *(*module_alloc_ptr)(unsigned long) = NULL;
 
-typedef struct _kernel_symbol_t {
-    unsigned long address;
-    bool has_size;
-    size_t size;
-    const char *name;
-} kernel_symbol_t;
-
-static bool
-get_symbol_size(kernel_symbol_t *symbol)
+static size_t
+get_symbol_size(unsigned long address)
 {
-    unsigned long size = 0;
-    unsigned long offset = 0;
-    if (kallsyms_lookup_size_offset(symbol->address, &size, &offset)) {
-        DR_ASSERT(offset == 0);
-        symbol->size = size;
-        symbol->has_size = true;
-    } else {
-        symbol->size = 0;
-        symbol->has_size = false;
+    char buffer[KSYM_SYMBOL_LEN] = { 0 };
+    char *c;
+    unsigned long offset, size;
+
+    sprint_symbol(buffer, address);
+    c = strchr(buffer, '+');
+    if (c != NULL && sscanf(c, "+%lx/%lx", &offset, &size) == 2) {
+        return size;
     }
+    return 0;
 }
 
-static bool
-find_kernel_symbol(kernel_symbol_t *symbol)
+void *
+kernel_find_symbol(const char *name, size_t *size)
 {
-    symbol->address = kallsyms_lookup_name_ptr(symbol->name);
-    if (symbol->address != 0) {
-        get_symbol_size(symbol);
-        return true;
+    unsigned long addr = kallsyms_lookup_name_ptr(name);
+    if (addr == 0) {
+        pr_err("dynamorio: kernel_find_symbol failed for %s\n", name);
+        return NULL;
     }
-    pr_err("find_kernel_symbol failed for %s.\n", symbol->name);
-    return false;
+
+    if (size != NULL) {
+        *size = get_symbol_size(addr);
+    }
+    return (void *)addr;
 }
 
-int
-kernel_module_init(size_t dr_heap_size)
+static int
+resolve_kallsyms_lookup_name(void)
 {
     /* kallsyms_lookup_name is unexported in newer kernels (5.7+), so we use
      * this kprobe trick to resolve its address.
@@ -92,22 +88,43 @@ kernel_module_init(size_t dr_heap_size)
 
     int ret = register_kprobe(&kp);
     if (ret < 0) {
-        pr_err("Failed to register kprobe for kallsyms_lookup_name.\n");
+        pr_err("dynamorio: Failed to register kprobe for kallsyms_lookup_name\n");
         return ret;
     }
 
     if (kp.addr == NULL) {
-        pr_err("kprobe registered for kallsyms_lookup_name but the address is NULL\n");
+        pr_err("dynamorio: kprobe registered for kallsyms_lookup_name but the address is NULL\n");
         unregister_kprobe(&kp);
         return -ENOENT;
     }
 
-    kallsyms_lookup_name_ptr = kp.addr;
+    kallsyms_lookup_name_ptr = (void *)kp.addr;
     unregister_kprobe(&kp);
+    return 0;
+}
 
-    module_alloc_ptr = (void *)kallsyms_lookup_name_ptr("module_alloc");
+static int
+resolve_kernel_symbols(void)
+{
+    module_alloc_ptr = kernel_find_symbol("module_alloc", NULL);
     if (module_alloc_ptr == NULL) {
-        pr_err("dynamorio: Failed to resolve module_alloc\n");
+        return -ENOENT;
+    }
+
+    return 0;
+}
+
+int
+kernel_module_init(size_t dr_heap_size)
+{
+    int ret = resolve_kallsyms_lookup_name();
+    if (ret != 0) {
+        return ret;
+    }
+
+    ret = resolve_kernel_symbols();
+    if (ret != 0) {
+        return ret;
     }
 
     return 0;
