@@ -68,7 +68,7 @@ static bool
 find_kernel_symbol(kernel_symbol_t *symbol)
 {
     symbol->address = kallsyms_lookup_name_ptr(symbol->name);
-    if(symbol->address != 0) {
+    if (symbol->address != 0) {
         get_symbol_size(symbol);
         return true;
     }
@@ -105,7 +105,7 @@ kernel_module_init(size_t dr_heap_size)
     kallsyms_lookup_name_ptr = kp.addr;
     unregister_kprobe(&kp);
 
-    module_alloc_ptr = (void*)kallsyms_lookup_name_ptr("module_alloc");
+    module_alloc_ptr = (void *)kallsyms_lookup_name_ptr("module_alloc");
     if (module_alloc_ptr == NULL) {
         pr_err("dynamorio: Failed to resolve module_alloc\n");
     }
