@@ -33,11 +33,20 @@
 
 #include "kernel_interface.h"
 
+#include <linux/bug.h>
 #include <linux/kallsyms.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/smp.h>
 #include <linux/string.h>
+
+#include "configure.h"
+
+#ifdef DEBUG
+#    define ASSERT(x) BUG_ON(!(x))
+#else
+#    define ASSERT(x) ((void)0)
+#endif
 
 static unsigned long (*kallsyms_lookup_name_ptr)(const char *name) = NULL;
 static void *(*module_alloc_ptr)(unsigned long) = NULL;
@@ -60,6 +69,9 @@ get_symbol_size(unsigned long address)
 void *
 kernel_find_symbol(const char *name, size_t *size)
 {
+    ASSERT(kallsyms_lookup_name_ptr != NULL);
+    ASSERT(name != NULL);
+
     unsigned long addr = kallsyms_lookup_name_ptr(name);
     if (addr == 0) {
         pr_err("dynamorio: kernel_find_symbol failed for %s\n", name);
@@ -90,12 +102,6 @@ resolve_kallsyms_lookup_name(void)
     if (ret < 0) {
         pr_err("dynamorio: Failed to register kprobe for kallsyms_lookup_name\n");
         return ret;
-    }
-
-    if (kp.addr == NULL) {
-        pr_err("dynamorio: kprobe registered for kallsyms_lookup_name but the address is NULL\n");
-        unregister_kprobe(&kp);
-        return -ENOENT;
     }
 
     kallsyms_lookup_name_ptr = (void *)kp.addr;

@@ -34,6 +34,8 @@
 #ifndef _KERNEL_INTERFACE_H_
 #define _KERNEL_INTERFACE_H_
 
+#include <linux/types.h>
+
 int
 kernel_module_init(size_t dr_heap_size);
 
