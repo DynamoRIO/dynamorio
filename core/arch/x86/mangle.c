@@ -58,7 +58,7 @@
 #    include "../rct.h" /* rct_add_rip_rel_addr */
 #endif
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
 #    include <sys/syscall.h>
 #endif
 

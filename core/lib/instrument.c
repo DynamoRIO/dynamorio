@@ -54,13 +54,13 @@
 #include "../fcache.h"
 #include "../emit.h"
 #include "../link.h"
-#include "../monitor.h" /* for mark_trace_head */
-#include <stdarg.h>     /* for varargs */
-#include "../nudge.h"   /* for nudge_internal() */
+#include "../monitor.h"     /* for mark_trace_head */
+#include "stdarg_wrapper.h" /* for varargs */
+#include "../nudge.h"       /* for nudge_internal() */
 #include "../synch.h"
 #include "../annotations.h"
 #include "../translate.h"
-#ifdef UNIX
+#if defined(UNIX) && !defined(LINUX_KERNEL)
 #    include <sys/time.h>       /* ITIMER_* */
 #    include "../unix/module.h" /* redirect_* functions */
 #endif
@@ -1412,13 +1412,13 @@ dr_nudge_client_ex(process_id_t process_id, client_id_t client_id, uint64 argume
             if (client_libs[i].id == client_id) {
                 if (client_libs[i].nudge_callbacks.num == 0) {
                     CLIENT_ASSERT(false, "dr_nudge_client: no nudge handler registered");
-                    return false;
+                    return DR_FAILURE;
                 }
                 return nudge_internal(process_id, NUDGE_GENERIC(client), argument,
                                       client_id, timeout_ms);
             }
         }
-        return false;
+        return DR_ID_INVALID;
     } else {
         return nudge_internal(process_id, NUDGE_GENERIC(client), argument, client_id,
                               timeout_ms);
@@ -6677,9 +6677,11 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
         return true;
     }
 
+#ifndef LINUX_KERNEL
     if (!is_os_cxt_ptr_null(dcontext->client_data->os_cxt)) {
         return os_context_to_mcontext(dmc, mc, dcontext->client_data->os_cxt);
     }
+#endif
 
     if (dcontext->client_data->suspended) {
         /* A thread suspended by dr_suspend_all_other_threads() has its
@@ -6794,6 +6796,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
     if (dcontext->client_data->cur_mc != NULL) {
         return dr_mcontext_to_priv_mcontext(dcontext->client_data->cur_mc, context);
     }
+#ifndef LINUX_KERNEL
     if (!is_os_cxt_ptr_null(dcontext->client_data->os_cxt)) {
         /* It would be nice to fail for #DR_XFER_CALLBACK_RETURN but we'd need to
          * store yet more state to do so.  The pc will be ignored, and xsi
@@ -6801,6 +6804,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
          */
         return mcontext_to_os_context(dcontext->client_data->os_cxt, context, NULL);
     }
+#endif
 
     /* copy the machine context to the dstack area created with
      * dr_prepare_for_call().  note that xmm0-5 copied there
