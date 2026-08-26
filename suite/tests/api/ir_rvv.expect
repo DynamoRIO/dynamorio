@@ -61,44 +61,44 @@ vs2r.v v0 -> (a1)
 vs4r.v v0 -> (a1)
 vs8r.v v0 -> (a1)
 test_load_store complete
-vfadd.vf a1 v2 0x1 -> v0
-vfsub.vf a1 v2 0x1 -> v0
-vfmin.vf a1 v2 0x1 -> v0
-vfmax.vf a1 v2 0x1 -> v0
-vfsgnj.vf a1 v2 0x1 -> v0
-vfsgnjn.vf a1 v2 0x1 -> v0
-vfsgnjx.vf a1 v2 0x1 -> v0
-vfslide1up.vf a1 v2 0x1 -> v0
-vfslide1down.vf a1 v2 0x1 -> v0
-vfmv.s.f a1 -> v0
-vfmv.v.f a1 -> v0
-vfmerge.vfm a1 v2 -> v0
-vmfeq.vf a1 v2 0x1 -> v0
-vmfle.vf a1 v2 0x1 -> v0
-vmflt.vf a1 v2 0x1 -> v0
-vmfne.vf a1 v2 0x1 -> v0
-vmfgt.vf a1 v2 0x1 -> v0
-vmfge.vf a1 v2 0x1 -> v0
-vfrdiv.vf a1 v2 0x1 -> v0
-vfmul.vf a1 v2 0x1 -> v0
-vfrsub.vf a1 v2 0x1 -> v0
-vfmadd.vf a1 v2 0x1 -> v0
-vfnmadd.vf a1 v2 0x1 -> v0
-vfmsub.vf a1 v2 0x1 -> v0
-vfnmsub.vf a1 v2 0x1 -> v0
-vfmacc.vf a1 v2 0x1 -> v0
-vfnmacc.vf a1 v2 0x1 -> v0
-vfmsac.vf a1 v2 0x1 -> v0
-vfnmsac.vf a1 v2 0x1 -> v0
-vfwadd.vf a1 v2 0x1 -> v0
-vfwsub.vf a1 v2 0x1 -> v0
-vfwadd.wf a1 v2 0x1 -> v0
-vfwsub.wf a1 v2 0x1 -> v0
-vfwmul.vf a1 v2 0x1 -> v0
-vfwmacc.vf a1 v2 0x1 -> v0
-vfwnmacc.vf a1 v2 0x1 -> v0
-vfwmsac.vf a1 v2 0x1 -> v0
-vfwnmsac.vf a1 v2 0x1 -> v0
+vfadd.vf fa1 v2 0x1 -> v0
+vfsub.vf fa1 v2 0x1 -> v0
+vfmin.vf fa1 v2 0x1 -> v0
+vfmax.vf fa1 v2 0x1 -> v0
+vfsgnj.vf fa1 v2 0x1 -> v0
+vfsgnjn.vf fa1 v2 0x1 -> v0
+vfsgnjx.vf fa1 v2 0x1 -> v0
+vfslide1up.vf fa1 v2 0x1 -> v0
+vfslide1down.vf fa1 v2 0x1 -> v0
+vfmv.s.f fa1 -> v0
+vfmv.v.f fa1 -> v0
+vfmerge.vfm fa1 v2 -> v0
+vmfeq.vf fa1 v2 0x1 -> v0
+vmfle.vf fa1 v2 0x1 -> v0
+vmflt.vf fa1 v2 0x1 -> v0
+vmfne.vf fa1 v2 0x1 -> v0
+vmfgt.vf fa1 v2 0x1 -> v0
+vmfge.vf fa1 v2 0x1 -> v0
+vfrdiv.vf fa1 v2 0x1 -> v0
+vfmul.vf fa1 v2 0x1 -> v0
+vfrsub.vf fa1 v2 0x1 -> v0
+vfmadd.vf fa1 v2 0x1 -> v0
+vfnmadd.vf fa1 v2 0x1 -> v0
+vfmsub.vf fa1 v2 0x1 -> v0
+vfnmsub.vf fa1 v2 0x1 -> v0
+vfmacc.vf fa1 v2 0x1 -> v0
+vfnmacc.vf fa1 v2 0x1 -> v0
+vfmsac.vf fa1 v2 0x1 -> v0
+vfnmsac.vf fa1 v2 0x1 -> v0
+vfwadd.vf fa1 v2 0x1 -> v0
+vfwsub.vf fa1 v2 0x1 -> v0
+vfwadd.wf fa1 v2 0x1 -> v0
+vfwsub.wf fa1 v2 0x1 -> v0
+vfwmul.vf fa1 v2 0x1 -> v0
+vfwmacc.vf fa1 v2 0x1 -> v0
+vfwnmacc.vf fa1 v2 0x1 -> v0
+vfwmsac.vf fa1 v2 0x1 -> v0
+vfwnmsac.vf fa1 v2 0x1 -> v0
 test_FVF complete
 vfadd.vv v1 v2 0x1 -> v0
 vfredusum.vs v1 v2 0x1 -> v0
