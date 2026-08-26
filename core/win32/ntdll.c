@@ -5397,6 +5397,7 @@ nt_get_context_size(DWORD flags)
 {
     int len;
     if (TESTALL(CONTEXT_XSTATE, flags)) {
+        ASSERT(proc_avx_enabled());
         /* Moved out of nt_initialize_context():
          *   8d450c          lea     eax,[ebp+0Ch]
          *   50              push    eax
