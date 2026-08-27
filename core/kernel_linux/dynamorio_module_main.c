@@ -46,7 +46,7 @@ dynamorio_module_init(void)
     if (ret != 0) {
         return ret;
     }
-    pr_info("DynamoRIO module started\n");
+    pr_info("Module started\n");
     return 0;
 }
 
@@ -54,7 +54,7 @@ static void __exit
 dynamorio_module_exit(void)
 {
     kernel_module_exit();
-    pr_info("DynamoRIO module exited\n");
+    pr_info("Module exited\n");
 }
 
 module_init(dynamorio_module_init);

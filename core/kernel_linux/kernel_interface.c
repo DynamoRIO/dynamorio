@@ -78,7 +78,7 @@ kernel_find_symbol(const char *name, size_t *size)
 
     unsigned long addr = kallsyms_lookup_name_ptr(name);
     if (addr == 0) {
-        pr_err("dynamorio: kernel_find_symbol failed for %s\n", name);
+        pr_err("kernel_find_symbol failed for %s\n", name);
         return NULL;
     }
 
@@ -104,7 +104,7 @@ resolve_kallsyms_lookup_name(void)
 
     int ret = register_kprobe(&kp);
     if (ret < 0) {
-        pr_err("dynamorio: Failed to register kprobe for kallsyms_lookup_name\n");
+        pr_err("Failed to register kprobe for kallsyms_lookup_name\n");
         return ret;
     }
 
@@ -140,7 +140,7 @@ kernel_module_init(size_t dr_heap_size)
     heap_size = dr_heap_size;
     heap = module_alloc_ptr(heap_size);
     if (heap == NULL) {
-        pr_err("dynamorio: Failed to allocate %zu bytes with module_alloc\n", heap_size);
+        pr_err("Failed to allocate %zu bytes with module_alloc\n", heap_size);
         return -ENOMEM;
     }
 

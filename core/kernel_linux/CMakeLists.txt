@@ -198,7 +198,8 @@ foreach (flag ${dynamorio_module_common_flags})
   string(APPEND dynamorio_module_kbuild_asflags "\n  ${flag} \\")
 endforeach ()
 
-string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
+string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096 \\")
+string(APPEND dynamorio_module_kbuild_ccflags "\n  -D'pr_fmt(fmt)=KBUILD_MODNAME \": \" fmt'")
 
 string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mmnemonic=intel \\")
 string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -msyntax=intel \\")
