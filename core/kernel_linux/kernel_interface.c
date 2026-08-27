@@ -31,6 +31,8 @@
  * DAMAGE.
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include "kernel_interface.h"
 
 #include <linux/bug.h>
