@@ -39,6 +39,9 @@
 int
 kernel_module_init(size_t dr_heap_size);
 
+void
+kernel_module_exit(void);
+
 void *
 kernel_find_symbol(const char *name, size_t *size);
 

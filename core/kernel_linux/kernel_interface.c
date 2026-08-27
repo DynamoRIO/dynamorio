@@ -39,6 +39,7 @@
 #include <linux/ktime.h>
 #include <linux/smp.h>
 #include <linux/string.h>
+#include <linux/vmalloc.h>
 
 #include "configure.h"
 
@@ -47,6 +48,9 @@
 #else
 #    define ASSERT(x) ((void)0)
 #endif
+
+static void *heap = NULL;
+static size_t heap_size;
 
 static unsigned long (*kallsyms_lookup_name_ptr)(const char *name) = NULL;
 static void *(*module_alloc_ptr)(unsigned long) = NULL;
@@ -133,7 +137,23 @@ kernel_module_init(size_t dr_heap_size)
         return ret;
     }
 
+    heap_size = dr_heap_size;
+    heap = module_alloc_ptr(heap_size);
+    if (heap == NULL) {
+        pr_err("dynamorio: Failed to allocate %zu bytes with module_alloc\n", heap_size);
+        return -ENOMEM;
+    }
+
     return 0;
+}
+
+void
+kernel_module_exit(void)
+{
+    if (heap != NULL) {
+        vfree(heap);
+        heap = NULL;
+    }
 }
 
 int
