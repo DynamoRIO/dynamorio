@@ -4500,7 +4500,7 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(raw-lz4 ${ci_shared_app} "-raw_compress lz4" "" "")
       set(tool.drcacheoff.raw-lz4_expectbase "offline-simple")
       torunonly_drcacheoff(raw-lz4-level-neg ${ci_shared_app}
-        "-raw_compress lz4 -raw_compress_level -1" "" "")
+        "-raw_compress lz4 -raw_compress_level -1024" "" "")
       set(tool.drcacheoff.raw-lz4-level-neg_expectbase "offline-simple")
       torunonly_drcacheoff(raw-lz4-level-pos ${ci_shared_app}
         "-raw_compress lz4 -raw_compress_level 3" "" "")
