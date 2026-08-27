@@ -4518,6 +4518,29 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.check-malloc-lz4_expectbase "offline-simple")
     endif ()
 
+    # Test /dev/null and none outdir destination modes.
+    if (UNIX)
+      set(tool.drcacheoff.devnull_nopost ON)
+      torunonly_drcacheoff(devnull ${ci_shared_app} "-outdir /dev/null" "" "")
+      set(tool.drcacheoff.devnull_expectbase "simple_app")
+      set(tool.drcacheoff.devnull_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+
+      set(tool.drcacheoff.devnull-name_nopost ON)
+      torunonly_drcacheoff(devnull-name ${ci_shared_app} "-outdir devnull" "" "")
+      set(tool.drcacheoff.devnull-name_expectbase "simple_app")
+      set(tool.drcacheoff.devnull-name_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+
+      set(tool.drcacheoff.none_nopost ON)
+      torunonly_drcacheoff(none ${ci_shared_app} "-outdir none" "" "")
+      set(tool.drcacheoff.none_expectbase "simple_app")
+      set(tool.drcacheoff.none_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+
+      set(tool.drcacheoff.none-compress_nopost ON)
+      torunonly_drcacheoff(none-compress ${ci_shared_app} "-outdir none -raw_compress gzip -max_trace_size 10M" "" "")
+      set(tool.drcacheoff.none-compress_expectbase "simple_app")
+      set(tool.drcacheoff.none-compress_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+    endif ()
+
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
       # with a parallel tool (basic_counts)

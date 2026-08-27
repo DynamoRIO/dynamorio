@@ -428,12 +428,23 @@ append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t wi
     return size_added;
 }
 
+// Sentinel handle for "none" mode.
+#ifdef WINDOWS
+#    define MEMTRACE_NONE_FILE_HANDLE (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
+#else
+#    define MEMTRACE_NONE_FILE_HANDLE (static_cast<file_t>(-2))
+#endif
+
 void
 open_new_window_dir(ptr_int_t window_num)
 {
     if (!op_split_windows.get_value())
         return;
     DR_ASSERT(op_offline.get_value());
+    const std::string &outdir = op_outdir.get_value();
+    if (outdir_is_none(outdir) || outdir_is_devnull(outdir))
+        return;
+
     char windir[MAXIMUM_PATH];
     dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir), "%s%s" WINDOW_SUBDIR_FORMAT,
                 logsubdir, DIRSEP, window_num);
@@ -447,6 +458,12 @@ static void
 close_thread_file(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (data->file == INVALID_FILE)
+        return;
+    if (data->file == MEMTRACE_NONE_FILE_HANDLE) {
+        data->file = INVALID_FILE;
+        return;
+    }
 
 #ifdef HAS_SNAPPY
     if (op_offline.get_value() && snappy_enabled()) {
@@ -497,6 +514,90 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     bool opened_new_file = false;
     DR_ASSERT(op_offline.get_value());
+    const std::string &outdir = op_outdir.get_value();
+
+    if (has_tracing_windows()) {
+        if (!op_split_windows.get_value() && data->file != INVALID_FILE)
+            return false;
+    }
+
+    // 1. "none" mode: Assign sentinel file handle, no open syscall.
+    if (outdir_is_none(outdir)) {
+        data->file = MEMTRACE_NONE_FILE_HANDLE;
+        return true;
+    }
+
+    // 2. "/dev/null" mode: Open /dev/null directly without REQUIRE_NEW.
+    if (outdir_is_devnull(outdir)) {
+        uint flags =
+            IF_UNIX(DR_FILE_CLOSE_ON_FORK |) DR_FILE_ALLOW_LARGE | DR_FILE_WRITE_ONLY;
+        file_t new_file = file_ops_func.call_open_file(
+            "/dev/null", flags, dr_get_thread_id(drcontext), window_num);
+        if (new_file == INVALID_FILE)
+            return false;
+        if (data->file != INVALID_FILE && data->file != MEMTRACE_NONE_FILE_HANDLE)
+            close_thread_file(drcontext);
+        data->file = new_file;
+#ifdef HAS_SNAPPY
+        if (snappy_enabled()) {
+            // We use placement new for better isolation.
+            void *placement = dr_custom_alloc(
+                nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
+                DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
+            data->snappy_writer = new (placement)
+                snappy_file_writer_t(data->file, file_ops_func.write_file,
+                                     op_raw_compress.get_value() != "snappy_nocrc");
+            data->snappy_writer->write_file_header();
+        }
+#endif
+#ifdef HAS_ZLIB
+        if (op_offline.get_value() && op_raw_compress.get_value() == "zlib") {
+            memset(&data->zstream, 0, sizeof(data->zstream));
+            data->zstream.zalloc = zlib_redirect_malloc;
+            data->zstream.zfree = zlib_redirect_free;
+            data->zstream.opaque = drcontext;
+            int res = deflateInit(&data->zstream, Z_BEST_SPEED);
+            DR_ASSERT(res == Z_OK);
+        } else if (op_offline.get_value() && op_raw_compress.get_value() == "gzip") {
+            memset(&data->zstream, 0, sizeof(data->zstream));
+            data->zstream.zalloc = zlib_redirect_malloc;
+            data->zstream.zfree = zlib_redirect_free;
+            data->zstream.opaque = drcontext;
+            const int ZLIB_WINDOW_SIZE = 15;
+            const int ZLIB_REQUEST_GZIP = 16; /* Added to size to trigger gz headers. */
+            const int ZLIB_MAX_MEM = 9;       /* For optimal speed. */
+            int res = deflateInit2(&data->zstream, Z_BEST_SPEED, Z_DEFLATED,
+                                   ZLIB_WINDOW_SIZE + ZLIB_REQUEST_GZIP, ZLIB_MAX_MEM,
+                                   Z_DEFAULT_STRATEGY);
+            DR_ASSERT(res == Z_OK);
+            /* We use the default gzip header and don't call deflateSetHeader. */
+        }
+#endif
+#ifdef HAS_LZ4
+        if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
+#    ifdef HAS_LZ4_CUSTOM_MEM
+            /* Unlike the legacy entry point, this returns the context itself
+             * (NULL on failure) rather than an error code.
+             */
+            data->lzcxt =
+                LZ4F_createCompressionContext_advanced(lz4_custom_mem, LZ4F_VERSION);
+            DR_ASSERT(data->lzcxt != nullptr);
+            size_t res;
+#    else
+            size_t res = LZ4F_createCompressionContext(&data->lzcxt, LZ4F_VERSION);
+            DR_ASSERT(!LZ4F_isError(res));
+#    endif
+            // Write out the header.
+            res = LZ4F_compressBegin(data->lzcxt, data->buf_lz4, data->buf_lz4_size,
+                                     &lz4_ops);
+            DR_ASSERT(!LZ4F_isError(res));
+            ssize_t wrote = file_ops_func.write_file(data->file, data->buf_lz4, res);
+            DR_ASSERT(static_cast<size_t>(wrote) == res);
+        }
+#endif
+        return true;
+    }
+
     const char *dir = logsubdir;
     char windir[MAXIMUM_PATH];
     if (has_tracing_windows()) {
@@ -505,8 +606,7 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
                         logsubdir, DIRSEP, window_num);
             NULL_TERMINATE_BUFFER(windir);
             dir = windir;
-        } else if (data->file != INVALID_FILE)
-            return false;
+        }
     }
     /* We do not need to call drx_init before using drx_open_unique_appid_file.
      * Since we're now in a subdir we could make the name simpler but this
@@ -661,6 +761,13 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
         per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
         DR_ASSERT(data->file != INVALID_FILE);
+
+        const std::string &outdir = op_outdir.get_value();
+        if (outdir_is_none(outdir)) {
+            // No-op in-memory discard: skip compression and disk writes entirely.
+            return towrite_start;
+        }
+
         if (file_ops_func.handoff_buf != NULL) {
             if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
                                            max_buf_size)) {
@@ -1501,15 +1608,27 @@ init_thread_io(void *drcontext)
     }
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
-        char filename[MAXIMUM_PATH];
-        dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
-                    "%s%ssyscall_record_file." PIDFMT "." TIDFMT, logsubdir, DIRSEP,
-                    dr_get_process_id(), dr_get_thread_id(drcontext));
-        NULL_TERMINATE_BUFFER(filename);
-        data->syscall_record_file =
-            file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
-        if (data->syscall_record_file == INVALID_FILE) {
-            FATAL("Failed to open syscall record file %s\n", data->syscall_record_file);
+        const std::string &outdir = op_outdir.get_value();
+        if (outdir_is_none(outdir)) {
+            data->syscall_record_file = MEMTRACE_NONE_FILE_HANDLE;
+        } else if (outdir_is_devnull(outdir)) {
+            uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |) DR_FILE_ALLOW_LARGE |
+                DR_FILE_WRITE_ONLY;
+            data->syscall_record_file = file_ops_func.open_file("/dev/null", flags);
+            if (data->syscall_record_file == INVALID_FILE) {
+                FATAL("Failed to open syscall record file /dev/null\n");
+            }
+        } else {
+            char filename[MAXIMUM_PATH];
+            dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
+                        "%s%ssyscall_record_file." PIDFMT "." TIDFMT, logsubdir, DIRSEP,
+                        dr_get_process_id(), dr_get_thread_id(drcontext));
+            NULL_TERMINATE_BUFFER(filename);
+            data->syscall_record_file =
+                file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
+            if (data->syscall_record_file == INVALID_FILE) {
+                FATAL("Failed to open syscall record file %s\n", filename);
+            }
         }
     }
 #endif
@@ -1594,7 +1713,8 @@ exit_thread_io(void *drcontext)
 
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
-        if (data->syscall_record_file != INVALID_FILE) {
+        if (data->syscall_record_file != INVALID_FILE &&
+            data->syscall_record_file != MEMTRACE_NONE_FILE_HANDLE) {
             if (data->syscall_record_buffer_offset > 0) {
                 const ssize_t wrote = file_ops_func.write_file(
                     data->syscall_record_file, data->syscall_record_buffer,
@@ -1687,6 +1807,9 @@ size_t
 write_syscall_record(void *drcontext, char *buf, size_t size)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (data->syscall_record_file == MEMTRACE_NONE_FILE_HANDLE) {
+        return size;
+    }
     if (size + data->syscall_record_buffer_offset >= SYSCALL_RECORD_BUFFER_SIZE) {
         ssize_t bytes_written = 0;
         if (data->syscall_record_buffer_offset > 0) {
