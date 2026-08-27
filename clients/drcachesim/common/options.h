@@ -145,6 +145,7 @@ extern dynamorio::droption::droption_t<bool> op_split_windows;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
     op_exit_after_tracing;
 extern dynamorio::droption::droption_t<std::string> op_raw_compress;
+extern dynamorio::droption::droption_t<int> op_raw_compress_level;
 extern dynamorio::droption::droption_t<std::string> op_trace_compress;
 extern dynamorio::droption::droption_t<bool> op_online_instr_types;
 extern dynamorio::droption::droption_t<std::string> op_replace_policy;
