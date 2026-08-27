@@ -1200,26 +1200,12 @@ nt_get_context64_size(void)
         ASSERT(ntdll64 != 0);
         ntdll64_RtlGetExtendedContextLength =
             get_proc_address_64(ntdll64, "RtlGetExtendedContextLength");
-        bool extended = false;
-        if (ntdll64_RtlGetExtendedContextLength != 0) {
-            invoke_func64_t args = { ntdll64_RtlGetExtendedContextLength, CONTEXT_XSTATE,
-                                     len_param };
-            extended = NT_SUCCESS(switch_modes_and_call(&args));
-        }
-        if (extended && len > 0) {
-            /* Add 16 so we can align it forward to 16. */
-            context64_size = len + 16;
-        } else {
-            /* RtlGetExtendedContextLength fails when XSTATE is not supported
-             * (e.g. non-AVX CPUs).  The old code asserted NT_SUCCESS and in
-             * release builds fell through with len == 0, leaving the size at
-             * just 16 bytes: thread_get_context_64() then writes a whole
-             * CONTEXT_64 past the end of the undersized buffer and corrupts
-             * the heap.  Fall back to the plain CONTEXT_64 size, plus 16 so
-             * we can align it forward to 16.
-             */
-            context64_size = sizeof(CONTEXT_64) + 16;
-        }
+        invoke_func64_t args = { ntdll64_RtlGetExtendedContextLength, CONTEXT_XSTATE,
+                                 len_param };
+        NTSTATUS res = switch_modes_and_call(&args);
+        ASSERT(NT_SUCCESS(res));
+        /* Add 16 so we can align it forward to 16. */
+        context64_size = len + 16;
     }
     return context64_size;
 }
