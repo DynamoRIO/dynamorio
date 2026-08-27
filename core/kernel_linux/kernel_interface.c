@@ -159,7 +159,8 @@ kernel_module_exit(void)
 }
 
 void *
-kernel_allocate_heap(size_t size) {
+kernel_allocate_heap(size_t size)
+{
     if (heap != NULL && heap_size >= size) {
         return heap;
     }
