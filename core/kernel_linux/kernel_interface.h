@@ -43,6 +43,9 @@ void
 kernel_module_exit(void);
 
 void *
+kernel_allocate_heap(size_t size);
+
+void *
 kernel_find_symbol(const char *name, size_t *size);
 
 int
