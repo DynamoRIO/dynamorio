@@ -5395,16 +5395,20 @@ initialize_known_SID(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority, ULONG SubAut
 size_t
 nt_get_context_size(DWORD flags)
 {
-    /* Moved out of nt_initialize_context():
-     *   8d450c          lea     eax,[ebp+0Ch]
-     *   50              push    eax
-     *   57              push    edi
-     *   ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
-     */
     int len;
-    int res = ntdll_RtlGetExtendedContextLength(flags, &len);
-    ASSERT(res >= 0);
-    /* Add 16 so we can align it forward to 16. */
+    if (TESTALL(CONTEXT_XSTATE, flags)) {
+        ASSERT(proc_avx_enabled());
+        /* Moved out of nt_initialize_context():
+         *   8d450c          lea     eax,[ebp+0Ch]
+         *   50              push    eax
+         *   57              push    edi
+         *   ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
+         */
+        int res = ntdll_RtlGetExtendedContextLength(flags, &len);
+        ASSERT(res >= 0);
+    } else {
+        len = sizeof(CONTEXT);
+    }
     return len + 16;
 }
 
