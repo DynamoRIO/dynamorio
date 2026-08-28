@@ -695,7 +695,7 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
 
         const std::string &outdir = op_outdir.get_value();
         if (outdir_is_none(outdir)) {
-            // No-op in-memory discard: skip compression and disk writes entirely.
+            // Skip compression and disk writes entirely.
             return towrite_start;
         }
 
