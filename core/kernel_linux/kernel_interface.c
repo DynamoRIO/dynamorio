@@ -46,6 +46,9 @@
 #include "configure.h"
 
 #ifdef DEBUG
+/* BUG_ON() expands to BUG(), which triggers a kernel oops report containing the file and
+ * line number (with CONFIG_DEBUG_BUGVERBOSE, enabled by default).
+ */
 #    define ASSERT(x) BUG_ON(!(x))
 #else
 #    define ASSERT(x) ((void)0)
