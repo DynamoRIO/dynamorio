@@ -482,7 +482,8 @@ offline_instru_t::flush_instr_encodings()
         return;
     if (encoding_file_ != INVALID_FILE) {
         ssize_t written = write_file_func_(encoding_file_, encoding_buf_start_, size);
-        log_(2, "%s: Wrote %zu/%zu bytes to encoding file\n", __FUNCTION__, written, size);
+        log_(2, "%s: Wrote %zu/%zu bytes to encoding file\n", __FUNCTION__, written,
+             size);
         DR_ASSERT(written == static_cast<ssize_t>(size));
         encoding_bytes_written_ += written;
     }

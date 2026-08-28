@@ -428,13 +428,8 @@ append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t wi
     return size_added;
 }
 
-// Sentinel handle for "none" mode.
-#ifdef WINDOWS
-#    define MEMTRACE_NONE_FILE_HANDLE \
-        (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
-#else
-#    define MEMTRACE_NONE_FILE_HANDLE (static_cast<file_t>(-2))
-#endif
+// Sentinel handle for "-outdir none" mode.
+#define MEMTRACE_NONE_FILE_HANDLE -2
 
 void
 open_new_window_dir(ptr_int_t window_num)
@@ -524,7 +519,7 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
             return false;
     }
 
-    // "none" mode: Assign sentinel file handle, no open syscall.
+    // "-outdir none" mode.
     if (outdir_is_none(outdir)) {
         data->file = MEMTRACE_NONE_FILE_HANDLE;
         return true;
