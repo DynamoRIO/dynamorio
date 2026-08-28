@@ -205,8 +205,7 @@ post_process(const std::string &out_subdir)
 static std::string
 gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 {
-    std::string dr_ops(
-        "-disable_rseq -stderr_mask 0xc -client_lib ';;-offline " + tracer_ops + "'");
+    std::string dr_ops("-stderr_mask 0xc -client_lib ';;-offline " + tracer_ops + "'");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup();
@@ -225,12 +224,10 @@ test_dest_modes()
 {
     const std::vector<std::string> modes = {
         "-outdir none",
-        "-outdir \"\"",
         "-outdir none -raw_compress gzip -max_trace_size 10M",
     };
     for (const auto &mode : modes) {
-        std::string dr_ops(
-            "-disable_rseq -stderr_mask 0xc -client_lib ';;-offline " + mode + "'");
+        std::string dr_ops("-stderr_mask 0xc -client_lib ';;-offline " + mode + "'");
         if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
             std::cerr << "failed to set env var!\n";
         dr_app_setup();

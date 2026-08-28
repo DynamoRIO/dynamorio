@@ -263,7 +263,7 @@ extern dynamorio::droption::droption_t<double> op_max_load_imbalance;
 inline bool
 outdir_is_none(const std::string &outdir)
 {
-    return outdir == "none" || outdir.empty();
+    return outdir == "none";
 }
 
 } // namespace drmemtrace
