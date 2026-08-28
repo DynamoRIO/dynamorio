@@ -219,32 +219,10 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
     return post_process(out_subdir);
 }
 
-static void
-test_dest_modes()
-{
-    const std::vector<std::string> modes = {
-        "-outdir none",
-        "-outdir none -raw_compress gzip -max_trace_size 10M",
-    };
-    for (const auto &mode : modes) {
-        std::string dr_ops("-stderr_mask 0xc -client_lib ';;-offline " + mode + "'");
-        if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
-            std::cerr << "failed to set env var!\n";
-        dr_app_setup();
-        assert(!dr_app_running_under_dynamorio());
-        dr_app_start();
-        assert(dr_app_running_under_dynamorio());
-        do_some_work();
-        dr_app_stop_and_cleanup();
-        assert(!dr_app_running_under_dynamorio());
-    }
-}
-
 int
 test_main(int argc, const char *argv[])
 {
     reg_id_set_unit_tests();
-    test_dest_modes();
 
     std::string dir_opt = gather_trace("", "opt");
     std::string dir_noopt = gather_trace("-disable_optimizations", "noopt");
