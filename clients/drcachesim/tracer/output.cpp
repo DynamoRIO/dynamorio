@@ -430,7 +430,8 @@ append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t wi
 
 // Sentinel handle for "none" mode.
 #ifdef WINDOWS
-#    define MEMTRACE_NONE_FILE_HANDLE (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
+#    define MEMTRACE_NONE_FILE_HANDLE \
+        (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
 #else
 #    define MEMTRACE_NONE_FILE_HANDLE (static_cast<file_t>(-2))
 #endif
@@ -517,6 +518,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
     const std::string &outdir = op_outdir.get_value();
 
     if (has_tracing_windows()) {
+        // The first window sets data->file = MEMTRACE_NONE_FILE_HANDLE, and subsequent
+        // window return false (meaning "no new file needed").
         if (!op_split_windows.get_value() && data->file != INVALID_FILE)
             return false;
     }
