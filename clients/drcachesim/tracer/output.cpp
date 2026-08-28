@@ -429,7 +429,11 @@ append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t wi
 }
 
 // Sentinel handle for "-outdir none" mode.
-#define MEMTRACE_NONE_FILE_HANDLE -2
+#ifdef WINDOWS
+#    define MEMTRACE_NONE_FILE_HANDLE static_cast<filet_t>(2)
+#else
+#    define MEMTRACE_NONE_FILE_HANDLE -2
+#endif
 
 void
 open_new_window_dir(ptr_int_t window_num)
