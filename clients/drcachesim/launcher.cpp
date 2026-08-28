@@ -326,7 +326,7 @@ _tmain(int argc, const TCHAR *targv[])
 
     if (op_offline.get_value() && !have_trace_file) {
         const std::string &outdir = op_outdir.get_value();
-        if (!outdir_is_devnull(outdir) && !outdir_is_none(outdir)) {
+        if (!outdir_is_none(outdir)) {
             // Initial sanity check: may still be unwritable by this user, but this
             // serves as at least an existence check.
             if (!file_is_writable(outdir.c_str())) {

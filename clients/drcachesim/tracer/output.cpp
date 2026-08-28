@@ -442,7 +442,7 @@ open_new_window_dir(ptr_int_t window_num)
         return;
     DR_ASSERT(op_offline.get_value());
     const std::string &outdir = op_outdir.get_value();
-    if (outdir_is_none(outdir) || outdir_is_devnull(outdir))
+    if (outdir_is_none(outdir))
         return;
 
     char windir[MAXIMUM_PATH];
@@ -521,80 +521,9 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
             return false;
     }
 
-    // 1. "none" mode: Assign sentinel file handle, no open syscall.
+    // "none" mode: Assign sentinel file handle, no open syscall.
     if (outdir_is_none(outdir)) {
         data->file = MEMTRACE_NONE_FILE_HANDLE;
-        return true;
-    }
-
-    // 2. "/dev/null" mode: Open /dev/null directly without REQUIRE_NEW.
-    if (outdir_is_devnull(outdir)) {
-        uint flags =
-            IF_UNIX(DR_FILE_CLOSE_ON_FORK |) DR_FILE_ALLOW_LARGE | DR_FILE_WRITE_ONLY;
-        file_t new_file = file_ops_func.call_open_file(
-            "/dev/null", flags, dr_get_thread_id(drcontext), window_num);
-        if (new_file == INVALID_FILE)
-            return false;
-        if (data->file != INVALID_FILE && data->file != MEMTRACE_NONE_FILE_HANDLE)
-            close_thread_file(drcontext);
-        data->file = new_file;
-#ifdef HAS_SNAPPY
-        if (snappy_enabled()) {
-            // We use placement new for better isolation.
-            void *placement = dr_custom_alloc(
-                nullptr, static_cast<dr_alloc_flags_t>(0), sizeof(*data->snappy_writer),
-                DR_MEMPROT_READ | DR_MEMPROT_WRITE, nullptr);
-            data->snappy_writer = new (placement)
-                snappy_file_writer_t(data->file, file_ops_func.write_file,
-                                     op_raw_compress.get_value() != "snappy_nocrc");
-            data->snappy_writer->write_file_header();
-        }
-#endif
-#ifdef HAS_ZLIB
-        if (op_offline.get_value() && op_raw_compress.get_value() == "zlib") {
-            memset(&data->zstream, 0, sizeof(data->zstream));
-            data->zstream.zalloc = zlib_redirect_malloc;
-            data->zstream.zfree = zlib_redirect_free;
-            data->zstream.opaque = drcontext;
-            int res = deflateInit(&data->zstream, Z_BEST_SPEED);
-            DR_ASSERT(res == Z_OK);
-        } else if (op_offline.get_value() && op_raw_compress.get_value() == "gzip") {
-            memset(&data->zstream, 0, sizeof(data->zstream));
-            data->zstream.zalloc = zlib_redirect_malloc;
-            data->zstream.zfree = zlib_redirect_free;
-            data->zstream.opaque = drcontext;
-            const int ZLIB_WINDOW_SIZE = 15;
-            const int ZLIB_REQUEST_GZIP = 16; /* Added to size to trigger gz headers. */
-            const int ZLIB_MAX_MEM = 9;       /* For optimal speed. */
-            int res = deflateInit2(&data->zstream, Z_BEST_SPEED, Z_DEFLATED,
-                                   ZLIB_WINDOW_SIZE + ZLIB_REQUEST_GZIP, ZLIB_MAX_MEM,
-                                   Z_DEFAULT_STRATEGY);
-            DR_ASSERT(res == Z_OK);
-            /* We use the default gzip header and don't call deflateSetHeader. */
-        }
-#endif
-#ifdef HAS_LZ4
-        if (op_offline.get_value() && op_raw_compress.get_value() == "lz4") {
-#    ifdef HAS_LZ4_CUSTOM_MEM
-            /* Unlike the legacy entry point, this returns the context itself
-             * (NULL on failure) rather than an error code.
-             */
-            data->lzcxt =
-                LZ4F_createCompressionContext_advanced(lz4_custom_mem, LZ4F_VERSION);
-            DR_ASSERT(data->lzcxt != nullptr);
-            size_t res;
-#    else
-            size_t res = LZ4F_createCompressionContext(&data->lzcxt, LZ4F_VERSION);
-            DR_ASSERT(!LZ4F_isError(res));
-#    endif
-            // Write out the header.
-            res = LZ4F_compressBegin(data->lzcxt, data->buf_lz4, data->buf_lz4_size,
-                                     &lz4_ops);
-            DR_ASSERT(!LZ4F_isError(res));
-            ssize_t wrote = file_ops_func.write_file(data->file, data->buf_lz4, res);
-            DR_ASSERT(static_cast<size_t>(wrote) == res);
-        }
-#endif
         return true;
     }
 
@@ -1611,13 +1540,6 @@ init_thread_io(void *drcontext)
         const std::string &outdir = op_outdir.get_value();
         if (outdir_is_none(outdir)) {
             data->syscall_record_file = MEMTRACE_NONE_FILE_HANDLE;
-        } else if (outdir_is_devnull(outdir)) {
-            uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |) DR_FILE_ALLOW_LARGE |
-                DR_FILE_WRITE_ONLY;
-            data->syscall_record_file = file_ops_func.open_file("/dev/null", flags);
-            if (data->syscall_record_file == INVALID_FILE) {
-                FATAL("Failed to open syscall record file /dev/null\n");
-            }
         } else {
             char filename[MAXIMUM_PATH];
             dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),

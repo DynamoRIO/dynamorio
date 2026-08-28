@@ -2168,7 +2168,7 @@ init_offline_dir(void)
 {
     const std::string &outdir = op_outdir.get_value();
 
-    // 1. "none" mode: No directories, no files, no I/O.
+    // "none" mode: No directories, no files, no I/O.
     if (outdir_is_none(outdir)) {
         logsubdir[0] = '\0';
         modlist_path[0] = '\0';
@@ -2183,40 +2183,6 @@ init_offline_dir(void)
         funclist_file = INVALID_FILE;
         encoding_file = INVALID_FILE;
         return true;
-    }
-
-    // 2. "/dev/null" mode: Set file paths to /dev/null and open without REQUIRE_NEW.
-    if (outdir_is_devnull(outdir)) {
-        dr_snprintf(logsubdir, BUFFER_SIZE_ELEMENTS(logsubdir), "/dev/null");
-        NULL_TERMINATE_BUFFER(logsubdir);
-
-#ifdef BUILD_PT_TRACER
-        dr_snprintf(kernel_trace_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_trace_logsubdir),
-                    "/dev/null");
-        NULL_TERMINATE_BUFFER(kernel_trace_logsubdir);
-        dr_snprintf(kcore_path, BUFFER_SIZE_ELEMENTS(kcore_path), "/dev/null");
-        NULL_TERMINATE_BUFFER(kcore_path);
-        dr_snprintf(kallsyms_path, BUFFER_SIZE_ELEMENTS(kallsyms_path), "/dev/null");
-        NULL_TERMINATE_BUFFER(kallsyms_path);
-#endif
-        dr_snprintf(modlist_path, BUFFER_SIZE_ELEMENTS(modlist_path), "/dev/null");
-        NULL_TERMINATE_BUFFER(modlist_path);
-
-        dr_snprintf(funclist_path, BUFFER_SIZE_ELEMENTS(funclist_path), "/dev/null");
-        NULL_TERMINATE_BUFFER(funclist_path);
-
-        dr_snprintf(encoding_path, BUFFER_SIZE_ELEMENTS(encoding_path), "/dev/null");
-        NULL_TERMINATE_BUFFER(encoding_path);
-
-        // Note: DR_FILE_WRITE_REQUIRE_NEW uses O_EXCL|O_CREAT which fails on /dev/null.
-        // We use DR_FILE_WRITE_ONLY instead.
-        uint flags = DR_FILE_WRITE_ONLY IF_UNIX(| DR_FILE_CLOSE_ON_FORK);
-        module_file = file_ops_func.open_process_file(modlist_path, flags);
-        funclist_file = file_ops_func.open_process_file(funclist_path, flags);
-        encoding_file = file_ops_func.open_process_file(encoding_path, flags);
-
-        return (module_file != INVALID_FILE && funclist_file != INVALID_FILE &&
-                encoding_file != INVALID_FILE);
     }
 
     char buf[MAXIMUM_PATH];

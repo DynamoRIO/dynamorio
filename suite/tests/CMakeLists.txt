@@ -4518,18 +4518,8 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.check-malloc-lz4_expectbase "offline-simple")
     endif ()
 
-    # Test /dev/null and none outdir destination modes.
+    # Test none outdir destination mode.
     if (UNIX)
-      set(tool.drcacheoff.devnull_nopost ON)
-      torunonly_drcacheoff(devnull ${ci_shared_app} "-outdir /dev/null" "" "")
-      set(tool.drcacheoff.devnull_expectbase "simple_app")
-      set(tool.drcacheoff.devnull_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
-
-      set(tool.drcacheoff.devnull-name_nopost ON)
-      torunonly_drcacheoff(devnull-name ${ci_shared_app} "-outdir devnull" "" "")
-      set(tool.drcacheoff.devnull-name_expectbase "simple_app")
-      set(tool.drcacheoff.devnull-name_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
-
       set(tool.drcacheoff.none_nopost ON)
       torunonly_drcacheoff(none ${ci_shared_app} "-outdir none" "" "")
       set(tool.drcacheoff.none_expectbase "simple_app")

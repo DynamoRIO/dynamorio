@@ -224,8 +224,6 @@ static void
 test_dest_modes()
 {
     const std::vector<std::string> modes = {
-        "-outdir /dev/null",
-        "-outdir devnull",
         "-outdir none",
         "-outdir \"\"",
         "-outdir none -raw_compress gzip -max_trace_size 10M",
