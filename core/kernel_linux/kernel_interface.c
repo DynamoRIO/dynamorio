@@ -58,18 +58,21 @@ static void *heap = NULL;
 static size_t heap_size;
 
 static unsigned long (*kallsyms_lookup_name_ptr)(const char *name) = NULL;
+static int (*kallsyms_lookup_size_offset_ptr)(unsigned long addr,
+                                              unsigned long *symbolsize,
+                                              unsigned long *offset) = NULL;
 static void *(*module_alloc_ptr)(unsigned long) = NULL;
 
 static size_t
 get_symbol_size(unsigned long address)
 {
-    char buffer[KSYM_SYMBOL_LEN] = { 0 };
-    char *c;
-    unsigned long offset, size;
+    ASSERT(kallsyms_lookup_size_offset_ptr != NULL);
 
-    sprint_symbol(buffer, address);
-    c = strchr(buffer, '+');
-    if (c != NULL && sscanf(c, "+%lx/%lx", &offset, &size) == 2) {
+    unsigned long size, offset;
+    /* kallsyms_lookup_size_offset returns 1 on success,
+     * and 0 if the address is not found.
+     */
+    if (kallsyms_lookup_size_offset_ptr(address, &size, &offset)) {
         return size;
     }
     return 0;
@@ -121,6 +124,12 @@ resolve_kallsyms_lookup_name(void)
 static int
 resolve_kernel_symbols(void)
 {
+    kallsyms_lookup_size_offset_ptr =
+        kernel_find_symbol("kallsyms_lookup_size_offset", NULL);
+    if (kallsyms_lookup_size_offset_ptr == NULL) {
+        return -ENOENT;
+    }
+
     module_alloc_ptr = kernel_find_symbol("module_alloc", NULL);
     if (module_alloc_ptr == NULL) {
         return -ENOENT;
