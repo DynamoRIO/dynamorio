@@ -428,7 +428,9 @@ append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t wi
     return size_added;
 }
 
-// Sentinel handle for "-outdir none" mode.
+// MEMTRACE_NONE_FILE_HANDLE is a sentinel value used in "-outdir none" mode when
+// discarding an in-memory trace, while INVALID_FILE indicates that no trace output is
+// currently open or active.
 #ifdef WINDOWS
 #    define MEMTRACE_NONE_FILE_HANDLE \
         (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
@@ -517,17 +519,10 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
     DR_ASSERT(op_offline.get_value());
     const std::string &outdir = op_outdir.get_value();
 
-    if (has_tracing_windows()) {
-        // The first window sets data->file = MEMTRACE_NONE_FILE_HANDLE, and subsequent
-        // window return false (meaning "no new file needed").
-        if (!op_split_windows.get_value() && data->file != INVALID_FILE)
-            return false;
-    }
-
     // "-outdir none" mode.
     if (outdir_is_none(outdir)) {
         data->file = MEMTRACE_NONE_FILE_HANDLE;
-        return true;
+        return false;
     }
 
     const char *dir = logsubdir;
@@ -538,6 +533,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
                         logsubdir, DIRSEP, window_num);
             NULL_TERMINATE_BUFFER(windir);
             dir = windir;
+        } else if (data->file != INVALID_FILE) {
+            return false;
         }
     }
     /* We do not need to call drx_init before using drx_open_unique_appid_file.
