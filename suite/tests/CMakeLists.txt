@@ -4520,10 +4520,15 @@ if (BUILD_CLIENTS)
 
     # Test "-outdir none" mode.
     if (UNIX)
-      set(tool.drcacheoff.none_nopost ON)
-      torunonly_drcacheoff(none ${ci_shared_app} "-outdir none" "" "")
-      set(tool.drcacheoff.none_expectbase "simple_app")
-      set(tool.drcacheoff.none_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+      set(tool.drcacheoff.outdir-none_nopost ON)
+      torunonly_drcacheoff(outdir-none ${ci_shared_app} "-outdir none" "" "")
+      set(tool.drcacheoff.outdir-none_expectbase "simple_app")
+      set(tool.drcacheoff.outdir-none_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+
+      set(tool.drcacheoff.outdir-none-windows_nopost ON)
+      torunonly_drcacheoff(outdir-none-windows ${ci_shared_app}
+        "-outdir none -trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K"
+        "" "")
     endif ()
 
     # Test reading a trace in sharded snappy-compressed files.
