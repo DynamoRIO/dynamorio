@@ -2480,6 +2480,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (!op_offline.get_value() && op_ipc_name.get_value().empty()) {
         FATAL("Usage error: ipc name is required\nUsage:\n%s",
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+    } else if (op_offline.get_value() && op_outdir.get_value().empty()) {
+        FATAL("Usage error: outdir is required\nUsage:\n%s",
+              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     } else if (!op_offline.get_value() &&
                (op_record_heap.get_value() || !op_record_function.get_value().empty())) {
         FATAL("Usage error: function recording is only supported for -offline\n");
