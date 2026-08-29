@@ -429,26 +429,12 @@ append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t wi
     return size_added;
 }
 
-// MEMTRACE_NONE_FILE_HANDLE is a sentinel value used in "-outdir none" mode when
-// discarding an in-memory trace, while INVALID_FILE indicates that no trace output is
-// currently open or active.
-#ifdef WINDOWS
-#    define MEMTRACE_NONE_FILE_HANDLE \
-        (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
-#else
-#    define MEMTRACE_NONE_FILE_HANDLE -2
-#endif
-
 void
 open_new_window_dir(ptr_int_t window_num)
 {
     if (!op_split_windows.get_value())
         return;
     DR_ASSERT(op_offline.get_value());
-    const std::string &outdir = op_outdir.get_value();
-    if (outdir_is_none(outdir))
-        return;
-
     char windir[MAXIMUM_PATH];
     dr_snprintf(windir, BUFFER_SIZE_ELEMENTS(windir), "%s%s" WINDOW_SUBDIR_FORMAT,
                 logsubdir, DIRSEP, window_num);
@@ -462,12 +448,6 @@ static void
 close_thread_file(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (data->file == INVALID_FILE)
-        return;
-    if (data->file == MEMTRACE_NONE_FILE_HANDLE) {
-        data->file = INVALID_FILE;
-        return;
-    }
 
 #ifdef HAS_SNAPPY
     if (op_offline.get_value() && snappy_enabled()) {
@@ -518,14 +498,6 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     bool opened_new_file = false;
     DR_ASSERT(op_offline.get_value());
-    const std::string &outdir = op_outdir.get_value();
-
-    // "-outdir none" mode.
-    if (outdir_is_none(outdir)) {
-        data->file = MEMTRACE_NONE_FILE_HANDLE;
-        return false;
-    }
-
     const char *dir = logsubdir;
     char windir[MAXIMUM_PATH];
     if (has_tracing_windows()) {
@@ -534,9 +506,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
                         logsubdir, DIRSEP, window_num);
             NULL_TERMINATE_BUFFER(windir);
             dir = windir;
-        } else if (data->file != INVALID_FILE) {
+        } else if (data->file != INVALID_FILE)
             return false;
-        }
     }
     /* We do not need to call drx_init before using drx_open_unique_appid_file.
      * Since we're now in a subdir we could make the name simpler but this
@@ -691,13 +662,6 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
         per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
         DR_ASSERT(data->file != INVALID_FILE);
-
-        const std::string &outdir = op_outdir.get_value();
-        if (outdir_is_none(outdir)) {
-            // Skip compression and disk writes entirely.
-            return towrite_start;
-        }
-
         if (file_ops_func.handoff_buf != NULL) {
             if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
                                            max_buf_size)) {
@@ -1538,20 +1502,15 @@ init_thread_io(void *drcontext)
     }
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
-        const std::string &outdir = op_outdir.get_value();
-        if (outdir_is_none(outdir)) {
-            data->syscall_record_file = MEMTRACE_NONE_FILE_HANDLE;
-        } else {
-            char filename[MAXIMUM_PATH];
-            dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
-                        "%s%ssyscall_record_file." PIDFMT "." TIDFMT, logsubdir, DIRSEP,
-                        dr_get_process_id(), dr_get_thread_id(drcontext));
-            NULL_TERMINATE_BUFFER(filename);
-            data->syscall_record_file =
-                file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
-            if (data->syscall_record_file == INVALID_FILE) {
-                FATAL("Failed to open syscall record file %s\n", filename);
-            }
+        char filename[MAXIMUM_PATH];
+        dr_snprintf(filename, BUFFER_SIZE_ELEMENTS(filename),
+                    "%s%ssyscall_record_file." PIDFMT "." TIDFMT, logsubdir, DIRSEP,
+                    dr_get_process_id(), dr_get_thread_id(drcontext));
+        NULL_TERMINATE_BUFFER(filename);
+        data->syscall_record_file =
+            file_ops_func.open_file(filename, DR_FILE_WRITE_OVERWRITE);
+        if (data->syscall_record_file == INVALID_FILE) {
+            FATAL("Failed to open syscall record file %s\n", data->syscall_record_file);
         }
     }
 #endif
@@ -1636,8 +1595,7 @@ exit_thread_io(void *drcontext)
 
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
-        if (data->syscall_record_file != INVALID_FILE &&
-            data->syscall_record_file != MEMTRACE_NONE_FILE_HANDLE) {
+        if (data->syscall_record_file != INVALID_FILE) {
             if (data->syscall_record_buffer_offset > 0) {
                 const ssize_t wrote = file_ops_func.write_file(
                     data->syscall_record_file, data->syscall_record_buffer,
@@ -1734,9 +1692,6 @@ size_t
 write_syscall_record(void *drcontext, char *buf, size_t size)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (data->syscall_record_file == MEMTRACE_NONE_FILE_HANDLE) {
-        return size;
-    }
     if (size + data->syscall_record_buffer_offset >= SYSCALL_RECORD_BUFFER_SIZE) {
         ssize_t bytes_written = 0;
         if (data->syscall_record_buffer_offset > 0) {
