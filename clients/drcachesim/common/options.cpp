@@ -463,6 +463,14 @@ droption_t<std::string> op_raw_compress(
     "for an SSD, zlib and gzip typically add overhead and would only be used if space is "
     "at a premium; snappy_nocrc and lz4 are nearly always performance wins.");
 
+droption_t<int> op_raw_compress_level(
+    DROPTION_SCOPE_CLIENT, "raw_compress_level", 0, "Raw compression level",
+    "Specifies the compression level to use for raw offline files (when "
+    "supported by the selected compression type, currently only lz4). "
+    "For lz4, accepts any integer value including negative numbers (values < 0 "
+    "provide faster compression with lower compression ratios). "
+    "The default value is 0.");
+
 droption_t<std::string> op_trace_compress(
     DROPTION_SCOPE_FRONTEND, "compress", DEFAULT_TRACE_COMPRESSION_TYPE,
     "Trace compression: \"zip\",\"gzip\",\"zlib\",\"lz4\",\"none\"",

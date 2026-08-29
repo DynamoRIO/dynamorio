@@ -297,6 +297,8 @@ Further non-compatibility-affecting changes include:
    configuration.  Where that support is unavailable the static default remains "none".
  - On AArch64 the restriction that isb instructions must be the last instruction in a
    block has been lifted.
+ - Added the -raw_compress_level option to drmemtrace to allow specifying the
+   compression level for raw offline trace files when using lz4 compression.
 
 **************************************************
 <hr>

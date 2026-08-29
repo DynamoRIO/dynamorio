@@ -250,14 +250,15 @@ get_file_type()
 }
 
 #ifdef HAS_LZ4
-static const LZ4F_preferences_t lz4_ops = {
+static LZ4F_preferences_t lz4_ops = {
     { LZ4F_max256KB, LZ4F_blockLinked, LZ4F_noContentChecksum, LZ4F_frame,
       /*unknown contentSize=*/0, /*dictID=*/0, LZ4F_noBlockChecksum },
-    // We may want to expose this knob as a parameter.  The fastest for my
-    // SSD is -4096, but on another machine 0 is fastest; plus, we may want
-    // to raise it to 3 for cases with higher i/o overhead, where it is
-    // slower but still outperforms zlib/gzip.
-    /*fastest compressionLevel=*/0,
+    // Optimal compression levels vary by hardware configuration: level -4096 maximizes
+    // throughput on certain SSDs, whereas level 0 yields superior performance on other
+    // systems. Furthermore, increasing the level to 3 may be preferable in high I/O
+    // overhead scenarios, as it maintains a compression advantage over zlib and gzip
+    // despite reduced compression speed. We still keep level 0 as default.
+    /*compressionLevel=*/0,
     /*autoFlush=*/0,
     /*do not favorDecSpeed=*/0,
     /*reserved=*/ { 0, 0, 0 },
@@ -1668,6 +1669,10 @@ init_io()
                "this build's liblz4 lacks LZ4F_CustomMem support\n");
 #    endif
     }
+#endif
+
+#ifdef HAS_LZ4
+    lz4_ops.compressionLevel = op_raw_compress_level.get_value();
 #endif
 
     DR_ASSERT(cur_window_instr_count.is_lock_free());
