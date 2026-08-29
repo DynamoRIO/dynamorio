@@ -73,10 +73,8 @@ droption_t<std::string> op_ipc_name(
 droption_t<std::string> op_outdir(
     DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
     "For the offline analysis mode (when -offline is requested), specifies the path "
-    "to a directory where per-thread trace files will be written, or "
-    "'none' to discard trace data in-memory (evaluating pure instrumentation overhead). "
-    "The contents of this directory are internal to the tool. Do not alter, add, or "
-    "delete files here.");
+    "to a directory where per-thread trace files will be written.  The contents of this "
+    "directory are internal to the tool.  Do not alter, add, or delete files here.");
 
 droption_t<std::string> op_subdir_prefix(
     DROPTION_SCOPE_ALL, "subdir_prefix", "drmemtrace",
