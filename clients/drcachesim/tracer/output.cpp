@@ -253,6 +253,11 @@ get_file_type()
 static LZ4F_preferences_t lz4_ops = {
     { LZ4F_max256KB, LZ4F_blockLinked, LZ4F_noContentChecksum, LZ4F_frame,
       /*unknown contentSize=*/0, /*dictID=*/0, LZ4F_noBlockChecksum },
+    // Optimal compression levels vary by hardware configuration: level -4096 maximizes
+    // throughput on certain SSDs, whereas level 0 yields superior performance on other
+    // systems. Furthermore, increasing the level to 3 may be preferable in high I/O
+    // overhead scenarios, as it maintains a compression advantage over zlib and gzip
+    // despite reduced compression speed. We still keep level 0 as default.
     /*compressionLevel=*/0,
     /*autoFlush=*/0,
     /*do not favorDecSpeed=*/0,
