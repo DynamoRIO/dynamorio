@@ -325,7 +325,8 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
         }
         NULL_TERMINATE_BUFFER(qual);
         size_t sz = strlen(qual);
-        if (write_file_func(funclist_fd, qual, sz) != static_cast<ssize_t>(sz))
+        if (funclist_fd != INVALID_FILE &&
+            write_file_func(funclist_fd, qual, sz) != static_cast<ssize_t>(sz))
             NOTIFY(0, "Failed to write to funclist file\n");
     }
     dr_mutex_unlock(funcs_wrapped_lock);

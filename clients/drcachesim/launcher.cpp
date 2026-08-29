@@ -325,10 +325,13 @@ _tmain(int argc, const TCHAR *targv[])
     }
 
     if (op_offline.get_value() && !have_trace_file) {
-        // Initial sanity check: may still be unwritable by this user, but this
-        // serves as at least an existence check.
-        if (!file_is_writable(op_outdir.get_value().c_str())) {
-            FATAL_ERROR("invalid -outdir %s", op_outdir.get_value().c_str());
+        const std::string &outdir = op_outdir.get_value();
+        if (!outdir_is_none(outdir)) {
+            // Initial sanity check: may still be unwritable by this user, but this
+            // serves as at least an existence check.
+            if (!file_is_writable(outdir.c_str())) {
+                FATAL_ERROR("invalid -outdir %s", outdir.c_str());
+            }
         }
     } else {
         // We assume RECORD_FILTER isn't a substring of some other tool.

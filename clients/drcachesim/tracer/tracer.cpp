@@ -2106,7 +2106,8 @@ event_exit(void)
     dr_global_free(instru, MAX_INSTRU_SIZE);
 
     if (op_offline.get_value()) {
-        file_ops_func.close_file(module_file);
+        if (module_file != INVALID_FILE)
+            file_ops_func.close_file(module_file);
         if (funclist_file != INVALID_FILE)
             file_ops_func.close_file(funclist_file);
         if (encoding_file != INVALID_FILE)
@@ -2165,6 +2166,25 @@ event_exit(void)
 static bool
 init_offline_dir(void)
 {
+    const std::string &outdir = op_outdir.get_value();
+
+    // "none" mode: No directories, no files, no I/O.
+    if (outdir_is_none(outdir)) {
+        logsubdir[0] = '\0';
+        modlist_path[0] = '\0';
+        funclist_path[0] = '\0';
+        encoding_path[0] = '\0';
+#ifdef BUILD_PT_TRACER
+        kernel_trace_logsubdir[0] = '\0';
+        kcore_path[0] = '\0';
+        kallsyms_path[0] = '\0';
+#endif
+        module_file = INVALID_FILE;
+        funclist_file = INVALID_FILE;
+        encoding_file = INVALID_FILE;
+        return true;
+    }
+
     char buf[MAXIMUM_PATH];
     int i;
     const int NUM_OF_TRIES = 10000;

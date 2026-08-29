@@ -261,6 +261,12 @@ extern dynamorio::droption::droption_t<int> op_scale_timers;
 extern dynamorio::droption::droption_t<int> op_scale_timeouts;
 extern dynamorio::droption::droption_t<double> op_max_load_imbalance;
 
+inline bool
+outdir_is_none(const std::string &outdir)
+{
+    return outdir == "none";
+}
+
 } // namespace drmemtrace
 } // namespace dynamorio
 
