@@ -188,6 +188,19 @@ reached_traced_instrs_threshold(void *drcontext)
  * Buffer writing to disk.
  */
 
+// MEMTRACE_NONE_FILE_HANDLE is a sentinel value used in "-outdir none" mode when
+// discarding an in-memory trace, while INVALID_FILE indicates that no trace output is
+// currently open or active.
+#ifdef WINDOWS
+// MSVC has stricter checks, so we cannot just use an integer value.
+#    define MEMTRACE_NONE_FILE_HANDLE \
+        (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
+#else
+#    define MEMTRACE_NONE_FILE_HANDLE -2
+#endif
+
+static bool outdir_none_mode = false;
+
 static int notify_beyond_global_max_once;
 static volatile bool exited_process;
 
@@ -428,24 +441,13 @@ append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid, ptr_int_t wi
     return size_added;
 }
 
-// MEMTRACE_NONE_FILE_HANDLE is a sentinel value used in "-outdir none" mode when
-// discarding an in-memory trace, while INVALID_FILE indicates that no trace output is
-// currently open or active.
-#ifdef WINDOWS
-#    define MEMTRACE_NONE_FILE_HANDLE \
-        (reinterpret_cast<file_t>(static_cast<ptr_int_t>(-2)))
-#else
-#    define MEMTRACE_NONE_FILE_HANDLE -2
-#endif
-
 void
 open_new_window_dir(ptr_int_t window_num)
 {
     if (!op_split_windows.get_value())
         return;
     DR_ASSERT(op_offline.get_value());
-    const std::string &outdir = op_outdir.get_value();
-    if (outdir_is_none(outdir))
+    if (outdir_none_mode)
         return;
 
     char windir[MAXIMUM_PATH];
@@ -517,10 +519,9 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     bool opened_new_file = false;
     DR_ASSERT(op_offline.get_value());
-    const std::string &outdir = op_outdir.get_value();
 
     // "-outdir none" mode.
-    if (outdir_is_none(outdir)) {
+    if (outdir_none_mode) {
         data->file = MEMTRACE_NONE_FILE_HANDLE;
         return false;
     }
@@ -691,8 +692,7 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
         ssize_t size = towrite_end - towrite_start;
         DR_ASSERT(data->file != INVALID_FILE);
 
-        const std::string &outdir = op_outdir.get_value();
-        if (outdir_is_none(outdir)) {
+        if (outdir_none_mode) {
             // Skip compression and disk writes entirely.
             return towrite_start;
         }
@@ -1537,8 +1537,7 @@ init_thread_io(void *drcontext)
     }
 #ifdef BUILD_DRMEMTRACE_WITH_DR_SYSCALL
     if (op_collect_syscall_records.get_value()) {
-        const std::string &outdir = op_outdir.get_value();
-        if (outdir_is_none(outdir)) {
+        if (outdir_none_mode) {
             data->syscall_record_file = MEMTRACE_NONE_FILE_HANDLE;
         } else {
             char filename[MAXIMUM_PATH];
@@ -1713,6 +1712,11 @@ init_io()
 #endif
 
     DR_ASSERT(cur_window_instr_count.is_lock_free());
+
+    // op_outdir.get_value() can call malloc if the path passed is long, so we invoke
+    // it here once where it's safe. We also check if the user passed "-outdir none"
+    // and cache the result, so we don't need to call op_outdir.get_value() again.
+    outdir_none_mode = outdir_is_none(op_outdir.get_value());
 }
 
 void

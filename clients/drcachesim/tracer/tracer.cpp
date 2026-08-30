@@ -2168,7 +2168,7 @@ init_offline_dir(void)
 {
     const std::string &outdir = op_outdir.get_value();
 
-    // "none" mode: No directories, no files, no I/O.
+    // Check if we are in "-outdir none" mode: no directories, no files, no I/O.
     if (outdir_is_none(outdir)) {
         logsubdir[0] = '\0';
         modlist_path[0] = '\0';
