@@ -30,6 +30,10 @@
  * DAMAGE.
  */
 
+/* The kernel's print helpers (pr_info(), pr_err(), etc.) expand pr_fmt(): this must be
+ * defined at the top before the #include block to have the module name prepended to
+ * every message. Since this is a kernel macro, not a DR one, it has to be lower-case.
+ */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
