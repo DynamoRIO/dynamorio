@@ -4519,6 +4519,9 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (UNIX)
+      # TODO i#8079: add a new cmake pseudo-command to check that no "drmemtrace.*.dir"
+      # is created in the current directory for both tool.drcacheoff.outdir-none and
+      # tool.drcacheoff.outdir-none-windows tests.
       # Test "-outdir none" mode.
       set(tool.drcacheoff.outdir-none_nopost ON)
       torunonly_drcacheoff(outdir-none ${ci_shared_app} "-outdir none" "" "")

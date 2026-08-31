@@ -69,6 +69,9 @@
 #define CACHE_TYPE_UNIFIED "unified"
 #define CACHE_PARENT_MEMORY "memory"
 
+// Constant used for "-outdir none" mode (i.e., no I/O).
+#define OUTDIR_NONE "none"
+
 // The expected pattern for a single_op_value is:
 //     function_name|function_id|arguments_num
 // where function_name can contain spaces (for instance, C++ namespace prefix)
@@ -263,7 +266,7 @@ extern dynamorio::droption::droption_t<double> op_max_load_imbalance;
 inline bool
 outdir_is_none(const std::string &outdir)
 {
-    return outdir == "none";
+    return outdir == OUTDIR_NONE;
 }
 
 } // namespace drmemtrace
