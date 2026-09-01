@@ -202,6 +202,12 @@ foreach (flag ${dynamorio_module_common_flags})
 endforeach ()
 
 string(APPEND dynamorio_module_kbuild_ccflags "\n  -Wframe-larger-than=4096")
+if (X86)
+  # Disable compiler-generated return thunks (__x86_return_thunk) since objtool
+  # is disabled for the module and won't generate the .return_sites section needed
+  # for runtime patching.
+  string(APPEND dynamorio_module_kbuild_ccflags " \\\n  -mfunction-return=keep")
+endif ()
 
 string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -mmnemonic=intel \\")
 string(APPEND dynamorio_module_kbuild_asflags "\n  -Xassembler -msyntax=intel \\")
