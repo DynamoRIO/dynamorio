@@ -46,20 +46,20 @@ if (NOT NM_PROGRAM)
 endif ()
 
 # 1. Read exported kernel symbols from Module.symvers to avoid stubbing them
-if (EXISTS "${KERNEL_DIR}/Module.symvers")
-  file(STRINGS "${KERNEL_DIR}/Module.symvers" symvers_lines)
-  foreach (line ${symvers_lines})
-    # Line format: <crc>\t<symname>\t<module>\t<export_type>
-    string(REGEX MATCH "^[^\t]+\t([^\t]+)" _match "${line}")
-    if (CMAKE_MATCH_1)
-      set(k_${CMAKE_MATCH_1} 1)
-    endif ()
-  endforeach ()
-else ()
-  message(WARNING
+if (NOT EXISTS "${KERNEL_DIR}/Module.symvers")
+  message(FATAL_ERROR
     "Module.symvers not found in KERNEL_DIR (${KERNEL_DIR}). "
-    "Exported kernel symbols may be stubbed.")
+    "Module.symvers is required to determine exported kernel symbols.")
 endif ()
+
+file(STRINGS "${KERNEL_DIR}/Module.symvers" symvers_lines)
+foreach (line ${symvers_lines})
+  # Line format: <crc>\t<symname>\t<module>\t<export_type>
+  string(REGEX MATCH "^[^\t]+\t([^\t]+)" _match "${line}")
+  if (CMAKE_MATCH_1)
+    set(k_${CMAKE_MATCH_1} 1)
+  endif ()
+endforeach ()
 
 # 2. Extract undefined symbols from the composite object
 execute_process(
