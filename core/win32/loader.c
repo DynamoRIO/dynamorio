@@ -988,6 +988,462 @@ privload_unload_imports(privmod_t *mod)
     return true;
 }
 
+/***************************************************************************
+ * CFG (Control Flow Guard) Extension Patching for Windows 11 24H2+
+ *
+ * Windows 11 24H2 introduced CFG stub code in extended memory regions after
+ * module images. The kernel patches CFG thunk JMP offsets assuming original
+ * module base addresses. When DynamoRIO's private loader relocates modules,
+ * these offsets become invalid, causing crashes.
+ *
+ * See: https://ynwarcs.github.io/Win11-24H2-CFG
+ * Issue: i#7487
+ */
+
+/* Helper: Validate CFG extension region exists via NtQueryVirtualMemory.
+ * Returns extension base address on success, NULL if no extension or error.
+ */
+static app_pc
+privload_validate_cfg_extension(app_pc module_base, size_t module_size,
+                                 SIZE_T *extension_size OUT)
+{
+    MEMORY_IMAGE_EXTENSION_INFORMATION ext_info;
+    NTSTATUS status;
+    app_pc cfg_ext_base;
+
+    ASSERT(module_base != NULL && extension_size != NULL);
+    *extension_size = 0;
+
+    status = query_memory_image_extension(module_base, &ext_info);
+
+    if (status == STATUS_INVALID_INFO_CLASS) {
+        /* Older Windows without extension support */
+        LOG(GLOBAL, LOG_LOADER, 3,
+            "%s: MemoryImageExtensionInformation not supported (older Windows)\n",
+            __FUNCTION__);
+        return NULL;
+    }
+
+    if (!NT_SUCCESS(status) || ext_info.ExtensionSize == 0) {
+        /* No extension for this module or query failed */
+        LOG(GLOBAL, LOG_LOADER, 3,
+            "%s: No CFG extension for module at " PFX " (status=0x%x, size=" PIFX ")\n",
+            __FUNCTION__, module_base, status, ext_info.ExtensionSize);
+        return NULL;
+    }
+
+    /* Calculate extension base from RVA in structure */
+    cfg_ext_base = module_base + (ptr_uint_t)ext_info.ExtensionImageBaseRva;
+    *extension_size = ext_info.ExtensionSize;
+
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "%s: CFG extension found at " PFX ", size " PIFX " bytes\n", __FUNCTION__,
+        cfg_ext_base, ext_info.ExtensionSize);
+
+    return cfg_ext_base;
+}
+
+/* Helper: Extract GuardCFFunctionTable from IMAGE_LOAD_CONFIG_DIRECTORY.
+ * Returns function count, fills func_table with pointer to table and entry_size.
+ * Each entry in the table is entry_size bytes (typically 4 or 5 bytes).
+ * See: https://learn.microsoft.com/en-us/windows/win32/secbp/pe-metadata
+ */
+static DWORD
+privload_get_cfg_function_table(app_pc module_base, byte **func_table OUT,
+                                 uint *entry_size OUT)
+{
+    IMAGE_DOS_HEADER *dos;
+    IMAGE_NT_HEADERS *nt;
+    IMAGE_DATA_DIRECTORY *dir;
+    IMAGE_LOAD_CONFIG_DIRECTORY *config;
+    byte *table_addr;
+    uint stride;
+
+    ASSERT(module_base != NULL && func_table != NULL && entry_size != NULL);
+    *func_table = NULL;
+    *entry_size = 0;
+
+    if (!is_readable_pe_base(module_base))
+        return 0;
+
+    dos = (IMAGE_DOS_HEADER *)module_base;
+    nt = (IMAGE_NT_HEADERS *)(module_base + dos->e_lfanew);
+
+    dir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG;
+    if (dir == NULL || dir->Size == 0)
+        return 0;
+
+    config = (IMAGE_LOAD_CONFIG_DIRECTORY *)RVA_TO_VA(module_base, dir->VirtualAddress);
+
+    /* Check if config directory is large enough to contain CFG fields */
+#ifdef X64
+    if (dir->Size < offsetof(IMAGE_LOAD_CONFIG_DIRECTORY, GuardCFFunctionTable) +
+                        sizeof(config->GuardCFFunctionTable)) {
+#else
+    if (dir->Size < offsetof(IMAGE_LOAD_CONFIG_DIRECTORY, GuardCFFunctionTable) +
+                        sizeof(config->GuardCFFunctionTable)) {
+#endif
+        LOG(GLOBAL, LOG_LOADER, 3,
+            "%s: IMAGE_LOAD_CONFIG_DIRECTORY too small for CFG fields\n",
+            __FUNCTION__);
+        return 0;
+    }
+
+    if (config->GuardCFFunctionCount == 0 || config->GuardCFFunctionTable == 0) {
+        LOG(GLOBAL, LOG_LOADER, 3,
+            "%s: No CFG functions (count=%u, table=" PFX ")\n",
+            __FUNCTION__, config->GuardCFFunctionCount, config->GuardCFFunctionTable);
+        return 0;
+    }
+
+    /* GuardCFFunctionTable can be either a VA (x64) or RVA (x86).
+     * Check if it's already a VA by seeing if it's in the module's address range.
+     */
+#ifdef X64
+    if (config->GuardCFFunctionTable > 0x10000 &&
+        (app_pc)config->GuardCFFunctionTable >= module_base &&
+        (app_pc)config->GuardCFFunctionTable < module_base + 0x7fffffff) {
+        /* Already a VA */
+        table_addr = (byte *)config->GuardCFFunctionTable;
+    } else {
+        /* It's an RVA */
+        table_addr = (byte *)RVA_TO_VA(module_base, config->GuardCFFunctionTable);
+    }
+#else
+    /* On x86, it's always an RVA */
+    table_addr = (byte *)RVA_TO_VA(module_base, config->GuardCFFunctionTable);
+#endif
+
+    /* Extract entry size from GuardFlags.
+     * IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_MASK = 0xF0000000
+     * The stride is encoded in the upper 4 bits, right-shifted by 28.
+     * If the result is 0, the default stride is 4 bytes (just RVA).
+     * If non-zero, it represents additional bytes beyond the RVA.
+     */
+#define IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_MASK 0xF0000000
+#define IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_SHIFT 28
+
+    if (dir->Size >= offsetof(IMAGE_LOAD_CONFIG_DIRECTORY, GuardFlags) +
+                         sizeof(config->GuardFlags)) {
+        stride = (config->GuardFlags & IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_MASK) >>
+                 IMAGE_GUARD_CF_FUNCTION_TABLE_SIZE_SHIFT;
+        if (stride == 0) {
+            *entry_size = 4; /* Just RVA, no additional flags */
+        } else {
+            *entry_size = 4 + stride; /* RVA + additional flag bytes */
+        }
+    } else {
+        /* GuardFlags not present, assume default 4-byte entries */
+        *entry_size = 4;
+    }
+
+    /* Validate the function table is readable */
+    if (!is_readable_without_exception(
+            table_addr, config->GuardCFFunctionCount * (*entry_size))) {
+        LOG(GLOBAL, LOG_LOADER, 1,
+            "%s: CFG function table at " PFX " is not readable\n", __FUNCTION__,
+            table_addr);
+        return 0;
+    }
+
+    *func_table = table_addr;
+
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "%s: Found %u CFG functions (table at " PFX ", entry size %u bytes)\n",
+        __FUNCTION__, config->GuardCFFunctionCount, *func_table, *entry_size);
+
+    return (DWORD)config->GuardCFFunctionCount;
+}
+
+/* Helper: Scan function for CFG call pattern and collect thunks.
+ * Pattern: "48 8b ?? ?? ?? ?? .... e8 ?? ?? ?? ??"
+ * (mov rax, [fptr]; ...; call guard_dispatch_icall$thunk)
+ *
+ * Note: We scan for the CALL instruction (0xE8) which targets the thunk.
+ * The thunk contains the JMP instruction (0xE9) that we will patch later.
+ * CFG-protected functions typically have only one guard dispatch call, so we
+ * break after finding the first thunk.
+ *
+ * Returns number of thunks found (should be 0 or 1 per function).
+ */
+static uint
+privload_scan_cfg_call_pattern(app_pc func_addr, app_pc module_base, size_t module_size,
+                               app_pc *thunk_list OUT, uint max_thunks)
+{
+    byte *pc = func_addr;
+    byte *end = func_addr + 512; /* Scan up to 512 bytes */
+    uint thunk_count = 0;
+    uint i;
+
+    ASSERT(func_addr != NULL && thunk_list != NULL);
+
+    /* Don't scan beyond module bounds */
+    if (end > module_base + module_size)
+        end = module_base + module_size;
+
+    while (pc < end && thunk_count < max_thunks) {
+        /* Two-stage pattern search to reduce false positives:
+         * Stage 1: Look for mov rax, [fptr] => 48 8b 05 ?? ?? ?? ??
+         * Stage 2: Look for call guard_dispatch_icall$thunk => e8 ?? ?? ?? ??
+         */
+        if (pc + 7 <= end && /* Ensure we have enough bytes for mov rax pattern */
+            pc[0] == 0x48 && pc[1] == 0x8B && pc[2] == 0x05) {
+            /* Found mov rax, [rip+offset] pattern */
+            byte *mov_pc = pc;
+            byte *call_pc = pc + 7; /* Start scanning after the 7-byte mov instruction */
+
+            /* Now scan forward for the subsequent CALL instruction */
+            while (call_pc < end) {
+                /* Look for CALL instruction (0xE8) */
+                if (*call_pc == 0xE8) {
+                    int call_offset = *(int *)(call_pc + 1);
+                    app_pc call_target = call_pc + 5 + call_offset;
+
+                    /* Verify call target is a thunk (contains JMP instruction) */
+                    if (call_target >= module_base &&
+                        call_target < module_base + module_size) {
+                        if (*call_target == 0xE9) { /* JMP rel32 - this is the thunk */
+                            /* Additional validation: follow the JMP to verify it leads to
+                             * guard_dispatch_icall pattern (indirect JMP instruction).
+                             * The JMP instruction is: E9 [4-byte rel32 offset]
+                             */
+                            int jmp_offset = *(int *)(call_target + 1);
+                            app_pc jmp_dest = call_target + 5 + jmp_offset;
+                            bool target = false;
+
+                           /* Verify the JMP destination is outside the module range
+                             * as CFG thunk patched by kernel should point to invalid
+                             * address (i.e. ntdll.dll extended image for non-instrumented
+                             * binary). IMPORTANT: Check this FIRST to avoid dereferencing
+                             * invalid addresses.
+                             */
+                            if (!(jmp_dest >= module_base &&
+                                  jmp_dest + 2 <= module_base + module_size)) {
+                                target = true;
+                            }
+                            /* Only check instruction pattern if destination is within
+                               valid module bounds */
+                            else if (jmp_dest[0] == 0xFF && jmp_dest[1] == 0x25) {
+                                target = true;
+                            } else {
+                                LOG(GLOBAL, LOG_LOADER, 4,
+                                    "%s: Skipping JMP at " PFX " - destination " PFX
+                                    " is not FF 25 pattern (likely false positive)\n",
+                                    __FUNCTION__, call_target, jmp_dest);
+                            }
+
+                            if (target) {
+                                /* Check if this thunk is already in the list */
+                                bool duplicate = false;
+                                for (i = 0; i < thunk_count; i++) {
+                                    if (thunk_list[i] == call_target) {
+                                        duplicate = true;
+                                        break;
+                                    }
+                                }
+                                if (!duplicate) {
+                                    thunk_list[thunk_count++] = call_target;
+                                    LOG(GLOBAL, LOG_LOADER, 3,
+                                        "%s: Found CFG thunk at " PFX " (called from " PFX
+                                        ", "
+                                        "mov pattern at " PFX ", jmp_dest=" PFX ")\n",
+                                        __FUNCTION__, call_target, call_pc, mov_pc,
+                                        jmp_dest);
+                                    /* CFG functions have only one guard dispatch call -
+                                     * stop scanning */
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                /* Stop inner scan on RET or unconditional JMP out */
+                if (*call_pc == 0xC3 || *call_pc == 0xC2 || /* RET, RET imm16 */
+                    (*call_pc == 0xE9 && (call_pc + 5 + *(int *)(call_pc + 1)) >= end)) {
+                    break;
+                }
+
+                call_pc++;
+            }
+
+            /* If we found a thunk, stop scanning */
+            if (thunk_count > 0)
+                break;
+        }
+
+        /* Stop on RET or unconditional JMP out */
+        if (*pc == 0xC3 || *pc == 0xC2 || /* RET, RET imm16 */
+            (*pc == 0xE9 && (pc + 5 + *(int *)(pc + 1)) >= end)) {
+            break;
+        }
+
+        pc++;
+    }
+
+    return thunk_count;
+}
+
+
+/* Helper: Patch a single CFG thunk's JMP instruction to point to extension region.
+ * Thunk format: E9 xx xx xx xx (JMP rel32)
+ */
+static bool
+privload_patch_thunk_jmp(app_pc thunk_addr, app_pc cfg_ext_base, app_pc module_base,
+                          size_t module_size, app_pc original_preferred_base)
+{
+    int old_offset, new_offset;
+    app_pc old_target, new_target;
+    size_t stub_offset;
+    uint old_prot;
+    bool ok;
+
+    ASSERT(thunk_addr != NULL && cfg_ext_base != NULL);
+    ASSERT(*thunk_addr == 0xE9); /* Must be JMP instruction */
+
+    /* Read current JMP offset */
+    old_offset = *(int *)(thunk_addr + 1);
+    old_target = thunk_addr + 5 + old_offset;
+
+    /* Calculate stub offset within the extension region. */
+    stub_offset = (ptr_int_t)old_target & 0xFFF;
+
+    /* Calculate new target in our relocated extension region */
+    new_target = cfg_ext_base + stub_offset;
+    new_offset = (int)(new_target - (thunk_addr + 5));
+
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "%s: Patching thunk at " PFX ": offset 0x%x -> 0x%x (target " PFX " -> " PFX ")\n",
+        __FUNCTION__, thunk_addr, old_offset, new_offset, old_target, new_target);
+
+    /* Make thunk page writable */
+    ok = protect_virtual_memory((void *)PAGE_START(thunk_addr), PAGE_SIZE,
+                                 PAGE_READWRITE, &old_prot);
+    if (!ok) {
+        LOG(GLOBAL, LOG_LOADER, 1,
+            "%s: Failed to make thunk at " PFX " writable\n",
+            __FUNCTION__, thunk_addr);
+        return false;
+    }
+
+    /* Patch the offset */
+    *(int *)(thunk_addr + 1) = new_offset;
+
+    /* Restore original protection */
+    protect_virtual_memory((void *)PAGE_START(thunk_addr), PAGE_SIZE, old_prot, &old_prot);
+
+    return true;
+}
+
+/* Main CFG patching function: Find and patch all CFG thunks in a module.
+ * Called after module has been mapped and relocated.
+ * Returns true on success or if patching not needed, false on fatal error.
+ */
+static bool
+privload_patch_cfg_thunks(app_pc map, size_t size)
+{
+    uint build_number = 0;
+    app_pc cfg_ext_base;
+    SIZE_T extension_size = 0;
+    byte *func_table = NULL;
+    uint entry_size = 0;
+    DWORD func_count = 0;
+    DWORD i;
+    app_pc thunk_list[256]; /* Max 256 unique thunks */
+    uint total_thunks = 0;
+    app_pc preferred_base;
+
+    ASSERT(map != NULL && size > 0);
+
+    /* Check Windows version - only needed on Windows 11 24H2+ */
+    get_os_version_ex(NULL, NULL, NULL, &build_number, NULL, NULL);
+    if (build_number <= WINDOWS_BUILD_11_24H2) {
+        LOG(GLOBAL, LOG_LOADER, 3,
+            "%s: CFG patching not needed (build %u <= %u)\n",
+            __FUNCTION__, build_number, WINDOWS_BUILD_11_24H2);
+        return true;
+    }
+
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "%s: CFG thunk patching active for Windows build %u\n",
+        __FUNCTION__, build_number);
+
+    /* Validate CFG extension region exists */
+    cfg_ext_base = privload_validate_cfg_extension(map, size, &extension_size);
+    if (cfg_ext_base == NULL) {
+        /* No extension - skip patching */
+        return true;
+    }
+
+    /* Get CFG function table */
+    func_count = privload_get_cfg_function_table(map, &func_table, &entry_size);
+    if (func_count == 0) {
+        /* No CFG functions - skip patching */
+        return true;
+    }
+
+    /* Get preferred base for offset calculations */
+    preferred_base = get_module_preferred_base(map);
+    if (preferred_base == NULL) {
+        LOG(GLOBAL, LOG_LOADER, 1,
+            "%s: Failed to get preferred base for module at " PFX "\n",
+            __FUNCTION__, map);
+        return false;
+    }
+
+    /* Scan each CFG function for thunk calls.
+     * Each entry in func_table is entry_size bytes, with the RVA in the first 4 bytes.
+     */
+    for (i = 0; i < func_count && total_thunks < BUFFER_SIZE_ELEMENTS(thunk_list); i++) {
+        byte *entry = func_table + (i * entry_size);
+        DWORD func_rva;
+        app_pc func_addr;
+        uint found;
+
+        /* Extract the RVA from the first 4 bytes of the entry */
+        func_rva = *(DWORD *)entry;
+
+        /* Mask off low bit (used for flags in some cases) */
+        func_rva = func_rva & ~0x1;
+        func_addr = map + func_rva;
+
+        /* Validate function address */
+        if (func_addr < map || func_addr >= map + size) {
+            LOG(GLOBAL, LOG_LOADER, 1,
+                "%s: Invalid CFG function RVA 0x%x (VA " PFX ")\n",
+                __FUNCTION__, func_rva, func_addr);
+            continue;
+        }
+
+        /* Scan this function for CFG call patterns */
+        found = privload_scan_cfg_call_pattern(
+            func_addr, map, size,
+            &thunk_list[total_thunks],
+            BUFFER_SIZE_ELEMENTS(thunk_list) - total_thunks);
+        total_thunks += found;
+
+        if (found > 0)
+            break;
+    }
+
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "%s: Found %u unique CFG thunks to patch\n",
+        __FUNCTION__, total_thunks);
+
+    /* Patch all discovered thunks */
+    for (i = 0; i < total_thunks; i++) {
+        if (!privload_patch_thunk_jmp(thunk_list[i], cfg_ext_base, map, size,
+                                       preferred_base)) {
+            LOG(GLOBAL, LOG_LOADER, 1,
+                "%s: Failed to patch thunk at " PFX "\n",
+                __FUNCTION__, thunk_list[i]);
+            /* Continue patching others - not fatal */
+        }
+    }
+
+    return true;
+}
+
 /* if anything fails, undoes the mapping and returns NULL */
 app_pc
 privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
@@ -1101,6 +1557,16 @@ privload_map_and_relocate(const char *filename, size_t *size DR_PARAM_OUT,
             (*unmap_func)(map, *size);
             return NULL;
         }
+    }
+
+    /* Patch CFG thunks for Windows 11 24H2+ compatibility (i#7487).
+     * See https://ynwarcs.github.io/Win11-24H2-CFG for details.
+     */
+    if (!privload_patch_cfg_thunks(map, *size)) {
+        LOG(GLOBAL, LOG_LOADER, 1,
+            "%s: CFG thunk patching failed for %s\n",
+            __FUNCTION__, filename);
+        /* Not fatal - continue. Module may crash if CFG is enforced. */
     }
 
     return map;
@@ -1746,6 +2212,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Job-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-ToolHelp-l1-1-0") ||
              str_case_prefix(name, "API-MS-Win-DownLevel-Kernel32-L2-1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
@@ -1797,7 +2264,19 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     } else if (str_case_prefix(name, "Ext-MS-Win-NtUser-") ||
                str_case_prefix(name, "API-MS-Win-RtCore-NtUser-")) {
         return "user32.dll";
-    } else {
+    } else if (str_case_prefix(name, "API-MS-Win-Eventing-Obsolete-L1-1-0")) {
+        if (get_os_version() >= WINDOWS_VERSION_8_1) {
+            return "sechost.dll";
+        } else {
+            return "advapi32.dll";
+        }
+    } else if (str_case_prefix(name, "Ext-MS-Win-Kernel32-SideBySide-L1-1-0")) {
+        return "kernel32.dll";
+    } else if (str_case_prefix(name, "Ext-Ms-Win-Gdi-Internal-Uap-Init-l1-1-0")) {
+        return "gdi32full.dll";
+    }
+    else
+        {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
         return "kernelbase.dll";
