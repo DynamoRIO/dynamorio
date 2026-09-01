@@ -160,6 +160,11 @@ void
 kernel_module_exit(void)
 {
     if (heap != NULL) {
+        /* module_alloc() uses vmalloc internally, so vfree() is the right way to free it.
+         * We can't use module_free() instead: it needs a struct module's own layout info,
+         * and we don't have that since this memory wasn't allocated through the normal
+         * module-loading path.
+         */
         vfree(heap);
         heap = NULL;
     }
