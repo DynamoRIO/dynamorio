@@ -125,6 +125,18 @@ resolve_kernel_symbols(void)
         return -ENOENT;
     }
 
+    /* XXX i#8021: module_alloc() returned RWX memory when old DRK was written, but that's
+     * no longer reliable:
+     * - On 6.6+ x86 kernels it returns RW+NX, requiring an explicit set_memory_x() call
+     *   to make it executable (as old DRK had to do).
+     * - On even newer kernels (e.g. the Ubuntu 24.04 GitHub Actions runner),
+     *   module_alloc() itself is gone, replaced by execmem_alloc()/execmem_free().
+     *
+     * TODO i#8021: We would need to allocate two separate memory heaps at startup for
+     * fine-grained W^X protection:
+     *   1) An executable code heap (marked +x).
+     *   2) A non-executable data heap (left NX).
+     */
     module_alloc_ptr = kernel_find_symbol("module_alloc", NULL);
     if (module_alloc_ptr == NULL) {
         return -ENOENT;
