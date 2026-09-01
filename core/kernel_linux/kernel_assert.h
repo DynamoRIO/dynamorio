@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2026 Google, Inc.  All rights reserved.
- * Copyright (c) 2013 Peter Feiner.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,33 +30,20 @@
  * DAMAGE.
  */
 
-#ifndef _KERNEL_INTERFACE_H_
-#define _KERNEL_INTERFACE_H_
+#ifndef _KERNEL_ASSERT_H_
+#define _KERNEL_ASSERT_H_
 
-#include <linux/types.h>
+#include <linux/bug.h>
 
-int
-kernel_module_init(size_t dr_heap_size);
+#include "configure.h"
 
-void
-kernel_module_exit(void);
+#ifdef DEBUG
+/* BUG_ON() expands to BUG(), which triggers a kernel oops report containing the file and
+ * line number (with CONFIG_DEBUG_BUGVERBOSE, enabled by default).
+ */
+#    define KERNEL_ASSERT(x) BUG_ON(!(x))
+#else
+#    define KERNEL_ASSERT(x) ((void)0)
+#endif
 
-void *
-kernel_allocate_heap(size_t size);
-
-void *
-kernel_find_symbol(const char *name, size_t *size);
-
-int
-kernel_get_cpu_id(void);
-
-unsigned int
-kernel_query_time_seconds(void);
-
-#define KERNEL_ENV_NAME_MAX 50
-#define KERNEL_ENV_VALUE_MAX 512
-
-const char *
-kernel_getenv(const char *name);
-
-#endif /* _KERNEL_INTERFACE_H_ */
+#endif /* _KERNEL_ASSERT_H_ */

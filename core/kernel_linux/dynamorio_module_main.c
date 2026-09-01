@@ -30,21 +30,39 @@
  * DAMAGE.
  */
 
+/* The kernel's print helpers (pr_info(), pr_err(), etc.) expand pr_fmt(): this must be
+ * defined at the top before the #include block to have the module name prepended to
+ * every message. Since this is a kernel macro, not a DR one, it has to be lower-case.
+ */
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/module.h>
+#include "kernel_interface.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION("DynamoRIO dynamic instrumentation engine");
+MODULE_AUTHOR("DynamoRIO developers");
+
+static ulong dr_heap_size = 257 * 1024 * 1024;
+module_param(dr_heap_size, ulong, 0444);
+MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
 static int __init
 dynamorio_module_init(void)
 {
-    pr_info("DynamoRIO module started\n");
+    int ret = kernel_module_init(dr_heap_size);
+    if (ret != 0) {
+        return ret;
+    }
+    pr_info("Module started\n");
     return 0;
 }
 
 static void __exit
 dynamorio_module_exit(void)
 {
-    pr_info("DynamoRIO module exited\n");
+    kernel_module_exit();
+    pr_info("Module exited\n");
 }
 
 module_init(dynamorio_module_init);
