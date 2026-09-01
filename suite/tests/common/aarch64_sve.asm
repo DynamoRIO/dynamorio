@@ -34,6 +34,8 @@
 #define ASM_CODE_ONLY
 #include "../api/detach_state_shared.h"
 
+.arch armv8-a+sve
+
 #define SIMD_UNIQUE_VAL_DOUBLEWORD_VALUE(n) \
   SIMD_UNIQUE_VAL_DOUBLEWORD_ELEMENT(MAKE_HEX_C(Z0_0_BASE()), \
                                      MAKE_HEX_C(Z_ELEMENT_INCREMENT_BASE()), n)

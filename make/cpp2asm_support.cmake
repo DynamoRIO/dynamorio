@@ -229,12 +229,6 @@ elseif (UNIX)
     # No 64-bit support yet.
     # Some tests and libgcc/arm use deprecated instructions, disable warnings.
     set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon -mno-warn-deprecated")
-  elseif (DR_HOST_AARCH64)
-    if (proc_supports_sve2)
-        set(ASM_FLAGS "${ASM_FLAGS} ${ASMFLAGS_SVE2}")
-    elseif (proc_supports_sve)
-        set(ASM_FLAGS "${ASM_FLAGS} ${ASMFLAGS_SVE}")
-    endif ()
   endif ()
   if (NOT ANDROID64)
     set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
@@ -333,10 +327,12 @@ elseif (proc_supports_avx2)
   set(rule_flags "${rule_flags} ${CFLAGS_AVX2}")
 elseif (proc_supports_avx)
   set(rule_flags "${rule_flags} ${CFLAGS_AVX}")
-elseif (proc_supports_sve2)
-  set(rule_flags "${rule_flags} ${CFLAGS_SVE2}")
-elseif (proc_supports_sve)
-  set(rule_flags "${rule_flags} ${CFLAGS_SVE}")
+endif ()
+
+if (AARCH64 AND NOT CMAKE_CROSSCOMPILING)
+  # Enable all architecture features supported by the hardware we are running on to get
+  # access to the ACLE __ARM_FEATURE_* macros.
+  set(rule_flags "${rule_flags} -march=native")
 endif ()
 
 # Include a define that can be used to identify asm code.
