@@ -39,3 +39,8 @@ obj-m += @dynamorio_module_name@.o
 @dynamorio_module_kbuild_objs@
 @dynamorio_module_kbuild_ccflags@
 @dynamorio_module_kbuild_asflags@
+
+# DynamoRIO contains custom assembly routines, non-standard stack frames, and
+# dynamic code generation infrastructure that do not follow standard kernel
+# stack layout / straight-line speculation rules verified by objtool.
+OBJECT_FILES_NON_STANDARD := y
