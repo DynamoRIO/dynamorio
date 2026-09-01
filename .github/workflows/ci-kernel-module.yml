@@ -42,3 +42,41 @@ jobs:
         run: |
           cmake -B build -DBUILD_KERNEL_MODULE=ON -DKERNEL_DIR=$GITHUB_WORKSPACE/$KERNEL_DIR
           cmake --build build --parallel $(nproc) --target dynamorio_module
+
+  x86-64-insmod:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Setup build environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt update
+          sudo apt install -y cmake doxygen g++ g++-multilib libelf-dev make vera++ \
+            linux-headers-$(uname -r)
+          echo "KERNEL_DIR=/lib/modules/$(uname -r)/build" >> $GITHUB_ENV
+
+      - name: Build DynamoRIO Kernel Module against running kernel
+        run: |
+          cmake -B build -DBUILD_KERNEL_MODULE=ON -DKERNEL_DIR=$KERNEL_DIR
+          cmake --build build --parallel $(nproc) --target dynamorio_module
+
+      - name: Load module and check dmesg for init/exit success
+        run: |
+          MODULE=build/core/kernel_linux/dynamorio_module.ko
+
+          # Start from a clean log so the checks below can't match stale
+          # messages from a previous boot or run.
+          sudo dmesg -C
+
+          echo "Loading $MODULE"
+          sudo insmod "$MODULE"
+          dmesg | grep -F "dynamorio_module: Module started"
+
+          echo "Removing dynamorio_module"
+          sudo rmmod dynamorio_module
+          dmesg | grep -F "dynamorio_module: Module exited"
