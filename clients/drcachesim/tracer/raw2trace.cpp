@@ -1585,11 +1585,12 @@ raw2trace_t::interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_
                                          uint64_t cur_offs)
 {
     bool is_interrupted = false;
-    std::deque<offline_entry_t> pre_read_buffer;
+    std::vector<offline_entry_t> &pre_read_buffer = tdata->kernel_event_lookahead;
+    pre_read_buffer.clear();
 
     const offline_entry_t *next_entry = get_next_entry(tdata);
     while (next_entry != NULL) {
-        pre_read_buffer.push_front(*next_entry);
+        pre_read_buffer.push_back(*next_entry);
         if (next_entry->addr.type == OFFLINE_TYPE_MEMREF ||
             next_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
             next_entry = get_next_entry(tdata);
@@ -1643,10 +1644,8 @@ raw2trace_t::interrupted_by_kernel_event(raw2trace_thread_data_t *tdata, uint64_
         break;
     }
     // Move the entries back to the pre_read queues.
-    while (!pre_read_buffer.empty()) {
-        tdata->pre_read.push_front(pre_read_buffer.front());
-        pre_read_buffer.pop_front();
-    }
+    for (auto iter = pre_read_buffer.rbegin(); iter != pre_read_buffer.rend(); ++iter)
+        tdata->pre_read.push_front(*iter);
     return is_interrupted;
 }
 

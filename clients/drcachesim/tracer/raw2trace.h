@@ -710,6 +710,7 @@ protected:
         offline_file_type_t file_type;
         size_t cache_line_size = 0;
         std::deque<offline_entry_t> pre_read;
+        std::vector<offline_entry_t> kernel_event_lookahead;
         offline_instru_t instru_offline;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
