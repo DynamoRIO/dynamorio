@@ -153,8 +153,10 @@ offline_instru_t::~offline_instru_t()
         buf = (char *)dr_global_alloc(size);
         res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS) {
-            ssize_t written = write_file_func_(modfile_, buf, wrote - 1 /*no null*/);
-            DR_ASSERT(written == (ssize_t)wrote - 1);
+            if (modfile_ != INVALID_FILE) {
+                ssize_t written = write_file_func_(modfile_, buf, wrote - 1 /*no null*/);
+                DR_ASSERT(written == (ssize_t)wrote - 1);
+            }
         }
         dr_global_free(buf, size);
         size *= 2;
@@ -478,11 +480,14 @@ offline_instru_t::flush_instr_encodings()
     size_t size = encoding_buf_ptr_ - encoding_buf_start_;
     if (size == 0)
         return;
-    ssize_t written = write_file_func_(encoding_file_, encoding_buf_start_, size);
-    log_(2, "%s: Wrote %zu/%zu bytes to encoding file\n", __FUNCTION__, written, size);
-    DR_ASSERT(written == static_cast<ssize_t>(size));
+    if (encoding_file_ != INVALID_FILE) {
+        ssize_t written = write_file_func_(encoding_file_, encoding_buf_start_, size);
+        log_(2, "%s: Wrote %zu/%zu bytes to encoding file\n", __FUNCTION__, written,
+             size);
+        DR_ASSERT(written == static_cast<ssize_t>(size));
+        encoding_bytes_written_ += written;
+    }
     encoding_buf_ptr_ = encoding_buf_start_;
-    encoding_bytes_written_ += written;
 }
 
 void

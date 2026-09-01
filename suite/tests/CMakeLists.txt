@@ -4524,6 +4524,36 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.check-malloc-lz4_expectbase "offline-simple")
     endif ()
 
+    if (UNIX)
+      # TODO i#8079: add a new cmake pseudo-command to check that no "drmemtrace.*.dir"
+      # is created in the current directory for both tool.drcacheoff.outdir-none and
+      # tool.drcacheoff.outdir-none-windows tests.
+      # Test "-outdir none" mode.
+      set(tool.drcacheoff.outdir-none_nopost ON)
+      torunonly_drcacheoff(outdir-none ${ci_shared_app} "-outdir none" "" "")
+      set(tool.drcacheoff.outdir-none_expectbase "simple_app")
+      set(tool.drcacheoff.outdir-none_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+
+      # Test "-outdir none" mode with window tracing, which tries to open multiple trace
+      # files. None should be created in this case.
+      set(tool.drcacheoff.outdir-none-windows_nopost ON)
+      torunonly_drcacheoff(outdir-none-windows ${ci_shared_app}
+        "-outdir none -trace_after_instrs 20K -trace_for_instrs 10K -retrace_every_instrs 30K"
+        "" "")
+
+      # Test regular "-outdir ${DIR}" mode with a long ${DIR} path, which triggers a
+      # call to malloc when getting the flag's value. A call to malloc is triggered
+      # when the path is over the maximum string size for Small String Optimization,
+      # which is typically 22 chars. This is useful to double check that we don't try
+      # to get the "-outdir" flag value in forbidden places in the tracer.
+      set(outdir ${PROJECT_BINARY_DIR}/long_dir_name_of_at_least_23_characters)
+      file(MAKE_DIRECTORY ${outdir})
+      set(tool.drcacheoff.outdir-long-dir_nopost ON)
+            torunonly_drcacheoff(outdir-long-dir ${ci_shared_app} "-outdir ${outdir}" "" "")
+      set(tool.drcacheoff.outdir-long-dir_expectbase "simple_app")
+      set(tool.drcacheoff.outdir-long-dir_basedir "${PROJECT_SOURCE_DIR}/suite/tests/client-interface")
+    endif ()
+
     # Test reading a trace in sharded snappy-compressed files.
     if (libsnappy)
       # with a parallel tool (basic_counts)
