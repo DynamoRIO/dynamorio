@@ -40,6 +40,7 @@ obj-m += @dynamorio_module_name@.o
 @dynamorio_module_kbuild_ccflags@
 @dynamorio_module_kbuild_asflags@
 
-# x86.asm contains custom assembly routines and non-standard returns that do
-# not include compiler-generated straight-line speculation (SLS) barriers.
-OBJECT_FILES_NON_STANDARD_x86.o := y
+# Disable objtool checks for all objects in this directory. DynamoRIO assembly (x86.asm)
+# and low-level code contain custom return sequences, stack switches, and trampolines
+# that do not adhere to kernel objtool/SLS conventions.
+OBJECT_FILES_NON_STANDARD := y
