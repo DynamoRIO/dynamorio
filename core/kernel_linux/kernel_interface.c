@@ -39,7 +39,6 @@
 
 #include "kernel_interface.h"
 
-#include <linux/bug.h>
 #include <linux/kallsyms.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
@@ -48,15 +47,7 @@
 #include <linux/vmalloc.h>
 
 #include "configure.h"
-
-#ifdef DEBUG
-/* BUG_ON() expands to BUG(), which triggers a kernel oops report containing the file and
- * line number (with CONFIG_DEBUG_BUGVERBOSE, enabled by default).
- */
-#    define ASSERT(x) BUG_ON(!(x))
-#else
-#    define ASSERT(x) ((void)0)
-#endif
+#include "kernel_assert.h"
 
 static void *heap = NULL;
 static size_t heap_size;
@@ -70,7 +61,7 @@ static void *(*module_alloc_ptr)(unsigned long) = NULL;
 static size_t
 get_symbol_size(unsigned long address)
 {
-    ASSERT(kallsyms_lookup_size_offset_ptr != NULL);
+    KERNEL_ASSERT(kallsyms_lookup_size_offset_ptr != NULL);
 
     unsigned long size, offset;
     /* kallsyms_lookup_size_offset returns 1 on success,
@@ -85,8 +76,8 @@ get_symbol_size(unsigned long address)
 void *
 kernel_find_symbol(const char *name, size_t *size)
 {
-    ASSERT(kallsyms_lookup_name_ptr != NULL);
-    ASSERT(name != NULL);
+    KERNEL_ASSERT(kallsyms_lookup_name_ptr != NULL);
+    KERNEL_ASSERT(name != NULL);
 
     unsigned long addr = kallsyms_lookup_name_ptr(name);
     if (addr == 0) {
