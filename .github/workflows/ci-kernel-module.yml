@@ -80,3 +80,8 @@ jobs:
           echo "Removing dynamorio_module"
           sudo rmmod dynamorio_module
           dmesg | grep -F "dynamorio_module: Module exited"
+
+      - name: Dump dmesg log on failure
+        if: failure()
+        run: sudo dmesg
+
