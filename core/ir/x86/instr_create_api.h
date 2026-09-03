@@ -1158,7 +1158,9 @@
 /* XXX: real assembly only has size-suffixed rdsspd/rdsspq mnemonics, no bare
  * "rdssp". Unclear whether splitting into separate d/q macros is worth it.
  */
-#define INSTR_CREATE_rdssp(dc, d) instr_create_1dst_0src((dc), OP_rdssp, (d))
+#define INSTR_CREATE_rdssp(dc, d) \
+    INSTR_PRED(instr_create_1dst_0src((dc), OP_rdssp, (d)), DR_PRED_COMPLEX)
+
 /**
  * This INSTR_CREATE_xxx macro creates an #instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.

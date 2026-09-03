@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -7294,8 +7294,9 @@ const instr_info_t mod_extensions[][2] = {
     {OP_nop_modrm, 0xf30f1e31, catOther, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
     /* Disassembled as rdsspd for 32-bit operands or rdsspq for 64-bit.
      * The suffix is appended by instr_opcode_name_suffix().
+     * This is a nop when CET is not enabled, hence "predcx".
      */
-    {OP_rdssp,     0xf30f1e31, catState, "rdssp", Ry, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_rdssp,     0xf30f1e31, catState, "rdssp", Ry, xx, xx, xx, xx, mrm|predcx, x, END_LIST},
   }
 };
 
