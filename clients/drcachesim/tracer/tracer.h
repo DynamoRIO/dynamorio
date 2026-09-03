@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2025 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2026 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -80,11 +80,17 @@ struct per_thread_t {
     byte *seg_base;
     byte *buf_base;
     uint64 num_refs;
+
+    // Split-file feature to measure SPECCPU ref performance.
+    uint64 refs_since_split;
+    uint64 splits;
+
     uint64 num_writeouts; /* Buffer writeout instances. */
     uint64 bytes_written;
     uint64 cur_window_instr_count;
     /* For offline traces */
     file_t file;
+    char fpath[MAXIMUM_PATH];
     size_t init_header_size;
     /* For file_ops_func.handoff_buf */
     uint num_buffers;

@@ -2045,6 +2045,7 @@ event_thread_exit(void *drcontext)
         exit_thread_io(drcontext);
 
         dr_mutex_lock(mutex);
+        NOTIFY(0, "File splits: " UINT64_FORMAT_STRING "\n", data->splits);
         num_refs += data->num_refs;
         num_writeouts += data->num_writeouts;
         num_v2p_writeouts += data->num_v2p_writeouts;
@@ -2080,7 +2081,7 @@ event_exit(void)
 #endif
     dr_log(NULL, DR_LOG_ALL, 1, "drcachesim num refs seen: " UINT64_FORMAT_STRING "\n",
            num_refs);
-    NOTIFY(1,
+    NOTIFY(0,
            "drmemtrace exiting process " PIDFMT "; traced " UINT64_FORMAT_STRING
            " references in " UINT64_FORMAT_STRING " writeouts.\n",
            dr_get_process_id(), num_refs, num_writeouts);

@@ -461,7 +461,7 @@ open_new_window_dir(ptr_int_t window_num)
 }
 
 static void
-close_thread_file(void *drcontext)
+close_thread_file(void *drcontext, const char *remove)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (data->file == INVALID_FILE)
@@ -511,6 +511,12 @@ close_thread_file(void *drcontext)
 #endif
     file_ops_func.close_file(data->file);
     data->file = INVALID_FILE;
+    if (remove != nullptr) {
+        NOTIFY(2, "Removing %s\n", remove);
+        if (unlink(remove) != 0) {
+            FATAL("Failed to unlink |%s|\n", remove);
+        }
+    }
 }
 
 // Returns whether a new file was opened (it won't be for -no_split_windows).
@@ -543,7 +549,8 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
      * Since we're now in a subdir we could make the name simpler but this
      * seems nice and complete.
      */
-    char buf[MAXIMUM_PATH];
+    char old_fpath[MAXIMUM_PATH];
+    strncpy(old_fpath, data->fpath, BUFFER_SIZE_ELEMENTS(old_fpath));
     int i;
     const int NUM_OF_TRIES = 10000;
     uint flags =
@@ -569,19 +576,19 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
 #endif
     for (i = 0; i < NUM_OF_TRIES; i++) {
         drx_open_unique_appid_file(dir, dr_get_thread_id(drcontext), subdir_prefix,
-                                   suffix, DRX_FILE_SKIP_OPEN, buf,
-                                   BUFFER_SIZE_ELEMENTS(buf));
-        NULL_TERMINATE_BUFFER(buf);
+                                   suffix, DRX_FILE_SKIP_OPEN, data->fpath,
+                                   BUFFER_SIZE_ELEMENTS(data->fpath));
+        NULL_TERMINATE_BUFFER(data->fpath);
         file_t new_file = file_ops_func.call_open_file(
-            buf, flags, dr_get_thread_id(drcontext), window_num);
+            data->fpath, flags, dr_get_thread_id(drcontext), window_num);
         if (new_file == INVALID_FILE)
             continue;
         if (new_file == data->file)
-            FATAL("Failed to create new thread file for window %s\n", buf);
-        NOTIFY(2, "Created thread trace file %s\n", buf);
+            FATAL("Failed to create new thread file for window %s\n", data->fpath);
+        NOTIFY(2, "Created thread trace file %s\n", data->fpath);
         opened_new_file = true;
         if (data->file != INVALID_FILE)
-            close_thread_file(drcontext);
+            close_thread_file(drcontext, old_fpath);
         data->file = new_file;
 #ifdef HAS_SNAPPY
         if (snappy_enabled()) {
@@ -643,7 +650,7 @@ open_new_thread_file(void *drcontext, ptr_int_t window_num)
         break;
     }
     if (i == NUM_OF_TRIES) {
-        FATAL("Fatal error: failed to create trace file %s\n", buf);
+        FATAL("Fatal error: failed to create trace file %s\n", data->fpath);
     }
     return opened_new_file;
 }
@@ -704,6 +711,32 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
                 FATAL("Fatal error: failed to hand off trace\n");
             }
         } else {
+#if 1 // Split-file feature to measure SPECCPU ref performance.
+      // We start with a record count threshold for low overhead
+      // until we get close to the target size, based on an estimate
+      // of the compression rate.
+      // 700G * 8 bytes each * 0.25 compression = 1.4T
+      // In actuality I saw 700G => 1.3TB on xalancbmk but 970G on leela.
+      // We go with 600G records initially and checking the file size every
+      // 50G after that.
+            if (data->refs_since_split >= 600000000000ULL &&
+                data->refs_since_split % 50000000000ULL) {
+                uint64 fsz = 0;
+                dr_file_size(data->file, &fsz);
+                // This SSD can fit 1.6T; we use 1.5 to be safe.
+                if (fsz >= 1500000000000ULL) {
+                    NOTIFY(0,
+                           "Hit max size " UINT64_FORMAT_STRING ": creating new file\n",
+                           fsz);
+                    ++data->splits;
+                    data->refs_since_split = 0;
+                    if (!open_new_thread_file(drcontext, data->splits)) {
+                        FATAL("Fatal error: failed to make new 'window' file\n.");
+                    }
+                }
+            }
+
+#endif
             ssize_t wrote;
 #ifdef HAS_SNAPPY
             if (op_offline.get_value() && snappy_enabled())
@@ -796,7 +829,7 @@ set_local_window(void *drcontext, ptr_int_t value)
                 entry += instru->append_thread_exit(entry, dr_get_thread_id(drcontext));
                 DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= (size_t)(entry - buf));
                 write_trace_data(drcontext, (byte *)buf, entry, old_val);
-                close_thread_file(drcontext);
+                close_thread_file(drcontext, nullptr);
             }
             if ((value > 0 && op_split_windows.get_value()) ||
                 data->init_header_size == 0) {
@@ -810,7 +843,7 @@ set_local_window(void *drcontext, ptr_int_t value)
             // We delay opening the next window's file to avoid an empty final file.
             // The initial file is opened at thread init.
             if (data->file != INVALID_FILE && value > 0 && op_split_windows.get_value())
-                close_thread_file(drcontext);
+                close_thread_file(drcontext, nullptr);
         }
     }
     *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW) = value;
@@ -980,6 +1013,7 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
     DR_ASSERT(span % instru->sizeof_entry() == 0);
     uint current_num_refs = (uint)(span / instru->sizeof_entry());
     data->num_refs += current_num_refs;
+    data->refs_since_split += current_num_refs;
     uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
     if (mode != BBDUP_MODE_L0_FILTER)
         data->bytes_written += buf_ptr - pipe_start;
@@ -1629,7 +1663,7 @@ exit_thread_io(void *drcontext)
                                   /*at_thread_exit=*/true);
     }
     if (op_offline.get_value() && data->file != INVALID_FILE)
-        close_thread_file(drcontext);
+        close_thread_file(drcontext, nullptr);
 
     exit_compression(drcontext, data);
 
