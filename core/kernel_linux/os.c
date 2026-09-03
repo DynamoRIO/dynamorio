@@ -106,5 +106,10 @@ os_wait_thread_terminated(dcontext_t *dcontext)
 uint
 query_time_seconds(void)
 {
-    return kernel_query_time_seconds();
+    /* kernel_query_time_seconds() returns seconds since the Unix Epoch
+     * (1970-01-01), but DR's cross-platform contract for query_time_seconds()
+     * is seconds since 1601-01-01 (see os_shared.h). Convert so the kernel
+     * build matches the user space build.
+     */
+    return (uint)(kernel_query_time_seconds() + UTC_TO_EPOCH_SECONDS);
 }

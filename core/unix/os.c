@@ -1366,11 +1366,6 @@ get_timer_frequency(void)
     return get_timer_frequency_cpuinfo();
 }
 
-/* DR has standardized on UTC time which counts from since Jan 1, 1601.
- * That's the Windows standard.  But Linux uses the Epoch of Jan 1, 1970.
- */
-#define UTC_TO_EPOCH_SECONDS 11644473600
-
 /* seconds since 1601 */
 uint
 query_time_seconds(void)
