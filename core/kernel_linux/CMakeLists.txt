@@ -224,8 +224,10 @@ configure_file(
   @ONLY
 )
 
-# When Module.symvers is present (e.g. built kernel or distro headers), extract
-# undefined symbols and generate weak stubs to allow loading during development.
+# When Module.symvers is present (e.g. built kernel or distro headers), extract undefined
+# symbols and generate weak stubs to allow loading during development. The stubs are not
+# expected to be called: each stub simply calls BUG(), so a runtime call would fail loudly
+# with a kernel oops.
 # When Module.symvers is absent (e.g. unbuilt kernel tree with make modules_prepare),
 # skip stub generation and rely on KBUILD_MODPOST_WARN=1 for compile-only testing.
 set(extra_module_build_commands "")
