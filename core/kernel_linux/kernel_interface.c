@@ -150,7 +150,7 @@ resolve_kernel_symbols(void)
         vmalloc_node_range_ptr = kernel_find_symbol("__vmalloc_node_range_noprof", NULL);
     }
     if (vmalloc_node_range_ptr == NULL) {
-        pr_err("Failed to resolve __vmalloc_node_range\n");
+        pr_err("Failed to resolve __vmalloc_node_range or __vmalloc_node_range_noprof\n");
         return -ENOENT;
     }
 
