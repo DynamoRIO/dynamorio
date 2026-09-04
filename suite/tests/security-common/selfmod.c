@@ -48,23 +48,6 @@
 static SIGJMP_BUF mark;
 static int count = 0;
 
-#    ifdef AARCH64
-void
-clear_icache_if_required(void *beg, void *end)
-{
-    /* If CTR_EL0.DIC is set then the icache does not need to be cleared after code has
-     * been modified. */
-    uint64 CTR_EL0 = 0;
-    asm("mrs %0, CTR_EL0" : "=r"(CTR_EL0));
-
-    /* TODO i#5771: Enable this check when we have support for automatic icache coherence.
-     */
-    /* if ((CTR_EL0 >> 29) & 1 == 0) { */
-    tools_clear_icache(beg, end);
-    /* } */
-}
-#    endif
-
 static void
 print_fault_code(unsigned char *pc)
 {
@@ -147,6 +130,11 @@ sandbox_illegal_instr(int i);
 
 void
 sandbox_cti_tgt(void);
+
+#    ifdef AARCH64
+uint
+sandbox_aarch64_stores(void);
+#    endif
 
 #    ifdef X86
 void
@@ -326,7 +314,7 @@ test_sandbox_last_byte(void)
     uint32 *first_instruction = (uint32 *)last_byte_jmp_label;
     (*first_instruction)++; /* The jump distance is encoded in number of instructions, not
                                bytes. */
-    clear_icache_if_required(first_instruction, first_instruction + 4);
+    tools_clear_icache(first_instruction, first_instruction + 4);
 #    endif
 
     r = sandbox_last_byte();
@@ -367,6 +355,19 @@ test_sandbox_cti_tgt(void)
     print("end selfmod loop test\n");
 }
 
+#    ifdef AARCH64
+static void
+test_sandbox_aarch64_stores(void)
+{
+    protect_mem(sandbox_aarch64_stores, PAGE_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
+    uint failures = sandbox_aarch64_stores();
+    if (failures != 0) {
+        print("AArch64 store selfmod failures: 0x%x\n", failures);
+    }
+    print("end AArch64 store selfmod test\n");
+}
+#    endif
+
 #    ifdef X86
 static void
 test_sandbox_direction_flag(void)
@@ -403,6 +404,10 @@ main(void)
     test_sandbox_fault();
 
     test_sandbox_cti_tgt();
+
+#    ifdef AARCH64
+    test_sandbox_aarch64_stores();
+#    endif
 
 #    ifdef X86
     test_sandbox_direction_flag();
@@ -453,12 +458,18 @@ _MYTEXT SEGMENT ALIGN(4096) READ EXECUTE SHARED ALIAS(".mytext")
 
 #ifdef AARCH64
 /* Clear the instruction cache line containing the address in address_reg. */
+#   ifdef COHERENT_ICACHE
+#   define CLEAR_ICACHE_LINE(address_reg) \
+        dsb     ish @N@\
+        isb
+#   else
 #   define CLEAR_ICACHE_LINE(address_reg) \
         dc      cvau, address_reg @N@\
         dsb     ish @N@\
         ic      ivau, address_reg @N@\
         dsb     ish @N@\
         isb
+#   endif /* COHERENT_ICACHE */
 #endif
 
     /* The following code needs to cross a page boundary. */
@@ -837,6 +848,161 @@ ADDRTAKEN_LABEL(sandbox_cti_tgt_end:)
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+#ifdef AARCH64
+
+/* Holds the address of code we are modifying used in the str instructions
+ * This must be kept in sync with the -steal_reg <N> option in the selfmod_stolen_reg
+ * test.
+ */
+#define ADDR_REG x9
+
+#define PREP_MOVZ_PATCH(target, value_reg, imm_reg, imm) \
+        adr     ADDR_REG, target @N@\
+        ldr     value_reg, [ADDR_REG] @N@\
+        and     value_reg, value_reg, @P@0xffe0001f @N@\
+        mov     imm_reg, imm @N@\
+        orr     value_reg, value_reg, imm_reg, LSL @P@5
+
+/* Sets result_bit of result_accumulator if cmp_reg != expected.
+ * Clobbers cmp_reg.
+ */
+#define CHECK_RESULT(result_accumulator, expected, cmp_reg, result_bit) \
+        cmp cmp_reg, @P@expected @N@\
+        cset cmp_reg, ne @N@\
+        lsl cmp_reg, cmp_reg, @P@result_bit @N@\
+        orr result_accumulator, result_accumulator, cmp_reg
+
+#define FUNCNAME sandbox_aarch64_stores
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        stp     x29, x30, [sp, #-16]!
+        stp     x19, x20, [sp, #-16]!
+        mov     x19, #0
+
+        /* strb: patch just the low 3 immediate bits of "movz x0, #0". */
+        adr     ADDR_REG, sandbox_aarch64_stores_strb_target
+        mov     w10, #(5 << 5)
+        strb    w10, [ADDR_REG]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_strb_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 5, x0, 0)
+
+        /* strh: patch low 11 immediate bits of "movz x0, #0". */
+        adr     ADDR_REG, sandbox_aarch64_stores_strh_target
+        mov     w10, #(0x123 << 5)
+        strh    w10, [ADDR_REG]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_strh_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0x123, x0, 1)
+
+        /* stur: unscaled addressing with a negative offset. */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_stur_target, w10, w11, #0x234)
+        add     ADDR_REG, ADDR_REG, #4
+        stur    w10, [ADDR_REG, #-4]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_stur_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0x234, x0, 2)
+
+        /* str post-index: exercise stores that update their base register. */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_str_post_target, w10, w11, #0x345)
+        str     w10, [ADDR_REG], #4
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_str_post_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0x345, x0, 3)
+
+        /* stp: patch two adjacent instructions with one store-pair. */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_stp_target1, w11, w12, #0x222)
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_stp_target0, w10, w12, #0x111)
+        stp w10, w11, [ADDR_REG]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+        .balign 8
+sandbox_aarch64_stores_stp_target0:
+        movz x0, #0
+sandbox_aarch64_stores_stp_target1:
+        movz x1, #0
+        add x0, x0, x1
+        CHECK_RESULT(x19, 0x333, x0, 4)
+
+        /* stlr: release store to a selfmod target. */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_stlr_target, w10, w11, #0x456)
+        stlr w10, [ADDR_REG]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_stlr_target:
+        movz x0, #0
+        CHECK_RESULT(x19, 0x456, x0, 5)
+
+        /* str register offset: exercise stores with a index register. */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_str_index_target, w10, w11, #0x567)
+        add     ADDR_REG, ADDR_REG, #123
+        mov     w11, #-123
+        str     w10, [ADDR_REG, w11, SXTW]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_str_index_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0x567, x0, 6)
+
+        /* str pre-index: exercise stores that update their base register. */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_str_pre_target, w10, w11, #0x678)
+        sub     ADDR_REG, ADDR_REG, #4
+        str     w10, [ADDR_REG, #4]!
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_str_pre_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0x678, x0, 7)
+
+        /* stxr: exercise exclusive store. */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_stxr_target, w10, w11, #0x789)
+        ldxr    wzr, [ADDR_REG]
+        stxr    w0, w10, [ADDR_REG]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_stxr_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0x789, x0, 8)
+
+        /* Tagged pointer. */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_tag_target, w10, w11, #0x89a)
+        /* Add a memory tag by setting the top byte to 0xff. */
+        orr     ADDR_REG, ADDR_REG, #0xff00000000000000
+        str     w10, [ADDR_REG]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_tag_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0x89a, x0, 9)
+
+#if defined(__ARM_FEATURE_ATOMICS)
+.arch_extension lse
+        /* cas */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_cas_target, w10, w11, #0x9ab)
+        ldr     w0, [ADDR_REG]
+        cas     w0, w10, [ADDR_REG]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_cas_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0x9ab, x0, 10)
+
+        /* swp */
+        PREP_MOVZ_PATCH(sandbox_aarch64_stores_swp_target, w10, w11, #0xabc)
+        swp     w10, w0, [ADDR_REG]
+        CLEAR_ICACHE_LINE(ADDR_REG)
+sandbox_aarch64_stores_swp_target:
+        movz    x0, #0
+        CHECK_RESULT(x19, 0xabc, x0, 11)
+#endif
+
+        mov x0, x19
+        ldp x19, x20, [sp], #16
+        ldp x29, x30, [sp], #16
+        ret
+ADDRTAKEN_LABEL(sandbox_aarch64_stores_end:)
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+#undef PREP_MOVZ_PATCH
+#endif /* AARCH64 */
 
 #ifdef X86
 /* First we do a self modification to have basic blocks in sandboxing mode.

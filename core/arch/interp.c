@@ -3503,9 +3503,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (bb->eflags != EFLAGS_WRITE_ARITH IF_X86(&&bb->eflags != EFLAGS_READ_OF))
                 bb->eflags = eflags_analysis(bb->instr, bb->eflags, &eflags_6);
 
-            /* stop decoding at an invalid instr (tested above) or a cti
-             *(== opcode valid) or a possible SEH frame push (if
-             * -process_SEH_push). */
+                /* stop decoding at an invalid instr (tested above) or a cti
+                 *(== opcode valid) or a possible SEH frame push (if
+                 * -process_SEH_push). */
 #ifdef WINDOWS
             if (DYNAMO_OPTION(process_SEH_push) &&
                 instr_get_prefix_flag(bb->instr, PREFIX_SEG_FS)) {
@@ -3890,6 +3890,13 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_interrupt(dcontext, bb))
                 break;
         }
+#ifdef AARCH64
+        else if (TESTANY(FRAG_SELFMOD_SANDBOXED, bb->flags) &&
+                 !INTERNAL_OPTION(sandbox_writes) &&
+                 instr_get_opcode(bb->instr) == OP_isb) {
+            break;
+        }
+#endif
 #if 0 /*i#1313, i#1314*/
         else if (instr_get_opcode(bb->instr) == OP_getsec) {
             /* XXX i#1313: if we support CPL0 in the future we'll need to

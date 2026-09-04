@@ -103,7 +103,7 @@ typedef struct _translate_walk_t {
 
 static void
 translate_walk_init(translate_walk_t *walk, byte *start_cache, byte *end_cache,
-                    priv_mcontext_t *mc)
+                    priv_mcontext_t *mc, uint flags IF_NOT_AARCH64(UNUSED))
 {
     memset(walk, 0, sizeof(*walk));
     walk->mc = mc;
@@ -119,9 +119,9 @@ instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
 {
     if (!instr_is_our_mangling(inst))
         return false;
-    /* Not bothering to check whether there's a nearby syscall instr:
-     * any label-targeting short jump should be fine to ignore.
-     */
+        /* Not bothering to check whether there's a nearby syscall instr:
+         * any label-targeting short jump should be fine to ignore.
+         */
 #    ifdef X86
     return (instr_get_opcode(inst) == OP_jmp_short &&
             opnd_is_instr(instr_get_target(inst)));
@@ -418,14 +418,20 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
                (opnd_get_pc(instr_get_target(inst)) >= walk->start_cache &&
                 opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))
 #elif defined(AARCHXX)
-            /* Do not reset for cbnz/bne in ldstex mangling, nor for the b after strex. */
+            /* Do not reset for:
+             *     cbnz/bne in ldstex mangling,
+             *     the b after strex,
+             *     tbz/tbnz in selfmod sandbox mangling.
+             */
             !(instr_get_opcode(inst) == OP_cbnz ||
               (instr_get_opcode(inst) == OP_b &&
                (instr_get_prev(inst) != NULL &&
                 instr_get_opcode(instr_get_prev(inst)) == OP_subs)) ||
               (instr_get_opcode(inst) == OP_b &&
                (instr_get_prev(inst) != NULL &&
-                instr_is_exclusive_store(instr_get_prev(inst)))))
+                instr_is_exclusive_store(instr_get_prev(inst))))
+                  IF_AARCH64(|| instr_get_opcode(inst) == OP_tbz ||
+                             instr_get_opcode(inst) == OP_tbnz))
 #elif defined(RISCV64)
             /* Do not reset for bne in LR/SC mangling, nor for the jal after SC.
              * This should be kept in sync with mangle_exclusive_monitor_op().
@@ -814,7 +820,7 @@ translate_clear_last_direct_translation(dcontext_t *dcontext)
 static recreate_success_t
 recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *info,
                              byte *start_cache, byte *end_cache, priv_mcontext_t *mc,
-                             bool just_pc _IF_DEBUG(uint flags))
+                             bool just_pc, uint flags)
 {
     byte *answer = NULL;
     byte *cpc, *prev_cpc;
@@ -824,7 +830,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
     instr_t instr;
     translate_walk_t walk;
-    translate_walk_init(&walk, start_cache, end_cache, mc);
+    translate_walk_init(&walk, start_cache, end_cache, mc, flags);
     instr_init(tdcontext, &instr);
 
     ASSERT(info != NULL);
@@ -1002,7 +1008,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
     prev_ok = NULL;
     prev_bytes = NULL;
 
-    translate_walk_init(&walk, start_cache, end_cache, mc);
+    translate_walk_init(&walk, start_cache, end_cache, mc, flags);
 
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         int len = instr_length(tdcontext, inst);
@@ -1112,10 +1118,14 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                         "walk=%p\n",
                         walk.unsupported_mangle, walk.in_mangle_region, answer,
                         walk.translation);
-#ifdef X86
+#ifdef ARCH_SUPPORTS_HW_CACHE_CONSISTENCY
+#    ifdef X86
                     int op = instr_get_opcode(inst);
-                    if (TESTANY(FRAG_SELFMOD_SANDBOXED, flags) &&
-                        (op == OP_rep_ins || op == OP_rep_movs || op == OP_rep_stos)) {
+#    endif
+                    if (TESTANY(FRAG_SELFMOD_SANDBOXED, flags)
+                            IF_X86(&&(op == OP_rep_ins || op == OP_rep_movs ||
+                                      op == OP_rep_stos))) {
+#    ifdef X86
                         /* i#398: xl8 selfmod: rep string instrs have xbx spilled in
                          * thread-private slot.  We assume no other selfmod mangling
                          * has a reg spilled at time of app instr execution.
@@ -1126,10 +1136,15 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                                 "\trestoring spilled xbx to " PFX "\n", walk.mc->xbx);
                             STATS_INC(recreate_spill_restores);
                         }
+#    elif defined(AARCH64)
+                        /* Nothing to do. All spilled state will be restored by
+                         * translate_walk_restore() below.
+                         */
+#    endif
                         LOG(THREAD_GET, LOG_INTERP, 2,
                             "recreate_app -- found valid state pc " PFX "\n", answer);
                     } else
-#endif /* X86 */
+#endif /* ARCH_SUPPORTS_HW_CACHE_CONSISTENCY */
                     {
                         res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
                         /* should only happen for thread synch, not a fault */
@@ -1599,7 +1614,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                    INTERNAL_OPTION(safe_translate_flushed));
             res = recreate_app_state_from_info(
                 tdcontext, FRAGMENT_TRANSLATION_INFO(f), (byte *)f->start_pc,
-                (byte *)f->start_pc + f->size, mcontext, just_pc _IF_DEBUG(f->flags));
+                (byte *)f->start_pc + f->size, mcontext, just_pc, f->flags);
             STATS_INC(recreate_via_stored_info);
         } else {
             res = recreate_app_state_from_ilist(

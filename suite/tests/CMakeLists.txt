@@ -2399,6 +2399,10 @@ if (AARCH64)
   tobuild(common.fake_ctr_dic common/fake_ctr_dic.c)
   torunonly(common.fake_ctr_dic common.fake_ctr_dic common/fake_ctr_dic.c
     "-fake_ctr_dic" "")
+
+  tobuild(common.cmodx common/cmodx.c)
+  torunonly(common.cmodx common.cmodx common/cmodx.c "-hw_cache_consistency" "")
+  link_with_pthread(common.cmodx)
 endif ()
 
 # PR 217255: these 4 removed to shorten the regression suite since not
@@ -6747,6 +6751,29 @@ if (X86) # XXX i#1551, i#1569: port asm to ARM and AArch64
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
 endif (X86)
+
+if (AARCH64)
+  # Test that selfmod detection via mangling of ic ivau instructions works
+  # when sandboxing is disabled.
+  torunonly(security-common.selfmod-mangle_ic_ivau security-common.selfmod
+    security-common/selfmod.c "-no_hw_cache_consistency -fake_ctr_dic" "")
+
+  # Create a variant of the selfmod test with minimal synchronization which
+  # can be used on hardware with coherent icaches.
+  tobuild_ops(security-common.selfmod-coherent-icache security-common/selfmod.c
+    "-hw_cache_consistency" "")
+  append_property_list(TARGET security-common.selfmod-coherent-icache
+    COMPILE_DEFINITIONS "COHERENT_ICACHE")
+
+  torunonly(security-common.selfmod-sandbox_writes security-common.selfmod-coherent-icache
+    security-common/selfmod.c "-hw_cache_consistency -sandbox_writes" "")
+
+  # Test that stolen register mangling does not interfere with selfmod mangling.
+  # The -steal_reg <N> option must be kept in sync with ADDR_REG in selfmod.c.
+  # TODO i7585: Fix stolen reg corruption bug and enable this test.
+  #torunonly(security-common.selfmod-stolen_reg security-common.selfmod-coherent-icache
+  #  security-common/selfmod.c "-steal_reg 9 -hw_cache_consistency -sandbox_writes" "")
+endif ()
 
 if (X64 AND NOT AARCH64 AND NOT RISCV64) # XXX i#1569: get working on AArch64
   # Reachability tests
