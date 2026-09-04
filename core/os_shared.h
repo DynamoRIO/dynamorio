@@ -996,7 +996,7 @@ wait_for_event(event_t e, int timeout_ms);
 timestamp_t
 get_timer_frequency(void);
 
-/* DR has standardized on UTC time which counts from since Jan 1, 1601.
+/* DR has standardized on UTC time which counts from Jan 1, 1601.
  * That's the Windows standard.  But Linux uses the Epoch of Jan 1, 1970.
  */
 #define UTC_TO_EPOCH_SECONDS 11644473600
