@@ -57,6 +57,18 @@ kernel_query_time_seconds(void);
 #define KERNEL_ENV_NAME_MAX 50
 #define KERNEL_ENV_VALUE_MAX 512
 
+/* Sets the environment variable |name| to |value|, overwriting the value of any existing
+ * entry with the same name. Returns 0 on success, -EINVAL for a NULL/empty name, a name
+ * containing '=', or a NULL value, -E2BIG if the name or value exceeds the maximum
+ * length, and -ENOSPC if the table is full and no entry with |name| exists.
+ */
+int
+kernel_setenv(const char *name, const char *value);
+
+/* Returns the value of the environment variable |name|, or NULL if it is not set.
+ * Malformed names (NULL, empty, or containing '=') also return NULL, mirroring
+ * our_getenv() in core/unix/os.c.
+ */
 const char *
 kernel_getenv(const char *name);
 
