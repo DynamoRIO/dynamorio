@@ -56,7 +56,11 @@ static unsigned long (*kallsyms_lookup_name_ptr)(const char *name) = NULL;
 static int (*kallsyms_lookup_size_offset_ptr)(unsigned long addr,
                                               unsigned long *symbolsize,
                                               unsigned long *offset) = NULL;
-static void *(*module_alloc_ptr)(unsigned long) = NULL;
+static void *(*vmalloc_node_range_ptr)(unsigned long size, unsigned long align,
+                                       unsigned long start, unsigned long end,
+                                       gfp_t gfp_mask, pgprot_t prot,
+                                       unsigned long vm_flags, int node,
+                                       const void *caller) = NULL;
 
 static size_t
 get_symbol_size(unsigned long address)
@@ -81,7 +85,6 @@ kernel_find_symbol(const char *name, size_t *size)
 
     unsigned long addr = kallsyms_lookup_name_ptr(name);
     if (addr == 0) {
-        pr_err("kernel_find_symbol failed for %s\n", name);
         return NULL;
     }
 
@@ -122,23 +125,32 @@ resolve_kernel_symbols(void)
     kallsyms_lookup_size_offset_ptr =
         kernel_find_symbol("kallsyms_lookup_size_offset", NULL);
     if (kallsyms_lookup_size_offset_ptr == NULL) {
+        pr_err("Failed to resolve kallsyms_lookup_size_offset\n");
         return -ENOENT;
     }
 
-    /* XXX i#8021: module_alloc() returned RWX memory when old DRK was written, but that's
-     * no longer reliable:
-     * - On 6.6+ x86 kernels it returns RW+NX, requiring an explicit set_memory_x() call
-     *   to make it executable (as old DRK had to do).
-     * - On even newer kernels (e.g. the Ubuntu 24.04 GitHub Actions runner),
-     *   module_alloc() itself is gone, replaced by execmem_alloc()/execmem_free().
+    /* Across 6.6+ LTS kernels, __vmalloc_node_range is the only reliable API to allocate
+     * writable memory within the 2GB reach of kernel text (MODULES_VADDR..MODULES_END).
+     * Alternatives:
+     * - module_alloc(): Removed in 6.10. Returns RW+NX.
+     * - execmem_alloc(): Introduced in 6.10. Returns RW+NX in 6.10-6.12, but
+     *   read-only-execute (ROX) in 6.13+.
+     * - execmem_alloc_rw(): Introduced in 6.14. Returns RW+NX.
      *
      * TODO i#8021: We would need to allocate two separate memory heaps at startup for
      * fine-grained W^X protection:
      *   1) An executable code heap (marked +x).
      *   2) A non-executable data heap (left NX).
      */
-    module_alloc_ptr = kernel_find_symbol("module_alloc", NULL);
-    if (module_alloc_ptr == NULL) {
+    vmalloc_node_range_ptr = kernel_find_symbol("__vmalloc_node_range", NULL);
+    if (vmalloc_node_range_ptr == NULL) {
+        /* In 6.10+, CONFIG_MEM_ALLOC_PROFILING renames the symbol to
+         * __vmalloc_node_range_noprof, so we need to probe for that instead.
+         */
+        vmalloc_node_range_ptr = kernel_find_symbol("__vmalloc_node_range_noprof", NULL);
+    }
+    if (vmalloc_node_range_ptr == NULL) {
+        pr_err("Failed to resolve __vmalloc_node_range or __vmalloc_node_range_noprof\n");
         return -ENOENT;
     }
 
@@ -159,9 +171,11 @@ kernel_module_init(size_t dr_heap_size)
     }
 
     heap_size = dr_heap_size;
-    heap = module_alloc_ptr(heap_size);
+    heap = vmalloc_node_range_ptr(heap_size, PAGE_SIZE, MODULES_VADDR, MODULES_END,
+                                  GFP_KERNEL, PAGE_KERNEL, VM_FLUSH_RESET_PERMS,
+                                  NUMA_NO_NODE, __builtin_return_address(0));
     if (heap == NULL) {
-        pr_err("Failed to allocate %zu bytes with module_alloc\n", heap_size);
+        pr_err("Failed to allocate %zu bytes with __vmalloc_node_range\n", heap_size);
         return -ENOMEM;
     }
 
@@ -172,11 +186,6 @@ void
 kernel_module_exit(void)
 {
     if (heap != NULL) {
-        /* module_alloc() uses vmalloc internally, so vfree() is the right way to free it.
-         * We can't use module_free() instead: it needs a struct module's own layout info,
-         * and we don't have that since this memory wasn't allocated through the normal
-         * module-loading path.
-         */
         vfree(heap);
         heap = NULL;
     }
