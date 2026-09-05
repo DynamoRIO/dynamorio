@@ -37,6 +37,9 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
+
+#include "configure.h"
+#include "globals_shared.h"
 #include "kernel_interface.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
@@ -47,6 +50,12 @@ static ulong dr_heap_size = 257 * 1024 * 1024;
 module_param(dr_heap_size, ulong, 0444);
 MODULE_PARM_DESC(dr_heap_size, "DynamoRIO module heap size in bytes (read-only)");
 
+static char options[KERNEL_ENV_VALUE_MAX];
+module_param_string(options, options, sizeof(options), 0444);
+MODULE_PARM_DESC(
+    options,
+    "DynamoRIO runtime options string (read-only), e.g., \"-loglevel 2 -log_to_stderr\"");
+
 static int __init
 dynamorio_module_init(void)
 {
@@ -54,8 +63,18 @@ dynamorio_module_init(void)
     if (ret != 0) {
         return ret;
     }
+
+    ret = kernel_setenv(DYNAMORIO_VAR_OPTIONS, options);
+    if (ret != 0) {
+        goto fail;
+    }
+
     pr_info("Module started\n");
     return 0;
+
+fail:
+    kernel_module_exit();
+    return ret;
 }
 
 static void __exit
