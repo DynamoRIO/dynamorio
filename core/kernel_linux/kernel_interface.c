@@ -212,6 +212,15 @@ kernel_query_time_seconds(void)
     return (unsigned int)ktime_get_real_seconds();
 }
 
+void
+kernel_printk(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vprintk(fmt, args);
+    va_end(args);
+}
+
 #define KERNEL_ENV_MAX 20
 
 typedef struct {
