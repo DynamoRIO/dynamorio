@@ -238,7 +238,7 @@ kernel_setenv(const char *name, const char *value)
     /* If name already exists in env_vars, overwrite the existing value. */
     for (int i = 0; i < env_count; i++) {
         if (strncmp(name, env_vars[i].name, KERNEL_ENV_NAME_MAX) == 0) {
-            strncpy(env_vars[i].value, value, KERNEL_ENV_VALUE_MAX);
+            strscpy(env_vars[i].value, value, KERNEL_ENV_VALUE_MAX);
             return 0;
         }
     }
@@ -247,8 +247,8 @@ kernel_setenv(const char *name, const char *value)
     if (env_count >= KERNEL_ENV_MAX) {
         return -ENOSPC;
     }
-    strncpy(env_vars[env_count].name, name, KERNEL_ENV_NAME_MAX);
-    strncpy(env_vars[env_count].value, value, KERNEL_ENV_VALUE_MAX);
+    strscpy(env_vars[env_count].name, name, KERNEL_ENV_NAME_MAX);
+    strscpy(env_vars[env_count].value, value, KERNEL_ENV_VALUE_MAX);
     env_count++;
     return 0;
 }
