@@ -39,10 +39,11 @@
 
 #include "kernel_interface.h"
 
-#include <linux/kallsyms.h>
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
+#include <linux/printk.h>
 #include <linux/smp.h>
+#include <linux/stdarg.h>
 #include <linux/string.h>
 #include <linux/vmalloc.h>
 
@@ -216,6 +217,7 @@ void
 kernel_printk(const char *fmt, ...)
 {
     va_list args;
+
     va_start(args, fmt);
     vprintk(fmt, args);
     va_end(args);
