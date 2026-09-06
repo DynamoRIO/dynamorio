@@ -264,7 +264,7 @@ add_custom_target(dynamorio_module ALL
   DEPENDS
     ${x86_gen_s}
     ${dynamorio_module_kbuildfile}
-    generate_syslog
+    generate_syslog # Generates event_strings.h.
   BYPRODUCTS ${dynamorio_module_ko}
   COMMENT "Building DynamoRIO Linux kernel module (${dynamorio_module_name}.ko) against \
 KERNEL_DIR=${KERNEL_DIR}"
