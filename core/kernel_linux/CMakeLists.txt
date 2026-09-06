@@ -245,7 +245,7 @@ if (EXISTS "${KERNEL_DIR}/Module.symvers")
   )
 endif ()
 
-# Always invoke kbuild so its dependency tracking catches header changes.
+# Always invoke kbuild and let it decide what needs rebuilding.
 add_custom_target(dynamorio_module ALL
   # TODO i#8021: Turn off KBUILD_MODPOST_WARN and remove stubs.c generation once all
   # kernel symbols are fully implemented.
